@@ -1,0 +1,85 @@
+{
+  "name": "@gooddollar/goodprotocol",
+  "version": "1.0.0",
+  "description": "GoodDollar Protocol",
+  "scripts": {
+    "build": "scripts/build.sh deploy",
+    "coverage:report": "export COVERALLS_REPO_TOKEN='qiXNelh1HXMAsoPah9yRD2yG2WlqrDfLh' && cat ../coverage/lcov.info coverage/lcov.info | coveralls",
+    "coverage": "hardhat coverage",
+    "minimize": "../scripts/minimize.sh 'artifacts/contracts'",
+    "test": "hardhat test",
+    "lint": "solhint --formatter codeframe develop/**/*.sol",
+    "postinstall": "patch-package"
+  },
+  "files": [
+    "build",
+    "contracts",
+    "releases",
+    "scripts",
+    "package-lock.json",
+    "package.json"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GoodDollar/GoodProtocol.git"
+  },
+  "keywords": [
+    "UBI",
+    "basic",
+    "income",
+    "gooddollar",
+    "ethereum",
+    "smart",
+    "contracts"
+  ],
+  "author": "GoodDollar Community <builders@gooddollar.org>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/GoodDollar/GoodProtocol/issues"
+  },
+  "homepage": "https://gooddollar.org",
+  "dependencies": {
+    "@gooddollar/goodcontracts": "^2.6.1"
+  },
+  "devDependencies": {
+    "@babel/core": "*",
+    "@babel/polyfill": "*",
+    "@babel/preset-env": "*",
+    "@babel/register": "*",
+    "@nomiclabs/hardhat-ethers": "*",
+    "@nomiclabs/hardhat-etherscan": "*",
+    "@nomiclabs/hardhat-waffle": "*",
+    "@openzeppelin/contracts-upgradeable": "3.*",
+    "@openzeppelin/hardhat-upgrades": "*",
+    "@typechain/ethers-v5": "*",
+    "@types/mocha": "*",
+    "@types/node": "*",
+    "@uniswap/v2-core": "*",
+    "@uniswap/v2-periphery": "^1.1.0-beta.0",
+    "bignumber.js": "*",
+    "bindings": "*",
+    "chai": "*",
+    "coveralls": "*",
+    "dotenv": "*",
+    "eth-gas-reporter": "*",
+    "ethereum-waffle": "*",
+    "ethers": "*",
+    "ethers-eip712": "*",
+    "fs-extra": "*",
+    "hardhat": "*",
+    "hardhat-typechain": "*",
+    "lodash": "*",
+    "merkle-tree-solidity": "*",
+    "mocha-lcov-reporter": "*",
+    "node-fetch": "*",
+    "node-jq": "*",
+    "patch-package": "*",
+    "solhint": "*",
+    "solidity-coverage": "*",
+    "truffle-hdwallet-provider": "*",
+    "ts-generator": "*",
+    "ts-node": "*",
+    "typechain": "*",
+    "typescript": "*"
+  }
+}

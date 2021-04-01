@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "es2018",
+    "module": "commonjs",
+    "strict": false,
+    "moduleResolution": "node",
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": ["es2018", "esnext.asynciterable"],
+    "sourceMap": true,
+    "typeRoots": ["./node_modules/@types", "./types"],
+    "types": ["node", "mocha", "truffle-contracts"],
+    "allowJs": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true
+  },
+  "include": ["contracts/scripts", "./test"],
+  "files": ["./hardhat.config.ts"]
+}
