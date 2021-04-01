@@ -30,6 +30,8 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 		// How many GD tokens have been minted
 		// against that reserve token
 		uint256 gdSupply;
+		//last time reserve ratio was expanded
+		uint256 lastExpansion;
 	}
 
 	// The map which holds the reserve token entities
@@ -178,7 +180,8 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 		reserveTokens[address(_token)] = ReserveToken({
 			gdSupply: _gdSupply,
 			reserveSupply: _tokenSupply,
-			reserveRatio: _reserveRatio
+			reserveRatio: _reserveRatio,
+			lastExpansion: block.timestamp
 		});
 	}
 
@@ -195,18 +198,19 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 		returns (uint32)
 	{
 		ReserveToken memory reserveToken = reserveTokens[address(_token)];
-		uint32 ratio = reserveToken.reserveRatio;
+		uint256 ratio = uint256(reserveToken.reserveRatio).mul(1e21); //expand to e27 precision
 		if (ratio == 0) {
 			ratio = 1e6;
 		}
-		return
-			uint32(
-				rmul(
-					uint256(ratio).mul(1e21), // expand to e27 precision
-					reserveRatioDailyExpansion
-				)
-					.div(1e21) // return to e6 precision
-			);
+		uint256 daysPassed =
+			reserveToken.lastExpansion == 0
+				? 1
+				: block.timestamp.sub(reserveToken.lastExpansion) / 1 days;
+		for (uint256 i = 0; i < daysPassed; i++) {
+			ratio = rmul(ratio, reserveRatioDailyExpansion);
+		}
+
+		return uint32(ratio.div(1e21)); // return to e6 precision
 	}
 
 	/**
@@ -226,6 +230,11 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 			ratio = 1e6;
 		}
 		reserveToken.reserveRatio = calculateNewReserveRatio(_token);
+
+		//set last expansion to begining of expansion day
+		reserveToken.lastExpansion =
+			block.timestamp -
+			(block.timestamp.sub(reserveToken.lastExpansion) % 1 days);
 		return reserveToken.reserveRatio;
 	}
 
