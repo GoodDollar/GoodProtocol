@@ -126,6 +126,7 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 		reserveRatioDailyExpansion = rdiv(_nom, _denom);
 		dao = _dao;
 		goodDollar = GoodDollar(dao.avatar().nativeToken());
+		__Ownable_init_unchained();
 	}
 
 	modifier onlyActiveToken(ERC20 _token) {
@@ -198,14 +199,14 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 		returns (uint32)
 	{
 		ReserveToken memory reserveToken = reserveTokens[address(_token)];
-		uint256 ratio = uint256(reserveToken.reserveRatio).mul(1e21); //expand to e27 precision
+		uint256 ratio = uint256(reserveToken.reserveRatio);
 		if (ratio == 0) {
 			ratio = 1e6;
 		}
+		ratio = ratio.mul(1e21); //expand to e27 precision
+
 		uint256 daysPassed =
-			reserveToken.lastExpansion == 0
-				? 1
-				: block.timestamp.sub(reserveToken.lastExpansion) / 1 days;
+			block.timestamp.sub(reserveToken.lastExpansion) / 1 days;
 		for (uint256 i = 0; i < daysPassed; i++) {
 			ratio = rmul(ratio, reserveRatioDailyExpansion);
 		}
