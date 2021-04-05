@@ -126,7 +126,7 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 		reserveRatioDailyExpansion = rdiv(_nom, _denom);
 		dao = _dao;
 		goodDollar = GoodDollar(dao.avatar().nativeToken());
-		__Ownable_init_unchained();
+		__Ownable_init();
 	}
 
 	modifier onlyActiveToken(ERC20 _token) {

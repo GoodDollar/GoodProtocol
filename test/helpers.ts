@@ -1,9 +1,10 @@
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 
 import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollar.json";
 import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
 import AddFoundersABI from "@gooddollar/goodcontracts/build/contracts/AddFoundersGoodDollar.json";
+import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
 
 export const createDAO = async () => {
   let [root] = await ethers.getSigners();
@@ -36,7 +37,7 @@ export const createDAO = async () => {
   await daoCreator.forgeOrg(
     "G$",
     "G$",
-    10000,
+    0,
     FeeFormula.address,
     Identity.address,
     [root.address],
@@ -55,12 +56,37 @@ export const createDAO = async () => {
 
   await Identity.setAvatar(Avatar.address);
   const controller = await Avatar.owner();
+
+  const ccFactory = new ethers.ContractFactory(
+    ContributionCalculation.abi,
+    ContributionCalculation.bytecode,
+    root
+  );
+
+  const contribution = await ccFactory.deploy(Avatar.address, 0, 1e15);
+
+  const nameService = await upgrades.deployProxy(
+    await ethers.getContractFactory("NameService"),
+    [
+      controller,
+      ["AVATAR", "IDENTITY", "GOODDOLLAR", "CONTRIBUTION_CALCULATION"].map(_ =>
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))
+      ),
+      [
+        Avatar.address,
+        Identity.address,
+        await Avatar.nativeToken(),
+        contribution.address
+      ]
+    ]
+  );
   return {
     daoCreator,
     controller,
     avatar: await daoCreator.avatar(),
     gd: await Avatar.nativeToken(),
-    identity: Identity.address
+    identity: Identity.address,
+    nameService
   };
 };
 
