@@ -1,29 +1,17 @@
-pragma solidity >0.5.4;
+// SPDX-License-Identifier: MIT
 
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
-import "openzeppelin-solidity/contracts/token/ERC20/ERC20Mintable.sol";
-import "openzeppelin-solidity/contracts/token/ERC20/ERC20Burnable.sol";
-import "@daostack/arc/contracts/controller/Avatar.sol";
-import "../../contracts/dao/schemes/FeelessScheme.sol";
-import "../../contracts/dao/schemes/ActivePeriod.sol";
-import "../../contracts/DSMath.sol";
-import "../../contracts/token/GoodDollar.sol";
+pragma solidity >=0.7.0;
+
+import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/presets/ERC20PresetMinterPauserUpgradeable.sol";
+
+import "../utils/DSMath.sol";
+import "../utils/DAOContract.sol";
+import "../utils/NameService.sol";
+import "../DAOStackInterfaces.sol";
+import "../Interfaces.sol";
 import "./GoodMarketMaker.sol";
-
-interface cERC20 {
-	function mint(uint256 mintAmount) external returns (uint256);
-
-	function redeemUnderlying(uint256 mintAmount) external returns (uint256);
-
-	function exchangeRateCurrent() external returns (uint256);
-
-	function exchangeRateStored() external view returns (uint256);
-
-	function balanceOf(address addr) external view returns (uint256);
-
-	function transfer(address to, uint256 amount) external returns (bool);
-}
 
 interface ContributionCalc {
 	function calculateContribution(
@@ -38,14 +26,15 @@ interface ContributionCalc {
 /**
 @title Reserve based on cDAI and dynamic reserve ratio market maker
 */
-contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
-	using SafeMath for uint256;
 
-	// DAI token address
-	ERC20 public dai;
-
-	// cDAI token address
-	cERC20 public cDai;
+//TODO: feeless scheme, active period
+contract GoodReserveCDai is
+	Initializable,
+	DAOContract,
+	DSMath,
+	ERC20PresetMinterPauserUpgradeable
+{
+	using SafeMathUpgradeable for uint256;
 
 	// The address of the market maker contract
 	// which makes the calculations and holds
@@ -56,11 +45,6 @@ contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
 	// when executing `mintInterestAndUBI`
 	address public fundManager;
 
-	// The block interval defines the number of
-	// blocks that shall be passed before the
-	// next execution of `mintInterestAndUBI`
-	uint256 public blockInterval;
-
 	// The last block number which
 	// `mintInterestAndUBI` has been executed in
 	uint256 public lastMinted;
@@ -68,7 +52,9 @@ contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
 	// The contribution contract is responsible
 	// for calculates the contribution amount
 	// when selling GD
-	ContributionCalc public contribution;
+	// ContributionCalc public contribution;
+
+	NameService public nameService;
 
 	modifier onlyFundManager {
 		require(
@@ -78,8 +64,12 @@ contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
 		_;
 	}
 
+	//TODO: remove?
 	modifier onlyCDai(ERC20 token) {
-		require(address(token) == address(cDai), "Only cDAI is supported");
+		require(
+			address(token) == nameService.getAddress("CDAI"),
+			"Only cDAI is supported"
+		);
 		_;
 	}
 
@@ -123,19 +113,6 @@ contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
 		uint256 actualReturn
 	);
 
-	// Emits when the contribution contract
-	// address is updated
-	event ContributionAddressUpdated(
-		// The initiate of the action
-		address indexed caller,
-		// Previous contribution
-		// contract address
-		address prevAddress,
-		// The updated contribution
-		// contract address
-		address newAddress
-	);
-
 	// Emits when new GD tokens minted
 	event UBIMinted(
 		//epoch of UBI
@@ -160,55 +137,81 @@ contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
 		uint256 gdUbiTransferred
 	);
 
-	/**
-	 * @dev Constructor
-	 * @param _dai The address of DAI
-	 * @param _cDai The address of cDAI
-	 * @param _fundManager The address of the fund manager contract
-	 * @param _avatar The avatar of the DAO
-	 * @param _identity The identity contract
-	 * @param _marketMaker The address of the market maker contract
-	 * @param _contribution The address of the contribution contract
-	 * @param _blockInterval How many blocks should be passed before the next execution of `mintInterestAndUBI`
-	 */
-	constructor(
-		ERC20 _dai,
-		cERC20 _cDai,
-		address _fundManager,
-		Avatar _avatar,
-		Identity _identity,
-		address _marketMaker,
-		ContributionCalc _contribution,
-		uint256 _blockInterval
-	)
+	function initialize(Controller _dao, NameService _ns)
 		public
-		FeelessScheme(_identity, _avatar)
-		ActivePeriod(now, now * 2, _avatar)
+		virtual
+		initializer
 	{
-		dai = _dai;
-		cDai = _cDai;
-		fundManager = _fundManager;
-		marketMaker = GoodMarketMaker(_marketMaker);
-		blockInterval = _blockInterval;
-		lastMinted = block.number.div(blockInterval);
-		contribution = _contribution;
+		__ERC20PresetMinterPauser_init("GDX", "G$X");
+		setDAO(_dao);
+		nameService = _ns;
 	}
+
+	function decimals() public view override returns (uint8) {
+		return 2;
+	}
+
+	// /**
+	//  * @dev Constructor
+	//  * @param _dai The address of DAI
+	//  * @param _cDai The address of cDAI
+	//  * @param _fundManager The address of the fund manager contract
+	//  * @param _dao The Controller of the DAO
+	//  * @param _marketMaker The address of the market maker contract
+	//  * @param _contribution The address of the contribution contract
+	//  * @param _blockInterval How many blocks should be passed before the next execution of `mintInterestAndUBI`
+	//  */
+	// constructor(
+	// 	ERC20 _dai,
+	// 	cERC20 _cDai,
+	// 	address _fundManager,
+	// 	Controller _dao,
+	// 	address _marketMaker,
+	// 	ContributionCalc _contribution,
+	// 	uint256 _blockInterval
+	// ) {
+	// 	//TODO: move to ens?
+	// 	dai = _dai;
+	// 	cDai = _cDai;
+	// 	fundManager = _fundManager;
+	// 	marketMaker = GoodMarketMaker(_marketMaker);
+	// 	blockInterval = _blockInterval;
+	// 	lastMinted = block.number.div(blockInterval);
+	// 	contribution = _contribution;
+	// 	dao = _dao;
+	// 	avatar = dao.avatar();
+	// }
+
+	//TODO:
+	// /**
+	//  * @dev Start function. Adds this contract to identity as a feeless scheme.
+	//  * Can only be called if scheme is registered
+	//  */
+	// function start() public onlyRegistered {
+	// 	addRights();
+
+	// 	// Adds the reserve as a minter of the GD token
+	// 	controller.genericCall(
+	// 		address(avatar.nativeToken()),
+	// 		abi.encodeWithSignature("addMinter(address)", address(this)),
+	// 		avatar,
+	// 		0
+	// 	);
+	// 	super.start();
+	// }
 
 	/**
 	 * @dev Start function. Adds this contract to identity as a feeless scheme.
 	 * Can only be called if scheme is registered
 	 */
-	function start() public onlyRegistered {
-		addRights();
-
+	function start() public {
 		// Adds the reserve as a minter of the GD token
-		controller.genericCall(
+		dao.genericCall(
 			address(avatar.nativeToken()),
 			abi.encodeWithSignature("addMinter(address)", address(this)),
 			avatar,
 			0
 		);
-		super.start();
 	}
 
 	/**
@@ -228,24 +231,6 @@ contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
 	}
 
 	/**
-	 * @dev Allows the DAO to change the block interval
-	 * @param _blockInterval the new value
-	 */
-	function setBlockInterval(uint256 _blockInterval) public onlyAvatar {
-		blockInterval = _blockInterval;
-	}
-
-	/**
-	 * @dev Allows the DAO to change the contribution formula contract
-	 * @param _contribution address of the new contribution contract
-	 */
-	function setContributionAddress(address _contribution) public onlyAvatar {
-		address prevAddress = address(contribution);
-		contribution = ContributionCalc(_contribution);
-		emit ContributionAddressUpdated(msg.sender, prevAddress, _contribution);
-	}
-
-	/**
 	 * @dev Converts `buyWith` tokens to GD tokens and updates the bonding curve params.
 	 * `buy` occurs only if the GD return is above the given minimum. It is possible
 	 * to buy only with cDAI and when the contract is set to active. MUST call to
@@ -260,7 +245,7 @@ contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
 		ERC20 _buyWith,
 		uint256 _tokenAmount,
 		uint256 _minReturn
-	) public requireActive onlyCDai(_buyWith) returns (uint256) {
+	) public returns (uint256) {
 		require(
 			_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
 			"You need to approve cDAI transfer first"
@@ -275,7 +260,7 @@ contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
 			gdReturn >= _minReturn,
 			"GD return must be above the minReturn"
 		);
-		ERC20Mintable(address(avatar.nativeToken())).mint(msg.sender, gdReturn);
+		GoodDollar(address(avatar.nativeToken())).mint(msg.sender, gdReturn);
 		emit TokenPurchased(
 			msg.sender,
 			address(_buyWith),
@@ -302,13 +287,14 @@ contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
 		ERC20 _sellTo,
 		uint256 _gdAmount,
 		uint256 _minReturn
-	) public requireActive onlyCDai(_sellTo) returns (uint256) {
-		ERC20Burnable(address(avatar.nativeToken())).burnFrom(
+	) public returns (uint256) {
+		GoodDollar(address(avatar.nativeToken())).burnFrom(
 			msg.sender,
 			_gdAmount
 		);
 		uint256 contributionAmount =
-			contribution.calculateContribution(
+			ContributionCalc(nameService.getAddress("CONTRIBUTION_CALCULATION"))
+				.calculateContribution(
 				marketMaker,
 				this,
 				msg.sender,
@@ -349,18 +335,10 @@ contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
 		return marketMaker.currentPrice(_token);
 	}
 
+	//TODO: can we send directly to UBI via bridge here?
 	/**
-	 * @dev Checks if enough blocks have passed so it would be possible to
-	 * execute `mintInterestAndUBI` according to the length of `blockInterval`
-	 * @return (bool) True if enough blocks have passed
-	 */
-	function canMint() public view returns (bool) {
-		return block.number.div(blockInterval) > lastMinted;
-	}
-
-	/**
-	 * @dev Anyone can call this to trigger calculations.
-	 * Reserve sends UBI to Avatar DAO and returns interest to FundManager.
+	 * @dev only FundManager can call this to trigger minting.
+	 * Reserve sends UBI + interest to FundManager.
 	 * @param _interestToken The token that was transfered to the reserve
 	 * @param _transfered How much was transfered to the reserve for UBI in `_interestToken`
 	 * @param _interest Out of total transfered how much is the interest (in `_interestToken`)
@@ -371,14 +349,7 @@ contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
 		ERC20 _interestToken,
 		uint256 _transfered,
 		uint256 _interest
-	)
-		public
-		requireActive
-		onlyCDai(_interestToken)
-		onlyFundManager
-		returns (uint256, uint256)
-	{
-		require(canMint(), "Need to wait for the next interval");
+	) public onlyFundManager returns (uint256, uint256) {
 		uint256 price = currentPrice(_interestToken);
 		uint256 gdInterestToMint =
 			marketMaker.mintInterest(_interestToken, _transfered);
@@ -389,8 +360,8 @@ contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
 		uint256 gdUBI = gdInterestToMint.sub(gdInterest);
 		gdUBI = gdUBI.add(gdExpansionToMint);
 		uint256 toMint = gdUBI.add(gdInterest);
-		ERC20Mintable(address(avatar.nativeToken())).mint(fundManager, toMint);
-		lastMinted = block.number.div(blockInterval);
+		GoodDollar(address(avatar.nativeToken())).mint(fundManager, toMint);
+		lastMinted = block.number;
 		emit UBIMinted(
 			lastMinted,
 			address(_interestToken),
@@ -411,6 +382,7 @@ contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
 	 */
 	function end() public onlyAvatar {
 		// remaining cDAI tokens in the current reserve contract
+		cERC20 cDai = cERC20(nameService.getAddress("CDAI"));
 		uint256 remainingReserve = cDai.balanceOf(address(this));
 		if (remainingReserve > 0) {
 			require(
@@ -425,7 +397,8 @@ contract GoodReserveCDai is DSMath, FeelessScheme, ActivePeriod {
 		GoodDollar gooddollar = GoodDollar(address(avatar.nativeToken()));
 		marketMaker.transferOwnership(address(avatar));
 		gooddollar.renounceMinter();
-		super.internalEnd(avatar);
+		//TODO:
+		// super.internalEnd(avatar);
 	}
 
 	/**

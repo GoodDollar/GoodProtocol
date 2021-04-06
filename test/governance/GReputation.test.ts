@@ -8,7 +8,7 @@ import { GReputation } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 
 const BN = ethers.BigNumber;
-export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
+export const NULL_ADDRESS = ethers.constants.AddressZero
 
 type BlockChainState = {
   stateHash: string;
