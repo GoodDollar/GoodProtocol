@@ -5,6 +5,7 @@ pragma solidity >=0.7.0;
 import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/presets/ERC20PresetMinterPauserUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/cryptography/MerkleProofUpgradeable.sol";
 
 import "../utils/DSMath.sol";
 import "../utils/DAOContract.sol";
@@ -36,15 +37,6 @@ contract GoodReserveCDai is
 {
 	using SafeMathUpgradeable for uint256;
 
-	// The address of the market maker contract
-	// which makes the calculations and holds
-	// the token and accounts info
-	GoodMarketMaker public marketMaker;
-
-	// The fund manager receives the minted tokens
-	// when executing `mintInterestAndUBI`
-	address public fundManager;
-
 	// The last block number which
 	// `mintInterestAndUBI` has been executed in
 	uint256 public lastMinted;
@@ -58,17 +50,8 @@ contract GoodReserveCDai is
 
 	modifier onlyFundManager {
 		require(
-			msg.sender == fundManager,
+			msg.sender == nameService.getAddress("FUND_MANAGER"),
 			"Only FundManager can call this method"
-		);
-		_;
-	}
-
-	//TODO: remove?
-	modifier onlyCDai(ERC20 token) {
-		require(
-			address(token) == nameService.getAddress("CDAI"),
-			"Only cDAI is supported"
 		);
 		_;
 	}
@@ -137,16 +120,20 @@ contract GoodReserveCDai is
 		uint256 gdUbiTransferred
 	);
 
-	function initialize(Controller _dao, NameService _ns)
-		public
-		virtual
-		initializer
-	{
+	bytes32 gdxAirdrop;
+
+	function initialize(
+		Controller _dao,
+		NameService _ns,
+		bytes32 memory _gdxAirdrop
+	) public virtual initializer {
 		__ERC20PresetMinterPauser_init("GDX", "G$X");
 		setDAO(_dao);
+		gdxAirdrop = _gdxAirdrop;
 		nameService = _ns;
 	}
 
+	/// @dev GDX decimals
 	function decimals() public view override returns (uint8) {
 		return 2;
 	}
@@ -215,19 +202,21 @@ contract GoodReserveCDai is
 	}
 
 	/**
-	 * @dev Allows the DAO to change the market maker contract
-	 * @param _marketMaker address of the new contract
+	 * @dev get current FundManager from name service
 	 */
-	function setMarketMaker(address _marketMaker) public onlyAvatar {
-		marketMaker = GoodMarketMaker(_marketMaker);
+	function getFundManager() public view returns (address) {
+		return nameService.getAddress("FUND_MANAGER");
 	}
 
+	//
 	/**
-	 * @dev Allows the DAO to change the fund manager contract
-	 * @param _fundManager address of the new contract
+	 * @dev get current MarketMaker from name service
+	 * The address of the market maker contract
+	 * which makes the calculations and holds
+	 * the token and accounts info (should be owned by the reserve)
 	 */
-	function setFundManager(address _fundManager) public onlyAvatar {
-		fundManager = _fundManager;
+	function getMarketMaker() public view returns (GoodMarketMaker) {
+		return GoodMarketMaker(nameService.getAddress("MARKET_MAKER"));
 	}
 
 	/**
@@ -255,12 +244,16 @@ contract GoodReserveCDai is
 				true,
 			"transferFrom failed, make sure you approved cDAI transfer"
 		);
-		uint256 gdReturn = marketMaker.buy(_buyWith, _tokenAmount);
+		uint256 gdReturn = getMarketMaker().buy(_buyWith, _tokenAmount);
 		require(
 			gdReturn >= _minReturn,
 			"GD return must be above the minReturn"
 		);
 		GoodDollar(address(avatar.nativeToken())).mint(msg.sender, gdReturn);
+
+		//mint GDX
+		_mint(msg.sender, gdReturn);
+
 		emit TokenPurchased(
 			msg.sender,
 			address(_buyWith),
@@ -292,17 +285,30 @@ contract GoodReserveCDai is
 			msg.sender,
 			_gdAmount
 		);
+
+		//discount on exit contribution based on gdx
+		uint256 gdx = balanceOf(msg.sender);
+		uint256 discount = min(gdx, _gdAmount);
+
+		//burn gdx used for discount
+		burn(discount);
+
 		uint256 contributionAmount =
-			ContributionCalc(nameService.getAddress("CONTRIBUTION_CALCULATION"))
-				.calculateContribution(
-				marketMaker,
-				this,
-				msg.sender,
-				_sellTo,
-				_gdAmount
-			);
+			discount >= _gdAmount
+				? 0
+				: ContributionCalc(
+					nameService.getAddress("CONTRIBUTION_CALCULATION")
+				)
+					.calculateContribution(
+					getMarketMaker(),
+					this,
+					msg.sender,
+					_sellTo,
+					_gdAmount.sub(discount)
+				);
+
 		uint256 tokenReturn =
-			marketMaker.sellWithContribution(
+			getMarketMaker().sellWithContribution(
 				_sellTo,
 				_gdAmount,
 				contributionAmount
@@ -315,6 +321,7 @@ contract GoodReserveCDai is
 			_sellTo.transfer(msg.sender, tokenReturn) == true,
 			"Transfer failed"
 		);
+
 		emit TokenSold(
 			msg.sender,
 			address(_sellTo),
@@ -332,7 +339,14 @@ contract GoodReserveCDai is
 	 * @return price of GD
 	 */
 	function currentPrice(ERC20 _token) public view returns (uint256) {
-		return marketMaker.currentPrice(_token);
+		return getMarketMaker().currentPrice(_token);
+	}
+
+	function currentPrice() public view returns (uint256) {
+		return
+			getMarketMaker().currentPrice(
+				ERC20(nameService.getAddress("CDAI"))
+			);
 	}
 
 	//TODO: can we send directly to UBI via bridge here?
@@ -352,15 +366,19 @@ contract GoodReserveCDai is
 	) public onlyFundManager returns (uint256, uint256) {
 		uint256 price = currentPrice(_interestToken);
 		uint256 gdInterestToMint =
-			marketMaker.mintInterest(_interestToken, _transfered);
+			getMarketMaker().mintInterest(_interestToken, _transfered);
 		GoodDollar gooddollar = GoodDollar(address(avatar.nativeToken()));
 		uint256 precisionLoss = uint256(27).sub(uint256(gooddollar.decimals()));
 		uint256 gdInterest = rdiv(_interest, price).div(10**precisionLoss);
-		uint256 gdExpansionToMint = marketMaker.mintExpansion(_interestToken);
+		uint256 gdExpansionToMint =
+			getMarketMaker().mintExpansion(_interestToken);
 		uint256 gdUBI = gdInterestToMint.sub(gdInterest);
 		gdUBI = gdUBI.add(gdExpansionToMint);
 		uint256 toMint = gdUBI.add(gdInterest);
-		GoodDollar(address(avatar.nativeToken())).mint(fundManager, toMint);
+		GoodDollar(address(avatar.nativeToken())).mint(
+			getFundManager(),
+			toMint
+		);
 		lastMinted = block.number;
 		emit UBIMinted(
 			lastMinted,
@@ -372,6 +390,21 @@ contract GoodReserveCDai is
 			gdUBI
 		);
 		return (gdInterest, gdUBI);
+	}
+
+	/**
+	 * @dev Allows the DAO to change the daily expansion rate
+	 * it is calculated by _nom/_denom with e27 precision. Emits
+	 * `ReserveRatioUpdated` event after the ratio has changed.
+	 * Only Avatar can call this method.
+	 * @param _nom The numerator to calculate the global `reserveRatioDailyExpansion` from
+	 * @param _denom The denominator to calculate the global `reserveRatioDailyExpansion` from
+	 */
+	function setReserveRatioDailyExpansion(uint256 _nom, uint256 _denom)
+		public
+		onlyAvatar
+	{
+		getMarketMaker().setReserveRatioDailyExpansion(_nom, _denom);
 	}
 
 	/**
@@ -395,7 +428,7 @@ contract GoodReserveCDai is
 			"Funds transfer has failed"
 		);
 		GoodDollar gooddollar = GoodDollar(address(avatar.nativeToken()));
-		marketMaker.transferOwnership(address(avatar));
+		getMarketMaker().transferOwnership(address(avatar));
 		gooddollar.renounceMinter();
 		//TODO:
 		// super.internalEnd(avatar);
@@ -410,5 +443,46 @@ contract GoodReserveCDai is
 			_token.transfer(address(avatar), _token.balanceOf(address(this))),
 			"recover transfer failed"
 		);
+	}
+
+	/// @notice helper function to check merkle proof using openzeppelin
+	/// @return leafHash isProofValid tuple (byte32, bool) with the hash of the leaf data we prove and true if proof is valid
+	function _checkMerkleProof(
+		address _user,
+		uint256 _balance,
+		bytes32 _root,
+		bytes32[] memory _proof
+	) internal pure returns (bytes32 leafHash, bool isProofValid) {
+		leafHash = keccak256(abi.encode(_user, _balance));
+		isProofValid = MerkleProofUpgradeable.verify(_proof, _root, leafHash);
+	}
+
+	/**
+	 * @notice prove user balance in a specific blockchain state hash
+	 * @dev "rootState" is a special state that can be supplied once, and actually mints reputation on the current blockchain
+	 * @param _user the user to prove his balance
+	 * @param _gdx the balance we are prooving
+	 * @param _proof array of byte32 with proof data (currently merkle tree path)
+	 * @return true if proof is valid
+	 */
+	function claimGDX(
+		address _user,
+		uint256 _gdx,
+		bytes32[] memory _proof
+	) public returns (bool) {
+		bytes32 leafHash = keccak256(abi.encode(_user, _gdx));
+		bool isProofValid =
+			MerkleProofUpgradeable.verify(_proof, _root, leafHash);
+
+		require(isProofValid, "invalid merkle proof");
+
+		//if initiial state then set real balance
+		if (idHash == keccak256(bytes("rootState"))) {
+			_mint(_user, _balance);
+		}
+
+		//if proof is valid then set balances
+		stateHashBalances[stateHash][_user] = _balance;
+		return true;
 	}
 }
