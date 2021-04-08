@@ -4,20 +4,19 @@ pragma solidity >=0.7.0;
 
 import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 
 import "../utils/DSMath.sol";
-import "./BancorFormula.sol";
+import "../utils/BancorFormula.sol";
 import "../DAOStackInterfaces.sol";
 import "../Interfaces.sol";
+import "../utils/NameService.sol";
 
 /**
 @title Dynamic reserve ratio market maker
 */
-contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
+contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	using SafeMathUpgradeable for uint256;
-
-	// For calculate the return value on buy and sell
-	BancorFormula bancor;
 
 	// Entity that holds a reserve token
 	struct ReserveToken {
@@ -36,6 +35,8 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 
 	// The map which holds the reserve token entities
 	mapping(address => ReserveToken) public reserveTokens;
+
+	NameService public nameService;
 
 	// Emits when a change has occurred in a
 	// reserve balance, i.e. buy / sell will
@@ -108,24 +109,22 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 	// That will be a part of each reserve token entity in the future.
 	uint256 public reserveRatioDailyExpansion;
 
-	Controller public dao;
-
-	GoodDollar public goodDollar;
+	//goodDollar token decimals
+	uint256 decimals;
 
 	/**
 	 * @dev Constructor
-	 * @param _dao The controller of the DAO
 	 * @param _nom The numerator to calculate the global `reserveRatioDailyExpansion` from
 	 * @param _denom The denominator to calculate the global `reserveRatioDailyExpansion` from
 	 */
-	constructor(
-		Controller _dao,
+	function initialize(
+		NameService _ns,
 		uint256 _nom,
 		uint256 _denom
-	) {
+	) public virtual initializer {
 		reserveRatioDailyExpansion = rdiv(_nom, _denom);
-		dao = _dao;
-		goodDollar = GoodDollar(dao.avatar().nativeToken());
+		decimals = 2;
+		nameService = _ns;
 		__Ownable_init();
 	}
 
@@ -135,12 +134,8 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 		_;
 	}
 
-	modifier onlyAvatar() {
-		require(
-			msg.sender == address(dao.avatar()),
-			"Only Avatar can call this"
-		);
-		_;
+	function getBancor() public view returns (BancorFormula) {
+		return BancorFormula(nameService.getAddress("BANCOR_FORMULA"));
 	}
 
 	/**
@@ -153,7 +148,7 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 	 */
 	function setReserveRatioDailyExpansion(uint256 _nom, uint256 _denom)
 		public
-		onlyAvatar
+		onlyOwner
 	{
 		require(_denom > 0, "denominator must be above 0");
 		reserveRatioDailyExpansion = rdiv(_nom, _denom);
@@ -253,7 +248,7 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 	{
 		ReserveToken memory rtoken = reserveTokens[address(_token)];
 		return
-			calculatePurchaseReturn(
+			getBancor().calculatePurchaseReturn(
 				rtoken.gdSupply,
 				rtoken.reserveSupply,
 				rtoken.reserveRatio,
@@ -275,7 +270,7 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 	{
 		ReserveToken memory rtoken = reserveTokens[address(_token)];
 		return
-			calculateSaleReturn(
+			getBancor().calculateSaleReturn(
 				rtoken.gdSupply,
 				rtoken.reserveSupply,
 				rtoken.reserveRatio,
@@ -397,11 +392,11 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 	{
 		ReserveToken memory rtoken = reserveTokens[address(_token)];
 		return
-			calculateSaleReturn(
+			getBancor().calculateSaleReturn(
 				rtoken.gdSupply,
 				rtoken.reserveSupply,
 				rtoken.reserveRatio,
-				(10**uint256(goodDollar.decimals()))
+				(10**decimals)
 			);
 	}
 
@@ -421,7 +416,7 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 		onlyActiveToken(_token)
 		returns (uint256)
 	{
-		uint256 decimalsDiff = uint256(27).sub(uint256(goodDollar.decimals()));
+		uint256 decimalsDiff = uint256(27).sub(decimals);
 		//resulting amount is in RAY precision
 		//we divide by decimalsdiff to get precision in GD (2 decimals)
 		return
@@ -480,8 +475,7 @@ contract GoodMarketMaker is BancorFormula, DSMath, OwnableUpgradeable {
 				uint256(newReserveRatio).mul(1e21),
 				currentPrice(_token).mul(10**reserveDecimalsDiff)
 			); // (newreserveratio * currentprice) in RAY precision
-		uint256 gdDecimalsDiff =
-			uint256(27).sub(uint256(goodDollar.decimals()));
+		uint256 gdDecimalsDiff = uint256(27).sub(decimals);
 		uint256 toMint =
 			rdiv(
 				reserveToken.reserveSupply.mul(10**reserveDecimalsDiff), // reservebalance in RAY precision

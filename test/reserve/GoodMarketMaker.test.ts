@@ -53,22 +53,14 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       avatar: av,
       gd: goodDollar,
       identity,
-      daoCreator
+      daoCreator,
+      nameService,
+      marketMaker: mm
     } = await createDAO();
     avatar = av;
+    marketMaker = mm;
     controller = ctrl;
     console.log("deployed dao", { goodDollar, identity, controller, avatar });
-    const MM = await ethers.getContractFactory("GoodMarketMaker");
-    // marketMaker = (await upgrades.deployProxy(MM, [avatar.address,999388834642296,
-    //   1e15], {
-    //   unsafeAllowCustomTypes: true
-    // })) as GoodMarketMaker;
-
-    marketMaker = (await MM.deploy(
-      controller,
-      999388834642296,
-      1e15
-    )) as GoodMarketMaker;
 
     //give founder generic call permission
     await daoCreator.setSchemes(
@@ -174,7 +166,11 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     let dai = await deployDAIMock();
 
     const MM = await ethers.getContractFactory("GoodMarketMaker");
-    const marketMaker1 = await MM.deploy(controller, 999388834642296, 1e15);
+    const marketMaker1 = await upgrades.deployProxy(MM, [
+      await marketMaker.nameService(),
+      999388834642296,
+      1e15
+    ]);
     await marketMaker1.initializeToken(
       dai,
       "100", //1gd
@@ -466,26 +462,19 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     expect(res).to.be.revertedWith("GD amount is higher than the total supply");
   });
 
-  it("should set reserve ratio daily expansion", async () => {
+  it("should set reserve ratio daily expansion by owner", async () => {
     let denom = BN.from(1e15);
     const MM = await ethers.getContractFactory("GoodMarketMaker");
     const ctrl = await ethers.getContractAt("Controller", controller, founder);
 
     let currentReserveRatioDailyExpansion = await marketMaker.reserveRatioDailyExpansion();
+    await marketMaker.setReserveRatioDailyExpansion(1, 1e15);
 
-    let encodedCall = MM.interface.encodeFunctionData(
-      "setReserveRatioDailyExpansion",
-      ["1", denom]
-    );
-    await ctrl.genericCall(marketMaker.address, encodedCall, avatar, 0);
     let newReserveRatioDailyExpansion = await marketMaker.reserveRatioDailyExpansion();
     expect(newReserveRatioDailyExpansion).to.be.equal(BN.from("1000000000000"));
-    encodedCall = MM.interface.encodeFunctionData(
-      "setReserveRatioDailyExpansion",
-      ["999388834642296", denom]
-    );
 
-    await ctrl.genericCall(marketMaker.address, encodedCall, avatar, 0);
+    await marketMaker.setReserveRatioDailyExpansion(999388834642296, 1e15);
+
     let reserveRatioDailyExpansion = await marketMaker.reserveRatioDailyExpansion();
     expect(reserveRatioDailyExpansion).to.be.equal(
       BN.from("999388834642296000000000000")
@@ -493,8 +482,10 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   });
 
   it("should be able to set the reserve ratio daily expansion only by the owner", async () => {
-    let res = marketMaker.setReserveRatioDailyExpansion(1, 1e15);
-    expect(res).to.be.revertedWith("revert Only Avatar can call this");
+    let res = marketMaker
+      .connect(staker)
+      .setReserveRatioDailyExpansion(1, 1e15);
+    expect(res).to.be.revertedWith("revert Ownable: caller is not the owner");
   });
 
   it("should calculate amount of gd to mint based on incoming cDAI without effecting bonding curve price", async () => {

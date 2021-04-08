@@ -5,14 +5,16 @@ import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
 import AddFoundersABI from "@gooddollar/goodcontracts/build/contracts/AddFoundersGoodDollar.json";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
+import { GoodMarketMaker } from "../types";
 
 export const createDAO = async () => {
-  let [root] = await ethers.getSigners();
+  let [root, ...signers] = await ethers.getSigners();
   const DAOCreatorFactory = new ethers.ContractFactory(
     DAOCreatorABI.abi,
     DAOCreatorABI.bytecode,
     root
   );
+
   const IdentityFactory = new ethers.ContractFactory(
     IdentityABI.abi,
     IdentityABI.bytecode,
@@ -29,6 +31,9 @@ export const createDAO = async () => {
     root
   );
 
+  const BancorFormula = await (
+    await ethers.getContractFactory("BancorFormula")
+  ).deploy();
   const AddFounders = await AddFoundersFactory.deploy();
   const Identity = await IdentityFactory.deploy();
   const daoCreator = await DAOCreatorFactory.deploy(AddFounders.address);
@@ -69,24 +74,73 @@ export const createDAO = async () => {
     await ethers.getContractFactory("NameService"),
     [
       controller,
-      ["AVATAR", "IDENTITY", "GOODDOLLAR", "CONTRIBUTION_CALCULATION"].map(_ =>
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))
-      ),
+      [
+        "AVATAR",
+        "IDENTITY",
+        "GOODDOLLAR",
+        "CONTRIBUTION_CALCULATION",
+        "BANCOR_FORMULA"
+      ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
       [
         Avatar.address,
         Identity.address,
         await Avatar.nativeToken(),
-        contribution.address
+        contribution.address,
+        BancorFormula.address
       ]
     ]
   );
+
+  const MM = await ethers.getContractFactory("GoodMarketMaker");
+
+  let marketMaker = (await upgrades.deployProxy(MM, [
+    nameService.address,
+    999388834642296,
+    1e15
+  ])) as GoodMarketMaker;
+
+  //generic call permissions
+  let schemeMock = signers[signers.length - 1];
+
+  const setSchemes = addrs =>
+    daoCreator.setSchemes(
+      Avatar.address,
+      addrs,
+      new Array(addrs.length).fill(ethers.constants.HashZero),
+      new Array(addrs.length).fill("0x0000001F"),
+      ""
+    );
+
+  const setDAOAddress = async (
+    name,
+    addr,
+    signerWithGenericCall = schemeMock
+  ) => {
+    const nsFactory = await ethers.getContractFactory("NameService");
+    const encoded = nsFactory.interface.encodeFunctionData("setAddress", [
+      name,
+      addr
+    ]);
+
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      signerWithGenericCall
+    );
+
+    await ictrl.genericCall(nameService.address, encoded, Avatar.address, 0);
+  };
+
   return {
     daoCreator,
     controller,
     avatar: await daoCreator.avatar(),
     gd: await Avatar.nativeToken(),
     identity: Identity.address,
-    nameService
+    nameService,
+    setDAOAddress,
+    setSchemes,
+    marketMaker
   };
 };
 
