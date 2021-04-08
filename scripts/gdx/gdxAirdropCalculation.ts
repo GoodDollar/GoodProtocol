@@ -122,7 +122,7 @@ export const airdrop = ethers => {
     });
 
     console.log(elements);
-    const merkleTree = new MerkleTree(elements, true);
+    const merkleTree = new MerkleTree(elements, false);
     // get the merkle root
     // returns 32 byte buffer
     const merkleRoot = merkleTree.getRoot().toString("hex");

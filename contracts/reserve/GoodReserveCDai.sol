@@ -48,6 +48,11 @@ contract GoodReserveCDai is
 
 	NameService public nameService;
 
+	/// @dev merkleroot
+	bytes32 public gdxAirdrop;
+
+	mapping(address => bool) public isClaimedGDX;
+
 	modifier onlyFundManager {
 		require(
 			msg.sender == nameService.getAddress("FUND_MANAGER"),
@@ -120,12 +125,10 @@ contract GoodReserveCDai is
 		uint256 gdUbiTransferred
 	);
 
-	bytes32 gdxAirdrop;
-
 	function initialize(
 		Controller _dao,
 		NameService _ns,
-		bytes32 memory _gdxAirdrop
+		bytes32 _gdxAirdrop
 	) public virtual initializer {
 		__ERC20PresetMinterPauser_init("GDX", "G$X");
 		setDAO(_dao);
@@ -470,19 +473,16 @@ contract GoodReserveCDai is
 		uint256 _gdx,
 		bytes32[] memory _proof
 	) public returns (bool) {
+		require(isClaimedGDX[_user] == false, "already claimed gdx");
 		bytes32 leafHash = keccak256(abi.encode(_user, _gdx));
 		bool isProofValid =
-			MerkleProofUpgradeable.verify(_proof, _root, leafHash);
+			MerkleProofUpgradeable.verify(_proof, gdxAirdrop, leafHash);
 
 		require(isProofValid, "invalid merkle proof");
 
-		//if initiial state then set real balance
-		if (idHash == keccak256(bytes("rootState"))) {
-			_mint(_user, _balance);
-		}
+		_mint(_user, _gdx);
 
-		//if proof is valid then set balances
-		stateHashBalances[stateHash][_user] = _balance;
+		isClaimedGDX[_user] = true;
 		return true;
 	}
 }
