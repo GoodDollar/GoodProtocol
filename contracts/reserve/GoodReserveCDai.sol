@@ -47,7 +47,16 @@ contract GoodReserveCDai is
 	// ContributionCalc public contribution;
 
 	NameService public nameService;
+<<<<<<< Updated upstream
 
+=======
+	
+	/// @dev merkleroot
+	bytes32 public gdxAirdrop;
+
+	mapping(address => bool) public isClaimedGDX;
+	
+>>>>>>> Stashed changes
 	modifier onlyFundManager {
 		require(
 			msg.sender == nameService.getAddress("FUND_MANAGER"),
@@ -219,6 +228,119 @@ contract GoodReserveCDai is
 		return GoodMarketMaker(nameService.getAddress("MARKET_MAKER"));
 	}
 
+	/**
+	@dev Converts any 'buyWith' tokens to cDAI then call buy function to convert it to GD tokens
+	* @param _buyWith The tokens that should be converted to GD tokens
+	* @param _tokenAmount The amount of `buyWith` tokens that should be converted to GD tokens
+	* @param _minReturn The minimum allowed return in GD tokens
+	* @param _minDAIAmount The mininmum dai out amount from Exchange swap function
+	* @return (gdReturn) How much GD tokens were transferred
+	 */
+	function buyWithAnyToken(
+		ERC20 _buyWith,
+		uint256 _tokenAmount,
+		uint256 _minReturn,
+		uint256 _minDAIAmount
+	) public returns(uint256){
+		if (address(_buyWith) == nameService.getAddress("CDAI")) return buy(_buyWith,_tokenAmount,_minReturn);
+		if (address(_buyWith) == nameService.getAddress("DAI")){
+		require(
+			_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
+			"You need to approve DAI transfer first"
+		);
+		require(
+			_buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
+				true,
+			"transferFrom failed, make sure you approved DAI transfer"
+		);
+		cERC20 cDai = cERC20(nameService.getAddress("CDAI"));
+		// Approve transfer to cDAI contract
+		_buyWith.approve(address(cDai),_tokenAmount);
+		uint256 currCDaiBalance = cDai.balanceOf(address(this));
+		
+		
+		//Mint cDAIs
+		uint256 cDaiResult = cDai.mint(_tokenAmount);
+		// Get input value for cDAI
+		uint256 cDaiInput = (cDai.balanceOf(address(this))).sub(currCDaiBalance);
+		return buyWithDai(ERC20(nameService.getAddress("CDAI")), cDaiInput, _minReturn);
+		}else{
+		
+		require(
+			_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
+			"You need to approve input token transfer first"
+		);
+		require(
+			_buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
+				true,
+			"transferFrom failed, make sure you approved input token transfer"
+		);
+		address[] memory path = new address[](2);
+		path[0] = address(_buyWith);
+		path[1] = nameService.getAddress("DAI");
+		Uniswap uniswapContract = Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+		_buyWith.approve(address(uniswapContract), _tokenAmount);
+		uint256[] memory swap = uniswapContract.swapExactTokensForTokens(
+                _tokenAmount,
+                _minDAIAmount,
+                path,
+                address(this),
+                block.timestamp
+            );
+
+        uint256 dai = swap[1];
+        require(dai > 0, "token selling failed");
+		
+		cERC20 cDai = cERC20(nameService.getAddress("CDAI"));
+		// Approve transfer to cDAI contract
+		ERC20(nameService.getAddress("DAI")).approve(address(cDai),dai);
+		
+		uint256 currCDaiBalance = cDai.balanceOf(address(this));
+		
+		//Mint cDAIs
+		uint256 cDaiResult = cDai.mint(dai);
+		
+		uint256 cDaiInput = (cDai.balanceOf(address(this))).sub(currCDaiBalance);
+		return buyWithDai(ERC20(nameService.getAddress("CDAI")), cDaiInput, _minReturn);
+
+		}
+		
+
+	}
+	/**
+	
+	@dev Converts any cDAI tokens already in our contract balance to GD tokens
+	* @param _buyWith The tokens that should be converted to GD tokens
+	* @param _tokenAmount The amount of `buyWith` tokens that should be converted to GD tokens
+	* @param _minReturn The minimum allowed return in GD tokens
+	* @return (gdReturn) How much GD tokens were transferred
+	*/
+
+	function buyWithDai(
+		ERC20 _buyWith,
+		uint256 _tokenAmount,
+		uint256 _minReturn
+		) internal returns(uint256){
+
+		uint256 gdReturn = getMarketMaker().buy(_buyWith, _tokenAmount);
+		require(
+			gdReturn >= _minReturn,
+			"GD return must be above the minReturn"
+		);
+		GoodDollar(address(avatar.nativeToken())).mint(msg.sender, gdReturn);
+
+		//mint GDX
+		_mint(msg.sender, gdReturn);
+
+		emit TokenPurchased(
+			msg.sender,
+			address(_buyWith),
+			_tokenAmount,
+			_minReturn,
+			gdReturn
+		);
+		return gdReturn;
+		}
 	/**
 	 * @dev Converts `buyWith` tokens to GD tokens and updates the bonding curve params.
 	 * `buy` occurs only if the GD return is above the given minimum. It is possible
