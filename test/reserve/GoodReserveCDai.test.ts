@@ -404,6 +404,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     expect(transaction.events.find(_ => _.event === "TokenPurchased")).to.be.not
       .empty;
   });
+
   it("should be able to buy gd with cDAI through buyWithAnyToken", async () => {
     let amount = 1e8;
     await dai["mint(uint256)"](ethers.utils.parseEther("100"));
@@ -445,6 +446,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     expect(transaction.events.find(_ => _.event === "TokenPurchased")).to.be.not
       .empty;
   });
+  
   it("should be able to buy gd with cDAI", async () => {
     let amount = 1e8;
     await dai["mint(uint256)"](ethers.utils.parseEther("100"));
@@ -460,7 +462,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     const priceBefore = await goodReserve["currentPrice()"]();
     await cDAI.approve(goodReserve.address, amount);
     let transaction = await (
-      await goodReserve.buy(cDAI.address, amount, 0)
+      await goodReserve.buyWithAnyToken(cDAI.address, amount, 0, 0)
     ).wait();
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
@@ -500,7 +502,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     await cDAI.approve(goodReserve.address, amount);
     let transaction = await (
-      await goodReserve.buy(cDAI.address, amount, 0)
+      await goodReserve.buyWithAnyToken(cDAI.address, amount, 0 , 0)
     ).wait();
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
@@ -522,18 +524,18 @@ describe("GoodReserve - staking with cDAI mocks", () => {
       .empty;
   });
 
-  it("should not be able to buy gd with other non initialized tokens beside cDAI", async () => {
+  it("should be able to buy gd with other non initialized tokens beside cDAI", async () => {
     let amount = ethers.utils.parseEther("1");
     await dai["mint(uint256)"](amount);
     await dai.approve(goodReserve.address, amount);
-    let tx = goodReserve.buy(dai.address, amount, 0);
-    expect(tx).to.be.revertedWith("revert Reserve token not initialized");
+    let tx = goodReserve.buyWithAnyToken(dai.address, amount, 0, 0);
+    expect(tx).to.not.reverted
   });
 
   it("should not be able to buy gd without cDAI allowance", async () => {
     let amount = 1e8;
     await cDAI.approve(goodReserve.address, "0");
-    let error = await goodReserve.buy(cDAI.address, amount, 0).catch(e => e);
+    let error = await goodReserve.buyWithAnyToken(cDAI.address, amount, 0, 0).catch(e => e);
     expect(error.message).to.have.string(
       "You need to approve cDAI transfer first"
     );
@@ -546,7 +548,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     await cDAI.approve(goodReserve.address, amount);
     const gdBalanceBefore = await goodDollar.balanceOf(founder.address);
     const cDAIBalanceBefore = await cDAI.balanceOf(founder.address);
-    let error = await goodReserve.buy(cDAI.address, amount, 0).catch(e => e);
+    let error = await goodReserve.buyWithAnyToken(cDAI.address, amount, 0, 0).catch(e => e);
     const gdBalanceAfter = await goodDollar.balanceOf(founder.address);
     const cDAIBalanceAfter = await cDAI.balanceOf(founder.address);
     expect(error.message).not.to.be.empty;
@@ -566,7 +568,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     const gdBalanceBefore = await goodDollar.balanceOf(founder.address);
     const cDAIBalanceBefore = await cDAI.balanceOf(founder.address);
     let error = await goodReserve
-      .buy(cDAI.address, amount, 2000000)
+      .buyWithAnyToken(cDAI.address, amount, 2000000, 0)
       .catch(e => e);
     const gdBalanceAfter = await goodDollar.balanceOf(founder.address);
     const cDAIBalanceAfter = await cDAI.balanceOf(founder.address);
@@ -590,7 +592,52 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     await goodDollar.approve(goodReserve.address, amount);
     let transaction = await (
-      await goodReserve.sell(cDAI.address, amount, 0)
+      await goodReserve.sellToAnyToken(cDAI.address, amount, 0, 0)
+    ).wait();
+    reserveToken = await marketMaker.reserveTokens(cDAI.address);
+    let reserveBalanceAfter = reserveToken.reserveSupply;
+    let supplyAfter = reserveToken.gdSupply;
+    const gdBalanceAfter = await goodDollar.balanceOf(founder.address);
+    const cDAIBalanceAfter = await cDAI.balanceOf(founder.address);
+    const cDAIBalanceReserveAfter = await cDAI.balanceOf(goodReserve.address);
+    // according to the initialization settings reserve ratio is 100%. the calculation is:
+    // Return = _reserveBalance * (1 - (1 - _sellAmount / _supply) ^ (1000000 / _reserveRatio))
+    const bancor = await ethers.getContractAt(
+      "BancorFormula",
+      await marketMaker.getBancor()
+    );
+    const expectedReturn = await bancor.calculateSaleReturn(
+      supplyBefore.toString(),
+      reserveBalanceBefore.toString(),
+      reserveRatio.toString(),
+      amount
+    );
+    expect(cDAIBalanceAfter - cDAIBalanceBefore).to.be.equal(expectedReturn);
+    expect(cDAIBalanceReserveBefore - cDAIBalanceReserveAfter).to.be.equal(
+      expectedReturn
+    );
+    expect(reserveBalanceBefore.sub(reserveBalanceAfter)).to.be.equal(
+      expectedReturn
+    );
+    // 1e4 gd sold (burn from the supply)
+    expect(supplyBefore.sub(supplyAfter)).to.be.equal(amount);
+    expect(gdBalanceBefore.gt(gdBalanceAfter)).to.be.true;
+    expect(cDAIBalanceAfter.gt(cDAIBalanceBefore)).to.be.true;
+    expect(transaction.events.find(_ => _.event === "TokenSold")).to.be.not
+      .empty;
+  });
+  it("should be able to sell gd to cDAI without contribution through sellToAnyToken function", async () => {
+    let amount = BN.from("10000");
+    let reserveToken = await marketMaker.reserveTokens(cDAI.address);
+    let reserveBalanceBefore = reserveToken.reserveSupply;
+    let supplyBefore = reserveToken.gdSupply;
+    let reserveRatio = reserveToken.reserveRatio;
+    const gdBalanceBefore = await goodDollar.balanceOf(founder.address);
+    const cDAIBalanceBefore = await cDAI.balanceOf(founder.address);
+    const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
+    await goodDollar.approve(goodReserve.address, amount);
+    let transaction = await (
+      await goodReserve.sellToAnyToken(cDAI.address, amount, 0, 0)
     ).wait();
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
@@ -625,6 +672,51 @@ describe("GoodReserve - staking with cDAI mocks", () => {
       .empty;
   });
 
+  it("should be able to sell gd to DAI without contribution through sellToAnyToken function", async () => {
+    let amount = BN.from("10000");
+    let reserveToken = await marketMaker.reserveTokens(cDAI.address);
+    let reserveBalanceBefore = reserveToken.reserveSupply;
+    let supplyBefore = reserveToken.gdSupply;
+    let reserveRatio = reserveToken.reserveRatio;
+    const gdBalanceBefore = await goodDollar.balanceOf(founder.address);
+    const daiBalanceBefore = await dai.balanceOf(founder.address);
+    const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
+    await goodDollar.approve(goodReserve.address, amount);
+    let transaction = await (
+      await goodReserve.sellToAnyToken(dai.address, amount, 0, 0)
+    ).wait();
+    reserveToken = await marketMaker.reserveTokens(cDAI.address);
+    let reserveBalanceAfter = reserveToken.reserveSupply;
+    let supplyAfter = reserveToken.gdSupply;
+    const gdBalanceAfter = await goodDollar.balanceOf(founder.address);
+    const daiBalanceAfter = await dai.balanceOf(founder.address);
+    const cDAIBalanceReserveAfter = await cDAI.balanceOf(goodReserve.address);
+    // according to the initialization settings reserve ratio is 100%. the calculation is:
+    // Return = _reserveBalance * (1 - (1 - _sellAmount / _supply) ^ (1000000 / _reserveRatio))
+    const bancor = await ethers.getContractAt(
+      "BancorFormula",
+      await marketMaker.getBancor()
+    );
+    const expectedReturn = await bancor.calculateSaleReturn(
+      supplyBefore.toString(),
+      reserveBalanceBefore.toString(),
+      reserveRatio.toString(),
+      amount
+    );
+    
+  //  expect(cDAIBalanceAfter - cDAIBalanceBefore).to.be.equal(expectedReturn);
+   // expect(cDAIBalanceReserveBefore - cDAIBalanceReserveAfter).to.be.equal(
+    //  expectedReturn
+   // );
+    //expect(reserveBalanceBefore.sub(reserveBalanceAfter)).to.be.equal(
+    //  expectedReturn
+   // );
+    // 1e4 gd sold (burn from the supply)
+    //expect(supplyBefore.sub(supplyAfter)).to.be.equal(amount);
+    //expect(gdBalanceBefore.gt(gdBalanceAfter)).to.be.true;
+    expect(daiBalanceAfter.gt(daiBalanceBefore)).to.be.true;
+    expect(transaction.events.find(_ => _.event === "TokenSold")).to.be.not.empty;
+  });
   it("should set sell contribution ratio by avatar", async () => {
     let nom = ethers.utils.parseUnits("2", 14);
     let denom = ethers.utils.parseUnits("1", 15);
@@ -751,7 +843,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
 
     await goodDollar.connect(staker).approve(goodReserve.address, amount);
     let transaction = await (
-      await goodReserve.connect(staker).sell(cDAI.address, amount, 0)
+      await goodReserve.connect(staker).sellToAnyToken(cDAI.address, amount, 0, 0)
     ).wait();
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
@@ -782,12 +874,12 @@ describe("GoodReserve - staking with cDAI mocks", () => {
       .empty;
   });
 
-  it("should not be able to sell gd to uninitialized token", async () => {
+  it("should able to sell gd to DAI or cDAI token", async () => {
     let amount = 1e4;
     await goodDollar.approve(goodReserve.address, amount);
 
-    let tx = goodReserve.sell(dai.address, amount, 0);
-    expect(tx).to.revertedWith("revert Reserve token not initialized");
+    let tx = goodReserve.sellToAnyToken(dai.address, amount, 0, 0);
+    expect(tx).to.not.reverted
   });
 
   it("should not be able to sell gd without gd allowance", async () => {
@@ -795,7 +887,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     await goodDollar.approve(goodReserve.address, "0");
     const gdBalanceBefore = await goodDollar.balanceOf(founder.address);
     const cDAIBalanceBefore = await cDAI.balanceOf(founder.address);
-    let error = await goodReserve.sell(cDAI.address, amount, 0).catch(e => e);
+    let error = await goodReserve.sellToAnyToken(cDAI.address, amount, 0, 0).catch(e => e);
     const gdBalanceAfter = await goodDollar.balanceOf(founder.address);
     const cDAIBalanceAfter = await cDAI.balanceOf(founder.address);
     expect(error.message).not.to.be.empty;
@@ -816,7 +908,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     await goodDollar.approve(goodReserve.address, amount);
     const gdBalanceBefore = await goodDollar.balanceOf(founder.address);
     const cDAIBalanceBefore = await cDAI.balanceOf(founder.address);
-    let error = await goodReserve.sell(cDAI.address, amount, 0).catch(e => e);
+    let error = await goodReserve.sellToAnyToken(cDAI.address, amount, 0, 0).catch(e => e);
     const gdBalanceAfter = await goodDollar.balanceOf(founder.address);
     const cDAIBalanceAfter = await cDAI.balanceOf(founder.address);
     expect(error.message).not.to.be.empty;
@@ -836,7 +928,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     const gdBalanceBefore = await goodDollar.balanceOf(founder.address);
     const cDAIBalanceBefore = await cDAI.balanceOf(founder.address);
     let error = await goodReserve
-      .sell(cDAI.address, amount, 2000000)
+      .sellToAnyToken(cDAI.address, amount, 2000000, 0)
       .catch(e => e);
     const gdBalanceAfter = await goodDollar.balanceOf(founder.address);
     const cDAIBalanceAfter = await cDAI.balanceOf(founder.address);
@@ -903,7 +995,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     let reserveBalanceBefore = reserveToken.reserveSupply;
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     await cDAI.approve(goodReserve.address, amount);
-    await goodReserve.buy(cDAI.address, amount, 0);
+    await goodReserve.buyWithAnyToken(cDAI.address, amount, 0, 0);
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
     const cDAIBalanceReserveAfter = await cDAI.balanceOf(goodReserve.address);
@@ -921,7 +1013,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     let reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let gdSupplyBefore = reserveToken.gdSupply;
     await cDAI.approve(goodReserve.address, amount);
-    await goodReserve.buy(cDAI.address, amount, 0);
+    await goodReserve.buyWithAnyToken(cDAI.address, amount, 0, 0);
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let gdSupplyAfter = reserveToken.gdSupply;
     expect(gdSupplyAfter.gt(gdSupplyBefore)).to.be.true;
@@ -935,7 +1027,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     let reserveToken = await marketMaker.reserveTokens(cDAI.address);
     const priceBefore = await goodReserve["currentPrice()"]();
     await cDAI.approve(goodReserve.address, amount);
-    await goodReserve.buy(cDAI.address, amount, 0);
+    await goodReserve.buyWithAnyToken(cDAI.address, amount, 0, 0);
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     const priceAfter = await goodReserve["currentPrice()"]();
     expect(Math.floor(priceAfter.toNumber() / 100).toString()).to.be.equal(
@@ -953,7 +1045,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     await goodDollar.connect(staker).approve(goodReserve.address, amount);
     const transaction = await (
-      await goodReserve.connect(staker).sell(cDAI.address, amount, 0)
+      await goodReserve.connect(staker).sellToAnyToken(cDAI.address, amount, 0, 0)
     ).wait();
 
     const cDAIBalanceAfter = await cDAI.balanceOf(staker.address);
@@ -982,7 +1074,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     let reserveToken = await marketMaker.reserveTokens(cDAI.address);
     const priceBefore = await goodReserve["currentPrice()"]();
     await goodDollar.approve(goodReserve.address, amount);
-    await goodReserve.sell(cDAI.address, amount, 0);
+    await goodReserve.sellToAnyToken(cDAI.address, amount, 0, 0);
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     const priceAfter = await goodReserve["currentPrice()"]();
     expect(Math.floor(priceAfter.toNumber() / 100).toString()).to.be.equal(

@@ -214,3 +214,5 @@ types/factories/UBIScheme__factory.ts
 types/factories/Uniswap__factory.ts
 types/factories/UniswapFactory__factory.ts
 types/factories/UniswapPair__factory.ts
+
+.DS_Store

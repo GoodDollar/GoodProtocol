@@ -235,105 +235,74 @@ contract GoodReserveCDai is
 		uint256 _minReturn,
 		uint256 _minDAIAmount
 	) public returns(uint256){
-		if (address(_buyWith) == nameService.getAddress("CDAI")) return buy(_buyWith,_tokenAmount,_minReturn);
-		if (address(_buyWith) == nameService.getAddress("DAI")){
-		require(
-			_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
-			"You need to approve DAI transfer first"
-		);
-		require(
-			_buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
-				true,
-			"transferFrom failed, make sure you approved DAI transfer"
-		);
-		cERC20 cDai = cERC20(nameService.getAddress("CDAI"));
-		// Approve transfer to cDAI contract
-		_buyWith.approve(address(cDai),_tokenAmount);
-		uint256 currCDaiBalance = cDai.balanceOf(address(this));
+		address cDaiAddress = nameService.getAddress("CDAI");
+		address daiAddress = nameService.getAddress("DAI");
+		if (address(_buyWith) == cDaiAddress) return buy(_buyWith, _tokenAmount, _minReturn, false);
+		if (address(_buyWith) == daiAddress){
+			require(
+				_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
+				"You need to approve DAI transfer first"
+			);
+			require(
+				_buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
+					true,
+				"transferFrom failed, make sure you approved DAI transfer"
+			);
+			cERC20 cDai = cERC20(cDaiAddress);
+			// Approve transfer to cDAI contract
+			_buyWith.approve(address(cDai),_tokenAmount);
+			uint256 currCDaiBalance = cDai.balanceOf(address(this));
+			
+			
+			//Mint cDAIs
+			uint256 cDaiResult = cDai.mint(_tokenAmount);
+			// Get input value for cDAI
+			uint256 cDaiInput = (cDai.balanceOf(address(this))).sub(currCDaiBalance);
+			return buy(ERC20(cDaiAddress), cDaiInput, _minReturn,true);
+		} else {
 		
-		
-		//Mint cDAIs
-		uint256 cDaiResult = cDai.mint(_tokenAmount);
-		// Get input value for cDAI
-		uint256 cDaiInput = (cDai.balanceOf(address(this))).sub(currCDaiBalance);
-		return buyWithDai(ERC20(nameService.getAddress("CDAI")), cDaiInput, _minReturn);
-		}else{
-		
-		require(
-			_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
-			"You need to approve input token transfer first"
-		);
-		require(
-			_buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
-				true,
-			"transferFrom failed, make sure you approved input token transfer"
-		);
-		address[] memory path = new address[](2);
-		path[0] = address(_buyWith);
-		path[1] = nameService.getAddress("DAI");
-		Uniswap uniswapContract = Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
-		_buyWith.approve(address(uniswapContract), _tokenAmount);
-		uint256[] memory swap = uniswapContract.swapExactTokensForTokens(
-                _tokenAmount,
-                _minDAIAmount,
-                path,
-                address(this),
-                block.timestamp
-            );
+			require(
+				_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
+				"You need to approve input token transfer first"
+			);
+			require(
+				_buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
+					true,
+				"transferFrom failed, make sure you approved input token transfer"
+			);
+			address[] memory path = new address[](2);
+			path[0] = address(_buyWith);
+			path[1] = daiAddress;
+			Uniswap uniswapContract = Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+			_buyWith.approve(address(uniswapContract), _tokenAmount);
+			uint256[] memory swap = uniswapContract.swapExactTokensForTokens(
+					_tokenAmount,
+					_minDAIAmount,
+					path,
+					address(this),
+					block.timestamp
+				);
 
-        uint256 dai = swap[1];
-        require(dai > 0, "token selling failed");
-		
-		cERC20 cDai = cERC20(nameService.getAddress("CDAI"));
-		// Approve transfer to cDAI contract
-		ERC20(nameService.getAddress("DAI")).approve(address(cDai),dai);
-		
-		uint256 currCDaiBalance = cDai.balanceOf(address(this));
-		
-		//Mint cDAIs
-		uint256 cDaiResult = cDai.mint(dai);
-		
-		uint256 cDaiInput = (cDai.balanceOf(address(this))).sub(currCDaiBalance);
-		return buyWithDai(ERC20(nameService.getAddress("CDAI")), cDaiInput, _minReturn);
+			uint256 dai = swap[1];
+			require(dai > 0, "token selling failed");
+			
+			cERC20 cDai = cERC20(cDaiAddress);
+			// Approve transfer to cDAI contract
+			ERC20(daiAddress).approve(address(cDai),dai);
+			
+			uint256 currCDaiBalance = cDai.balanceOf(address(this));
+			
+			//Mint cDAIs
+			uint256 cDaiResult = cDai.mint(dai);
+			
+			uint256 cDaiInput = (cDai.balanceOf(address(this))).sub(currCDaiBalance);
+			return buy(ERC20(cDaiAddress), cDaiInput, _minReturn, true);
 
 		}
 		
 
 	}
-	/**
 	
-	@dev Converts any cDAI tokens already in our contract balance to GD tokens
-	* @param _buyWith The tokens that should be converted to GD tokens
-	* @param _tokenAmount The amount of `buyWith` tokens that should be converted to GD tokens
-	* @param _minReturn The minimum allowed return in GD tokens
-	* @return (gdReturn) How much GD tokens were transferred
-	*/
-
-	function buyWithDai(
-		ERC20 _buyWith,
-		uint256 _tokenAmount,
-		uint256 _minReturn
-		) internal returns(uint256){
-
-		uint256 gdReturn = getMarketMaker().buy(_buyWith, _tokenAmount);
-		require(
-			gdReturn >= _minReturn,
-			"GD return must be above the minReturn"
-		);
-		GoodDollar(address(avatar.nativeToken())).mint(msg.sender, gdReturn);
-
-		//mint GDX
-		_mint(msg.sender, gdReturn);
-
-		emit TokenPurchased(
-			msg.sender,
-			address(_buyWith),
-			_tokenAmount,
-			_minReturn,
-			gdReturn
-		);
-		return gdReturn;
-		}
 	/**
 	 * @dev Converts `buyWith` tokens to GD tokens and updates the bonding curve params.
 	 * `buy` occurs only if the GD return is above the given minimum. It is possible
@@ -348,17 +317,20 @@ contract GoodReserveCDai is
 	function buy(
 		ERC20 _buyWith,
 		uint256 _tokenAmount,
-		uint256 _minReturn
-	) public returns (uint256) {
-		require(
-			_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
-			"You need to approve cDAI transfer first"
-		);
-		require(
-			_buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
-				true,
-			"transferFrom failed, make sure you approved cDAI transfer"
-		);
+		uint256 _minReturn ,
+		bool internalTransfer
+	) internal returns (uint256) {
+		if (internalTransfer == false){
+			require(
+				_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
+				"You need to approve cDAI transfer first"
+			);
+			require(
+				_buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
+					true,
+				"transferFrom failed, make sure you approved cDAI transfer"
+			);
+		} 
 		uint256 gdReturn = getMarketMaker().buy(_buyWith, _tokenAmount);
 		require(
 			gdReturn >= _minReturn,
@@ -378,6 +350,67 @@ contract GoodReserveCDai is
 		);
 		return gdReturn;
 	}
+	/**
+	 * @dev Converts GD tokens to `sellTo` tokens and update the bonding curve params.
+	 * `sell` occurs only if the token return is above the given minimum. Notice that
+	 * there is a contribution amount from the given GD that remains in the reserve.
+	 * It is only possible to sell to cDAI and only when the contract is set to
+	 * active. MUST be called to G$ `approve` prior to this action to allow this
+	 * contract to accomplish the conversion.
+	 * @param _sellTo The tokens that will be received after the conversion
+	 * @param _gdAmount The amount of GD tokens that should be converted to `_sellTo` tokens
+	 * @param _minReturn The minimum allowed `sellTo` tokens return
+	 * @param _minTokenAmount The mininmum dai out amount from Exchange swap function
+	 * @return (tokenReturn) How much `sellTo` tokens were transferred
+	 */
+	function sellToAnyToken(
+		ERC20 _sellTo,
+		uint256 _gdAmount,
+		uint256 _minReturn,
+		uint256 _minTokenAmount
+	) public returns (uint256) {
+		
+		address cDaiAddress = nameService.getAddress("CDAI");
+		address daiAddress = nameService.getAddress("DAI");
+		if(address(_sellTo) == cDaiAddress){
+			(uint256 result,uint256 contributionAmount) = sell(_sellTo, _gdAmount, _minReturn, true, false);
+			return result;
+		} 
+		if(address(_sellTo) == daiAddress){
+			(uint256 returnAmount,uint256 contributionAmount) = sell(ERC20(cDaiAddress), _gdAmount, _minReturn, false, true);
+			return returnAmount;
+
+		} else {
+			(uint256 returnAmount,uint256 contributionAmount) = sell(ERC20(cDaiAddress), _gdAmount, _minReturn, false, false);
+			address[] memory path = new address[](2);
+			path[0] = daiAddress;
+			path[1] = address(_sellTo);
+			Uniswap uniswapContract = Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+			ERC20(daiAddress).approve(address(uniswapContract), returnAmount);
+			uint256[] memory swap = uniswapContract.swapExactTokensForTokens(
+					returnAmount,
+					_minTokenAmount,
+					path,
+					address(this),
+					block.timestamp
+				);
+
+			uint256 swappedTokenAmount = swap[1];
+			require(swappedTokenAmount > 0, "token selling failed");
+			
+			_sellTo.transfer(msg.sender, swappedTokenAmount);
+			emit TokenSold(
+				msg.sender,
+				address(_sellTo),
+				_gdAmount,
+				contributionAmount,
+				_minReturn,
+				swappedTokenAmount
+			);
+			return swappedTokenAmount;
+		}
+	}
+	
 
 	/**
 	 * @dev Converts GD tokens to `sellTo` tokens and update the bonding curve params.
@@ -389,13 +422,17 @@ contract GoodReserveCDai is
 	 * @param _sellTo The tokens that will be received after the conversion
 	 * @param _gdAmount The amount of GD tokens that should be converted to `_sellTo` tokens
 	 * @param _minReturn The minimum allowed `sellTo` tokens return
+	 * @param _returnInCDai bool for if return token is cDai or DAI
+	 * @param _withTransfer bool for if DAI should transferred or stay in the contract for further exchange transactions
 	 * @return (tokenReturn) How much `sellTo` tokens were transferred
 	 */
 	function sell(
 		ERC20 _sellTo,
 		uint256 _gdAmount,
-		uint256 _minReturn
-	) public returns (uint256) {
+		uint256 _minReturn,
+		bool _returnInCDai,
+		bool _withTransfer
+	) internal returns (uint256,uint256) {
 		GoodDollar(address(avatar.nativeToken())).burnFrom(
 			msg.sender,
 			_gdAmount
@@ -408,6 +445,10 @@ contract GoodReserveCDai is
 		//burn gdx used for discount
 		burn(discount);
 
+		// Redeclarations to prevent stack too deep error
+		uint256 tempMinReturn = _minReturn;
+		uint256 tempGdAmount = _gdAmount;
+		ERC20 tempSellTo = _sellTo;
 		uint256 contributionAmount =
 			discount >= _gdAmount
 				? 0
@@ -418,8 +459,8 @@ contract GoodReserveCDai is
 					getMarketMaker(),
 					this,
 					msg.sender,
-					_sellTo,
-					_gdAmount.sub(discount)
+					tempSellTo,
+					tempGdAmount.sub(discount)
 				);
 
 		uint256 tokenReturn =
@@ -427,27 +468,57 @@ contract GoodReserveCDai is
 				_sellTo,
 				_gdAmount,
 				contributionAmount
+		);
+		if(_returnInCDai == true){
+			require(
+				tokenReturn >= _minReturn,
+				"Token return must be above the minReturn"
 			);
-		require(
-			tokenReturn >= _minReturn,
-			"Token return must be above the minReturn"
-		);
-		require(
-			_sellTo.transfer(msg.sender, tokenReturn) == true,
-			"Transfer failed"
-		);
+			require(
+				_sellTo.transfer(msg.sender, tokenReturn) == true,
+				"Transfer failed"
+			);
 
-		emit TokenSold(
-			msg.sender,
-			address(_sellTo),
-			_gdAmount,
-			contributionAmount,
-			_minReturn,
-			tokenReturn
-		);
-		return tokenReturn;
+			emit TokenSold(
+				msg.sender,
+				address(_sellTo),
+				tempGdAmount,
+				contributionAmount,
+				tempMinReturn,
+				tokenReturn
+			);
+			return (tokenReturn, contributionAmount);
+		} else {
+			cERC20 cDai = cERC20(nameService.getAddress("CDAI"));
+			ERC20 dai = ERC20(nameService.getAddress("DAI"));
+			// Approve transfer to cDAI contract
+			ERC20(address(cDai)).approve(address(cDai),tokenReturn);
+			uint256 currDaiBalance = dai.balanceOf(address(this));
+			
+			uint256 daiResult = cDai.redeem(tokenReturn);
+			uint256 daiReturnAmount = (dai.balanceOf(address(this))).sub(currDaiBalance);
+			if (_withTransfer == true){
+				require(
+					dai.transfer(msg.sender, daiReturnAmount) == true,
+					"Transfer failed"
+				);
+
+				emit TokenSold(
+					msg.sender,
+					address(dai),
+					tempGdAmount,
+					contributionAmount,
+					tempMinReturn,
+					daiReturnAmount
+				);
+				return (daiReturnAmount, contributionAmount);
+			} else {
+			
+				return (daiReturnAmount, contributionAmount);
+			}
+		
 	}
-
+	}
 	/**
 	 * @dev Current price of GD in `token`. currently only cDAI is supported.
 	 * @param _token The desired reserve token to have

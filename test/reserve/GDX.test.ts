@@ -137,7 +137,7 @@ describe("GDX - discount on exit contribution", () => {
     await cDAI["mint(uint256)"](ethers.utils.parseEther("100"));
     await cDAI.approve(goodReserve.address, amount);
     let transaction = await (
-      await goodReserve.buy(cDAI.address, amount, 0)
+      await goodReserve.buyWithAnyToken(cDAI.address, amount, 0, 0)
     ).wait();
 
     const gdBalanceAfter = await goodDollar.balanceOf(founder.address);
@@ -152,7 +152,7 @@ describe("GDX - discount on exit contribution", () => {
     let amount = BN.from("10000");
     await goodDollar.approve(goodReserve.address, amount);
     let transaction = await (
-      await goodReserve.sell(cDAI.address, amount, 0)
+      await goodReserve.sellToAnyToken(cDAI.address, amount, 0, 0)
     ).wait();
 
     const event = transaction.events.find(_ => _.event === "TokenSold");
@@ -167,7 +167,7 @@ describe("GDX - discount on exit contribution", () => {
 
     await goodDollar.connect(staker).approve(goodReserve.address, amount);
     let transaction = await (
-      await goodReserve.connect(staker).sell(cDAI.address, amount, 0)
+      await goodReserve.connect(staker).sellToAnyToken(cDAI.address, amount, 0, 0)
     ).wait();
 
     const event = transaction.events.find(_ => _.event === "TokenSold");
@@ -185,7 +185,7 @@ describe("GDX - discount on exit contribution", () => {
 
     await goodDollar.approve(goodReserve.address, amount);
     let transaction = await (
-      await goodReserve.sell(cDAI.address, amount, 0)
+      await goodReserve.sellToAnyToken(cDAI.address, amount, 0, 0)
     ).wait();
 
     const event = transaction.events.find(_ => _.event === "TokenSold");

@@ -30,6 +30,8 @@ interface cERC20 is ERC20 {
 
 	function redeemUnderlying(uint256 mintAmount) external returns (uint256);
 
+	function redeem(uint256 mintAmount) external returns (uint256);
+	
 	function exchangeRateCurrent() external returns (uint256);
 
 	function exchangeRateStored() external view returns (uint256);
