@@ -379,14 +379,7 @@ contract GoodReserveCDai is
 		uint256 contributionAmount;
 		if(address(_sellTo) == cDaiAddress || address(_sellTo) == daiAddress){
 			(result,contributionAmount) = _sell(_gdAmount, _minReturn, address(tempSellTo) == cDaiAddress);
-			require(
-				result >= _minReturn,
-				"Token return must be above the minReturn"
-			);
-			require(
-					_sellTo.transfer(receiver, result) == true,
-					"Transfer failed"
-				);
+			
 			
 		} else {
 			uint256 returnAmount;
@@ -403,13 +396,21 @@ contract GoodReserveCDai is
 					address(this),
 					block.timestamp
 				);
-
-			uint256 result = swap[1];
+			tempMinReturn = tempMinTokenAmount;
+			result = swap[1];
 			require(result > 0, "token selling failed");
-			tempSellTo.transfer(receiver, result);
+			
 			
 			
 		}
+		require(
+			result >= tempMinReturn,
+			"Token return must be above the minReturn"
+		);
+		require(
+			tempSellTo.transfer(receiver, result) == true,
+			"Transfer failed"
+		);
 		emit TokenSold(
 			receiver,
 			address(tempSellTo),
