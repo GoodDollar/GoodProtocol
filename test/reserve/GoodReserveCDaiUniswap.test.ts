@@ -237,7 +237,7 @@ describe("GoodReserve - staking with cDAI mocks and UNISWAP router", () => {
     const priceBefore = await goodReserve["currentPrice()"]();
     await tokenA.approve(goodReserve.address,buyAmount)
     let transaction = await (
-      await goodReserve.buyWithAnyToken(tokenA.address, buyAmount, 0 , 0, NULL_ADDRESS)
+      await goodReserve.buy(tokenA.address, buyAmount, 0 , 0, NULL_ADDRESS)
     ).wait();
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
@@ -287,7 +287,7 @@ describe("GoodReserve - staking with cDAI mocks and UNISWAP router", () => {
     const priceBefore = await goodReserve["currentPrice()"]();
     await goodDollar.approve(goodReserve.address, sellAmount)
     let transaction = await (
-      await goodReserve.sellToAnyToken(tokenA.address, sellAmount, 0 , 0, NULL_ADDRESS)
+      await goodReserve.sell(tokenA.address, sellAmount, 0 , 0, NULL_ADDRESS)
     ).wait();
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
@@ -338,7 +338,7 @@ describe("GoodReserve - staking with cDAI mocks and UNISWAP router", () => {
     const priceBefore = await goodReserve["currentPrice()"]();
     await tokenA.approve(goodReserve.address,buyAmount)
     let transaction = await (
-      await goodReserve.buyWithAnyToken(tokenA.address, buyAmount, 0 , 0, staker.address)
+      await goodReserve.buy(tokenA.address, buyAmount, 0 , 0, staker.address)
     ).wait();
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
@@ -388,7 +388,7 @@ describe("GoodReserve - staking with cDAI mocks and UNISWAP router", () => {
     const priceBefore = await goodReserve["currentPrice()"]();
     await goodDollar.approve(goodReserve.address, sellAmount)
     let transaction = await (
-      await goodReserve.sellToAnyToken(tokenA.address, sellAmount, 0 , 0, staker.address)
+      await goodReserve.sell(tokenA.address, sellAmount, 0 , 0, staker.address)
     ).wait();
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
@@ -417,14 +417,14 @@ describe("GoodReserve - staking with cDAI mocks and UNISWAP router", () => {
   it("shouldn't be able to buy gd with tokenA through UNISWAP without approve", async () => {
     let depositAmount = ethers.utils.parseEther("5");
     tokenA.approve(goodReserve.address,"0")
-    await expect(goodReserve.buyWithAnyToken(tokenA.address, depositAmount, 0 , 0, NULL_ADDRESS)).to.be.revertedWith("You need to approve input token transfer first");
+    await expect(goodReserve.buy(tokenA.address, depositAmount, 0 , 0, NULL_ADDRESS)).to.be.revertedWith("You need to approve input token transfer first");
   });
   
 
   it("shouldn't be able to sell gd to tokenA through UNISWAP without approve", async () => {
     let sellAmount = BN.from("5");
     goodDollar.approve(goodReserve.address,"0")
-    await expect(goodReserve.sellToAnyToken(tokenA.address, sellAmount, 0 , 0, NULL_ADDRESS)).to.be.reverted;
+    await expect(goodReserve.sell(tokenA.address, sellAmount, 0 , 0, NULL_ADDRESS)).to.be.reverted;
   });
   
   

@@ -49,7 +49,7 @@ export const createDAO = async () => {
     1000,
     [100000]
   );
-
+ 
   const Avatar = new ethers.Contract(
     await daoCreator.avatar(),
     [
@@ -61,7 +61,7 @@ export const createDAO = async () => {
 
   await Identity.setAvatar(Avatar.address);
   const controller = await Avatar.owner();
-
+  
   const ccFactory = new ethers.ContractFactory(
     ContributionCalculation.abi,
     ContributionCalculation.bytecode,
