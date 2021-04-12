@@ -371,42 +371,48 @@ contract GoodReserveCDai is
 		
 		address cDaiAddress = nameService.getAddress("CDAI");
 		address daiAddress = nameService.getAddress("DAI");
+		address receiver = _targetAddress == address(0x0) ? msg.sender : _targetAddress;
 		// redeclarations to prevent stack too deep errors
 		ERC20 tempSellTo = _sellTo;
 		uint256 tempMinReturn = _minReturn;
 		uint256 tempGdAmount = _gdAmount;
+		uint tempMinTokenAmount = _minTokenAmount;
+		uint256 result;
+		uint256 contributionAmount;
 		if(address(_sellTo) == cDaiAddress || address(_sellTo) == daiAddress){
-			(uint256 result,uint256 contributionAmount) = _sell(_gdAmount, _minReturn, address(tempSellTo) == cDaiAddress, address(tempSellTo) != cDaiAddress, _targetAddress);
-			return result;
+			(result,contributionAmount) = _sell(_gdAmount, _minReturn, address(tempSellTo) == cDaiAddress, address(tempSellTo) != cDaiAddress, receiver);
+			
 		} else {
-			(uint256 returnAmount,uint256 contributionAmount) = _sell(_gdAmount, _minReturn, false, false, _targetAddress);
+			uint256 returnAmount;
+			(returnAmount,contributionAmount) = _sell(_gdAmount, _minReturn, false, false, receiver);
 			address[] memory path = new address[](2);
 			path[0] = daiAddress;
-			path[1] = address(_sellTo);
+			path[1] = address(tempSellTo);
 			Uniswap uniswapContract = Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 			ERC20(daiAddress).approve(address(uniswapContract), returnAmount);
 			uint256[] memory swap = uniswapContract.swapExactTokensForTokens(
 					returnAmount,
-					_minTokenAmount,
+					tempMinTokenAmount,
 					path,
 					address(this),
 					block.timestamp
 				);
 
-			uint256 swappedTokenAmount = swap[1];
-			require(swappedTokenAmount > 0, "token selling failed");
-			address receiver = _targetAddress == address(0x0) ? msg.sender : _targetAddress;
-			tempSellTo.transfer(receiver, swappedTokenAmount);
-			emit TokenSold(
-				receiver,
-				address(tempSellTo),
-				tempGdAmount,
-				contributionAmount,
-				tempMinReturn,
-				swappedTokenAmount
-			);
-			return swappedTokenAmount;
+			uint256 result = swap[1];
+			require(result > 0, "token selling failed");
+			tempSellTo.transfer(receiver, result);
+			
+			
 		}
+		emit TokenSold(
+			receiver,
+			address(tempSellTo),
+			tempGdAmount,
+			contributionAmount,
+			tempMinReturn,
+			result
+		);
+		return result;
 	}
 	
 
@@ -466,25 +472,18 @@ contract GoodReserveCDai is
 				contributionAmount
 		);
 		if(_returnInCDai == true){
-			address receiver = sellParameters.targetAddress == address(0x0) ? msg.sender : sellParameters.targetAddress ;
+			
 			require(
 				tokenReturn >= _minReturn,
 				"Token return must be above the minReturn"
 			);
 			
 			require(
-				sellTo.transfer(receiver, tokenReturn) == true,
+				sellTo.transfer(sellParameters.targetAddress, tokenReturn) == true,
 				"Transfer failed"
 			);
 			
-			emit TokenSold(
-				receiver,
-				address(sellParameters.sellTo),
-				sellParameters.gdAmount,
-				contributionAmount,
-				sellParameters.minReturn,
-				tokenReturn
-			);
+			
 			return (tokenReturn, contributionAmount);
 		} else {
 			cERC20 cDai = cERC20(nameService.getAddress("CDAI"));
@@ -495,19 +494,12 @@ contract GoodReserveCDai is
 			uint256 daiResult = cDai.redeem(tokenReturn);
 			uint256 daiReturnAmount = (dai.balanceOf(address(this))).sub(currDaiBalance);
 			if (sellParameters.withTransfer == true){
-				address receiver = sellParameters.targetAddress == address(0x0) ? msg.sender : sellParameters.targetAddress ;
+				
 				require(
-					dai.transfer(receiver, daiReturnAmount) == true,
+					dai.transfer(sellParameters.targetAddress, daiReturnAmount) == true,
 					"Transfer failed"
 				);
-				emit TokenSold(
-					receiver,
-					address(dai),
-					sellParameters.gdAmount,
-					contributionAmount,
-					sellParameters.minReturn,
-					daiReturnAmount
-				);
+				
 				return (daiReturnAmount, contributionAmount);
 			} else {
 			

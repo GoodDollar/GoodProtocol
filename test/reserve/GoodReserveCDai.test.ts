@@ -1167,7 +1167,6 @@ describe("GoodReserve - staking with cDAI mocks", () => {
       Math.floor(priceBefore.toNumber() / 100).toString()
     );
   });
-
   //keep this test last as it ends the reserve
   it("should transfer cDAI funds to the given destination and transfer marker maker ownership and renounce minting on end", async () => {
     let avatarBalanceBefore = await cDAI.balanceOf(avatar);
