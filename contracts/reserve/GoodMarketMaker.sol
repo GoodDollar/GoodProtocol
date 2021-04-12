@@ -366,12 +366,12 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 
 		// The return value after the deduction
 		uint256 tokenReturn = sellReturn(_token, amountAfterContribution);
-		rtoken.gdSupply = rtoken.gdSupply.sub(_gdAmount);
+		rtoken.gdSupply = rtoken.gdSupply.sub(amountAfterContribution);
 		rtoken.reserveSupply = rtoken.reserveSupply.sub(tokenReturn);
 		emit BalancesUpdated(
 			msg.sender,
 			address(_token),
-			_contributionGdAmount,
+			amountAfterContribution,
 			tokenReturn,
 			rtoken.gdSupply,
 			rtoken.reserveSupply
