@@ -379,7 +379,7 @@ contract GoodReserveCDai is
 		uint256 contributionAmount;
 		if(address(_sellTo) == cDaiAddress || address(_sellTo) == daiAddress){
 			(result,contributionAmount) = _sell(_gdAmount, _minReturn, address(tempSellTo) == cDaiAddress);
-			
+			tempMinReturn = 0;
 			
 		} else {
 			uint256 returnAmount;
@@ -473,6 +473,10 @@ contract GoodReserveCDai is
 				sellParameters.sellTo,
 				sellParameters.gdAmount,
 				contributionAmount
+		);
+		require(
+			tokenReturn >= sellParameters.minReturn,
+			"Token return must be above the minReturn"
 		);
 		if(_returnInCDai == true){
 			
