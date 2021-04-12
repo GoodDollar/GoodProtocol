@@ -53,9 +53,7 @@ contract GoodReserveCDai is
 		uint256 gdAmount;
 		uint256 minReturn;
 		bool returnInCDai;
-		bool withTransfer;
-		address targetAddress;
-
+		
 	}
 	/// @dev merkleroot
 	bytes32 public gdxAirdrop;
@@ -380,11 +378,19 @@ contract GoodReserveCDai is
 		uint256 result;
 		uint256 contributionAmount;
 		if(address(_sellTo) == cDaiAddress || address(_sellTo) == daiAddress){
-			(result,contributionAmount) = _sell(_gdAmount, _minReturn, address(tempSellTo) == cDaiAddress, address(tempSellTo) != cDaiAddress, receiver);
+			(result,contributionAmount) = _sell(_gdAmount, _minReturn, address(tempSellTo) == cDaiAddress);
+			require(
+				result >= _minReturn,
+				"Token return must be above the minReturn"
+			);
+			require(
+					_sellTo.transfer(receiver, result) == true,
+					"Transfer failed"
+				);
 			
 		} else {
 			uint256 returnAmount;
-			(returnAmount,contributionAmount) = _sell(_gdAmount, _minReturn, false, false, receiver);
+			(returnAmount,contributionAmount) = _sell(_gdAmount, _minReturn, false);
 			address[] memory path = new address[](2);
 			path[0] = daiAddress;
 			path[1] = address(tempSellTo);
@@ -426,23 +432,19 @@ contract GoodReserveCDai is
 	 * @param _gdAmount The amount of GD tokens that should be converted to `_sellTo` tokens
 	 * @param _minReturn The minimum allowed `sellTo` tokens return
 	 * @param _returnInCDai bool for if return token is cDai or DAI
-	 * @param _withTransfer bool for if DAI should transferred or stay in the contract for further exchange transactions
-	 * @param _targetAddress address of _sellTo token recipient if different than msg.sender
 	 * @return (tokenReturn) How much `sellTo` tokens were transferred
 	 */
 	function _sell(
 		uint256 _gdAmount,
 		uint256 _minReturn,
-		bool _returnInCDai,
-		bool _withTransfer,
-		address _targetAddress
-	) internal returns (uint256,uint256) {
+		bool _returnInCDai
+		) internal returns (uint256,uint256) {
 		ERC20 sellTo = ERC20(nameService.getAddress("CDAI"));
 		GoodDollar(address(avatar.nativeToken())).burnFrom(
 			msg.sender,
 			_gdAmount
 		);
-		SellParams memory sellParameters = SellParams(sellTo, _gdAmount, _minReturn, _returnInCDai, _withTransfer, _targetAddress);
+		SellParams memory sellParameters = SellParams(sellTo, _gdAmount, _minReturn, _returnInCDai);
 		//discount on exit contribution based on gdx
 		uint256 gdx = balanceOf(msg.sender);
 		uint256 discount = min(gdx, _gdAmount);
@@ -473,18 +475,8 @@ contract GoodReserveCDai is
 		);
 		if(_returnInCDai == true){
 			
-			require(
-				tokenReturn >= _minReturn,
-				"Token return must be above the minReturn"
-			);
-			
-			require(
-				sellTo.transfer(sellParameters.targetAddress, tokenReturn) == true,
-				"Transfer failed"
-			);
-			
-			
 			return (tokenReturn, contributionAmount);
+
 		} else {
 			cERC20 cDai = cERC20(nameService.getAddress("CDAI"));
 			ERC20 dai = ERC20(nameService.getAddress("DAI"));
@@ -493,20 +485,10 @@ contract GoodReserveCDai is
 			
 			uint256 daiResult = cDai.redeem(tokenReturn);
 			uint256 daiReturnAmount = (dai.balanceOf(address(this))).sub(currDaiBalance);
-			if (sellParameters.withTransfer == true){
-				
-				require(
-					dai.transfer(sellParameters.targetAddress, daiReturnAmount) == true,
-					"Transfer failed"
-				);
-				
-				return (daiReturnAmount, contributionAmount);
-			} else {
 			
-				return (daiReturnAmount, contributionAmount);
+			return (daiReturnAmount, contributionAmount);
+			
 			}
-		
-	}
 	}
 	/**
 	 * @dev Current price of GD in `token`. currently only cDAI is supported.
