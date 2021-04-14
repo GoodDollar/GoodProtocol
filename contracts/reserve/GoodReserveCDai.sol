@@ -458,7 +458,7 @@ contract GoodReserveCDai is
 		uint256 _gdAmount,
 		uint256 _minReturn
 		) internal returns (uint256,uint256) {
-		ERC20 sellTo = ERC20(nameService.getAddress("CDAI"));
+		ERC20 sellTo = ERC20(cDaiAddress);
 		GoodDollar(address(avatar.nativeToken())).burnFrom(
 			msg.sender,
 			_gdAmount
@@ -507,8 +507,6 @@ contract GoodReserveCDai is
 	 * @return price of GD
 	 */
 	function currentPrice(ERC20 _token) public view returns (uint256) {
-		address cDaiAddress = nameService.getAddress("CDAI");
-		address daiAddress = nameService.getAddress("DAI");
 		uint256 priceInCDai = getMarketMaker().currentPrice(ERC20(cDaiAddress));
 		if(address(_token) == cDaiAddress) return priceInCDai;
 		cERC20 cDai = cERC20(cDaiAddress);
@@ -533,7 +531,7 @@ contract GoodReserveCDai is
 	function currentPrice() public view returns (uint256) {
 		return
 			getMarketMaker().currentPrice(
-				cDaiAddress
+				ERC20(cDaiAddress)
 			);
 	}
 
