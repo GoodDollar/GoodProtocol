@@ -20,7 +20,7 @@ export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 1;
 
 
-describe("GoodReserve - staking with cDAI mocks and UNISWAP router", () => {
+describe("GoodReserve - buy/sell with any token through uniswap", () => {
   let dai: Contract,
     tokenA:Contract,
     pair:Contract,
