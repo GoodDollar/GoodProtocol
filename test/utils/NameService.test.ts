@@ -88,9 +88,9 @@ describe("NameService - Setup and functionalities", () => {
       });
       goodReserve = (await upgrades.deployProxy(
         reserveFactory,
-        [controller, nameService.address, ethers.constants.HashZero],
+        [controller, nameService.address, ethers.constants.HashZero,dai.address,cDAI.address],
         {
-          initializer: "initialize(address,address,bytes32)"
+          initializer: "initialize(address,address,bytes32,address,address)"
         }
       )) as GoodReserveCDai;
   
