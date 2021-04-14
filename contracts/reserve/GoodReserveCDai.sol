@@ -244,14 +244,14 @@ contract GoodReserveCDai is
 		address _targetAddress
 	) public returns(uint256){
 		require(
-				_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
-				"You need to approve input token transfer first"
-			);
-			require(
-				_buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
-					true,
-				"transferFrom failed, make sure you approved input token transfer"
-			);
+			_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
+			"You need to approve input token transfer first"
+		);
+		require(
+			_buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
+				true,
+			"transferFrom failed, make sure you approved input token transfer"
+		);
 		uint256 tempMinReturn = _minReturn;
 		address tempTargetAddress = _targetAddress;
 		uint256 result;
@@ -433,8 +433,8 @@ contract GoodReserveCDai is
 	function _redeemDAI(
 		uint256 _amount
 	) internal returns(uint256){
-		cERC20 cDai = cERC20(nameService.getAddress("CDAI"));
-		ERC20 dai = ERC20(nameService.getAddress("DAI"));
+		cERC20 cDai = cERC20(cDaiAddress);
+		ERC20 dai = ERC20(daiAddress);
 			
 		uint256 currDaiBalance = dai.balanceOf(address(this));
 			
@@ -513,7 +513,7 @@ contract GoodReserveCDai is
 		if(address(_token) == cDaiAddress) return priceInCDai;
 		cERC20 cDai = cERC20(cDaiAddress);
 		uint256 priceInDai = rmul(
-			priceInCDai * 1e10, //bring cdai 8 decimals to rdai precision
+			priceInCDai * 1e10, //bring cdai 8 decimals to Dai precision
 			cDai.exchangeRateStored().div(10)
 		);
 		if(address(_token) == daiAddress){
@@ -533,7 +533,7 @@ contract GoodReserveCDai is
 	function currentPrice() public view returns (uint256) {
 		return
 			getMarketMaker().currentPrice(
-				ERC20(nameService.getAddress("CDAI"))
+				cDaiAddress
 			);
 	}
 
