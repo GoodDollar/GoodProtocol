@@ -158,7 +158,10 @@ describe("GDX - discount on exit contribution", () => {
     const event = transaction.events.find(_ => _.event === "TokenSold");
     expect(event.args.contributionAmount).to.equal(0);
   });
+  it("GDX should be 2 decimals", async()=>{
 
+    expect(await goodReserve.decimals()).to.be.equal(BN.from("2"));
+  })
   it("should be able to transfer GDX", async () => {
     let amount = BN.from("10000");
 

@@ -185,6 +185,16 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     expect(cdaiWorthInGD.toNumber() / 10 ** 8).to.be.equal(10000);
   });
 
+  it("should returned market price of 1gd in DAI", async () => {
+    
+    const gdPrice = await goodReserve["currentPrice(address)"](dai.address);
+    const daiWorthInGD = gdPrice.mul(BN.from("98010000"))
+    const gdFloatPrice = gdPrice.toNumber() / 10 ** 18; //dai 18 decimals
+    expect(gdFloatPrice).to.be.equal(0.000101010101010101);
+    expect(daiWorthInGD.toString()).to.be.equal("9899999999999999010000"); //in 18 decimals precision
+    //expect(daiWorthInGD.toNumber() / 10 ** 18).to.be.equal(9899.999999999999010000);
+  });
+
   // it("should not be able to buy gd if the minter is not the reserve", async () => {
   //   let amount = 1e8;
   //   await dai["mint(uint256)"](ethers.utils.parseEther("100"));
@@ -977,14 +987,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     expect(tx).to.revertedWith("revert only avatar can call this method");
   });
 
-  it("should returned fixed 0.005 market price", async () => {
-    const gdPrice = await goodReserve["currentPrice(address)"](cDAI2.address);
-    const cdaiWorthInGD = gdPrice.mul(BN.from("100000000"));
-    const gdFloatPrice = gdPrice.toNumber() / 10 ** 8; //cdai 8 decimals
-    expect(gdFloatPrice).to.be.equal(0.005);
-    expect(cdaiWorthInGD.toString()).to.be.equal("50000000000000"); //in 8 decimals precision
-    expect(cdaiWorthInGD.toNumber() / 10 ** 8).to.be.equal(500000);
-  });
+  
 
   it("should be able to buy gd with cDAI and reserve should be correct", async () => {
     let amount = 1e8;

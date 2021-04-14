@@ -114,6 +114,11 @@ interface Uniswap {
 		uint256 reserveIn,
 		uint256 reserveOut
 	) external pure returns (uint256 amountOut);
+	
+	function getAmountsOut(
+		uint amountIn,
+		address[] memory path
+	) external pure returns (uint[] memory amounts);
 }
 
 interface UniswapFactory {

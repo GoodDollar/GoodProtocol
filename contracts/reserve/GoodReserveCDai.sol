@@ -501,7 +501,27 @@ contract GoodReserveCDai is
 	 * @return price of GD
 	 */
 	function currentPrice(ERC20 _token) public view returns (uint256) {
-		return getMarketMaker().currentPrice(_token);
+		address cDaiAddress = nameService.getAddress("CDAI");
+		address daiAddress = nameService.getAddress("DAI");
+		uint256 priceInCDai = getMarketMaker().currentPrice(ERC20(cDaiAddress));
+		if(address(_token) == cDaiAddress) return priceInCDai;
+		cERC20 cDai = cERC20(cDaiAddress);
+		uint256 priceInDai = rmul(
+			priceInCDai * 1e10, //bring cdai 8 decimals to rdai precision
+			cDai.exchangeRateStored().div(10)
+		);
+		if(address(_token) == daiAddress){
+			
+			return priceInDai;
+		} else {
+			address[] memory path = new address[](2);
+			path[0] = daiAddress;
+			path[1] = address(_token);
+			Uniswap uniswapContract = Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+			uint[] memory priceInXToken = uniswapContract.getAmountsOut(priceInDai, path);
+			require(priceInXToken[priceInXToken.length - 1] > 0, "No valid price data for pair");
+			return priceInXToken[priceInXToken.length - 1];
+		}
 	}
 
 	function currentPrice() public view returns (uint256) {

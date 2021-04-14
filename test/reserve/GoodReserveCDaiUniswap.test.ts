@@ -211,8 +211,29 @@ describe("GoodReserve - staking with cDAI mocks and UNISWAP router", () => {
     // const newFM = await goodReserve.fundManager();
     // expect(newFM.toString()).to.be.equal(founder.address);
   });
-  
-  
+  it("should returned fixed 0.0001 market price", async () => {
+    const gdPrice = await goodReserve["currentPrice()"]();
+    const cdaiWorthInGD = gdPrice.mul(BN.from("100000000"));
+    const gdFloatPrice = gdPrice.toNumber() / 10 ** 8; //cdai 8 decimals
+    expect(gdFloatPrice).to.be.equal(0.0001);
+    expect(cdaiWorthInGD.toString()).to.be.equal("1000000000000"); //in 8 decimals precision
+    expect(cdaiWorthInGD.toNumber() / 10 ** 8).to.be.equal(10000);
+  });
+  it("should returned price of gd in tokenA", async() => {
+    let mintAmount = ethers.utils.parseEther("100");
+    let depositAmount = ethers.utils.parseEther("50");
+    await dai["mint(uint256)"](mintAmount);
+    await tokenA["mint(uint256)"](mintAmount);
+    await addLiquidity(depositAmount,depositAmount)
+    const gdPrice = await goodReserve["currentPrice(address)"](tokenA.address);
+    const gdFloatPrice = gdPrice.toNumber() / 10 ** 18; //dai 18 decimals
+    expect(gdFloatPrice).to.be.equal(0.000100706867869197);
+    
+
+    await pair.transfer(pair.address,pair.balanceOf(founder.address));
+    await pair.burn(founder.address);
+
+  })
   it("should be able to buy gd with tokenA through UNISWAP", async () => {
     let amount = 99e7;
     let mintAmount = ethers.utils.parseEther("100");
@@ -225,7 +246,7 @@ describe("GoodReserve - staking with cDAI mocks and UNISWAP router", () => {
     await tokenA["mint(uint256)"](mintAmount);
    
    
-    addLiquidity(depositAmount,depositAmount)
+    await addLiquidity(depositAmount,depositAmount)
     
     let reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceBefore = reserveToken.reserveSupply;
