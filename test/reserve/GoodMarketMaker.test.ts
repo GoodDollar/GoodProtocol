@@ -540,4 +540,44 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     let gdSupplyAfter = reserveTokenAfter.gdSupply;
     expect(gdSupplyAfter.toString()).to.be.equal(gdSupplyBefore.toString());
   });
+
+  it("should price decrease after sell gd when RR is not 100%",async() =>{
+    
+    let reserveTokenBefore = await marketMaker.reserveTokens(cdai);
+    let gdPriceBefore = await marketMaker.currentPrice(cdai);
+    
+    let gdSupplyBefore = reserveTokenBefore.gdSupply;
+    let reserveRatioBefore = reserveTokenBefore.reserveRatio;
+    let reserveSupplyBefore = reserveTokenBefore.reserveSupply;
+    await marketMaker.sellWithContribution(cdai, BN.from("500000"), 0);
+    let reserveTokenAfter = await marketMaker.reserveTokens(cdai);
+    let gdSupplyAfter = reserveTokenAfter.gdSupply;
+
+   
+    let reserveRatioAfter = reserveTokenAfter.reserveRatio;
+    let gdPriceAfter = await marketMaker.currentPrice(cdai);
+    let reserveSupplyAfter = reserveTokenAfter.reserveSupply;
+
+   expect (gdPriceAfter.lt(gdPriceBefore));
+   expect (reserveRatioAfter).to.be.equal(reserveRatioBefore);
+  })
+  it("should price increase after buy gd when RR is not %100", async() =>{
+    let reserveTokenBefore = await marketMaker.reserveTokens(cdai);
+    let gdPriceBefore = await marketMaker.currentPrice(cdai);
+    
+    let gdSupplyBefore = reserveTokenBefore.gdSupply;
+    let reserveRatioBefore = reserveTokenBefore.reserveRatio;
+    let reserveSupplyBefore = reserveTokenBefore.reserveSupply;
+    await marketMaker.buy(cdai, BN.from("500000"));
+    let reserveTokenAfter = await marketMaker.reserveTokens(cdai);
+    let gdSupplyAfter = reserveTokenAfter.gdSupply;
+
+   
+    let reserveRatioAfter = reserveTokenAfter.reserveRatio;
+    let gdPriceAfter = await marketMaker.currentPrice(cdai);
+    let reserveSupplyAfter = reserveTokenAfter.reserveSupply;
+
+   expect (gdPriceAfter.gt(gdPriceBefore));
+   expect (reserveRatioAfter).to.be.equal(reserveRatioBefore);
+  })
 });
