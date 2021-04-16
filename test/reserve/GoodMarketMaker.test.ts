@@ -364,7 +364,9 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     let supplyBefore = reserveToken.gdSupply;
     let rrBefore = reserveToken.reserveRatio;
     let amount = 100;
-    let transaction = await (await marketMaker.sell(dai, 100)).wait();
+    let transaction = await (
+      await marketMaker.sellWithContribution(dai, 100, 0)
+    ).wait();
     reserveToken = await marketMaker.reserveTokens(dai);
     let reserveBalanceAfter = reserveToken.reserveSupply;
     let supplyAfter = reserveToken.gdSupply;
@@ -410,7 +412,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   });
 
   it("should not be able to calculate the sell return in reserve token and update the bonding curve params by a non-owner account", async () => {
-    let res = marketMaker.connect(staker).sell(dai, 100);
+    let res = marketMaker.connect(staker).sellWithContribution(dai, 100, 0);
     expect(res).to.be.revertedWith("revert Ownable: caller is not the owner");
   });
 
@@ -441,7 +443,11 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   });
 
   it("should be able to sell only with active token", async () => {
-    let res = marketMaker.sell(NULL_ADDRESS, ethers.utils.parseEther("1"));
+    let res = marketMaker.sellWithContribution(
+      NULL_ADDRESS,
+      ethers.utils.parseEther("1"),
+      0
+    );
 
     expect(res).to.be.revertedWith("Reserve token not initialized");
   });
@@ -458,7 +464,11 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   it("should be able to sell gd only when the amount is lower than the total supply", async () => {
     let reserveToken = await marketMaker.reserveTokens(cdai);
     let gdSupply = reserveToken.gdSupply;
-    let res = marketMaker.sell(cdai, gdSupply.add(BN.from(1)));
+    let res = marketMaker.sellWithContribution(
+      cdai,
+      gdSupply.add(BN.from(1)),
+      0
+    );
     expect(res).to.be.revertedWith("GD amount is higher than the total supply");
   });
 
