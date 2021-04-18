@@ -51,6 +51,8 @@ interface GoodDollar is ERC20 {
 	function addMinter(address minter) external;
 
 	function isMinter(address minter) external view returns (bool);
+
+	function transferAndCall(address to, uint256 value, bytes calldata data) external returns(bool);
 }
 
 interface Staking {

@@ -110,6 +110,12 @@ contract AbstractGoodStaking {
     function redeem(uint amount) internal virtual{}
 
     /**
+     * @dev Redeem invested underlying tokens from defi protocol
+     * @dev amount tokens to be redeemed
+     * @return token which redeemed from protocol and redeemed amount
+     */
+     function redeemUnderlying(uint amount) internal virtual returns(address, uint){}
+    /**
      * @dev Calculates exchange rate for token to intrest token from defi protocol.
      * @return exchange rate.
      */

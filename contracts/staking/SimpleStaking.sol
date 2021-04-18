@@ -2,7 +2,7 @@
 
 pragma solidity >=0.7.0;
 
-import "../dao/schemes/FeelessScheme.sol";
+
 import "../identity/Identity.sol";
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../Interfaces.sol";
@@ -11,7 +11,7 @@ import "../utils/DSMath.sol";
 import "./AbstractGoodStaking.sol";
 import ".//InterestDistribution.sol";
 import "../DAOStackInterfaces.sol";
-
+import "../utils/NameService.sol";
 interface FundManager {
     function transferInterest(address _staking)
         external;
@@ -24,7 +24,7 @@ interface FundManager {
  * or withdraw their stake in Tokens
  * the contracts buy intrest tokens and can transfer the daily interest to the  DAO
  */
-contract SimpleStaking is DSMath, Pausable, FeelessScheme, AbstractGoodStaking {
+contract SimpleStaking is DSMath, Pausable, DAOContract, AbstractGoodStaking {
     using SafeMath for uint256;
 
     // Token address
@@ -50,48 +50,45 @@ contract SimpleStaking is DSMath, Pausable, FeelessScheme, AbstractGoodStaking {
     
     uint256 constant DECIMAL1e18 = 10**18;
 
-    // The address of the fund manager contract
-    address public fundManager;
+   
+    // Nameservice to hold necessarry addresses
+    NameService public nameService;
 
     modifier onlyFundManager {
-        require(msg.sender == fundManager, "Only FundManager can call this method");
-        _;
-    }
+		require(
+			msg.sender == nameService.getAddress("FUND_MANAGER"),
+			"Only FundManager can call this method"
+		);
+		_;
+	}
 
     /**     
      * @dev Constructor     
      * @param _token The address of Token       
-     * @param _iToken The address of Interest Token     
-     * @param _fundManager The address of the fund manager contract     
+     * @param _iToken The address of Interest Token         
      * @param _blockInterval How many blocks should be passed before the next execution of `collectUBIInterest`     
-     * @param _avatar The avatar of the DAO     
-     * @param _identity The identity contract       
+     * @param _dao The address of Controller    
+     * @param _ns The address of the NameService contract       
      */
     constructor(
         address _token,
         address _iToken,
-        address _fundManager,
         uint256 _blockInterval,
-        Avatar _avatar,
-        Identity _identity
-    ) public FeelessScheme(_identity, _avatar) {
+        Controller _dao,
+        NameService _ns
+      
+    ) public{
+        setDAO(_dao);
         token = ERC20(_token);
         iToken = ERC20(_iToken);
         blockInterval = _blockInterval;
         lastUBICollection = block.number.div(blockInterval);
-        fundManager = _fundManager;
-
+        nameService = _ns;
         // Adds the avatar as a pauser of this contract
         addPauser(address(avatar));
     }
 
-    /**
-    * @dev Allow the DAO to change the fund manager contract address
-    * @param _fundManager Address of the new contract
-    */
-    function setFundManager(address _fundManager) public onlyAvatar {
-        fundManager = _fundManager;
-    }
+    
 
     /**
      * @dev Allows a staker to deposit Tokens. Notice that `approve` is
@@ -108,7 +105,7 @@ contract SimpleStaking is DSMath, Pausable, FeelessScheme, AbstractGoodStaking {
             "transferFrom failed, make sure you approved token transfer"
         );
 
-        FundManager fm = FundManager(fundManager);
+        FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
         fm.transferInterest(address(this));
         // approve the transfer to defi protocol
         token.approve(address(iToken), _amount);
@@ -125,7 +122,7 @@ contract SimpleStaking is DSMath, Pausable, FeelessScheme, AbstractGoodStaking {
         require(_amount > 0, "Should withdraw positive amount");
         require(staker.totalStaked >= _amount, "Not enough token staked");
         uint256 tokenWithdraw = _amount;
-        FundManager fm = FundManager(fundManager);
+        FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
         fm.transferInterest(address(this));
         redeem(tokenWithdraw);
         uint256 tokenActual = token.balanceOf(address(this));
@@ -141,7 +138,7 @@ contract SimpleStaking is DSMath, Pausable, FeelessScheme, AbstractGoodStaking {
     }
 
     function withdrawGDInterest() public {
-        FundManager fm = FundManager(fundManager);
+        FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
         fm.transferInterest(address(this));
         uint256 gdInterest = InterestDistribution.withdrawGDInterest(interestData, msg.sender);
         ERC20 goodDollar = ERC20(address(avatar.nativeToken()));
@@ -302,13 +299,7 @@ contract SimpleStaking is DSMath, Pausable, FeelessScheme, AbstractGoodStaking {
         return (iTokenGains, tokenGains, precisionLossToken, avgEffectiveStakedRatio);
     }
 
-    /**
-     * @dev Start function. Adds this contract to identity as a feeless scheme.
-     * Can only be called if scheme is registered
-     */
-    function start() public onlyRegistered {
-        addRights();
-    }
+    
 
     /**
      * @dev making the contract inactive
@@ -317,7 +308,7 @@ contract SimpleStaking is DSMath, Pausable, FeelessScheme, AbstractGoodStaking {
      */
     function end() public onlyAvatar {
         pause();
-        removeRights();
+    
     }
 
     /**
