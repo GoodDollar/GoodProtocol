@@ -11,7 +11,7 @@ const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 30;
 
-describe("GoodReserve - staking with cDAI mocks", () => {
+describe("SimpleDAISTAking - staking with cDAI mocks", () => {
   let dai: Contract;
   let cDAI, cDAI1: Contract;
   let goodReserve: GoodReserveCDai;
@@ -148,7 +148,11 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
   });
-
+  it("should get g$ minting permissions", async () => {
+    expect(await goodReserve.dao()).to.be.equal(controller);
+    expect(await goodReserve.avatar()).to.be.equal(avatar);
+    await goodReserve.start();
+  });
   it("should set marketmaker in the reserve by avatar", async () => {
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
   });
@@ -276,14 +280,14 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     // staking dai
     await dai["mint(address,uint256)"](staker.address, weiAmount);
     let stakerBalanceBefore = await dai.balanceOf(staker.address);
-    console.log(stakerBalanceBefore.toString());
+    
     await dai.connect(staker).approve(simpleStaking1.address, weiAmount);
     await simpleStaking1.connect(staker).stake(weiAmount, 100);
 
     // transfer excessive dai to the contract
-    await dai.mint(founder.address, weiAmount);
+    await dai["mint(address,uint256)"](founder.address, weiAmount);
     await dai.transfer(simpleStaking1.address, weiAmount);
-    let balanceBefore = await dai.balanceOf(avatar.address);
+    let balanceBefore = await dai.balanceOf(avatar);
 
     const simpleStakingFactory = await ethers.getContractFactory(
       "SimpleStaking"
@@ -298,7 +302,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
       schemeMock
     );
     await ictrl.genericCall(
-      goodCompoundStaking.address,
+      simpleStaking1.address,
       encodedCall,
       avatar,
       0
@@ -316,4 +320,34 @@ describe("GoodReserve - staking with cDAI mocks", () => {
       stakerBalanceBefore.toString()
     );
   });
+  it("should not transfer user's funds when execute recover", async () => {
+    let depositAmount = ethers.utils.parseEther("100")
+    await dai["mint(address,uint256)"](staker.address, depositAmount);
+    await dai.connect(staker).approve(goodCompoundStaking.address, depositAmount);
+    let balanceBefore = await dai.balanceOf(avatar);
+    let stakerBalanceBefore = await dai.balanceOf(staker.address);
+    await goodCompoundStaking.connect(staker).stake(depositAmount,100);
+     
+    let encodedCall = goodCompoundStaking.interface.encodeFunctionData(
+      "recover",
+      [dai.address]
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    await ictrl.genericCall(
+      goodCompoundStaking.address,
+      encodedCall,
+      avatar,
+      0
+    );
+    await goodCompoundStaking.connect(staker).withdrawStake(depositAmount);
+    let balanceAfter = await dai.balanceOf(avatar);
+    let stakerBalanceAfter = await dai.balanceOf(staker.address);
+    expect(balanceAfter.toString()).to.be.equal(balanceBefore.toString());
+    expect(stakerBalanceAfter.toString()).to.be.equal(stakerBalanceBefore.toString());
+  });
+
 });
