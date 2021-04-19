@@ -9,6 +9,14 @@ import { GoodMarketMaker } from "../types";
 
 export const createDAO = async () => {
   let [root, ...signers] = await ethers.getSigners();
+
+  const cdaiFactory = await ethers.getContractFactory("cDAIMock");
+  const daiFactory = await ethers.getContractFactory("DAIMock");
+
+  let dai = await daiFactory.deploy();
+
+  let cDAI = await cdaiFactory.deploy(dai.address);
+
   const DAOCreatorFactory = new ethers.ContractFactory(
     DAOCreatorABI.abi,
     DAOCreatorABI.bytecode,
@@ -79,14 +87,18 @@ export const createDAO = async () => {
         "IDENTITY",
         "GOODDOLLAR",
         "CONTRIBUTION_CALCULATION",
-        "BANCOR_FORMULA"
+        "BANCOR_FORMULA",
+        "DAI",
+        "CDAI"
       ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
       [
         Avatar.address,
         Identity.address,
         await Avatar.nativeToken(),
         contribution.address,
-        BancorFormula.address
+        BancorFormula.address,
+        dai.address,
+        cDAI.address
       ]
     ]
   );
@@ -140,7 +152,9 @@ export const createDAO = async () => {
     nameService,
     setDAOAddress,
     setSchemes,
-    marketMaker
+    marketMaker,
+    daiAddress: dai.address,
+    cdaiAddress: cDAI.address
   };
 };
 
