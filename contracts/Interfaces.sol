@@ -11,7 +11,7 @@ interface ERC20 {
 
 	function approve(address spender, uint256 amount) external returns (bool);
 
-	function decimals() external view returns (uint256);
+	function decimals() external view returns (uint8);
 
 	function allowance(address owner, address spender)
 		external
@@ -31,7 +31,7 @@ interface cERC20 is ERC20 {
 	function redeemUnderlying(uint256 mintAmount) external returns (uint256);
 
 	function redeem(uint256 mintAmount) external returns (uint256);
-	
+
 	function exchangeRateCurrent() external returns (uint256);
 
 	function exchangeRateStored() external view returns (uint256);
@@ -114,11 +114,11 @@ interface Uniswap {
 		uint256 reserveIn,
 		uint256 reserveOut
 	) external pure returns (uint256 amountOut);
-	
-	function getAmountsOut(
-		uint amountIn,
-		address[] memory path
-	) external pure returns (uint[] memory amounts);
+
+	function getAmountsOut(uint256 amountIn, address[] memory path)
+		external
+		pure
+		returns (uint256[] memory amounts);
 }
 
 interface UniswapFactory {

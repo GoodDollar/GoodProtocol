@@ -141,7 +141,7 @@ contract GoodReserveCDai is
 	}
 
 	/// @dev GDX decimals
-	function decimals() public view override returns (uint8) {
+	function decimals() public pure override returns (uint8) {
 		return 2;
 	}
 
