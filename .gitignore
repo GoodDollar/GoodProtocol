@@ -108,3 +108,5 @@ dist
 cache/*
 types/*
 
+artifacts/*
+
