@@ -11,7 +11,6 @@ import {
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { createDAO, increaseTime, advanceBlocks } from "../helpers";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
-import { formatEther, parseUnits } from "@ethersproject/units";
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
 import ERC20 from "@uniswap/v2-core/build/ERC20.json";
@@ -253,13 +252,17 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     const priceBefore = await goodReserve["currentPrice()"]();
     await tokenA.approve(goodReserve.address, buyAmount);
-    let gdPriceInTokenABefore = await goodReserve["currentPrice(address)"](tokenA.address)
+    let gdPriceInTokenABefore = await goodReserve["currentPrice(address)"](
+      tokenA.address
+    );
     let transaction = await (
       await goodReserve.buy(tokenA.address, buyAmount, 0, 0, NULL_ADDRESS)
     ).wait();
-    let gdPriceInTokenAAfter = await goodReserve["currentPrice(address)"](tokenA.address)
-  
-    expect(gdPriceInTokenAAfter.gt(gdPriceInTokenABefore))
+    let gdPriceInTokenAAfter = await goodReserve["currentPrice(address)"](
+      tokenA.address
+    );
+
+    expect(gdPriceInTokenAAfter.gt(gdPriceInTokenABefore));
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
     let supplyAfter = reserveToken.gdSupply;
@@ -306,11 +309,15 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     const priceBefore = await goodReserve["currentPrice()"]();
     await goodDollar.approve(goodReserve.address, sellAmount);
-    let gdPriceInTokenABefore = await goodReserve["currentPrice(address)"](tokenA.address)
+    let gdPriceInTokenABefore = await goodReserve["currentPrice(address)"](
+      tokenA.address
+    );
     let transaction = await (
       await goodReserve.sell(tokenA.address, sellAmount, 0, 0, NULL_ADDRESS)
     ).wait();
-    let gdPriceInTokenAAfter = await goodReserve["currentPrice(address)"](tokenA.address)
+    let gdPriceInTokenAAfter = await goodReserve["currentPrice(address)"](
+      tokenA.address
+    );
 
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
@@ -322,7 +329,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
 
     const priceAfter = await goodReserve["currentPrice()"]();
     expect(cDAIBalanceReserveBefore.gt(cDAIBalanceReserveAfter)).to.be.true;
-    expect(gdPriceInTokenABefore.gt(gdPriceInTokenAAfter))
+    expect(gdPriceInTokenABefore.gt(gdPriceInTokenAAfter));
     expect(
       reserveBalanceAfter.sub(reserveBalanceBefore).toString()
     ).to.be.equal(amount.toString());
@@ -345,7 +352,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     let depositAmount = ethers.utils.parseEther("50");
     let buyAmount = ethers.utils.parseEther("12.5376128385155467"); // Amount to get 10 DAI
     await dai["mint(uint256)"](mintAmount);
-  
+
     expect(await nameService.getAddress("DAI")).to.be.equal(dai.address);
 
     await tokenA["mint(uint256)"](mintAmount);
@@ -454,7 +461,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
       goodReserve.sell(tokenA.address, sellAmount, 0, 0, NULL_ADDRESS)
     ).to.be.reverted;
   });
-  it("should price increase after buy when RR is not 100%",async() =>{
+  it("should increase price after buy when RR is not 100%", async () => {
     //Initialise new market maker due to other one's ownership transfered to goodreserve so we cant change its RR
     const MM = await ethers.getContractFactory("GoodMarketMaker");
 
@@ -475,42 +482,50 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
 
     let reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveRatio = reserveToken.reserveRatio;
-   
+
     let beforeGdBalance = await goodDollar.balanceOf(founder.address);
-    let buyAmount = BN.from("500000000000000000000000") // 500k dai
+    let buyAmount = BN.from("500000000000000000000000"); // 500k dai
     await dai["mint(uint256)"](buyAmount);
     let gdPriceBefore = await goodReserve["currentPrice()"]();
-    
-    dai.approve(goodReserve.address, buyAmount)
-    await goodReserve["buy(address,uint256,uint256,uint256,address)"](dai.address, buyAmount, 0, 0, NULL_ADDRESS)
+
+    dai.approve(goodReserve.address, buyAmount);
+    await goodReserve["buy(address,uint256,uint256,uint256,address)"](
+      dai.address,
+      buyAmount,
+      0,
+      0,
+      NULL_ADDRESS
+    );
     let gdPriceAfter = await goodReserve["currentPrice()"]();
     let laterGdBalance = await goodDollar.balanceOf(founder.address);
-    expect(beforeGdBalance.lt(laterGdBalance)) // GD balance of founder should increase
+    expect(beforeGdBalance.lt(laterGdBalance)); // GD balance of founder should increase
 
     expect(gdPriceAfter.gt(gdPriceBefore)); // GD price should increase
-
-  })
-  it("should price decrease after sell when RR is not 100%",async() =>{
-    
-
+  });
+  it("should increase price after sell when RR is not 100%", async () => {
     let reserveTokenBefore = await marketMaker.reserveTokens(cDAI.address);
     let reserveRatioBefore = reserveTokenBefore.reserveRatio;
-   
 
-    let sellAmount = BN.from("5000000") // Sell 50k GD
-    
+    let sellAmount = BN.from("5000000"); // Sell 50k GD
+
     let gdPriceBefore = await goodReserve["currentPrice()"]();
-    let daiBalanceBefore = await dai.balanceOf(founder.address)
-    goodDollar.approve(goodReserve.address, sellAmount)
-    await goodReserve["sell(address,uint256,uint256,uint256,address)"](dai.address, sellAmount, 0, 0, NULL_ADDRESS)
+    let daiBalanceBefore = await dai.balanceOf(founder.address);
+    goodDollar.approve(goodReserve.address, sellAmount);
+    await goodReserve["sell(address,uint256,uint256,uint256,address)"](
+      dai.address,
+      sellAmount,
+      0,
+      0,
+      NULL_ADDRESS
+    );
     let reserveTokenAfter = await marketMaker.reserveTokens(cDAI.address);
     let reserveRatioAfter = reserveTokenAfter.reserveRatio;
     let gdPriceAfter = await goodReserve["currentPrice()"]();
-    let daiBalanceAfter = await dai.balanceOf(founder.address)
+    let daiBalanceAfter = await dai.balanceOf(founder.address);
     expect(gdPriceAfter.lt(gdPriceBefore)); // GD price should decrease
     expect(daiBalanceAfter.gt(daiBalanceBefore)); // DAI balance of founder should increase
     expect(reserveRatioBefore).to.be.equal(reserveRatioAfter); // RR should stay same
-  })
+  });
 
   async function addLiquidity(
     token0Amount: BigNumber,
