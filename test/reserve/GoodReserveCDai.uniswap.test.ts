@@ -209,6 +209,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     // const newFM = await goodReserve.fundManager();
     // expect(newFM.toString()).to.be.equal(founder.address);
   });
+  
   it("should returned fixed 0.0001 market price", async () => {
     const gdPrice = await goodReserve["currentPrice()"]();
     const cdaiWorthInGD = gdPrice.mul(BN.from("100000000"));
@@ -217,6 +218,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     expect(cdaiWorthInGD.toString()).to.be.equal("1000000000000"); //in 8 decimals precision
     expect(cdaiWorthInGD.toNumber() / 10 ** 8).to.be.equal(10000);
   });
+  
   it("should returned price of gd in tokenA", async () => {
     let mintAmount = ethers.utils.parseEther("100");
     let depositAmount = ethers.utils.parseEther("50");
@@ -230,6 +232,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     await pair.transfer(pair.address, pair.balanceOf(founder.address));
     await pair.burn(founder.address);
   });
+  
   it("should be able to buy gd with tokenA through UNISWAP", async () => {
     let amount = 99e7;
     let mintAmount = ethers.utils.parseEther("100");
@@ -446,6 +449,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     expect(transaction.events.find(_ => _.event === "TokenSold")).to.be.not
       .empty;
   });
+  
   it("shouldn't be able to buy gd with tokenA through UNISWAP without approve", async () => {
     let depositAmount = ethers.utils.parseEther("5");
     tokenA.approve(goodReserve.address, "0");
@@ -461,6 +465,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
       goodReserve.sell(tokenA.address, sellAmount, 0, 0, NULL_ADDRESS)
     ).to.be.reverted;
   });
+  
   it("should increase price after buy when RR is not 100%", async () => {
     //Initialise new market maker due to other one's ownership transfered to goodreserve so we cant change its RR
     const MM = await ethers.getContractFactory("GoodMarketMaker");
@@ -502,12 +507,11 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
 
     expect(gdPriceAfter.gt(gdPriceBefore)); // GD price should increase
   });
+  
   it("should increase price after sell when RR is not 100%", async () => {
     let reserveTokenBefore = await marketMaker.reserveTokens(cDAI.address);
     let reserveRatioBefore = reserveTokenBefore.reserveRatio;
-
     let sellAmount = BN.from("5000000"); // Sell 50k GD
-
     let gdPriceBefore = await goodReserve["currentPrice()"]();
     let daiBalanceBefore = await dai.balanceOf(founder.address);
     goodDollar.approve(goodReserve.address, sellAmount);
