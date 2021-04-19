@@ -56,4 +56,7 @@ contract cDAIMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	function exchangeRateStored() public view returns (uint256) {
 		return exchangeRate;
 	}
+	function decimals() public view override returns (uint8) {
+        return 8;
+    }
 }

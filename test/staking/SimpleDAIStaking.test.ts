@@ -714,7 +714,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
   });
 
-  it("should not be able to stake when approved dai amount is too low", async () => {
+  it("should not be able to stake when approved dai amount is lower than staking amount", async () => {
     let lowWeiAmount = ethers.utils.parseEther("99");
     let weiAmount = ethers.utils.parseEther("100");
 
@@ -730,4 +730,62 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     expect(error);
     expect(error.message).not.to.be.empty;
   });
+
+  it("should not be able to stake when staker dai balance is too low", async () => {
+    let currentBalance = await dai.balanceOf(staker.address);
+    let weiAmount = ethers.utils.parseEther("100");
+    let approvedAmount = currentBalance.valueOf() + weiAmount;
+
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, approvedAmount);
+
+    const error = await goodCompoundStaking
+      .connect(staker)
+      .stake(approvedAmount)
+      .catch(e => e);
+
+    expect(error.message).not.to.be.empty;
+  });
+
+  it("should emit a DAIStaked event", async () => {
+    let weiAmount = ethers.utils.parseEther("100");
+    await dai["mint(address,uint256)"](staker.address, weiAmount);
+    await dai.approve(goodCompoundStaking.address, weiAmount);
+
+    const transaction = await (
+      await goodCompoundStaking.connect(staker).stake(weiAmount, 100)
+    ).wait();
+
+    expect(transaction.events.find(_ => _.event === "Staked")).not.to.be.empty;
+    expect(
+      transaction.events.find(_ => _.event === "Staked").args.value.toString()
+    ).to.be.equal(weiAmount.toString());
+
+    await goodCompoundStaking.connect(staker).withdrawStake(weiAmount);
+  });
+
+  it("should mock cdai updated exchange rate", async () => {
+    await cDAI.exchangeRateCurrent();
+    let rate = await cDAI.exchangeRateStored();
+    expect(rate.toString()).to.be.equal("10201010101010101010101010101");
+  });
+  
+  it("should report interest gains", async () => {
+    let stakingAmount = ethers.utils.parseEther("400")
+    await dai["mint(address,uint256)"](staker.address,stakingAmount );
+    await dai.connect(staker).approve(goodCompoundStaking.address,stakingAmount);
+    await goodCompoundStaking.connect(staker)
+      .stake(stakingAmount, 100)
+      .catch(console.log);
+    await cDAI.exchangeRateCurrent();
+    const gains = await goodCompoundStaking.currentUBIInterest();
+
+    const cdaiGains = gains["0"];
+    const precisionLossDai = gains["2"];
+    expect(cdaiGains.toString()).to.be.equal("380659786"); //8 decimals precision
+    expect(precisionLossDai.toString()).to.be.equal("5733333332"); //10 decimals precision lost
+    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
+  });
+
 });
