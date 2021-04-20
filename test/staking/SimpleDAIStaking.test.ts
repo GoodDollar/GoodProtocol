@@ -152,20 +152,14 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       [goodReserve.address]
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+
+    await setDAOAddress("FUND_MANAGER", goodFundManager.address);
   });
 
   it("should get g$ minting permissions", async () => {
     expect(await goodReserve.dao()).to.be.equal(controller);
     expect(await goodReserve.avatar()).to.be.equal(avatar);
     await goodReserve.start();
-  });
-
-  it("should set marketmaker in the reserve by avatar", async () => {
-    await setDAOAddress("MARKET_MAKER", marketMaker.address);
-  });
-
-  it("should set fundManager in the reserve by avatar", async () => {
-    await setDAOAddress("FUND_MANAGER", goodFundManager.address);
   });
 
   it("should mock cdai exchange rate 1e28 precision", async () => {
