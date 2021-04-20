@@ -5,7 +5,7 @@ import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
 import AddFoundersABI from "@gooddollar/goodcontracts/build/contracts/AddFoundersGoodDollar.json";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
-import { GoodMarketMaker } from "../types";
+import { Controller, GoodMarketMaker } from "../types";
 
 export const createDAO = async () => {
   let [root, ...signers] = await ethers.getSigners();
@@ -83,6 +83,7 @@ export const createDAO = async () => {
     [
       controller,
       [
+        "CONTROLLER",
         "AVATAR",
         "IDENTITY",
         "GOODDOLLAR",
@@ -92,6 +93,7 @@ export const createDAO = async () => {
         "CDAI"
       ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
       [
+        controller,
         Avatar.address,
         Identity.address,
         await Avatar.nativeToken(),
@@ -153,6 +155,7 @@ export const createDAO = async () => {
     setDAOAddress,
     setSchemes,
     marketMaker,
+    feeFormula: FeeFormula,
     daiAddress: dai.address,
     cdaiAddress: cDAI.address
   };

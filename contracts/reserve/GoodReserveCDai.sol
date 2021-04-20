@@ -46,7 +46,6 @@ contract GoodReserveCDai is
 	// when selling GD
 	// ContributionCalc public contribution;
 
-	NameService public nameService;
 	address public daiAddress;
 	address public cDaiAddress;
 
@@ -127,15 +126,14 @@ contract GoodReserveCDai is
 		uint256 gdUbiTransferred
 	);
 
-	function initialize(
-		Controller _dao,
-		NameService _ns,
-		bytes32 _gdxAirdrop
-	) public virtual initializer {
+	function initialize(NameService _ns, bytes32 _gdxAirdrop)
+		public
+		virtual
+		initializer
+	{
 		__ERC20PresetMinterPauser_init("GDX", "G$X");
-		setDAO(_dao);
+		setDAO(_ns);
 		gdxAirdrop = _gdxAirdrop;
-		nameService = _ns;
 		daiAddress = nameService.getAddress("DAI");
 		cDaiAddress = nameService.getAddress("CDAI");
 	}
@@ -343,7 +341,7 @@ contract GoodReserveCDai is
 		address receiver =
 			_targetAddress == address(0x0) ? msg.sender : _targetAddress;
 
-		GoodDollar(address(avatar.nativeToken())).mint(receiver, gdReturn);
+		IGoodDollar(address(avatar.nativeToken())).mint(receiver, gdReturn);
 		//mint GDX
 		_mint(receiver, gdReturn);
 
@@ -452,7 +450,7 @@ contract GoodReserveCDai is
 		returns (uint256, uint256)
 	{
 		ERC20 sellTo = ERC20(cDaiAddress);
-		GoodDollar(address(avatar.nativeToken())).burnFrom(
+		IGoodDollar(address(avatar.nativeToken())).burnFrom(
 			msg.sender,
 			_gdAmount
 		);
@@ -545,7 +543,7 @@ contract GoodReserveCDai is
 		uint256 price = currentPrice(_interestToken);
 		uint256 gdInterestToMint =
 			getMarketMaker().mintInterest(_interestToken, _transfered);
-		GoodDollar gooddollar = GoodDollar(address(avatar.nativeToken()));
+		IGoodDollar gooddollar = IGoodDollar(address(avatar.nativeToken()));
 		uint256 precisionLoss = uint256(27).sub(uint256(gooddollar.decimals()));
 		uint256 gdInterest = rdiv(_interest, price).div(10**precisionLoss);
 		uint256 gdExpansionToMint =
@@ -553,10 +551,7 @@ contract GoodReserveCDai is
 		uint256 gdUBI = gdInterestToMint.sub(gdInterest);
 		gdUBI = gdUBI.add(gdExpansionToMint);
 		uint256 toMint = gdUBI.add(gdInterest);
-		GoodDollar(address(avatar.nativeToken())).mint(
-			getFundManager(),
-			toMint
-		);
+		gooddollar.mint(getFundManager(), toMint);
 		lastMinted = block.number;
 		emit UBIMinted(
 			lastMinted,
@@ -605,7 +600,7 @@ contract GoodReserveCDai is
 			cDai.balanceOf(address(this)) == 0,
 			"Funds transfer has failed"
 		);
-		GoodDollar gooddollar = GoodDollar(address(avatar.nativeToken()));
+		IGoodDollar gooddollar = IGoodDollar(address(avatar.nativeToken()));
 		getMarketMaker().transferOwnership(address(avatar));
 		gooddollar.renounceMinter();
 		//TODO:
