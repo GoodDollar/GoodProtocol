@@ -307,38 +307,6 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	}
 
 	/**
-	 * @dev Updates the _token bonding curve params. Emits `BalancesUpdated` with the
-	 * new reserve token information.
-	 * @param _token The desired reserve token to have
-	 * @param _gdAmount The amount of GD that are sold
-	 * @return Number of tokens that will be given in exchange as calculated by the bonding curve
-	 */
-	function sell(ERC20 _token, uint256 _gdAmount)
-		public
-		onlyOwner
-		onlyActiveToken(_token)
-		returns (uint256)
-	{
-		ReserveToken storage rtoken = reserveTokens[address(_token)];
-		require(
-			rtoken.gdSupply > _gdAmount,
-			"GD amount is higher than the total supply"
-		);
-		uint256 tokenReturn = sellReturn(_token, _gdAmount);
-		rtoken.gdSupply = rtoken.gdSupply.sub(_gdAmount);
-		rtoken.reserveSupply = rtoken.reserveSupply.sub(tokenReturn);
-		emit BalancesUpdated(
-			msg.sender,
-			address(_token),
-			_gdAmount,
-			tokenReturn,
-			rtoken.gdSupply,
-			rtoken.reserveSupply
-		);
-		return tokenReturn;
-	}
-
-	/**
 	 * @dev Calculates the sell return with contribution in _token and update the bonding curve params.
 	 * Emits `BalancesUpdated` with the new reserve token information.
 	 * @param _token The desired reserve token to have
