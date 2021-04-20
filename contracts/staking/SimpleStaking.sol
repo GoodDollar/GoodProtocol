@@ -12,6 +12,7 @@ import "./AbstractGoodStaking.sol";
 import ".//InterestDistribution.sol";
 import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
+import "../utils/DAOContract.sol";
 interface FundManager {
     function transferInterest(address _staking)
         external;
@@ -51,8 +52,7 @@ contract SimpleStaking is DSMath, Pausable, DAOContract, AbstractGoodStaking {
     uint256 constant DECIMAL1e18 = 10**18;
 
    
-    // Nameservice to hold necessarry addresses
-    NameService public nameService;
+   
 
     modifier onlyFundManager {
 		require(
@@ -66,24 +66,22 @@ contract SimpleStaking is DSMath, Pausable, DAOContract, AbstractGoodStaking {
      * @dev Constructor     
      * @param _token The address of Token       
      * @param _iToken The address of Interest Token         
-     * @param _blockInterval How many blocks should be passed before the next execution of `collectUBIInterest`     
-     * @param _dao The address of Controller    
+     * @param _blockInterval How many blocks should be passed before the next execution of `collectUBIInterest` 
      * @param _ns The address of the NameService contract       
      */
     constructor(
         address _token,
         address _iToken,
         uint256 _blockInterval,
-        Controller _dao,
         NameService _ns
       
     ) public{
-        setDAO(_dao);
+        setDAO(_ns);
         token = ERC20(_token);
         iToken = ERC20(_iToken);
         blockInterval = _blockInterval;
         lastUBICollection = block.number.div(blockInterval);
-        nameService = _ns;
+        
         // Adds the avatar as a pauser of this contract
         addPauser(address(avatar));
     }

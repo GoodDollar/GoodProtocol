@@ -20,9 +20,8 @@ contract GoodCompoundStaking is SimpleStaking {
         address _token,
         address _iToken,
         uint256 _blockInterval,
-        Controller _dao,
         NameService _ns
-    ) public SimpleStaking(_token, _iToken, _blockInterval, _dao, _ns) {
+    ) public SimpleStaking(_token, _iToken, _blockInterval, _ns) {
         
     }
 

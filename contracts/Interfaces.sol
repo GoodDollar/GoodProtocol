@@ -37,7 +37,7 @@ interface cERC20 is ERC20 {
 	function exchangeRateStored() external view returns (uint256);
 }
 
-interface GoodDollar is ERC20 {
+interface IGoodDollar is ERC20 {
 	function getFees(uint256 value) external view returns (uint256, bool);
 
 	function mint(address to, uint256 mintAmount) external returns (uint256);

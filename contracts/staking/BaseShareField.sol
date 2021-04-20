@@ -1,8 +1,8 @@
 
 pragma solidity >=0.6.6;
-import '../interfaces.sol';
+import '../Interfaces.sol';
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
-import '../libraries/TransferHelper.sol';
+
 
 contract BaseShareField {
     using SafeMath for uint;
@@ -41,7 +41,7 @@ contract BaseShareField {
     }
     
     function _currentReward() internal virtual view returns (uint) {
-        return mintedShare.add(IERC20(shareToken).balanceOf(address(this))).sub(totalShare);
+        return mintedShare.add(ERC20(shareToken).balanceOf(address(this))).sub(totalShare);
     }
     
     // Audit user's reward to be up-to-date
@@ -109,7 +109,7 @@ contract BaseShareField {
         _audit(user);
         require(users[user].rewardEarn > 0, "NOTHING TO MINT");
         uint amount = users[user].rewardEarn;
-        TransferHelper.safeTransfer(shareToken, msg.sender, amount);
+        ERC20(shareToken).transfer(msg.sender, amount);
         users[user].rewardEarn = 0;
         mintedShare += amount;
         return amount;

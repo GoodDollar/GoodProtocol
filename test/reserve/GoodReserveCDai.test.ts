@@ -62,7 +62,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
       avatar
     });
 
-    goodDollar = await ethers.getContractAt("GoodDollar", gd);
+    goodDollar = await ethers.getContractAt("IGoodDollar", gd);
     contribution = await ethers.getContractAt(
       ContributionCalculation.abi,
       await nameService.getAddress("CONTRIBUTION_CALCULATION")
@@ -97,27 +97,10 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     );
 
     await marketMaker.transferOwnership(goodReserve.address);
-
-    const nsFactory = await ethers.getContractFactory("NameService");
-    const encoded = nsFactory.interface.encodeFunctionData("setAddress", [
-      "CDAI",
-      cDAI.address
-    ]);
-
-    const ictrl = await ethers.getContractAt(
-      "Controller",
-      controller,
-      schemeMock
-    );
-
-    await ictrl.genericCall(nameService.address, encoded, avatar, 0);
-
-    const encodedTwo = nsFactory.interface.encodeFunctionData("setAddress", [
-      "DAI",
-      dai.address
-    ]);
-
-    await ictrl.genericCall(nameService.address, encodedTwo, avatar, 0);
+    // Set addresses
+    setDAOAddress("CDAI", cDAI.address)
+    setDAOAddress("DAI", dai.address)
+    await goodReserve.setAddresses();
   });
 
   it("should get g$ minting permissions", async () => {

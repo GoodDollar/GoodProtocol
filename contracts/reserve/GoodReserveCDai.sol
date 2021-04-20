@@ -134,15 +134,20 @@ contract GoodReserveCDai is
 		__ERC20PresetMinterPauser_init("GDX", "G$X");
 		setDAO(_ns);
 		gdxAirdrop = _gdxAirdrop;
-		daiAddress = nameService.getAddress("DAI");
-		cDaiAddress = nameService.getAddress("CDAI");
+		
 	}
 
 	/// @dev GDX decimals
 	function decimals() public view override returns (uint8) {
 		return 2;
 	}
-
+	/**
+	*@dev Set cDAI and DAI addresses
+	 */
+	function setAddresses() public{
+		daiAddress = nameService.getAddress("DAI");
+		cDaiAddress = nameService.getAddress("CDAI");
+	}
 	// /**
 	//  * @dev Constructor
 	//  * @param _dai The address of DAI

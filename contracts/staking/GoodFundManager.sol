@@ -97,14 +97,14 @@ contract GoodFundManager is DAOContract {
 
     /**
      * @dev Constructor
-     * @param _dao The address of the controller
+     * @param _ns The address of the name Service
      * @param _cDai The address of cDai
      * @param _bridgeContract The address of the bridge contract
      * @param _ubiRecipient The recipient address on the sidechain
      * @param _blockInterval How many blocks should be passed before the next execution of `transferInterest
      */
     constructor(
-        Controller _dao,
+        NameService _ns,
         address _cDai,
         address _bridgeContract,
         address _ubiRecipient,
@@ -113,7 +113,7 @@ contract GoodFundManager is DAOContract {
         public
         //ActivePeriod(block.timestamp, block.timestamp * 2, _avatar)
     {
-        setDAO(_dao);
+        setDAO(_ns);
         cDai = ERC20(_cDai);
         bridgeContract = _bridgeContract;
         ubiRecipient = _ubiRecipient;
@@ -232,7 +232,7 @@ contract GoodFundManager is DAOContract {
         );
         _staking.updateGlobalGDYieldPerToken(gdInterest, interest);
         // Transfers the minted tokens to the given staking contract
-        GoodDollar token = GoodDollar(address(avatar.nativeToken()));
+        IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
         if(gdInterest > 0)
             require(token.transfer(address(_staking), gdInterest),"interest transfer failed");
         if(gdUBI > 0)
