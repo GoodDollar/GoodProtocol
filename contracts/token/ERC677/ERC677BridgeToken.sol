@@ -66,11 +66,13 @@ contract ERC677BridgeToken is
 
 	event ContractFallbackCallFailed(address from, address to, uint256 value);
 
-	// constructor(
-	// 	string memory _name,
-	// 	string memory _symbol,
-	// 	uint8 _decimals
-	// ) {}
+	function __ERC677BridgeToken_init(string memory name, string memory symbol)
+		internal
+		initializer
+	{
+		__ERC20PresetMinterPauser_init(name, symbol);
+		__Ownable_init_unchained();
+	}
 
 	function setBridgeContract(address _bridgeContract) public {
 		require(

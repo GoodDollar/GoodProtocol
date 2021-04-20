@@ -6,6 +6,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 
 import "./FeeFormula.sol";
 import "../utils/DAOContract.sol";
+import "../utils/NameService.sol";
+
 import "./ERC677/ERC677BridgeToken.sol";
 
 /**
@@ -14,8 +16,10 @@ import "./ERC677/ERC677BridgeToken.sol";
 contract GoodDollar is Initializable, DAOContract, ERC677BridgeToken {
 	using SafeMathUpgradeable for uint256;
 
+	//TODO: read from nameService
 	address feeRecipient;
 
+	//TODO: read from nameService
 	IAbstractFees formula;
 
 	uint256 public cap;
@@ -44,6 +48,17 @@ contract GoodDollar is Initializable, DAOContract, ERC677BridgeToken {
 	// {
 	// 	feeRecipient = _feeRecipient;
 	// }
+
+	function initialize(
+		string memory _name,
+		string memory _symbol,
+		uint256 _cap,
+		NameService _ns
+	) public initializer {
+		__ERC677BridgeToken_init(_name, _symbol);
+		setDAO(_ns);
+		cap = _cap;
+	}
 
 	function decimals() public pure override returns (uint8) {
 		return 2;
