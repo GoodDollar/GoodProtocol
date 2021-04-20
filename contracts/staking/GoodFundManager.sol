@@ -207,7 +207,6 @@ contract GoodFundManager is DAOContract {
         //     canRun(),
         //     "Need to wait for the next interval"
         // );
-
         lastTransferred = block.number.div(blockInterval);
         ERC20 iToken = ERC20(_staking.iToken());
         // iToken balance of the reserve contract
