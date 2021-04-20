@@ -112,9 +112,9 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     });
     goodReserve = (await upgrades.deployProxy(
       reserveFactory,
-      [controller, nameService.address, ethers.constants.HashZero],
+      [nameService.address, ethers.constants.HashZero],
       {
-        initializer: "initialize(address,address,bytes32)"
+        initializer: "initialize(address,bytes32)"
       }
     )) as GoodReserveCDai;
 
