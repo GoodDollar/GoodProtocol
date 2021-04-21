@@ -13,11 +13,7 @@ import ".//InterestDistribution.sol";
 import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";
-interface FundManager {
-    function transferInterest(address _staking)
-        external;
-
-}
+import "./StakingToken.sol";
 
 /**
  * @title Staking contract that donates earned interest to the DAO
@@ -25,7 +21,7 @@ interface FundManager {
  * or withdraw their stake in Tokens
  * the contracts buy intrest tokens and can transfer the daily interest to the  DAO
  */
-contract SimpleStaking is DSMath, Pausable, DAOContract, AbstractGoodStaking {
+contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
     using SafeMath for uint256;
 
     // Token address
@@ -54,34 +50,31 @@ contract SimpleStaking is DSMath, Pausable, DAOContract, AbstractGoodStaking {
    
    
 
-    modifier onlyFundManager {
-		require(
-			msg.sender == nameService.getAddress("FUND_MANAGER"),
-			"Only FundManager can call this method"
-		);
-		_;
-	}
 
     /**     
      * @dev Constructor     
      * @param _token The address of Token       
      * @param _iToken The address of Interest Token         
      * @param _blockInterval How many blocks should be passed before the next execution of `collectUBIInterest` 
-     * @param _ns The address of the NameService contract       
+     * @param _ns The address of the NameService contract    
+     * @param _tokenName The name of the staking token
+     * @param _tokenSymbol The symbol of the staking token
      */
     constructor(
         address _token,
         address _iToken,
         uint256 _blockInterval,
-        NameService _ns
+        NameService _ns,
+        string memory _tokenName,
+        string memory _tokenSymbol
       
-    ) public{
+    ) public StakingToken(_tokenName, _tokenSymbol){
         setDAO(_ns);
         token = ERC20(_token);
         iToken = ERC20(_iToken);
         blockInterval = _blockInterval;
         lastUBICollection = block.number.div(blockInterval);
-        
+        _setShareToken(address(avatar.nativeToken()));
         // Adds the avatar as a pauser of this contract
         addPauser(address(avatar));
     }
@@ -108,6 +101,8 @@ contract SimpleStaking is DSMath, Pausable, DAOContract, AbstractGoodStaking {
         // approve the transfer to defi protocol
         token.approve(address(iToken), _amount);
         mint(_amount); //mint iToken
+        _mint(msg.sender, _amount); // mint Staking token for staker
+        _increaseProductivity(msg.sender, _amount);
         InterestDistribution.stake(interestData, msg.sender, _amount, _donationPer);
         emit Staked(msg.sender, address(token), _amount);
     }
@@ -130,6 +125,9 @@ contract SimpleStaking is DSMath, Pausable, DAOContract, AbstractGoodStaking {
         uint256 gdInterest =  InterestDistribution.withdrawStakeAndInterest(interestData, msg.sender, _amount);
         //Since we use generic ERC20 function we can just use its interface
         ERC20 goodDollar = ERC20(address(avatar.nativeToken()));
+        fm.mintReward(msg.sender, address(this)); // send rewards to user
+        _burn(msg.sender, _amount); // burn their staking tokens
+        _decreaseProductivity(msg.sender, _amount);
         require(goodDollar.transfer(msg.sender, gdInterest), "withdraw interest transfer failed");
         require(token.transfer(msg.sender, tokenWithdraw), "withdraw transfer failed");
         emit StakeWithdraw(msg.sender, address(token), tokenWithdraw, token.balanceOf(address(this)));

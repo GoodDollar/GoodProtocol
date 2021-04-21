@@ -110,7 +110,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       dai.address,
       cDAI.address,
       BLOCK_INTERVAL,
-      nameService.address
+      nameService.address,
+      "Good DAI",
+      "gDAI"
     );
 
     console.log("initializing marketmaker...");
@@ -294,7 +296,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       dai.address,
       cDAI1.address,
       BLOCK_INTERVAL,
-      nameService.address
+      nameService.address,
+      "Good DAI",
+      "gDAI"
     );
     const weiAmount = ethers.utils.parseEther("1000");
 
@@ -388,7 +392,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       dai.address,
       cDAI1.address,
       BLOCK_INTERVAL,
-      nameService.address
+      nameService.address,
+      "Good DAI",
+      "gDAI"
     );
     const weiAmount = ethers.utils.parseEther("1000");
 
@@ -572,7 +578,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       dai.address,
       cDAI2.address,
       BLOCK_INTERVAL,
-      nameService.address
+      nameService.address,
+      "Good DAI",
+      "gDAI"
     );
     
     const weiAmount = ethers.utils.parseEther("1000");
@@ -611,7 +619,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       dai.address,
       cDAI1.address,
       BLOCK_INTERVAL,
-      nameService.address
+      nameService.address,
+      "Good DAI",
+      "gDAI"
     );
 
     const weiAmount = ethers.utils.parseEther("1000");
@@ -671,7 +681,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       dai.address,
       fakecDAI.address,
       BLOCK_INTERVAL,
-      nameService.address
+      nameService.address,
+      "Good DAI",
+      "gDAI"
     );
     await dai["mint(address,uint256)"](
       staker.address,
@@ -709,7 +721,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       dai.address,
       fakecDAI.address,
       BLOCK_INTERVAL,
-      nameService.address
+      nameService.address,
+      "Good DAI",
+      "gDAI"
     );
     await dai["mint(address,uint256)"](
       staker.address,
@@ -747,7 +761,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       dai.address,
       fakecDAI.address,
       BLOCK_INTERVAL,
-      nameService.address
+      nameService.address,
+      "Good DAI",
+      "gDAI"
     );
     await dai["mint(address,uint256)"](
       staker.address,
@@ -890,7 +906,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       dai.address,
       cDAI3.address,
       BLOCK_INTERVAL,
-      nameService.address
+      nameService.address,
+      "Good DAI",
+      "gDAI"
     );
     
     const weiAmount = ethers.utils.parseUnits("1000", "ether");
@@ -1100,7 +1118,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       dai.address,
       cDAI.address,
       BLOCK_INTERVAL,
-      nameService.address
+      nameService.address,
+      "Good DAI",
+      "gDAI"
     );
     const weiAmount = ethers.utils.parseEther("100");
 
@@ -1160,7 +1180,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       dai.address,
       cDAI.address,
       BLOCK_INTERVAL,
-      nameService.address
+      nameService.address,
+      "Good DAI",
+      "gDAI"
     );
     let avatarBalanceBefore = await cDAI.balanceOf(avatar);
     const simpleStakingFactory = await ethers.getContractFactory(
@@ -1232,7 +1254,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       dai.address,
       cdai1.address,
       BLOCK_INTERVAL,
-      nameService.address
+      nameService.address,
+      "Good DAI",
+      "gDAI"
     );
     await dai["mint(address,uint256)"](founder.address, ethers.utils.parseEther("100"));
     await dai.approve(cdai1.address, ethers.utils.parseEther("100"));

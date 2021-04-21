@@ -13,12 +13,15 @@ interface StakingContract {
         returns (uint256, uint256, uint256, uint256);
 
     function iToken() external view returns(address); 
-
+    function getRewardEarned(address user) external view returns(uint);
     function updateGlobalGDYieldPerToken(
         uint256 _blockGDInterest,
         uint256 _blockInterestTokenEarned
         ) 
     external;
+    function _mint(address user)
+    external returns(uint);
+
 }
 
 
@@ -60,7 +63,8 @@ contract GoodFundManager is DAOContract {
     // Last block number which `transferInterest`
     // has been executed in
     uint256 public lastTransferred;
-
+    // Rewards per block for particular Staking contract
+    mapping(address => uint256) rewardsPerBlock;
     // Emits when `transferInterest` transfers
     // funds to the staking contract and to
     // the bridge
@@ -138,7 +142,26 @@ contract GoodFundManager is DAOContract {
     function setReserve(GoodReserveCDai _reserve) public onlyAvatar {
         reserve = _reserve;
     }
-
+    /**
+     * @dev Sets the rewards per block for particular Staking contract
+     * @param _rewardsPerBlock reward for per block 
+     * @param _stakingAddress address of the staking contract
+     */
+    function setRewardsPerBlock(
+        uint256 _rewardsPerBlock,
+        address _stakingAddress
+    ) public onlyAvatar{
+        rewardsPerBlock[_stakingAddress] = _rewardsPerBlock;
+    }
+    /**
+     * @dev Get the rewards per block for particular staking contract
+     * @param _stakingAddress address of the staking contract
+     */
+     function getRewardsPerBlock(
+         address _stakingAddress
+     ) public view returns (uint){
+         return rewardsPerBlock[_stakingAddress];
+     }
     /**
      * @dev sets the token bridge address on mainnet and the recipient of minted UBI (avatar on sidechain)
      * @param _bridgeContract address
@@ -253,6 +276,28 @@ contract GoodFundManager is DAOContract {
         );
     }
 
+    /**
+     * @dev Mint to users reward tokens which they earned by staking contract
+     * @dev _user user to get rewards
+     * @dev _staking staking contract that has implementation of staking reward system
+     */
+     function mintReward(
+        address _user,
+        StakingContract _staking 
+
+     ) public {
+         
+        IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
+        uint amount = _staking._mint(_user);
+        if(amount > 0){
+            
+            //token.mint(_user, amount); Needs goodfundmanager gd mint permission for it or should I delegate it to reserve
+        }
+        
+
+
+     }
+    
     /**
      * @dev Making the contract inactive after it has transferred funds to `_avatar`.
      * Only the avatar can destroy the contract.
