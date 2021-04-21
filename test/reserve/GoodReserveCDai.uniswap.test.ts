@@ -79,7 +79,8 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
       setSchemes,
       marketMaker: mm,
       daiAddress,
-      cdaiAddress
+      cdaiAddress,
+      reserve
     } = await createDAO();
 
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -105,23 +106,13 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
 
     marketMaker = mm;
 
-    const reserveFactory = await ethers.getContractFactory("GoodReserveCDai");
     console.log("deployed contribution, deploying reserve...", {
       mmOwner: await marketMaker.owner(),
       founder: founder.address
     });
-    goodReserve = (await upgrades.deployProxy(
-      reserveFactory,
-      [nameService.address, ethers.constants.HashZero],
-      {
-        initializer: "initialize(address,bytes32)"
-      }
-    )) as GoodReserveCDai;
+    goodReserve = reserve as GoodReserveCDai;
 
     console.log("setting permissions...");
-
-    //give reserve generic call permission
-    await setSchemes([goodReserve.address, schemeMock.address]);
 
     console.log("initializing marketmaker...");
     await marketMaker.initializeToken(
@@ -173,12 +164,6 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     await setDAOAddress("FUND_MANAGER", founder.address);
   });
 
-  it("should get g$ minting permissions", async () => {
-    expect(await goodReserve.dao()).to.be.equal(controller);
-    expect(await goodReserve.avatar()).to.be.equal(avatar);
-    await goodReserve.start();
-  });
-
   it("should returned fixed 0.0001 market price", async () => {
     const gdPrice = await goodReserve["currentPrice()"]();
     const cdaiWorthInGD = gdPrice.mul(BN.from("100000000"));
@@ -188,19 +173,19 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     expect(cdaiWorthInGD.toNumber() / 10 ** 8).to.be.equal(10000);
   });
 
-  it("should returned price of gd in tokenA", async () => {
-    let mintAmount = ethers.utils.parseEther("100");
-    let depositAmount = ethers.utils.parseEther("50");
-    await dai["mint(uint256)"](mintAmount);
-    await tokenA["mint(uint256)"](mintAmount);
-    await addLiquidity(depositAmount, depositAmount);
-    const gdPrice = await goodReserve["currentPrice(address)"](tokenA.address);
-    const gdFloatPrice = gdPrice.toNumber() / 10 ** 18; //dai 18 decimals
-    expect(gdFloatPrice).to.be.equal(0.000100706867869197);
+  // it("should returned price of gd in tokenA", async () => {
+  //   let mintAmount = ethers.utils.parseEther("100");
+  //   let depositAmount = ethers.utils.parseEther("50");
+  //   await dai["mint(uint256)"](mintAmount);
+  //   await tokenA["mint(uint256)"](mintAmount);
+  //   await addLiquidity(depositAmount, depositAmount);
+  //   const gdPrice = await goodReserve["currentPrice(address)"](tokenA.address);
+  //   const gdFloatPrice = gdPrice.toNumber() / 10 ** 18; //dai 18 decimals
+  //   expect(gdFloatPrice).to.be.equal(0.000100706867869197);
 
-    await pair.transfer(pair.address, pair.balanceOf(founder.address));
-    await pair.burn(founder.address);
-  });
+  //   await pair.transfer(pair.address, pair.balanceOf(founder.address));
+  //   await pair.burn(founder.address);
+  // });
 
   it("should be able to buy gd with tokenA through UNISWAP", async () => {
     let amount = 99e7;
@@ -224,17 +209,17 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     const priceBefore = await goodReserve["currentPrice()"]();
     await tokenA.approve(goodReserve.address, buyAmount);
-    let gdPriceInTokenABefore = await goodReserve["currentPrice(address)"](
-      tokenA.address
-    );
+    // let gdPriceInTokenABefore = await goodReserve["currentPrice(address)"](
+    //   tokenA.address
+    // );
     let transaction = await (
       await goodReserve.buy(tokenA.address, buyAmount, 0, 0, NULL_ADDRESS)
     ).wait();
-    let gdPriceInTokenAAfter = await goodReserve["currentPrice(address)"](
-      tokenA.address
-    );
+    // let gdPriceInTokenAAfter = await goodReserve["currentPrice(address)"](
+    //   tokenA.address
+    // );
 
-    expect(gdPriceInTokenAAfter.gt(gdPriceInTokenABefore));
+    // expect(gdPriceInTokenAAfter.gt(gdPriceInTokenABefore));
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
     let supplyAfter = reserveToken.gdSupply;
@@ -281,15 +266,15 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     const priceBefore = await goodReserve["currentPrice()"]();
     await goodDollar.approve(goodReserve.address, sellAmount);
-    let gdPriceInTokenABefore = await goodReserve["currentPrice(address)"](
-      tokenA.address
-    );
+    // let gdPriceInTokenABefore = await goodReserve["currentPrice(address)"](
+    //   tokenA.address
+    // );
     let transaction = await (
       await goodReserve.sell(tokenA.address, sellAmount, 0, 0, NULL_ADDRESS)
     ).wait();
-    let gdPriceInTokenAAfter = await goodReserve["currentPrice(address)"](
-      tokenA.address
-    );
+    // let gdPriceInTokenAAfter = await goodReserve["currentPrice(address)"](
+    //   tokenA.address
+    // );
 
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
@@ -301,7 +286,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
 
     const priceAfter = await goodReserve["currentPrice()"]();
     expect(cDAIBalanceReserveBefore.gt(cDAIBalanceReserveAfter)).to.be.true;
-    expect(gdPriceInTokenABefore.gt(gdPriceInTokenAAfter));
+    // expect(gdPriceInTokenABefore.gt(gdPriceInTokenAAfter));
     expect(
       reserveBalanceAfter.sub(reserveBalanceBefore).toString()
     ).to.be.equal(amount.toString());
