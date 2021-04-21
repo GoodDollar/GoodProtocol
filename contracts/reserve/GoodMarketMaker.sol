@@ -128,10 +128,9 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 		__Ownable_init();
 	}
 
-	modifier onlyActiveToken(ERC20 _token) {
+	function _onlyActiveToken(ERC20 _token) internal view {
 		ReserveToken storage rtoken = reserveTokens[address(_token)];
 		require(rtoken.gdSupply > 0, "Reserve token not initialized");
-		_;
 	}
 
 	function getBancor() public view returns (BancorFormula) {
@@ -190,7 +189,6 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	function calculateNewReserveRatio(ERC20 _token)
 		public
 		view
-		onlyActiveToken(_token)
 		returns (uint32)
 	{
 		ReserveToken memory reserveToken = reserveTokens[address(_token)];
@@ -217,9 +215,9 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	function expandReserveRatio(ERC20 _token)
 		public
 		onlyOwner
-		onlyActiveToken(_token)
 		returns (uint32)
 	{
+		_onlyActiveToken(_token);
 		ReserveToken storage reserveToken = reserveTokens[address(_token)];
 		uint32 ratio = reserveToken.reserveRatio;
 		if (ratio == 0) {
@@ -243,7 +241,6 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	function buyReturn(ERC20 _token, uint256 _tokenAmount)
 		public
 		view
-		onlyActiveToken(_token)
 		returns (uint256)
 	{
 		ReserveToken memory rtoken = reserveTokens[address(_token)];
@@ -265,7 +262,6 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	function sellReturn(ERC20 _token, uint256 _gdAmount)
 		public
 		view
-		onlyActiveToken(_token)
 		returns (uint256)
 	{
 		ReserveToken memory rtoken = reserveTokens[address(_token)];
@@ -288,9 +284,10 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	function buy(ERC20 _token, uint256 _tokenAmount)
 		public
 		onlyOwner
-		onlyActiveToken(_token)
 		returns (uint256)
 	{
+		_onlyActiveToken(_token);
+
 		uint256 gdReturn = buyReturn(_token, _tokenAmount);
 		ReserveToken storage rtoken = reserveTokens[address(_token)];
 		rtoken.gdSupply = rtoken.gdSupply.add(gdReturn);
@@ -318,7 +315,9 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 		ERC20 _token,
 		uint256 _gdAmount,
 		uint256 _contributionGdAmount
-	) public onlyOwner onlyActiveToken(_token) returns (uint256) {
+	) public onlyOwner returns (uint256) {
+		_onlyActiveToken(_token);
+
 		require(
 			_gdAmount >= _contributionGdAmount,
 			"GD amount is lower than the contribution amount"
@@ -352,12 +351,7 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	 * @param _token The desired reserve token to have
 	 * @return price of GD
 	 */
-	function currentPrice(ERC20 _token)
-		public
-		view
-		onlyActiveToken(_token)
-		returns (uint256)
-	{
+	function currentPrice(ERC20 _token) public view returns (uint256) {
 		ReserveToken memory rtoken = reserveTokens[address(_token)];
 		return
 			getBancor().calculateSaleReturn(
@@ -381,7 +375,6 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	function calculateMintInterest(ERC20 _token, uint256 _addTokenSupply)
 		public
 		view
-		onlyActiveToken(_token)
 		returns (uint256)
 	{
 		uint256 decimalsDiff = uint256(27).sub(decimals);
@@ -402,6 +395,7 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 		onlyOwner
 		returns (uint256)
 	{
+		_onlyActiveToken(_token);
 		if (_addTokenSupply == 0) {
 			return 0;
 		}
@@ -432,7 +426,6 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	function calculateMintExpansion(ERC20 _token)
 		public
 		view
-		onlyActiveToken(_token)
 		returns (uint256)
 	{
 		ReserveToken memory reserveToken = reserveTokens[address(_token)];
@@ -459,6 +452,7 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	 * @return How much to mint in order to keep price in bonding curve the same
 	 */
 	function mintExpansion(ERC20 _token) public onlyOwner returns (uint256) {
+		_onlyActiveToken(_token);
 		uint256 toMint = calculateMintExpansion(_token);
 		ReserveToken storage reserveToken = reserveTokens[address(_token)];
 		uint256 gdSupply = reserveToken.gdSupply;

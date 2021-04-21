@@ -23,13 +23,12 @@ contract GoodCap is
 	GlobalConstraintInterface
 {
 	using SafeMathUpgradeable for uint256;
+
 	bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
 	GoodDollar goodDollar;
 
 	uint256 public cap;
-
-	mapping(address => uint256) public mintCaps;
 
 	function initialize(NameService _ns, uint256 _cap)
 		public
@@ -50,10 +49,8 @@ contract GoodCap is
 
 	function isCoreMinter() public view returns (bool) {
 		return
-			_msgSender() ==
-			nameService.getAddressByHash(nameService.RESERVE()) ||
-			_msgSender() ==
-			nameService.getAddressByHash(nameService.FUND_MANAGER());
+			_msgSender() == nameService.addresses(nameService.RESERVE()) ||
+			_msgSender() == nameService.addresses(nameService.FUND_MANAGER());
 	}
 
 	/**

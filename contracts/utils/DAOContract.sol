@@ -17,12 +17,11 @@ contract DAOContract {
 
 	NameService public nameService;
 
-	modifier onlyAvatar() {
+	function _onlyAvatar() internal {
 		require(
 			address(dao.avatar()) == msg.sender,
 			"only avatar can call this method"
 		);
-		_;
 	}
 
 	function setDAO(NameService _ns) internal {

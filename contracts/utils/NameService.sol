@@ -22,14 +22,6 @@ contract NameService is Initializable {
 
 	Controller public dao;
 
-	modifier onlyAvatar() {
-		require(
-			address(dao.avatar()) == msg.sender,
-			"only avatar can call this method"
-		);
-		_;
-	}
-
 	function initialize(
 		Controller _dao,
 		bytes32[] memory _nameHashes,
@@ -41,15 +33,15 @@ contract NameService is Initializable {
 		}
 	}
 
-	function setAddress(string memory name, address addr) public onlyAvatar {
+	function setAddress(string memory name, address addr) public {
+		require(
+			address(dao.avatar()) == msg.sender,
+			"only avatar can call this method"
+		);
 		addresses[keccak256(bytes(name))] = addr;
 	}
 
 	function getAddress(string memory name) public view returns (address) {
 		return addresses[keccak256(bytes(name))];
-	}
-
-	function getAddressByHash(bytes32 nameHash) public view returns (address) {
-		return addresses[nameHash];
 	}
 }

@@ -45,21 +45,13 @@ contract GoodReserveCDai is
 	// when selling GD
 	// ContributionCalc public contribution;
 
-	address public daiAddress;
-	address public cDaiAddress;
+	address daiAddress;
+	address cDaiAddress;
 
 	/// @dev merkleroot
 	bytes32 public gdxAirdrop;
 
 	mapping(address => bool) public isClaimedGDX;
-
-	modifier onlyFundManager {
-		require(
-			msg.sender == nameService.getAddress("FUND_MANAGER"),
-			"Only FundManager can call this method"
-		);
-		_;
-	}
 
 	// Emits when GD tokens are purchased
 	event TokenPurchased(
@@ -137,11 +129,11 @@ contract GoodReserveCDai is
 		cDaiAddress = nameService.getAddress("CDAI");
 	}
 
-	function rmul(uint256 x, uint256 y) public pure returns (uint256 z) {
+	function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
 		z = x.mul(y).add(10**27 / 2) / 10**27;
 	}
 
-	function rdiv(uint256 x, uint256 y) public pure returns (uint256 z) {
+	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
 		z = x.mul(10**27).add(y / 2) / y;
 	}
 
@@ -303,7 +295,7 @@ contract GoodReserveCDai is
 		address receiver =
 			_targetAddress == address(0x0) ? msg.sender : _targetAddress;
 
-		GoodCap(nameService.getAddressByHash(nameService.CAP_MANAGER())).mint(
+		GoodCap(nameService.addresses(nameService.CAP_MANAGER())).mint(
 			receiver,
 			gdReturn
 		);
@@ -515,7 +507,11 @@ contract GoodReserveCDai is
 		ERC20 _interestToken,
 		uint256 _transfered,
 		uint256 _interest
-	) public onlyFundManager returns (uint256, uint256) {
+	) public returns (uint256, uint256) {
+		require(
+			msg.sender == nameService.addresses(nameService.FUND_MANAGER()),
+			"Only FundManager can call this method"
+		);
 		uint256 price = getMarketMaker().currentPrice(ERC20(cDaiAddress));
 		// uint256 price = currentPrice(_interestToken);
 		uint256 gdInterestToMint =
@@ -528,7 +524,7 @@ contract GoodReserveCDai is
 		uint256 gdUBI = gdInterestToMint.sub(gdInterest);
 		gdUBI = gdUBI.add(gdExpansionToMint);
 		uint256 toMint = gdUBI.add(gdInterest);
-		GoodCap(nameService.getAddressByHash(nameService.CAP_MANAGER())).mint(
+		GoodCap(nameService.addresses(nameService.CAP_MANAGER())).mint(
 			getFundManager(),
 			toMint
 		);
@@ -555,8 +551,8 @@ contract GoodReserveCDai is
 	 */
 	function setReserveRatioDailyExpansion(uint256 _nom, uint256 _denom)
 		public
-		onlyAvatar
 	{
+		_onlyAvatar();
 		getMarketMaker().setReserveRatioDailyExpansion(_nom, _denom);
 	}
 
@@ -566,7 +562,8 @@ contract GoodReserveCDai is
 	 * buy / sell / mintInterestAndUBI actions will no longer be active. Only the Avatar can
 	 * executes this method
 	 */
-	function end() public onlyAvatar {
+	function end() public {
+		_onlyAvatar();
 		// remaining cDAI tokens in the current reserve contract
 		cERC20 cDai = cERC20(nameService.getAddress("CDAI"));
 		uint256 remainingReserve = cDai.balanceOf(address(this));
@@ -590,7 +587,8 @@ contract GoodReserveCDai is
 	 * @dev method to recover any stuck erc20 tokens (ie compound COMP)
 	 * @param _token the ERC20 token to recover
 	 */
-	function recover(ERC20 _token) public onlyAvatar {
+	function recover(ERC20 _token) public {
+		_onlyAvatar();
 		require(
 			_token.transfer(address(avatar), _token.balanceOf(address(this))),
 			"recover transfer failed"
