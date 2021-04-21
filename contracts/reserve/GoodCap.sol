@@ -16,7 +16,12 @@ import "../Interfaces.sol";
 @title GoodDollar token minting manager, should be the single minter, and all minting go through it
 */
 
-contract GoodCap is Initializable, AccessControlUpgradeable, DAOContract {
+contract GoodCap is
+	Initializable,
+	AccessControlUpgradeable,
+	DAOContract,
+	GlobalConstraintInterface
+{
 	using SafeMathUpgradeable for uint256;
 	bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
@@ -66,5 +71,35 @@ contract GoodCap is Initializable, AccessControlUpgradeable, DAOContract {
 		);
 
 		goodDollar.mint(_to, _amount);
+	}
+
+	function pre(
+		address _scheme,
+		bytes32 _hash,
+		bytes32 _method
+	) public pure override returns (bool) {
+		_scheme;
+		_hash;
+		_method;
+		return true;
+	}
+
+	/**
+	 * @dev enforce cap on DAOStack Controller mintTokens using GlobalConstraintInterface
+	 */
+	function post(
+		address _scheme,
+		bytes32 _hash,
+		bytes32 _method
+	) public view override returns (bool) {
+		_hash;
+		_scheme;
+		if (_method == "mintTokens") return goodDollar.totalSupply() <= cap;
+
+		return true;
+	}
+
+	function when() public pure override returns (CallPhase) {
+		return CallPhase.Post;
 	}
 }

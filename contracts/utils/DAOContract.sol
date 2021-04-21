@@ -34,4 +34,6 @@ contract DAOContract {
 	function updateAvatar() public {
 		avatar = dao.avatar();
 	}
+
+	uint256[50] private gap;
 }

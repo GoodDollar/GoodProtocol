@@ -1,9 +1,11 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity >0.5.4;
 
 import "@openzeppelin/contracts-upgradeable/presets/ERC20PresetMinterPauserUpgradeable.sol";
 
 contract DAIMock is ERC20PresetMinterPauserUpgradeable {
-	constructor() public {
+	constructor() {
 		__ERC20PresetMinterPauser_init("DAI", "DAI");
 	}
 
