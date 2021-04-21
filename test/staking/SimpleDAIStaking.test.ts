@@ -18,7 +18,7 @@ export const BLOCK_INTERVAL = 30;
 
 describe("SimpleDAISTAking - staking with cDAI mocks", () => {
   let dai: Contract;
-  let cDAI, cDAI1,cDAI2: Contract;
+  let cDAI, cDAI1,cDAI2,cDAI3: Contract;
   let goodReserve: GoodReserveCDai;
   let goodCompoundStaking;
   let goodFundManager: Contract;
@@ -121,7 +121,10 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "1000000" //100% rr
     );
     cDAI1 = await cdaiFactory.deploy(dai.address);
-    cDAI2 = await cdaiFactory.deploy(dai.address);
+    const cdaiLowWorthFactory = await ethers.getContractFactory("cDAILowWorthMock");
+    cDAI2 = await cdaiLowWorthFactory.deploy(dai.address);
+    const cdaiNonMintableFactory = await ethers.getContractFactory("cDAINonMintableMock")
+    cDAI3 = await cdaiNonMintableFactory.deploy(dai.address)
     await marketMaker.initializeToken(
       cDAI1.address,
       "100", //1gd
@@ -130,6 +133,12 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
     await marketMaker.initializeToken(
       cDAI2.address,
+      "100", //1gd
+      "10000", //0.0001 cDai
+      "1000000" //100% rr
+    );
+    await marketMaker.initializeToken(
+      cDAI3.address,
       "100", //1gd
       "10000", //0.0001 cDai
       "1000000" //100% rr
@@ -576,7 +585,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     let balanceAfter = (await simpleStaking1.getStakerData(staker.address)); // user staked balance in GoodStaking
     let stakerDaiBalanceAfter = await dai.balanceOf(staker.address); // staker DAI balance
     expect(balanceAfter[0].toString()).to.be.equal("0");
-    expect(balanceBefore[0].toString()).to.be.equal(
+    expect(balanceBefore[0].div(BN.from("2")).toString()).to.be.equal(
       stakerDaiBalanceAfter.sub(stakerDaiBalanceBefore).toString()
     );
     //should revert cdai address back in nameservice
@@ -861,6 +870,40 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     expect(precisionLossDai.toString()).to.be.equal("0");
     expect(fundBalanceAfter.toString()).to.be.equal(fundBalanceBefore.toString());
     await goodCompoundStaking.connect(staker).withdrawStake(weiAmount);
+  });
+
+  it("should not be able to stake if the getting an error while minting new cdai", async () => {
+   //should set CDAI in nameService to cDAI1 address
+    await setDAOAddress("CDAI",cDAI3.address)
+    //update reserve addresses
+    await goodReserve.setAddresses()
+    await dai["mint(address,uint256)"](
+      cDAI3.address,
+      ethers.utils.parseEther("100000000")
+    );
+
+    const goodCompoundStakingFactory = await ethers.getContractFactory(
+      "GoodCompoundStaking"
+    );
+
+    let simpleStaking1 = await goodCompoundStakingFactory.deploy(
+      dai.address,
+      cDAI3.address,
+      BLOCK_INTERVAL,
+      nameService.address
+    );
+    
+    const weiAmount = ethers.utils.parseUnits("1000", "ether");
+    await dai["mint(address,uint256)"](staker.address, weiAmount);
+    await dai.connect(staker).approve(simpleStaking1.address, weiAmount);
+    const error = await simpleStaking1.connect(staker)
+      .stake(weiAmount, 100)
+      .catch(e => e);
+    expect(error.message).to.have.string("Minting cDai failed, funds returned");
+    //should revert cdai address back in nameservice
+    await setDAOAddress("CDAI",cDAI.address)
+    //update reserve addresses
+    await goodReserve.setAddresses()
   });
 
   it("should mock cdai updated exchange rate", async () => {
