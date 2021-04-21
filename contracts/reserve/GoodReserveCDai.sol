@@ -142,24 +142,6 @@ contract GoodReserveCDai is
 		return 2;
 	}
 
-	//TODO:
-	// /**
-	//  * @dev Start function. Adds this contract to identity as a feeless scheme.
-	//  * Can only be called if scheme is registered
-	//  */
-	// function start() public onlyRegistered {
-	// 	addRights();
-
-	// 	// Adds the reserve as a minter of the GD token
-	// 	controller.genericCall(
-	// 		address(avatar.nativeToken()),
-	// 		abi.encodeWithSignature("addMinter(address)", address(this)),
-	// 		avatar,
-	// 		0
-	// 	);
-	// 	super.start();
-	// }
-
 	/**
 	 * @dev get current FundManager from name service
 	 */
@@ -578,9 +560,6 @@ contract GoodReserveCDai is
 			"Funds transfer has failed"
 		);
 		getMarketMaker().transferOwnership(address(avatar));
-
-		//TODO:
-		// super.internalEnd(avatar);
 	}
 
 	/**
