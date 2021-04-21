@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0;
 
-import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/cryptography/MerkleProofUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 
 import "./Reputation.sol";
 import "../Interfaces.sol";
@@ -461,7 +461,7 @@ contract GReputation is Reputation {
 
 	/// @notice helper function to get current chain id
 	/// @return chain id
-	function getChainId() internal pure returns (uint256) {
+	function getChainId() internal view returns (uint256) {
 		uint256 chainId;
 		assembly {
 			chainId := chainid()

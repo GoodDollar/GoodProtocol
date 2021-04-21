@@ -1,7 +1,8 @@
 pragma solidity >0.5.4;
 
-import "@openzeppelin/contracts-upgradeable/presets/ERC20PresetMinterPauserUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetMinterPauserUpgradeable.sol";
 
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "../utils/DSMath.sol";
 
 contract cDAIMock is DSMath, ERC20PresetMinterPauserUpgradeable {
@@ -55,4 +56,7 @@ contract cDAIMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	function exchangeRateStored() public view returns (uint256) {
 		return exchangeRate;
 	}
+	function decimals() public view override returns (uint8) {
+        return 8;
+    }
 }
