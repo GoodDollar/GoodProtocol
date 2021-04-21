@@ -55,7 +55,8 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       identity,
       daoCreator,
       nameService,
-      marketMaker: mm
+      marketMaker: mm,
+      setSchemes
     } = await createDAO();
     avatar = av;
     marketMaker = mm;
@@ -63,13 +64,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     console.log("deployed dao", { goodDollar, identity, controller, avatar });
 
     //give founder generic call permission
-    await daoCreator.setSchemes(
-      avatar,
-      [founder.address],
-      [ethers.constants.HashZero],
-      ["0x0000001F"],
-      ""
-    );
+    await setSchemes([founder.address]);
 
     console.log("starting tests...", { owner: await marketMaker.owner() });
   });
@@ -182,7 +177,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       ethers.utils.parseEther("1"),
       ethers.utils.parseEther("2")
     );
-    expect(res).to.be.revertedWith(
+    await expect(res).to.be.revertedWith(
       "GD amount is lower than the contribution amount"
     );
   });
@@ -200,12 +195,16 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   it("should not be able to mint interest by a non owner", async () => {
     let res = marketMaker.connect(staker).mintInterest(cdai, BN.from(1e8));
 
-    expect(res).to.be.revertedWith("revert Ownable: caller is not the owner");
+    await expect(res).to.be.revertedWith(
+      "revert Ownable: caller is not the owner"
+    );
   });
 
   it("should not be able to mint expansion by a non owner", async () => {
     let res = marketMaker.connect(staker).mintExpansion(cdai);
-    expect(res).to.be.revertedWith("revert Ownable: caller is not the owner");
+    await expect(res).to.be.revertedWith(
+      "revert Ownable: caller is not the owner"
+    );
   });
 
   it("should mint 0 gd tokens if the add token supply is 0", async () => {
@@ -219,17 +218,23 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
 
   it("should be able to update the reserve ratio only by the owner", async () => {
     let res = marketMaker.connect(staker).expandReserveRatio(cdai);
-    expect(res).to.be.revertedWith("revert Ownable: caller is not the owner");
+    await expect(res).to.be.revertedWith(
+      "revert Ownable: caller is not the owner"
+    );
   });
 
   it("should be able to mint interest only by the owner", async () => {
     let res = marketMaker.connect(staker).mintInterest(cdai, BN.from(1e8));
-    expect(res).to.be.revertedWith("revert Ownable: caller is not the owner");
+    await expect(res).to.be.revertedWith(
+      "revert Ownable: caller is not the owner"
+    );
   });
 
   it("should be able to mint expansion only by the owner", async () => {
     let res = marketMaker.connect(staker).mintExpansion(cdai);
-    expect(res).to.be.revertedWith("revert Ownable: caller is not the owner");
+    await expect(res).to.be.revertedWith(
+      "revert Ownable: caller is not the owner"
+    );
   });
 
   it("should be able to calculate minted gd based on expansion of reserve ratio, the price stays the same", async () => {
@@ -408,17 +413,23 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     let res = marketMaker
       .connect(staker)
       .buy(dai, ethers.utils.parseEther("1"));
-    expect(res).to.be.revertedWith("revert Ownable: caller is not the owner");
+    await expect(res).to.be.revertedWith(
+      "revert Ownable: caller is not the owner"
+    );
   });
 
   it("should not be able to calculate the sell return in reserve token and update the bonding curve params by a non-owner account", async () => {
     let res = marketMaker.connect(staker).sellWithContribution(dai, 100, 0);
-    expect(res).to.be.revertedWith("revert Ownable: caller is not the owner");
+    await expect(res).to.be.revertedWith(
+      "revert Ownable: caller is not the owner"
+    );
   });
 
   it("should not be able to calculate the sellWithContribution return in reserve token and update the bonding curve params by a non-owner account", async () => {
     let res = marketMaker.connect(staker).sellWithContribution(dai, 100, 80);
-    expect(res).to.be.revertedWith("revert Ownable: caller is not the owner");
+    await expect(res).to.be.revertedWith(
+      "revert Ownable: caller is not the owner"
+    );
   });
 
   it("should be able to buy only with active token", async () => {
@@ -433,7 +444,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       reserveRatioBefore.toString()
     );
     let res = marketMaker.buy(cdai, ethers.utils.parseEther("1"));
-    expect(res).to.be.revertedWith("Reserve token not initialized");
+    await expect(res).to.be.revertedWith("Reserve token not initialized");
     await marketMaker.initializeToken(
       cdai,
       gdSupplyBefore,
@@ -449,7 +460,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       0
     );
 
-    expect(res).to.be.revertedWith("Reserve token not initialized");
+    await expect(res).to.be.revertedWith("Reserve token not initialized");
   });
 
   it("should be able to sellWithContribution only with active token", async () => {
@@ -458,7 +469,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       ethers.utils.parseEther("1"),
       ethers.utils.parseEther("1")
     );
-    expect(res).to.be.revertedWith("Reserve token not initialized");
+    await expect(res).to.be.revertedWith("Reserve token not initialized");
   });
 
   it("should be able to sell gd only when the amount is lower than the total supply", async () => {
@@ -469,7 +480,9 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       gdSupply.add(BN.from(1)),
       0
     );
-    expect(res).to.be.revertedWith("GD amount is higher than the total supply");
+    await expect(res).to.be.revertedWith(
+      "GD amount is higher than the total supply"
+    );
   });
 
   it("should set reserve ratio daily expansion by owner", async () => {
@@ -495,7 +508,9 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     let res = marketMaker
       .connect(staker)
       .setReserveRatioDailyExpansion(1, 1e15);
-    expect(res).to.be.revertedWith("revert Ownable: caller is not the owner");
+    await expect(res).to.be.revertedWith(
+      "revert Ownable: caller is not the owner"
+    );
   });
 
   it("should calculate amount of gd to mint based on incoming cDAI without effecting bonding curve price", async () => {
@@ -541,11 +556,10 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     expect(gdSupplyAfter.toString()).to.be.equal(gdSupplyBefore.toString());
   });
 
-  it("should price decrease after sell gd when RR is not 100%",async() =>{
-    
+  it("should price decrease after sell gd when RR is not 100%", async () => {
     let reserveTokenBefore = await marketMaker.reserveTokens(cdai);
     let gdPriceBefore = await marketMaker.currentPrice(cdai);
-    
+
     let gdSupplyBefore = reserveTokenBefore.gdSupply;
     let reserveRatioBefore = reserveTokenBefore.reserveRatio;
     let reserveSupplyBefore = reserveTokenBefore.reserveSupply;
@@ -553,18 +567,17 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     let reserveTokenAfter = await marketMaker.reserveTokens(cdai);
     let gdSupplyAfter = reserveTokenAfter.gdSupply;
 
-   
     let reserveRatioAfter = reserveTokenAfter.reserveRatio;
     let gdPriceAfter = await marketMaker.currentPrice(cdai);
     let reserveSupplyAfter = reserveTokenAfter.reserveSupply;
 
-   expect (gdPriceAfter.lt(gdPriceBefore));
-   expect (reserveRatioAfter).to.be.equal(reserveRatioBefore);
-  })
-  it("should price increase after buy gd when RR is not %100", async() =>{
+    expect(gdPriceAfter.lt(gdPriceBefore));
+    expect(reserveRatioAfter).to.be.equal(reserveRatioBefore);
+  });
+  it("should price increase after buy gd when RR is not %100", async () => {
     let reserveTokenBefore = await marketMaker.reserveTokens(cdai);
     let gdPriceBefore = await marketMaker.currentPrice(cdai);
-    
+
     let gdSupplyBefore = reserveTokenBefore.gdSupply;
     let reserveRatioBefore = reserveTokenBefore.reserveRatio;
     let reserveSupplyBefore = reserveTokenBefore.reserveSupply;
@@ -572,12 +585,11 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     let reserveTokenAfter = await marketMaker.reserveTokens(cdai);
     let gdSupplyAfter = reserveTokenAfter.gdSupply;
 
-   
     let reserveRatioAfter = reserveTokenAfter.reserveRatio;
     let gdPriceAfter = await marketMaker.currentPrice(cdai);
     let reserveSupplyAfter = reserveTokenAfter.reserveSupply;
 
-   expect (gdPriceAfter.gt(gdPriceBefore));
-   expect (reserveRatioAfter).to.be.equal(reserveRatioBefore);
-  })
+    expect(gdPriceAfter.gt(gdPriceBefore));
+    expect(reserveRatioAfter).to.be.equal(reserveRatioBefore);
+  });
 });
