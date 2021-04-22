@@ -63,8 +63,15 @@ contract GoodFundManager is DAOContract {
     // Last block number which `transferInterest`
     // has been executed in
     uint256 public lastTransferred;
+    //Structure that hold reward information and if its blacklicksted or not for particular staking Contract
+    struct Reward{
+        uint32 blockReward; //in G$
+        uint32 blockStart;
+        uint32 blockEnd;
+        bool isBlackListed;
+    }
     // Rewards per block for particular Staking contract
-    mapping(address => uint256) rewardsPerBlock;
+    mapping(address => Reward) rewardsForStakingContract;
     // Emits when `transferInterest` transfers
     // funds to the staking contract and to
     // the bridge
@@ -143,24 +150,30 @@ contract GoodFundManager is DAOContract {
         reserve = _reserve;
     }
     /**
-     * @dev Sets the rewards per block for particular Staking contract
+     * @dev Sets the Reward for particular Staking contract
      * @param _rewardsPerBlock reward for per block 
      * @param _stakingAddress address of the staking contract
+     * @param _blockStart block number for start reward distrubution
+     * @param _blockEnd block number for end reward distrubition
      */
-    function setRewardsPerBlock(
-        uint256 _rewardsPerBlock,
-        address _stakingAddress
+    function setStakingReward(
+        uint32 _rewardsPerBlock,
+        address _stakingAddress,
+        uint32 _blockStart,
+        uint32 _blockEnd
     ) public onlyAvatar{
-        rewardsPerBlock[_stakingAddress] = _rewardsPerBlock;
+        Reward memory reward = Reward(_rewardsPerBlock, _blockStart, _blockEnd, false);
+        rewardsForStakingContract[_stakingAddress] = reward;
     }
     /**
-     * @dev Get the rewards per block for particular staking contract
+     * @dev Get the Reward for particular staking contract
      * @param _stakingAddress address of the staking contract
      */
-     function getRewardsPerBlock(
+     function getStakingReward(
          address _stakingAddress
-     ) public view returns (uint){
-         return rewardsPerBlock[_stakingAddress];
+     ) public view returns (uint,uint,uint,bool){
+         Reward memory reward = rewardsForStakingContract[_stakingAddress];
+         return (reward.blockReward, reward.blockStart, reward.blockEnd, reward.isBlackListed);
      }
     /**
      * @dev sets the token bridge address on mainnet and the recipient of minted UBI (avatar on sidechain)
@@ -286,7 +299,7 @@ contract GoodFundManager is DAOContract {
         StakingContract _staking 
 
      ) public {
-         
+        
         IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
         uint amount = _staking._mint(_user);
         if(amount > 0){

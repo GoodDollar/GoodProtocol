@@ -168,8 +168,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       [goodReserve.address]
     );
     const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
-      "setRewardsPerBlock",
-      ["1000", goodCompoundStaking.address] // set 10 gd per block
+      "setStakingReward",
+      ["1000", goodCompoundStaking.address,"0","100"] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
@@ -189,10 +189,14 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   });
 
   it("should be set rewards per block for particular stacking contract", async () => {
-    let rewardPerBlock = await goodFundManager.getRewardsPerBlock(
+    let rewardPerBlock= await goodFundManager.getStakingReward(
       goodCompoundStaking.address
     );
-    expect(rewardPerBlock.toString()).to.be.equal("1000");
+    expect(rewardPerBlock[0].toString()).to.be.equal("1000");
+    expect(rewardPerBlock[1].toString()).to.be.equal("0")
+    expect(rewardPerBlock[2].toString()).to.be.equal("100")
+    expect(rewardPerBlock[3]).to.be.equal(false)
+    
   });
 
   it("should be able to earn rewards after some block passed", async () => {

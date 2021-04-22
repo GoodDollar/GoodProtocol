@@ -5,8 +5,8 @@ import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DAOContract.sol";
 interface FundManager {
-    function getRewardsPerBlock(address _staking)
-        external returns(uint);
+    function getStakingReward(address _staking)
+        external returns(uint,uint,uint,bool);
     
     function transferInterest(address _staking)
     external;
@@ -63,13 +63,16 @@ contract BaseShareField is DAOContract{
             return;
         }
         FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
-        uint rewardsPerBlock = fm.getRewardsPerBlock(address(this));
-        uint256 multiplier = block.number.sub(lastRewardBlock);
-        uint256 reward = multiplier.mul(rewardsPerBlock * 10 ** 16); // turn it to 18 decimals
+        (uint rewardsPerBlock, uint blockStart, uint blockEnd, bool isBlackListed) = fm.getStakingReward(address(this));
+        if(block.number >= blockStart && blockEnd>= block.number && isBlackListed == false){
+            uint256 multiplier = block.number.sub(lastRewardBlock);
+            uint256 reward = multiplier.mul(rewardsPerBlock * 10 ** 16); // turn it to 18 decimals
 
-        accAmountPerShare = accAmountPerShare.add(reward.mul(1e12).div(totalProductivity));
-        totalShare = totalShare.add(reward);
-        lastRewardBlock = block.number;
+            accAmountPerShare = accAmountPerShare.add(reward.mul(1e12).div(totalProductivity));
+            totalShare = totalShare.add(reward);
+            lastRewardBlock = block.number;
+        }
+        
     }
     
     function _currentReward() internal virtual view returns (uint) {
