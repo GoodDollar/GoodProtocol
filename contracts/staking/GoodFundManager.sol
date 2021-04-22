@@ -310,9 +310,7 @@ contract GoodFundManager is DAOContract {
 
 
      }
-    function getBlockNumber() public view returns(uint){
-        return block.number;
-    }
+    
     /**
      * @dev Making the contract inactive after it has transferred funds to `_avatar`.
      * Only the avatar can destroy the contract.
