@@ -6,7 +6,7 @@ import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DAOContract.sol";
 interface FundManager {
     function getStakingReward(address _staking)
-        external returns(uint,uint,uint,bool);
+        external view returns(uint,uint,uint,bool);
     
     function transferInterest(address _staking)
     external;
@@ -75,9 +75,6 @@ contract BaseShareField is DAOContract{
         lastRewardBlock = block.number;
     }
     
-    function _currentReward() internal virtual view returns (uint) {
-        return mintedShare.add(ERC20(shareToken).balanceOf(address(this))).sub(totalShare);
-    }
     
     // Audit user's reward to be up-to-date
     function _audit(address user) internal virtual {
@@ -96,7 +93,7 @@ contract BaseShareField is DAOContract{
                 uint rewardPerBlock = pending.mul(uint256(10 ** 12)).div(blocksToPay).div(uint256(10 ** 12)); // increase resolution
                 pending  = ((firstMonthBlocksToPay.mul(50*10**18).div(100)) + fullBlocksToPay).mul(rewardPerBlock).div(1e18); // divide 1e18 so reduce it to 18decimals
                 userInfo.rewardEarn = userInfo.rewardEarn.add(pending);
-                 mintCumulation = mintCumulation.add(pending);
+                mintCumulation = mintCumulation.add(pending);
             }
             
             
@@ -143,11 +140,31 @@ contract BaseShareField is DAOContract{
         UserInfo storage userInfo = users[user];
         uint _accAmountPerShare = accAmountPerShare;
         // uint256 lpSupply = totalProductivity;
-        if (totalProductivity != 0) {
-            uint reward = _currentReward();
+        FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
+        uint pending = 0;
+        (uint rewardsPerBlock, uint blockStart, uint blockEnd, bool isBlackListed) = fm.getStakingReward(address(this));
+        if (totalProductivity != 0 && block.number >= blockStart && blockEnd>= block.number) {
+            uint256 multiplier = block.number.sub(lastRewardBlock);
+            uint256 reward = multiplier.mul(rewardsPerBlock * 10 ** 16); // turn it to 18 decimals
             _accAmountPerShare = _accAmountPerShare.add(reward.mul(1e12).div(totalProductivity));
+            uint256 blocksPaid = userInfo.lastRewardTime.sub(userInfo.multiplierResetTime);
+            uint256 blocksPassedFirstMonth = Math.min(172800,block.number.sub(userInfo.multiplierResetTime)); //172800 is equivalent of month in blocks 
+            uint256 blocksToPay = block.number.sub(userInfo.lastRewardTime);
+            uint256 firstMonthBlocksToPay = blocksPaid >= (172800) ? 0 : blocksPassedFirstMonth.sub(blocksPaid);
+            uint256 fullBlocksToPay = blocksToPay.sub(firstMonthBlocksToPay);
+            
+           
+            
+            if (blocksToPay != 0){
+                pending = userInfo.amount.mul(accAmountPerShare).div(1e12).sub(userInfo.rewardDebt);
+                uint rewardPerBlock = pending.mul(uint256(10 ** 12)).div(blocksToPay).div(uint256(10 ** 12)); // increase resolution
+                pending  = ((firstMonthBlocksToPay.mul(50*10**18).div(100)) + fullBlocksToPay).mul(rewardPerBlock).div(1e18); // divide 1e18 so reduce it to 18decimals
+              
+            }
+            
+
         }
-        return userInfo.amount.mul(_accAmountPerShare).div(1e12).add(userInfo.rewardEarn).sub(userInfo.rewardDebt);
+        return userInfo.rewardEarn.add(pending);
     }
 
     // External function call
@@ -161,7 +178,7 @@ contract BaseShareField is DAOContract{
         userInfo.rewardEarn = 0;
         userInfo.lastRewardTime = block.number;
         userInfo.multiplierResetTime = block.number;
-        mintedShare += amount;
+        mintedShare = mintedShare.add(amount);
         amount = amount.div(1e16); // change decimal of mint amount to GD decimals
         return amount;
     }

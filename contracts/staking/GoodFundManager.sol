@@ -155,14 +155,16 @@ contract GoodFundManager is DAOContract {
      * @param _stakingAddress address of the staking contract
      * @param _blockStart block number for start reward distrubution
      * @param _blockEnd block number for end reward distrubition
+     * @param _isBlackListed set staking contract blacklisted or not to prevent minting
      */
     function setStakingReward(
         uint32 _rewardsPerBlock,
         address _stakingAddress,
         uint32 _blockStart,
-        uint32 _blockEnd
+        uint32 _blockEnd,
+        bool _isBlackListed
     ) public onlyAvatar{
-        Reward memory reward = Reward(_rewardsPerBlock, _blockStart, _blockEnd, false);
+        Reward memory reward = Reward(_rewardsPerBlock, _blockStart, _blockEnd, _isBlackListed);
         rewardsForStakingContract[_stakingAddress] = reward;
     }
     /**
