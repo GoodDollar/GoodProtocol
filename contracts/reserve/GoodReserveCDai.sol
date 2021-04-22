@@ -352,7 +352,21 @@ contract GoodReserveCDai is
 
 		return gdReturn;
 	}
+	/**
+	 * @dev Mint rewards for staking contracts in G$ and update RR
+	 * @param _to Receipent address for rewards
+	 * @param _amount G$ amount to mint for rewards
+	 */
+	function mintRewardFromRR(
+		address _to,
+		uint _amount
+	) public onlyFundManager{
 
+		IGoodDollar(address(avatar.nativeToken())).mint(_to, _amount);
+		//mint GDX
+		_mint(_to, _amount);
+		getMarketMaker().updateGdSupply(_amount, ERC20(cDaiAddress));
+		}
 	/**
 	 * @dev Converts GD tokens to `sellTo` tokens and update the bonding curve params.
 	 * `sell` occurs only if the token return is above the given minimum. Notice that

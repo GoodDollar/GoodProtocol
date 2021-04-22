@@ -169,7 +169,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
     const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
-      ["1000", goodCompoundStaking.address,"0","100"] // set 10 gd per block
+      ["1000", goodCompoundStaking.address,"0","44"] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
@@ -194,7 +194,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
     expect(rewardPerBlock[0].toString()).to.be.equal("1000");
     expect(rewardPerBlock[1].toString()).to.be.equal("0")
-    expect(rewardPerBlock[2].toString()).to.be.equal("100")
+    expect(rewardPerBlock[2].toString()).to.be.equal("44")
     expect(rewardPerBlock[3]).to.be.equal(false)
     
   });
@@ -212,6 +212,29 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
 
     let gdBalancerAfterWithdraw = await goodDollar.balanceOf(staker.address);
-    // TODO should finish this test case after gd mint stuff resolved
+    let blockNumber = await goodFundManager.getBlockNumber()
+    console.log(blockNumber.toString())
+    expect(gdBalancerAfterWithdraw.toString()).to.be.equal("2500")
+ 
   });
+
+  it("shouldn't be able to earn rewards after rewards blockend passed", async () => {
+    let stakingAmount = ethers.utils.parseEther("100");
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+
+    let gdBalanceBeforeWithdraw = await goodDollar.balanceOf(staker.address);
+    advanceBlocks(5);
+    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
+    let gdBalancerAfterWithdraw = await goodDollar.balanceOf(staker.address);
+    
+    expect(gdBalancerAfterWithdraw).to.be.equal(gdBalanceBeforeWithdraw)
+    
+  
+  })
+
+
 });

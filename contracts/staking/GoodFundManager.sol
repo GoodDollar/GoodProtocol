@@ -300,17 +300,19 @@ contract GoodFundManager is DAOContract {
 
      ) public {
         
-        IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
+        (uint blockReward,uint startBlock,uint endBlock, bool isBlackListed) = getStakingReward(address(_staking));
         uint amount = _staking._mint(_user);
-        if(amount > 0){
+        if(amount > 0 && isBlackListed == false){
             
-            //token.mint(_user, amount); Needs goodfundmanager gd mint permission for it or should I delegate it to reserve
+            reserve.mintRewardFromRR(_user, amount);
         }
         
 
 
      }
-    
+    function getBlockNumber() public view returns(uint){
+        return block.number;
+    }
     /**
      * @dev Making the contract inactive after it has transferred funds to `_avatar`.
      * Only the avatar can destroy the contract.

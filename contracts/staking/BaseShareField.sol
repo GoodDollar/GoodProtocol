@@ -43,7 +43,7 @@ contract BaseShareField is DAOContract{
 
     mapping(address => UserInfo) public users;
    
-
+    
     modifier onlyFundManager {
 		require(
 			msg.sender == nameService.getAddress("FUND_MANAGER"),
@@ -64,15 +64,15 @@ contract BaseShareField is DAOContract{
         }
         FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
         (uint rewardsPerBlock, uint blockStart, uint blockEnd, bool isBlackListed) = fm.getStakingReward(address(this));
-        if(block.number >= blockStart && blockEnd>= block.number && isBlackListed == false){
+        if(block.number >= blockStart && blockEnd>= block.number){
             uint256 multiplier = block.number.sub(lastRewardBlock);
             uint256 reward = multiplier.mul(rewardsPerBlock * 10 ** 16); // turn it to 18 decimals
 
             accAmountPerShare = accAmountPerShare.add(reward.mul(1e12).div(totalProductivity));
             totalShare = totalShare.add(reward);
-            lastRewardBlock = block.number;
+            
         }
-        
+        lastRewardBlock = block.number;
     }
     
     function _currentReward() internal virtual view returns (uint) {
@@ -89,16 +89,17 @@ contract BaseShareField is DAOContract{
             uint256 firstMonthBlocksToPay = blocksPaid >= (172800) ? 0 : blocksPassedFirstMonth.sub(blocksPaid);
             uint256 fullBlocksToPay = blocksToPay.sub(firstMonthBlocksToPay);
             
-            uint pending = userInfo.amount.mul(accAmountPerShare).div(1e12).sub(userInfo.rewardDebt);
            
+            
             if (blocksToPay != 0){
+                uint pending = userInfo.amount.mul(accAmountPerShare).div(1e12).sub(userInfo.rewardDebt);
                 uint rewardPerBlock = pending.mul(uint256(10 ** 12)).div(blocksToPay).div(uint256(10 ** 12)); // increase resolution
-                pending  = ((firstMonthBlocksToPay.mul(50*10**18).div(100)) + fullBlocksToPay).mul(rewardPerBlock).div(1e18); // divide 1e16 so reduce it to 18decimals
-               
+                pending  = ((firstMonthBlocksToPay.mul(50*10**18).div(100)) + fullBlocksToPay).mul(rewardPerBlock).div(1e18); // divide 1e18 so reduce it to 18decimals
+                userInfo.rewardEarn = userInfo.rewardEarn.add(pending);
+                 mintCumulation = mintCumulation.add(pending);
             }
             
-            userInfo.rewardEarn = userInfo.rewardEarn.add(pending);
-            mintCumulation = mintCumulation.add(pending);
+            
         }
     }
 
