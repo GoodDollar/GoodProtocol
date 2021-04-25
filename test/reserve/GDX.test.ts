@@ -115,6 +115,60 @@ describe("GDX Token", () => {
     await ictrl.genericCall(contribution.address, encodedCall, avatar, 0);
   });
 
+  it("should have only role of admin assigned to avatar", async () => {
+    expect(
+      await goodReserve.hasRole(
+        await goodReserve.MINTER_ROLE(),
+        founder.address
+      )
+    ).to.be.false;
+
+    expect(
+      await goodReserve.hasRole(
+        await goodReserve.DEFAULT_ADMIN_ROLE(),
+        founder.address
+      )
+    ).to.be.false;
+
+    expect(
+      await goodReserve.hasRole(
+        await goodReserve.PAUSER_ROLE(),
+        founder.address
+      )
+    ).to.be.false;
+
+    expect(
+      await goodReserve.hasRole(
+        await goodReserve.MINTER_ROLE(),
+        goodReserve.address
+      )
+    ).to.be.false;
+
+    expect(
+      await goodReserve.hasRole(
+        await goodReserve.DEFAULT_ADMIN_ROLE(),
+        goodReserve.address
+      )
+    ).to.be.false;
+
+    expect(
+      await goodReserve.hasRole(
+        await goodReserve.PAUSER_ROLE(),
+        goodReserve.address
+      )
+    ).to.be.false;
+
+    expect(await goodReserve.hasRole(await goodReserve.MINTER_ROLE(), avatar))
+      .to.be.false;
+
+    expect(
+      await goodReserve.hasRole(await goodReserve.DEFAULT_ADMIN_ROLE(), avatar)
+    ).to.be.true;
+
+    expect(await goodReserve.hasRole(await goodReserve.PAUSER_ROLE(), avatar))
+      .to.be.false;
+  });
+
   it("should get GDX for buying G$", async () => {
     let amount = 1e8;
     await dai["mint(uint256)"](ethers.utils.parseEther("100"));

@@ -12,7 +12,6 @@ import "../utils/NameService.sol";
 import "../DAOStackInterfaces.sol";
 import "../Interfaces.sol";
 import "./GoodMarketMaker.sol";
-import "./GoodCap.sol";
 
 interface ContributionCalc {
 	function calculateContribution(
@@ -32,9 +31,15 @@ interface ContributionCalc {
 contract GoodReserveCDai is
 	Initializable,
 	DAOContract,
-	ERC20PresetMinterPauserUpgradeable
+	ERC20PresetMinterPauserUpgradeable,
+	GlobalConstraintInterface
 {
 	using SafeMathUpgradeable for uint256;
+
+	bytes32 public constant RESERVE_MINTER_ROLE =
+		keccak256("RESERVE_MINTER_ROLE");
+
+	uint public cap;
 
 	// The last block number which
 	// `mintInterestAndUBI` has been executed in
@@ -53,6 +58,7 @@ contract GoodReserveCDai is
 
 	mapping(address => bool) public isClaimedGDX;
 
+	
 	// Emits when GD tokens are purchased
 	event TokenPurchased(
 		// The initiate of the action
@@ -124,6 +130,17 @@ contract GoodReserveCDai is
 	{
 		__ERC20PresetMinterPauser_init("GDX", "G$X");
 		setDAO(_ns);
+		//gdx roles
+		renounceRole(MINTER_ROLE, _msgSender());
+		renounceRole(PAUSER_ROLE, _msgSender());
+		renounceRole(DEFAULT_ADMIN_ROLE, _msgSender());
+		_setupRole(DEFAULT_ADMIN_ROLE, address(avatar));
+
+		//mint access through reserve
+		_setupRole(RESERVE_MINTER_ROLE, address(avatar)); //only Avatar can manage minters
+
+		cap = _cap;
+
 		gdxAirdrop = _gdxAirdrop;
 		daiAddress = nameService.getAddress("DAI");
 		cDaiAddress = nameService.getAddress("CDAI");
@@ -142,6 +159,17 @@ contract GoodReserveCDai is
 		return 2;
 	}
 
+	function _canMint(address _minter, uint256 _amount) {
+		require(
+			_minter == nameService.addresses(nameService.FUND_MANAGER()) || hasRole(RESERVE_MINTER_ROLE, _minter),
+			"GoodReserve: not a minter"
+		);
+
+		require(
+			goodDollar.totalSupply().add(_amount) <= cap,
+			"GoodReserve: cap enforced"
+		);
+	}
 	/**
 	 * @dev get current FundManager from name service
 	 */
@@ -283,7 +311,7 @@ contract GoodReserveCDai is
 		);
 
 		//mint GDX
-		_mint(receiver, gdReturn);
+		_mintGDX(receiver, gdReturn);
 
 		return gdReturn;
 	}
@@ -474,6 +502,33 @@ contract GoodReserveCDai is
 				cDai.exchangeRateStored().div(10) //exchange rate is 1e28 reduce to 1e27
 			);
 	}
+	
+	function mintByPrice(ERC20 _interestToken,address _to, uint256 _transfered) public {
+		uint256 gdToMint =
+			getMarketMaker().mintInterest(_interestToken, _transfered);
+
+		_mintGoodDollars(_recipient, gdToMint);
+
+	}
+
+	function mintFromReserveRatio(ERC20 _interestToken, address _to, uint256 _gdToMint, public {
+		
+		getMarketMaker().mintFromReserveRatio(_gdToMint);
+
+		_mintGoodDollars(_recipient, _gdToMint);
+
+	}
+
+	function _mintGoodDollars(address _to, uint256 _gdToMint) internal {
+		//enforce minting rules
+		_canMint(_gdToMint);
+
+		gooddollar.mint(_recipient, _gdToMint);
+	}
+
+	function _mintGDX(address _to, uint256 _gdx) internal {
+		_mint(_to,_gdx);
+	}
 
 	//TODO: can we send directly to UBI via bridge here?
 	/**
@@ -490,10 +545,8 @@ contract GoodReserveCDai is
 		uint256 _transfered,
 		uint256 _interest
 	) public returns (uint256, uint256) {
-		require(
-			msg.sender == nameService.addresses(nameService.FUND_MANAGER()),
-			"Only FundManager can call this method"
-		);
+		_canMint();
+
 		uint256 price = getMarketMaker().currentPrice(ERC20(cDaiAddress));
 		// uint256 price = currentPrice(_interestToken);
 		uint256 gdInterestToMint =
@@ -506,7 +559,7 @@ contract GoodReserveCDai is
 		uint256 gdUBI = gdInterestToMint.sub(gdInterest);
 		gdUBI = gdUBI.add(gdExpansionToMint);
 		uint256 toMint = gdUBI.add(gdInterest);
-		GoodCap(nameService.addresses(nameService.CAP_MANAGER())).mint(
+		_mintGoodDollars(
 			getFundManager(),
 			toMint
 		);
@@ -594,9 +647,40 @@ contract GoodReserveCDai is
 
 		require(isProofValid, "invalid merkle proof");
 
-		_mint(_user, _gdx);
+		_mintGDX(_user, _gdx);
 
 		isClaimedGDX[_user] = true;
 		return true;
 	}
+
+	// implement minting constraints through the GlobalConstraintInterface interface. prevent any minting not through reserve
+	function pre(
+		address _scheme,
+		bytes32 _hash,
+		bytes32 _method
+	) public pure override returns (bool) {
+		_scheme;
+		_hash;
+		_method;
+		if (_method == "mintTokens") return false;
+	}
+
+	/**
+	 * @dev enforce cap on DAOStack Controller mintTokens using GlobalConstraintInterface
+	 */
+	function post(
+		address _scheme,
+		bytes32 _hash,
+		bytes32 _method
+	) public view override returns (bool) {
+		_hash;
+		_scheme;		
+		return true;
+	}
+
+	function when() public pure override returns (CallPhase) {
+		return CallPhase.Pre;
+	}
+
+	 
 }
