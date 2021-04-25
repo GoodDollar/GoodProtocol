@@ -39,7 +39,7 @@ contract GoodReserveCDai is
 	bytes32 public constant RESERVE_MINTER_ROLE =
 		keccak256("RESERVE_MINTER_ROLE");
 
-	uint public cap;
+	uint256 public cap;
 
 	// The last block number which
 	// `mintInterestAndUBI` has been executed in
@@ -58,7 +58,6 @@ contract GoodReserveCDai is
 
 	mapping(address => bool) public isClaimedGDX;
 
-	
 	// Emits when GD tokens are purchased
 	event TokenPurchased(
 		// The initiate of the action
@@ -130,10 +129,11 @@ contract GoodReserveCDai is
 	{
 		__ERC20PresetMinterPauser_init("GDX", "G$X");
 		setDAO(_ns);
-		
+
 		//fixed cdai/dai
-		setAddresses();
-		
+		daiAddress = nameService.getAddress("DAI");
+		cDaiAddress = nameService.getAddress("CDAI");
+
 		//gdx roles
 		renounceRole(MINTER_ROLE, _msgSender());
 		renounceRole(PAUSER_ROLE, _msgSender());
@@ -143,10 +143,9 @@ contract GoodReserveCDai is
 		//mint access through reserve
 		_setupRole(RESERVE_MINTER_ROLE, address(avatar)); //only Avatar can manage minters
 
-		cap = _cap;
+		cap = 22 * 1e14; //22 trillion G$ cents
 
 		gdxAirdrop = _gdxAirdrop;
-		
 	}
 
 	function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
@@ -162,25 +161,6 @@ contract GoodReserveCDai is
 		return 2;
 	}
 
-	function _canMint(address _minter, uint256 _amount) {
-		require(
-			_minter == nameService.addresses(nameService.FUND_MANAGER()) || hasRole(RESERVE_MINTER_ROLE, _minter),
-			"GoodReserve: not a minter"
-		);
-		require(
-			goodDollar.totalSupply().add(_amount) <= cap,
-			"GoodReserve: cap enforced"
-		);
-	}
-
-	/**
-	 * @dev Set cDAI and DAI addresses
-	 */
-	function setAddresses() public { 
-		daiAddress = nameService.getAddress("DAI");
-		cDaiAddress = nameService.getAddress("CDAI");
-	}
-		
 	/**
 	 * @dev get current FundManager from name service
 	 */
@@ -316,10 +296,7 @@ contract GoodReserveCDai is
 		address receiver =
 			_targetAddress == address(0x0) ? msg.sender : _targetAddress;
 
-		GoodCap(nameService.addresses(nameService.CAP_MANAGER())).mint(
-			receiver,
-			gdReturn
-		);
+		_mintGoodDollars(receiver, gdReturn, true);
 
 		//mint GDX
 		_mintGDX(receiver, gdReturn);
@@ -513,32 +490,54 @@ contract GoodReserveCDai is
 				cDai.exchangeRateStored().div(10) //exchange rate is 1e28 reduce to 1e27
 			);
 	}
-	
-	function mintByPrice(ERC20 _interestToken,address _to, uint256 _transfered) public {
-		uint256 gdToMint =
-			getMarketMaker().mintInterest(_interestToken, _transfered);
 
-		_mintGoodDollars(_recipient, gdToMint);
+	function mintByPrice(
+		ERC20 _interestToken,
+		address _to,
+		uint256 _transfered
+	) public {
+		uint256 gdToMint = 10;
+		//	getMarketMaker().mintInterest(_interestToken, _transfered);
 
+		_mintGoodDollars(_to, gdToMint, false);
 	}
 
-	function mintFromReserveRatio(ERC20 _interestToken, address _to, uint256 _gdToMint, public {
-		
-		getMarketMaker().mintFromReserveRatio(_gdToMint);
+	function mintFromReserveRatio(
+		ERC20 _interestToken,
+		address _to,
+		uint256 _gdToMint
+	) public {
+		getMarketMaker().mintFromReserveRatio(_interestToken, _gdToMint);
 
-		_mintGoodDollars(_recipient, _gdToMint);
-
+		_mintGoodDollars(_to, _gdToMint, false);
 	}
 
-	function _mintGoodDollars(address _to, uint256 _gdToMint) internal {
+	function _mintGoodDollars(
+		address _to,
+		uint256 _gdToMint,
+		bool _internalCall
+	) internal {
 		//enforce minting rules
-		_canMint(_gdToMint);
+		require(
+			_internalCall ||
+				_msgSender() ==
+				nameService.addresses(nameService.FUND_MANAGER()) ||
+				hasRole(RESERVE_MINTER_ROLE, _msgSender()),
+			"GoodReserve: not a minter"
+		);
 
-		gooddollar.mint(_recipient, _gdToMint);
+		require(
+			GoodDollar(address(avatar.nativeToken())).totalSupply() +
+				_gdToMint <=
+				cap,
+			"GoodReserve: cap enforced"
+		);
+
+		GoodDollar(address(avatar.nativeToken())).mint(_to, _gdToMint);
 	}
 
 	function _mintGDX(address _to, uint256 _gdx) internal {
-		_mint(_to,_gdx);
+		_mint(_to, _gdx);
 	}
 
 	//TODO: can we send directly to UBI via bridge here?
@@ -556,8 +555,6 @@ contract GoodReserveCDai is
 		uint256 _transfered,
 		uint256 _interest
 	) public returns (uint256, uint256) {
-		_canMint();
-
 		uint256 price = getMarketMaker().currentPrice(ERC20(cDaiAddress));
 		// uint256 price = currentPrice(_interestToken);
 		uint256 gdInterestToMint =
@@ -570,10 +567,7 @@ contract GoodReserveCDai is
 		uint256 gdUBI = gdInterestToMint.sub(gdInterest);
 		gdUBI = gdUBI.add(gdExpansionToMint);
 		uint256 toMint = gdUBI.add(gdInterest);
-		_mintGoodDollars(
-			getFundManager(),
-			toMint
-		);
+		_mintGoodDollars(getFundManager(), toMint, false);
 		lastMinted = block.number;
 		emit UBIMinted(
 			lastMinted,
@@ -619,11 +613,13 @@ contract GoodReserveCDai is
 				"cdai transfer failed"
 			);
 		}
-		require(
-			cDai.balanceOf(address(this)) == 0,
-			"Funds transfer has failed"
-		);
+
 		getMarketMaker().transferOwnership(address(avatar));
+
+		// restore minting to avatar, so he can re-delegate it
+		GoodDollar(address(avatar.nativeToken())).addMinter(address(avatar));
+
+		GoodDollar(address(avatar.nativeToken())).renounceMinter();
 	}
 
 	/**
@@ -685,13 +681,11 @@ contract GoodReserveCDai is
 		bytes32 _method
 	) public view override returns (bool) {
 		_hash;
-		_scheme;		
+		_scheme;
 		return true;
 	}
 
 	function when() public pure override returns (CallPhase) {
 		return CallPhase.Pre;
 	}
-
-	 
 }

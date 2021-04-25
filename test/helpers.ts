@@ -105,11 +105,6 @@ export const createDAO = async () => {
     ]
   );
 
-  const capManager = await upgrades.deployProxy(
-    await ethers.getContractFactory("GoodCap"),
-    [nameService.address, 2200000000000000]
-  );
-
   console.log("deploying reserve...");
   let goodReserve = await upgrades.deployProxy(
     await ethers.getContractFactory("GoodReserveCDai"),
@@ -132,6 +127,15 @@ export const createDAO = async () => {
     999388834642296,
     1e15
   ])) as GoodMarketMaker;
+
+  await marketMaker.initializeToken(
+    cDAI.address,
+    "100", //1gd
+    "10000", //0.0001 cDai
+    "1000000" //100% rr
+  );
+
+  await marketMaker.transferOwnership(goodReserve.address);
 
   //generic call permissions
   let schemeMock = signers[signers.length - 1];
@@ -174,12 +178,12 @@ export const createDAO = async () => {
   //make GoodCap minter
   const encoded = (
     await ethers.getContractAt("GoodDollar", gd)
-  ).interface.encodeFunctionData("addMinter", [capManager.address]);
+  ).interface.encodeFunctionData("addMinter", [goodReserve.address]);
 
   await ictrl.genericCall(gd, encoded, Avatar.address, 0);
 
-  await setDAOAddress("CAP_MANAGER", capManager.address);
   await setDAOAddress("RESERVE", goodReserve.address);
+  await setDAOAddress("MARKET_MAKER", marketMaker.address);
 
   return {
     daoCreator,

@@ -98,7 +98,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
       avatar
     });
 
-    goodDollar = await ethers.getContractAt("IGoodDollar", gd);
+    goodDollar = await ethers.getContractAt("GoodDollar", gd);
     contribution = await ethers.getContractAt(
       ContributionCalculation.abi,
       await nameService.getAddress("CONTRIBUTION_CALCULATION")
@@ -124,12 +124,11 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
 
     await marketMaker.transferOwnership(goodReserve.address);
     // Set addresses
-    setDAOAddress("CDAI", cDAI.address)
-    setDAOAddress("DAI", dai.address)
-    setDAOAddress("UNISWAP_ROUTER",uniswapRouter.address)
+    setDAOAddress("CDAI", cDAI.address);
+    setDAOAddress("DAI", dai.address);
+    setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
     //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
     await goodReserve.setAddresses();
-   
 
     await factory.createPair(tokenA.address, dai.address); // Create tokenA and dai pair
     const pairAddress = factory.getPair(tokenA.address, dai.address);

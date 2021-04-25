@@ -449,6 +449,22 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 		return toMint.sub(reserveToken.gdSupply);
 	}
 
+	/** @dev Calculate new reserve ratio in order to mint X G$
+	 * keeping G$ price the same at the bonding curve. the
+	 * formula to calculate the gd to mint: gd to mint =
+	 * (reservebalance / (newreserveratio * currentprice)) - gdsupply
+	 * @param _token The reserve token
+	 * @param _gdToMint The amount to mint
+	 * @return new reserve ratio
+	 */
+	function calculateMintFromReserveRatio(ERC20 _token, uint256 _gdToMint)
+		public
+		view
+		returns (uint32)
+	{
+		return 80000;
+	}
+
 	/**
 	 * @dev Updates bonding curve based on expansion change and new minted amount
 	 * @param _token The reserve token
@@ -472,5 +488,15 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 			toMint
 		);
 		return toMint;
+	}
+
+	function mintFromReserveRatio(ERC20 _token, uint256 _gdToMint) public {
+		_onlyOwner();
+		_onlyActiveToken(_token);
+
+		uint32 newRR = calculateMintFromReserveRatio(_token, _gdToMint);
+		ReserveToken storage reserveToken = reserveTokens[address(_token)];
+		reserveToken.reserveRatio = newRR;
+		reserveToken.gdSupply += _gdToMint;
 	}
 }

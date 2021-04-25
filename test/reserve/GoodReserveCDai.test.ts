@@ -63,7 +63,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
       avatar
     });
 
-    goodDollar = await ethers.getContractAt("IGoodDollar", gd);
+    goodDollar = await ethers.getContractAt("GoodDollar", gd);
     contribution = await ethers.getContractAt(
       ContributionCalculation.abi,
       await nameService.getAddress("CONTRIBUTION_CALCULATION")
@@ -81,17 +81,9 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     console.log("setting permissions...");
 
     console.log("initializing marketmaker...");
-    await marketMaker.initializeToken(
-      cDAI.address,
-      "100", //1gd
-      "10000", //0.0001 cDai
-      "1000000" //100% rr
-    );
-
-    await marketMaker.transferOwnership(goodReserve.address);
     // Set addresses
-    setDAOAddress("CDAI", cDAI.address)
-    setDAOAddress("DAI", dai.address)
+    setDAOAddress("CDAI", cDAI.address);
+    setDAOAddress("DAI", dai.address);
     await goodReserve.setAddresses();
   });
 
@@ -294,9 +286,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     let tx = goodReserve
       .connect(staker)
       .mintInterestAndUBI(cDAI.address, ethers.utils.parseEther("1"), "0");
-    await expect(tx).to.be.revertedWith(
-      "revert Only FundManager can call this method"
-    );
+    await expect(tx).to.be.revertedWith("revert GoodReserve: not a minter");
   });
 
   // it("should set block interval by avatar", async () => {
@@ -1157,6 +1147,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
 
   //keep this test last as it ends the reserve
   it("should transfer cDAI funds to the given destination and transfer marker maker ownership", async () => {
+    expect(await goodReserve.avatar()).to.equal(avatar);
     let avatarBalanceBefore = await cDAI.balanceOf(avatar);
     let reserveBalanceBefore = await cDAI.balanceOf(goodReserve.address);
 

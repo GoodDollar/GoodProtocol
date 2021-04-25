@@ -63,7 +63,7 @@ describe("GDX Token", () => {
       goodReserve: goodReserve.address
     });
 
-    goodDollar = await ethers.getContractAt("IGoodDollar", gd);
+    goodDollar = await ethers.getContractAt("GoodDollar", gd);
     contribution = await ethers.getContractAt(
       ContributionCalculation.abi,
       await nameService.getAddress("CONTRIBUTION_CALCULATION")
@@ -92,8 +92,8 @@ describe("GDX Token", () => {
     );
 
     await marketMaker.transferOwnership(goodReserve.address);
-    setDAOAddress("CDAI", cDAI.address)
-    setDAOAddress("DAI", dai.address)
+    setDAOAddress("CDAI", cDAI.address);
+    setDAOAddress("DAI", dai.address);
 
     //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
     await goodReserve.setAddresses();
