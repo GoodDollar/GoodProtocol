@@ -2,7 +2,7 @@
 
 pragma solidity >=0.7.0;
 
-import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../DAOStackInterfaces.sol";
 
 /**

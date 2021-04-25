@@ -2,10 +2,10 @@
 
 pragma solidity >=0.7.0;
 
-import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/presets/ERC20PresetMinterPauserUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/cryptography/MerkleProofUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetMinterPauserUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 
 import "../utils/DAOContract.sol";
 import "../utils/NameService.sol";
@@ -130,6 +130,10 @@ contract GoodReserveCDai is
 	{
 		__ERC20PresetMinterPauser_init("GDX", "G$X");
 		setDAO(_ns);
+		
+		//fixed cdai/dai
+		setAddresses();
+		
 		//gdx roles
 		renounceRole(MINTER_ROLE, _msgSender());
 		renounceRole(PAUSER_ROLE, _msgSender());
@@ -142,8 +146,7 @@ contract GoodReserveCDai is
 		cap = _cap;
 
 		gdxAirdrop = _gdxAirdrop;
-		daiAddress = nameService.getAddress("DAI");
-		cDaiAddress = nameService.getAddress("CDAI");
+		
 	}
 
 	function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
@@ -164,12 +167,20 @@ contract GoodReserveCDai is
 			_minter == nameService.addresses(nameService.FUND_MANAGER()) || hasRole(RESERVE_MINTER_ROLE, _minter),
 			"GoodReserve: not a minter"
 		);
-
 		require(
 			goodDollar.totalSupply().add(_amount) <= cap,
 			"GoodReserve: cap enforced"
 		);
 	}
+
+	/**
+	 * @dev Set cDAI and DAI addresses
+	 */
+	function setAddresses() public { 
+		daiAddress = nameService.getAddress("DAI");
+		cDaiAddress = nameService.getAddress("CDAI");
+	}
+		
 	/**
 	 * @dev get current FundManager from name service
 	 */

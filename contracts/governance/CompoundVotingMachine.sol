@@ -2,7 +2,7 @@
 pragma solidity >=0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "../DAOStackInterfaces.sol";
 
 contract CompoundVotingMachine {
@@ -677,7 +677,7 @@ contract CompoundVotingMachine {
 	// 	);
 	// }
 
-	function getChainId() public pure returns (uint256) {
+	function getChainId() public view returns (uint256) {
 		uint256 chainId;
 		assembly {
 			chainId := chainid()
