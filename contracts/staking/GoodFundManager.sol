@@ -5,6 +5,7 @@ pragma solidity >=0.7.0;
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../reserve/GoodReserveCDai.sol";
 
+
 import "../Interfaces.sol";
 
 interface StakingContract {
@@ -13,12 +14,17 @@ interface StakingContract {
         returns (uint256, uint256, uint256, uint256);
 
     function iToken() external view returns(address); 
-
+    function currentUBIInterest()
+        external
+        view
+        returns (uint256,uint256,uint256);
     function updateGlobalGDYieldPerToken(
         uint256 _blockGDInterest,
         uint256 _blockInterestTokenEarned
         ) 
     external;
+    function getGasCostForInterestTransfer() external view returns(uint);
+    
 }
 
 
@@ -61,6 +67,15 @@ contract GoodFundManager is DAOContract {
     // has been executed in
     uint256 public lastTransferred;
 
+    //address of the activate staking contracts
+    address[] public activeContracts;
+    mapping (uint256 => InterestData[]) interestDatas;
+    struct InterestData{
+        address contractAddress; // address of the staking contract
+        uint256 interestBalance; // interest balance of the staking contract
+       
+       
+    }
     // Emits when `transferInterest` transfers
     // funds to the staking contract and to
     // the bridge
@@ -68,7 +83,7 @@ contract GoodFundManager is DAOContract {
         // The caller address
         address indexed caller,
         // The staking contract address
-        address indexed staking,
+        //address indexed staking,
         // The reserve contract address
         address indexed reserve,
         // Amount of cDai that was transferred
@@ -82,7 +97,7 @@ contract GoodFundManager is DAOContract {
         uint256 cDAIinterestDonated,
         // The number of tokens that have been minted
         // by the reserve to the staking contract
-        uint256 gdInterest,
+        //uint256 gdInterest,
         // The number of tokens that have been minted
         // by the reserve to the bridge which in his
         // turn should transfer those funds to the
@@ -138,7 +153,40 @@ contract GoodFundManager is DAOContract {
     function setReserve(GoodReserveCDai _reserve) public onlyAvatar {
         reserve = _reserve;
     }
-
+    /**
+     * @dev Add active contract to active contracts array
+     * @param _stakingContract address of the staking contract
+     */
+    function addActiveStakingContract(address _stakingContract)public onlyAvatar{
+        //check if address exists in array
+        bool exist;
+        for (uint8 i=0; i < activeContracts.length; i++){
+            if(activeContracts[i] == _stakingContract){
+                exist = true;
+                break;
+            }
+        }
+        require(exist == false , "Staking contract address already exist");
+        activeContracts.push(_stakingContract);
+    }
+    /**
+     * @dev Remove active contract from active contracts array
+     * @param _stakingContract address of the staking contract
+     */
+    function removeActiveStakingContract(address _stakingContract)public onlyAvatar{
+        uint index;
+        bool exist;
+        for (uint8 i=0; i < activeContracts.length; i++){ 
+            if(activeContracts[i] == _stakingContract){
+                exist = true;
+                index = i;
+                break;
+            }
+        }
+        require(exist==true, "There is no such a address to delete");
+        activeContracts[index] = activeContracts[activeContracts.length - 1];
+        activeContracts.pop();
+    }
     /**
      * @dev sets the token bridge address on mainnet and the recipient of minted UBI (avatar on sidechain)
      * @param _bridgeContract address
@@ -192,13 +240,8 @@ contract GoodFundManager is DAOContract {
      * received from the reserve contract back to the staking contract and to the
      * bridge, which locks the funds and then the GD tokens are been minted to the
      * given address on the sidechain
-     * @param _staking Contract that implements `collectUBIInterest` and transfer iTokeb to
-     * a given address. The given address should be the same whitelisted `reserve`
-     * address in the current contract, in case that the given staking contract transfers
-     * the funds to another contract, zero GD tokens will be minted by the reserve contract.
-     * Emits `FundsTransferred` event in case which interest has been passed to the `reserve`
      */
-    function transferInterest(StakingContract _staking)
+    function collectInterest()
         public
         reserveHasInitialized
         //requireDAOContract(address(_staking))
@@ -208,48 +251,70 @@ contract GoodFundManager is DAOContract {
         //     "Need to wait for the next interval"
         // );
         lastTransferred = block.number.div(blockInterval);
-        ERC20 iToken = ERC20(_staking.iToken());
+        ERC20 iToken = ERC20(nameService.getAddress("CDAI"));
         // iToken balance of the reserve contract
         uint256 currentBalance = iToken.balanceOf(address(reserve));
-        // collects the interest from the staking contract and transfer it directly to the reserve contract
-        //`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
-        (, , , uint256 avgEffectiveStakedRatio) = _staking.collectUBIInterest(
-            address(reserve)
-        );
+        uint256 tempInterest;
+        InterestData memory tempData;
+        
+        for (uint i = 0; i < activeContracts.length;i++){
+            (tempInterest, ,) = StakingContract(activeContracts[i]).currentUBIInterest();
+            tempData = InterestData(activeContracts[i], tempInterest);
+            if (tempInterest != 0) interestDatas[block.number].push(tempData);
+        }
+        InterestData[] memory stakingContractsInterestBalances = interestDatas[block.number];
+        quick(stakingContractsInterestBalances); // sort the values according to interest balance
+        uint leftGas = gasleft();
+        uint gasCost;
+        uint256 avgEffectiveStakedRatio;
+        uint256 interest;
+        uint256 cumInterest;
+        uint256 cumEffectiveInterest;
 
-        // Finds the actual transferred iToken
-        uint256 interest = iToken.balanceOf(address(reserve)).sub(
-            currentBalance
-        );
-        uint256 effectiveInterest = interest.mul(avgEffectiveStakedRatio).div(DECIMAL1e18);
-
-        uint256 interestDonated = interest.sub(effectiveInterest);
+        for(uint i = stakingContractsInterestBalances.length - 1; i >=0; i--){
+                gasCost = StakingContract(stakingContractsInterestBalances[i].contractAddress).getGasCostForInterestTransfer();
+            if(leftGas - gasCost >= 200000){ // this value will change its hardcoded for ubi minting
+                // collects the interest from the staking contract and transfer it directly to the reserve contract
+                //`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
+                (, , , avgEffectiveStakedRatio) = StakingContract(stakingContractsInterestBalances[i].contractAddress).collectUBIInterest(
+                    address(reserve)
+                );
+                // Finds the actual transferred iToken
+                interest = iToken.balanceOf(address(reserve)).sub(
+                    currentBalance
+                );
+                cumEffectiveInterest += interest.mul(avgEffectiveStakedRatio).div(DECIMAL1e18);
+                cumInterest += interest; 
+                leftGas -= gasCost;
+            }else{
+                break;
+            }
+        }
+        uint256 interestDonated = cumInterest.sub(cumEffectiveInterest);
         // Mints gd while the interest amount is equal to the transferred amount
         (uint256 gdInterest, uint256 gdUBI) = reserve.mintInterestAndUBI(
             iToken,
-            interest,
-            effectiveInterest
+            cumInterest, // Cumulative interest
+            cumEffectiveInterest // cumulative effective interest
         );
-        _staking.updateGlobalGDYieldPerToken(gdInterest, interest);
+        //_staking.updateGlobalGDYieldPerToken(gdInterest, interest);
         // Transfers the minted tokens to the given staking contract
         IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
-        if(gdInterest > 0)
-            require(token.transfer(address(_staking), gdInterest),"interest transfer failed");
+        //if(gdInterest > 0)
+          //  require(token.transfer(address(_staking), gdInterest),"interest transfer failed");
         if(gdUBI > 0)
             //transfer ubi to avatar on sidechain via bridge
             require(token.transferAndCall(
                 bridgeContract,
-                gdUBI,
+                gdUBI + gdInterest,
                 abi.encodePacked(ubiRecipient)
             ),"ubi bridge transfer failed");
         emit FundsTransferred(
             msg.sender,
-            address(_staking),
             address(reserve),
             interest,
             interestDonated,
-            gdInterest,
-            gdUBI
+            gdUBI + gdInterest
         );
     }
 
@@ -270,4 +335,29 @@ contract GoodFundManager is DAOContract {
         }
         super.internalEnd(avatar);
     }*/ 
+    function quick(InterestData[] memory data) internal pure {
+        if (data.length > 1) {
+            quickPart(data, 0, data.length - 1);
+        }
+    }
+    function quickPart(InterestData[] memory data, uint low, uint high) internal pure {
+        if (low < high) {
+            uint pivotVal = data[(low + high) / 2].interestBalance;
+        
+            uint low1 = low;
+            uint high1 = high;
+            for (;;) {
+                while (data[low1].interestBalance < pivotVal) low1++;
+                while (data[high1].interestBalance > pivotVal) high1--;
+                if (low1 >= high1) break;
+                (data[low1], data[high1]) = (data[high1], data[low1]);
+                low1++;
+                high1--;
+            }
+            if (low < high1) quickPart(data, low, high1);
+            high1++;
+            if (high1 < high) quickPart(data, high1, high);
+        }
+    }
+
 }

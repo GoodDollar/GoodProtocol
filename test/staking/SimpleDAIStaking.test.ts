@@ -162,6 +162,11 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       [goodReserve.address]
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+      "addActiveStakingContract",
+      [goodCompoundStaking.address]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
   });

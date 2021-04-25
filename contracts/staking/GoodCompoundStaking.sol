@@ -77,4 +77,8 @@ contract GoodCompoundStaking is SimpleStaking {
         ERC20 cToken = ERC20(address(iToken));
         return uint(cToken.decimals());
     }
+
+    function getGasCostForInterestTransfer() external view override returns(uint256){
+        return uint256(67917);
+    }
 }

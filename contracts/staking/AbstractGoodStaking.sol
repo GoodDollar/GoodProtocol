@@ -96,6 +96,11 @@ contract AbstractGoodStaking {
     {
         
     }
+    /**
+     * @dev Get gas cost for interest transfer 
+     * @return returns hardcoded gas cost
+     */
+    function getGasCostForInterestTransfer() external view virtual returns(uint256){}
 
     /**
      * @dev Invests staked tokens to defi protocol.
