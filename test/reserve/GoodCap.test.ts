@@ -81,25 +81,24 @@ describe("GoodReserve - Enforce token cap", () => {
   });
 
   it("should be able to mint if fund_manager contract and Reserve is minter", async () => {
+    let currentPrice = await goodReserve["currentPrice()"]();
+    expect(currentPrice).to.be.gt(0, "should have cDai price");
+    expect(await goodReserve["currentPriceDAI()"]()).to.be.gt(
+      0,
+      "should have Dai price"
+    );
+
     await setDAOAddress("FUND_MANAGER", founder.address);
 
-    // let encodedCall = goodDollar.interface.encodeFunctionData("addMinter", [
-    //   goodReserve.address
-    // ]);
-    // const ictrl = await ethers.getContractAt(
-    //   "Controller",
-    //   controller,
-    //   schemeMock
-    // );
-
-    // await ictrl.genericCall(goodDollar.address, encodedCall, avatar, 0);
+    await goodReserve.connect(founder).mintByPrice(cDai, founder.address, 1000); //10000 cdai wei is 1G$
+    expect(await goodDollar.balanceOf(founder.address)).to.equal(10);
 
     await goodReserve
       .connect(founder)
       .mintFromReserveRatio(cDai, founder.address, 10);
-    expect(await goodDollar.balanceOf(founder.address)).to.equal(10);
-    await goodReserve.connect(founder).mintByPrice(cDai, founder.address, 10);
     expect(await goodDollar.balanceOf(founder.address)).to.equal(20);
+    currentPrice = await goodReserve["currentPrice()"]();
+    expect(currentPrice).to.be.gt(0, "should have cDai price");
   });
 
   it("should be able to mint after Avatar renounceMinter", async () => {

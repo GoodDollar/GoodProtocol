@@ -500,8 +500,8 @@ contract GoodReserveCDai is
 		address _to,
 		uint256 _transfered
 	) public {
-		uint256 gdToMint = 10;
-		//	getMarketMaker().mintInterest(_interestToken, _transfered);
+		uint256 gdToMint =
+			getMarketMaker().mintInterest(_interestToken, _transfered);
 
 		_mintGoodDollars(_to, gdToMint, false);
 	}
@@ -617,8 +617,6 @@ contract GoodReserveCDai is
 				"cdai transfer failed"
 			);
 		}
-
-		getMarketMaker().transferOwnership(address(avatar));
 
 		// // restore minting to avatar, so he can re-delegate it
 		GoodDollar gd = GoodDollar(address(avatar.nativeToken()));

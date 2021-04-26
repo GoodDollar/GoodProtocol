@@ -448,6 +448,7 @@ contract GoodMarketMaker is Initializable, DSMath {
 		return toMint.sub(reserveToken.gdSupply);
 	}
 
+	//TODO: implement the correct formula and add in comment
 	/** @dev Calculate new reserve ratio in order to mint X G$
 	 * keeping G$ price the same at the bonding curve. the
 	 * formula to calculate the gd to mint: gd to mint =
@@ -461,7 +462,7 @@ contract GoodMarketMaker is Initializable, DSMath {
 		view
 		returns (uint32)
 	{
-		return 80000;
+		return 1e6;
 	}
 
 	/**
