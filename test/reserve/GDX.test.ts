@@ -74,7 +74,6 @@ describe("GDX Token", () => {
     const reserveFactory = await ethers.getContractFactory("GoodReserveCDai");
 
     console.log("deployed contribution, deploying reserve...", {
-      mmOwner: await marketMaker.owner(),
       founder: founder.address
     });
 
@@ -82,22 +81,6 @@ describe("GDX Token", () => {
 
     //give reserve generic call permission
     await setSchemes([goodReserve.address]);
-
-    console.log("initializing marketmaker...");
-    await marketMaker.initializeToken(
-      cDAI.address,
-      "100", //1gd
-      "10000", //0.0001 cDai
-      "1000000" //100% rr
-    );
-
-    await marketMaker.transferOwnership(goodReserve.address);
-    setDAOAddress("CDAI", cDAI.address);
-    setDAOAddress("DAI", dai.address);
-
-    //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
-    await goodReserve.setAddresses();
-    await setDAOAddress("MARKET_MAKER", marketMaker.address);
 
     //set contribution to 20%
     let nom = ethers.utils.parseUnits("2", 14);

@@ -128,15 +128,6 @@ export const createDAO = async () => {
     1e15
   ])) as GoodMarketMaker;
 
-  await marketMaker.initializeToken(
-    cDAI.address,
-    "100", //1gd
-    "10000", //0.0001 cDai
-    "1000000" //100% rr
-  );
-
-  await marketMaker.transferOwnership(goodReserve.address);
-
   //generic call permissions
   let schemeMock = signers[signers.length - 1];
 
@@ -166,6 +157,15 @@ export const createDAO = async () => {
     await ictrl.genericCall(nameService.address, encoded, Avatar.address, 0);
   };
 
+  const setReserveToken = async (token, gdReserve, tokenReserve, RR) => {
+    const encoded = marketMaker.interface.encodeFunctionData(
+      "initializeToken",
+      [token, gdReserve, tokenReserve, RR]
+    );
+
+    await ictrl.genericCall(marketMaker.address, encoded, Avatar.address, 0);
+  };
+
   await daoCreator.setSchemes(
     Avatar.address,
     [schemeMock.address],
@@ -185,6 +185,13 @@ export const createDAO = async () => {
   await setDAOAddress("RESERVE", goodReserve.address);
   await setDAOAddress("MARKET_MAKER", marketMaker.address);
 
+  await setReserveToken(
+    cDAI.address,
+    "100", //1gd
+    "10000", //0.0001 cDai
+    "1000000" //100% rr
+  );
+
   return {
     daoCreator,
     controller,
@@ -195,6 +202,7 @@ export const createDAO = async () => {
     nameService,
     setDAOAddress,
     setSchemes,
+    setReserveToken,
     marketMaker,
     feeFormula: FeeFormula,
     daiAddress: dai.address,

@@ -3,7 +3,6 @@
 pragma solidity >=0.7.0;
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import "../utils/DSMath.sol";
@@ -15,7 +14,7 @@ import "../utils/NameService.sol";
 /**
 @title Dynamic reserve ratio market maker
 */
-contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
+contract GoodMarketMaker is Initializable, DSMath {
 	using SafeMathUpgradeable for uint256;
 
 	// Entity that holds a reserve token
@@ -125,7 +124,6 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 		reserveRatioDailyExpansion = rdiv(_nom, _denom);
 		decimals = 2;
 		nameService = _ns;
-		__Ownable_init();
 	}
 
 	function _onlyActiveToken(ERC20 _token) internal view {
@@ -133,8 +131,12 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 		require(rtoken.gdSupply > 0, "Reserve token not initialized");
 	}
 
-	function _onlyOwner() internal view {
-		require(owner() == _msgSender(), "Ownable: caller is not the owner");
+	function _onlyReserveOrAvatar() internal view {
+		require(
+			nameService.addresses(nameService.RESERVE()) == msg.sender ||
+				nameService.addresses(nameService.AVATAR()) == msg.sender,
+			"GoodMarketMaker: not Reserve or Avatar"
+		);
 	}
 
 	function getBancor() public view returns (BancorFormula) {
@@ -152,7 +154,7 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	function setReserveRatioDailyExpansion(uint256 _nom, uint256 _denom)
 		public
 	{
-		_onlyOwner();
+		_onlyReserveOrAvatar();
 		require(_denom > 0, "denominator must be above 0");
 		reserveRatioDailyExpansion = rdiv(_nom, _denom);
 		emit ReserveRatioUpdated(msg.sender, _nom, _denom);
@@ -176,7 +178,7 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 		uint256 _tokenSupply,
 		uint32 _reserveRatio
 	) public {
-		_onlyOwner();
+		_onlyReserveOrAvatar();
 		reserveTokens[address(_token)] = ReserveToken({
 			gdSupply: _gdSupply,
 			reserveSupply: _tokenSupply,
@@ -218,7 +220,7 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	 * @return The new reserve ratio
 	 */
 	function expandReserveRatio(ERC20 _token) public returns (uint32) {
-		_onlyOwner();
+		_onlyReserveOrAvatar();
 		_onlyActiveToken(_token);
 		ReserveToken storage reserveToken = reserveTokens[address(_token)];
 		uint32 ratio = reserveToken.reserveRatio;
@@ -284,8 +286,7 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	 * @return (gdReturn) Number of GD that will be given in exchange as calculated by the bonding curve
 	 */
 	function buy(ERC20 _token, uint256 _tokenAmount) public returns (uint256) {
-		_onlyOwner();
-
+		_onlyReserveOrAvatar();
 		_onlyActiveToken(_token);
 
 		uint256 gdReturn = buyReturn(_token, _tokenAmount);
@@ -316,8 +317,7 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 		uint256 _gdAmount,
 		uint256 _contributionGdAmount
 	) public returns (uint256) {
-		_onlyOwner();
-
+		_onlyReserveOrAvatar();
 		_onlyActiveToken(_token);
 
 		require(
@@ -396,8 +396,7 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 		public
 		returns (uint256)
 	{
-		_onlyOwner();
-
+		_onlyReserveOrAvatar();
 		_onlyActiveToken(_token);
 		if (_addTokenSupply == 0) {
 			return 0;
@@ -471,8 +470,7 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	 * @return How much to mint in order to keep price in bonding curve the same
 	 */
 	function mintExpansion(ERC20 _token) public returns (uint256) {
-		_onlyOwner();
-
+		_onlyReserveOrAvatar();
 		_onlyActiveToken(_token);
 		uint256 toMint = calculateMintExpansion(_token);
 		ReserveToken storage reserveToken = reserveTokens[address(_token)];
@@ -491,7 +489,7 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	}
 
 	function mintFromReserveRatio(ERC20 _token, uint256 _gdToMint) public {
-		_onlyOwner();
+		_onlyReserveOrAvatar();
 		_onlyActiveToken(_token);
 
 		uint32 newRR = calculateMintFromReserveRatio(_token, _gdToMint);

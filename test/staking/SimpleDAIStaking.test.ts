@@ -10,7 +10,6 @@ import {
 } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { createDAO, increaseTime, advanceBlocks } from "../helpers";
-import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
@@ -25,14 +24,14 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
   let avatar,
     identity,
     marketMaker: GoodMarketMaker,
-    contribution,
     controller,
     founder,
     staker,
     schemeMock,
     signers,
     nameService,
-    setDAOAddress;
+    setDAOAddress,
+    initializeToken;
 
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
@@ -56,7 +55,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       setSchemes,
       marketMaker: mm,
       daiAddress,
-      cdaiAddress
+      cdaiAddress,
+      reserve,
+      setReserveToken
     } = await createDAO();
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
@@ -64,6 +65,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     controller = ctrl;
     setDAOAddress = sda;
     nameService = ns;
+    initializeToken = setReserveToken;
+    goodReserve = reserve as GoodReserveCDai;
+
     console.log("deployed dao", {
       founder: founder.address,
       gd,
@@ -82,29 +86,11 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       manager: goodFundManager.address
     });
 
-    contribution = await ethers.getContractAt(
-      ContributionCalculation.abi,
-      await nameService.getAddress("CONTRIBUTION_CALCULATION")
-    );
-
     marketMaker = mm;
-    const reserveFactory = await ethers.getContractFactory("GoodReserveCDai");
-    console.log("deployed contribution, deploying reserve...", {
-      mmOwner: await marketMaker.owner(),
-      founder: founder.address
-    });
-    goodReserve = (await upgrades.deployProxy(
-      reserveFactory,
-      [nameService.address, ethers.constants.HashZero],
-      {
-        initializer: "initialize(address,bytes32)"
-      }
-    )) as GoodReserveCDai;
 
     console.log("setting permissions...");
 
     //give reserve generic call permission
-    await setSchemes([goodReserve.address, schemeMock.address]);
     goodCompoundStaking = await goodCompoundStakingFactory.deploy(
       dai.address,
       cDAI.address,
@@ -113,12 +99,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
 
     console.log("initializing marketmaker...");
-    await marketMaker.initializeToken(
-      cDAI.address,
-      "100", //1gd
-      "10000", //0.0001 cDai
-      "1000000" //100% rr
-    );
+
     cDAI1 = await cdaiFactory.deploy(dai.address);
     const cdaiLowWorthFactory = await ethers.getContractFactory(
       "cDAILowWorthMock"
@@ -128,28 +109,24 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "cDAINonMintableMock"
     );
     cDAI3 = await cdaiNonMintableFactory.deploy(dai.address);
-    await marketMaker.initializeToken(
+    await initializeToken(
       cDAI1.address,
       "100", //1gd
       "10000", //0.0001 cDai
       "1000000" //100% rr
     );
-    await marketMaker.initializeToken(
+    await initializeToken(
       cDAI2.address,
       "100", //1gd
       "10000", //0.0001 cDai
       "1000000" //100% rr
     );
-    await marketMaker.initializeToken(
+    await initializeToken(
       cDAI3.address,
       "100", //1gd
       "10000", //0.0001 cDai
       "1000000" //100% rr
     );
-    await marketMaker.transferOwnership(goodReserve.address);
-
-    setDAOAddress("CDAI", cDAI.address);
-    setDAOAddress("DAI", dai.address);
 
     const ictrl = await ethers.getContractAt(
       "Controller",
@@ -157,27 +134,13 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       schemeMock
     );
 
-    //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
-    await goodReserve.setAddresses();
     //Set  Goodfundmanager's reserve
     const encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setReserve",
       [goodReserve.address]
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
-    await setDAOAddress("MARKET_MAKER", marketMaker.address);
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
-  });
-
-  it("should get g$ minting permissions", async () => {
-    expect(await goodReserve.dao()).to.be.equal(controller);
-    expect(await goodReserve.avatar()).to.be.equal(avatar);
-    await goodReserve.start();
-  });
-
-  it("should be set fundmanager address in NameService", async () => {
-    let fundManagerAddress = await nameService.getAddress("FUND_MANAGER");
-    expect(fundManagerAddress).to.be.equal(goodFundManager.address);
   });
 
   it("should mock cdai exchange rate 1e28 precision", async () => {
@@ -285,6 +248,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
   });
 
   it("should returns the exact amount of staked dai without any effect of having excessive dai tokens in the contract", async () => {
+    expect(await nameService.getAddress("RESERVE")).to.be.equal(
+      goodReserve.address
+    );
     //we should change cDAI address to cDAI1's address in nameservice so it can work properly for this test case
     await setDAOAddress("CDAI", cDAI1.address);
     //update reserve addresses

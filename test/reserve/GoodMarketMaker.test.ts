@@ -1,9 +1,7 @@
 import { default as hre, ethers, upgrades } from "hardhat";
-import { BigNumber, Signer } from "ethers";
 import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
 import { GoodMarketMaker, CERC20 } from "../../types";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { createDAO, increaseTime } from "../helpers";
 
 const BN = ethers.BigNumber;
@@ -21,7 +19,9 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     cdai,
     founder,
     staker,
-    signers;
+    signers,
+    initializeToken,
+    fakeReserve;
 
   const deployDAIMock = async () => {
     let [signer] = await ethers.getSigners();
@@ -44,7 +44,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   };
 
   before(async () => {
-    [founder, staker, ...signers] = await ethers.getSigners();
+    [founder, staker, fakeReserve, ...signers] = await ethers.getSigners();
     cdai = await deploycDAIMock();
     dai = await deployDAIMock();
 
@@ -56,22 +56,26 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       daoCreator,
       nameService,
       marketMaker: mm,
-      setSchemes
+      setSchemes,
+      setReserveToken,
+      setDAOAddress
     } = await createDAO();
     avatar = av;
-    marketMaker = mm;
+    marketMaker = mm.connect(fakeReserve);
     controller = ctrl;
+    initializeToken = setReserveToken;
+
     console.log("deployed dao", { goodDollar, identity, controller, avatar });
 
     //give founder generic call permission
     await setSchemes([founder.address]);
-
-    console.log("starting tests...", { owner: await marketMaker.owner() });
+    setDAOAddress("RESERVE", fakeReserve.address);
+    console.log("starting tests...");
   });
 
   it("should initialize a token with 0 ratio and the ratio should calculate as 100% by default", async () => {
     let dai = await deployDAIMock();
-    await marketMaker.initializeToken(
+    await initializeToken(
       dai,
       "100",
       "10000",
@@ -95,7 +99,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
 
   it("should update token reserve ratio after first 24 hours", async () => {
     let dai1 = await deployDAIMock();
-    await marketMaker.initializeToken(
+    await initializeToken(
       dai1,
       "100",
       "10000",
@@ -108,7 +112,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   });
 
   it("should initialize token with price", async () => {
-    const expansion = await marketMaker.initializeToken(
+    const expansion = await initializeToken(
       cdai,
       "100", //1gd
       "10000", //0.0001 cDai
@@ -160,7 +164,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   it("should not return a sell contribution if the given gd is less than the given contribution amount", async () => {
     let dai = await deployDAIMock();
 
-    const MM = await ethers.getContractFactory("GoodMarketMaker");
+    const MM = await ethers.getContractFactory("GoodMarketMaker", fakeReserve);
     const marketMaker1 = await upgrades.deployProxy(MM, [
       await marketMaker.nameService(),
       999388834642296,
@@ -196,14 +200,14 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     let res = marketMaker.connect(staker).mintInterest(cdai, BN.from(1e8));
 
     await expect(res).to.be.revertedWith(
-      "revert Ownable: caller is not the owner"
+      "GoodMarketMaker: not Reserve or Avatar"
     );
   });
 
   it("should not be able to mint expansion by a non owner", async () => {
     let res = marketMaker.connect(staker).mintExpansion(cdai);
     await expect(res).to.be.revertedWith(
-      "revert Ownable: caller is not the owner"
+      "GoodMarketMaker: not Reserve or Avatar"
     );
   });
 
@@ -219,21 +223,21 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   it("should be able to update the reserve ratio only by the owner", async () => {
     let res = marketMaker.connect(staker).expandReserveRatio(cdai);
     await expect(res).to.be.revertedWith(
-      "revert Ownable: caller is not the owner"
+      "GoodMarketMaker: not Reserve or Avatar"
     );
   });
 
   it("should be able to mint interest only by the owner", async () => {
     let res = marketMaker.connect(staker).mintInterest(cdai, BN.from(1e8));
     await expect(res).to.be.revertedWith(
-      "revert Ownable: caller is not the owner"
+      "GoodMarketMaker: not Reserve or Avatar"
     );
   });
 
   it("should be able to mint expansion only by the owner", async () => {
     let res = marketMaker.connect(staker).mintExpansion(cdai);
     await expect(res).to.be.revertedWith(
-      "revert Ownable: caller is not the owner"
+      "GoodMarketMaker: not Reserve or Avatar"
     );
   });
 
@@ -268,7 +272,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   });
 
   it("should have new return amount when RR is not 100%", async () => {
-    const expansion = await marketMaker.initializeToken(
+    const expansion = await initializeToken(
       dai,
       "100", //1gd
       ethers.utils.parseEther("0.0001"), //0.0001 dai
@@ -414,21 +418,21 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       .connect(staker)
       .buy(dai, ethers.utils.parseEther("1"));
     await expect(res).to.be.revertedWith(
-      "revert Ownable: caller is not the owner"
+      "GoodMarketMaker: not Reserve or Avatar"
     );
   });
 
   it("should not be able to calculate the sell return in reserve token and update the bonding curve params by a non-owner account", async () => {
     let res = marketMaker.connect(staker).sellWithContribution(dai, 100, 0);
     await expect(res).to.be.revertedWith(
-      "revert Ownable: caller is not the owner"
+      "GoodMarketMaker: not Reserve or Avatar"
     );
   });
 
   it("should not be able to calculate the sellWithContribution return in reserve token and update the bonding curve params by a non-owner account", async () => {
     let res = marketMaker.connect(staker).sellWithContribution(dai, 100, 80);
     await expect(res).to.be.revertedWith(
-      "revert Ownable: caller is not the owner"
+      "GoodMarketMaker: not Reserve or Avatar"
     );
   });
 
@@ -437,7 +441,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     let gdSupplyBefore = reserveToken.gdSupply;
     let reserveSupplyBefore = reserveToken.reserveSupply;
     let reserveRatioBefore = reserveToken.reserveRatio;
-    await marketMaker.initializeToken(
+    await initializeToken(
       cdai,
       "0",
       reserveSupplyBefore.toString(),
@@ -445,7 +449,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     );
     let res = marketMaker.buy(cdai, ethers.utils.parseEther("1"));
     await expect(res).to.be.revertedWith("Reserve token not initialized");
-    await marketMaker.initializeToken(
+    await initializeToken(
       cdai,
       gdSupplyBefore,
       reserveSupplyBefore.toString(),
@@ -509,7 +513,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       .connect(staker)
       .setReserveRatioDailyExpansion(1, 1e15);
     await expect(res).to.be.revertedWith(
-      "revert Ownable: caller is not the owner"
+      "GoodMarketMaker: not Reserve or Avatar"
     );
   });
 

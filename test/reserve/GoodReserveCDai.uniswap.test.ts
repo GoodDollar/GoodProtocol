@@ -36,7 +36,8 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     schemeMock,
     signers,
     setDAOAddress,
-    nameService;
+    nameService,
+    initializeToken;
 
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
@@ -80,7 +81,8 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
       marketMaker: mm,
       daiAddress,
       cdaiAddress,
-      reserve
+      reserve,
+      setReserveToken
     } = await createDAO();
 
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -90,6 +92,8 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     controller = ctrl;
     setDAOAddress = sda;
     nameService = ns;
+    initializeToken = setReserveToken;
+
     console.log("deployed dao", {
       founder: founder.address,
       gd,
@@ -107,28 +111,11 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     marketMaker = mm;
 
     console.log("deployed contribution, deploying reserve...", {
-      mmOwner: await marketMaker.owner(),
       founder: founder.address
     });
     goodReserve = reserve as GoodReserveCDai;
 
-    console.log("setting permissions...");
-
-    console.log("initializing marketmaker...");
-    await marketMaker.initializeToken(
-      cDAI.address,
-      "100", //1gd
-      "10000", //0.0001 cDai
-      "1000000" //100% rr
-    );
-
-    await marketMaker.transferOwnership(goodReserve.address);
-    // Set addresses
-    setDAOAddress("CDAI", cDAI.address);
-    setDAOAddress("DAI", dai.address);
     setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
-    //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
-    await goodReserve.setAddresses();
 
     await factory.createPair(tokenA.address, dai.address); // Create tokenA and dai pair
     const pairAddress = factory.getPair(tokenA.address, dai.address);
@@ -399,26 +386,14 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
   });
 
   it("should increase price after buy when RR is not 100%", async () => {
-    //Initialise new market maker due to other one's ownership transfered to goodreserve so we cant change its RR
-    const MM = await ethers.getContractFactory("GoodMarketMaker");
-
-    marketMaker = (await upgrades.deployProxy(MM, [
-      nameService.address,
-      999388834642296,
-      1e15
-    ])) as GoodMarketMaker;
-    await marketMaker.initializeToken(
+    await initializeToken(
       cDAI.address,
       "100", //1gd
       "10000", //0.0001 cDai
       "500000" //50% rr
     );
 
-    await marketMaker.transferOwnership(goodReserve.address);
-    await setDAOAddress("MARKET_MAKER", marketMaker.address);
-
     let reserveToken = await marketMaker.reserveTokens(cDAI.address);
-    let reserveRatio = reserveToken.reserveRatio;
 
     let beforeGdBalance = await goodDollar.balanceOf(founder.address);
     let buyAmount = BN.from("500000000000000000000000"); // 500k dai
@@ -433,6 +408,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
       0,
       NULL_ADDRESS
     );
+
     let gdPriceAfter = await goodReserve["currentPrice()"]();
     let laterGdBalance = await goodDollar.balanceOf(founder.address);
     expect(beforeGdBalance.lt(laterGdBalance)); // GD balance of founder should increase

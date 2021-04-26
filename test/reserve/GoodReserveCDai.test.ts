@@ -73,18 +73,9 @@ describe("GoodReserve - staking with cDAI mocks", () => {
 
     const reserveFactory = await ethers.getContractFactory("GoodReserveCDai");
     console.log("deployed contribution, deploying reserve...", {
-      mmOwner: await marketMaker.owner(),
       founder: founder.address
     });
     goodReserve = reserve as GoodReserveCDai;
-
-    console.log("setting permissions...");
-
-    console.log("initializing marketmaker...");
-    // Set addresses
-    setDAOAddress("CDAI", cDAI.address);
-    setDAOAddress("DAI", dai.address);
-    await goodReserve.setAddresses();
   });
 
   it("should get g$ minting permissions", async () => {
@@ -1148,6 +1139,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
   //keep this test last as it ends the reserve
   it("should transfer cDAI funds to the given destination and transfer marker maker ownership", async () => {
     expect(await goodReserve.avatar()).to.equal(avatar);
+
     let avatarBalanceBefore = await cDAI.balanceOf(avatar);
     let reserveBalanceBefore = await cDAI.balanceOf(goodReserve.address);
 
@@ -1168,12 +1160,11 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     let avatarBalanceAfter = await cDAI.balanceOf(avatar);
     let reserveBalanceAfter = await cDAI.balanceOf(goodReserve.address);
 
-    let newMMOwner = await marketMaker.owner();
     expect(avatarBalanceAfter.sub(avatarBalanceBefore)).to.be.equal(
       reserveBalanceBefore
     );
     expect(reserveBalanceAfter.toString()).to.be.equal("0");
-    expect(newMMOwner).to.be.equal(avatar);
     expect(await goodDollar.isMinter(goodReserve.address)).to.be.false;
+    expect(await goodDollar.isMinter(avatar)).to.be.true;
   });
 });

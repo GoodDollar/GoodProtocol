@@ -50,8 +50,8 @@ contract GoodReserveCDai is
 	// when selling GD
 	// ContributionCalc public contribution;
 
-	address daiAddress;
-	address cDaiAddress;
+	address public daiAddress;
+	address public cDaiAddress;
 
 	/// @dev merkleroot
 	bytes32 public gdxAirdrop;
@@ -131,8 +131,7 @@ contract GoodReserveCDai is
 		setDAO(_ns);
 
 		//fixed cdai/dai
-		daiAddress = nameService.getAddress("DAI");
-		cDaiAddress = nameService.getAddress("CDAI");
+		setAddresses();
 
 		//gdx roles
 		renounceRole(MINTER_ROLE, _msgSender());
@@ -159,6 +158,11 @@ contract GoodReserveCDai is
 	/// @dev GDX decimals
 	function decimals() public pure override returns (uint8) {
 		return 2;
+	}
+
+	function setAddresses() public {
+		daiAddress = nameService.getAddress("DAI");
+		cDaiAddress = nameService.getAddress("CDAI");
 	}
 
 	/**
@@ -605,7 +609,7 @@ contract GoodReserveCDai is
 	function end() public {
 		_onlyAvatar();
 		// remaining cDAI tokens in the current reserve contract
-		cERC20 cDai = cERC20(nameService.getAddress("CDAI"));
+		cERC20 cDai = cERC20(cDaiAddress);
 		uint256 remainingReserve = cDai.balanceOf(address(this));
 		if (remainingReserve > 0) {
 			require(
@@ -616,8 +620,10 @@ contract GoodReserveCDai is
 
 		getMarketMaker().transferOwnership(address(avatar));
 
-		// restore minting to avatar, so he can re-delegate it
-		GoodDollar(address(avatar.nativeToken())).addMinter(address(avatar));
+		// // restore minting to avatar, so he can re-delegate it
+		GoodDollar gd = GoodDollar(address(avatar.nativeToken()));
+		if (gd.isMinter(address(avatar)) == false)
+			gd.addMinter(address(avatar));
 
 		GoodDollar(address(avatar.nativeToken())).renounceMinter();
 	}
@@ -670,6 +676,8 @@ contract GoodReserveCDai is
 		_hash;
 		_method;
 		if (_method == "mintTokens") return false;
+
+		return true;
 	}
 
 	/**

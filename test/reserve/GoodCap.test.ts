@@ -62,24 +62,6 @@ describe("GoodReserve - Enforce token cap", () => {
     console.log("setting permissions...");
   });
 
-  it("should not be able to mint if Reserve not given GoodDollar minter role by DAO", async () => {
-    await setDAOAddress("FUND_MANAGER", founder.address);
-    expect(await goodDollar.isMinter(goodReserve.address)).to.be.true;
-    let encodedCall = goodReserve.interface.encodeFunctionData("end");
-    const ictrl = await ethers.getContractAt(
-      "Controller",
-      controller,
-      schemeMock
-    );
-
-    await ictrl.genericCall(goodReserve.address, encodedCall, avatar, 0);
-
-    expect(await goodDollar.isMinter(goodReserve.address)).to.be.false;
-
-    await expect(goodReserve.mintByPrice(cDai, founder.address, 10)).to.be
-      .reverted;
-  });
-
   it("should not be able to mint if not minter", async () => {
     await expect(
       goodReserve.mintByPrice(cDai, granted.address, 10)
@@ -254,5 +236,24 @@ describe("GoodReserve - Enforce token cap", () => {
     );
 
     await expect(ictrl.mintTokens(10, granted.address, avatar)).to.be.reverted; //cap not passed
+  });
+
+  //this test end reserve, keep it last
+  it("should not be able to mint if Reserve not given GoodDollar minter role by DAO", async () => {
+    await setDAOAddress("FUND_MANAGER", founder.address);
+    expect(await goodDollar.isMinter(goodReserve.address)).to.be.true;
+    let encodedCall = goodReserve.interface.encodeFunctionData("end");
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+
+    await ictrl.genericCall(goodReserve.address, encodedCall, avatar, 0);
+
+    expect(await goodDollar.isMinter(goodReserve.address)).to.be.false;
+
+    await expect(goodReserve.mintByPrice(cDai, founder.address, 10)).to.be
+      .reverted;
   });
 });
