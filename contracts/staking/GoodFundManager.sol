@@ -154,7 +154,8 @@ contract GoodFundManager is DAOContract {
      * can call this method.
      * @param _reserve The new reserve to be whitelisted
      */
-    function setReserve(GoodReserveCDai _reserve) public onlyAvatar {
+    function setReserve(GoodReserveCDai _reserve) public {
+		_onlyAvatar();
         reserve = _reserve;
     }
     /**
@@ -171,7 +172,8 @@ contract GoodFundManager is DAOContract {
         uint32 _blockStart,
         uint32 _blockEnd,
         bool _isBlackListed
-    ) public onlyAvatar{
+    ) public{
+		_onlyAvatar();
         Reward memory reward = Reward(_rewardsPerBlock, _blockStart, _blockEnd, _isBlackListed, true);
         rewardsForStakingContract[_stakingAddress] = reward;
     }

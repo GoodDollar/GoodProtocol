@@ -315,10 +315,10 @@ contract GoodReserveCDai is
 	function mintRewardFromRR(
 		address _to,
 		uint _amount
-	) public onlyFundManager{
+	) public{
 		
 		getMarketMaker().mintFromReserveRatio(_amount, ERC20(cDaiAddress));
-		IGoodDollar(address(avatar.nativeToken())).mint(_to, _amount);
+		_mintGoodDollars(_to, _amount, false);
 		//mint GDX
 		_mint(_to, _amount);
 		
@@ -519,16 +519,6 @@ contract GoodReserveCDai is
 			getMarketMaker().mintInterest(_interestToken, _transfered);
 
 		_mintGoodDollars(_to, gdToMint, false);
-	}
-
-	function mintFromReserveRatio(
-		ERC20 _interestToken,
-		address _to,
-		uint256 _gdToMint
-	) public {
-		getMarketMaker().mintFromReserveRatio(_interestToken, _gdToMint);
-
-		_mintGoodDollars(_to, _gdToMint, false);
 	}
 
 	function _mintGoodDollars(

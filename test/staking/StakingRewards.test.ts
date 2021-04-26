@@ -33,6 +33,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     schemeMock,
     signers,
     nameService,
+    initializeToken,
     setDAOAddress;
 
   before(async () => {
@@ -57,7 +58,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       setSchemes,
       marketMaker: mm,
       daiAddress,
-      cdaiAddress
+      cdaiAddress,
+      reserve,
+      setReserveToken
     } = await createDAO();
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
@@ -65,6 +68,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     controller = ctrl;
     setDAOAddress = sda;
     nameService = ns;
+    initializeToken = setReserveToken;
+    goodReserve = reserve as GoodReserveCDai;
     console.log("deployed dao", {
       founder: founder.address,
       gd,
@@ -89,23 +94,14 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
 
     marketMaker = mm;
-    const reserveFactory = await ethers.getContractFactory("GoodReserveCDai");
+   
     console.log("deployed contribution, deploying reserve...", {
-      mmOwner: await marketMaker.owner(),
       founder: founder.address
     });
-    goodReserve = (await upgrades.deployProxy(
-      reserveFactory,
-      [nameService.address, ethers.constants.HashZero],
-      {
-        initializer: "initialize(address,bytes32)"
-      }
-    )) as GoodReserveCDai;
+  
 
     console.log("setting permissions...");
 
-    //give reserve generic call permission
-    await setSchemes([goodReserve.address, schemeMock.address]);
     goodCompoundStaking = await goodCompoundStakingFactory.deploy(
       dai.address,
       cDAI.address,
@@ -116,12 +112,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
 
     console.log("initializing marketmaker...");
-    await marketMaker.initializeToken(
-      cDAI.address,
-      "100", //1gd
-      "10000", //0.0001 cDai
-      "1000000" //100% rr
-    );
+   
     cDAI1 = await cdaiFactory.deploy(dai.address);
     const cdaiLowWorthFactory = await ethers.getContractFactory(
       "cDAILowWorthMock"
@@ -131,25 +122,24 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "cDAINonMintableMock"
     );
     cDAI3 = await cdaiNonMintableFactory.deploy(dai.address);
-    await marketMaker.initializeToken(
+    await initializeToken(
       cDAI1.address,
       "100", //1gd
       "10000", //0.0001 cDai
       "1000000" //100% rr
     );
-    await marketMaker.initializeToken(
+    await initializeToken(
       cDAI2.address,
       "100", //1gd
       "10000", //0.0001 cDai
       "1000000" //100% rr
     );
-    await marketMaker.initializeToken(
+    await initializeToken(
       cDAI3.address,
       "100", //1gd
       "10000", //0.0001 cDai
       "1000000" //100% rr
     );
-    await marketMaker.transferOwnership(goodReserve.address);
 
     setDAOAddress("CDAI", cDAI.address);
     setDAOAddress("DAI", dai.address);
@@ -169,13 +159,12 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
     const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
-      ["1000", goodCompoundStaking.address,"0","44",false] // set 10 gd per block
+      ["1000", goodCompoundStaking.address, "0", "50",false] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
-    await goodReserve.start();
   });
 
   it("should be set rewards per block for particular stacking contract", async () => {
@@ -184,7 +173,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
     expect(rewardPerBlock[0].toString()).to.be.equal("1000");
     expect(rewardPerBlock[1].toString()).to.be.equal("0")
-    expect(rewardPerBlock[2].toString()).to.be.equal("44")
+    expect(rewardPerBlock[2].toString()).to.be.equal("50")
     expect(rewardPerBlock[3]).to.be.equal(false)
     
   });
@@ -235,7 +224,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
     const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
-      ["1000", goodCompoundStaking.address,"50","1000",true] // set 10 gd per block
+      ["1000", goodCompoundStaking.address,"55","1000",true] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
     let stakingAmount = ethers.utils.parseEther("100");
@@ -265,7 +254,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
     const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
-      ["1000", goodCompoundStaking.address,"50","1000",false] // set 10 gd per block
+      ["1000", goodCompoundStaking.address,"55","1000",false] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
     let stakingAmount = ethers.utils.parseEther("100");

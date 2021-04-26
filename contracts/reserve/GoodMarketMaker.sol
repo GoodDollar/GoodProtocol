@@ -311,10 +311,11 @@ contract GoodMarketMaker is Initializable, DSMath {
 	*/
 	function mintFromReserveRatio(uint _gdAmount, ERC20 _token)
 		public
-		onlyOwner
-		onlyActiveToken(_token)
+	
 		
 	{	
+		_onlyReserveOrAvatar();
+		_onlyActiveToken(_token);
 		uint256 reserveDecimalsDiff = uint256(27).sub(_token.decimals()); // //result is in RAY precision
 		ReserveToken storage rtoken = reserveTokens[address(_token)];
 		uint priceBeforeGdSupplyChange = currentPrice(_token);
@@ -509,13 +510,4 @@ contract GoodMarketMaker is Initializable, DSMath {
 		return toMint;
 	}
 
-	function mintFromReserveRatio(ERC20 _token, uint256 _gdToMint) public {
-		_onlyReserveOrAvatar();
-		_onlyActiveToken(_token);
-
-		uint32 newRR = calculateMintFromReserveRatio(_token, _gdToMint);
-		ReserveToken storage reserveToken = reserveTokens[address(_token)];
-		reserveToken.reserveRatio = newRR;
-		reserveToken.gdSupply += _gdToMint;
-	}
 }
