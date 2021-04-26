@@ -469,22 +469,6 @@ contract GoodMarketMaker is Initializable, DSMath {
 		return toMint.sub(reserveToken.gdSupply);
 	}
 
-	//TODO: implement the correct formula and add in comment
-	/** @dev Calculate new reserve ratio in order to mint X G$
-	 * keeping G$ price the same at the bonding curve. the
-	 * formula to calculate the gd to mint: gd to mint =
-	 * (reservebalance / (newreserveratio * currentprice)) - gdsupply
-	 * @param _token The reserve token
-	 * @param _gdToMint The amount to mint
-	 * @return new reserve ratio
-	 */
-	function calculateMintFromReserveRatio(ERC20 _token, uint256 _gdToMint)
-		public
-		view
-		returns (uint32)
-	{
-		return 1e6;
-	}
 
 	/**
 	 * @dev Updates bonding curve based on expansion change and new minted amount
