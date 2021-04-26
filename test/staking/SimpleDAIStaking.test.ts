@@ -163,6 +163,11 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "setReserve",
       [goodReserve.address]
     );
+    const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["1000", goodCompoundStaking.address,"0","44",false] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
@@ -300,6 +305,17 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "Good DAI",
       "gDAI"
     );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    const goodFundManagerFactory = await ethers.getContractFactory("GoodFundManager");
+    const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["1000", simpleStaking1.address,"0","44",false] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
     const weiAmount = ethers.utils.parseEther("1000");
 
     // staking dai
@@ -321,11 +337,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "recover",
       [dai.address]
     );
-    const ictrl = await ethers.getContractAt(
-      "Controller",
-      controller,
-      schemeMock
-    );
+    
     await ictrl.genericCall(simpleStaking1.address, encodedCall, avatar, 0);
     await simpleStaking1.connect(staker).withdrawStake(weiAmount);
     let balanceAfter = await dai.balanceOf(avatar);
@@ -397,7 +409,17 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "gDAI"
     );
     const weiAmount = ethers.utils.parseEther("1000");
-
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    const goodFundManagerFactory = await ethers.getContractFactory("GoodFundManager");
+    const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["1000", simpleStaking1.address,"0","44",false] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
     await dai["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseEther("100")
@@ -419,11 +441,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       [cDAI1.address]
     );
 
-    const ictrl = await ethers.getContractAt(
-      "Controller",
-      controller,
-      schemeMock
-    );
+    
     await ictrl.genericCall(simpleStaking1.address, encodedCall, avatar, 0);
     await simpleStaking1.connect(staker).withdrawStake(weiAmount);
     let balanceAfter = await cDAI1.balanceOf(avatar);
@@ -582,7 +600,17 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "Good DAI",
       "gDAI"
     );
-    
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    const goodFundManagerFactory = await ethers.getContractFactory("GoodFundManager");
+    const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["1000", simpleStaking1.address,"0","44",false] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
     const weiAmount = ethers.utils.parseEther("1000");
     await dai["mint(address,uint256)"](staker.address, weiAmount);
     await dai.connect(staker).approve(simpleStaking1.address, weiAmount);

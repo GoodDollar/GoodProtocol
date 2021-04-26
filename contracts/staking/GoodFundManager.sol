@@ -69,6 +69,7 @@ contract GoodFundManager is DAOContract {
         uint32 blockStart; // # of the start block to distribute rewards
         uint32 blockEnd; // # of the end block to distribute rewards
         bool isBlackListed; // If staking contract is blacklisted or not
+        bool isInitialized; // if staking contract has actually Initialized
     }
     // Rewards per block for particular Staking contract
     mapping(address => Reward) public rewardsForStakingContract;
@@ -121,7 +122,7 @@ contract GoodFundManager is DAOContract {
         address _ubiRecipient,
         uint256 _blockInterval
     )
-        public
+        
         //ActivePeriod(block.timestamp, block.timestamp * 2, _avatar)
     {
         setDAO(_ns);
@@ -164,7 +165,7 @@ contract GoodFundManager is DAOContract {
         uint32 _blockEnd,
         bool _isBlackListed
     ) public onlyAvatar{
-        Reward memory reward = Reward(_rewardsPerBlock, _blockStart, _blockEnd, _isBlackListed);
+        Reward memory reward = Reward(_rewardsPerBlock, _blockStart, _blockEnd, _isBlackListed, true);
         rewardsForStakingContract[_stakingAddress] = reward;
     }
    
@@ -285,17 +286,16 @@ contract GoodFundManager is DAOContract {
     /**
      * @dev Mint to users reward tokens which they earned by staking contract
      * @dev _user user to get rewards
-     * @dev _staking staking contract that has implementation of staking reward system
      */
      function mintReward(
-        address _user,
-        StakingContract _staking 
+        address _user
 
      ) public {
         
-        (uint blockReward,uint startBlock,uint endBlock, bool isBlackListed) = getStakingReward(address(_staking));
-        uint amount = _staking._mint(_user);
-        if(amount > 0 && isBlackListed == false){
+        Reward memory staking = rewardsForStakingContract[address(msg.sender)];
+        uint amount = StakingContract(address(msg.sender))._mint(_user);
+        require(staking.isInitialized == true , "Staking contracts reward has not initiliazed");
+        if(amount > 0 && staking.isBlackListed == false){
             
             reserve.mintRewardFromRR(_user, amount);
         }

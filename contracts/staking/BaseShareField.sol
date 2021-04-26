@@ -4,16 +4,16 @@ import '../Interfaces.sol';
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DAOContract.sol";
+import "hardhat/console.sol";
 interface FundManager {
-    function getStakingReward(address _staking)
+    function rewardsForStakingContract(address _staking)
         external view returns(uint,uint,uint,bool);
     
     function transferInterest(address _staking)
     external;
 
     function mintReward(
-        address _user,
-        address _staking 
+        address _user
 
      ) external;
 
@@ -56,41 +56,50 @@ contract BaseShareField is DAOContract{
         shareToken = _shareToken;
     }
 
-    // Update reward variables of the given pool to be up-to-date.
+    /**
+    @dev Update reward variables of the given pool to be up-to-date. 
+    * Calculates passed blocks and adding to the reward pool
+     */
     function _update() internal virtual {
         if (totalProductivity == 0) {
             lastRewardBlock = block.number;
             return;
         }
         FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
-        (uint rewardsPerBlock, uint blockStart, uint blockEnd, bool isBlackListed) = fm.getStakingReward(address(this));
+        (uint rewardsPerBlock, uint blockStart, uint blockEnd, ) = fm.rewardsForStakingContract(address(this));
+        if(block.number >= blockStart && lastRewardBlock < blockStart) lastRewardBlock = blockStart;
         if(block.number >= blockStart && blockEnd>= block.number){
             uint256 multiplier = block.number - lastRewardBlock;
             uint256 reward = multiplier * (rewardsPerBlock * 1e16); // turn it to 18 decimals
 
             accAmountPerShare = accAmountPerShare + (reward * 1e12 / totalProductivity); 
-          
+            
             
         }
         lastRewardBlock = block.number;
     }
     
     
-    // Audit user's reward to be up-to-date
+    
+    /**
+    * @dev Audit user's rewards and calculate their earned reward based on
+    * If user's stake time more than one month so it calculated with 0.5x 
+    * multiplier otherwise for over 1 month part it gets 1x multiplier
+     */
     function _audit(address user) internal virtual {
         UserInfo storage userInfo = users[user];
         if (userInfo.amount > 0) {
             uint256 blocksPaid = userInfo.lastRewardTime - userInfo.multiplierResetTime; // lastRewardTime is always >= multiplierResetTime
-            uint256 blocksPassedFirstMonth = Math.min(ONE_MONTH_IN_BLOCKS,block.number - userInfo.multiplierResetTime); //172800 is equivalent of month in blocks 
-            uint256 blocksToPay = block.number - userInfo.lastRewardTime;
-            uint256 firstMonthBlocksToPay = blocksPaid >= ONE_MONTH_IN_BLOCKS ? 0 : blocksPassedFirstMonth - blocksPaid;
-            uint256 fullBlocksToPay = blocksToPay - firstMonthBlocksToPay;
+            uint256 blocksPassedFirstMonth = Math.min(ONE_MONTH_IN_BLOCKS,block.number - userInfo.multiplierResetTime); // blocks which is after first month
+            uint256 blocksToPay = block.number - userInfo.lastRewardTime; // blocks since last payment
+            uint256 firstMonthBlocksToPay = blocksPaid >= ONE_MONTH_IN_BLOCKS ? 0 : blocksPassedFirstMonth - blocksPaid; // block which is in the first month which pays with 0.5x multiplier
+            uint256 fullBlocksToPay = blocksToPay - firstMonthBlocksToPay; // blocks to pay in full amount which means with 1x multiplier
             
            
             
             if (blocksToPay != 0){
                 uint pending = userInfo.amount * accAmountPerShare / 1e12 - userInfo.rewardDebt;
-                uint rewardPerBlock = pending * 1e22 / blocksToPay / 1e12; // increase resolution
+                uint rewardPerBlock = pending * 1e12 / blocksToPay / 1e12; // increase resolution by multiplying with 1e12 
                 pending  = ((firstMonthBlocksToPay * 50 * 1e16) + fullBlocksToPay) * rewardPerBlock / 1e18; // divide 1e18 so reduce it to 18decimals
                 userInfo.rewardEarn = userInfo.rewardEarn + pending;
                 mintCumulation = mintCumulation + pending;
@@ -99,6 +108,7 @@ contract BaseShareField is DAOContract{
             
         }
     }
+
 
     // External function call
     // This function increase user's productivity and updates the global productivity.
@@ -142,13 +152,13 @@ contract BaseShareField is DAOContract{
         // uint256 lpSupply = totalProductivity;
         FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
         uint pending = 0;
-        (uint rewardsPerBlock, uint blockStart, uint blockEnd, bool isBlackListed) = fm.getStakingReward(address(this));
+        (uint rewardsPerBlock, uint blockStart, uint blockEnd,) = fm.rewardsForStakingContract(address(this));
         if (totalProductivity != 0 && block.number >= blockStart && blockEnd>= block.number) {
             uint256 multiplier = block.number - lastRewardBlock;
             uint256 reward = multiplier * (rewardsPerBlock * 1e16); // turn it to 18 decimals
             _accAmountPerShare = _accAmountPerShare + (reward * 1e12 / totalProductivity);
             uint256 blocksPaid = userInfo.lastRewardTime - userInfo.multiplierResetTime;
-            uint256 blocksPassedFirstMonth = Math.min(ONE_MONTH_IN_BLOCKS,block.number - userInfo.multiplierResetTime); //172800 is equivalent of month in blocks 
+            uint256 blocksPassedFirstMonth = Math.min(ONE_MONTH_IN_BLOCKS,block.number - userInfo.multiplierResetTime); 
             uint256 blocksToPay = block.number - userInfo.lastRewardTime;
             uint256 firstMonthBlocksToPay = blocksPaid >= ONE_MONTH_IN_BLOCKS ? 0 : blocksPassedFirstMonth - blocksPaid;
             uint256 fullBlocksToPay = blocksToPay - firstMonthBlocksToPay;
@@ -156,9 +166,9 @@ contract BaseShareField is DAOContract{
            
             
             if (blocksToPay != 0){
-                pending = userInfo.amount.mul(accAmountPerShare).div(1e12).sub(userInfo.rewardDebt);
-                uint rewardPerBlock = pending.mul(uint256(10 ** 12)).div(blocksToPay).div(uint256(10 ** 12)); // increase resolution
-                pending  = ((firstMonthBlocksToPay.mul(50*10**18).div(100)) + fullBlocksToPay).mul(rewardPerBlock).div(1e18); // divide 1e18 so reduce it to 18decimals
+                pending = userInfo.amount * _accAmountPerShare / 1e12 - userInfo.rewardDebt;
+                uint rewardPerBlock = pending * 1e12 / blocksToPay / 1e12; // increase resolution
+                pending  = ((firstMonthBlocksToPay * 50 * 1e16) + fullBlocksToPay) * rewardPerBlock / 1e18; // divide 1e18 so reduce it to 18decimals
               
             }
             
@@ -176,10 +186,10 @@ contract BaseShareField is DAOContract{
         UserInfo storage userInfo = users[user];
         uint amount = userInfo.rewardEarn;
         userInfo.rewardEarn = 0;
-        userInfo.lastRewardTime = block.number;
-        userInfo.multiplierResetTime = block.number;
-        mintedShare = mintedShare.add(amount);
-        amount = amount.div(1e16); // change decimal of mint amount to GD decimals
+        userInfo.lastRewardTime = uint64(block.number);
+        userInfo.multiplierResetTime = uint64(block.number);
+        mintedShare = mintedShare + amount;
+        amount = amount / 1e16; // change decimal of mint amount to GD decimals
         return amount;
     }
 

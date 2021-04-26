@@ -68,7 +68,7 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
         string memory _tokenName,
         string memory _tokenSymbol
       
-    ) public StakingToken(_tokenName, _tokenSymbol){
+    ) StakingToken(_tokenName, _tokenSymbol){
         setDAO(_ns);
         token = ERC20(_token);
         iToken = ERC20(_iToken);
@@ -125,7 +125,7 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
         uint256 gdInterest =  InterestDistribution.withdrawStakeAndInterest(interestData, msg.sender, _amount);
         //Since we use generic ERC20 function we can just use its interface
         ERC20 goodDollar = ERC20(address(avatar.nativeToken()));
-        fm.mintReward(msg.sender, address(this)); // send rewards to user
+        fm.mintReward(msg.sender); // send rewards to user
         _burn(msg.sender, _amount); // burn their staking tokens
         _decreaseProductivity(msg.sender, _amount);
         require(goodDollar.transfer(msg.sender, gdInterest), "withdraw interest transfer failed");

@@ -179,7 +179,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   });
 
   it("should be set rewards per block for particular stacking contract", async () => {
-    let rewardPerBlock= await goodFundManager.getStakingReward(
+    let rewardPerBlock= await goodFundManager.rewardsForStakingContract(
       goodCompoundStaking.address
     );
     expect(rewardPerBlock[0].toString()).to.be.equal("1000");
@@ -285,5 +285,27 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(gdBalancerAfterWithdraw.toString()).to.be.equal("5500"); // should mint previous rewards as well
   })
 
+  it("it should send staker's productivity to some other user", async() =>{
+    let stakingAmount = ethers.utils.parseEther("100");
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    let stakersProductivityBefore = await goodCompoundStaking.getProductivity(staker.address);
+    await goodCompoundStaking.connect(staker).transfer(founder.address , stakingAmount);
+    let stakersProductivityAfter = await goodCompoundStaking.connect(staker).getProductivity(staker.address);
+    let foundersProductivity = await goodCompoundStaking.getProductivity(founder.address);
+
+    expect(stakersProductivityAfter[0].toString()).to.be.equal("0");
+    expect(foundersProductivity[0].toString()).to.be.equals(stakingAmount.toString());
+    
+  })
+
+  it("it shouldn't be able to withdraw stake when staker sent it to another user", async() => {
+    let stakingAmount = ethers.utils.parseEther("100");
+    await expect( goodCompoundStaking.connect(staker).withdrawStake(stakingAmount)).to.be.reverted;
+
+  })
 
 });

@@ -361,11 +361,12 @@ contract GoodReserveCDai is
 		address _to,
 		uint _amount
 	) public onlyFundManager{
-
+		
+		getMarketMaker().mintFromReserveRatio(_amount, ERC20(cDaiAddress));
 		IGoodDollar(address(avatar.nativeToken())).mint(_to, _amount);
 		//mint GDX
 		_mint(_to, _amount);
-		getMarketMaker().updateGdSupply(_amount, ERC20(cDaiAddress));
+		
 		}
 	/**
 	 * @dev Converts GD tokens to `sellTo` tokens and update the bonding curve params.

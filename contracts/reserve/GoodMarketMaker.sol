@@ -11,7 +11,6 @@ import "../utils/BancorFormula.sol";
 import "../DAOStackInterfaces.sol";
 import "../Interfaces.sol";
 import "../utils/NameService.sol";
-
 /**
 @title Dynamic reserve ratio market maker
 */
@@ -307,18 +306,23 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	}
 
 	/**
-	* @dev Updates the bonding curve params by just increasing gdSupply but keeps reserveSupply same
+	* @dev Updates the bonding curve params. Decrease RR to in order to mint gd in the amount of provided
+	* new RR = Reserve supply / (gd supply + gd mint amount) * price
 	* @param _gdAmount Amount of gd to add reserveParams
 	* @param _token The reserve token which is currently active
 	*/
-	function updateGdSupply(uint _gdAmount, ERC20 _token)
+	function mintFromReserveRatio(uint _gdAmount, ERC20 _token)
 		public
 		onlyOwner
 		onlyActiveToken(_token)
 		
-	{
+	{	
+		uint256 reserveDecimalsDiff = uint256(27).sub(_token.decimals()); // //result is in RAY precision
 		ReserveToken storage rtoken = reserveTokens[address(_token)];
-		rtoken.gdSupply = rtoken.gdSupply.add(_gdAmount);	
+		uint priceBeforeGdSupplyChange = currentPrice(_token);
+		rtoken.gdSupply += _gdAmount;
+		rtoken.reserveRatio = uint32(rdiv(rtoken.reserveSupply , (rtoken.gdSupply * priceBeforeGdSupplyChange)) / 10 ** reserveDecimalsDiff); // Divide it decimal diff to bring it proper decimal
+		
 	}
 
 
