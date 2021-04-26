@@ -51,7 +51,7 @@ describe("GoodReserve - Enforce token cap", () => {
       avatar
     });
 
-    goodDollar = await ethers.getContractAt("GoodDollar", gd);
+    goodDollar = await ethers.getContractAt("IGoodDollar", gd);
 
     console.log("deployed contribution, deploying reserve...", {
       founder: founder.address

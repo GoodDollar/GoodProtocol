@@ -410,7 +410,7 @@ contract GoodReserveCDai is
 		returns (uint256, uint256)
 	{
 		ERC20 sellTo = ERC20(cDaiAddress);
-		GoodDollar(address(avatar.nativeToken())).burnFrom(
+		IGoodDollar(address(avatar.nativeToken())).burnFrom(
 			msg.sender,
 			_gdAmount
 		);
@@ -531,13 +531,13 @@ contract GoodReserveCDai is
 		);
 
 		require(
-			GoodDollar(address(avatar.nativeToken())).totalSupply() +
+			IGoodDollar(address(avatar.nativeToken())).totalSupply() +
 				_gdToMint <=
 				cap,
 			"GoodReserve: cap enforced"
 		);
 
-		GoodDollar(address(avatar.nativeToken())).mint(_to, _gdToMint);
+		IGoodDollar(address(avatar.nativeToken())).mint(_to, _gdToMint);
 	}
 
 	function _mintGDX(address _to, uint256 _gdx) internal {
@@ -563,7 +563,7 @@ contract GoodReserveCDai is
 		// uint256 price = currentPrice(_interestToken);
 		uint256 gdInterestToMint =
 			getMarketMaker().mintInterest(_interestToken, _transfered);
-		GoodDollar gooddollar = GoodDollar(address(avatar.nativeToken()));
+		IGoodDollar gooddollar = IGoodDollar(address(avatar.nativeToken()));
 		uint256 precisionLoss = uint256(27).sub(uint256(gooddollar.decimals()));
 		uint256 gdInterest = rdiv(_interest, price).div(10**precisionLoss);
 		uint256 gdExpansionToMint =
@@ -619,11 +619,11 @@ contract GoodReserveCDai is
 		}
 
 		// // restore minting to avatar, so he can re-delegate it
-		GoodDollar gd = GoodDollar(address(avatar.nativeToken()));
+		IGoodDollar gd = IGoodDollar(address(avatar.nativeToken()));
 		if (gd.isMinter(address(avatar)) == false)
 			gd.addMinter(address(avatar));
 
-		GoodDollar(address(avatar.nativeToken())).renounceMinter();
+		IGoodDollar(address(avatar.nativeToken())).renounceMinter();
 	}
 
 	/**

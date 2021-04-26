@@ -102,7 +102,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
       avatar
     });
 
-    goodDollar = await ethers.getContractAt("GoodDollar", gd);
+    goodDollar = await ethers.getContractAt("IGoodDollar", gd);
     contribution = await ethers.getContractAt(
       ContributionCalculation.abi,
       await nameService.getAddress("CONTRIBUTION_CALCULATION")

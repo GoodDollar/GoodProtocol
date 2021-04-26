@@ -226,7 +226,7 @@ contract GoodFundManager is DAOContract {
 			reserve.mintInterestAndUBI(iToken, interest, effectiveInterest);
 		_staking.updateGlobalGDYieldPerToken(gdInterest, interest);
 		// Transfers the minted tokens to the given staking contract
-		GoodDollar token = GoodDollar(address(avatar.nativeToken()));
+		IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
 		if (gdInterest > 0)
 			require(
 				token.transfer(address(_staking), gdInterest),
@@ -263,7 +263,7 @@ contract GoodFundManager is DAOContract {
         if (remainingCDaiReserve > 0) {
             require(cDai.transfer(address(avatar), remainingCDaiReserve),"cdai transfer failed");
         }
-        GoodDollar token = GoodDollar(address(avatar.nativeToken()));
+        IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
         uint256 remainingGDReserve = token.balanceOf(address(this));
         if (remainingGDReserve > 0) {
             require(token.transfer(address(avatar), remainingGDReserve),"gd transfer failed");

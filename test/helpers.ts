@@ -177,7 +177,7 @@ export const createDAO = async () => {
   const gd = await Avatar.nativeToken();
   //make GoodCap minter
   const encoded = (
-    await ethers.getContractAt("GoodDollar", gd)
+    await ethers.getContractAt("IGoodDollar", gd)
   ).interface.encodeFunctionData("addMinter", [goodReserve.address]);
 
   await ictrl.genericCall(gd, encoded, Avatar.address, 0);
