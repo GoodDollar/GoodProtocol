@@ -175,17 +175,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
-  });
-
-  it("should get g$ minting permissions", async () => {
-    expect(await goodReserve.dao()).to.be.equal(controller);
-    expect(await goodReserve.avatar()).to.be.equal(avatar);
     await goodReserve.start();
-  });
-
-  it("should be set fundmanager address in NameService", async () => {
-    let fundManagerAddress = await nameService.getAddress("FUND_MANAGER");
-    expect(fundManagerAddress).to.be.equal(goodFundManager.address);
   });
 
   it("should be set rewards per block for particular stacking contract", async () => {

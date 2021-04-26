@@ -66,12 +66,12 @@ contract GoodFundManager is DAOContract {
     //Structure that hold reward information and if its blacklicksted or not for particular staking Contract
     struct Reward{
         uint32 blockReward; //in G$
-        uint32 blockStart;
-        uint32 blockEnd;
-        bool isBlackListed;
+        uint32 blockStart; // # of the start block to distribute rewards
+        uint32 blockEnd; // # of the end block to distribute rewards
+        bool isBlackListed; // If staking contract is blacklisted or not
     }
     // Rewards per block for particular Staking contract
-    mapping(address => Reward) rewardsForStakingContract;
+    mapping(address => Reward) public rewardsForStakingContract;
     // Emits when `transferInterest` transfers
     // funds to the staking contract and to
     // the bridge
@@ -167,16 +167,7 @@ contract GoodFundManager is DAOContract {
         Reward memory reward = Reward(_rewardsPerBlock, _blockStart, _blockEnd, _isBlackListed);
         rewardsForStakingContract[_stakingAddress] = reward;
     }
-    /**
-     * @dev Get the Reward for particular staking contract
-     * @param _stakingAddress address of the staking contract
-     */
-     function getStakingReward(
-         address _stakingAddress
-     ) public view returns (uint,uint,uint,bool){
-         Reward memory reward = rewardsForStakingContract[_stakingAddress];
-         return (reward.blockReward, reward.blockStart, reward.blockEnd, reward.isBlackListed);
-     }
+   
     /**
      * @dev sets the token bridge address on mainnet and the recipient of minted UBI (avatar on sidechain)
      * @param _bridgeContract address

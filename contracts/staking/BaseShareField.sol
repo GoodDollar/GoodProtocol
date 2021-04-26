@@ -25,10 +25,10 @@ contract BaseShareField is DAOContract{
     uint totalProductivity;
     uint accAmountPerShare;
     
-    uint public totalShare;
+    
     uint public mintedShare;
     uint public mintCumulation;
-    
+    uint64 constant ONE_MONTH_IN_BLOCKS = 172800;
     address public shareToken;
     
     uint public lastRewardBlock;
@@ -37,8 +37,8 @@ contract BaseShareField is DAOContract{
         uint amount;     // How many tokens the user has provided.
         uint rewardDebt; // Reward debt. 
         uint rewardEarn; // Reward earn and not minted
-        uint lastRewardTime; // Last time that user got rewards
-        uint multiplierResetTime; // Reset time of multiplier
+        uint64 lastRewardTime; // Last time that user got rewards
+        uint64 multiplierResetTime; // Reset time of multiplier
     }
 
     mapping(address => UserInfo) public users;
@@ -65,11 +65,11 @@ contract BaseShareField is DAOContract{
         FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
         (uint rewardsPerBlock, uint blockStart, uint blockEnd, bool isBlackListed) = fm.getStakingReward(address(this));
         if(block.number >= blockStart && blockEnd>= block.number){
-            uint256 multiplier = block.number.sub(lastRewardBlock);
-            uint256 reward = multiplier.mul(rewardsPerBlock * 10 ** 16); // turn it to 18 decimals
+            uint256 multiplier = block.number - lastRewardBlock;
+            uint256 reward = multiplier * (rewardsPerBlock * 1e16); // turn it to 18 decimals
 
-            accAmountPerShare = accAmountPerShare.add(reward.mul(1e12).div(totalProductivity));
-            totalShare = totalShare.add(reward);
+            accAmountPerShare = accAmountPerShare + (reward * 1e12 / totalProductivity); 
+          
             
         }
         lastRewardBlock = block.number;
@@ -80,20 +80,20 @@ contract BaseShareField is DAOContract{
     function _audit(address user) internal virtual {
         UserInfo storage userInfo = users[user];
         if (userInfo.amount > 0) {
-            uint256 blocksPaid = userInfo.lastRewardTime.sub(userInfo.multiplierResetTime);
-            uint256 blocksPassedFirstMonth = Math.min(172800,block.number.sub(userInfo.multiplierResetTime)); //172800 is equivalent of month in blocks 
-            uint256 blocksToPay = block.number.sub(userInfo.lastRewardTime);
-            uint256 firstMonthBlocksToPay = blocksPaid >= (172800) ? 0 : blocksPassedFirstMonth.sub(blocksPaid);
-            uint256 fullBlocksToPay = blocksToPay.sub(firstMonthBlocksToPay);
+            uint256 blocksPaid = userInfo.lastRewardTime - userInfo.multiplierResetTime; // lastRewardTime is always >= multiplierResetTime
+            uint256 blocksPassedFirstMonth = Math.min(ONE_MONTH_IN_BLOCKS,block.number - userInfo.multiplierResetTime); //172800 is equivalent of month in blocks 
+            uint256 blocksToPay = block.number - userInfo.lastRewardTime;
+            uint256 firstMonthBlocksToPay = blocksPaid >= ONE_MONTH_IN_BLOCKS ? 0 : blocksPassedFirstMonth - blocksPaid;
+            uint256 fullBlocksToPay = blocksToPay - firstMonthBlocksToPay;
             
            
             
             if (blocksToPay != 0){
-                uint pending = userInfo.amount.mul(accAmountPerShare).div(1e12).sub(userInfo.rewardDebt);
-                uint rewardPerBlock = pending.mul(uint256(10 ** 12)).div(blocksToPay).div(uint256(10 ** 12)); // increase resolution
-                pending  = ((firstMonthBlocksToPay.mul(50*10**18).div(100)) + fullBlocksToPay).mul(rewardPerBlock).div(1e18); // divide 1e18 so reduce it to 18decimals
-                userInfo.rewardEarn = userInfo.rewardEarn.add(pending);
-                mintCumulation = mintCumulation.add(pending);
+                uint pending = userInfo.amount * accAmountPerShare / 1e12 - userInfo.rewardDebt;
+                uint rewardPerBlock = pending * 1e22 / blocksToPay / 1e12; // increase resolution
+                pending  = ((firstMonthBlocksToPay * 50 * 1e16) + fullBlocksToPay) * rewardPerBlock / 1e18; // divide 1e18 so reduce it to 18decimals
+                userInfo.rewardEarn = userInfo.rewardEarn + pending;
+                mintCumulation = mintCumulation + pending;
             }
             
             
@@ -111,10 +111,10 @@ contract BaseShareField is DAOContract{
         _update();
         _audit(user);
 
-        totalProductivity = totalProductivity.add(value);
-        userInfo.lastRewardTime = block.number;
-        userInfo.amount = userInfo.amount.add(value);
-        userInfo.rewardDebt = userInfo.amount.mul(accAmountPerShare).div(1e12);
+        totalProductivity = totalProductivity + value;
+        userInfo.lastRewardTime = uint64(block.number);
+        userInfo.amount = userInfo.amount + value;
+        userInfo.rewardDebt = userInfo.amount * accAmountPerShare / 1e12;
         return true;
     }
 
@@ -127,11 +127,11 @@ contract BaseShareField is DAOContract{
         
         _update();
         _audit(user);
-        userInfo.lastRewardTime = block.number;
-        userInfo.multiplierResetTime = block.number;
-        userInfo.amount = userInfo.amount.sub(value);
-        userInfo.rewardDebt = userInfo.amount.mul(accAmountPerShare).div(1e12);
-        totalProductivity = totalProductivity.sub(value);
+        userInfo.lastRewardTime = uint64(block.number);
+        userInfo.multiplierResetTime = uint64(block.number);
+        userInfo.amount = userInfo.amount - value;
+        userInfo.rewardDebt = userInfo.amount * accAmountPerShare / 1e12;
+        totalProductivity = totalProductivity - value;
         
         return true;
     }
@@ -144,14 +144,14 @@ contract BaseShareField is DAOContract{
         uint pending = 0;
         (uint rewardsPerBlock, uint blockStart, uint blockEnd, bool isBlackListed) = fm.getStakingReward(address(this));
         if (totalProductivity != 0 && block.number >= blockStart && blockEnd>= block.number) {
-            uint256 multiplier = block.number.sub(lastRewardBlock);
-            uint256 reward = multiplier.mul(rewardsPerBlock * 10 ** 16); // turn it to 18 decimals
-            _accAmountPerShare = _accAmountPerShare.add(reward.mul(1e12).div(totalProductivity));
-            uint256 blocksPaid = userInfo.lastRewardTime.sub(userInfo.multiplierResetTime);
-            uint256 blocksPassedFirstMonth = Math.min(172800,block.number.sub(userInfo.multiplierResetTime)); //172800 is equivalent of month in blocks 
-            uint256 blocksToPay = block.number.sub(userInfo.lastRewardTime);
-            uint256 firstMonthBlocksToPay = blocksPaid >= (172800) ? 0 : blocksPassedFirstMonth.sub(blocksPaid);
-            uint256 fullBlocksToPay = blocksToPay.sub(firstMonthBlocksToPay);
+            uint256 multiplier = block.number - lastRewardBlock;
+            uint256 reward = multiplier * (rewardsPerBlock * 1e16); // turn it to 18 decimals
+            _accAmountPerShare = _accAmountPerShare + (reward * 1e12 / totalProductivity);
+            uint256 blocksPaid = userInfo.lastRewardTime - userInfo.multiplierResetTime;
+            uint256 blocksPassedFirstMonth = Math.min(ONE_MONTH_IN_BLOCKS,block.number - userInfo.multiplierResetTime); //172800 is equivalent of month in blocks 
+            uint256 blocksToPay = block.number - userInfo.lastRewardTime;
+            uint256 firstMonthBlocksToPay = blocksPaid >= ONE_MONTH_IN_BLOCKS ? 0 : blocksPassedFirstMonth - blocksPaid;
+            uint256 fullBlocksToPay = blocksToPay - firstMonthBlocksToPay;
             
            
             
