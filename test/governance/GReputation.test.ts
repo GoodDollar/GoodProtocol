@@ -8,7 +8,7 @@ import { GReputation } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 
 const BN = ethers.BigNumber;
-export const NULL_ADDRESS = ethers.constants.AddressZero
+export const NULL_ADDRESS = ethers.constants.AddressZero;
 
 type BlockChainState = {
   stateHash: string;
@@ -22,7 +22,10 @@ export const getMerkleAndProof = (data, proofIdx) => {
     Buffer.from(
       ethers.utils
         .keccak256(
-          ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [e[0], e[1]])
+          ethers.utils.defaultAbiCoder.encode(
+            ["address", "uint256"],
+            [e[0], e[1]]
+          )
         )
         .slice(2),
       "hex"
@@ -42,7 +45,13 @@ export const getMerkleAndProof = (data, proofIdx) => {
 };
 
 let grep: GReputation, grepWithOwner: GReputation, identity, gd, bounty;
-let signers: SignerWithAddress[], founder, repOwner, rep1, rep2, rep3, delegator;
+let signers: SignerWithAddress[],
+  founder,
+  repOwner,
+  rep1,
+  rep2,
+  rep3,
+  delegator;
 
 const fuseHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("fuse"));
 describe("GReputation", () => {
@@ -67,7 +76,10 @@ describe("GReputation", () => {
       Buffer.from(
         ethers.utils
           .keccak256(
-            ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [e[0], e[1]])
+            ethers.utils.defaultAbiCoder.encode(
+              ["address", "uint256"],
+              [e[0], e[1]]
+            )
           )
           .slice(2),
         "hex"
@@ -133,9 +145,10 @@ describe("GReputation", () => {
       await grep.connect(signers[2]).delegateTo(rep3); //rep1 -> rep3
 
       expect(await grep.getVotes(rep3)).to.be.eq(await grep.balanceOf(rep1)); //with delegation
-      expect(await grep.getVotes(rep1), "delegator should now have 0 votes").to.be.eq(
-        BN.from(0)
-      );
+      expect(
+        await grep.getVotes(rep1),
+        "delegator should now have 0 votes"
+      ).to.be.eq(BN.from(0));
       expect(await grep.delegateOf(rep1)).to.be.eq(rep3);
     });
 
@@ -231,11 +244,15 @@ describe("GReputation", () => {
         nonce = 1,
         expiry = 0;
 
-      const signature = await delegator._signTypedData(await Domain(grep), Types, {
-        delegate,
-        nonce,
-        expiry
-      });
+      const signature = await delegator._signTypedData(
+        await Domain(grep),
+        Types,
+        {
+          delegate,
+          nonce,
+          expiry
+        }
+      );
 
       const sig = ethers.utils.splitSignature(signature);
       await expect(
@@ -247,11 +264,15 @@ describe("GReputation", () => {
       const delegate = founder,
         nonce = 0,
         expiry = 0;
-      const signature = await delegator._signTypedData(await Domain(grep), Types, {
-        delegate,
-        nonce,
-        expiry
-      });
+      const signature = await delegator._signTypedData(
+        await Domain(grep),
+        Types,
+        {
+          delegate,
+          nonce,
+          expiry
+        }
+      );
 
       const sig = ethers.utils.splitSignature(signature);
       await expect(
@@ -263,11 +284,15 @@ describe("GReputation", () => {
       const delegate = founder,
         nonce = 0,
         expiry = 10e9;
-      const signature = await delegator._signTypedData(await Domain(grep), Types, {
-        delegate,
-        nonce,
-        expiry
-      });
+      const signature = await delegator._signTypedData(
+        await Domain(grep),
+        Types,
+        {
+          delegate,
+          nonce,
+          expiry
+        }
+      );
 
       const sig = ethers.utils.splitSignature(signature);
       expect(await grep.delegates(delegator.address)).to.equal(
@@ -276,7 +301,7 @@ describe("GReputation", () => {
       const tx = await (
         await grep.delegateBySig(delegate, nonce, expiry, sig.v, sig.r, sig.s)
       ).wait();
-      expect(tx.gasUsed).to.lt(124000);
+      expect(tx.gasUsed).to.lt(130000);
       expect(await grep.delegates(delegator.address)).to.equal(founder);
     });
   });
@@ -449,7 +474,9 @@ describe("GReputation", () => {
     });
 
     it("should prove real proof", async () => {
-      const prevVotes = await grep.getVotes("0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8");
+      const prevVotes = await grep.getVotes(
+        "0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8"
+      );
       const proof = [
         "0x6429597531910c38ed2ac8f73a890245ef7f67db49e1a947049fe8d987b0ee09",
         "0x2225a8a896fbfc6d8b9d15574ff43d6025a1e811b790df431b84e08dc3287ce4",
@@ -472,9 +499,9 @@ describe("GReputation", () => {
         1199,
         proof
       );
-      expect(await grep.getVotes("0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8")).to.be.eq(
-        prevVotes.add(1199)
-      ); //add new blockchain rep
+      expect(
+        await grep.getVotes("0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8")
+      ).to.be.eq(prevVotes.add(1199)); //add new blockchain rep
     });
   });
 });

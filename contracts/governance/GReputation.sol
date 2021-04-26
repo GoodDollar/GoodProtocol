@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 
 import "./Reputation.sol";
@@ -16,8 +15,6 @@ import "../Interfaces.sol";
  *  Minting by the DAO will be done using controller.genericCall and not via controller.mintReputation
  */
 contract GReputation is Reputation {
-	using SafeMathUpgradeable for uint256;
-
 	string public constant name = "GReputation";
 
 	/// @notice The EIP-712 typehash for the contract's domain
@@ -88,7 +85,7 @@ contract GReputation is Reputation {
 			delegator,
 			_user,
 			previousVotes,
-			previousVotes.add(_amount)
+			previousVotes + _amount
 		);
 		return _amount;
 	}
@@ -112,7 +109,7 @@ contract GReputation is Reputation {
 			delegator,
 			_user,
 			previousVotes,
-			previousVotes.sub(amountBurned)
+			previousVotes - amountBurned
 		);
 
 		return amountBurned;
@@ -167,12 +164,10 @@ contract GReputation is Reputation {
 
 		if (_global) {
 			for (uint256 i = 0; i < activeBlockchains.length; i++) {
-				startingBalance = startingBalance.add(
-					getVotesAtBlockchain(
-						activeBlockchains[i],
-						_user,
-						_blockNumber
-					)
+				startingBalance += getVotesAtBlockchain(
+					activeBlockchains[i],
+					_user,
+					_blockNumber
 				);
 			}
 		}
@@ -229,8 +224,9 @@ contract GReputation is Reputation {
 	{
 		uint256 startingSupply = super.totalSupplyAt(_blockNumber);
 		for (uint256 i = 0; i < activeBlockchains.length; i++) {
-			startingSupply = startingSupply.add(
-				totalSupplyAtBlockchain(activeBlockchains[i], _blockNumber)
+			startingSupply += totalSupplyAtBlockchain(
+				activeBlockchains[i],
+				_blockNumber
 			);
 		}
 		return startingSupply;
@@ -418,7 +414,7 @@ contract GReputation is Reputation {
 				curDelegator,
 				_user,
 				removeVotes,
-				removeVotes.sub(coreBalance)
+				removeVotes - coreBalance
 			);
 		}
 
@@ -428,7 +424,7 @@ contract GReputation is Reputation {
 			_delegate,
 			_user,
 			addVotes,
-			addVotes.add(coreBalance)
+			addVotes + coreBalance
 		);
 	}
 
