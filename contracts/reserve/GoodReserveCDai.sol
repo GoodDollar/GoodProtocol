@@ -7,7 +7,6 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetMinterPauserUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 
-import "../utils/DSMath.sol";
 import "../utils/DAOContract.sol";
 import "../utils/NameService.sol";
 import "../DAOStackInterfaces.sol";
@@ -32,10 +31,15 @@ interface ContributionCalc {
 contract GoodReserveCDai is
 	Initializable,
 	DAOContract,
-	DSMath,
-	ERC20PresetMinterPauserUpgradeable
+	ERC20PresetMinterPauserUpgradeable,
+	GlobalConstraintInterface
 {
 	using SafeMathUpgradeable for uint256;
+
+	bytes32 public constant RESERVE_MINTER_ROLE =
+		keccak256("RESERVE_MINTER_ROLE");
+
+	uint256 public cap;
 
 	// The last block number which
 	// `mintInterestAndUBI` has been executed in
@@ -53,14 +57,6 @@ contract GoodReserveCDai is
 	bytes32 public gdxAirdrop;
 
 	mapping(address => bool) public isClaimedGDX;
-
-	modifier onlyFundManager {
-		require(
-			msg.sender == nameService.getAddress("FUND_MANAGER"),
-			"Only FundManager can call this method"
-		);
-		_;
-	}
 
 	// Emits when GD tokens are purchased
 	event TokenPurchased(
@@ -133,82 +129,40 @@ contract GoodReserveCDai is
 	{
 		__ERC20PresetMinterPauser_init("GDX", "G$X");
 		setDAO(_ns);
+
+		//fixed cdai/dai
+		setAddresses();
+
+		//gdx roles
+		renounceRole(MINTER_ROLE, _msgSender());
+		renounceRole(PAUSER_ROLE, _msgSender());
+		renounceRole(DEFAULT_ADMIN_ROLE, _msgSender());
+		_setupRole(DEFAULT_ADMIN_ROLE, address(avatar));
+
+		//mint access through reserve
+		_setupRole(RESERVE_MINTER_ROLE, address(avatar)); //only Avatar can manage minters
+
+		cap = 22 * 1e14; //22 trillion G$ cents
+
 		gdxAirdrop = _gdxAirdrop;
-		
+	}
+
+	function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
+		z = x.mul(y).add(10**27 / 2) / 10**27;
+	}
+
+	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
+		z = x.mul(10**27).add(y / 2) / y;
 	}
 
 	/// @dev GDX decimals
-	function decimals() public view override returns (uint8) {
+	function decimals() public pure override returns (uint8) {
 		return 2;
 	}
-	/**
-	*@dev Set cDAI and DAI addresses
-	 */
-	function setAddresses() public{
+
+	function setAddresses() public {
 		daiAddress = nameService.getAddress("DAI");
 		cDaiAddress = nameService.getAddress("CDAI");
-	}
-	// /**
-	//  * @dev Constructor
-	//  * @param _dai The address of DAI
-	//  * @param _cDai The address of cDAI
-	//  * @param _fundManager The address of the fund manager contract
-	//  * @param _dao The Controller of the DAO
-	//  * @param _marketMaker The address of the market maker contract
-	//  * @param _contribution The address of the contribution contract
-	//  * @param _blockInterval How many blocks should be passed before the next execution of `mintInterestAndUBI`
-	//  */
-	// constructor(
-	// 	ERC20 _dai,
-	// 	cERC20 _cDai,
-	// 	address _fundManager,
-	// 	Controller _dao,
-	// 	address _marketMaker,
-	// 	ContributionCalc _contribution,
-	// 	uint256 _blockInterval
-	// ) {
-	// 	//TODO: move to ens?
-	// 	dai = _dai;
-	// 	cDai = _cDai;
-	// 	fundManager = _fundManager;
-	// 	marketMaker = GoodMarketMaker(_marketMaker);
-	// 	blockInterval = _blockInterval;
-	// 	lastMinted = block.number.div(blockInterval);
-	// 	contribution = _contribution;
-	// 	dao = _dao;
-	// 	avatar = dao.avatar();
-	// }
-
-	//TODO:
-	// /**
-	//  * @dev Start function. Adds this contract to identity as a feeless scheme.
-	//  * Can only be called if scheme is registered
-	//  */
-	// function start() public onlyRegistered {
-	// 	addRights();
-
-	// 	// Adds the reserve as a minter of the GD token
-	// 	controller.genericCall(
-	// 		address(avatar.nativeToken()),
-	// 		abi.encodeWithSignature("addMinter(address)", address(this)),
-	// 		avatar,
-	// 		0
-	// 	);
-	// 	super.start();
-	// }
-
-	/**
-	 * @dev Start function. Adds this contract to identity as a feeless scheme.
-	 * Can only be called if scheme is registered
-	 */
-	function start() public {
-		// Adds the reserve as a minter of the GD token
-		dao.genericCall(
-			address(avatar.nativeToken()),
-			abi.encodeWithSignature("addMinter(address)", address(this)),
-			avatar,
-			0
-		);
 	}
 
 	/**
@@ -346,9 +300,10 @@ contract GoodReserveCDai is
 		address receiver =
 			_targetAddress == address(0x0) ? msg.sender : _targetAddress;
 
-		IGoodDollar(address(avatar.nativeToken())).mint(receiver, gdReturn);
+		_mintGoodDollars(receiver, gdReturn, true);
+
 		//mint GDX
-		_mint(receiver, gdReturn);
+		_mintGDX(receiver, gdReturn);
 
 		return gdReturn;
 	}
@@ -474,9 +429,10 @@ contract GoodReserveCDai is
 			msg.sender,
 			_gdAmount
 		);
+
 		//discount on exit contribution based on gdx
 		uint256 gdx = balanceOf(msg.sender);
-		uint256 discount = min(gdx, _gdAmount);
+		uint256 discount = gdx <= _gdAmount ? gdx : _gdAmount;
 
 		//burn gdx used for discount
 		burn(discount);
@@ -509,40 +465,98 @@ contract GoodReserveCDai is
 		return (tokenReturn, contributionAmount);
 	}
 
-	/**
-	 * @dev Current price of GD in `token`. currently only cDAI is supported.
-	 * @param _token The desired reserve token to have
-	 * @return price of GD
-	 */
-	function currentPrice(ERC20 _token) public view returns (uint256) {
-		uint256 priceInCDai = getMarketMaker().currentPrice(ERC20(cDaiAddress));
-		if (address(_token) == cDaiAddress) return priceInCDai;
-		cERC20 cDai = cERC20(cDaiAddress);
-		uint256 priceInDai =
-			rmul(
-				priceInCDai * 1e10, //bring cdai 8 decimals to Dai precision
-				cDai.exchangeRateStored().div(10) //exchange rate is 1e28 reduce to 1e27
-			);
-		if (address(_token) == daiAddress) {
-			return priceInDai;
-		} else {
-			address[] memory path = new address[](2);
-			path[0] = daiAddress;
-			path[1] = address(_token);
-			Uniswap uniswapContract =
-				Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
-			uint256[] memory priceInXToken =
-				uniswapContract.getAmountsOut(priceInDai, path);
-			require(
-				priceInXToken[priceInXToken.length - 1] > 0,
-				"No valid price data for pair"
-			);
-			return priceInXToken[priceInXToken.length - 1];
-		}
-	}
+	// /**
+	//  * @dev Current price of GD in `token`. currently only cDAI is supported.
+	//  * @param _token The desired reserve token to have
+	//  * @return price of GD
+	//  */
+	// function currentPrice(ERC20 _token) public view returns (uint256) {
+	// 	uint256 priceInCDai = getMarketMaker().currentPrice(ERC20(cDaiAddress));
+	// 	if (address(_token) == cDaiAddress) return priceInCDai;
+	// 	cERC20 cDai = cERC20(cDaiAddress);
+	// 	uint256 priceInDai =
+	// 		rmul(
+	// 			priceInCDai * 1e10, //bring cdai 8 decimals to Dai precision
+	// 			cDai.exchangeRateStored().div(10) //exchange rate is 1e28 reduce to 1e27
+	// 		);
+	// 	if (address(_token) == daiAddress) {
+	// 		return priceInDai;
+	// 	} else {
+	// 		address[] memory path = new address[](2);
+	// 		path[0] = daiAddress;
+	// 		path[1] = address(_token);
+	// 		Uniswap uniswapContract =
+	// 			Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+	// 		uint256[] memory priceInXToken =
+	// 			uniswapContract.getAmountsOut(priceInDai, path);
+	// 		require(
+	// 			priceInXToken[priceInXToken.length - 1] > 0,
+	// 			"No valid price data for pair"
+	// 		);
+	// 		return priceInXToken[priceInXToken.length - 1];
+	// 	}
+	// }
 
 	function currentPrice() public view returns (uint256) {
 		return getMarketMaker().currentPrice(ERC20(cDaiAddress));
+	}
+
+	function currentPriceDAI() public view returns (uint256) {
+		cERC20 cDai = cERC20(cDaiAddress);
+		return
+			rmul(
+				currentPrice() * 1e10, //bring cdai 8 decimals to Dai precision
+				cDai.exchangeRateStored().div(10) //exchange rate is 1e28 reduce to 1e27
+			);
+	}
+
+	function mintByPrice(
+		ERC20 _interestToken,
+		address _to,
+		uint256 _transfered
+	) public {
+		uint256 gdToMint =
+			getMarketMaker().mintInterest(_interestToken, _transfered);
+
+		_mintGoodDollars(_to, gdToMint, false);
+	}
+
+	function mintFromReserveRatio(
+		ERC20 _interestToken,
+		address _to,
+		uint256 _gdToMint
+	) public {
+		getMarketMaker().mintFromReserveRatio(_interestToken, _gdToMint);
+
+		_mintGoodDollars(_to, _gdToMint, false);
+	}
+
+	function _mintGoodDollars(
+		address _to,
+		uint256 _gdToMint,
+		bool _internalCall
+	) internal {
+		//enforce minting rules
+		require(
+			_internalCall ||
+				_msgSender() ==
+				nameService.addresses(nameService.FUND_MANAGER()) ||
+				hasRole(RESERVE_MINTER_ROLE, _msgSender()),
+			"GoodReserve: not a minter"
+		);
+
+		require(
+			IGoodDollar(address(avatar.nativeToken())).totalSupply() +
+				_gdToMint <=
+				cap,
+			"GoodReserve: cap enforced"
+		);
+
+		IGoodDollar(address(avatar.nativeToken())).mint(_to, _gdToMint);
+	}
+
+	function _mintGDX(address _to, uint256 _gdx) internal {
+		_mint(_to, _gdx);
 	}
 
 	//TODO: can we send directly to UBI via bridge here?
@@ -559,8 +573,9 @@ contract GoodReserveCDai is
 		ERC20 _interestToken,
 		uint256 _transfered,
 		uint256 _interest
-	) public onlyFundManager returns (uint256, uint256) {
-		uint256 price = currentPrice(_interestToken);
+	) public returns (uint256, uint256) {
+		uint256 price = getMarketMaker().currentPrice(ERC20(cDaiAddress));
+		// uint256 price = currentPrice(_interestToken);
 		uint256 gdInterestToMint =
 			getMarketMaker().mintInterest(_interestToken, _transfered);
 		IGoodDollar gooddollar = IGoodDollar(address(avatar.nativeToken()));
@@ -571,7 +586,7 @@ contract GoodReserveCDai is
 		uint256 gdUBI = gdInterestToMint.sub(gdInterest);
 		gdUBI = gdUBI.add(gdExpansionToMint);
 		uint256 toMint = gdUBI.add(gdInterest);
-		gooddollar.mint(getFundManager(), toMint);
+		_mintGoodDollars(getFundManager(), toMint, false);
 		lastMinted = block.number;
 		emit UBIMinted(
 			lastMinted,
@@ -595,8 +610,8 @@ contract GoodReserveCDai is
 	 */
 	function setReserveRatioDailyExpansion(uint256 _nom, uint256 _denom)
 		public
-		onlyAvatar
 	{
+		_onlyAvatar();
 		getMarketMaker().setReserveRatioDailyExpansion(_nom, _denom);
 	}
 
@@ -606,9 +621,10 @@ contract GoodReserveCDai is
 	 * buy / sell / mintInterestAndUBI actions will no longer be active. Only the Avatar can
 	 * executes this method
 	 */
-	function end() public onlyAvatar {
+	function end() public {
+		_onlyAvatar();
 		// remaining cDAI tokens in the current reserve contract
-		cERC20 cDai = cERC20(nameService.getAddress("CDAI"));
+		cERC20 cDai = cERC20(cDaiAddress);
 		uint256 remainingReserve = cDai.balanceOf(address(this));
 		if (remainingReserve > 0) {
 			require(
@@ -616,38 +632,25 @@ contract GoodReserveCDai is
 				"cdai transfer failed"
 			);
 		}
-		require(
-			cDai.balanceOf(address(this)) == 0,
-			"Funds transfer has failed"
-		);
-		IGoodDollar gooddollar = IGoodDollar(address(avatar.nativeToken()));
-		getMarketMaker().transferOwnership(address(avatar));
-		gooddollar.renounceMinter();
-		//TODO:
-		// super.internalEnd(avatar);
+
+		// // restore minting to avatar, so he can re-delegate it
+		IGoodDollar gd = IGoodDollar(address(avatar.nativeToken()));
+		if (gd.isMinter(address(avatar)) == false)
+			gd.addMinter(address(avatar));
+
+		IGoodDollar(address(avatar.nativeToken())).renounceMinter();
 	}
 
 	/**
 	 * @dev method to recover any stuck erc20 tokens (ie compound COMP)
 	 * @param _token the ERC20 token to recover
 	 */
-	function recover(ERC20 _token) public onlyAvatar {
+	function recover(ERC20 _token) public {
+		_onlyAvatar();
 		require(
 			_token.transfer(address(avatar), _token.balanceOf(address(this))),
 			"recover transfer failed"
 		);
-	}
-
-	/// @notice helper function to check merkle proof using openzeppelin
-	/// @return leafHash isProofValid tuple (byte32, bool) with the hash of the leaf data we prove and true if proof is valid
-	function _checkMerkleProof(
-		address _user,
-		uint256 _balance,
-		bytes32 _root,
-		bytes32[] memory _proof
-	) internal pure returns (bytes32 leafHash, bool isProofValid) {
-		leafHash = keccak256(abi.encode(_user, _balance));
-		isProofValid = MerkleProofUpgradeable.verify(_proof, _root, leafHash);
 	}
 
 	/**
@@ -670,9 +673,40 @@ contract GoodReserveCDai is
 
 		require(isProofValid, "invalid merkle proof");
 
-		_mint(_user, _gdx);
+		_mintGDX(_user, _gdx);
 
 		isClaimedGDX[_user] = true;
 		return true;
+	}
+
+	// implement minting constraints through the GlobalConstraintInterface interface. prevent any minting not through reserve
+	function pre(
+		address _scheme,
+		bytes32 _hash,
+		bytes32 _method
+	) public pure override returns (bool) {
+		_scheme;
+		_hash;
+		_method;
+		if (_method == "mintTokens") return false;
+
+		return true;
+	}
+
+	/**
+	 * @dev enforce cap on DAOStack Controller mintTokens using GlobalConstraintInterface
+	 */
+	function post(
+		address _scheme,
+		bytes32 _hash,
+		bytes32 _method
+	) public view override returns (bool) {
+		_hash;
+		_scheme;
+		return true;
+	}
+
+	function when() public pure override returns (CallPhase) {
+		return CallPhase.Pre;
 	}
 }

@@ -8,9 +8,14 @@ import "../reserve/GoodReserveCDai.sol";
 import "../Interfaces.sol";
 
 interface StakingContract {
-    function collectUBIInterest(address recipient)
-        external
-        returns (uint256, uint256, uint256, uint256);
+	function collectUBIInterest(address recipient)
+		external
+		returns (
+			uint256,
+			uint256,
+			uint256,
+			uint256
+		);
 
     function iToken() external view returns(address); 
     function getRewardEarned(address user) external view returns(uint);
@@ -24,7 +29,6 @@ interface StakingContract {
 
 }
 
-
 /**
  * @title GoodFundManager contract that transfer interest from the staking contract
  * to the reserve contract and transfer the return mintable tokens to the staking
@@ -32,33 +36,33 @@ interface StakingContract {
  * cDAI support only
  */
 contract GoodFundManager is DAOContract {
-    using SafeMath for uint256;
+	using SafeMath for uint256;
 
-    // The address of cDai
-    ERC20 public cDai;
+	// The address of cDai
+	ERC20 public cDai;
 
-    // The address of the reserve contract
-    // which recieves the funds from the
-    // staking contract
-    GoodReserveCDai public reserve;
+	// The address of the reserve contract
+	// which recieves the funds from the
+	// staking contract
+	GoodReserveCDai public reserve;
 
-    uint256 constant DECIMAL1e18 = 10**18;
+	uint256 constant DECIMAL1e18 = 10**18;
 
-    // The address of the bridge contract
-    // which transfers in his turn the
-    // UBI funds to the given recipient
-    // address on the sidechain
-    address public bridgeContract;
+	// The address of the bridge contract
+	// which transfers in his turn the
+	// UBI funds to the given recipient
+	// address on the sidechain
+	address public bridgeContract;
 
-    // The recipient address on the
-    // sidechain. The bridge transfers
-    // the funds to the following address
-    address public ubiRecipient;
+	// The recipient address on the
+	// sidechain. The bridge transfers
+	// the funds to the following address
+	address public ubiRecipient;
 
-    // Determines how many blocks should
-    // be passed before the next
-    // execution of `transferInterest`
-    uint256 public blockInterval;
+	// Determines how many blocks should
+	// be passed before the next
+	// execution of `transferInterest`
+	uint256 public blockInterval;
 
     // Last block number which `transferInterest`
     // has been executed in
@@ -102,10 +106,13 @@ contract GoodFundManager is DAOContract {
         uint256 gdUBI
     );
 
-    modifier reserveHasInitialized {
-        require(address(reserve) != address(0x0), "reserve has not initialized");
-        _;
-    }
+	modifier reserveHasInitialized {
+		require(
+			address(reserve) != address(0x0),
+			"reserve has not initialized"
+		);
+		_;
+	}
 
     /**
      * @dev Constructor
@@ -133,14 +140,14 @@ contract GoodFundManager is DAOContract {
         lastTransferred = block.number.div(blockInterval);
     }
 
-    /**
-     * @dev Start function. Adds this contract to identity as a feeless scheme.
-     * Can only be called if scheme is registered
-     */
-   // function start() public onlyRegistered {
-       // addRights();
-     //   super.start();
-   // }
+	/**
+	 * @dev Start function. Adds this contract to identity as a feeless scheme.
+	 * Can only be called if scheme is registered
+	 */
+	// function start() public onlyRegistered {
+	// addRights();
+	//   super.start();
+	// }
 
     /**
      * @dev Sets the whitelisted reserve. Only Avatar
@@ -175,85 +182,77 @@ contract GoodFundManager is DAOContract {
      * @param _recipient address
      */
 
-    /**
-     * @dev Sets the bridge address on the current network and the recipient
-     * address on the sidechain. Only Avatar can call this method.
-     * @param _bridgeContract The new bridge address
-     * @param _recipient The new recipient address (NOTICE: this address may be a
-     * sidechain address)
-     */
-    function setBridgeAndUBIRecipient(
-        address _bridgeContract,
-        address _recipient
-    )
-        public
-        onlyAvatar
-    {
-        bridgeContract = _bridgeContract;
-        ubiRecipient = _recipient;
-    }
+	/**
+	 * @dev Sets the bridge address on the current network and the recipient
+	 * address on the sidechain. Only Avatar can call this method.
+	 * @param _bridgeContract The new bridge address
+	 * @param _recipient The new recipient address (NOTICE: this address may be a
+	 * sidechain address)
+	 */
+	function setBridgeAndUBIRecipient(
+		address _bridgeContract,
+		address _recipient
+	) public {
+		_onlyAvatar();
 
-    /**
-     * @dev Allows the DAO to change the block interval
-     * @param _blockInterval the new interval value
-     */
-    function setBlockInterval(
-        uint256 _blockInterval
-    )
-        public
-        onlyAvatar
-    {
-        blockInterval = _blockInterval;
-    }
+		bridgeContract = _bridgeContract;
+		ubiRecipient = _recipient;
+	}
 
-    /**
-     * @dev Checks if enough time has passed away since the
-     * last funds transfer time
-     * @return (bool) True if enough time has passed
-     */
-    function canRun() public view returns(bool)
-    {
-        return block.number.div(blockInterval) > lastTransferred;
-    }
+	/**
+	 * @dev Allows the DAO to change the block interval
+	 * @param _blockInterval the new interval value
+	 */
+	function setBlockInterval(uint256 _blockInterval) public {
+		_onlyAvatar();
+		blockInterval = _blockInterval;
+	}
 
-    /**
-     * @dev Collects UBI interest in iToken from a given staking contract and transfers
-     * that interest to the reserve contract. Then transfers the given gd which
-     * received from the reserve contract back to the staking contract and to the
-     * bridge, which locks the funds and then the GD tokens are been minted to the
-     * given address on the sidechain
-     * @param _staking Contract that implements `collectUBIInterest` and transfer iTokeb to
-     * a given address. The given address should be the same whitelisted `reserve`
-     * address in the current contract, in case that the given staking contract transfers
-     * the funds to another contract, zero GD tokens will be minted by the reserve contract.
-     * Emits `FundsTransferred` event in case which interest has been passed to the `reserve`
-     */
-    function transferInterest(StakingContract _staking)
-        public
-        reserveHasInitialized
-        //requireDAOContract(address(_staking))
-    {
-        // require(
-        //     canRun(),
-        //     "Need to wait for the next interval"
-        // );
-        lastTransferred = block.number.div(blockInterval);
-        ERC20 iToken = ERC20(_staking.iToken());
-        // iToken balance of the reserve contract
-        uint256 currentBalance = iToken.balanceOf(address(reserve));
-        // collects the interest from the staking contract and transfer it directly to the reserve contract
-        //`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
-        (, , , uint256 avgEffectiveStakedRatio) = _staking.collectUBIInterest(
-            address(reserve)
-        );
+	/**
+	 * @dev Checks if enough time has passed away since the
+	 * last funds transfer time
+	 * @return (bool) True if enough time has passed
+	 */
+	function canRun() public view returns (bool) {
+		return block.number.div(blockInterval) > lastTransferred;
+	}
 
-        // Finds the actual transferred iToken
-        uint256 interest = iToken.balanceOf(address(reserve)).sub(
-            currentBalance
-        );
-        uint256 effectiveInterest = interest.mul(avgEffectiveStakedRatio).div(DECIMAL1e18);
+	/**
+	 * @dev Collects UBI interest in iToken from a given staking contract and transfers
+	 * that interest to the reserve contract. Then transfers the given gd which
+	 * received from the reserve contract back to the staking contract and to the
+	 * bridge, which locks the funds and then the GD tokens are been minted to the
+	 * given address on the sidechain
+	 * @param _staking Contract that implements `collectUBIInterest` and transfer iTokeb to
+	 * a given address. The given address should be the same whitelisted `reserve`
+	 * address in the current contract, in case that the given staking contract transfers
+	 * the funds to another contract, zero GD tokens will be minted by the reserve contract.
+	 * Emits `FundsTransferred` event in case which interest has been passed to the `reserve`
+	 */
+	function transferInterest(StakingContract _staking)
+		public
+		reserveHasInitialized
+	//requireDAOContract(address(_staking))
+	{
+		// require(
+		//     canRun(),
+		//     "Need to wait for the next interval"
+		// );
+		lastTransferred = block.number.div(blockInterval);
+		ERC20 iToken = ERC20(_staking.iToken());
+		// iToken balance of the reserve contract
+		uint256 currentBalance = iToken.balanceOf(address(reserve));
+		// collects the interest from the staking contract and transfer it directly to the reserve contract
+		//`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
+		(, , , uint256 avgEffectiveStakedRatio) =
+			_staking.collectUBIInterest(address(reserve));
 
-        uint256 interestDonated = interest.sub(effectiveInterest);
+		// Finds the actual transferred iToken
+		uint256 interest =
+			iToken.balanceOf(address(reserve)).sub(currentBalance);
+		uint256 effectiveInterest =
+			interest.mul(avgEffectiveStakedRatio).div(DECIMAL1e18);
+		uint256 interestDonated = interest.sub(effectiveInterest);
         // Mints gd while the interest amount is equal to the transferred amount
         (uint256 gdInterest, uint256 gdUBI) = reserve.mintInterestAndUBI(
             iToken,
@@ -282,7 +281,6 @@ contract GoodFundManager is DAOContract {
             gdUBI
         );
     }
-
     /**
      * @dev Mint to users reward tokens which they earned by staking contract
      * @dev _user user to get rewards
@@ -314,11 +312,11 @@ contract GoodFundManager is DAOContract {
         if (remainingCDaiReserve > 0) {
             require(cDai.transfer(address(avatar), remainingCDaiReserve),"cdai transfer failed");
         }
-        GoodDollar token = GoodDollar(address(avatar.nativeToken()));
+        IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
         uint256 remainingGDReserve = token.balanceOf(address(this));
         if (remainingGDReserve > 0) {
             require(token.transfer(address(avatar), remainingGDReserve),"gd transfer failed");
         }
         super.internalEnd(avatar);
-    }*/ 
+    }*/
 }

@@ -44,10 +44,17 @@ const states = [
 ];
 
 describe("CompoundVotingMachine#States", () => {
-  let gov: CompoundVotingMachine, root: SignerWithAddress, acct: SignerWithAddress;
+  let gov: CompoundVotingMachine,
+    root: SignerWithAddress,
+    acct: SignerWithAddress;
 
   let trivialProposal, targets, values, signatures, callDatas;
-  let proposalBlock, proposalId, voteDelay, votePeriod, queuePeriod, gracePeriod;
+  let proposalBlock,
+    proposalId,
+    voteDelay,
+    votePeriod,
+    queuePeriod,
+    gracePeriod;
 
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
@@ -60,8 +67,7 @@ describe("CompoundVotingMachine#States", () => {
       unsafeAllowCustomTypes: true
     })) as GReputation;
 
-    let { daoCreator } = await createDAO();
-    let avatar = await daoCreator.avatar();
+    let { setSchemes, avatar } = await createDAO();
 
     gov = (await CompoundVotingMachine.deploy(
       avatar,
@@ -70,14 +76,7 @@ describe("CompoundVotingMachine#States", () => {
     )) as CompoundVotingMachine;
 
     //set voting machiine as scheme with permissions
-    await daoCreator.setSchemes(
-      avatar,
-      [gov.address],
-      [ethers.constants.HashZero],
-      ["0x0000001F"],
-      ""
-    );
-
+    await setSchemes([gov.address]);
     await grep.mint(root.address, ethers.BigNumber.from("1000000"));
     await grep.mint(acct.address, ethers.BigNumber.from("500000"));
 
@@ -166,7 +165,9 @@ describe("CompoundVotingMachine#States", () => {
 
     it("Cant vote in grace period", async () => {
       let proposalId = await gov.latestProposalIds(root.address);
-      expect(gov.connect(acct).castVote(proposalId, false)).to.be.revertedWith(
+      await expect(
+        gov.connect(acct).castVote(proposalId, false)
+      ).to.be.revertedWith(
         "CompoundVotingMachine::_castVote: voting is closed"
       );
     });
@@ -174,7 +175,7 @@ describe("CompoundVotingMachine#States", () => {
     it("Expired after grace period", async () => {
       await increaseTime(10);
       expect(states[await gov.state(proposalId)]).to.equal("Expired");
-      expect(gov.execute(proposalId)).to.be.revertedWith(
+      await expect(gov.execute(proposalId)).to.be.revertedWith(
         "CompoundVotingMachine::execute: proposal can only be executed if it is succeeded"
       );
     });
@@ -232,7 +233,9 @@ describe("CompoundVotingMachine#States", () => {
   });
 
   it("Game changer extends eta", async () => {
-    let gameChangerPeriod = await gov.gameChangerPeriod().then(_ => _.toNumber());
+    let gameChangerPeriod = await gov
+      .gameChangerPeriod()
+      .then(_ => _.toNumber());
     await advanceBlocks(1);
     await gov.propose(targets, values, signatures, callDatas, "do nothing");
     let proposalId = await gov.latestProposalIds(root.address);

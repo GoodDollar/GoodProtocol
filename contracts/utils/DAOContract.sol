@@ -17,21 +17,22 @@ contract DAOContract {
 
 	NameService public nameService;
 
-	modifier onlyAvatar() {
+	function _onlyAvatar() internal view {
 		require(
 			address(dao.avatar()) == msg.sender,
 			"only avatar can call this method"
 		);
-		_;
 	}
 
 	function setDAO(NameService _ns) internal {
-		dao = Controller(_ns.getAddress("CONTROLLER"));
 		nameService = _ns;
 		updateAvatar();
 	}
 
 	function updateAvatar() public {
+		dao = Controller(nameService.getAddress("CONTROLLER"));
 		avatar = dao.avatar();
 	}
+
+	uint256[50] private gap;
 }
