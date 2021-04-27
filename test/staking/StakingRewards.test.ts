@@ -159,7 +159,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
     const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
-      ["1000", goodCompoundStaking.address, "0", "50",false] // set 10 gd per block
+      ["1000", goodCompoundStaking.address, "1", "45",false] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
@@ -172,8 +172,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       goodCompoundStaking.address
     );
     expect(rewardPerBlock[0].toString()).to.be.equal("1000");
-    expect(rewardPerBlock[1].toString()).to.be.equal("0")
-    expect(rewardPerBlock[2].toString()).to.be.equal("50")
+    expect(rewardPerBlock[1].toString()).to.be.equal("1")
+    expect(rewardPerBlock[2].toString()).to.be.equal("45")
     expect(rewardPerBlock[3]).to.be.equal(false)
     
   });
@@ -185,11 +185,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
-
     let gdBalanceBeforeWithdraw = await goodDollar.balanceOf(staker.address);
     await advanceBlocks(4);
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
-
     let gdBalancerAfterWithdraw = await goodDollar.balanceOf(staker.address);
     expect(gdBalancerAfterWithdraw.toString()).to.be.equal("2500")
  
@@ -292,9 +290,35 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   })
 
   it("it shouldn't be able to withdraw stake when staker sent it to another user", async() => {
-    let stakingAmount = ethers.utils.parseEther("100");
+    const stakingAmount = ethers.utils.parseEther("100");
     await expect( goodCompoundStaking.connect(staker).withdrawStake(stakingAmount)).to.be.reverted;
 
+  })
+
+  it("it should be able to withdraw their stake when got staking tokens from somebody else", async() => {
+    const stakingAmount = ethers.utils.parseEther("100");
+   
+    await goodCompoundStaking.withdrawStake(stakingAmount)
+    
+  })
+
+  it("stake should generate some interest and shoul be used to generate UBI",async() =>{
+    const stakingAmount = ethers.utils.parseEther("100");
+    
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    
+    await cDAI.exchangeRateCurrent(); // Call this function to change exchange rate so interest would be generated
+    const currentUBIInterestBeforeWithdraw = await goodCompoundStaking.currentUBIInterest()
+
+    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
+    const currentUBIInterestAfterWithdraw = await goodCompoundStaking.currentUBIInterest()
+    expect(currentUBIInterestBeforeWithdraw[0].toString()).to.not.be.equal("0")
+    expect(currentUBIInterestAfterWithdraw[0].toString()).to.be.equal("0")
+    
   })
 
 });

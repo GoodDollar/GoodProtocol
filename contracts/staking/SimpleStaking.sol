@@ -8,7 +8,7 @@ import "../Interfaces.sol";
 
 import "../utils/DSMath.sol";
 import "./AbstractGoodStaking.sol";
-import ".//InterestDistribution.sol";
+import "./InterestDistribution.sol";
 import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";
@@ -29,7 +29,7 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
 	ERC20 public iToken;
 
 	// Interest and staker data
-	InterestDistribution.InterestData public interestData;
+	//InterestDistribution.InterestData public interestData;
 
 	// The block interval defines the number of
 	// blocks that shall be passed before the
@@ -101,7 +101,7 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
         mint(_amount); //mint iToken
         _mint(msg.sender, _amount); // mint Staking token for staker
         _increaseProductivity(msg.sender, _amount);
-        InterestDistribution.stake(interestData, msg.sender, _amount, _donationPer);
+        //InterestDistribution.stake(interestData, msg.sender, _amount, _donationPer);
         emit Staked(msg.sender, address(token), _amount);
     }
 
@@ -109,9 +109,9 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
      * @dev Withdraws the sender staked Token.
      */
     function withdrawStake(uint256 _amount) external override {
-        InterestDistribution.Staker storage staker = interestData.stakers[msg.sender];
+        //InterestDistribution.Staker storage staker = interestData.stakers[msg.sender];
         require(_amount > 0, "Should withdraw positive amount");
-        require(staker.totalStaked >= _amount, "Not enough token staked");
+        require(totalProductivity >= _amount, "Not enough token staked");
         uint256 tokenWithdraw = _amount;
         FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
         fm.transferInterest(address(this));
@@ -120,13 +120,13 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
         if (tokenActual < tokenWithdraw) {
             tokenWithdraw = tokenActual;
         }
-        uint256 gdInterest =  InterestDistribution.withdrawStakeAndInterest(interestData, msg.sender, _amount);
+        //uint256 gdInterest =  InterestDistribution.withdrawStakeAndInterest(interestData, msg.sender, _amount);
         //Since we use generic ERC20 function we can just use its interface
-        ERC20 goodDollar = ERC20(address(avatar.nativeToken()));
-        fm.mintReward(msg.sender); // send rewards to user
+        //ERC20 goodDollar = ERC20(address(avatar.nativeToken()));
+        fm.mintReward(address(iToken), msg.sender); // send rewards to user
         _burn(msg.sender, _amount); // burn their staking tokens
         _decreaseProductivity(msg.sender, _amount);
-        require(goodDollar.transfer(msg.sender, gdInterest), "withdraw interest transfer failed");
+        //require(goodDollar.transfer(msg.sender, gdInterest), "withdraw interest transfer failed");
         require(token.transfer(msg.sender, tokenWithdraw), "withdraw transfer failed");
         emit StakeWithdraw(msg.sender, address(token), tokenWithdraw, token.balanceOf(address(this)));
     }
@@ -134,12 +134,14 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
     function withdrawGDInterest() public {
         FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
         fm.transferInterest(address(this));
-        uint256 gdInterest = InterestDistribution.withdrawGDInterest(interestData, msg.sender);
-        ERC20 goodDollar = ERC20(address(avatar.nativeToken()));
-        require(goodDollar.transfer(msg.sender, gdInterest), "withdraw interest transfer failed");
+        //uint256 gdInterest = InterestDistribution.withdrawGDInterest(interestData, msg.sender);
+        //ERC20 goodDollar = ERC20(address(avatar.nativeToken()));
+        //require(goodDollar.transfer(msg.sender, gdInterest), "withdraw interest transfer failed");
     }
 
-    function getYieldData(address _staker) public view returns(uint256,uint256)
+    /**
+	 
+	function getYieldData(address _staker) public view returns(uint256,uint256)
     {
 
       return (interestData.globalGDYieldPerToken, interestData.stakers[_staker].stakeBuyinRate);
@@ -158,9 +160,9 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
       return InterestDistribution.calculateGDInterest(_staker, interestData);
      
     }
+*/
 
-
-	function updateGlobalGDYieldPerToken(
+/** 	function updateGlobalGDYieldPerToken(
 		uint256 _blockGDInterest,
 		uint256 _blockInterestTokenEarned
 	) public onlyFundManager {
@@ -170,7 +172,7 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
 			_blockInterestTokenEarned
 		);
 	}
-
+*/
 	/**
 	 * @dev Calculates the worth of the staked iToken tokens in Token.
 	 * @return (uint256) The worth in Token
@@ -223,10 +225,10 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
 		)
 	{
 		return (
-			interestData.stakers[_staker].totalStaked,
-			interestData.stakers[_staker].totalEffectiveStake,
-			interestData.stakers[_staker].lastStake,
-			interestData.stakers[_staker].withdrawnToDate
+			users[_staker].amount,
+			users[_staker].rewardDebt,
+			users[_staker].rewardEarn,
+			users[_staker].lastRewardTime
 		);
 	}
 
@@ -247,10 +249,10 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
 	{
 		uint256 er = exchangeRate();
 		uint256 tokenWorth = currentTokenWorth();
-		if (tokenWorth <= interestData.globalTotalStaked) {
+		if (tokenWorth <= totalProductivity) {
 			return (0, 0, 0);
 		}
-		uint256 tokenGains = tokenWorth.sub(interestData.globalTotalStaked);
+		uint256 tokenGains = tokenWorth.sub(totalProductivity);
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		//mul by `10^decimalDifference` to equalize precision otherwise since exchangerate is very big, dividing by it would result in 0.
 		uint256 iTokenGains;
@@ -282,7 +284,7 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
 	 * @dev Collects gained interest by fundmanager. Can be collected only once
 	 * in an interval which is defined above.
 	 * @param _recipient The recipient of cDAI gains
-	 * @return (uint256, uint256, uint256, uint256) The interest in iToken, the interest in Token,
+	 * @return (uint256, uint256, uint256) The interest in iToken, the interest in Token,
 	 * the amount which is not covered by precision of Token, how much of the generated interest is donated
 	 */
 	function collectUBIInterest(address _recipient)
@@ -290,7 +292,6 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
 		override
 		onlyFundManager
 		returns (
-			uint256,
 			uint256,
 			uint256,
 			uint256
@@ -317,17 +318,17 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
 			tokenGains,
 			precisionLossToken
 		);
-		uint256 avgEffectiveStakedRatio = 0;
-		if (interestData.globalTotalStaked > 0)
-			avgEffectiveStakedRatio = interestData
-				.globalTotalEffectiveStake
-				.mul(DECIMAL1e18)
-				.div(interestData.globalTotalStaked);
+	//	uint256 avgEffectiveStakedRatio = 0;
+	//	if (interestData.globalTotalStaked > 0)
+	//		avgEffectiveStakedRatio = interestData
+	//			.globalTotalEffectiveStake
+	//			.mul(DECIMAL1e18)
+	//			.div(interestData.globalTotalStaked);
 		return (
 			iTokenGains,
 			tokenGains,
-			precisionLossToken,
-			avgEffectiveStakedRatio
+			precisionLossToken
+		//	avgEffectiveStakedRatio
 		);
 	}
 
@@ -352,7 +353,7 @@ contract SimpleStaking is DSMath, Pausable, AbstractGoodStaking, StakingToken{
 		// recover left iToken(stakers token) only when all stakes have been withdrawn
 		if (address(_token) == address(iToken)) {
 			require(
-				interestData.globalTotalStaked == 0 && paused(),
+				totalProductivity == 0 && paused(),
 				"can recover iToken only when stakes have been withdrawn"
 			);
 		}

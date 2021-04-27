@@ -143,7 +143,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
     const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
-      ["1000", goodCompoundStaking.address,"0","44",false] // set 10 gd per block
+      ["1000", goodCompoundStaking.address,"1","44",false] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -282,7 +282,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const goodFundManagerFactory = await ethers.getContractFactory("GoodFundManager");
     const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
-      ["1000", simpleStaking1.address,"0","44",false] // set 10 gd per block
+      ["1000", simpleStaking1.address,"1","44",false] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
     const weiAmount = ethers.utils.parseEther("1000");
@@ -386,7 +386,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const goodFundManagerFactory = await ethers.getContractFactory("GoodFundManager");
     const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
-      ["1000", simpleStaking1.address,"0","44",false] // set 10 gd per block
+      ["1000", simpleStaking1.address,"1","44",false] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
     await dai["mint(address,uint256)"](
@@ -433,13 +433,13 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await dai
       .connect(staker)
       .approve(goodCompoundStaking.address, ethers.utils.parseEther("100"));
-    let totalStaked0 = (await goodCompoundStaking.interestData())
-      .globalTotalStaked;
+    let totalStaked0 = await goodCompoundStaking.getProductivity(founder.address);
+    totalStaked0 = totalStaked0[1];
     await goodCompoundStaking
       .connect(staker)
       .stake(ethers.utils.parseEther("100"), 100);
-    let totalStaked1 = (await goodCompoundStaking.interestData())
-      .globalTotalStaked;
+    let totalStaked1 = await goodCompoundStaking.getProductivity(founder.address);
+    totalStaked1 = totalStaked1[1];
     await dai["mint(address,uint256)"](
       goodCompoundStaking.address,
       ethers.utils.parseEther("100")
@@ -484,8 +484,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
   });
 
   it("should be able to stake dai", async () => {
-    let totalStakedBefore = (await goodCompoundStaking.interestData())
-      .globalTotalStaked;
+    let totalStakedBefore = await goodCompoundStaking.getProductivity(founder.address)
+    totalStakedBefore = totalStakedBefore[1]
     await dai["mint(address,uint256)"](
       staker.address,
       ethers.utils.parseEther("100")
@@ -497,8 +497,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       .connect(staker)
       .stake(ethers.utils.parseEther("100"), 100)
       .catch(console.log);
-    let totalStakedAfter = (await goodCompoundStaking.interestData())
-      .globalTotalStaked;
+    let totalStakedAfter = await goodCompoundStaking.getProductivity(founder.address)
+    totalStakedAfter = totalStakedAfter[1]
     let balance = await goodCompoundStaking.getStakerData(staker.address);
     expect(balance[0].toString()).to.be.equal(
       ethers.utils.parseEther("100") //100 dai
@@ -518,8 +518,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     ); // simpleStaking cDAI balance
     let stakerDaiBalanceBefore = await dai.balanceOf(staker.address); // staker DAI balance
     let balanceBefore = await goodCompoundStaking.getStakerData(staker.address); // user staked balance in GoodStaking
-    let totalStakedBefore = (await goodCompoundStaking.interestData())
-      .globalTotalStaked; // total staked in GoodStaking
+    let totalStakedBefore = await goodCompoundStaking.getProductivity(founder.address)  // total staked in GoodStaking
+    totalStakedBefore = totalStakedBefore[1]
     const transaction = await (
       await goodCompoundStaking.connect(staker).withdrawStake(balanceBefore[0])
     ).wait();
@@ -528,8 +528,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     ); // simpleStaking cDAI balance
     let stakerDaiBalanceAfter = await dai.balanceOf(staker.address); // staker DAI balance
     let balanceAfter = await goodCompoundStaking.getStakerData(staker.address); // user staked balance in GoodStaking
-    let totalStakedAfter = (await goodCompoundStaking.interestData())
-      .globalTotalStaked; // total staked in GoodStaking
+    let totalStakedAfter = await goodCompoundStaking.getProductivity(founder.address)  // total staked in GoodStaking
+    totalStakedAfter = totalStakedAfter[1]
     expect(stakedcDaiBalanceAfter.lt(stakedcDaiBalanceBefore)).to.be.true;
     expect(stakerDaiBalanceAfter.gt(stakerDaiBalanceBefore)).to.be.true;
     expect(balanceBefore[0].toString()).to.be.equal(
@@ -580,7 +580,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const goodFundManagerFactory = await ethers.getContractFactory("GoodFundManager");
     const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
-      ["1000", simpleStaking1.address,"0","44",false] // set 10 gd per block
+      ["1000", simpleStaking1.address,"1","44",false] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
     const weiAmount = ethers.utils.parseEther("1000");
@@ -732,15 +732,15 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await dai
       .connect(staker)
       .approve(fakeSimpleStaking.address, ethers.utils.parseEther("100"));
-    let totalStakedBefore = await fakeSimpleStaking.interestData();
+    let totalStakedBefore = await fakeSimpleStaking.getProductivity(founder.address);
     const error = await fakeSimpleStaking
       .connect(staker)
       .stake(ethers.utils.parseEther("100"))
       .catch(e => e);
     expect(error.message).not.to.be.empty;
-    let totalStakedAfter = await fakeSimpleStaking.interestData();
-    expect(totalStakedAfter[0].toString()).to.be.equal(
-      totalStakedBefore[0].toString()
+    let totalStakedAfter = await fakeSimpleStaking.getProductivity(founder.address);
+    expect(totalStakedAfter[1].toString()).to.be.equal(
+      totalStakedBefore[1].toString()
     );
   });
 

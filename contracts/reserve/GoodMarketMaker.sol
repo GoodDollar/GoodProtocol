@@ -309,7 +309,7 @@ contract GoodMarketMaker is Initializable, DSMath {
 	* @param _gdAmount Amount of gd to add reserveParams
 	* @param _token The reserve token which is currently active
 	*/
-	function mintFromReserveRatio(uint _gdAmount, ERC20 _token)
+	function mintFromReserveRatio(ERC20 _token, uint _gdAmount)
 		public
 	
 		

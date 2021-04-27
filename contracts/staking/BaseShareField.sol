@@ -13,6 +13,7 @@ interface FundManager {
     external;
 
     function mintReward(
+        address _token,
         address _user
 
      ) external;
@@ -70,7 +71,7 @@ contract BaseShareField is DAOContract{
         if(block.number >= blockStart && lastRewardBlock < blockStart) lastRewardBlock = blockStart;
         if(block.number >= blockStart && blockEnd>= block.number){
             uint256 multiplier = block.number - lastRewardBlock;
-            uint256 reward = multiplier * (rewardsPerBlock * 1e16); // turn it to 18 decimals
+            uint256 reward = multiplier * (rewardsPerBlock * 1e16); // rewardsPerBlock is in G$ which is only 2 decimals, we turn it into 18 decimals
 
             accAmountPerShare = accAmountPerShare + (reward * 1e12 / totalProductivity); 
             
@@ -82,9 +83,10 @@ contract BaseShareField is DAOContract{
     
     
     /**
-    * @dev Audit user's rewards and calculate their earned reward based on
-    * If user's stake time more than one month so it calculated with 0.5x 
-    * multiplier otherwise for over 1 month part it gets 1x multiplier
+    * @dev Audit user's rewards and calculate their earned rewards based on
+    * If user's stake time less than one month so it calculated with 0.5x 
+    * multiplier therefore they just gets half of the rewards which they earned in the first month 
+    * after first month they get full amount of rewards for the part that they earned after one month
      */
     function _audit(address user) internal virtual {
         UserInfo storage userInfo = users[user];
@@ -180,7 +182,7 @@ contract BaseShareField is DAOContract{
     // External function call
     // When user calls this function, it will calculate how many token will mint to user from his productivity * time
     // Also it calculates global token supply from last time the user mint to this time.
-    function _mint(address user) public onlyFundManager returns (uint) {
+    function userAccounting(address user) public onlyFundManager returns (uint) {
         _update();
         _audit(user);
         UserInfo storage userInfo = users[user];

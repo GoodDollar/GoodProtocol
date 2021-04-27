@@ -13,7 +13,6 @@ interface StakingContract {
 		returns (
 			uint256,
 			uint256,
-			uint256,
 			uint256
 		);
 
@@ -24,7 +23,7 @@ interface StakingContract {
         uint256 _blockInterestTokenEarned
         ) 
     external;
-    function _mint(address user)
+    function userAccounting(address user)
     external returns(uint);
 
 }
@@ -70,10 +69,9 @@ contract GoodFundManager is DAOContract {
     //Structure that hold reward information and if its blacklicksted or not for particular staking Contract
     struct Reward{
         uint32 blockReward; //in G$
-        uint32 blockStart; // # of the start block to distribute rewards
-        uint32 blockEnd; // # of the end block to distribute rewards
+        uint64 blockStart; // # of the start block to distribute rewards
+        uint64 blockEnd; // # of the end block to distribute rewards
         bool isBlackListed; // If staking contract is blacklisted or not
-        bool isInitialized; // if staking contract has actually Initialized
     }
     // Rewards per block for particular Staking contract
     mapping(address => Reward) public rewardsForStakingContract;
@@ -91,14 +89,6 @@ contract GoodFundManager is DAOContract {
         // from the staking contract to the
         // reserve contract
         uint256 cDAIinterestEarned,
-        // How much interest has been donated
-        // according to the given donation
-        // ratio which determined in the
-        // staking contract
-        uint256 cDAIinterestDonated,
-        // The number of tokens that have been minted
-        // by the reserve to the staking contract
-        uint256 gdInterest,
         // The number of tokens that have been minted
         // by the reserve to the bridge which in his
         // turn should transfer those funds to the
@@ -174,7 +164,7 @@ contract GoodFundManager is DAOContract {
         bool _isBlackListed
     ) public{
 		_onlyAvatar();
-        Reward memory reward = Reward(_rewardsPerBlock, _blockStart, _blockEnd, _isBlackListed, true);
+        Reward memory reward = Reward(_rewardsPerBlock, _blockStart, _blockEnd, _isBlackListed);
         rewardsForStakingContract[_stakingAddress] = reward;
     }
    
@@ -246,26 +236,24 @@ contract GoodFundManager is DAOContract {
 		uint256 currentBalance = iToken.balanceOf(address(reserve));
 		// collects the interest from the staking contract and transfer it directly to the reserve contract
 		//`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
-		(, , , uint256 avgEffectiveStakedRatio) =
-			_staking.collectUBIInterest(address(reserve));
+	    _staking.collectUBIInterest(address(reserve));
 
 		// Finds the actual transferred iToken
 		uint256 interest =
 			iToken.balanceOf(address(reserve)).sub(currentBalance);
-		uint256 effectiveInterest =
-			interest.mul(avgEffectiveStakedRatio).div(DECIMAL1e18);
-		uint256 interestDonated = interest.sub(effectiveInterest);
+		//uint256 effectiveInterest =
+		//	interest.mul(avgEffectiveStakedRatio).div(DECIMAL1e18);
+		//uint256 interestDonated = interest.sub(effectiveInterest);
         // Mints gd while the interest amount is equal to the transferred amount
-        (uint256 gdInterest, uint256 gdUBI) = reserve.mintInterestAndUBI(
+        uint256 gdUBI = reserve.mintUBI(
             iToken,
-            interest,
-            effectiveInterest
+            interest
         );
-        _staking.updateGlobalGDYieldPerToken(gdInterest, interest);
+        //_staking.updateGlobalGDYieldPerToken(gdInterest, interest);
         // Transfers the minted tokens to the given staking contract
         IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
-        if(gdInterest > 0)
-            require(token.transfer(address(_staking), gdInterest),"interest transfer failed");
+        //if(gdInterest > 0)
+        //    require(token.transfer(address(_staking), gdInterest),"interest transfer failed");
         if(gdUBI > 0)
             //transfer ubi to avatar on sidechain via bridge
             require(token.transferAndCall(
@@ -278,8 +266,6 @@ contract GoodFundManager is DAOContract {
             address(_staking),
             address(reserve),
             interest,
-            interestDonated,
-            gdInterest,
             gdUBI
         );
     }
@@ -288,16 +274,17 @@ contract GoodFundManager is DAOContract {
      * @dev _user user to get rewards
      */
      function mintReward(
+        address _token,
         address _user
 
      ) public {
         
         Reward memory staking = rewardsForStakingContract[address(msg.sender)];
-        uint amount = StakingContract(address(msg.sender))._mint(_user);
-        require(staking.isInitialized == true , "Staking contracts reward has not initiliazed");
+        require(staking.blockStart > 0 , "Staking contracts reward has not initiliazed");
+        uint amount = StakingContract(address(msg.sender)).userAccounting(_user);
         if(amount > 0 && staking.isBlackListed == false){
             
-            reserve.mintRewardFromRR(_user, amount);
+            reserve.mintRewardFromRR(_token, _user, amount);
         }
         
 
