@@ -69,13 +69,7 @@ contract GoodFundManager is DAOContract {
 
     //address of the activate staking contracts
     address[] public activeContracts;
-    mapping (uint256 => InterestData[]) interestDatas;
-    struct InterestData{
-        address contractAddress; // address of the staking contract
-        uint256 interestBalance; // interest balance of the staking contract
-       
-       
-    }
+   
     // Emits when `transferInterest` transfers
     // funds to the staking contract and to
     // the bridge
@@ -90,11 +84,7 @@ contract GoodFundManager is DAOContract {
         // from the staking contract to the
         // reserve contract
         uint256 cDAIinterestEarned,
-        // How much interest has been donated
-        // according to the given donation
-        // ratio which determined in the
-        // staking contract
-        uint256 cDAIinterestDonated,
+        
         // The number of tokens that have been minted
         // by the reserve to the staking contract
         //uint256 gdInterest,
@@ -255,47 +245,53 @@ contract GoodFundManager is DAOContract {
         // iToken balance of the reserve contract
         uint256 currentBalance = iToken.balanceOf(address(reserve));
         uint256 tempInterest;
-        InterestData memory tempData;
-        
+        address[40] memory addresses; // Should be static array so we can discuss about size?
+        uint256[40] memory balances; // Should be static array so we can discuss about size?
+        uint8 index = 0 ;
         for (uint i = 0; i < activeContracts.length;i++){
             (tempInterest, ,) = StakingContract(activeContracts[i]).currentUBIInterest();
-            tempData = InterestData(activeContracts[i], tempInterest);
-            if (tempInterest != 0) interestDatas[block.number].push(tempData);
+            
+            if (tempInterest != 0){
+                addresses[index] = activeContracts[i];
+                balances[index] = tempInterest;
+                index += 1;
+            }
         }
-        InterestData[] memory stakingContractsInterestBalances = interestDatas[block.number];
-        quick(stakingContractsInterestBalances); // sort the values according to interest balance
+        
+        quick(balances,addresses); // sort the values according to interest balance
         uint leftGas = gasleft();
         uint gasCost;
-        uint256 avgEffectiveStakedRatio;
-        uint256 interest;
-        uint256 cumInterest;
-        uint256 cumEffectiveInterest;
+       
+     
 
-        for(uint i = stakingContractsInterestBalances.length - 1; i >=0; i--){
-                gasCost = StakingContract(stakingContractsInterestBalances[i].contractAddress).getGasCostForInterestTransfer();
-            if(leftGas - gasCost >= 200000){ // this value will change its hardcoded for ubi minting
-                // collects the interest from the staking contract and transfer it directly to the reserve contract
-                //`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
-                (, , , avgEffectiveStakedRatio) = StakingContract(stakingContractsInterestBalances[i].contractAddress).collectUBIInterest(
-                    address(reserve)
-                );
-                // Finds the actual transferred iToken
-                interest = iToken.balanceOf(address(reserve)).sub(
-                    currentBalance
-                );
-                cumEffectiveInterest += interest.mul(avgEffectiveStakedRatio).div(DECIMAL1e18);
-                cumInterest += interest; 
-                leftGas -= gasCost;
+        for(uint i = addresses.length - 1; i >=0; i--){
+            if(addresses[i] != address(0x0)){
+                gasCost = StakingContract(addresses[i]).getGasCostForInterestTransfer();
+                if(leftGas - gasCost >= 200000){ // this value will change its hardcoded for ubi minting
+                    // collects the interest from the staking contract and transfer it directly to the reserve contract
+                    //`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
+                    StakingContract(addresses[i]).collectUBIInterest(
+                        address(reserve)
+                    );
+                    leftGas -= gasCost;
+                }else{
+                    break;
+                }
             }else{
                 break;
             }
+                
         }
-        uint256 interestDonated = cumInterest.sub(cumEffectiveInterest);
+        // Finds the actual transferred iToken
+        uint interest = iToken.balanceOf(address(reserve)).sub(
+            currentBalance
+        );
+
+        
         // Mints gd while the interest amount is equal to the transferred amount
-        (uint256 gdInterest, uint256 gdUBI) = reserve.mintInterestAndUBI(
+        (uint256 gdUBI) = reserve.mintInterestAndUBI(
             iToken,
-            cumInterest, // Cumulative interest
-            cumEffectiveInterest // cumulative effective interest
+            interest // interest
         );
         //_staking.updateGlobalGDYieldPerToken(gdInterest, interest);
         // Transfers the minted tokens to the given staking contract
@@ -306,15 +302,14 @@ contract GoodFundManager is DAOContract {
             //transfer ubi to avatar on sidechain via bridge
             require(token.transferAndCall(
                 bridgeContract,
-                gdUBI + gdInterest,
+                gdUBI,
                 abi.encodePacked(ubiRecipient)
             ),"ubi bridge transfer failed");
         emit FundsTransferred(
             msg.sender,
             address(reserve),
             interest,
-            interestDonated,
-            gdUBI + gdInterest
+            gdUBI 
         );
     }
 
@@ -335,28 +330,29 @@ contract GoodFundManager is DAOContract {
         }
         super.internalEnd(avatar);
     }*/ 
-    function quick(InterestData[] memory data) internal pure {
+    function quick(uint256[40] memory data,address[40] memory addresses) internal pure {
         if (data.length > 1) {
-            quickPart(data, 0, data.length - 1);
+            quickPart(data, addresses, 0, data.length - 1);
         }
     }
-    function quickPart(InterestData[] memory data, uint low, uint high) internal pure {
+    function quickPart(uint256[40] memory data, address[40] memory addresses, uint low, uint high) internal pure {
         if (low < high) {
-            uint pivotVal = data[(low + high) / 2].interestBalance;
+            uint pivotVal = data[(low + high) / 2];
         
             uint low1 = low;
             uint high1 = high;
             for (;;) {
-                while (data[low1].interestBalance < pivotVal) low1++;
-                while (data[high1].interestBalance > pivotVal) high1--;
+                while (data[low1] < pivotVal) low1++;
+                while (data[high1] > pivotVal) high1--;
                 if (low1 >= high1) break;
                 (data[low1], data[high1]) = (data[high1], data[low1]);
+                (addresses[low1], addresses[high1]) = (addresses[high1], addresses[low1]);
                 low1++;
                 high1--;
             }
-            if (low < high1) quickPart(data, low, high1);
+            if (low < high1) quickPart(data, addresses, low, high1);
             high1++;
-            if (high1 < high) quickPart(data, high1, high);
+            if (high1 < high) quickPart(data, addresses, high1, high);
         }
     }
 

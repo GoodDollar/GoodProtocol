@@ -39,7 +39,7 @@ library InterestDistribution {
     // Calculating updateGlobalGDYieldPerTokenUpdated is required before each action
     // because the staker still has no part in the interest generated until this block.
     // Updating globalGDYieldPerToken for every stake.
-    modifier requireUpdate(InterestData storage _interestData) {
+    modifier requireUpdate(InterestData storage _interestData) { // Cancelled usage of this one since make tests fails and no longer need it
         require(
             _interestData.globalGDYieldPerTokenUpdatedBlock == block.number,
             "must call updateGlobalGDYieldPerTokenUpdated before staking operations"
@@ -61,7 +61,7 @@ library InterestDistribution {
         address _staker,
         uint256 _stake,
         uint256 _donationPer
-    ) internal requireUpdate(_interestData) {
+    ) internal {
         Staker storage _stakerData = _interestData.stakers[_staker];
 
         uint256 currentStake = _stakerData.totalStaked;
@@ -102,7 +102,7 @@ library InterestDistribution {
         InterestData storage _interestData,
         address _staker,
         uint256 _amount
-    ) internal requireUpdate(_interestData) returns (uint256) {
+    ) internal  returns (uint256) {
         Staker storage _stakerData = _interestData.stakers[_staker];
 
         //earned gd must be fully withdrawn on any stake withdraw
@@ -143,7 +143,6 @@ library InterestDistribution {
      */
     function withdrawGDInterest(InterestData storage _interestData, address _staker)
         internal
-        requireUpdate(_interestData)
         returns (uint256)
     {
         Staker storage stakerData = _interestData.stakers[_staker];

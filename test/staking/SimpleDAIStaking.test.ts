@@ -951,9 +951,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const cdaiGains = gains["0"];
     const precisionLossDai = gains["2"]; //last 10 decimals since cdai is only 8 decimals while dai is 18
     const fundBalance0 = await cDAI.balanceOf(goodReserve.address);
-    const res = await goodFundManager.transferInterest(
-      goodCompoundStaking.address
-    );
+    const res = await goodFundManager.collectInterest();
     const fundBalance1 = await cDAI.balanceOf(goodReserve.address);
     const fundDaiWorth = await goodCompoundStaking.currentTokenWorth();
     expect(cdaiGains.toString()).to.be.equal(

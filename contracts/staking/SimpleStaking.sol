@@ -105,7 +105,7 @@ contract SimpleStaking is DSMath, Pausable, DAOContract, AbstractGoodStaking {
         // approve the transfer to defi protocol
         token.approve(address(iToken), _amount);
         mint(_amount); //mint iToken
-        //InterestDistribution.stake(interestData, msg.sender, _amount, _donationPer);
+        InterestDistribution.stake(interestData, msg.sender, _amount, _donationPer);
         emit Staked(msg.sender, address(token), _amount);
     }
 
@@ -123,10 +123,10 @@ contract SimpleStaking is DSMath, Pausable, DAOContract, AbstractGoodStaking {
         if (tokenActual < tokenWithdraw) {
             tokenWithdraw = tokenActual;
         }
-        //uint256 gdInterest =  InterestDistribution.withdrawStakeAndInterest(interestData, msg.sender, _amount);
+        uint256 gdInterest =  InterestDistribution.withdrawStakeAndInterest(interestData, msg.sender, _amount);
         //Since we use generic ERC20 function we can just use its interface
-        //ERC20 goodDollar = ERC20(address(avatar.nativeToken()));
-        //require(goodDollar.transfer(msg.sender, gdInterest), "withdraw interest transfer failed");
+        ERC20 goodDollar = ERC20(address(avatar.nativeToken()));
+        require(goodDollar.transfer(msg.sender, gdInterest), "withdraw interest transfer failed");
         require(token.transfer(msg.sender, tokenWithdraw), "withdraw transfer failed");
         emit StakeWithdraw(msg.sender, address(token), tokenWithdraw, token.balanceOf(address(this)));
     }
