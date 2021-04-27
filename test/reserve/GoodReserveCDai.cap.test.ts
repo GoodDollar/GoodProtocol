@@ -68,7 +68,7 @@ describe("GoodReserve - Enforce token cap", () => {
     ).to.be.revertedWith("GoodReserve: not a minter");
 
     await expect(
-      goodReserve.mintRewardFromRR(cDai.address, founder.address, 10)
+      goodReserve.mintRewardFromRR(cDai, founder.address, 10)
     ).to.be.revertedWith("GoodReserve: not a minter");
 
     // await expect(
@@ -95,7 +95,7 @@ describe("GoodReserve - Enforce token cap", () => {
 
     await goodReserve
       .connect(founder)
-      .mintRewardFromRR(cDai.address,  founder.address, 10);
+      .mintRewardFromRR(cDai,  founder.address, 10);
     expect(await goodDollar.balanceOf(founder.address)).to.equal(20);
     currentPrice = await goodReserve["currentPrice()"]();
     expect(currentPrice).to.be.gt(0, "should have cDai price");
@@ -119,7 +119,7 @@ describe("GoodReserve - Enforce token cap", () => {
     expect(await goodDollar.isMinter(avatar)).to.be.false;
     await goodReserve
       .connect(founder)
-      .mintRewardFromRR(cDai.address, founder.address, 10);
+      .mintRewardFromRR(cDai, founder.address, 10);
     expect(await goodDollar.balanceOf(founder.address)).to.equal(30);
   });
 
@@ -140,7 +140,7 @@ describe("GoodReserve - Enforce token cap", () => {
     await expect(
       goodReserve
         .connect(founder)
-        .mintRewardFromRR(cDai.address,  founder.address, 10)
+        .mintRewardFromRR(cDai,  founder.address, 10)
     ).to.be.revertedWith("GoodReserve: not a minter");
   });
 
@@ -176,7 +176,7 @@ describe("GoodReserve - Enforce token cap", () => {
   it("should be able to mint if granted RESERVE_MINTER_ROLE role", async () => {
     await goodReserve
       .connect(granted)
-      .mintRewardFromRR(cDai.address,  founder.address, 10);
+      .mintRewardFromRR(cDai,  founder.address, 10);
     expect(await goodDollar.balanceOf(founder.address)).to.equal(40);
   });
 
@@ -184,7 +184,7 @@ describe("GoodReserve - Enforce token cap", () => {
     await expect(
       goodReserve
         .connect(granted)
-        .mintRewardFromRR(cDai.address,  founder.address, 22 * 1e14)
+        .mintRewardFromRR(cDai,  founder.address, 22 * 1e14)
     ).to.be.revertedWith("GoodReserve: cap enforced");
   });
 

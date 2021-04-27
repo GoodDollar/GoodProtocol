@@ -8,7 +8,6 @@ import "../Interfaces.sol";
 
 import "../utils/DSMath.sol";
 import "./AbstractGoodStaking.sol";
-import "./InterestDistribution.sol";
 import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";

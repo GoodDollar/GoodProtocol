@@ -101,7 +101,7 @@ contract BaseShareField is DAOContract{
             
             if (blocksToPay != 0){
                 uint pending = userInfo.amount * accAmountPerShare / 1e12 - userInfo.rewardDebt;
-                uint rewardPerBlock = pending * 1e12 / blocksToPay / 1e12; // increase resolution by multiplying with 1e12 
+                uint rewardPerBlock = pending * 1e18 / blocksToPay / 1e18; // increase resolution by multiplying with 1e12 
                 pending  = ((firstMonthBlocksToPay * 50 * 1e16) + fullBlocksToPay) * rewardPerBlock / 1e18; // divide 1e18 so reduce it to 18decimals
                 userInfo.rewardEarn = userInfo.rewardEarn + pending;
                 mintCumulation = mintCumulation + pending;
