@@ -153,13 +153,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
     //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
     await goodReserve.setAddresses();
-    //Set  Goodfundmanager's reserve
-    const encodedData = goodFundManagerFactory.interface.encodeFunctionData(
-      "setReserve",
-      [goodReserve.address]
-    );
-   
-    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+ 
    
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);

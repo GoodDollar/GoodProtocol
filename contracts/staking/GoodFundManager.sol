@@ -128,6 +128,7 @@ contract GoodFundManager is DAOContract {
         ubiRecipient = _ubiRecipient;
         blockInterval = _blockInterval;
         lastTransferred = block.number.div(blockInterval);
+        reserve = GoodReserveCDai(nameService.getAddress("RESERVE"));
     }
 
 	/**
@@ -139,15 +140,7 @@ contract GoodFundManager is DAOContract {
 	//   super.start();
 	// }
 
-    /**
-     * @dev Sets the whitelisted reserve. Only Avatar
-     * can call this method.
-     * @param _reserve The new reserve to be whitelisted
-     */
-    function setReserve(GoodReserveCDai _reserve) public {
-		_onlyAvatar();
-        reserve = _reserve;
-    }
+    
     /**
      * @dev Sets the Reward for particular Staking contract
      * @param _rewardsPerBlock reward for per block 

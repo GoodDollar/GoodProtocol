@@ -137,17 +137,12 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       schemeMock
     );
 
-    //Set  Goodfundmanager's reserve
-    const encodedData = goodFundManagerFactory.interface.encodeFunctionData(
-      "setReserve",
-      [goodReserve.address]
-    );
+   
     const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["1000", goodCompoundStaking.address,"1","44",false] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
-    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
   });
 

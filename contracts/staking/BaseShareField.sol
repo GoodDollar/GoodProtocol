@@ -73,7 +73,7 @@ contract BaseShareField is DAOContract{
             uint256 multiplier = block.number - lastRewardBlock;
             uint256 reward = multiplier * (rewardsPerBlock * 1e16); // rewardsPerBlock is in G$ which is only 2 decimals, we turn it into 18 decimals
 
-            accAmountPerShare = accAmountPerShare + (reward * 1e12 / totalProductivity); 
+            accAmountPerShare = accAmountPerShare + (reward * 1e12 / totalProductivity);
             
             
         }
@@ -217,7 +217,7 @@ contract BaseShareField is DAOContract{
     }
 
     /**
-     * @return Returns the current gorss product rate.
+     * @return Returns the current gross product rate.
     */
     function interestsPerBlock() public virtual view returns (uint) {
         return accAmountPerShare;
