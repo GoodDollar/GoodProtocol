@@ -103,7 +103,7 @@ contract BaseShareField is DSMath, DAOContract {
 						1e18 -
 						userInfo.rewardDebt; // Divide 1e18 to reduce 18 Decimals since rewardDebt in 18 decimals
 				uint256 rewardPerBlock =
-					rdiv(pending * 1e9, blocksToPay * 1e27); // bring both variable to 27decimals since DSMath works on 27 decimals then divide 1e9 to bring back 18 decimals
+					rdiv(pending * 1e9, blocksToPay * 1e27); // bring both variable to 27decimals since DSMath works on 27 decimals 
 				pending =
 					rmul(
 						((firstMonthBlocksToPay * 50 * 1e25) +
@@ -111,7 +111,7 @@ contract BaseShareField is DSMath, DAOContract {
 							1e27),
 						rewardPerBlock
 					) /
-					1e9; // calculate reward multipler in 18 decimals so scale up to 36 decimals divide 1e18 so reduce it to 18decimals
+					1e9; // bring day calculations to 27 decimals since DSMath works on 27 decimals  and divide 1e9 bring back to 18 decimals
 				userInfo.rewardEarn = userInfo.rewardEarn + pending;
 				mintCumulation = mintCumulation + pending;
 			}
@@ -234,7 +234,7 @@ contract BaseShareField is DSMath, DAOContract {
 					1e18 -
 					tempUserInfo.rewardDebt; // Divide 1e18 to reduce 18 Decimals since rewardDebt in 18 decimals
 				uint256 rewardPerBlock =
-					rdiv(pending * 1e9, blocksToPay * 1e27); // bring both variable to 27decimals since DSMath works on 27 decimals then divide 1e9 to bring back 18 decimals
+					rdiv(pending * 1e9, blocksToPay * 1e27); // bring both variable to 27decimals since DSMath works on 27 decimals 
 				pending =
 					rmul(
 						((firstMonthBlocksToPay * 50 * 1e25) +
@@ -242,7 +242,7 @@ contract BaseShareField is DSMath, DAOContract {
 							1e27),
 						rewardPerBlock
 					) /
-					1e9; // calculate reward multipler in 18 decimals so scale up to 36 decimals divide 1e18 so reduce it to 18decimals
+					1e9; // bring day calculations to 27 decimals since DSMath works on 27 decimals  and divide 1e9 bring back to 18 decimals
 			}
 		}
 		return userInfo.rewardEarn + pending / 1e16; // Reward earn in 18decimals so need to divide 1e16 to bring down gd decimals which is 2
