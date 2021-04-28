@@ -15,6 +15,8 @@ import "../Interfaces.sol";
  *  Minting by the DAO will be done using controller.genericCall and not via controller.mintReputation
  */
 contract GReputation is Reputation {
+	bytes32 public constant ROOT_STATE = keccak256("rootState");
+
 	string public constant name = "GReputation";
 
 	/// @notice The EIP-712 typehash for the contract's domain
@@ -65,6 +67,15 @@ contract GReputation is Reputation {
 		uint256 previousBalance,
 		uint256 newBalance
 	);
+
+	function _canMint() internal view override {
+		require(
+			_msgSender() == nameService.getAddress("GDAO_CLAIMERS") ||
+				_msgSender() == nameService.getAddress("GDAO_CLAIMERS") ||
+				hasRole(MINTER_ROLE, _msgSender()),
+			"GReputation: need minter role or be GDAO contract"
+		);
+	}
 
 	/// @notice internal function that overrides Reputation.sol with consideration to delegation
 	/// @param _user the address to mint for
@@ -123,11 +134,12 @@ contract GReputation is Reputation {
 		string memory _id,
 		bytes32 _hash,
 		uint256 _totalSupply
-	) public onlyOwner {
+	) public {
+		_onlyAvatar();
 		bytes32 idHash = keccak256(bytes(_id));
 
 		//dont consider rootState as blockchain,  it is a special state hash
-		bool isRootState = idHash == keccak256(bytes("rootState"));
+		bool isRootState = idHash == ROOT_STATE;
 		require(
 			!isRootState || super.totalSupplyAt(block.number) == 0,
 			"rootState already created"
@@ -313,7 +325,7 @@ contract GReputation is Reputation {
 		require(isProofValid, "invalid merkle proof");
 
 		//if initiial state then set real balance
-		if (idHash == keccak256(bytes("rootState"))) {
+		if (idHash == ROOT_STATE) {
 			_mint(_user, _balance);
 		}
 

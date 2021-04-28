@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.7.0;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+
+import "../utils/DAOContract.sol";
 
 /**
  * @title Reputation system
@@ -9,9 +11,11 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
  * A reputation is use to assign influence measure to a DAO'S peers.
  * Reputation is similar to regular tokens but with one crucial difference: It is non-transferable.
  * The Reputation contract maintain a map of address to reputation value.
- * It provides an onlyOwner functions to mint and burn reputation _to (or _from) a specific address.
+ * It provides an only minter role functions to mint and burn reputation _to (or _from) a specific address.
  */
-contract Reputation is OwnableUpgradeable {
+contract Reputation is DAOContract, AccessControlUpgradeable {
+	bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+
 	uint8 public decimals; //Number of decimals of the smallest unit
 	// Event indicating minting of reputation to an address.
 	event Mint(address indexed _to, uint256 _amount);
@@ -34,15 +38,33 @@ contract Reputation is OwnableUpgradeable {
 	// Tracks the history of the `totalSupply` of the reputation
 	uint256[] public totalSupplyHistory;
 
+	/**
+	 * @dev initialize
+	 */
+	function initialize(NameService _ns) public initializer {
+		decimals = 0;
+		__Context_init_unchained();
+		__ERC165_init_unchained();
+		__AccessControl_init_unchained();
+
+		setDAO(_ns);
+		_setupRole(DEFAULT_ADMIN_ROLE, address(avatar));
+		_setupRole(MINTER_ROLE, address(avatar));
+	}
+
+	function _canMint() internal view virtual {
+		require(
+			hasRole(MINTER_ROLE, _msgSender()),
+			"Reputation: need minter role"
+		);
+	}
+
 	/// @notice Generates `_amount` reputation that are assigned to `_owner`
 	/// @param _user The address that will be assigned the new reputation
 	/// @param _amount The quantity of reputation generated
 	/// @return True if the reputation are generated correctly
-	function mint(address _user, uint256 _amount)
-		public
-		onlyOwner
-		returns (bool)
-	{
+	function mint(address _user, uint256 _amount) public returns (bool) {
+		_canMint();
 		_mint(_user, _amount);
 		return true;
 	}
@@ -72,11 +94,9 @@ contract Reputation is OwnableUpgradeable {
 	/// @param _user The address that will lose the reputation
 	/// @param _amount The quantity of reputation to burn
 	/// @return True if the reputation are burned correctly
-	function burn(address _user, uint256 _amount)
-		public
-		onlyOwner
-		returns (bool)
-	{
+	function burn(address _user, uint256 _amount) public returns (bool) {
+		//user can burn his own rep other wise we check _canMint
+		if (_user != _msgSender()) _canMint();
 		_burn(_user, _amount);
 		return true;
 	}
@@ -96,15 +116,6 @@ contract Reputation is OwnableUpgradeable {
 		updateValueAtNow(balances[_user], previousBalanceFrom - amountBurned);
 		emit Burn(_user, amountBurned);
 		return amountBurned;
-	}
-
-	/**
-	 * @dev initialize
-	 */
-	function initialize(address _owner) public initializer {
-		decimals = 0;
-		__Ownable_init_unchained();
-		transferOwnership(_owner);
 	}
 
 	/// @dev This function makes it easy to get the total number of reputation
