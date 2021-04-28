@@ -654,7 +654,8 @@ contract CompoundVotingMachine {
 		);
 
 		require(
-			block.timestamp > foundationGuardianRelease,
+			msg.sender == guardian ||
+				block.timestamp > foundationGuardianRelease,
 			"CompoundVotingMachine: foundation expiration not reached"
 		);
 
