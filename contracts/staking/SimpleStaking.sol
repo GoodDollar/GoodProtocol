@@ -2,7 +2,7 @@
 
 pragma solidity >=0.7.0;
 
-import "../identity/Identity.sol";
+
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../Interfaces.sol";
 
@@ -10,6 +10,7 @@ import "../utils/DSMath.sol";
 import "./AbstractGoodStaking.sol";
 import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
+import "../utils/Pausable.sol";
 import "../utils/DAOContract.sol";
 import "./StakingToken.sol";
 

@@ -4,7 +4,7 @@ import '../Interfaces.sol';
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DAOContract.sol";
-import "hardhat/console.sol";
+
 interface FundManager {
     function rewardsForStakingContract(address _staking)
         external view returns(uint,uint,uint,bool);
@@ -176,7 +176,7 @@ contract BaseShareField is DAOContract{
             (uint256 blocksToPay, uint256 firstMonthBlocksToPay , uint256 fullBlocksToPay) = _auditCalcs(userInfo);
             
             _accAmountPerShare = _accAmountPerShare + (reward * 1e12 / totalProductivity);
-            UserInfo memory tempUserInfo = userInfo; // to prevent stacking too deep error any other recommendation? 
+            UserInfo memory tempUserInfo = userInfo; // to prevent stack too deep error any other recommendation? 
             if (blocksToPay != 0){
                 pending = tempUserInfo.amount * _accAmountPerShare / 1e12 - tempUserInfo.rewardDebt;
                 uint rewardPerBlock = pending * 1e18 / blocksToPay / 1e18; // increase resolution by multiplying with 1e18(pending is already in 18decimals so double up precision and reduce)

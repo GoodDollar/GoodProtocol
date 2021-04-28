@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity >0.5.4;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetMinterPauserUpgradeable.sol";
@@ -15,7 +16,7 @@ contract cDAINonMintableMock is DSMath, ERC20PresetMinterPauserUpgradeable{
 
     uint256 exchangeRate = uint256(100e28).div(99);
 
-    constructor(ERC20PresetMinterPauserUpgradeable _dai) public {
+    constructor(ERC20PresetMinterPauserUpgradeable _dai) {
         __ERC20PresetMinterPauser_init("Compound DAI", "cDAI");
         dai = _dai;
     }
