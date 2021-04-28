@@ -5,7 +5,7 @@ import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DAOContract.sol";
 import "../utils/DSMath.sol";
-
+import "hardhat/console.sol";
 interface FundManager {
 	function rewardsForStakingContract(address _staking)
 		external
@@ -103,15 +103,14 @@ contract BaseShareField is DSMath, DAOContract {
 						1e18 -
 						userInfo.rewardDebt; // Divide 1e18 to reduce 18 Decimals since rewardDebt in 18 decimals
 				uint256 rewardPerBlock =
-					rdiv(pending * 1e9, blocksToPay * 1e27); // bring both variable to 27decimals since DSMath works on 27 decimals 
+					rdiv(pending , blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
 				pending =
 					rmul(
-						((firstMonthBlocksToPay * 50 * 1e25) +
+						((firstMonthBlocksToPay * 5 * 1e17) + // multiply with 1e17 since normally there is divide 10
 							fullBlocksToPay *
-							1e27),
+							1e18),
 						rewardPerBlock
-					) /
-					1e9; // bring day calculations to 27 decimals since DSMath works on 27 decimals  and divide 1e9 bring back to 18 decimals
+					); // pending should be in 18 decimals
 				userInfo.rewardEarn = userInfo.rewardEarn + pending;
 				mintCumulation = mintCumulation + pending;
 			}
@@ -234,15 +233,14 @@ contract BaseShareField is DSMath, DAOContract {
 					1e18 -
 					tempUserInfo.rewardDebt; // Divide 1e18 to reduce 18 Decimals since rewardDebt in 18 decimals
 				uint256 rewardPerBlock =
-					rdiv(pending * 1e9, blocksToPay * 1e27); // bring both variable to 27decimals since DSMath works on 27 decimals 
+					rdiv(pending , blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
 				pending =
 					rmul(
-						((firstMonthBlocksToPay * 50 * 1e25) +
+						((firstMonthBlocksToPay * 5 * 1e17) + // multiply with 1e17 since normally there is divide 10
 							fullBlocksToPay *
-							1e27),
+							1e18),
 						rewardPerBlock
-					) /
-					1e9; // bring day calculations to 27 decimals since DSMath works on 27 decimals  and divide 1e9 bring back to 18 decimals
+					); // pending should be in 18 decimals
 			}
 		}
 		return userInfo.rewardEarn + pending / 1e16; // Reward earn in 18decimals so need to divide 1e16 to bring down gd decimals which is 2
