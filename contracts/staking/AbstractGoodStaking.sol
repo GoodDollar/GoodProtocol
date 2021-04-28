@@ -82,11 +82,13 @@ contract AbstractGoodStaking {
      * @return Intrest gained on lending the tokens.
      * @return Intrest gained on lending the tokens in terms of token rate.
      * @return Token's precision loss due to decimal difference.
+     * @return average intrest donation ratio.
      */
     function collectUBIInterest(address recipient)
         external
         virtual
         returns (
+            uint256,
             uint256,
             uint256,
             uint256

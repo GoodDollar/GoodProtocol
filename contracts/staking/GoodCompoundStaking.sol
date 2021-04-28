@@ -22,8 +22,9 @@ contract GoodCompoundStaking is SimpleStaking {
         uint256 _blockInterval,
         NameService _ns,
         string memory _TokenName,
-        string memory _tokenSymbol
-    ) public SimpleStaking(_token, _iToken, _blockInterval, _ns , _TokenName , _tokenSymbol) {
+        string memory _tokenSymbol,
+        uint64 _maxRewardThreshold
+    ) public SimpleStaking(_token, _iToken, _blockInterval, _ns , _TokenName , _tokenSymbol, _maxRewardThreshold) {
         
     }
 

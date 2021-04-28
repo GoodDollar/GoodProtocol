@@ -108,7 +108,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       BLOCK_INTERVAL,
       nameService.address,
       "Good DAI",
-      "gDAI"
+      "gDAI",
+      "172800"
     );
 
     console.log("initializing marketmaker...");
@@ -335,6 +336,126 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(currentUBIInterestBeforeWithdraw[0].toString()).to.not.be.equal("0")
     expect(currentUBIInterestAfterWithdraw[0].toString()).to.be.equal("0")
     
+  })
+  
+  it("it should get rewards with updated values",async()=>{
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber()
+    const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["1000", goodCompoundStaking.address,currentBlockNumber,currentBlockNumber + 5000,false] // set 10 gd per block 
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
+    
+    const stakingAmount = ethers.utils.parseEther("100");
+    
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    
+    await advanceBlocks(4);
+    let rewardsEarned = await goodCompoundStaking.getUserPendingReward(staker.address)
+    expect(rewardsEarned.toString()).to.be.equal("2000") // Each block reward is 10gd so total reward 40gd but since multiplier is 0.5 for first month should get 20gd
+    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
+   
+
+  })
+  
+  it("it should get rewards with 1x multiplier for after threshold pass",async()=>{
+    
+    const goodCompoundStakingFactory = await ethers.getContractFactory(
+      "GoodCompoundStaking"
+    );
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    const simpleStaking = await goodCompoundStakingFactory.deploy(
+      dai.address,
+      cDAI.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good DAI",
+      "gDAI",
+      "50"
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber()
+    const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["1000", simpleStaking.address,currentBlockNumber,currentBlockNumber + 100,false] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
+    
+    const stakingAmount = ethers.utils.parseEther("100");
+    
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(simpleStaking.address, stakingAmount);
+    let gdBalanceStakerBeforeWithdraw =await goodDollar.balanceOf(staker.address)
+    await simpleStaking.connect(staker).stake(stakingAmount, 100);
+   
+    
+    await advanceBlocks(54);
+await simpleStaking.connect(staker).withdrawStake(stakingAmount);
+    let gdBalanceStakerAfterWithdraw =await goodDollar.balanceOf(staker.address)
+    
+    expect(gdBalanceStakerAfterWithdraw.sub(gdBalanceStakerBeforeWithdraw).toString()).to.be.equal("30000") // 50 blocks reward worth 500gd but since it's in the 0.5x multiplier 25gd then there is 5 blocks which gets full reward so 300gd
+
+  })
+
+  it("Should transfer somebody's staking token's when they approve",async()=>{
+
+    const stakingAmount = ethers.utils.parseEther("100");
+    
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    
+    
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    await goodCompoundStaking.connect(staker).approve(founder.address,stakingAmount);
+    const stakingTokenBalanceBeforeTransfer = await goodCompoundStaking.balanceOf(founder.address)
+    await goodCompoundStaking.transferFrom(staker.address,founder.address,stakingAmount);
+    const stakingTokenBalanceAfterTransfer = await goodCompoundStaking.balanceOf(founder.address)
+
+    expect(stakingTokenBalanceAfterTransfer.gt(stakingTokenBalanceBeforeTransfer)).to.be.true;
+    await goodCompoundStaking.withdrawStake(stakingAmount);
+
+  })
+
+  it("Should be able to withdraw rewards without withdraw stake",async()=>{
+    const stakingAmount = ethers.utils.parseEther("100");
+    
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    
+    
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    await advanceBlocks(5);
+    const earnedRewardBeforeWithdrawReward = await goodCompoundStaking.getUserPendingReward(staker.address)
+    await goodCompoundStaking.connect(staker).withdrawRewards();
+    const earnedRewardAfterWithdrawReward = await goodCompoundStaking.getUserPendingReward(staker.address)
+
+    expect(earnedRewardAfterWithdrawReward.lt(earnedRewardBeforeWithdrawReward)).to.be.true;
+    expect(earnedRewardAfterWithdrawReward.toString()).to.be.equal("0")
+    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
   })
 
 });

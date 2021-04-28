@@ -280,7 +280,7 @@ contract GoodFundManager is DAOContract {
      ) public {
         
         Reward memory staking = rewardsForStakingContract[address(msg.sender)];
-        require(staking.blockStart > 0 , "Staking contracts reward has not initiliazed");
+        require(staking.blockStart > 0 , "Staking contract not registered");
         uint amount = StakingContract(address(msg.sender)).userAccounting(_user);
         if(amount > 0 && staking.isBlackListed == false){
             
