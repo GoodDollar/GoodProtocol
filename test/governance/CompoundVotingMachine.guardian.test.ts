@@ -43,14 +43,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     root: SignerWithAddress,
     acct: SignerWithAddress;
 
-  let trivialProposal, targets, values, signatures, callDatas;
-  let proposalBlock,
-    proposalId,
-    voteDelay,
-    votePeriod,
-    queuePeriod,
-    gracePeriod;
-  let wallet: Wallet;
+  let queuePeriod, avatarGenericCall;
   let avatar, mock, Controller;
 
   before(async () => {
@@ -69,13 +62,13 @@ describe("CompoundVotingMachine#Guardian", () => {
       daoCreator,
       controller,
       avatar: av,
-      setSchemes
-      //genericCall
+      setSchemes,
+      genericCall
     } = await createDAO();
+
     Controller = controller;
     avatar = av;
-
-    // avatarGenericCall = genericCall;
+    avatarGenericCall = genericCall;
 
     gov = (await CompoundVotingMachine.deploy(
       avatar,
@@ -109,10 +102,12 @@ describe("CompoundVotingMachine#Guardian", () => {
     ).to.be.revertedWith("CompoundVotingMachine: not avatar or guardian");
   });
 
-  it("Should not be able to change guardian before foundation release time", async () => {
-    await expect(gov.setGuardian(acct.address)).to.be.revertedWith(
-      "CompoundVotingMachine: foundation expiration not reached"
-    );
+  it("Should not be able to change guardian before foundation release time by avatar", async () => {
+    const encoded = gov.interface.encodeFunctionData("setGuardian", [
+      acct.address
+    ]);
+    await avatarGenericCall(gov.address, encoded);
+    expect(await gov.guardian()).to.equal(root.address);
   });
 
   it("Should not be able to renounce guardian if not guardian", async () => {
@@ -121,8 +116,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     );
   });
 
-  it("Should be able to set guardian by guardian if foundation expired", async () => {
-    await increaseTime(60 * 60 * 24 * 365 * 2);
+  it("Should be able to set guardian by guardian before foundation expired", async () => {
     await gov.setGuardian(acct.address);
     expect(await gov.guardian()).to.equal(acct.address);
     await gov.connect(acct).setGuardian(root.address); //restore
@@ -130,12 +124,20 @@ describe("CompoundVotingMachine#Guardian", () => {
 
   it("Should be able to set guardian by avatar if foundation expired", async () => {
     await increaseTime(60 * 60 * 24 * 365 * 2);
-    await gov.setGuardian(acct.address);
+
+    const encoded = gov.interface.encodeFunctionData("setGuardian", [
+      acct.address
+    ]);
+    await avatarGenericCall(gov.address, encoded);
     expect(await gov.guardian()).to.equal(acct.address);
-    await gov.connect(acct).setGuardian(root.address); //restore
   });
 
-  it("Should be able to set guardian if foundation renounced", async () => {
+  it("Should be able to renounce guardian if guardian", async () => {
+    await expect(gov.connect(acct).renounceGuardian()).to.not.reverted;
+    expect(await gov.guardian()).to.equal(ethers.constants.AddressZero);
+  });
+
+  it("Should be able to set guardian by avatar if foundation renounced", async () => {
     const CompoundVotingMachine = await ethers.getContractFactory(
       "CompoundVotingMachine"
     );
@@ -147,9 +149,39 @@ describe("CompoundVotingMachine#Guardian", () => {
     )) as CompoundVotingMachine;
     await expect(gov2.renounceGuardian()).to.not.reverted;
     expect(await gov2.guardian()).to.equal(ethers.constants.AddressZero);
+
+    const encoded = gov2.interface.encodeFunctionData("setGuardian", [
+      acct.address
+    ]);
+    await avatarGenericCall(gov2.address, encoded);
+    expect(await gov2.guardian()).to.equal(acct.address);
   });
-  it("Should be able to renounce guardian if guardian", async () => {
-    await expect(gov.renounceGuardian()).to.not.reverted;
-    expect(await gov.guardian()).to.equal(ethers.constants.AddressZero);
+
+  it("cancel when undelegated and proposer votes below threshold", async () => {
+    await grep.delegateTo(signers[4].address);
+
+    let targets = [acct.address];
+    let values = ["0"];
+    let signatures = ["getBalanceOf(address)"];
+    let callDatas = [encodeParameters(["address"], [acct.address])];
+
+    //new guardian signers[1]
+    const encoded = gov.interface.encodeFunctionData("setGuardian", [
+      signers[1].address
+    ]);
+    await avatarGenericCall(gov.address, encoded);
+
+    await gov
+      .connect(signers[4])
+      .propose(targets, values, signatures, callDatas, "do nothing");
+    let proposalId = await gov.latestProposalIds(signers[4].address);
+    await advanceBlocks(1);
+
+    await expect(gov.cancel(proposalId)).to.be.revertedWith(
+      "revert CompoundVotingMachine::cancel: proposer above threshold"
+    ); //should not be cancelable by anyone else buy guardian
+
+    await gov.connect(signers[1]).cancel(proposalId);
+    expect(states[await gov.state(proposalId)]).to.equal("Canceled");
   });
 });
