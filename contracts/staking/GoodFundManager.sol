@@ -39,7 +39,8 @@ contract GoodFundManager is DAOContract {
 
 	// The address of cDai
 	ERC20 public cDai;
-
+    
+    
 
 	uint256 constant DECIMAL1e18 = 10**18;
 
@@ -94,7 +95,7 @@ contract GoodFundManager is DAOContract {
 
 	modifier reserveHasInitialized {
 		require(
-			nameService.getAddress("RESERVE") != address(0x0),
+			nameService.addresses(nameService.RESERVE()) != address(0x0),
 			"reserve has not initialized"
 		);
 		_;
@@ -123,7 +124,7 @@ contract GoodFundManager is DAOContract {
         bridgeContract = _bridgeContract;
         ubiRecipient = _ubiRecipient;
         blockInterval = _blockInterval;
-        lastTransferred = block.number.div(blockInterval);
+        lastTransferred = block.number.div(blockInterval); 
     }
 
 	/**
@@ -218,7 +219,7 @@ contract GoodFundManager is DAOContract {
 		//     canRun(),
 		//     "Need to wait for the next interval"
 		// );
-        address reserveAddress = nameService.getAddress("RESERVE");
+        address reserveAddress = nameService.addresses(nameService.RESERVE());
 		lastTransferred = block.number.div(blockInterval);
 		ERC20 iToken = ERC20(_staking.iToken());
 		// iToken balance of the reserve contract
@@ -273,7 +274,7 @@ contract GoodFundManager is DAOContract {
         uint amount = StakingContract(address(msg.sender)).rewardsMinted(_user);
         if(amount > 0 && staking.isBlackListed == false){
             
-            GoodReserveCDai(nameService.getAddress("RESERVE")).mintRewardFromRR(_token, _user, amount);
+            GoodReserveCDai(nameService.addresses(nameService.RESERVE())).mintRewardFromRR(_token, _user, amount);
         }
         
 
