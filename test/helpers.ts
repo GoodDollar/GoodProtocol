@@ -128,6 +128,16 @@ export const createDAO = async () => {
     1e15
   ])) as GoodMarketMaker;
 
+  const GReputation = await ethers.getContractFactory("GReputation");
+  let reputation = await upgrades.deployProxy(
+    GReputation,
+    [nameService.address],
+    {
+      unsafeAllowCustomTypes: true
+    }
+  );
+
+  console.log("Done deploying DAO, setting up nameService...");
   //generic call permissions
   let schemeMock = signers[signers.length - 1];
 
@@ -166,6 +176,10 @@ export const createDAO = async () => {
     await ictrl.genericCall(marketMaker.address, encoded, Avatar.address, 0);
   };
 
+  const genericCall = (target, encodedFunc) => {
+    return ictrl.genericCall(target, encodedFunc, Avatar.address, 0);
+  };
+
   await daoCreator.setSchemes(
     Avatar.address,
     [schemeMock.address],
@@ -184,6 +198,7 @@ export const createDAO = async () => {
 
   await setDAOAddress("RESERVE", goodReserve.address);
   await setDAOAddress("MARKET_MAKER", marketMaker.address);
+  await setDAOAddress("GDAO", reputation.address);
 
   await setReserveToken(
     cDAI.address,
@@ -203,10 +218,12 @@ export const createDAO = async () => {
     setDAOAddress,
     setSchemes,
     setReserveToken,
+    genericCall,
     marketMaker,
     feeFormula: FeeFormula,
     daiAddress: dai.address,
-    cdaiAddress: cDAI.address
+    cdaiAddress: cDAI.address,
+    reputation: reputation.address
   };
 };
 
