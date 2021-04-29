@@ -22,7 +22,7 @@ interface FundManager {
 	function mintReward(address _token, address _user) external;
 }
 
-contract BaseShareField is DSMath, DAOContract {
+contract BaseShareField is DAOContract {
 	using SafeMath for uint256;
 
 	uint256 totalProductivity;
@@ -75,9 +75,8 @@ contract BaseShareField is DSMath, DAOContract {
 			uint256 multiplier = block.number - lastRewardBlock;
 			uint256 reward = multiplier * (rewardsPerBlock * 1e16); // rewardsPerBlock is in G$ which is only 2 decimals, we turn it into 18 decimals
 
-			accAmountPerShare =
-				accAmountPerShare +
-				((reward * 1e18) / totalProductivity); // multiply by 1e18 so keep accAmountPerShare in 18 decimals
+			accAmountPerShare =accAmountPerShare + rdiv(reward  , totalProductivity) / 1e9; // divide 1e9 so reduce to 18 decimals
+           
 		}
 		lastRewardBlock = block.number;
 	}
@@ -106,7 +105,7 @@ contract BaseShareField is DSMath, DAOContract {
 					rdiv(pending , blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
 				pending =
 					rmul(
-						((firstMonthBlocksToPay * 5 * 1e17) + // multiply with 1e17 since normally there is divide 10
+						((firstMonthBlocksToPay * 1e18 * 5 / 10) + // //multiply first month by 0.5x (5/10)
 							fullBlocksToPay *
 							1e18),
 						rewardPerBlock
@@ -167,7 +166,7 @@ contract BaseShareField is DSMath, DAOContract {
 		totalProductivity = totalProductivity + value;
 		userInfo.lastRewardTime = uint64(block.number);
 		userInfo.amount = userInfo.amount + value;
-		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e18;
+		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e18; // Divide to 1e18 to keep rewardDebt in 18 decimals
 		return true;
 	}
 
@@ -216,7 +215,7 @@ contract BaseShareField is DSMath, DAOContract {
 			blockEnd >= block.number
 		) {
 			uint256 multiplier = block.number - lastRewardBlock;
-			uint256 reward = multiplier * (rewardsPerBlock * 1e16); // turn it to 18 decimals
+			uint256 reward = multiplier * (rewardsPerBlock * 1e16); // turn it to 18 decimals since rewardsPerBlock in 2 decimals
 			(
 				uint256 blocksToPay,
 				uint256 firstMonthBlocksToPay,
@@ -225,7 +224,7 @@ contract BaseShareField is DSMath, DAOContract {
 
 			_accAmountPerShare =
 				_accAmountPerShare +
-				((reward * 1e18) / totalProductivity);
+				rdiv(reward  , totalProductivity) / 1e9; // divide 1e9 so reduce to 18 decimals
 			UserInfo memory tempUserInfo = userInfo; // to prevent stack too deep error any other recommendation?
 			if (blocksToPay != 0) {
 				pending =
@@ -236,7 +235,7 @@ contract BaseShareField is DSMath, DAOContract {
 					rdiv(pending , blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
 				pending =
 					rmul(
-						((firstMonthBlocksToPay * 5 * 1e17) + // multiply with 1e17 since normally there is divide 10
+						((firstMonthBlocksToPay * 1e18 * 5 / 10) + //multiply first month by 0.5x (5/10)
 							fullBlocksToPay *
 							1e18),
 						rewardPerBlock
@@ -253,7 +252,7 @@ contract BaseShareField is DSMath, DAOContract {
     * @return returns amount to mint as reward to the user
     */
 
-	function userAccounting(address user)
+	function rewardsMinted(address user)
 		public
 		onlyFundManager
 		returns (uint256)
@@ -288,5 +287,12 @@ contract BaseShareField is DSMath, DAOContract {
 	 */
 	function interestsPerBlock() public view virtual returns (uint256) {
 		return accAmountPerShare;
+	}
+    function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
+		z = x.mul(y).add(10**27 / 2) / 10**27;
+	}
+
+	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
+		z = x.mul(10**27).add(y / 2) / y;
 	}
 }

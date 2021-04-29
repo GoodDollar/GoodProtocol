@@ -23,7 +23,7 @@ interface StakingContract {
         uint256 _blockInterestTokenEarned
         ) 
     external;
-    function userAccounting(address user)
+    function rewardsMinted(address user)
     external returns(uint);
 
 }
@@ -40,10 +40,6 @@ contract GoodFundManager is DAOContract {
 	// The address of cDai
 	ERC20 public cDai;
 
-	// The address of the reserve contract
-	// which recieves the funds from the
-	// staking contract
-	GoodReserveCDai public reserve;
 
 	uint256 constant DECIMAL1e18 = 10**18;
 
@@ -98,7 +94,7 @@ contract GoodFundManager is DAOContract {
 
 	modifier reserveHasInitialized {
 		require(
-			address(reserve) != address(0x0),
+			nameService.getAddress("RESERVE") != address(0x0),
 			"reserve has not initialized"
 		);
 		_;
@@ -128,7 +124,6 @@ contract GoodFundManager is DAOContract {
         ubiRecipient = _ubiRecipient;
         blockInterval = _blockInterval;
         lastTransferred = block.number.div(blockInterval);
-        reserve = GoodReserveCDai(nameService.getAddress("RESERVE"));
     }
 
 	/**
@@ -223,22 +218,23 @@ contract GoodFundManager is DAOContract {
 		//     canRun(),
 		//     "Need to wait for the next interval"
 		// );
+        address reserveAddress = nameService.getAddress("RESERVE");
 		lastTransferred = block.number.div(blockInterval);
 		ERC20 iToken = ERC20(_staking.iToken());
 		// iToken balance of the reserve contract
-		uint256 currentBalance = iToken.balanceOf(address(reserve));
+		uint256 currentBalance = iToken.balanceOf(reserveAddress);
 		// collects the interest from the staking contract and transfer it directly to the reserve contract
 		//`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
-	    _staking.collectUBIInterest(address(reserve));
+	    _staking.collectUBIInterest(reserveAddress);
 
 		// Finds the actual transferred iToken
 		uint256 interest =
-			iToken.balanceOf(address(reserve)).sub(currentBalance);
+			iToken.balanceOf(reserveAddress).sub(currentBalance);
 		//uint256 effectiveInterest =
 		//	interest.mul(avgEffectiveStakedRatio).div(DECIMAL1e18);
 		//uint256 interestDonated = interest.sub(effectiveInterest);
         // Mints gd while the interest amount is equal to the transferred amount
-        uint256 gdUBI = reserve.mintUBI(
+        uint256 gdUBI = GoodReserveCDai(reserveAddress).mintUBI(
             iToken,
             interest
         );
@@ -257,7 +253,7 @@ contract GoodFundManager is DAOContract {
         emit FundsTransferred(
             msg.sender,
             address(_staking),
-            address(reserve),
+            reserveAddress,
             interest,
             gdUBI
         );
@@ -274,10 +270,10 @@ contract GoodFundManager is DAOContract {
         
         Reward memory staking = rewardsForStakingContract[address(msg.sender)];
         require(staking.blockStart > 0 , "Staking contract not registered");
-        uint amount = StakingContract(address(msg.sender)).userAccounting(_user);
+        uint amount = StakingContract(address(msg.sender)).rewardsMinted(_user);
         if(amount > 0 && staking.isBlackListed == false){
             
-            reserve.mintRewardFromRR(_token, _user, amount);
+            GoodReserveCDai(nameService.getAddress("RESERVE")).mintRewardFromRR(_token, _user, amount);
         }
         
 

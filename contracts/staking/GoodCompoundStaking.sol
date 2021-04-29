@@ -15,16 +15,23 @@ contract GoodCompoundStaking is SimpleStaking {
 
 
 
-
+    /**
+    * @param _token Token to swap DEFI token
+    * @param _iToken DEFI token address
+    * @param _ns Address of the NameService
+    * @param _tokenName Name of the staking token which will be provided to staker for their staking share
+    * @param _tokenSymbol Symbol of the staking token which will be provided to staker for their staking share
+    * @param _tokenSymbol Determines blocks to pass for 1x Multiplier
+     */
     constructor(
         address _token,
         address _iToken,
         uint256 _blockInterval,
         NameService _ns,
-        string memory _TokenName,
+        string memory _tokenName,
         string memory _tokenSymbol,
         uint64 _maxRewardThreshold
-    )  SimpleStaking(_token, _iToken, _blockInterval, _ns , _TokenName , _tokenSymbol, _maxRewardThreshold) {
+    )  SimpleStaking(_token, _iToken, _blockInterval, _ns , _tokenName , _tokenSymbol, _maxRewardThreshold) {
         
     }
 
