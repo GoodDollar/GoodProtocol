@@ -258,7 +258,7 @@ contract GoodReserveCDai is
 		uint256 _minReturn,
 		uint256 _minDAIAmount,
 		address _targetAddress)
-		external payable returns(uint256){
+		public payable returns(uint256){
 			Uniswap uniswapContract =
 				Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 			address[] memory path = new address[](2);
@@ -383,13 +383,14 @@ contract GoodReserveCDai is
 		} else {
 			result = _redeemDAI(result);
 			address[] memory path = new address[](2);
-			path[0] = daiAddress;
-			path[1] = address(_sellTo);
+			
 			Uniswap uniswapContract =
 				Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 			ERC20(daiAddress).approve(address(uniswapContract), result);
 			uint256[] memory swap;
 			if(address(_sellTo) == address(0x0)){
+				path[0] = daiAddress;
+				path[1] = uniswapContract.WETH();
 				swap = uniswapContract.swapExactTokensForETH(
 					result,
 				 	_minTokenReturn,
@@ -397,6 +398,8 @@ contract GoodReserveCDai is
 					receiver,
 					block.timestamp);
 			}else{
+				path[0] = daiAddress;
+				path[1] = address(_sellTo);
 				swap =uniswapContract.swapExactTokensForTokens(
 					result,
 					_minTokenReturn,
