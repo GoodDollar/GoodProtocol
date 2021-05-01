@@ -352,7 +352,7 @@ contract GoodReserveCDai is
 	 * It is only possible to sell to cDAI and only when the contract is set to
 	 * active. MUST be called to G$ `approve` prior to this action to allow this
 	 * contract to accomplish the conversion.
-	 * @param _sellTo The tokens that will be received after the conversion
+	 * @param _sellTo The tokens that will be received after the conversion if address equals 0x0 then sell to ETH
 	 * @param _gdAmount The amount of GD tokens that should be converted to `_sellTo` tokens
 	 * @param _minReturn The minimum allowed `sellTo` tokens return
 	 * @param _minTokenReturn The mininmum dai out amount from Exchange swap function
