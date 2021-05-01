@@ -7,7 +7,7 @@ import "../reserve/GoodReserveCDai.sol";
 
 
 import "../Interfaces.sol";
-
+import "hardhat/console.sol";
 interface StakingContract {
     function collectUBIInterest(address recipient)
         external
@@ -245,10 +245,13 @@ contract GoodFundManager is DAOContract {
         // iToken balance of the reserve contract
         uint256 currentBalance = iToken.balanceOf(address(reserve));
         uint256 tempInterest;
-        address[40] memory addresses; // Should be static array so we can discuss about size?
-        uint256[40] memory balances; // Should be static array so we can discuss about size?
+		uint activeContractsLength = activeContracts.length;
+        address[] memory addresses = new address[](activeContractsLength); 
+        uint256[] memory balances = new uint256[](activeContractsLength); 
         uint8 index = 0 ;
-        for (uint i = 0; i < activeContracts.length;i++){
+		uint i;
+		require(activeContractsLength > 0 , "There should be at least one active staking contract");
+        for (i = 0; i < activeContractsLength; i++){
             (tempInterest, ,) = StakingContract(activeContracts[i]).currentUBIInterest();
             
             if (tempInterest != 0){
@@ -262,26 +265,30 @@ contract GoodFundManager is DAOContract {
         uint leftGas = gasleft();
         uint gasCost;
        
-     
-
-        for(uint i = addresses.length - 1; i >=0; i--){
+		
+		
+        for(i = activeContractsLength - 1; i >= 0; i--){
+		
             if(addresses[i] != address(0x0)){
                 gasCost = StakingContract(addresses[i]).getGasCostForInterestTransfer();
+				
                 if(leftGas - gasCost >= 200000){ // this value will change its hardcoded for ubi minting
                     // collects the interest from the staking contract and transfer it directly to the reserve contract
                     //`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
+					
                     StakingContract(addresses[i]).collectUBIInterest(
                         address(reserve)
                     );
                     leftGas -= gasCost;
                 }else{
-                    break;
+					break;
                 }
             }else{
                 break;
             }
-                
+            if(i == 0) break; // when active contracts length is 1 then gives error
         }
+		
         // Finds the actual transferred iToken
         uint interest = iToken.balanceOf(address(reserve)).sub(
             currentBalance
@@ -330,12 +337,12 @@ contract GoodFundManager is DAOContract {
         }
         super.internalEnd(avatar);
     }*/ 
-    function quick(uint256[40] memory data,address[40] memory addresses) internal pure {
+    function quick(uint256[] memory data,address[] memory addresses) internal pure {
         if (data.length > 1) {
             quickPart(data, addresses, 0, data.length - 1);
         }
     }
-    function quickPart(uint256[40] memory data, address[40] memory addresses, uint low, uint high) internal pure {
+    function quickPart(uint256[] memory data, address[] memory addresses, uint low, uint high) internal pure {
         if (low < high) {
             uint pivotVal = data[(low + high) / 2];
         
