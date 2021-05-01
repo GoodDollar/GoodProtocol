@@ -5,7 +5,6 @@ import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DAOContract.sol";
 import "../utils/DSMath.sol";
-import "hardhat/console.sol";
 interface FundManager {
 	function rewardsForStakingContract(address _staking)
 		external
@@ -141,7 +140,7 @@ contract BaseShareField is DAOContract {
 		uint256 firstMonthBlocksToPay =
 			blocksPaid >= maxMultiplierThreshold
 				? 0
-				: blocksPassedFirstMonth - blocksPaid; // block which is in the first month which pays with 0.5x multiplier
+				: blocksPassedFirstMonth - blocksPaid; // block which is in the first month so pays with 0.5x multiplier
 		uint256 fullBlocksToPay = blocksToPay - firstMonthBlocksToPay; // blocks to pay in full amount which means with 1x multiplier
 		return (blocksToPay, firstMonthBlocksToPay, fullBlocksToPay);
 	}
