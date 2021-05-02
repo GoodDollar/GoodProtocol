@@ -240,6 +240,7 @@ contract GoodFundManager is DAOContract {
         //     canRun(),
         //     "Need to wait for the next interval"
         // );
+        uint initialGas = gasleft();
         lastTransferred = block.number.div(blockInterval);
         ERC20 iToken = ERC20(nameService.getAddress("CDAI"));
         // iToken balance of the reserve contract
@@ -250,24 +251,26 @@ contract GoodFundManager is DAOContract {
         uint256[] memory balances = new uint256[](activeContractsLength); 
         uint8 index = 0 ;
 		uint i;
+        uint totalInterest;
 		require(activeContractsLength > 0 , "There should be at least one active staking contract");
         for (i = 0; i < activeContractsLength; i++){
             (tempInterest, ,) = StakingContract(activeContracts[i]).currentUBIInterest();
-            
+            totalInterest += tempInterest;
             if (tempInterest != 0){
                 addresses[index] = activeContracts[i];
                 balances[index] = tempInterest;
                 index += 1;
             }
         }
-        
+        uint gasCostInCdai = getGasPriceInCDAI(initialGas); // Get gas price in cDAI so can compare with possible interest amount to get
+        require(totalInterest >= gasCostInCdai,"Collected interest should be bigger than spent gas amount");
         quick(balances,addresses); // sort the values according to interest balance
         uint leftGas = gasleft();
         uint gasCost;
        
 		
 		
-        for(i = activeContractsLength - 1; i >= 0; i--){
+        for(i = activeContractsLength - 1; i >= 0; i--){ // zxelements are sorted by balances from lowest to highest 
 		
             if(addresses[i] != address(0x0)){
                 gasCost = StakingContract(addresses[i]).getGasCostForInterestTransfer();
@@ -281,10 +284,10 @@ contract GoodFundManager is DAOContract {
                     );
                     leftGas -= gasCost;
                 }else{
-					break;
+					break; // if there is no more gas to perform mintubi so on then break
                 }
             }else{
-                break;
+                break; // if addresses are null after this array element then break
             }
             if(i == 0) break; // when active contracts length is 1 then gives error
         }
@@ -293,7 +296,7 @@ contract GoodFundManager is DAOContract {
         uint interest = iToken.balanceOf(address(reserve)).sub(
             currentBalance
         );
-
+        
         
         // Mints gd while the interest amount is equal to the transferred amount
         (uint256 gdUBI) = reserve.mintInterestAndUBI(
@@ -342,6 +345,9 @@ contract GoodFundManager is DAOContract {
             quickPart(data, addresses, 0, data.length - 1);
         }
     }
+    /**
+     @dev quicksort algorithm to sort array
+     */
     function quickPart(uint256[] memory data, address[] memory addresses, uint low, uint high) internal pure {
         if (low < high) {
             uint pivotVal = data[(low + high) / 2];
@@ -362,5 +368,23 @@ contract GoodFundManager is DAOContract {
             if (high1 < high) quickPart(data, addresses, high1, high);
         }
     }
+
+    function getGasPriceInCDAI(uint256 _gasAmount) public view returns(uint256){
+        AggregatorV3Interface gasPriceOracle = AggregatorV3Interface(nameService.getAddress("GAS_PRICE_ORACLE"));
+        (,int gasPrice,,,) = gasPriceOracle.latestRoundData(); // returns gas price in 0 decimal as GWEI so 1eth / 1e9 eth
+
+
+        AggregatorV3Interface daiETHOracle = AggregatorV3Interface(nameService.getAddress("DAI_ETH_ORACLE"));
+        (,int daiInETH,,,) = daiETHOracle.latestRoundData(); // returns DAI price in ETH
+        
+        uint256 result = rdiv(uint(gasPrice) * 1e9 , uint(daiInETH)) / 1e9; // 1 gas amount in DAI gas price in gwei but with 0 decimal so we should multiply it by 1e9 to get value in 18 decimals and after rdiv we should divide 1e9 to obtain value in 18 decimals
+        result = rdiv(result * 1e10, cERC20(address(cDai)).exchangeRateStored()) / 1e19 * _gasAmount; // since cDAI token returns exchange rate scaled by 18 so we increase resolution of DAI result as well then divide to each other then multiply by _gasAmount
+        return result;
+
+
+    }
+    function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
+		z = x.mul(10**27).add(y / 2) / y;
+	}
 
 }

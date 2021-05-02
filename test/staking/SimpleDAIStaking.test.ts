@@ -19,6 +19,7 @@ export const BLOCK_INTERVAL = 30;
 describe("SimpleDAISTAking - staking with cDAI mocks", () => {
   let dai: Contract;
   let cDAI, cDAI1,cDAI2,cDAI3: Contract;
+  let gasFeeOracle,daiEthOracle: Contract;
   let goodReserve: GoodReserveCDai;
   let goodCompoundStaking;
   let goodFundManager: Contract;
@@ -167,6 +168,12 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       [goodCompoundStaking.address]
     );
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
+    const gasFeeMockFactory = await ethers.getContractFactory("GasPriceMockOracle")
+    gasFeeOracle = await gasFeeMockFactory.deploy()
+    const daiEthPriceMockFactory = await ethers.getContractFactory("DaiEthPriceMockOracle")
+    daiEthOracle = await daiEthPriceMockFactory.deploy()
+    await setDAOAddress("GAS_PRICE_ORACLE",gasFeeOracle.address);
+    await setDAOAddress("DAI_ETH_ORACLE",daiEthOracle.address)
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
   });
@@ -947,11 +954,17 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       .connect(staker)
       .stake(stakingAmount, 100)
       .catch(console.log);
+    for(let i=0; i <= 1500;i++){
+        await cDAI.exchangeRateCurrent() // increase interest by calling exchangeratecurrent 
+    }
     const gains = await goodCompoundStaking.currentUBIInterest();
     const cdaiGains = gains["0"];
     const precisionLossDai = gains["2"]; //last 10 decimals since cdai is only 8 decimals while dai is 18
     const fundBalance0 = await cDAI.balanceOf(goodReserve.address);
-    const res = await goodFundManager.collectInterest();
+    
+    const res = await goodFundManager.collectInterest({
+      gasLimit: 500000
+    });
     const fundBalance1 = await cDAI.balanceOf(goodReserve.address);
     const fundDaiWorth = await goodCompoundStaking.currentTokenWorth();
     expect(cdaiGains.toString()).to.be.equal(
@@ -959,7 +972,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
     expect(fundDaiWorth.toString()).to.be.equal(
       //10 gwei = 10 decimals + precisionLoss = 20 decimals = 100 ether of DAI
-      ethers.utils.parseUnits("1", 10) + precisionLossDai
+      ethers.utils.parseUnits("1", 9) + precisionLossDai
     );
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
   });
