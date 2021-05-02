@@ -249,7 +249,6 @@ contract GoodFundManager is DAOContract {
 		uint activeContractsLength = activeContracts.length;
         address[] memory addresses = new address[](activeContractsLength); 
         uint256[] memory balances = new uint256[](activeContractsLength); 
-        uint8 index = 0 ;
 		uint i;
         uint totalInterest;
 		require(activeContractsLength > 0 , "There should be at least one active staking contract");
@@ -257,11 +256,11 @@ contract GoodFundManager is DAOContract {
             (tempInterest, ,) = StakingContract(activeContracts[i]).currentUBIInterest();
             totalInterest += tempInterest;
             if (tempInterest != 0){
-                addresses[index] = activeContracts[i];
-                balances[index] = tempInterest;
-                index += 1;
+                addresses[i] = activeContracts[i];
+                balances[i] = tempInterest;
             }
         }
+        
         uint gasCostInCdai = getGasPriceInCDAI(initialGas); // Get gas price in cDAI so can compare with possible interest amount to get
         require(totalInterest >= gasCostInCdai,"Collected interest should be bigger than spent gas amount");
         quick(balances,addresses); // sort the values according to interest balance
@@ -269,7 +268,7 @@ contract GoodFundManager is DAOContract {
         uint gasCost;
        
 		
-		
+		uint tempInitialGas = initialGas; // to prevent stack too deep error
         for(i = activeContractsLength - 1; i >= 0; i--){ // zxelements are sorted by balances from lowest to highest 
 		
             if(addresses[i] != address(0x0)){
@@ -284,10 +283,10 @@ contract GoodFundManager is DAOContract {
                     );
                     leftGas -= gasCost;
                 }else{
-					break; // if there is no more gas to perform mintubi so on then break
+					break; // if there is no more gas to perform mintUBI so on then break
                 }
             }else{
-                break; // if addresses are null after this array element then break
+                break; // if addresses are null after this element then break
             }
             if(i == 0) break; // when active contracts length is 1 then gives error
         }
@@ -315,6 +314,9 @@ contract GoodFundManager is DAOContract {
                 gdUBI,
                 abi.encodePacked(ubiRecipient)
             ),"ubi bridge transfer failed");
+        uint256 totalUsedGas = (tempInitialGas - gasleft()) * 110 / 100; // We will return as reward 1.1x of used gas in GD
+        uint256 gdAmountToMint= getGasPriceInGD(totalUsedGas);
+        // We need mintRewardFromRR from PR for #39
         emit FundsTransferred(
             msg.sender,
             address(reserve),
@@ -368,7 +370,11 @@ contract GoodFundManager is DAOContract {
             if (high1 < high) quickPart(data, addresses, high1, high);
         }
     }
-
+    /**
+     @dev Helper function to get gasPrice in GWEI then change it to cDAI
+     @param _gasAmount gas amount to be calculated worth in cDAI
+     @return Price of the gas which used in cDAI
+     */
     function getGasPriceInCDAI(uint256 _gasAmount) public view returns(uint256){
         AggregatorV3Interface gasPriceOracle = AggregatorV3Interface(nameService.getAddress("GAS_PRICE_ORACLE"));
         (,int gasPrice,,,) = gasPriceOracle.latestRoundData(); // returns gas price in 0 decimal as GWEI so 1eth / 1e9 eth
@@ -382,6 +388,11 @@ contract GoodFundManager is DAOContract {
         return result;
 
 
+    }
+    function getGasPriceInGD(uint256 _gasAmount) public view returns(uint256){
+        uint priceInCdai = getGasPriceInCDAI(_gasAmount);
+        uint gdPriceIncDAI = reserve.currentPrice();
+        return rdiv(priceInCdai,gdPriceIncDAI) / 1e25; // rdiv returns result in 27 decimals since GD$ in 2 decimals then divide 1e25
     }
     function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
 		z = x.mul(10**27).add(y / 2) / y;

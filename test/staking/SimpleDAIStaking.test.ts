@@ -963,7 +963,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const fundBalance0 = await cDAI.balanceOf(goodReserve.address);
     
     const res = await goodFundManager.collectInterest({
-      gasLimit: 500000
+      gasLimit: 550000
     });
     const fundBalance1 = await cDAI.balanceOf(goodReserve.address);
     const fundDaiWorth = await goodCompoundStaking.currentTokenWorth();
