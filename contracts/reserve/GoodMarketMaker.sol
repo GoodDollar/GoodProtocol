@@ -3,7 +3,6 @@
 pragma solidity >=0.7.0;
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import "../utils/DSMath.sol";
@@ -11,11 +10,10 @@ import "../utils/BancorFormula.sol";
 import "../DAOStackInterfaces.sol";
 import "../Interfaces.sol";
 import "../utils/NameService.sol";
-
 /**
 @title Dynamic reserve ratio market maker
 */
-contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
+contract GoodMarketMaker is Initializable, DSMath {
 	using SafeMathUpgradeable for uint256;
 
 	// Entity that holds a reserve token
@@ -125,13 +123,19 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 		reserveRatioDailyExpansion = rdiv(_nom, _denom);
 		decimals = 2;
 		nameService = _ns;
-		__Ownable_init();
 	}
 
-	modifier onlyActiveToken(ERC20 _token) {
+	function _onlyActiveToken(ERC20 _token) internal view {
 		ReserveToken storage rtoken = reserveTokens[address(_token)];
 		require(rtoken.gdSupply > 0, "Reserve token not initialized");
-		_;
+	}
+
+	function _onlyReserveOrAvatar() internal view {
+		require(
+			nameService.addresses(nameService.RESERVE()) == msg.sender ||
+				nameService.addresses(nameService.AVATAR()) == msg.sender,
+			"GoodMarketMaker: not Reserve or Avatar"
+		);
 	}
 
 	function getBancor() public view returns (BancorFormula) {
@@ -148,8 +152,8 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	 */
 	function setReserveRatioDailyExpansion(uint256 _nom, uint256 _denom)
 		public
-		onlyOwner
 	{
+		_onlyReserveOrAvatar();
 		require(_denom > 0, "denominator must be above 0");
 		reserveRatioDailyExpansion = rdiv(_nom, _denom);
 		emit ReserveRatioUpdated(msg.sender, _nom, _denom);
@@ -172,7 +176,8 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 		uint256 _gdSupply,
 		uint256 _tokenSupply,
 		uint32 _reserveRatio
-	) public onlyOwner {
+	) public {
+		_onlyReserveOrAvatar();
 		reserveTokens[address(_token)] = ReserveToken({
 			gdSupply: _gdSupply,
 			reserveSupply: _tokenSupply,
@@ -190,7 +195,6 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	function calculateNewReserveRatio(ERC20 _token)
 		public
 		view
-		onlyActiveToken(_token)
 		returns (uint32)
 	{
 		ReserveToken memory reserveToken = reserveTokens[address(_token)];
@@ -214,12 +218,9 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	 * @param _token The token to change the reserve ratio for
 	 * @return The new reserve ratio
 	 */
-	function expandReserveRatio(ERC20 _token)
-		public
-		onlyOwner
-		onlyActiveToken(_token)
-		returns (uint32)
-	{
+	function expandReserveRatio(ERC20 _token) public returns (uint32) {
+		_onlyReserveOrAvatar();
+		_onlyActiveToken(_token);
 		ReserveToken storage reserveToken = reserveTokens[address(_token)];
 		uint32 ratio = reserveToken.reserveRatio;
 		if (ratio == 0) {
@@ -243,7 +244,6 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	function buyReturn(ERC20 _token, uint256 _tokenAmount)
 		public
 		view
-		onlyActiveToken(_token)
 		returns (uint256)
 	{
 		ReserveToken memory rtoken = reserveTokens[address(_token)];
@@ -265,7 +265,6 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	function sellReturn(ERC20 _token, uint256 _gdAmount)
 		public
 		view
-		onlyActiveToken(_token)
 		returns (uint256)
 	{
 		ReserveToken memory rtoken = reserveTokens[address(_token)];
@@ -285,12 +284,10 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	 * @param _tokenAmount The amount of reserve token buying with
 	 * @return (gdReturn) Number of GD that will be given in exchange as calculated by the bonding curve
 	 */
-	function buy(ERC20 _token, uint256 _tokenAmount)
-		public
-		onlyOwner
-		onlyActiveToken(_token)
-		returns (uint256)
-	{
+	function buy(ERC20 _token, uint256 _tokenAmount) public returns (uint256) {
+		_onlyReserveOrAvatar();
+		_onlyActiveToken(_token);
+
 		uint256 gdReturn = buyReturn(_token, _tokenAmount);
 		ReserveToken storage rtoken = reserveTokens[address(_token)];
 		rtoken.gdSupply = rtoken.gdSupply.add(gdReturn);
@@ -307,6 +304,28 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	}
 
 	/**
+	* @dev Updates the bonding curve params. Decrease RR to in order to mint gd in the amount of provided
+	* new RR = Reserve supply / (gd supply + gd mint amount) * price
+	* @param _gdAmount Amount of gd to add reserveParams
+	* @param _token The reserve token which is currently active
+	*/
+	function mintFromReserveRatio(ERC20 _token, uint _gdAmount)
+		public
+	
+		
+	{	
+		_onlyReserveOrAvatar();
+		_onlyActiveToken(_token);
+		uint256 reserveDecimalsDiff = uint256(27).sub(_token.decimals()); // //result is in RAY precision
+		ReserveToken storage rtoken = reserveTokens[address(_token)];
+		uint priceBeforeGdSupplyChange = currentPrice(_token);
+		rtoken.gdSupply += _gdAmount;
+		rtoken.reserveRatio = uint32(rdiv(rtoken.reserveSupply , (rtoken.gdSupply * priceBeforeGdSupplyChange)) / 10 ** reserveDecimalsDiff); // Divide it decimal diff to bring it proper decimal
+		
+	}
+
+
+	/**
 	 * @dev Calculates the sell return with contribution in _token and update the bonding curve params.
 	 * Emits `BalancesUpdated` with the new reserve token information.
 	 * @param _token The desired reserve token to have
@@ -318,7 +337,10 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 		ERC20 _token,
 		uint256 _gdAmount,
 		uint256 _contributionGdAmount
-	) public onlyOwner onlyActiveToken(_token) returns (uint256) {
+	) public returns (uint256) {
+		_onlyReserveOrAvatar();
+		_onlyActiveToken(_token);
+
 		require(
 			_gdAmount >= _contributionGdAmount,
 			"GD amount is lower than the contribution amount"
@@ -352,12 +374,7 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	 * @param _token The desired reserve token to have
 	 * @return price of GD
 	 */
-	function currentPrice(ERC20 _token)
-		public
-		view
-		onlyActiveToken(_token)
-		returns (uint256)
-	{
+	function currentPrice(ERC20 _token) public view returns (uint256) {
 		ReserveToken memory rtoken = reserveTokens[address(_token)];
 		return
 			getBancor().calculateSaleReturn(
@@ -381,7 +398,6 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	function calculateMintInterest(ERC20 _token, uint256 _addTokenSupply)
 		public
 		view
-		onlyActiveToken(_token)
 		returns (uint256)
 	{
 		uint256 decimalsDiff = uint256(27).sub(decimals);
@@ -399,9 +415,10 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	 */
 	function mintInterest(ERC20 _token, uint256 _addTokenSupply)
 		public
-		onlyOwner
 		returns (uint256)
 	{
+		_onlyReserveOrAvatar();
+		_onlyActiveToken(_token);
 		if (_addTokenSupply == 0) {
 			return 0;
 		}
@@ -432,7 +449,6 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 	function calculateMintExpansion(ERC20 _token)
 		public
 		view
-		onlyActiveToken(_token)
 		returns (uint256)
 	{
 		ReserveToken memory reserveToken = reserveTokens[address(_token)];
@@ -453,12 +469,15 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 		return toMint.sub(reserveToken.gdSupply);
 	}
 
+
 	/**
 	 * @dev Updates bonding curve based on expansion change and new minted amount
 	 * @param _token The reserve token
 	 * @return How much to mint in order to keep price in bonding curve the same
 	 */
-	function mintExpansion(ERC20 _token) public onlyOwner returns (uint256) {
+	function mintExpansion(ERC20 _token) public returns (uint256) {
+		_onlyReserveOrAvatar();
+		_onlyActiveToken(_token);
 		uint256 toMint = calculateMintExpansion(_token);
 		ReserveToken storage reserveToken = reserveTokens[address(_token)];
 		uint256 gdSupply = reserveToken.gdSupply;
@@ -474,4 +493,5 @@ contract GoodMarketMaker is Initializable, DSMath, OwnableUpgradeable {
 		);
 		return toMint;
 	}
+
 }

@@ -6,9 +6,10 @@ import { sign } from "crypto";
 import { expect } from "chai";
 import { GReputation } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
+import { createDAO, increaseTime } from "../helpers";
 
 const BN = ethers.BigNumber;
-export const NULL_ADDRESS = ethers.constants.AddressZero
+export const NULL_ADDRESS = ethers.constants.AddressZero;
 
 type BlockChainState = {
   stateHash: string;
@@ -22,12 +23,18 @@ export const getMerkleAndProof = (data, proofIdx) => {
     Buffer.from(
       ethers.utils
         .keccak256(
-          ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [e[0], e[1]])
+          ethers.utils.defaultAbiCoder.encode(
+            ["address", "uint256"],
+            [e[0], e[1]]
+          )
         )
         .slice(2),
       "hex"
     )
   );
+
+  //this will give repOwner minter permissions
+  setDAOAddress("GDAO_CLAIMERS", repOwner);
 
   const merkleTree = new MerkleTree(elements);
 
@@ -42,19 +49,41 @@ export const getMerkleAndProof = (data, proofIdx) => {
 };
 
 let grep: GReputation, grepWithOwner: GReputation, identity, gd, bounty;
-let signers: SignerWithAddress[], founder, repOwner, rep1, rep2, rep3, delegator;
+let signers: SignerWithAddress[],
+  founder,
+  repOwner,
+  rep1,
+  rep2,
+  rep3,
+  delegator,
+  setDAOAddress,
+  avatar;
 
 const fuseHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("fuse"));
 describe("GReputation", () => {
   let merkleRoot: any, proof: any;
+  let avatarGenericCall;
+
   before(async () => {
-    const GReputation = await ethers.getContractFactory("GReputation");
+    let {
+      reputation,
+      setDAOAddress: sda,
+      avatar: av,
+      genericCall
+    } = await createDAO();
+
+    setDAOAddress = sda;
+    avatar = av;
+    avatarGenericCall = genericCall;
+
+    grep = (await ethers.getContractAt(
+      "GReputation",
+      reputation
+    )) as GReputation;
+
     signers = await ethers.getSigners();
     [founder, repOwner, rep1, rep2, rep3] = signers.map(_ => _.address);
     delegator = ethers.Wallet.createRandom().connect(ethers.provider);
-    grep = (await upgrades.deployProxy(GReputation, [repOwner], {
-      unsafeAllowCustomTypes: true
-    })) as GReputation;
 
     grepWithOwner = await grep.connect(ethers.provider.getSigner(repOwner));
     // create merkle tree
@@ -67,7 +96,10 @@ describe("GReputation", () => {
       Buffer.from(
         ethers.utils
           .keccak256(
-            ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [e[0], e[1]])
+            ethers.utils.defaultAbiCoder.encode(
+              ["address", "uint256"],
+              [e[0], e[1]]
+            )
           )
           .slice(2),
         "hex"
@@ -85,9 +117,10 @@ describe("GReputation", () => {
     proof = merkleTree.getProof(elements[0]);
   });
 
-  it("should have owner", async () => {
+  it("should have avatar as role manager", async () => {
     // const invites = await Invites.deployed();
-    expect(await grep.owner()).to.be.equal(repOwner);
+    expect(await grep.hasRole(await grep.DEFAULT_ADMIN_ROLE(), avatar)).to.be
+      .true;
   });
 
   it("should get balanceOf", async () => {
@@ -95,13 +128,25 @@ describe("GReputation", () => {
     expect(repBalance.toNumber()).to.be.equal(0);
   });
 
+  it("should not be able to mint  or burn if not minter", async () => {
+    await expect(grep.mint(founder, 2)).to.revertedWith(
+      "revert GReputation: need minter role or be GDAO contract"
+    );
+    await expect(grep.burn(founder, 2)).to.revertedWith(
+      "revert GReputation: need minter role or be GDAO contract"
+    );
+  });
+
   describe("rootState", async () => {
     it("should set rootState", async () => {
-      await grepWithOwner.setBlockchainStateHash(
-        "rootState",
-        "0x" + merkleRoot.toString("hex"),
-        100
+      let encodedCall = grep.interface.encodeFunctionData(
+        "setBlockchainStateHash",
+        ["rootState", "0x" + merkleRoot.toString("hex"), 100]
       );
+
+      await avatarGenericCall(grep.address, encodedCall);
+      const rootState = await grep.blockchainStates(await grep.ROOT_STATE(), 0);
+      expect(rootState[0]).to.be.equal("0x" + merkleRoot.toString("hex"));
     });
 
     it("rootState should not change totalsupply until proof", async () => {
@@ -133,9 +178,10 @@ describe("GReputation", () => {
       await grep.connect(signers[2]).delegateTo(rep3); //rep1 -> rep3
 
       expect(await grep.getVotes(rep3)).to.be.eq(await grep.balanceOf(rep1)); //with delegation
-      expect(await grep.getVotes(rep1), "delegator should now have 0 votes").to.be.eq(
-        BN.from(0)
-      );
+      expect(
+        await grep.getVotes(rep1),
+        "delegator should now have 0 votes"
+      ).to.be.eq(BN.from(0));
       expect(await grep.delegateOf(rep1)).to.be.eq(rep3);
     });
 
@@ -231,11 +277,15 @@ describe("GReputation", () => {
         nonce = 1,
         expiry = 0;
 
-      const signature = await delegator._signTypedData(await Domain(grep), Types, {
-        delegate,
-        nonce,
-        expiry
-      });
+      const signature = await delegator._signTypedData(
+        await Domain(grep),
+        Types,
+        {
+          delegate,
+          nonce,
+          expiry
+        }
+      );
 
       const sig = ethers.utils.splitSignature(signature);
       await expect(
@@ -247,11 +297,15 @@ describe("GReputation", () => {
       const delegate = founder,
         nonce = 0,
         expiry = 0;
-      const signature = await delegator._signTypedData(await Domain(grep), Types, {
-        delegate,
-        nonce,
-        expiry
-      });
+      const signature = await delegator._signTypedData(
+        await Domain(grep),
+        Types,
+        {
+          delegate,
+          nonce,
+          expiry
+        }
+      );
 
       const sig = ethers.utils.splitSignature(signature);
       await expect(
@@ -263,11 +317,15 @@ describe("GReputation", () => {
       const delegate = founder,
         nonce = 0,
         expiry = 10e9;
-      const signature = await delegator._signTypedData(await Domain(grep), Types, {
-        delegate,
-        nonce,
-        expiry
-      });
+      const signature = await delegator._signTypedData(
+        await Domain(grep),
+        Types,
+        {
+          delegate,
+          nonce,
+          expiry
+        }
+      );
 
       const sig = ethers.utils.splitSignature(signature);
       expect(await grep.delegates(delegator.address)).to.equal(
@@ -276,7 +334,7 @@ describe("GReputation", () => {
       const tx = await (
         await grep.delegateBySig(delegate, nonce, expiry, sig.v, sig.r, sig.s)
       ).wait();
-      expect(tx.gasUsed).to.lt(124000);
+      expect(tx.gasUsed).to.lt(130000);
       expect(await grep.delegates(delegator.address)).to.equal(founder);
     });
   });
@@ -290,11 +348,14 @@ describe("GReputation", () => {
         ],
         1
       );
-      await grepWithOwner.setBlockchainStateHash(
-        "fuse",
-        "0x" + merkleRoot.toString("hex"),
-        200
+
+      let encodedCall = grep.interface.encodeFunctionData(
+        "setBlockchainStateHash",
+        ["fuse", "0x" + merkleRoot.toString("hex"), 200]
       );
+
+      await expect(avatarGenericCall(grep.address, encodedCall)).to.not.be
+        .reverted;
     });
 
     it("should not reset core balance", async () => {
@@ -340,11 +401,15 @@ describe("GReputation", () => {
         ],
         1
       );
-      await grepWithOwner.setBlockchainStateHash(
-        "fuse",
-        "0x" + merkleRoot.toString("hex"),
-        200
+
+      let encodedCall = grep.interface.encodeFunctionData(
+        "setBlockchainStateHash",
+        ["fuse", "0x" + merkleRoot.toString("hex"), 200]
       );
+
+      await expect(avatarGenericCall(grep.address, encodedCall)).to.not.be
+        .reverted;
+
       expect(await grep.getVotes(rep3)).to.be.eq(prevDelegated);
     });
 
@@ -402,12 +467,17 @@ describe("GReputation", () => {
 
     describe("overriding with a new state hash", async () => {
       it("should set a new state hash", async () => {
-        const notOwner = await grep
-          .setBlockchainStateHash("fuse", fuseHash, BN.from("100"))
-          .catch(e => false);
-        expect(notOwner).to.be.false;
+        await expect(
+          grep.setBlockchainStateHash("fuse", fuseHash, BN.from("100"))
+        ).to.be.revertedWith("revert only avatar can call this method");
 
-        await grepWithOwner.setBlockchainStateHash("fuse", fuseHash, 100);
+        let encodedCall = grep.interface.encodeFunctionData(
+          "setBlockchainStateHash",
+          ["fuse", fuseHash, 100]
+        );
+
+        expect(await avatarGenericCall(grep.address, encodedCall)).to.not.throw;
+
         const first = await grep.activeBlockchains(0);
         const state: BlockChainState = ((await grep.blockchainStates(
           fuseHash,
@@ -439,17 +509,22 @@ describe("GReputation", () => {
 
   describe("real example of airdrop", async () => {
     it("should set a new state hash", async () => {
-      expect(
-        await grepWithOwner.setBlockchainStateHash(
+      let encodedCall = grep.interface.encodeFunctionData(
+        "setBlockchainStateHash",
+        [
           "realState",
           "0x5c42f9dd07d58ddfce08f39159eb5d1da7ce89e2f8ed4488c19163cffd9760c2",
           2400042
-        )
-      ).to.not.throw;
+        ]
+      );
+
+      expect(await avatarGenericCall(grep.address, encodedCall)).to.not.throw;
     });
 
     it("should prove real proof", async () => {
-      const prevVotes = await grep.getVotes("0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8");
+      const prevVotes = await grep.getVotes(
+        "0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8"
+      );
       const proof = [
         "0x6429597531910c38ed2ac8f73a890245ef7f67db49e1a947049fe8d987b0ee09",
         "0x2225a8a896fbfc6d8b9d15574ff43d6025a1e811b790df431b84e08dc3287ce4",
@@ -472,9 +547,9 @@ describe("GReputation", () => {
         1199,
         proof
       );
-      expect(await grep.getVotes("0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8")).to.be.eq(
-        prevVotes.add(1199)
-      ); //add new blockchain rep
+      expect(
+        await grep.getVotes("0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8")
+      ).to.be.eq(prevVotes.add(1199)); //add new blockchain rep
     });
   });
 });

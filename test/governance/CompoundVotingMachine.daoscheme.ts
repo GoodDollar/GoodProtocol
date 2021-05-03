@@ -48,10 +48,17 @@ const states = [
 ];
 
 describe("CompoundVotingMachine#DAOScheme", () => {
-  let gov: CompoundVotingMachine, root: SignerWithAddress, acct: SignerWithAddress;
+  let gov: CompoundVotingMachine,
+    root: SignerWithAddress,
+    acct: SignerWithAddress;
 
   let trivialProposal, targets, values, signatures, callDatas;
-  let proposalBlock, proposalId, voteDelay, votePeriod, queuePeriod, gracePeriod;
+  let proposalBlock,
+    proposalId,
+    voteDelay,
+    votePeriod,
+    queuePeriod,
+    gracePeriod;
   let wallet: Wallet;
   let avatar, mock, Controller;
 
@@ -67,7 +74,7 @@ describe("CompoundVotingMachine#DAOScheme", () => {
       unsafeAllowCustomTypes: true
     })) as GReputation;
 
-    let { daoCreator, controller, avatar: av } = await createDAO();
+    let { daoCreator, controller, avatar: av, setSchemes } = await createDAO();
     Controller = controller;
     avatar = av;
     gov = (await CompoundVotingMachine.deploy(
@@ -77,13 +84,7 @@ describe("CompoundVotingMachine#DAOScheme", () => {
     )) as CompoundVotingMachine;
 
     //set voting machiine as scheme with permissions
-    await daoCreator.setSchemes(
-      avatar,
-      [gov.address],
-      [ethers.constants.HashZero],
-      ["0x0000001F"],
-      ""
-    );
+    await setSchemes([gov.address]);
 
     await grep.mint(root.address, ethers.BigNumber.from("1000000"));
     await grep.mint(acct.address, ethers.BigNumber.from("500000"));
@@ -120,7 +121,9 @@ describe("CompoundVotingMachine#DAOScheme", () => {
     expect(states[await gov.state(proposalId)]).to.equal("Executed");
 
     //acct should now have 1M after proposal minted rep
-    expect(await grep.balanceOf(acct.address)).to.equal(ethers.BigNumber.from("1000000"));
+    expect(await grep.balanceOf(acct.address)).to.equal(
+      ethers.BigNumber.from("1000000")
+    );
   });
 
   it("Should use value passed to execute", async () => {

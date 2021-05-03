@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 
 import "./Reputation.sol";
@@ -16,7 +15,7 @@ import "../Interfaces.sol";
  *  Minting by the DAO will be done using controller.genericCall and not via controller.mintReputation
  */
 contract GReputation is Reputation {
-	using SafeMathUpgradeable for uint256;
+	bytes32 public constant ROOT_STATE = keccak256("rootState");
 
 	string public constant name = "GReputation";
 
@@ -69,6 +68,15 @@ contract GReputation is Reputation {
 		uint256 newBalance
 	);
 
+	function _canMint() internal view override {
+		require(
+			_msgSender() == nameService.getAddress("GDAO_CLAIMERS") ||
+				_msgSender() == nameService.getAddress("GDAO_STAKING") ||
+				hasRole(MINTER_ROLE, _msgSender()),
+			"GReputation: need minter role or be GDAO contract"
+		);
+	}
+
 	/// @notice internal function that overrides Reputation.sol with consideration to delegation
 	/// @param _user the address to mint for
 	/// @param _amount the amount of rep to mint
@@ -88,7 +96,7 @@ contract GReputation is Reputation {
 			delegator,
 			_user,
 			previousVotes,
-			previousVotes.add(_amount)
+			previousVotes + _amount
 		);
 		return _amount;
 	}
@@ -112,7 +120,7 @@ contract GReputation is Reputation {
 			delegator,
 			_user,
 			previousVotes,
-			previousVotes.sub(amountBurned)
+			previousVotes - amountBurned
 		);
 
 		return amountBurned;
@@ -126,11 +134,12 @@ contract GReputation is Reputation {
 		string memory _id,
 		bytes32 _hash,
 		uint256 _totalSupply
-	) public onlyOwner {
+	) public {
+		_onlyAvatar();
 		bytes32 idHash = keccak256(bytes(_id));
 
 		//dont consider rootState as blockchain,  it is a special state hash
-		bool isRootState = idHash == keccak256(bytes("rootState"));
+		bool isRootState = idHash == ROOT_STATE;
 		require(
 			!isRootState || super.totalSupplyAt(block.number) == 0,
 			"rootState already created"
@@ -167,12 +176,10 @@ contract GReputation is Reputation {
 
 		if (_global) {
 			for (uint256 i = 0; i < activeBlockchains.length; i++) {
-				startingBalance = startingBalance.add(
-					getVotesAtBlockchain(
-						activeBlockchains[i],
-						_user,
-						_blockNumber
-					)
+				startingBalance += getVotesAtBlockchain(
+					activeBlockchains[i],
+					_user,
+					_blockNumber
 				);
 			}
 		}
@@ -229,8 +236,9 @@ contract GReputation is Reputation {
 	{
 		uint256 startingSupply = super.totalSupplyAt(_blockNumber);
 		for (uint256 i = 0; i < activeBlockchains.length; i++) {
-			startingSupply = startingSupply.add(
-				totalSupplyAtBlockchain(activeBlockchains[i], _blockNumber)
+			startingSupply += totalSupplyAtBlockchain(
+				activeBlockchains[i],
+				_blockNumber
 			);
 		}
 		return startingSupply;
@@ -317,7 +325,7 @@ contract GReputation is Reputation {
 		require(isProofValid, "invalid merkle proof");
 
 		//if initiial state then set real balance
-		if (idHash == keccak256(bytes("rootState"))) {
+		if (idHash == ROOT_STATE) {
 			_mint(_user, _balance);
 		}
 
@@ -418,7 +426,7 @@ contract GReputation is Reputation {
 				curDelegator,
 				_user,
 				removeVotes,
-				removeVotes.sub(coreBalance)
+				removeVotes - coreBalance
 			);
 		}
 
@@ -428,7 +436,7 @@ contract GReputation is Reputation {
 			_delegate,
 			_user,
 			addVotes,
-			addVotes.add(coreBalance)
+			addVotes + coreBalance
 		);
 	}
 

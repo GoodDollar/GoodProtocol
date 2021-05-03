@@ -10,6 +10,8 @@ contract CompoundVotingMachine {
 	/// @notice The name of this contract
 	string public constant name = "GoodDAO Voting Machine";
 
+	uint64 public foundationGuardianRelease = 1672531200;
+
 	/// @notice the number of blocks a proposal is open for voting (before passing quorum)
 	uint256 public votingPeriodBlocks;
 
@@ -180,6 +182,7 @@ contract CompoundVotingMachine {
 		controller = Controller(avatar_.owner());
 		rep = ReputationInterface(rep_);
 		votingPeriodBlocks = votingPeriodBlocks_;
+		guardian = msg.sender;
 	}
 
 	/// @notice make a proposal to be voted on
@@ -346,7 +349,8 @@ contract CompoundVotingMachine {
 		if (target == address(controller)) {
 			(ok, result) = target.call{ value: value }(callData);
 		} else {
-			payable(address(controller.avatar())).transfer(value); //make sure avatar have the funds to pay
+			if (value > 0)
+				payable(address(controller.avatar())).transfer(value); //make sure avatar have the funds to pay
 			(ok, result) = controller.genericCall(
 				target,
 				callData,
@@ -375,7 +379,8 @@ contract CompoundVotingMachine {
 
 		Proposal storage proposal = proposals[proposalId];
 		require(
-			rep.getVotesAt(proposal.proposer, true, block.number.sub(1)) <
+			msg.sender == guardian ||
+				rep.getVotesAt(proposal.proposer, true, block.number.sub(1)) <
 				proposalThreshold(proposal.startBlock),
 			"CompoundVotingMachine::cancel: proposer above threshold"
 		);
@@ -627,61 +632,33 @@ contract CompoundVotingMachine {
 		emit VoteCast(voter, proposalId, support, votes);
 	}
 
-	// function __acceptAdmin() public {
-	// 	require(
-	// 		msg.sender == guardian,
-	// 		"CompoundVotingMachine::__acceptAdmin: sender must be gov guardian"
-	// 	);
-	// 	timelock.acceptAdmin();
-	// }
-
-	// function __abdicate() public {
-	// 	require(
-	// 		msg.sender == guardian,
-	// 		"CompoundVotingMachine::__abdicate: sender must be gov guardian"
-	// 	);
-	// 	guardian = address(0);
-	// }
-
-	// function __queueSetTimelockPendingAdmin(
-	// 	address newPendingAdmin,
-	// 	uint256 eta
-	// ) public {
-	// 	require(
-	// 		msg.sender == guardian,
-	// 		"CompoundVotingMachine::__queueSetTimelockPendingAdmin: sender must be gov guardian"
-	// 	);
-	// 	timelock.queueTransaction(
-	// 		address(timelock),
-	// 		0,
-	// 		"setPendingAdmin(address)",
-	// 		abi.encode(newPendingAdmin),
-	// 		eta
-	// 	);
-	// }
-
-	// function __executeSetTimelockPendingAdmin(
-	// 	address newPendingAdmin,
-	// 	uint256 eta
-	// ) public {
-	// 	require(
-	// 		msg.sender == guardian,
-	// 		"CompoundVotingMachine::__executeSetTimelockPendingAdmin: sender must be gov guardian"
-	// 	);
-	// 	timelock.executeTransaction(
-	// 		address(timelock),
-	// 		0,
-	// 		"setPendingAdmin(address)",
-	// 		abi.encode(newPendingAdmin),
-	// 		eta
-	// 	);
-	// }
-
 	function getChainId() public view returns (uint256) {
 		uint256 chainId;
 		assembly {
 			chainId := chainid()
 		}
 		return chainId;
+	}
+
+	function renounceGuardian() public {
+		require(msg.sender == guardian, "CompoundVotingMachine: not guardian");
+		guardian = address(0);
+		foundationGuardianRelease = 0;
+	}
+
+	function setGuardian(address _guardian) public {
+		require(
+			msg.sender == address(controller.avatar()) ||
+				msg.sender == guardian,
+			"CompoundVotingMachine: not avatar or guardian"
+		);
+
+		require(
+			msg.sender == guardian ||
+				block.timestamp > foundationGuardianRelease,
+			"CompoundVotingMachine: foundation expiration not reached"
+		);
+
+		guardian = _guardian;
 	}
 }

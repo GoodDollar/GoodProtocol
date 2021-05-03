@@ -22,6 +22,13 @@ interface Controller {
 		external
 		returns (bool);
 
+	function registerScheme(
+		address _scheme,
+		bytes32 _paramsHash,
+		bytes4 _permissions,
+		address _avatar
+	) external returns (bool);
+
 	function isSchemeRegistered(address _scheme, address _avatar)
 		external
 		view
@@ -31,6 +38,40 @@ interface Controller {
 		external
 		view
 		returns (bytes4);
+
+	function addGlobalConstraint(
+		address _constraint,
+		bytes32 _paramHash,
+		address _avatar
+	) external returns (bool);
+
+	function mintTokens(
+		uint256 _amount,
+		address _beneficiary,
+		address _avatar
+	) external returns (bool);
+}
+
+interface GlobalConstraintInterface {
+	enum CallPhase { Pre, Post, PreAndPost }
+
+	function pre(
+		address _scheme,
+		bytes32 _params,
+		bytes32 _method
+	) external returns (bool);
+
+	function post(
+		address _scheme,
+		bytes32 _params,
+		bytes32 _method
+	) external returns (bool);
+
+	/**
+	 * @dev when return if this globalConstraints is pre, post or both.
+	 * @return CallPhase enum indication  Pre, Post or PreAndPost.
+	 */
+	function when() external returns (CallPhase);
 }
 
 interface ReputationInterface {
