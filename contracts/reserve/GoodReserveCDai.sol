@@ -115,9 +115,6 @@ contract GoodReserveCDai is
 		// of `mintExpansion`
 		uint256 gdExpansionMinted,
 		// Amount of GD tokens that was
-		// minted to the `interestCollector`
-		uint256 gdInterestTransferred,
-		// Amount of GD tokens that was
 		// minted to the `ubiCollector`
 		uint256 gdUbiTransferred
 	);
@@ -307,7 +304,23 @@ contract GoodReserveCDai is
 
 		return gdReturn;
 	}
-
+	/**
+	 * @dev Mint rewards for staking contracts in G$ and update RR
+	 * @param _to Receipent address for rewards
+	 * @param _amount G$ amount to mint for rewards
+	 */
+	function mintRewardFromRR(
+		address _token,
+		address _to,
+		uint _amount
+	) public{
+		
+		getMarketMaker().mintFromReserveRatio(ERC20(_token),_amount);
+		_mintGoodDollars(_to, _amount, false);
+		//mint GDX
+		_mintGDX(_to, _amount);
+		
+		}
 	/**
 	 * @dev Converts GD tokens to `sellTo` tokens and update the bonding curve params.
 	 * `sell` occurs only if the token return is above the given minimum. Notice that
@@ -506,16 +519,6 @@ contract GoodReserveCDai is
 		_mintGoodDollars(_to, gdToMint, false);
 	}
 
-	function mintFromReserveRatio(
-		ERC20 _interestToken,
-		address _to,
-		uint256 _gdToMint
-	) public {
-		getMarketMaker().mintFromReserveRatio(_interestToken, _gdToMint);
-
-		_mintGoodDollars(_to, _gdToMint, false);
-	}
-
 	function _mintGoodDollars(
 		address _to,
 		uint256 _gdToMint,
@@ -550,27 +553,24 @@ contract GoodReserveCDai is
 	 * Reserve sends UBI + interest to FundManager.
 	 * @param _interestToken The token that was transfered to the reserve
 	 * @param _transfered How much was transfered to the reserve for UBI in `_interestToken`
-	 * @param _interest Out of total transfered how much is the interest (in `_interestToken`)
-	 * that needs to be paid back (some interest might be donated)
-	 * @return (gdInterest, gdUBI) How much GD interest was minted and how much GD UBI was minted
+	 * @return gdUBI how much GD UBI was minted
 	 */
-	function mintInterestAndUBI(
+	function mintUBI(
 		ERC20 _interestToken,
-		uint256 _transfered,
-		uint256 _interest
-	) public returns (uint256, uint256) {
-		uint256 price = getMarketMaker().currentPrice(ERC20(cDaiAddress));
+		uint256 _transfered
+	) public returns (uint256) {
+		//uint256 price = getMarketMaker().currentPrice(ERC20(cDaiAddress));
 		// uint256 price = currentPrice(_interestToken);
 		uint256 gdInterestToMint =
 			getMarketMaker().mintInterest(_interestToken, _transfered);
-		IGoodDollar gooddollar = IGoodDollar(address(avatar.nativeToken()));
-		uint256 precisionLoss = uint256(27).sub(uint256(gooddollar.decimals()));
-		uint256 gdInterest = rdiv(_interest, price).div(10**precisionLoss);
+		//IGoodDollar gooddollar = IGoodDollar(address(avatar.nativeToken()));
+		//uint256 precisionLoss = uint256(27).sub(uint256(gooddollar.decimals()));
+		//uint256 gdInterest = rdiv(_interest, price).div(10**precisionLoss);
 		uint256 gdExpansionToMint =
 			getMarketMaker().mintExpansion(_interestToken);
-		uint256 gdUBI = gdInterestToMint.sub(gdInterest);
+		uint256 gdUBI = gdInterestToMint;
 		gdUBI = gdUBI.add(gdExpansionToMint);
-		uint256 toMint = gdUBI.add(gdInterest);
+		uint256 toMint = gdUBI;
 		_mintGoodDollars(getFundManager(), toMint, false);
 		lastMinted = block.number;
 		emit UBIMinted(
@@ -579,10 +579,9 @@ contract GoodReserveCDai is
 			_transfered,
 			gdInterestToMint,
 			gdExpansionToMint,
-			gdInterest,
 			gdUBI
 		);
-		return (gdInterest, gdUBI);
+		return gdUBI;
 	}
 
 	/**

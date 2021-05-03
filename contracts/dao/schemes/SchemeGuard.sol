@@ -14,7 +14,7 @@ contract SchemeGuard is Ownable {
     /** @dev Constructor. only sets controller if given avatar is not null.
      * @param _avatar The avatar of the DAO.
      */
-    constructor(Avatar _avatar) public {
+    constructor(Avatar _avatar)  {
         avatar = _avatar;
 
         if (avatar != Avatar(address(0x0))) {

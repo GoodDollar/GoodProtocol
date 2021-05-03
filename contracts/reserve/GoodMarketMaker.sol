@@ -10,7 +10,6 @@ import "../utils/BancorFormula.sol";
 import "../DAOStackInterfaces.sol";
 import "../Interfaces.sol";
 import "../utils/NameService.sol";
-
 /**
 @title Dynamic reserve ratio market maker
 */
@@ -305,6 +304,28 @@ contract GoodMarketMaker is Initializable, DSMath {
 	}
 
 	/**
+	* @dev Updates the bonding curve params. Decrease RR to in order to mint gd in the amount of provided
+	* new RR = Reserve supply / (gd supply + gd mint amount) * price
+	* @param _gdAmount Amount of gd to add reserveParams
+	* @param _token The reserve token which is currently active
+	*/
+	function mintFromReserveRatio(ERC20 _token, uint _gdAmount)
+		public
+	
+		
+	{	
+		_onlyReserveOrAvatar();
+		_onlyActiveToken(_token);
+		uint256 reserveDecimalsDiff = uint256(27).sub(_token.decimals()); // //result is in RAY precision
+		ReserveToken storage rtoken = reserveTokens[address(_token)];
+		uint priceBeforeGdSupplyChange = currentPrice(_token);
+		rtoken.gdSupply += _gdAmount;
+		rtoken.reserveRatio = uint32(rdiv(rtoken.reserveSupply , (rtoken.gdSupply * priceBeforeGdSupplyChange)) / 10 ** reserveDecimalsDiff); // Divide it decimal diff to bring it proper decimal
+		
+	}
+
+
+	/**
 	 * @dev Calculates the sell return with contribution in _token and update the bonding curve params.
 	 * Emits `BalancesUpdated` with the new reserve token information.
 	 * @param _token The desired reserve token to have
@@ -448,22 +469,6 @@ contract GoodMarketMaker is Initializable, DSMath {
 		return toMint.sub(reserveToken.gdSupply);
 	}
 
-	//TODO: implement the correct formula and add in comment
-	/** @dev Calculate new reserve ratio in order to mint X G$
-	 * keeping G$ price the same at the bonding curve. the
-	 * formula to calculate the gd to mint: gd to mint =
-	 * (reservebalance / (newreserveratio * currentprice)) - gdsupply
-	 * @param _token The reserve token
-	 * @param _gdToMint The amount to mint
-	 * @return new reserve ratio
-	 */
-	function calculateMintFromReserveRatio(ERC20 _token, uint256 _gdToMint)
-		public
-		view
-		returns (uint32)
-	{
-		return 1e6;
-	}
 
 	/**
 	 * @dev Updates bonding curve based on expansion change and new minted amount
@@ -489,13 +494,4 @@ contract GoodMarketMaker is Initializable, DSMath {
 		return toMint;
 	}
 
-	function mintFromReserveRatio(ERC20 _token, uint256 _gdToMint) public {
-		_onlyReserveOrAvatar();
-		_onlyActiveToken(_token);
-
-		uint32 newRR = calculateMintFromReserveRatio(_token, _gdToMint);
-		ReserveToken storage reserveToken = reserveTokens[address(_token)];
-		reserveToken.reserveRatio = newRR;
-		reserveToken.gdSupply += _gdToMint;
-	}
 }

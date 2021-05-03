@@ -52,7 +52,7 @@ contract ActivePeriod {
      * @param _periodEnd The time from when the contract can be ended
      * @param _avatar DAO avatar
      */
-    constructor(uint256 _periodStart, uint256 _periodEnd, Avatar _avatar) public {
+    constructor(uint256 _periodStart, uint256 _periodEnd, Avatar _avatar)  {
         require(_periodStart < _periodEnd, "start cannot be after nor equal to end");
 
         periodStart = _periodStart;

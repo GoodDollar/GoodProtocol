@@ -171,10 +171,9 @@ describe("GoodReserve - staking with cDAI mocks", () => {
 
     await increaseTime(24 * 60 * 60); //required for reserve ratio advance
     const tx = await (
-      await goodReserve.mintInterestAndUBI(
+      await goodReserve.mintUBI(
         cDAI.address,
-        ethers.utils.parseEther("0.1"),
-        "0"
+        ethers.utils.parseEther("0.1")
       )
     ).wait();
     const gdBalanceFund = await goodDollar.balanceOf(founder.address);
@@ -212,7 +211,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
         .toString()
     );
   });
-
+  /*
   it("should mint UBI correctly for 18 decimals precision and partial interest", async () => {
     let reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceBefore = reserveToken.reserveSupply;
@@ -265,7 +264,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     );
     expect(rrAfter.toString()).to.be.equal("999388");
   });
-
+  */
   // it("should not mint UBI if the reserve is not cDAI", async () => {
   //   let error = await goodReserve
   //     .mintInterestAndUBI(dai.address, ethers.utils.parseEther("1"), "0")
@@ -276,7 +275,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
   it("should not mint UBI if the caller is not the fund manager", async () => {
     let tx = goodReserve
       .connect(staker)
-      .mintInterestAndUBI(cDAI.address, ethers.utils.parseEther("1"), "0");
+      .mintUBI(cDAI.address, ethers.utils.parseEther("1"));
     await expect(tx).to.be.revertedWith("revert GoodReserve: not a minter");
   });
 
