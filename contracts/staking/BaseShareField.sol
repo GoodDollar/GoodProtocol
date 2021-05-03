@@ -5,6 +5,7 @@ import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DAOContract.sol";
 import "../utils/DSMath.sol";
+import "hardhat/console.sol";
 interface FundManager {
 	function rewardsForStakingContract(address _staking)
 		external
@@ -68,11 +69,12 @@ contract BaseShareField is DAOContract {
 		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
 		(uint256 rewardsPerBlock, uint256 blockStart, uint256 blockEnd, ) =
 			fm.rewardsForStakingContract(address(this));
-		if (block.number >= blockStart && lastRewardBlock < blockStart)
+		if (block.number >= blockStart && lastRewardBlock < blockStart){
 			lastRewardBlock = blockStart;
+		}
 		if (block.number >= blockStart && blockEnd >= block.number) {
-			uint256 multiplier = block.number - lastRewardBlock;
-			uint256 reward = multiplier * (rewardsPerBlock * 1e16); // rewardsPerBlock is in G$ which is only 2 decimals, we turn it into 18 decimals
+			uint256 multiplier = block.number - lastRewardBlock; // Blocks passed since last reward block
+			uint256 reward = multiplier * (rewardsPerBlock * 1e16); // rewardsPerBlock is in G$ which is only 2 decimals, we turn it into 18 decimals by multiplying 1e16
 
 			accAmountPerShare =accAmountPerShare + rdiv(reward  , totalProductivity) / 1e9; // divide 1e9 so reduce to 18 decimals
            
@@ -99,17 +101,17 @@ contract BaseShareField is DAOContract {
 				uint256 pending =
 					(userInfo.amount * accAmountPerShare) /
 						1e18 -
-						userInfo.rewardDebt; // Divide 1e18 to reduce 18 Decimals since rewardDebt in 18 decimals
+						userInfo.rewardDebt; // Divide 1e18 to reduce 18 Decimals since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
 				uint256 rewardPerBlock =
 					rdiv(pending , blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
 				pending =
 					rmul(
-						((firstMonthBlocksToPay * 1e18 * 5 / 10) + // //multiply first month by 0.5x (5/10)
+						((firstMonthBlocksToPay * 1e27 * 5 / 10) + // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e27 to get it 27decimals
 							fullBlocksToPay *
-							1e18),
-						rewardPerBlock
-					); // pending should be in 18 decimals
-				userInfo.rewardEarn = userInfo.rewardEarn + pending;
+							1e27), // Multiply fullBlocksToPay with 1e27 to bring it to 27decimals 
+						rewardPerBlock // rewardPerBlock is in 27decimals 
+					) / 1e9; // Pending in 18 decimals so we divide 1e9 to bring it down to 18 decimals
+				userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
 				mintCumulation = mintCumulation + pending;
 			}
 		} else {
@@ -136,7 +138,7 @@ contract BaseShareField is DAOContract {
 				maxMultiplierThreshold,
 				block.number - _userInfo.multiplierResetTime
 			); // blocks which is after first month
-		uint256 blocksToPay = block.number - _userInfo.lastRewardTime; // blocks since last payment
+		uint256 blocksToPay = block.number - _userInfo.lastRewardTime; // blocks passed since last payment
 		uint256 firstMonthBlocksToPay =
 			blocksPaid >= maxMultiplierThreshold
 				? 0
@@ -229,16 +231,16 @@ contract BaseShareField is DAOContract {
 				pending =
 					(tempUserInfo.amount * _accAmountPerShare) /
 					1e18 -
-					tempUserInfo.rewardDebt; // Divide 1e18 to reduce 18 Decimals since rewardDebt in 18 decimals
+					tempUserInfo.rewardDebt; // Divide 1e18 to reduce 18 Decimals since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
 				uint256 rewardPerBlock =
-					rdiv(pending , blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
+					rdiv(pending , blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals and rdiv returns in 27decimals
 				pending =
 					rmul(
-						((firstMonthBlocksToPay * 1e18 * 5 / 10) + //multiply first month by 0.5x (5/10)
+						((firstMonthBlocksToPay * 1e27 * 5 / 10) + // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e27 to get it 27decimals
 							fullBlocksToPay *
-							1e18),
-						rewardPerBlock
-					); // pending should be in 18 decimals
+							1e27), // Multiply fullBlocksToPay with 1e27 to bring it to 27decimals 
+						rewardPerBlock // rewardPerBlock is in 27decimals 
+					) / 1e9; // Pending in 18 decimals so we divide 1e9 to bring it down to 18 decimals
 			}
 		}
 		return userInfo.rewardEarn + pending / 1e16; // Reward earn in 18decimals so need to divide 1e16 to bring down gd decimals which is 2
