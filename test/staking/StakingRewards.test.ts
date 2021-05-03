@@ -357,7 +357,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
     await cDAI.exchangeRateCurrent(); // Call this function to change exchange rate so interest would be generated
     const currentUBIInterestBeforeWithdraw = await goodCompoundStaking.currentUBIInterest();
-
+    for(let i=0; i <= 1500;i++){
+      await cDAI.exchangeRateCurrent() // increase interest by calling exchangeRateCurrent 
+  }
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
     await goodFundManager.collectInterest()
     const currentUBIInterestAfterWithdraw = await goodCompoundStaking.currentUBIInterest();
