@@ -19,7 +19,7 @@ export const BLOCK_INTERVAL = 30;
 describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar", () => {
   let dai: Contract;
   let cDAI, cDAI1, cDAI2, cDAI3: Contract;
-  let gasFeeOracle,daiEthOracle: Contract;
+  let gasFeeOracle, daiEthOracle: Contract;
   let goodReserve: GoodReserveCDai;
   let goodCompoundStaking;
   let goodFundManager: Contract;
@@ -158,12 +158,16 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       [goodCompoundStaking.address]
     );
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
-    const gasFeeMockFactory = await ethers.getContractFactory("GasPriceMockOracle")
-    gasFeeOracle = await gasFeeMockFactory.deploy()
-    const daiEthPriceMockFactory = await ethers.getContractFactory("DaiEthPriceMockOracle")
-    daiEthOracle = await daiEthPriceMockFactory.deploy()
-    await setDAOAddress("GAS_PRICE_ORACLE",gasFeeOracle.address);
-    await setDAOAddress("DAI_ETH_ORACLE",daiEthOracle.address)
+    const gasFeeMockFactory = await ethers.getContractFactory(
+      "GasPriceMockOracle"
+    );
+    gasFeeOracle = await gasFeeMockFactory.deploy();
+    const daiEthPriceMockFactory = await ethers.getContractFactory(
+      "DaiEthPriceMockOracle"
+    );
+    daiEthOracle = await daiEthPriceMockFactory.deploy();
+    await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
+    await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
   });
@@ -355,16 +359,22 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .approve(goodCompoundStaking.address, stakingAmount);
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
 
-    await cDAI.exchangeRateCurrent(); // Call this function to change exchange rate so interest would be generated
+    for (let i = 0; i <= 1500; i++) {
+      await cDAI.exchangeRateCurrent(); // increase interest by calling exchangeRateCurrent
+    }
     const currentUBIInterestBeforeWithdraw = await goodCompoundStaking.currentUBIInterest();
-    for(let i=0; i <= 1500;i++){
-      await cDAI.exchangeRateCurrent() // increase interest by calling exchangeRateCurrent 
-  }
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
-    await goodFundManager.collectInterest()
+    const gdBalanceBeforeCollectInterest = await goodDollar.balanceOf(
+      staker.address
+    );
+    await goodFundManager.connect(staker).collectInterest();
+    const gdBalanceAfterCollectInterest = await goodDollar.balanceOf(
+      staker.address
+    );
     const currentUBIInterestAfterWithdraw = await goodCompoundStaking.currentUBIInterest();
     expect(currentUBIInterestBeforeWithdraw[0].toString()).to.not.be.equal("0");
     expect(currentUBIInterestAfterWithdraw[0].toString()).to.be.equal("0");
+    expect(gdBalanceAfterCollectInterest.gt(gdBalanceBeforeCollectInterest));
   });
 
   it("it should get rewards with updated values", async () => {
@@ -550,5 +560,75 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     ).to.be.equal(
       stakerGDAmountAfterStake.sub(stakerGDAmountBeforeStake).toString()
     );
+  });
+
+  it("should be able to sort staking contracts and collect interests from highest to lowest and only one staking contract's interest should be collected due to gas amount", async () => {
+    const stakingAmount = ethers.utils.parseEther("100");
+
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    for (let i = 0; i <= 1500; i++) {
+      await cDAI.exchangeRateCurrent(); // increase interest by calling exchangeRateCurrent
+    }
+
+    const goodCompoundStakingFactory = await ethers.getContractFactory(
+      "GoodCompoundStaking"
+    );
+    const simpleStaking = await goodCompoundStakingFactory.deploy(
+      dai.address,
+      cDAI.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good DAI",
+      "gDAI",
+      "50"
+    );
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "addActiveStakingContract",
+      [simpleStaking.address]
+    );
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(simpleStaking.address, stakingAmount);
+    await simpleStaking.connect(staker).stake(stakingAmount, 100);
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    for (let i = 0; i <= 200; i++) {
+      await cDAI.exchangeRateCurrent(); // increase interest by calling exchangeRateCurrent
+    }
+   
+   
+
+    const simpleStakingCurrentInterestBeforeCollect = await simpleStaking.currentUBIInterest()
+   
+    await goodFundManager.collectInterest({
+      
+        gasLimit: 800000
+      
+    });
+    
+    const simpleStakingCurrentInterest = await simpleStaking.currentUBIInterest()
+    const goodCompoundStakingCurrentInterest = await goodCompoundStaking.currentUBIInterest()
+    expect(goodCompoundStakingCurrentInterest[0].toString()).to.be.equal("0")  // Goodcompound staking's interest should be collected so currentinterest should be 0
+    expect(simpleStakingCurrentInterestBeforeCollect[0]).to.be.equal(simpleStakingCurrentInterest[0]) // simple staking's interest shouldn't be collected so currentinterest should be equal to before collectinterest
+    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount)
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "removeActiveStakingContract",
+      [simpleStaking.address]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+
   });
 });

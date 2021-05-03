@@ -284,15 +284,14 @@ contract GoodFundManager is DAOContract {
 		
             if(addresses[i] != address(0x0)){
                 gasCost = StakingContract(addresses[i]).getGasCostForInterestTransfer();
-				
-                if(leftGas - gasCost >= 200000){ // this value will change its hardcoded for ubi minting
+                if(leftGas - gasCost >= 530000){ // this value will change. Its hardcoded for further transactions such as ubiMINTING,gas price calculations and gdMINT
                     // collects the interest from the staking contract and transfer it directly to the reserve contract
                     //`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
 					
                     StakingContract(addresses[i]).collectUBIInterest(
                         nameService.addresses(nameService.RESERVE())
                     );
-                    leftGas -= gasCost;
+                    leftGas = leftGas - gasCost;
                 }else{
 					break; // if there is no more gas to perform mintUBI so on then break
                 }
@@ -301,11 +300,9 @@ contract GoodFundManager is DAOContract {
             }
             if(i == 0) break; // when active contracts length is 1 then gives error
         }
-		
+       
         // Finds the actual transferred iToken
-        uint interest = iToken.balanceOf(nameService.addresses(nameService.RESERVE())).sub(
-            currentBalance
-        );
+        uint interest = iToken.balanceOf(nameService.addresses(nameService.RESERVE())) - currentBalance;
         
         
         // Mints gd while the interest amount is equal to the transferred amount
