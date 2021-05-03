@@ -101,7 +101,10 @@ contract GoodFundManager is DAOContract {
         // by the reserve to the bridge which in his
         // turn should transfer those funds to the
         // sidechain
-        uint256 gdUBI
+        uint256 gdUBI,
+        // Amount of GD to be minted as reward 
+        //to the keeper which collect interests
+        uint256 gdAmountToMint
     );
 
 	modifier reserveHasInitialized {
@@ -327,7 +330,53 @@ contract GoodFundManager is DAOContract {
             msg.sender,
             nameService.addresses(nameService.RESERVE()),
             interest,
-            gdUBI 
+            gdUBI,
+            gdAmountToMint
+        );
+    }
+    /**
+     @dev collectInterest another version with off-chain calculations so it optimizes on the off-chain which 
+     * contracts worth to collect interest in order to cover amount of gas which spent
+     * @param contracts list of the staking contract addresses to collect interests in order to mint UBI
+     */
+    function collectInterest(address[] memory contracts)
+        public 
+        reserveHasInitialized{
+        uint initialGas = gasleft();
+        ERC20 iToken = ERC20(nameService.getAddress("CDAI"));
+        // iToken balance of the reserve contract
+        uint256 currentBalance = iToken.balanceOf(nameService.addresses(nameService.RESERVE()));
+        for(uint i = 0;i >= contracts.length;i++){
+            StakingContract(contracts[i]).collectUBIInterest(
+                        nameService.addresses(nameService.RESERVE())
+                    );
+        }
+        // Finds the actual transferred iToken
+        uint interest = iToken.balanceOf(nameService.addresses(nameService.RESERVE())) - currentBalance;
+        // Mints gd while the interest amount is equal to the transferred amount
+        (uint256 gdUBI) = GoodReserveCDai(nameService.addresses(nameService.RESERVE())).mintUBI(
+            iToken,
+            interest // interest
+        );
+        // Transfers the minted tokens to the given staking contract
+        IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
+        
+        if(gdUBI > 0)
+            //transfer ubi to avatar on sidechain via bridge
+            require(token.transferAndCall(
+                bridgeContract,
+                gdUBI,
+                abi.encodePacked(ubiRecipient)
+            ),"ubi bridge transfer failed");
+        uint256 totalUsedGas = (initialGas - gasleft()) * 110 / 100; // We will return as reward 1.1x of used gas in GD
+        uint256 gdAmountToMint= getGasPriceInGD(totalUsedGas);
+        GoodReserveCDai(nameService.addresses(nameService.RESERVE())).mintRewardFromRR(nameService.getAddress("CDAI"),msg.sender,gdAmountToMint);
+        emit FundsTransferred(
+            msg.sender,
+            nameService.addresses(nameService.RESERVE()),
+            interest,
+            gdUBI,
+            gdAmountToMint
         );
     }
     /**
