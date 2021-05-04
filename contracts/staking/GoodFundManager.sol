@@ -262,12 +262,9 @@ contract GoodFundManager is DAOContract {
         for(uint i = _stakingContracts.length - 1; i >= 0; i--){ // zxelements are sorted by balances from lowest to highest 
 		
             if(_stakingContracts[i] != address(0x0)){
-               
-					
-            StakingContract(_stakingContracts[i]).collectUBIInterest(
-                nameService.addresses(nameService.RESERVE()));
-                
-                }
+                StakingContract(_stakingContracts[i]).collectUBIInterest(
+                    nameService.addresses(nameService.RESERVE()));
+                    }
                    
             if(i == 0) break; // when active contracts length is 1 then gives error
         }
@@ -310,7 +307,7 @@ contract GoodFundManager is DAOContract {
     }
 
     /**
-     * @dev View function get addresses of staking contracts which interests 
+     * @dev  Function that get addresses of staking contracts which interests 
      * can be collected with the gas amount that provided as parameter
      * @param _maxGasAmount The maximum amount of the gas that keeper willing to spend collect interests
      * @return addresses of the staking contracts to the collect interests
