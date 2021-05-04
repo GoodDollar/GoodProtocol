@@ -367,7 +367,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const gdBalanceBeforeCollectInterest = await goodDollar.balanceOf(
       staker.address
     );
-    await goodFundManager.connect(staker).collectInterest();
+    const contractAddressesToBeCollected = await goodFundManager.calcSortedContracts("1000000")
+    await goodFundManager.connect(staker).collectInterest(contractAddressesToBeCollected);
     const gdBalanceAfterCollectInterest = await goodDollar.balanceOf(
       staker.address
     );
@@ -612,11 +613,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
    
 
     const simpleStakingCurrentInterestBeforeCollect = await simpleStaking.currentUBIInterest()
-   
-    await goodFundManager.collectInterest({
-      
-        gasLimit: 800000
-      
+    const contractsToBeCollected = await goodFundManager.calcSortedContracts("750000")
+    await goodFundManager.collectInterest(contractsToBeCollected,{
+      gasLimit: 750000
     });
     
     const simpleStakingCurrentInterest = await simpleStaking.currentUBIInterest()

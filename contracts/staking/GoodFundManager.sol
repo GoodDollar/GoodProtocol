@@ -7,7 +7,6 @@ import "../reserve/GoodReserveCDai.sol";
 
 
 import "../Interfaces.sol";
-import "hardhat/console.sol";
 interface StakingContract {
 	function collectUBIInterest(address recipient)
 		external
@@ -245,7 +244,7 @@ contract GoodFundManager is DAOContract {
      * bridge, which locks the funds and then the GD tokens are been minted to the
      * given address on the sidechain
      */
-    function collectInterest()
+    function collectInterest(address[] memory _stakingContracts)
         public
         reserveHasInitialized
         //requireDAOContract(address(_staking))
@@ -259,100 +258,24 @@ contract GoodFundManager is DAOContract {
         ERC20 iToken = ERC20(nameService.getAddress("CDAI"));
         // iToken balance of the reserve contract
         uint256 currentBalance = iToken.balanceOf(nameService.addresses(nameService.RESERVE()));
-        uint256 tempInterest;
-		uint activeContractsLength = activeContracts.length;
-        address[] memory addresses = new address[](activeContractsLength); 
-        uint256[] memory balances = new uint256[](activeContractsLength); 
-		uint i;
-        uint totalInterest;
-		require(activeContractsLength > 0 , "There should be at least one active staking contract");
-        for (i = 0; i < activeContractsLength; i++){
-            (tempInterest, ,) = StakingContract(activeContracts[i]).currentUBIInterest();
-            totalInterest += tempInterest;
-            if (tempInterest != 0){
-                addresses[i] = activeContracts[i];
-                balances[i] = tempInterest;
-            }
-        }
         
-        uint gasCostInCdai = getGasPriceInCDAI(initialGas); // Get gas price in cDAI so can compare with possible interest amount to get
-        require(totalInterest >= gasCostInCdai,"Collected interest should be bigger than spent gas amount");
-        quick(balances,addresses); // sort the values according to interest balance
-        uint leftGas = gasleft();
-        uint gasCost;
-       
+        for(uint i = _stakingContracts.length - 1; i >= 0; i--){ // zxelements are sorted by balances from lowest to highest 
 		
-		uint tempInitialGas = initialGas; // to prevent stack too deep error
-        for(i = activeContractsLength - 1; i >= 0; i--){ // zxelements are sorted by balances from lowest to highest 
-		
-            if(addresses[i] != address(0x0)){
-                gasCost = StakingContract(addresses[i]).getGasCostForInterestTransfer();
-                if(leftGas - gasCost >= 530000){ // this value will change. Its hardcoded for further transactions such as ubiMINTING,gas price calculations and gdMINT
-                    // collects the interest from the staking contract and transfer it directly to the reserve contract
-                    //`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
+            if(_stakingContracts[i] != address(0x0)){
+               
 					
-                    StakingContract(addresses[i]).collectUBIInterest(
-                        nameService.addresses(nameService.RESERVE())
-                    );
-                    leftGas = leftGas - gasCost;
-                }else{
-					break; // if there is no more gas to perform mintUBI so on then break
+            StakingContract(_stakingContracts[i]).collectUBIInterest(
+                nameService.addresses(nameService.RESERVE()));
+                
                 }
-            }else{
-                break; // if addresses are null after this element then break
-            }
+                   
             if(i == 0) break; // when active contracts length is 1 then gives error
         }
        
         // Finds the actual transferred iToken
         uint interest = iToken.balanceOf(nameService.addresses(nameService.RESERVE())) - currentBalance;
+        require(interest >= getGasPriceInCDAI(initialGas), "Collected interest should be bigger than spent gas"); // This require is necessary to keeper can not abuse this function
         
-        
-        // Mints gd while the interest amount is equal to the transferred amount
-        (uint256 gdUBI) = GoodReserveCDai(nameService.addresses(nameService.RESERVE())).mintUBI(
-            iToken,
-            interest // interest
-        );
-        // Transfers the minted tokens to the given staking contract
-        IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
-        
-        if(gdUBI > 0)
-            //transfer ubi to avatar on sidechain via bridge
-            require(token.transferAndCall(
-                bridgeContract,
-                gdUBI,
-                abi.encodePacked(ubiRecipient)
-            ),"ubi bridge transfer failed");
-        uint256 totalUsedGas = (tempInitialGas - gasleft()) * 110 / 100; // We will return as reward 1.1x of used gas in GD
-        uint256 gdAmountToMint= getGasPriceInGD(totalUsedGas);
-        GoodReserveCDai(nameService.addresses(nameService.RESERVE())).mintRewardFromRR(nameService.getAddress("CDAI"),msg.sender,gdAmountToMint);
-        emit FundsTransferred(
-            msg.sender,
-            nameService.addresses(nameService.RESERVE()),
-            interest,
-            gdUBI,
-            gdAmountToMint
-        );
-    }
-    /**
-     @dev collectInterest another version with off-chain calculations so it optimizes on the off-chain which 
-     * contracts worth to collect interest in order to cover amount of gas which spent
-     * @param contracts list of the staking contract addresses to collect interests in order to mint UBI
-     */
-    function collectInterest(address[] memory contracts)
-        public 
-        reserveHasInitialized{
-        uint initialGas = gasleft();
-        ERC20 iToken = ERC20(nameService.getAddress("CDAI"));
-        // iToken balance of the reserve contract
-        uint256 currentBalance = iToken.balanceOf(nameService.addresses(nameService.RESERVE()));
-        for(uint i = 0;i >= contracts.length;i++){
-            StakingContract(contracts[i]).collectUBIInterest(
-                        nameService.addresses(nameService.RESERVE())
-                    );
-        }
-        // Finds the actual transferred iToken
-        uint interest = iToken.balanceOf(nameService.addresses(nameService.RESERVE())) - currentBalance;
         // Mints gd while the interest amount is equal to the transferred amount
         (uint256 gdUBI) = GoodReserveCDai(nameService.addresses(nameService.RESERVE())).mintUBI(
             iToken,
@@ -378,6 +301,54 @@ contract GoodFundManager is DAOContract {
             gdUBI,
             gdAmountToMint
         );
+    }
+
+    /**
+     * @dev View function get addresses of staking contracts which interests 
+     * can be collected with the gas amount that provided as parameter
+     * @param _maxGasAmount The maximum amount of the gas that keeper willing to spend collect interests
+     * @return addresses of the staking contracts to the collect interests
+     */
+    function calcSortedContracts(uint256 _maxGasAmount) public view returns(address[] memory){
+        uint activeContractsLength = activeContracts.length;
+        address[] memory addresses = new address[](activeContractsLength); 
+        uint256[] memory balances = new uint256[](activeContractsLength);
+        uint256 tempInterest;
+        uint totalInterest;
+        uint i;
+        require(activeContractsLength > 0 , "There should be at least one active staking contract");
+        for (i = 0; i < activeContractsLength; i++){
+            (tempInterest, ,) = StakingContract(activeContracts[i]).currentUBIInterest();
+            totalInterest += tempInterest;
+            if (tempInterest != 0){
+                addresses[i] = activeContracts[i];
+                balances[i] = tempInterest;
+            }
+        }
+        uint gasCostInCdai = getGasPriceInCDAI(_maxGasAmount); // Get gas price in cDAI so can compare with possible interest amount to get
+        require(totalInterest >= gasCostInCdai,"Current interest's worth less than spent gas worth");
+        quick(balances,addresses); // sort the values according to interest balance
+        uint gasCost;
+        uint possibleCollected;
+        for(i = activeContractsLength - 1; i >= 0; i--){ // elements are sorted by balances from lowest to highest 
+		
+            if(addresses[i] != address(0x0)){
+                gasCost = StakingContract(addresses[i]).getGasCostForInterestTransfer();
+                if(_maxGasAmount - gasCost >= 650000){ // this value will change. Its hardcoded for further transactions such as ubiMINTING,gas price calculations and gdMINT
+                    // collects the interest from the staking contract and transfer it directly to the reserve contract
+                    //`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
+					possibleCollected += balances[i];
+                    _maxGasAmount = _maxGasAmount - gasCost;
+                }else{
+					addresses[i] = address(0x0);
+                }
+            }else{
+                break; // if addresses are null after this element then break because we initialize array in size activecontracts but if their interest balance is zero then we dont put it in this array
+            }
+            if(i == 0) break; // when active contracts length is 1 then gives error
+        }
+        require(possibleCollected >= gasCostInCdai, "Collected interests does not cover gas cost");
+        return addresses;
     }
     /**
      * @dev Mint to users reward tokens which they earned by staking contract
