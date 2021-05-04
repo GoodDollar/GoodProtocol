@@ -119,9 +119,28 @@ contract UBIScheme is Initializable, DAOContract {
 		uint256 dailyUBIPool
 	);
 
-	event UBIStarted(uint256 balance, uint256 time);
 	event UBIClaimed(address indexed claimer, uint256 amount);
-	event UBIEnded(uint256 claimers, uint256 claimamount);
+
+	/**
+	 * @dev Constructor
+	 * @param _ns the DAO
+	 * @param _firstClaimPool A pool for GD to give out to activated users
+	 * @param _maxInactiveDays Days of grace without claiming request
+	 * @param _cycleLength number of days current UBI pool is divided to
+	 */
+	function initialize(
+		NameService _ns,
+		IFirstClaimPool _firstClaimPool,
+		uint256 _maxInactiveDays,
+		uint256 _cycleLength
+	) public initializer {
+		require(_maxInactiveDays > 0, "Max inactive days cannot be zero");
+		setDAO(_ns);
+		maxInactiveDays = _maxInactiveDays;
+		firstClaimPool = _firstClaimPool;
+		shouldWithdrawFromDAO = false;
+		cycleLength = _cycleLength;
+	}
 
 	/* @dev function that gets the amount of people who claimed on the given day
 	 * @param day the day to get claimer count from, with 0 being the starting day
@@ -154,27 +173,6 @@ contract UBIScheme is Initializable, DAOContract {
 	modifier requireStarted() {
 		require(block.timestamp >= periodStart, "not in periodStarted");
 		_;
-	}
-
-	/**
-	 * @dev Constructor
-	 * @param _ns the DAO
-	 * @param _firstClaimPool A pool for GD to give out to activated users
-	 * @param _maxInactiveDays Days of grace without claiming request
-	 * @param _cycleLength number of days current UBI pool is divided to
-	 */
-	function initialize(
-		NameService _ns,
-		IFirstClaimPool _firstClaimPool,
-		uint256 _maxInactiveDays,
-		uint256 _cycleLength
-	) public initializer {
-		require(_maxInactiveDays > 0, "Max inactive days cannot be zero");
-		setDAO(_ns);
-		maxInactiveDays = _maxInactiveDays;
-		firstClaimPool = _firstClaimPool;
-		shouldWithdrawFromDAO = false;
-		cycleLength = _cycleLength;
 	}
 
 	/**
@@ -226,10 +224,7 @@ contract UBIScheme is Initializable, DAOContract {
 	 * the sum of the active users.
 	 * @return The amount of GoodDollar the user can claim
 	 */
-	function distributionFormula(uint256 reserve, address user)
-		internal
-		returns (uint256)
-	{
+	function distributionFormula() internal returns (uint256) {
 		setDay();
 		// on first day or once in 24 hrs calculate distribution
 		if (currentDay != lastWithdrawDay) {
@@ -391,7 +386,7 @@ contract UBIScheme is Initializable, DAOContract {
 		// (new or active) will trigger the calculation with the active users count of the day before
 		// and so on. the new or inactive users that will become active today, will not take into account
 		// within the calculation.
-		uint256 newDistribution = distributionFormula(0, _account);
+		uint256 newDistribution = distributionFormula();
 
 		// active user which has not claimed today yet, ie user last claimed < today
 		if (
@@ -456,7 +451,7 @@ contract UBIScheme is Initializable, DAOContract {
 
 		// making sure that the calculation will be with the correct number of active users in case
 		// that the fisher is the first to make the calculation today
-		uint256 newDistribution = distributionFormula(0, _account);
+		uint256 newDistribution = distributionFormula();
 		activeUsersCount -= 1;
 		_transferTokens(msg.sender, newDistribution, false, false);
 		emit InactiveUserFished(msg.sender, _account, newDistribution);
