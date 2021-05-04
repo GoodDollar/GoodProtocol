@@ -41,8 +41,8 @@ contract GoodFundManager is DAOContract {
 
 	// The address of cDai
 	ERC20 public cDai;
-    
-    
+    // timestamp that indicates last time that interests collected
+    uint256 public lastCollectedInterest; 
 
 	uint256 constant DECIMAL1e18 = 10**18;
 
@@ -137,7 +137,7 @@ contract GoodFundManager is DAOContract {
         bridgeContract = _bridgeContract;
         ubiRecipient = _ubiRecipient;
         blockInterval = _blockInterval;
-        lastTransferred = block.number.div(blockInterval); 
+        lastTransferred = block.number.div(blockInterval);
     }
 
 	/**
@@ -295,6 +295,7 @@ contract GoodFundManager is DAOContract {
         uint256 totalUsedGas = (initialGas - gasleft() + gasCostToMintReward) * 110 / 100; // We will return as reward 1.1x of used gas in GD 
         uint256 gdAmountToMint= getGasPriceInGD(totalUsedGas);
         GoodReserveCDai(nameService.addresses(nameService.RESERVE())).mintRewardFromRR(nameService.getAddress("CDAI"),msg.sender,gdAmountToMint);
+        lastCollectedInterest = block.timestamp;
         emit FundsTransferred(
             msg.sender,
             nameService.addresses(nameService.RESERVE()),
@@ -348,7 +349,12 @@ contract GoodFundManager is DAOContract {
             }
             if(i == 0) break; // when active contracts length is 1 then gives error
         }
-        require(possibleCollected >= gasCostInCdai, "Collected interests does not cover gas cost");
+        
+        if (block.timestamp >= lastCollectedInterest + 5184000){ // 5184000 is 2 months in seconds
+            require(possibleCollected >= gasCostInCdai, "Collected interests does not cover gas cost");
+        } else{
+            require(possibleCollected >= 4 * gasCostInCdai, "Collected interests should be at least 4 times bigger than gas cost since last call of this function sooner than 2 months");
+        }
         return addresses;
     }
     /**
