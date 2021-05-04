@@ -1,13 +1,28 @@
-pragma solidity >0.5.4;
+pragma solidity >=0.8;
 
-import "../../contracts/dao/schemes/UBI.sol";
-import "./FirstClaimPool.sol";
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
+import "../utils/DAOContract.sol";
+import "../utils/NameService.sol";
+import "../Interfaces.sol";
+import "../governance/ClaimersDistribution.sol";
 
 /* @title Dynamic amount-per-day UBI scheme allowing claim once a day
  */
-contract UBIScheme is AbstractUBI {
-	using SafeMath for uint256;
+contract UBIScheme is Initializable, DAOContract {
+	struct Day {
+		mapping(address => bool) hasClaimed;
+		uint256 amountOfClaimers;
+		uint256 claimAmount;
+	}
+
+	mapping(uint256 => Day) public claimDay;
+
+	mapping(address => uint256) public lastClaimed;
+
+	uint256 public currentDay;
+
+	uint256 public periodStart;
 
 	// Result of distribution formula
 	// calculated each day
@@ -53,7 +68,7 @@ contract UBIScheme is AbstractUBI {
 	// calculations only in the next day,
 	// meaning they can only claim in the next
 	// day
-	FirstClaimPool public firstClaimPool;
+	IFirstClaimPool public firstClaimPool;
 
 	struct Funds {
 		// marks if the funds for a specific day has
@@ -104,31 +119,58 @@ contract UBIScheme is AbstractUBI {
 		uint256 dailyUBIPool
 	);
 
+	event UBIStarted(uint256 balance, uint256 time);
+	event UBIClaimed(address indexed claimer, uint256 amount);
+	event UBIEnded(uint256 claimers, uint256 claimamount);
+
+	/* @dev function that gets the amount of people who claimed on the given day
+	 * @param day the day to get claimer count from, with 0 being the starting day
+	 * @return an integer indicating the amount of people who claimed that day
+	 */
+	function getClaimerCount(uint256 day) public view returns (uint256) {
+		return claimDay[day].amountOfClaimers;
+	}
+
+	/* @dev function that gets the amount that was claimed on the given day
+	 * @param day the day to get claimer count from, with 0 being the starting day
+	 * @return an integer indicating the amount that has been claimed on the given day
+	 */
+	function getClaimAmount(uint256 day) public view returns (uint256) {
+		return claimDay[day].claimAmount;
+	}
+
+	/* @dev function that gets count of claimers and amount claimed for the current day
+	 * @return the amount of claimers and the amount claimed.
+	 */
+	function getDailyStats()
+		public
+		view
+		returns (uint256 count, uint256 amount)
+	{
+		uint256 today = (block.timestamp - periodStart) / 1 days;
+		return (getClaimerCount(today), getClaimAmount(today));
+	}
+
 	modifier requireStarted() {
-		require(now >= periodStart, "not in periodStarted");
+		require(block.timestamp >= periodStart, "not in periodStarted");
 		_;
 	}
 
 	/**
 	 * @dev Constructor
-	 * @param _avatar The avatar of the DAO
-	 * @param _identity The identity contract
+	 * @param _ns the DAO
 	 * @param _firstClaimPool A pool for GD to give out to activated users
-	 * @param _periodStart The time from when the contract can start
-	 * @param _periodEnd The time from when the contract can end
 	 * @param _maxInactiveDays Days of grace without claiming request
+	 * @param _cycleLength number of days current UBI pool is divided to
 	 */
-	constructor(
-		Avatar _avatar,
-		Identity _identity,
-		FirstClaimPool _firstClaimPool,
-		uint256 _periodStart,
-		uint256 _periodEnd,
+	function initialize(
+		NameService _ns,
+		IFirstClaimPool _firstClaimPool,
 		uint256 _maxInactiveDays,
 		uint256 _cycleLength
-	) public AbstractUBI(_avatar, _identity, 0, _periodStart, _periodEnd) {
+	) public initializer {
 		require(_maxInactiveDays > 0, "Max inactive days cannot be zero");
-
+		setDAO(_ns);
 		maxInactiveDays = _maxInactiveDays;
 		firstClaimPool = _firstClaimPool;
 		shouldWithdrawFromDAO = false;
@@ -141,10 +183,10 @@ contract UBIScheme is AbstractUBI {
 	 * updated balance.
 	 */
 	function _withdrawFromDao() internal {
-		DAOToken token = avatar.nativeToken();
+		IGoodDollar token = nativeToken();
 		uint256 prevBalance = token.balanceOf(address(this));
 		uint256 toWithdraw = token.balanceOf(address(avatar));
-		controller.genericCall(
+		dao.genericCall(
 			address(token),
 			abi.encodeWithSignature(
 				"transfer(address,uint256)",
@@ -154,7 +196,7 @@ contract UBIScheme is AbstractUBI {
 			avatar,
 			0
 		);
-		uint256 newBalance = prevBalance.add(toWithdraw);
+		uint256 newBalance = prevBalance + toWithdraw;
 		require(
 			newBalance == token.balanceOf(address(this)),
 			"DAO transfer has failed"
@@ -166,7 +208,8 @@ contract UBIScheme is AbstractUBI {
 	 * @dev sets the ubi calculation cycle length
 	 * @param _newLength the new length in days
 	 */
-	function setCycleLength(uint256 _newLength) public onlyAvatar {
+	function setCycleLength(uint256 _newLength) public {
+		_onlyAvatar();
 		require(_newLength > 0, "cycle must be at least 1 day long");
 		cycleLength = _newLength;
 	}
@@ -175,7 +218,7 @@ contract UBIScheme is AbstractUBI {
 	 * @dev returns the day count since start of current cycle
 	 */
 	function currentDayInCycle() public view returns (uint256) {
-		return now.sub(startOfCycle).div(1 days);
+		return (block.timestamp - startOfCycle) / (1 days);
 	}
 
 	/**
@@ -190,7 +233,7 @@ contract UBIScheme is AbstractUBI {
 		setDay();
 		// on first day or once in 24 hrs calculate distribution
 		if (currentDay != lastWithdrawDay) {
-			DAOToken token = avatar.nativeToken();
+			IGoodDollar token = nativeToken();
 			uint256 currentBalance = token.balanceOf(address(this));
 
 			if (
@@ -199,9 +242,9 @@ contract UBIScheme is AbstractUBI {
 			{
 				if (shouldWithdrawFromDAO) _withdrawFromDao();
 				currentBalance = token.balanceOf(address(this));
-				dailyCyclePool = currentBalance.div(cycleLength);
+				dailyCyclePool = currentBalance / cycleLength;
 				currentCycleLength = cycleLength;
-				startOfCycle = now.div(1 hours) * 1 hours; //start at a round hour
+				startOfCycle = (block.timestamp / (1 hours)) * 1 hours; //start at a round hour
 				emit UBICycleCalculated(
 					currentDay,
 					currentBalance,
@@ -215,7 +258,7 @@ contract UBIScheme is AbstractUBI {
 			funds.hasWithdrawn = shouldWithdrawFromDAO;
 			funds.openAmount = currentBalance;
 			if (activeUsersCount > 0) {
-				dailyUbi = dailyCyclePool.div(activeUsersCount);
+				dailyUbi = dailyCyclePool / activeUsersCount;
 			}
 			emit UBICalculated(currentDay, dailyUbi, block.number);
 		}
@@ -228,7 +271,7 @@ contract UBIScheme is AbstractUBI {
 	 * since start of contract.
 	 */
 	function setDay() public {
-		currentDay = (now.sub(periodStart)).div(1 days);
+		currentDay = (block.timestamp - periodStart) / (1 days);
 	}
 
 	/**
@@ -246,8 +289,7 @@ contract UBIScheme is AbstractUBI {
 	 * @return True for an existing user. False for a new user
 	 */
 	function isNotNewUser(address _account) public view returns (bool) {
-		uint256 lastClaimed = lastClaimed[_account];
-		if (lastClaimed > 0) {
+		if (lastClaimed[_account] > 0) {
 			// the sender is not registered
 			return true;
 		}
@@ -266,7 +308,8 @@ contract UBIScheme is AbstractUBI {
 	function isActiveUser(address _account) public view returns (bool) {
 		uint256 lastClaimed = lastClaimed[_account];
 		if (isNotNewUser(_account)) {
-			uint256 daysSinceLastClaim = now.sub(lastClaimed).div(1 days);
+			uint256 daysSinceLastClaim =
+				(block.timestamp - lastClaimed) / (1 days);
 			if (daysSinceLastClaim < maxInactiveDays) {
 				// active user
 				return true;
@@ -292,19 +335,19 @@ contract UBIScheme is AbstractUBI {
 	) internal {
 		// updates the stats
 		Day storage day = claimDay[currentDay];
-		day.amountOfClaimers = day.amountOfClaimers.add(1);
+		day.amountOfClaimers += 1;
 		day.hasClaimed[_account] = true;
-		lastClaimed[_account] = now;
-		totalClaimsPerUser[_account].add(1);
+		lastClaimed[_account] = block.timestamp;
+		totalClaimsPerUser[_account] += 1;
 
 		// awards a new user or a fished user
 		if (_isFirstTime) {
 			uint256 awardAmount = firstClaimPool.awardUser(_account);
-			day.claimAmount = day.claimAmount.add(awardAmount);
+			day.claimAmount += awardAmount;
 			emit UBIClaimed(_account, awardAmount);
 		} else {
-			day.claimAmount = day.claimAmount.add(_amount);
-			GoodDollar token = GoodDollar(address(avatar.nativeToken()));
+			day.claimAmount += _amount;
+			IGoodDollar token = nativeToken();
 			require(token.transfer(_account, _amount), "claim transfer failed");
 			if (_isClaimed) {
 				emit UBIClaimed(_account, _amount);
@@ -319,7 +362,7 @@ contract UBIScheme is AbstractUBI {
 	 * or fish has already been executed today.
 	 * @return The amount of GD tokens the address can claim.
 	 */
-	function checkEntitlement() public view requireActive returns (uint256) {
+	function checkEntitlement() public view requireStarted returns (uint256) {
 		// new user or inactive should recieve the first claim reward
 		if (!isNotNewUser(msg.sender) || fishedUsersAddresses[msg.sender]) {
 			return firstClaimPool.claimAmount();
@@ -327,13 +370,13 @@ contract UBIScheme is AbstractUBI {
 
 		// current day has already been updated which means
 		// that the dailyUbi has been updated
-		if (currentDay == (now.sub(periodStart)).div(1 days)) {
+		if (currentDay == (block.timestamp - periodStart) / (1 days)) {
 			return hasClaimed(msg.sender) ? 0 : dailyUbi;
 		}
 		// the current day has not updated yet
-		DAOToken token = avatar.nativeToken();
+		IGoodDollar token = nativeToken();
 		uint256 currentBalance = token.balanceOf(address(this));
-		return currentBalance.div(activeUsersCount);
+		return currentBalance / activeUsersCount;
 	}
 
 	/**
@@ -360,7 +403,7 @@ contract UBIScheme is AbstractUBI {
 			return true;
 		} else if (!isNotNewUser(_account) || fishedUsersAddresses[_account]) {
 			// a unregistered or fished user
-			activeUsersCount = activeUsersCount.add(1);
+			activeUsersCount += 1;
 			fishedUsersAddresses[_account] = false;
 			_transferTokens(_account, 0, false, true);
 			emit ActivatedUser(_account);
@@ -375,14 +418,20 @@ contract UBIScheme is AbstractUBI {
 	 * to the caller. Emits the address of caller and amount claimed.
 	 * @return A bool indicating if UBI was claimed
 	 */
-	function claim()
-		public
-		requireStarted
-		requireActive
-		onlyWhitelisted
-		returns (bool)
-	{
-		return _claim(msg.sender);
+	function claim() public requireStarted returns (bool) {
+		require(
+			IIdentity(nameService.addresses(nameService.IDENTITY()))
+				.isWhitelisted(msg.sender),
+			"UBIScheme: not whitelisted"
+		);
+		bool didClaim = _claim(msg.sender);
+		if (didClaim) {
+			ClaimersDistribution(
+				nameService.getAddress(("CLAIMERS_DISTRIBUTION"))
+			)
+				.updateClaim(msg.sender);
+		}
+		return didClaim;
 	}
 
 	/**
@@ -395,7 +444,7 @@ contract UBIScheme is AbstractUBI {
 	 * @param _account to fish
 	 * @return A bool indicating if UBI was fished
 	 */
-	function fish(address _account) public requireActive returns (bool) {
+	function fish(address _account) public requireStarted returns (bool) {
 		// checking if the account exists. that's been done because that
 		// will prevent trying to fish non-existence accounts in the system
 		require(
@@ -408,7 +457,7 @@ contract UBIScheme is AbstractUBI {
 		// making sure that the calculation will be with the correct number of active users in case
 		// that the fisher is the first to make the calculation today
 		uint256 newDistribution = distributionFormula(0, _account);
-		activeUsersCount = activeUsersCount.sub(1);
+		activeUsersCount -= 1;
 		_transferTokens(msg.sender, newDistribution, false, false);
 		emit InactiveUserFished(msg.sender, _account, newDistribution);
 		return true;
@@ -422,7 +471,7 @@ contract UBIScheme is AbstractUBI {
 	 */
 	function fishMulti(address[] memory _accounts)
 		public
-		requireActive
+		requireStarted
 		returns (uint256)
 	{
 		for (uint256 i = 0; i < _accounts.length; ++i) {
@@ -444,14 +493,14 @@ contract UBIScheme is AbstractUBI {
 
 	/**
 	 * @dev Start function. Adds this contract to identity as a feeless scheme and
-	 * adds permissions to FirstClaimPool
+	 * adds permissions to IFirstClaimPool
 	 * Can only be called if scheme is registered
 	 */
-	function start() public onlyRegistered {
-		super.start();
-		periodStart = now.div(1 days) * 1 days + 12 hours; //set start time to GMT noon
+	function start() public {
+		require(periodStart == 0, "UBIScheme: already started"); //can be called only once
+		periodStart = (block.timestamp / (1 days)) * 1 days + 12 hours; //set start time to GMT noon
 		startOfCycle = periodStart;
-		controller.genericCall(
+		dao.genericCall(
 			address(firstClaimPool),
 			abi.encodeWithSignature("setUBIScheme(address)", address(this)),
 			avatar,
@@ -463,31 +512,28 @@ contract UBIScheme is AbstractUBI {
 	 * @dev Sets whether to also withdraw GD from avatar for UBI
 	 * @param _shouldWithdraw boolean if to withdraw
 	 */
-	function setShouldWithdrawFromDAO(bool _shouldWithdraw) public onlyAvatar {
+	function setShouldWithdrawFromDAO(bool _shouldWithdraw) public {
+		_onlyAvatar();
 		shouldWithdrawFromDAO = _shouldWithdraw;
 	}
 
-	function end() public onlyAvatar {
-		super.end();
-	}
-
-	function upgrade(address prevUBIScheme) public onlyRegistered {
+	function upgrade(address prevUBIScheme) public {
 		start();
 
 		if (prevUBIScheme != address(0)) {
-			GoodDollar gd = GoodDollar(address(avatar.nativeToken()));
+			IGoodDollar gd = nativeToken();
 
 			uint256 ubiBalance = gd.balanceOf(prevUBIScheme);
 
 			// transfer funds from old scheme here
-			controller.genericCall(
+			dao.genericCall(
 				prevUBIScheme,
 				abi.encodeWithSignature("end()"),
 				avatar,
 				0
 			);
 
-			controller.genericCall(
+			dao.genericCall(
 				address(firstClaimPool),
 				abi.encodeWithSignature("setClaimAmount(uint256)", 1000),
 				avatar,
@@ -495,11 +541,11 @@ contract UBIScheme is AbstractUBI {
 			);
 
 			if (ubiBalance > 0) {
-				controller.externalTokenTransfer(
-					gd,
+				dao.externalTokenTransfer(
+					address(gd),
 					address(this),
 					ubiBalance,
-					avatar
+					address(avatar)
 				);
 			}
 		}

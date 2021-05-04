@@ -50,6 +50,13 @@ interface Controller {
 		address _beneficiary,
 		address _avatar
 	) external returns (bool);
+
+	function externalTokenTransfer(
+		address _token,
+		address _recipient,
+		uint256 _amount,
+		address _avatar
+	) external returns (bool);
 }
 
 interface GlobalConstraintInterface {
