@@ -291,7 +291,8 @@ contract GoodFundManager is DAOContract {
                 gdUBI,
                 abi.encodePacked(ubiRecipient)
             ),"ubi bridge transfer failed");
-        uint256 totalUsedGas = (initialGas - gasleft()) * 110 / 100; // We will return as reward 1.1x of used gas in GD
+        uint256 gasCostToMintReward = 200000; // Gas cost to mint GD reward to keeper hardcoded so should be changed according to calculations
+        uint256 totalUsedGas = (initialGas - gasleft() + gasCostToMintReward) * 110 / 100; // We will return as reward 1.1x of used gas in GD 
         uint256 gdAmountToMint= getGasPriceInGD(totalUsedGas);
         GoodReserveCDai(nameService.addresses(nameService.RESERVE())).mintRewardFromRR(nameService.getAddress("CDAI"),msg.sender,gdAmountToMint);
         emit FundsTransferred(
