@@ -247,7 +247,9 @@ interface ProxyAdmin {
 
 	function transferOwnership(address newOwner) external;
 }
-
+/**
+ * @dev Interface for chainlink oracles to obtain price datas
+ */
 interface AggregatorV3Interface {
 
   function decimals() external view returns (uint8);
