@@ -274,8 +274,12 @@ contract GoodFundManager is DAOContract {
        
         // Finds the actual transferred iToken
         uint interest = iToken.balanceOf(nameService.addresses(nameService.RESERVE())) - currentBalance;
-        require(interest >= getGasPriceInCDAI(initialGas), "Collected interest should be bigger than spent gas"); // This require is necessary to keeper can not abuse this function
-        
+        uint gasPriceIncDAI = getGasPriceInCDAI(initialGas);
+        if (block.timestamp >= lastCollectedInterest + 5184000){ // 5184000 is 2 months in seconds
+            require(interest >= gasPriceIncDAI, "Collected interest should be bigger than spent gas"); // This require is necessary to keeper can not abuse this function
+        }else{
+            require(interest >= 4 * gasPriceIncDAI, "Collected interests should be at least 4 times bigger than gas cost since last call of this function sooner than 2 months");
+        }
         // Mints gd while the interest amount is equal to the transferred amount
         (uint256 gdUBI) = GoodReserveCDai(nameService.addresses(nameService.RESERVE())).mintUBI(
             iToken,
