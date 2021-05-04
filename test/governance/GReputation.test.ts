@@ -128,11 +128,11 @@ describe("GReputation", () => {
     expect(repBalance.toNumber()).to.be.equal(0);
   });
 
-  it("should not be able to mint  or burn if not minter", async () => {
-    await expect(grep.mint(founder, 2)).to.revertedWith(
+  it("should not be able to mint or burn if not minter", async () => {
+    await expect(grep.connect(signers[4]).mint(founder, 2)).to.revertedWith(
       "revert GReputation: need minter role or be GDAO contract"
     );
-    await expect(grep.burn(founder, 2)).to.revertedWith(
+    await expect(grep.connect(signers[4]).burn(founder, 2)).to.revertedWith(
       "revert GReputation: need minter role or be GDAO contract"
     );
   });

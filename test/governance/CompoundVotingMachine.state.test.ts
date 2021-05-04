@@ -58,22 +58,25 @@ describe("CompoundVotingMachine#States", () => {
 
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
-    const GReputation = await ethers.getContractFactory("GReputation");
     const CompoundVotingMachine = await ethers.getContractFactory(
       "CompoundVotingMachine"
     );
 
-    grep = (await upgrades.deployProxy(GReputation, [root.address], {
-      unsafeAllowCustomTypes: true
-    })) as GReputation;
+    let { setSchemes, avatar, reputation, setDAOAddress } = await createDAO();
 
-    let { setSchemes, avatar } = await createDAO();
+    grep = (await ethers.getContractAt(
+      "GReputation",
+      reputation
+    )) as GReputation;
 
     gov = (await CompoundVotingMachine.deploy(
       avatar,
       grep.address,
       5760
     )) as CompoundVotingMachine;
+
+    //this will give root minter permissions
+    setDAOAddress("GDAO_CLAIMERS", root.address);
 
     //set voting machiine as scheme with permissions
     await setSchemes([gov.address]);

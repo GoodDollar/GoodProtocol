@@ -1,22 +1,30 @@
 import { ethers, upgrades } from "hardhat";
 import { expect } from "chai";
 import { Reputation } from "../../types";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { sign } from "crypto";
+import { createDAO } from "../helpers";
 
 describe("Reputation", () => {
   let reputation: Reputation;
-  let root, acct, signers;
+  let root, acct, signers, nameService, genericCall;
 
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
+
+    let { nameService: ns, genericCall: gn } = await createDAO();
+    nameService = ns;
+    genericCall = gn;
   });
 
   beforeEach(async () => {
     reputation = (await (
       await ethers.getContractFactory("Reputation")
     ).deploy()) as Reputation;
-    await reputation.initialize(root.address);
+    await reputation.initialize(nameService.address);
+    const enc = reputation.interface.encodeFunctionData("grantRole", [
+      await reputation.MINTER_ROLE(),
+      root.address
+    ]);
+    await genericCall(reputation.address, enc);
   });
 
   it("test setting and getting reputation by the owner", async () => {
@@ -27,16 +35,20 @@ describe("Reputation", () => {
     expect(value).to.equal(3131);
   });
 
-  it("should be owned by the main account", async () => {
-    let owner = await reputation.owner();
-    expect(owner).to.equal(root.address);
+  it("should have minter role", async () => {
+    let owner = await reputation.hasRole(
+      await reputation.MINTER_ROLE(),
+      root.address
+    );
+    expect(owner).to.be.true;
   });
 
   it("check permissions", async () => {
     await reputation.mint(signers[1].address, 1000);
 
     // only the owner can call mint
-    await expect(reputation.connect(signers[2]).mint(signers[2], 1000)).to.reverted;
+    await expect(reputation.connect(signers[2]).mint(signers[2], 1000)).to
+      .reverted;
 
     let account0Rep = await reputation.balanceOf(signers[0].address);
     let account1Rep = await reputation.balanceOf(signers[1].address);
@@ -64,7 +76,10 @@ describe("Reputation", () => {
     let account2Rep = await reputation.balanceOf(signers[2].address);
 
     // expect(account0Rep, 2001, "account 0 reputation should be 2000");
-    expect(account1Rep).to.equal(1500, "account 1 reputation should be 1000 + 500");
+    expect(account1Rep).to.equal(
+      1500,
+      "account 1 reputation should be 1000 + 500"
+    );
     expect(account2Rep).to.equal(3000, "account 2 reputation should be 3000");
 
     let totalRep = await reputation.totalSupply();
@@ -227,29 +242,40 @@ describe("Reputation", () => {
     var tx = await (await reputation.mint(signers[1].address, rep1)).wait();
     await reputation.mint(signers[3].address, rep1);
     expect(await reputation.totalSupply()).to.equal(rep1 + rep1 + rep1);
-    expect(await reputation.totalSupplyAt(tx.blockNumber)).to.equal(rep1 + rep1);
-    expect(await reputation.totalSupplyAt(tx.blockNumber - 1)).to.equal(rep1);
-    expect(await reputation.balanceOfAt(signers[1].address, tx.blockNumber)).to.equal(
+    expect(await reputation.totalSupplyAt(tx.blockNumber)).to.equal(
       rep1 + rep1
     );
-    expect(await reputation.balanceOfAt(signers[1].address, tx.blockNumber - 1)).to.equal(
-      rep1
-    );
-    expect(await reputation.balanceOfAt(signers[3].address, tx.blockNumber)).to.equal(0);
+    expect(await reputation.totalSupplyAt(tx.blockNumber - 1)).to.equal(rep1);
+    expect(
+      await reputation.balanceOfAt(signers[1].address, tx.blockNumber)
+    ).to.equal(rep1 + rep1);
+    expect(
+      await reputation.balanceOfAt(signers[1].address, tx.blockNumber - 1)
+    ).to.equal(rep1);
+    expect(
+      await reputation.balanceOfAt(signers[3].address, tx.blockNumber)
+    ).to.equal(0);
   });
 
-  it("multible mint at the same block ", async () => {
+  it("multiple mint at the same block ", async () => {
     let reputationTestHelper = await (
       await ethers.getContractFactory("ReputationTestHelper")
     ).deploy(reputation.address);
 
-    await reputation.transferOwnership(reputationTestHelper.address);
+    const enc = reputation.interface.encodeFunctionData("grantRole", [
+      await reputation.MINTER_ROLE(),
+      reputationTestHelper.address
+    ]);
+    await genericCall(reputation.address, enc);
+
     var rep = 10;
     var times = 3;
 
     await reputationTestHelper.multipleMint(signers[1].address, rep, times);
     expect(await reputation.totalSupply()).to.equal(rep * times);
-    expect(await reputation.balanceOf(signers[1].address)).to.equal(rep * times);
+    expect(await reputation.balanceOf(signers[1].address)).to.equal(
+      rep * times
+    );
 
     await reputationTestHelper.multipleBurn(signers[1].address, rep, 2);
     expect(await reputation.totalSupply()).to.equal(rep);
@@ -263,12 +289,12 @@ describe("Reputation", () => {
     expect(await reputation.totalSupplyAt(tx.blockNumber)).to.equal(rep1);
     expect(await reputation.totalSupplyAt(tx.blockNumber - 1)).to.equal(0);
 
-    expect(await reputation.balanceOfAt(signers[1].address, tx.blockNumber)).to.equal(
-      rep1
-    );
-    expect(await reputation.balanceOfAt(signers[1].address, tx.blockNumber - 1)).to.equal(
-      0
-    );
+    expect(
+      await reputation.balanceOfAt(signers[1].address, tx.blockNumber)
+    ).to.equal(rep1);
+    expect(
+      await reputation.balanceOfAt(signers[1].address, tx.blockNumber - 1)
+    ).to.equal(0);
   });
 });
 

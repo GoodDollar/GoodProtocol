@@ -13,16 +13,19 @@ interface StakingContract {
 		returns (
 			uint256,
 			uint256,
-			uint256,
 			uint256
 		);
 
-	function iToken() external view returns (address);
+    function iToken() external view returns(address); 
+    function getRewardEarned(address user) external view returns(uint);
+    function updateGlobalGDYieldPerToken(
+        uint256 _blockGDInterest,
+        uint256 _blockInterestTokenEarned
+        ) 
+    external;
+    function rewardsMinted(address user)
+    external returns(uint);
 
-	function updateGlobalGDYieldPerToken(
-		uint256 _blockGDInterest,
-		uint256 _blockInterestTokenEarned
-	) external;
 }
 
 /**
@@ -36,11 +39,8 @@ contract GoodFundManager is DAOContract {
 
 	// The address of cDai
 	ERC20 public cDai;
-
-	// The address of the reserve contract
-	// which recieves the funds from the
-	// staking contract
-	GoodReserveCDai public reserve;
+    
+    
 
 	uint256 constant DECIMAL1e18 = 10**18;
 
@@ -60,69 +60,72 @@ contract GoodFundManager is DAOContract {
 	// execution of `transferInterest`
 	uint256 public blockInterval;
 
-	// Last block number which `transferInterest`
-	// has been executed in
-	uint256 public lastTransferred;
-
-	// Emits when `transferInterest` transfers
-	// funds to the staking contract and to
-	// the bridge
-	event FundsTransferred(
-		// The caller address
-		address indexed caller,
-		// The staking contract address
-		address indexed staking,
-		// The reserve contract address
-		address indexed reserve,
-		// Amount of cDai that was transferred
-		// from the staking contract to the
-		// reserve contract
-		uint256 cDAIinterestEarned,
-		// How much interest has been donated
-		// according to the given donation
-		// ratio which determined in the
-		// staking contract
-		uint256 cDAIinterestDonated,
-		// The number of tokens that have been minted
-		// by the reserve to the staking contract
-		uint256 gdInterest,
-		// The number of tokens that have been minted
-		// by the reserve to the bridge which in his
-		// turn should transfer those funds to the
-		// sidechain
-		uint256 gdUBI
-	);
+    // Last block number which `transferInterest`
+    // has been executed in
+    uint256 public lastTransferred;
+    //Structure that hold reward information and if its blacklicksted or not for particular staking Contract
+    struct Reward{
+        uint32 blockReward; //in G$
+        uint64 blockStart; // # of the start block to distribute rewards
+        uint64 blockEnd; // # of the end block to distribute rewards
+        bool isBlackListed; // If staking contract is blacklisted or not
+    }
+    // Rewards per block for particular Staking contract
+    mapping(address => Reward) public rewardsForStakingContract;
+    // Emits when `transferInterest` transfers
+    // funds to the staking contract and to
+    // the bridge
+    event FundsTransferred(
+        // The caller address
+        address indexed caller,
+        // The staking contract address
+        address indexed staking,
+        // The reserve contract address
+        address indexed reserve,
+        // Amount of cDai that was transferred
+        // from the staking contract to the
+        // reserve contract
+        uint256 cDAIinterestEarned,
+        // The number of tokens that have been minted
+        // by the reserve to the bridge which in his
+        // turn should transfer those funds to the
+        // sidechain
+        uint256 gdUBI
+    );
 
 	modifier reserveHasInitialized {
 		require(
-			address(reserve) != address(0x0),
+			nameService.addresses(nameService.RESERVE()) != address(0x0),
 			"reserve has not initialized"
 		);
 		_;
 	}
 
-	/**
-	 * @dev Constructor
-	 * @param _ns The address of the name Service
-	 * @param _cDai The address of cDai
-	 * @param _bridgeContract The address of the bridge contract
-	 * @param _ubiRecipient The recipient address on the sidechain
-	 * @param _blockInterval How many blocks should be passed before the next execution of `transferInterest
-	 */
-	constructor(
-		NameService _ns,
-		address _cDai,
-		address _bridgeContract,
-		address _ubiRecipient,
-		uint256 _blockInterval //ActivePeriod(block.timestamp, block.timestamp * 2, _avatar)
-	) public {
-		setDAO(_ns);
-		cDai = ERC20(_cDai);
-		bridgeContract = _bridgeContract;
-		ubiRecipient = _ubiRecipient;
-		blockInterval = _blockInterval;
-		lastTransferred = block.number.div(blockInterval);
-	}
+    /**
+     * @dev Constructor
+     * @param _ns The address of the name Service
+     * @param _cDai The address of cDai
+     * @param _bridgeContract The address of the bridge contract
+     * @param _ubiRecipient The recipient address on the sidechain
+     * @param _blockInterval How many blocks should be passed before the next execution of `transferInterest
+     */
+    constructor(
+        NameService _ns,
+        address _cDai,
+        address _bridgeContract,
+        address _ubiRecipient,
+        uint256 _blockInterval
+    )
+        
+        //ActivePeriod(block.timestamp, block.timestamp * 2, _avatar)
+    {
+        setDAO(_ns);
+        cDai = ERC20(_cDai);
+        bridgeContract = _bridgeContract;
+        ubiRecipient = _ubiRecipient;
+        blockInterval = _blockInterval;
+        lastTransferred = block.number.div(blockInterval); 
+    }
 
 	/**
 	 * @dev Start function. Adds this contract to identity as a feeless scheme.
@@ -133,21 +136,32 @@ contract GoodFundManager is DAOContract {
 	//   super.start();
 	// }
 
-	/**
-	 * @dev Sets the whitelisted reserve. Only Avatar
-	 * can call this method.
-	 * @param _reserve The new reserve to be whitelisted
-	 */
-	function setReserve(GoodReserveCDai _reserve) public {
+    
+    /**
+     * @dev Sets the Reward for particular Staking contract
+     * @param _rewardsPerBlock reward for per block 
+     * @param _stakingAddress address of the staking contract
+     * @param _blockStart block number for start reward distrubution
+     * @param _blockEnd block number for end reward distrubition
+     * @param _isBlackListed set staking contract blacklisted or not to prevent minting
+     */
+    function setStakingReward(
+        uint32 _rewardsPerBlock,
+        address _stakingAddress,
+        uint32 _blockStart,
+        uint32 _blockEnd,
+        bool _isBlackListed
+    ) public{
 		_onlyAvatar();
-		reserve = _reserve;
-	}
-
-	/**
-	 * @dev sets the token bridge address on mainnet and the recipient of minted UBI (avatar on sidechain)
-	 * @param _bridgeContract address
-	 * @param _recipient address
-	 */
+        Reward memory reward = Reward(_rewardsPerBlock, _blockStart, _blockEnd, _isBlackListed);
+        rewardsForStakingContract[_stakingAddress] = reward;
+    }
+   
+    /**
+     * @dev sets the token bridge address on mainnet and the recipient of minted UBI (avatar on sidechain)
+     * @param _bridgeContract address
+     * @param _recipient address
+     */
 
 	/**
 	 * @dev Sets the bridge address on the current network and the recipient
@@ -205,59 +219,73 @@ contract GoodFundManager is DAOContract {
 		//     canRun(),
 		//     "Need to wait for the next interval"
 		// );
+        address reserveAddress = nameService.addresses(nameService.RESERVE());
 		lastTransferred = block.number.div(blockInterval);
 		ERC20 iToken = ERC20(_staking.iToken());
 		// iToken balance of the reserve contract
-		uint256 currentBalance = iToken.balanceOf(address(reserve));
+		uint256 currentBalance = iToken.balanceOf(reserveAddress);
 		// collects the interest from the staking contract and transfer it directly to the reserve contract
 		//`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
-		(, , , uint256 avgEffectiveStakedRatio) =
-			_staking.collectUBIInterest(address(reserve));
+	    _staking.collectUBIInterest(reserveAddress);
 
 		// Finds the actual transferred iToken
 		uint256 interest =
-			iToken.balanceOf(address(reserve)).sub(currentBalance);
-		uint256 effectiveInterest =
-			interest.mul(avgEffectiveStakedRatio).div(DECIMAL1e18);
+			iToken.balanceOf(reserveAddress).sub(currentBalance);
+		//uint256 effectiveInterest =
+		//	interest.mul(avgEffectiveStakedRatio).div(DECIMAL1e18);
+		//uint256 interestDonated = interest.sub(effectiveInterest);
+        // Mints gd while the interest amount is equal to the transferred amount
+        uint256 gdUBI = GoodReserveCDai(reserveAddress).mintUBI(
+            iToken,
+            interest
+        );
+        //_staking.updateGlobalGDYieldPerToken(gdInterest, interest);
+        // Transfers the minted tokens to the given staking contract
+        IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
+        //if(gdInterest > 0)
+        //    require(token.transfer(address(_staking), gdInterest),"interest transfer failed");
+        if(gdUBI > 0)
+            //transfer ubi to avatar on sidechain via bridge
+            require(token.transferAndCall(
+                bridgeContract,
+                gdUBI,
+                abi.encodePacked(ubiRecipient)
+            ),"ubi bridge transfer failed");
+        emit FundsTransferred(
+            msg.sender,
+            address(_staking),
+            reserveAddress,
+            interest,
+            gdUBI
+        );
+    }
+    /**
+     * @dev Mint to users reward tokens which they earned by staking contract
+     * @dev _user user to get rewards
+     */
+     function mintReward(
+        address _token,
+        address _user
 
-		uint256 interestDonated = interest.sub(effectiveInterest);
-		// Mints gd while the interest amount is equal to the transferred amount
-		(uint256 gdInterest, uint256 gdUBI) =
-			reserve.mintInterestAndUBI(iToken, interest, effectiveInterest);
-		_staking.updateGlobalGDYieldPerToken(gdInterest, interest);
-		// Transfers the minted tokens to the given staking contract
-		IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
-		if (gdInterest > 0)
-			require(
-				token.transfer(address(_staking), gdInterest),
-				"interest transfer failed"
-			);
-		if (gdUBI > 0)
-			//transfer ubi to avatar on sidechain via bridge
-			require(
-				token.transferAndCall(
-					bridgeContract,
-					gdUBI,
-					abi.encodePacked(ubiRecipient)
-				),
-				"ubi bridge transfer failed"
-			);
-		emit FundsTransferred(
-			msg.sender,
-			address(_staking),
-			address(reserve),
-			interest,
-			interestDonated,
-			gdInterest,
-			gdUBI
-		);
-	}
+     ) public {
+        
+        Reward memory staking = rewardsForStakingContract[address(msg.sender)];
+        require(staking.blockStart > 0 , "Staking contract not registered");
+        uint amount = StakingContract(address(msg.sender)).rewardsMinted(_user);
+        if(amount > 0 && staking.isBlackListed == false){
+            
+            GoodReserveCDai(nameService.addresses(nameService.RESERVE())).mintRewardFromRR(_token, _user, amount);
+        }
+        
 
-	/**
-	 * @dev Making the contract inactive after it has transferred funds to `_avatar`.
-	 * Only the avatar can destroy the contract.
-	 */
-	/**  function end() public onlyAvatar {
+
+     }
+    
+    /**
+     * @dev Making the contract inactive after it has transferred funds to `_avatar`.
+     * Only the avatar can destroy the contract.
+     */
+  /**  function end() public onlyAvatar {
         // Transfers the remaining amount of cDai and GD to the avatar
         uint256 remainingCDaiReserve = cDai.balanceOf(address(this));
         if (remainingCDaiReserve > 0) {

@@ -115,9 +115,6 @@ contract GoodReserveCDai is
 		// of `mintExpansion`
 		uint256 gdExpansionMinted,
 		// Amount of GD tokens that was
-		// minted to the `interestCollector`
-		uint256 gdInterestTransferred,
-		// Amount of GD tokens that was
 		// minted to the `ubiCollector`
 		uint256 gdUbiTransferred
 	);
@@ -246,7 +243,44 @@ contract GoodReserveCDai is
 
 		return result;
 	}
+	/**
+	 * @dev Converts ETH to cDAI then buy GD with this cDAI
+	 * @param _minReturn The minimum allowed return in GD tokens
+	 * @param _minDAIAmount The mininmum dai out amount from Exchange swap function
+	 * @param _targetAddress address of g$ and gdx recipient if different than msg.sender
+	 * @return (gdReturn) How much GD tokens were transferred
 
+	 */
+	function buyWithETH(
+		uint256 _minReturn,
+		uint256 _minDAIAmount,
+		address _targetAddress)
+		public payable returns(uint256){
+			Uniswap uniswapContract =
+				Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+			address[] memory path = new address[](2);
+			path[0] = uniswapContract.WETH();
+			path[1] = daiAddress;
+			uint256[] memory swap = uniswapContract.swapExactETHForTokens{ value: msg.value }(
+				_minDAIAmount,
+				path,
+			 	address(this),
+			  	block.timestamp);
+			uint256 dai = swap[1];
+			require(dai > 0, "token selling failed");
+
+			uint256 result = _cdaiMintAndBuy(dai, _minReturn, _targetAddress);
+			emit TokenPurchased(
+				msg.sender,
+				uniswapContract.WETH(),
+				msg.value,
+				_minReturn,
+				result
+			);
+
+			return result;
+			
+	}
 	/**
 	 * @dev Convert Dai to CDAI and buy
 	 * @param _amount DAI amount to convert
@@ -307,7 +341,23 @@ contract GoodReserveCDai is
 
 		return gdReturn;
 	}
-
+	/**
+	 * @dev Mint rewards for staking contracts in G$ and update RR
+	 * @param _to Receipent address for rewards
+	 * @param _amount G$ amount to mint for rewards
+	 */
+	function mintRewardFromRR(
+		address _token,
+		address _to,
+		uint _amount
+	) public{
+		
+		getMarketMaker().mintFromReserveRatio(ERC20(_token),_amount);
+		_mintGoodDollars(_to, _amount, false);
+		//mint GDX
+		_mintGDX(_to, _amount);
+		
+		}
 	/**
 	 * @dev Converts GD tokens to `sellTo` tokens and update the bonding curve params.
 	 * `sell` occurs only if the token return is above the given minimum. Notice that
@@ -315,7 +365,7 @@ contract GoodReserveCDai is
 	 * It is only possible to sell to cDAI and only when the contract is set to
 	 * active. MUST be called to G$ `approve` prior to this action to allow this
 	 * contract to accomplish the conversion.
-	 * @param _sellTo The tokens that will be received after the conversion
+	 * @param _sellTo The tokens that will be received after the conversion if address equals 0x0 then sell to ETH
 	 * @param _gdAmount The amount of GD tokens that should be converted to `_sellTo` tokens
 	 * @param _minReturn The minimum allowed `sellTo` tokens return
 	 * @param _minTokenReturn The mininmum dai out amount from Exchange swap function
@@ -346,19 +396,32 @@ contract GoodReserveCDai is
 		} else {
 			result = _redeemDAI(result);
 			address[] memory path = new address[](2);
-			path[0] = daiAddress;
-			path[1] = address(_sellTo);
+			
 			Uniswap uniswapContract =
 				Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 			ERC20(daiAddress).approve(address(uniswapContract), result);
-			uint256[] memory swap =
-				uniswapContract.swapExactTokensForTokens(
+			uint256[] memory swap;
+			if(address(_sellTo) == address(0x0)){
+				path[0] = daiAddress;
+				path[1] = uniswapContract.WETH();
+				swap = uniswapContract.swapExactTokensForETH(
+					result,
+				 	_minTokenReturn,
+					path,
+					receiver,
+					block.timestamp);
+			}else{
+				path[0] = daiAddress;
+				path[1] = address(_sellTo);
+				swap =uniswapContract.swapExactTokensForTokens(
 					result,
 					_minTokenReturn,
 					path,
 					receiver,
 					block.timestamp
 				);
+			}
+			
 
 			result = swap[1];
 			require(result > 0, "token selling failed");
@@ -506,16 +569,6 @@ contract GoodReserveCDai is
 		_mintGoodDollars(_to, gdToMint, false);
 	}
 
-	function mintFromReserveRatio(
-		ERC20 _interestToken,
-		address _to,
-		uint256 _gdToMint
-	) public {
-		getMarketMaker().mintFromReserveRatio(_interestToken, _gdToMint);
-
-		_mintGoodDollars(_to, _gdToMint, false);
-	}
-
 	function _mintGoodDollars(
 		address _to,
 		uint256 _gdToMint,
@@ -550,27 +603,24 @@ contract GoodReserveCDai is
 	 * Reserve sends UBI + interest to FundManager.
 	 * @param _interestToken The token that was transfered to the reserve
 	 * @param _transfered How much was transfered to the reserve for UBI in `_interestToken`
-	 * @param _interest Out of total transfered how much is the interest (in `_interestToken`)
-	 * that needs to be paid back (some interest might be donated)
-	 * @return (gdInterest, gdUBI) How much GD interest was minted and how much GD UBI was minted
+	 * @return gdUBI how much GD UBI was minted
 	 */
-	function mintInterestAndUBI(
+	function mintUBI(
 		ERC20 _interestToken,
-		uint256 _transfered,
-		uint256 _interest
-	) public returns (uint256, uint256) {
-		uint256 price = getMarketMaker().currentPrice(ERC20(cDaiAddress));
+		uint256 _transfered
+	) public returns (uint256) {
+		//uint256 price = getMarketMaker().currentPrice(ERC20(cDaiAddress));
 		// uint256 price = currentPrice(_interestToken);
 		uint256 gdInterestToMint =
 			getMarketMaker().mintInterest(_interestToken, _transfered);
-		IGoodDollar gooddollar = IGoodDollar(address(avatar.nativeToken()));
-		uint256 precisionLoss = uint256(27).sub(uint256(gooddollar.decimals()));
-		uint256 gdInterest = rdiv(_interest, price).div(10**precisionLoss);
+		//IGoodDollar gooddollar = IGoodDollar(address(avatar.nativeToken()));
+		//uint256 precisionLoss = uint256(27).sub(uint256(gooddollar.decimals()));
+		//uint256 gdInterest = rdiv(_interest, price).div(10**precisionLoss);
 		uint256 gdExpansionToMint =
 			getMarketMaker().mintExpansion(_interestToken);
-		uint256 gdUBI = gdInterestToMint.sub(gdInterest);
+		uint256 gdUBI = gdInterestToMint;
 		gdUBI = gdUBI.add(gdExpansionToMint);
-		uint256 toMint = gdUBI.add(gdInterest);
+		uint256 toMint = gdUBI;
 		_mintGoodDollars(getFundManager(), toMint, false);
 		lastMinted = block.number;
 		emit UBIMinted(
@@ -579,10 +629,9 @@ contract GoodReserveCDai is
 			_transfered,
 			gdInterestToMint,
 			gdExpansionToMint,
-			gdInterest,
 			gdUBI
 		);
-		return (gdInterest, gdUBI);
+		return gdUBI;
 	}
 
 	/**
