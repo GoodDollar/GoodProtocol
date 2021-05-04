@@ -31,6 +31,7 @@ contract NameService is Initializable {
 		for (uint256 i = 0; i < _nameHashes.length; i++) {
 			addresses[_nameHashes[i]] = _addresses[i];
 		}
+		addresses[CONTROLLER] = address(_dao);
 	}
 
 	function setAddress(string memory name, address addr) public {
