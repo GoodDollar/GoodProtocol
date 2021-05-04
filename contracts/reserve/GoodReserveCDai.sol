@@ -243,7 +243,44 @@ contract GoodReserveCDai is
 
 		return result;
 	}
+	/**
+	 * @dev Converts ETH to cDAI then buy GD with this cDAI
+	 * @param _minReturn The minimum allowed return in GD tokens
+	 * @param _minDAIAmount The mininmum dai out amount from Exchange swap function
+	 * @param _targetAddress address of g$ and gdx recipient if different than msg.sender
+	 * @return (gdReturn) How much GD tokens were transferred
 
+	 */
+	function buyWithETH(
+		uint256 _minReturn,
+		uint256 _minDAIAmount,
+		address _targetAddress)
+		public payable returns(uint256){
+			Uniswap uniswapContract =
+				Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+			address[] memory path = new address[](2);
+			path[0] = uniswapContract.WETH();
+			path[1] = daiAddress;
+			uint256[] memory swap = uniswapContract.swapExactETHForTokens{ value: msg.value }(
+				_minDAIAmount,
+				path,
+			 	address(this),
+			  	block.timestamp);
+			uint256 dai = swap[1];
+			require(dai > 0, "token selling failed");
+
+			uint256 result = _cdaiMintAndBuy(dai, _minReturn, _targetAddress);
+			emit TokenPurchased(
+				msg.sender,
+				uniswapContract.WETH(),
+				msg.value,
+				_minReturn,
+				result
+			);
+
+			return result;
+			
+	}
 	/**
 	 * @dev Convert Dai to CDAI and buy
 	 * @param _amount DAI amount to convert
@@ -328,7 +365,7 @@ contract GoodReserveCDai is
 	 * It is only possible to sell to cDAI and only when the contract is set to
 	 * active. MUST be called to G$ `approve` prior to this action to allow this
 	 * contract to accomplish the conversion.
-	 * @param _sellTo The tokens that will be received after the conversion
+	 * @param _sellTo The tokens that will be received after the conversion if address equals 0x0 then sell to ETH
 	 * @param _gdAmount The amount of GD tokens that should be converted to `_sellTo` tokens
 	 * @param _minReturn The minimum allowed `sellTo` tokens return
 	 * @param _minTokenReturn The mininmum dai out amount from Exchange swap function
@@ -359,19 +396,32 @@ contract GoodReserveCDai is
 		} else {
 			result = _redeemDAI(result);
 			address[] memory path = new address[](2);
-			path[0] = daiAddress;
-			path[1] = address(_sellTo);
+			
 			Uniswap uniswapContract =
 				Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 			ERC20(daiAddress).approve(address(uniswapContract), result);
-			uint256[] memory swap =
-				uniswapContract.swapExactTokensForTokens(
+			uint256[] memory swap;
+			if(address(_sellTo) == address(0x0)){
+				path[0] = daiAddress;
+				path[1] = uniswapContract.WETH();
+				swap = uniswapContract.swapExactTokensForETH(
+					result,
+				 	_minTokenReturn,
+					path,
+					receiver,
+					block.timestamp);
+			}else{
+				path[0] = daiAddress;
+				path[1] = address(_sellTo);
+				swap =uniswapContract.swapExactTokensForTokens(
 					result,
 					_minTokenReturn,
 					path,
 					receiver,
 					block.timestamp
 				);
+			}
+			
 
 			result = swap[1];
 			require(result > 0, "token selling failed");
