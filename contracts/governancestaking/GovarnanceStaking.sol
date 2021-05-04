@@ -2,7 +2,7 @@
 
 pragma solidity >=0.7.0;
 
-import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
+
 import "../Interfaces.sol";
 
 import "../DAOStackInterfaces.sol";
@@ -17,8 +17,8 @@ import "./GovernanceStakingToken.sol";
  * or withdraw their stake in Tokens
  * the contracts buy intrest tokens and can transfer the daily interest to the  DAO
  */
-contract SimpleStaking is Pausable, GovernanceStakingToken {
-	using SafeMath for uint256;
+contract GovernanceStaking is Pausable, GovernanceStakingToken {
+	
 
 	// Token address
 	ERC20 token;
@@ -41,22 +41,19 @@ contract SimpleStaking is Pausable, GovernanceStakingToken {
 
 	/**
 	 * @dev Constructor
-     * @param _iToken Address of the Govarnance token and reward token
-	 * @param _blockInterval How many blocks should be passed before the next execution of `collectUBIInterest`
+     * @param _iToken Address of the Govarnance token which is reward token
 	 * @param _ns The address of the NameService contract
 	 * @param _tokenName The name of the staking token
 	 * @param _tokenSymbol The symbol of the staking token
 	 */
 	constructor(
 		address _iToken,
-		uint256 _blockInterval,
 		NameService _ns,
 		string memory _tokenName,
-		string memory _tokenSymbol,
-		uint64 _maxRewardThreshold
+		string memory _tokenSymbol
 	) GovernanceStakingToken(_tokenName, _tokenSymbol) {
 		setDAO(_ns);
-		token = ERC20(address(Avatar.nativeToken()));
+		token = ERC20(address(avatar.nativeToken()));
         rewardsPerBlock = 7; // 7 Govarnance token per block as reward to distribute 12M token monthly
 		_setShareToken(_iToken);
 		// Adds the avatar as a pauser of this contract
@@ -69,11 +66,9 @@ contract SimpleStaking is Pausable, GovernanceStakingToken {
 	 * needed to be executed before the execution of this method.
 	 * Can be executed only when the contract is not paused.
 	 * @param _amount The amount of DAI to stake
-	 * @param _donationPer The % of interest staker want to donate.
 	 */
-	function stake(uint256 _amount, uint256 _donationPer)
+	function stake(uint256 _amount)
 		external
-		override
 		whenNotPaused
 	{
 		require(_amount > 0, "You need to stake a positive token amount");
@@ -90,7 +85,7 @@ contract SimpleStaking is Pausable, GovernanceStakingToken {
 	/**
 	 * @dev Withdraws the sender staked Token.
 	 */
-	function withdrawStake(uint256 _amount) external override {
+	function withdrawStake(uint256 _amount) external {
 		(uint256 userProductivity, ) = getProductivity(msg.sender);
 		require(_amount > 0, "Should withdraw positive amount");
 		require(userProductivity >= _amount, "Not enough token staked");
@@ -101,7 +96,7 @@ contract SimpleStaking is Pausable, GovernanceStakingToken {
 		}
 		_burn(msg.sender, _amount); // burn their staking tokens
 		_decreaseProductivity(msg.sender, _amount);
-		
+		_mintRewards(msg.sender);
 		require(
 			token.transfer(msg.sender, tokenWithdraw),
 			"withdraw transfer failed"
@@ -115,7 +110,9 @@ contract SimpleStaking is Pausable, GovernanceStakingToken {
 	}
 
 	function withdrawRewards() public {
-		// TODO:IMPLEMENT 
+		
+		_mintRewards(msg.sender);
+
 	}
 
 
@@ -133,8 +130,8 @@ contract SimpleStaking is Pausable, GovernanceStakingToken {
 		return (
 			users[_staker].amount,
 			users[_staker].rewardDebt,
-			users[_staker].rewardEarn,
-		);
+			users[_staker].rewardEarn
+			);
 	}
 
 	
@@ -158,10 +155,10 @@ contract SimpleStaking is Pausable, GovernanceStakingToken {
 		uint256 toWithdraw = _token.balanceOf(address(this));
 
 		// recover left iToken(stakers token) only when all stakes have been withdrawn
-		if (address(_token) == address(Token)) {
+		if (address(_token) == address(token)) {
 			require(
 				totalProductivity == 0 && paused(),
-				"can recover iToken only when stakes have been withdrawn"
+				"can recover token only when stakes have been withdrawn"
 			);
 		}
 		require(
