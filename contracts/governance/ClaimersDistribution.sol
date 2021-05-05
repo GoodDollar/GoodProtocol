@@ -30,7 +30,7 @@ contract ClaimersDistribution is Initializable, DAOContract {
 	mapping(address => uint256) public lastUpdated;
 
 	function initialize(NameService _ns) public initializer {
-		monthlyReputationDistribution = 4000000;
+		monthlyReputationDistribution = 4000000; //4M as specified in specs
 		_updateMonth();
 		setDAO(_ns);
 	}
