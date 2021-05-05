@@ -141,6 +141,14 @@ describe("ClaimersDistribution", () => {
     expect(await rep.balanceOf(claimer1.address)).to.equal(2000000); //half of reputation since he claimed once out of 2 claims
   });
 
+  //testing branch condition in ClaimersDistribution.sol line 85
+  //`if (lastMonthClaimed[_claimer] >= prevMonth) return;`
+  it("should not try to claimReputation when updating claim second time in month", async () => {
+    const prevMonth = (await cd.currentMonth()).sub(1);
+    expect(await cd.lastMonthClaimed(claimer1.address)).gte(prevMonth);
+    await expect(ubiScheme.connect(claimer1).claim()).to.not.reverted;
+  });
+
   it("should not be able to claim reputation if already distributed", async () => {
     await expect(cd.claimReputation(claimer1.address)).to.revertedWith(
       "already claimed"
