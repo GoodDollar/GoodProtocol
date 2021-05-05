@@ -88,6 +88,8 @@ contract GoodFundManager is DAOContract {
         //address indexed staking,
         // The reserve contract address
         address indexed reserve,
+        //addresses of the staking contracts
+        address[] indexed stakings,
         // Amount of cDai that was transferred
         // from the staking contract to the
         // reserve contract
@@ -300,6 +302,7 @@ contract GoodFundManager is DAOContract {
         emit FundsTransferred(
             msg.sender,
             nameService.addresses(nameService.RESERVE()),
+            _stakingContracts,
             interest,
             gdUBI,
             gdAmountToMint
