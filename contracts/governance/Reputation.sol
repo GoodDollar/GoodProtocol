@@ -42,7 +42,7 @@ contract Reputation is DAOContract, AccessControlUpgradeable {
 	 * @dev initialize
 	 */
 	function initialize(NameService _ns) public initializer {
-		decimals = 0;
+		decimals = 18;
 		__Context_init_unchained();
 		__ERC165_init_unchained();
 		__AccessControl_init_unchained();

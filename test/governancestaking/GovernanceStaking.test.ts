@@ -159,7 +159,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     );
     let encodedCall = governanceStakingFactory.interface.encodeFunctionData(
       "setRewardsPerBlock",
-      ["10"]
+      [ethers.utils.parseEther("10")]
     );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
     
@@ -170,12 +170,12 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
     await governanceStaking.withdrawStake("100")
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("50")
+    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("50000000000000000000")
     encodedCall = governanceStakingFactory.interface.encodeFunctionData(
         "setRewardsPerBlock",
-        ["7"]
+        [ethers.utils.parseEther("7")]
       );
-      await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
+    await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
   });
 
   it("Should be able to withdraw rewards without withdraw stake", async () => {
@@ -187,7 +187,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
     await governanceStaking.withdrawRewards()
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("35")
+    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("35000000000000000000")
     await governanceStaking.withdrawStake("100")
   })
 
