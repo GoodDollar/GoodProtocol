@@ -8,24 +8,37 @@ import "../Interfaces.sol";
 import "../governance/GReputation.sol";
 
 contract ClaimersDistribution is Initializable, DAOContract {
+	///@notice reputation to distribute each month, will effect next month when set
 	uint256 public monthlyReputationDistribution;
-	uint256 currentMonth;
+
+	///@notice month number since epoch
+	uint256 public currentMonth;
 
 	struct MonthData {
-		mapping(address => uint256) claims;
-		uint256 totalClaims;
-		uint256 monthlyDistribution;
+		mapping(address => uint256) claims; //claims per user in month
+		uint256 totalClaims; // total claims in month
+		uint256 monthlyDistribution; //monthlyReputationDistribution at the time when _updateMonth was called
 	}
 
+	///@notice keep track of each month distribution data
 	mapping(uint256 => MonthData) public months;
-	mapping(address => uint256) public lastMonthDistribution;
+
+	///@notice marks last month user claimed reputation for
+	mapping(address => uint256) public lastMonthClaimed;
+
+	///@notice tracks timestamp of last time user claimed UBI
 	mapping(address => uint256) public lastUpdated;
 
-	function initialize() public initializer {
-		monthlyReputationDistribution = 1200000000;
-		updateMonth();
+	function initialize(NameService _ns) public initializer {
+		monthlyReputationDistribution = 4000000;
+		_updateMonth();
+		setDAO(_ns);
 	}
 
+	/**
+	 * @dev update the monthly reputation distribution. only avatar can do that.
+	 * @param newMonthlyReputationDistribution the new reputation amount to distribute
+	 */
 	function setMonthlyReputationDistribution(
 		uint256 newMonthlyReputationDistribution
 	) external {
@@ -33,7 +46,10 @@ contract ClaimersDistribution is Initializable, DAOContract {
 		monthlyReputationDistribution = newMonthlyReputationDistribution;
 	}
 
-	function updateMonth() public {
+	/**
+	 * @dev internal function to switch to new month. records for new month the current monthlyReputationDistribution
+	 */
+	function _updateMonth() internal {
 		uint256 month = block.timestamp / 30 days;
 		if (month != currentMonth) {
 			//update new month
@@ -43,8 +59,12 @@ contract ClaimersDistribution is Initializable, DAOContract {
 		}
 	}
 
+	/**
+	 * @dev increase user count of claims if he claimed today. (called automatically by latest version of UBIScheme)
+	 * @param _claimer the user to update
+	 */
 	function updateClaim(address _claimer) external {
-		IUBIScheme ubi = IUBIScheme(nameService.getAddress("UBISCheme"));
+		IUBIScheme ubi = IUBIScheme(nameService.getAddress("UBISCHEME"));
 		require(
 			ubi.hasClaimed(_claimer),
 			"ClaimersDistribution: didn't claim today"
@@ -54,21 +74,37 @@ contract ClaimersDistribution is Initializable, DAOContract {
 				lastUpdated[_claimer],
 			"ClaimersDistribution: already updated"
 		);
-		updateMonth();
+		_updateMonth();
 
 		lastUpdated[_claimer] = block.timestamp;
 		months[currentMonth].claims[_claimer] += 1;
 		months[currentMonth].totalClaims += 1;
 
-		claimDistribution(_claimer);
+		uint256 prevMonth = currentMonth - 1;
+		if (lastMonthClaimed[_claimer] >= prevMonth) return;
+		claimReputation(_claimer);
 	}
 
-	function claimDistribution(address _claimer) public {
-		uint256 prevMonth = currentMonth - 1;
-		if (lastMonthDistribution[_claimer] >= prevMonth) return;
+	/**
+	 * @dev helper func
+	 * @return number of UBI claims user performed this month
+	 */
+	function getMonthClaims(address _claimer) public view returns (uint256) {
+		return months[currentMonth].claims[_claimer];
+	}
 
+	/**
+	 * @dev mints reputation to user according to his share in last month claims
+	 * @param _claimer the user to distribute reputation to
+	 */
+	function claimReputation(address _claimer) public {
+		uint256 prevMonth = currentMonth - 1;
+		require(
+			lastMonthClaimed[_claimer] < prevMonth,
+			"ClaimersDistribution: already claimed"
+		);
 		if (months[prevMonth].monthlyDistribution > 0) {
-			lastMonthDistribution[_claimer] = prevMonth;
+			lastMonthClaimed[_claimer] = prevMonth;
 			uint256 userShare =
 				(months[prevMonth].monthlyDistribution *
 					months[prevMonth].claims[_claimer]) /

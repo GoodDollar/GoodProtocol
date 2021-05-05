@@ -29,7 +29,7 @@ contract UBIScheme is Initializable, DAOContract {
 	uint256 public dailyUbi;
 
 	// Limits the gas for each iteration at `fishMulti`
-	uint256 public iterationGasLimit = 150000;
+	uint256 public iterationGasLimit;
 
 	// Tracks the active users number. It changes when
 	// a new user claim for the first time or when a user
@@ -140,6 +140,7 @@ contract UBIScheme is Initializable, DAOContract {
 		firstClaimPool = _firstClaimPool;
 		shouldWithdrawFromDAO = false;
 		cycleLength = _cycleLength;
+		iterationGasLimit = 150000;
 	}
 
 	/* @dev function that gets the amount of people who claimed on the given day
@@ -301,10 +302,10 @@ contract UBIScheme is Initializable, DAOContract {
 	 * @return True for active user
 	 */
 	function isActiveUser(address _account) public view returns (bool) {
-		uint256 lastClaimed = lastClaimed[_account];
+		uint256 _lastClaimed = lastClaimed[_account];
 		if (isNotNewUser(_account)) {
 			uint256 daysSinceLastClaim =
-				(block.timestamp - lastClaimed) / (1 days);
+				(block.timestamp - _lastClaimed) / (1 days);
 			if (daysSinceLastClaim < maxInactiveDays) {
 				// active user
 				return true;
@@ -422,7 +423,7 @@ contract UBIScheme is Initializable, DAOContract {
 		bool didClaim = _claim(msg.sender);
 		if (didClaim) {
 			ClaimersDistribution(
-				nameService.getAddress(("CLAIMERS_DISTRIBUTION"))
+				nameService.addresses(nameService.GDAO_CLAIMERS())
 			)
 				.updateClaim(msg.sender);
 		}
