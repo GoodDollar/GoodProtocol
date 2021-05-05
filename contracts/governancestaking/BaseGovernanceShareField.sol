@@ -38,7 +38,15 @@ contract BaseGovernanceShareField is DAOContract {
         _onlyAvatar();
         rewardsPerBlock = _rewardsPerBlock;
     }
-
+	/**
+	 * @dev Calculate rewards per block from monthly amount of rewards and set it
+	 * @param _monthlyAmount total rewards which will distribute monthly
+	 */
+	function setMonthlyRewards(uint256 _monthlyAmount) public{
+		_onlyAvatar();
+		rewardsPerBlock = _monthlyAmount / 172800;
+		
+	}
 	function _setShareToken(address _shareToken) internal {
 		shareToken = _shareToken;
 	}
@@ -55,7 +63,7 @@ contract BaseGovernanceShareField is DAOContract {
 		
 		
         uint256 multiplier = block.number - lastRewardBlock; // Blocks passed since last reward block
-        uint256 reward = multiplier * rewardsPerBlock; // rewardsPerBlock is in GDAO which is in 0 decimals
+        uint256 reward = multiplier * rewardsPerBlock; // rewardsPerBlock is in GDAO which is in 18 decimals
 
         accAmountPerShare = accAmountPerShare + rdiv(reward ,totalProductivity * 1e16) / 1e9; // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals then rdiv and  divide result of it to 1e9 so reduce it to 18decimals
 		lastRewardBlock = block.number;
@@ -141,7 +149,7 @@ contract BaseGovernanceShareField is DAOContract {
 		if (totalProductivity != 0) 
         {
 			uint256 multiplier = block.number - lastRewardBlock;
-			uint256 reward = multiplier * rewardsPerBlock; // rewardsPerBlock is in GDAO which is in 0 decimals
+			uint256 reward = multiplier * rewardsPerBlock; // rewardsPerBlock is in GDAO which is in 18 decimals
 		
 
 			_accAmountPerShare = _accAmountPerShare + rdiv(reward ,totalProductivity * 1e16) / 1e9; // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals then rdiv and  divide result of it to 1e9 so reduce it to 18decimals
@@ -162,7 +170,7 @@ contract BaseGovernanceShareField is DAOContract {
     * @return returns minted amount
     */
 
-	function _calcAndUpdateRewards(address user)
+	function _issueEarnedRewards(address user)
 		internal
 		returns (uint256)
 	{

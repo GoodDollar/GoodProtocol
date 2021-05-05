@@ -56,7 +56,6 @@ contract GovernanceStaking is GovernanceStakingToken,Initializable{
 	) public virtual initializer {
 		setDAO(_ns);
 		token = ERC20(address(avatar.nativeToken()));
-        rewardsPerBlock = 7 * 1e18; // 7 Govarnance token per block as reward to distribute 12M token monthly
 		_setShareToken(_iToken);
 		name = _tokenName;
         symbol = _tokenSymbol;
@@ -126,7 +125,7 @@ contract GovernanceStaking is GovernanceStakingToken,Initializable{
 	 */
 
 	function _mintRewards(address user) internal returns(uint){
-		uint256 amount = _calcAndUpdateRewards(user);
+		uint256 amount = _issueEarnedRewards(user);
 		ERC20(shareToken).mint(user,amount);
 		return amount;
 	}

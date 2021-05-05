@@ -117,7 +117,16 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
         unsafeAllowCustomTypes: true
       }
     );
-
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    let encodedCall = governanceStakingFactory.interface.encodeFunctionData(
+      "setMonthlyRewards",
+      [ethers.utils.parseEther("12000000")]
+    );
+    await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
     setDAOAddress("CDAI", cDAI.address);
     setDAOAddress("DAI", dai.address);
 
@@ -172,8 +181,8 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
     expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("50000000000000000000")
     encodedCall = governanceStakingFactory.interface.encodeFunctionData(
-        "setRewardsPerBlock",
-        [ethers.utils.parseEther("7")]
+        "setMonthlyRewards",
+        [ethers.utils.parseEther("12000000")]
       );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
   });
@@ -187,7 +196,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
     const transaction = await(await governanceStaking.withdrawRewards()).wait()
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("35000000000000000000")
+    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("347222222222222222220")
     expect(transaction.events.find(_ => _.event === "RewardsWithdraw")).to.be.not
       .empty;
     await governanceStaking.withdrawStake("100")
@@ -267,8 +276,8 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
     expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("0")
     encodedCall = governanceStakingFactory.interface.encodeFunctionData(
-      "setRewardsPerBlock",
-      [ethers.utils.parseEther("7")]
+      "setMonthlyRewards",
+      [ethers.utils.parseEther("12000000")]
     );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
   })
@@ -292,7 +301,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await governanceStaking.stake("100");
     await advanceBlocks(5);
     const totalEarned = await governanceStaking.getUserPendingReward(founder.address)
-    expect(totalEarned.toString()).to.be.equal(ethers.utils.parseEther("35").toString())
+    expect(totalEarned.toString()).to.be.equal("347222222222222222220")
     await governanceStaking.withdrawStake("100")
   })
 
