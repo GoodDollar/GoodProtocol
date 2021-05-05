@@ -23,10 +23,7 @@ contract GovernanceStakingToken is BaseGovernanceShareField{
         balanceOf[to] = balanceOf[to] + value;
         emit Transfer(address(0), to, value);
     }
-    constructor(string memory _name , string memory _symbol){
-        name = _name;
-        symbol = _symbol;
-    }
+   
     receive() external payable {
     }
     

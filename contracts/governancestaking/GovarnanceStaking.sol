@@ -2,13 +2,11 @@
 
 pragma solidity >=0.7.0;
 
-
 import "../Interfaces.sol";
 
 import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
-import "../utils/Pausable.sol";
-import "../utils/DAOContract.sol";
+
 import "./GovernanceStakingToken.sol";
 
 /**
@@ -17,7 +15,7 @@ import "./GovernanceStakingToken.sol";
  * or withdraw their stake in Tokens
  * the contracts buy intrest tokens and can transfer the daily interest to the  DAO
  */
-contract GovernanceStaking is Pausable, GovernanceStakingToken {
+contract GovernanceStaking is GovernanceStakingToken,Initializable{
 	
 
 	// Token address
@@ -50,18 +48,18 @@ contract GovernanceStaking is Pausable, GovernanceStakingToken {
 	 * @param _tokenName The name of the staking token
 	 * @param _tokenSymbol The symbol of the staking token
 	 */
-	constructor(
+	function initialize(
 		address _iToken,
 		NameService _ns,
 		string memory _tokenName,
 		string memory _tokenSymbol
-	) GovernanceStakingToken(_tokenName, _tokenSymbol) {
+	) public virtual initializer {
 		setDAO(_ns);
 		token = ERC20(address(avatar.nativeToken()));
         rewardsPerBlock = 7; // 7 Govarnance token per block as reward to distribute 12M token monthly
 		_setShareToken(_iToken);
-		// Adds the avatar as a pauser of this contract
-		addPauser(address(avatar));
+		name = _tokenName;
+        symbol = _tokenSymbol;
         
 	}
 
@@ -73,7 +71,6 @@ contract GovernanceStaking is Pausable, GovernanceStakingToken {
 	 */
 	function stake(uint256 _amount)
 		external
-		whenNotPaused
 	{
 		require(_amount > 0, "You need to stake a positive token amount");
 		require(

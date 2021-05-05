@@ -107,11 +107,15 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     });
 
     console.log("setting permissions...");
-    governanceStaking = await governanceStakingFactory.deploy(
-      grep.address,
-      nameService.address,
-      "DAOStaking",
-      "DST"
+    governanceStaking =await upgrades.deployProxy(
+      governanceStakingFactory,
+      [ grep.address,
+        nameService.address,
+        "DAOStaking",
+        "DST"],
+      {
+        unsafeAllowCustomTypes: true
+      }
     );
 
     setDAOAddress("CDAI", cDAI.address);
