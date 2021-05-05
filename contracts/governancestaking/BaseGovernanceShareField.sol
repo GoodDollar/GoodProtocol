@@ -135,7 +135,6 @@ contract BaseGovernanceShareField is DAOContract {
 	function getUserPendingReward(address user) public view returns (uint256) {
 		UserInfo memory userInfo = users[user];
 		uint256 _accAmountPerShare = accAmountPerShare;
-		// uint256 lpSupply = totalProductivity;
 	
 		uint256 pending = 0;
 	
@@ -149,7 +148,7 @@ contract BaseGovernanceShareField is DAOContract {
 			
 			
 			pending =
-					(userInfo.amount * accAmountPerShare) / 1e2
+					(userInfo.amount * _accAmountPerShare) / 1e2
 					- userInfo.rewardDebt; // Divide 1e2 to reduce 2 Decimals since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
 				
 			

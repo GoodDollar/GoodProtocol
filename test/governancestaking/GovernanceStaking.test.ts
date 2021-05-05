@@ -185,9 +185,11 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await governanceStaking.stake("100");
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
-    await governanceStaking.withdrawRewards()
+    const transaction = await(await governanceStaking.withdrawRewards()).wait()
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
     expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("35000000000000000000")
+    expect(transaction.events.find(_ => _.event === "RewardsWithdraw")).to.be.not
+      .empty;
     await governanceStaking.withdrawStake("100")
   })
 
@@ -240,4 +242,59 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     );
   await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
   })
+  
+  it("it should not generate rewards when rewards per block set to 0",async() =>{
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    const governanceStakingFactory = await ethers.getContractFactory(
+      "GovernanceStaking"
+    );
+    let encodedCall = governanceStakingFactory.interface.encodeFunctionData(
+      "setRewardsPerBlock",
+      ["0"] // Give 0.0001 GDAO per block
+    );
+    await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
+    
+    await goodDollar.mint(founder.address, "100");
+    await goodDollar.approve(governanceStaking.address, "100");
+    await governanceStaking.stake("100");
+    await advanceBlocks(4);
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
+    await governanceStaking.withdrawStake("100")
+    const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
+    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("0")
+    encodedCall = governanceStakingFactory.interface.encodeFunctionData(
+      "setRewardsPerBlock",
+      [ethers.utils.parseEther("7")]
+    );
+    await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
+  })
+
+  it("it should return productivity values correctly", async() =>{
+
+    await goodDollar.mint(founder.address, "100");
+    await goodDollar.approve(governanceStaking.address, "100");
+    await governanceStaking.stake("100");
+    const productivityValue = await governanceStaking.getProductivity(founder.address)
+    
+    expect(productivityValue[0].toString()).to.be.equal("100")
+    expect(productivityValue[1].toString()).to.be.equal("100")
+    await governanceStaking.withdrawStake("100")
+  })
+
+  it("it should return earned rewards with pending ones properly", async() =>{
+
+    await goodDollar.mint(founder.address, "100");
+    await goodDollar.approve(governanceStaking.address, "100");
+    await governanceStaking.stake("100");
+    await advanceBlocks(5);
+    const totalEarned = await governanceStaking.getUserPendingReward(founder.address)
+    expect(totalEarned.toString()).to.be.equal(ethers.utils.parseEther("35").toString())
+    await governanceStaking.withdrawStake("100")
+  })
+
+
 });
