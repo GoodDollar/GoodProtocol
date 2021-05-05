@@ -191,7 +191,7 @@ contract BaseGovernanceShareField is DAOContract {
 	/**
 	 * @return Returns the current gross product rate.
 	 */
-	function interestsPerBlock() public view virtual returns (uint256) {
+	function totalRewardsPerShare() public view virtual returns (uint256) {
 		return accAmountPerShare;
 	}
     function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
