@@ -5,7 +5,6 @@ import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DAOContract.sol";
 import "../utils/DSMath.sol";
-import "hardhat/console.sol";
 
 contract BaseGovernanceShareField is DAOContract {
 	using SafeMath for uint256;
@@ -65,7 +64,7 @@ contract BaseGovernanceShareField is DAOContract {
         uint256 multiplier = block.number - lastRewardBlock; // Blocks passed since last reward block
         uint256 reward = multiplier * rewardsPerBlock; // rewardsPerBlock is in GDAO which is in 18 decimals
 
-        accAmountPerShare = accAmountPerShare + rdiv(reward ,totalProductivity * 1e16) / 1e9; // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals then rdiv and  divide result of it to 1e9 so reduce it to 18decimals
+        accAmountPerShare = accAmountPerShare + rdiv(reward ,totalProductivity * 1e16); // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
 		lastRewardBlock = block.number;
 	}
 
@@ -77,8 +76,8 @@ contract BaseGovernanceShareField is DAOContract {
 		if (userInfo.amount > 0) {
 		
 				uint256 pending =
-					(userInfo.amount * accAmountPerShare) / 1e2
-					- userInfo.rewardDebt; // Divide 1e2 to reduce 2 Decimals since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
+					(userInfo.amount * accAmountPerShare) / 1e11
+					- userInfo.rewardDebt; // Divide 1e11(because userinfo.amount in 2 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
 				userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
 				mintCumulation = mintCumulation + pending;
 			}
@@ -106,7 +105,7 @@ contract BaseGovernanceShareField is DAOContract {
 
 		totalProductivity = totalProductivity + value;
 		userInfo.amount = userInfo.amount + value;
-		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e2; // Divide to 1e2 to keep rewardDebt in 2 decimals
+		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e11; // Divide to 1e11 to keep rewardDebt in 18 decimals
 		return true;
 	}
 
@@ -130,7 +129,7 @@ contract BaseGovernanceShareField is DAOContract {
 		_audit(user);
 		
 		userInfo.amount = userInfo.amount - value;
-		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e2;
+		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e11; // Divide to 1e11 to keep rewardDebt in 18 decimals
 		totalProductivity = totalProductivity - value;
 
 		return true;
@@ -152,12 +151,12 @@ contract BaseGovernanceShareField is DAOContract {
 			uint256 reward = multiplier * rewardsPerBlock; // rewardsPerBlock is in GDAO which is in 18 decimals
 		
 
-			_accAmountPerShare = _accAmountPerShare + rdiv(reward ,totalProductivity * 1e16) / 1e9; // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals then rdiv and  divide result of it to 1e9 so reduce it to 18decimals
+			_accAmountPerShare = _accAmountPerShare + rdiv(reward ,totalProductivity * 1e16); // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
 			
 			
 			pending =
-					(userInfo.amount * _accAmountPerShare) / 1e2
-					- userInfo.rewardDebt; // Divide 1e2 to reduce 2 Decimals since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
+					(userInfo.amount * _accAmountPerShare) / 1e11
+					- userInfo.rewardDebt; // Divide 1e11(because userinfo.amount in 2 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
 				
 			
 		}

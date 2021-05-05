@@ -202,7 +202,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await governanceStaking.withdrawStake("100")
   })
 
-  it("Should be able to withdraw transfered stakes",async() => {
+  it("Should be able to withdraw transferred stakes",async() => {
     await goodDollar.mint(staker.address, "100");
     await goodDollar.connect(staker).approve(governanceStaking.address, "100");
     await governanceStaking.connect(staker).stake("100");
@@ -305,5 +305,16 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await governanceStaking.withdrawStake("100")
   })
 
+  it("it should be withdraw without issue when staking amount is too large",async()=>{
+
+    await goodDollar.mint(founder.address, "100000000000000"); // 1 trillion gd stake
+    await goodDollar.approve(governanceStaking.address, "1000000000000");
+    await governanceStaking.stake("1000000000000");
+    await advanceBlocks(4);
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
+    await governanceStaking.withdrawStake("1000000000000")
+    const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
+    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("347222222222222222220")
+  })
 
 });
