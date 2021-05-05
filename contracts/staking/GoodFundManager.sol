@@ -5,7 +5,7 @@ pragma solidity >=0.7.0;
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../reserve/GoodReserveCDai.sol";
 
-
+import "hardhat/console.sol";
 import "../Interfaces.sol";
 interface StakingContract {
 	function collectUBIInterest(address recipient)
@@ -321,14 +321,14 @@ contract GoodFundManager is DAOContract {
         uint256[] memory balances = new uint256[](activeContractsLength);
         uint256 tempInterest;
         uint totalInterest;
-        uint i;
+        int i;
         require(activeContractsLength > 0 , "There should be at least one active staking contract");
-        for (i = 0; i < activeContractsLength; i++){
-            (tempInterest, ,) = StakingContract(activeContracts[i]).currentUBIInterest();
+        for (i = 0; i < int(activeContractsLength); i++){
+            (tempInterest, ,) = StakingContract(activeContracts[uint(i)]).currentUBIInterest();
             totalInterest += tempInterest;
             if (tempInterest != 0){
-                addresses[i] = activeContracts[i];
-                balances[i] = tempInterest;
+                addresses[uint(i)] = activeContracts[uint(i)];
+                balances[uint(i)] = tempInterest;
             }
         }
         uint gasCostInCdai = getGasPriceInCDAI(_maxGasAmount); // Get gas price in cDAI so can compare with possible interest amount to get
@@ -336,24 +336,28 @@ contract GoodFundManager is DAOContract {
         quick(balances,addresses); // sort the values according to interest balance
         uint gasCost;
         uint possibleCollected;
-        for(i = activeContractsLength - 1; i >= 0; i--){ // elements are sorted by balances from lowest to highest 
+        for(i = int(activeContractsLength) - 1; i >= 0; i--){ // elements are sorted by balances from lowest to highest 
 		
-            if(addresses[i] != address(0x0)){
-                gasCost = StakingContract(addresses[i]).getGasCostForInterestTransfer();
+            if(addresses[uint(i)] != address(0x0)){
+                gasCost = StakingContract(addresses[uint(i)]).getGasCostForInterestTransfer();
                 if(_maxGasAmount - gasCost >= 650000){ // this value will change. Its hardcoded for further transactions such as ubiMINTING,gas price calculations and gdMINT
                     // collects the interest from the staking contract and transfer it directly to the reserve contract
                     //`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
-					possibleCollected += balances[i];
+					possibleCollected += balances[uint(i)];
                     _maxGasAmount = _maxGasAmount - gasCost;
                 }else{
-					addresses[i] = address(0x0);
+					break;
                 }
             }else{
                 break; // if addresses are null after this element then break because we initialize array in size activecontracts but if their interest balance is zero then we dont put it in this array
             }
-            if(i == 0) break; // when active contracts length is 1 then gives error
+
         }
-        
+      
+        while(i > -1){
+            addresses[uint(i)] = address(0x0);
+            i -= 1;
+        }
         if (block.timestamp >= lastCollectedInterest + 5184000){ // 5184000 is 2 months in seconds
             require(possibleCollected >= gasCostInCdai, "Collected interests does not cover gas cost");
         } else{

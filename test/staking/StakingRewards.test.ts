@@ -588,6 +588,15 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "gDAI",
       "50"
     );
+    const simpleStaking1 = await goodCompoundStakingFactory.deploy(
+      dai.address,
+      cDAI.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good DAI",
+      "gDAI",
+      "50"
+    );
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -600,12 +609,23 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "addActiveStakingContract",
       [simpleStaking.address]
     );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "addActiveStakingContract",
+      [simpleStaking1.address]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
     await dai
       .connect(staker)
       .approve(simpleStaking.address, stakingAmount);
     await simpleStaking.connect(staker).stake(stakingAmount, 100);
-    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(simpleStaking1.address, stakingAmount);
+    await simpleStaking1.connect(staker).stake(stakingAmount, 100);
     for (let i = 0; i <= 200; i++) {
       await cDAI.exchangeRateCurrent(); // increase interest by calling exchangeRateCurrent
     }
@@ -626,6 +646,11 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "removeActiveStakingContract",
       [simpleStaking.address]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "removeActiveStakingContract",
+      [simpleStaking1.address]
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
 
