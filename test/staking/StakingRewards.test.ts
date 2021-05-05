@@ -153,11 +153,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
     //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
     await goodReserve.setAddresses();
-    const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
-      "addActiveStakingContract",
-      [goodCompoundStaking.address]
-    );
-    await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
     const gasFeeMockFactory = await ethers.getContractFactory(
       "GasPriceMockOracle"
     );
@@ -606,13 +601,13 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       schemeMock
     );
     let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
-      "addActiveStakingContract",
-      [simpleStaking.address]
+      "setStakingReward",
+      ["100",simpleStaking.address,0,10,false]
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
-      "addActiveStakingContract",
-      [simpleStaking1.address]
+      "setStakingReward",
+      ["100",simpleStaking1.address,0,10,false]
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
 
@@ -644,13 +639,13 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(simpleStakingCurrentInterestBeforeCollect[0]).to.be.equal(simpleStakingCurrentInterest[0]) // simple staking's interest shouldn't be collected so currentinterest should be equal to before collectinterest
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount)
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
-      "removeActiveStakingContract",
-      [simpleStaking.address]
+      "setStakingReward",
+      ["100",simpleStaking.address,0,10,true]
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
-      "removeActiveStakingContract",
-      [simpleStaking1.address]
+      "setStakingReward",
+      ["100",simpleStaking1.address,0,10,true]
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
 

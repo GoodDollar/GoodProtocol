@@ -170,43 +170,26 @@ contract GoodFundManager is DAOContract {
 		_onlyAvatar();
         Reward memory reward = Reward(_rewardsPerBlock, _blockStart, _blockEnd, _isBlackListed);
         rewardsForStakingContract[_stakingAddress] = reward;
-    }
-    /**
-     * @dev Add active contract to active contracts array
-     * @param _stakingContract address of the staking contract
-     */
-    function addActiveStakingContract(address _stakingContract) public {
-        _onlyAvatar();
-        //check if address exists in array
         bool exist;
-        for (uint8 i=0; i < activeContracts.length; i++){
-            if(activeContracts[i] == _stakingContract){
+        uint8 i;
+        for (i=0; i < activeContracts.length; i++){
+            if(activeContracts[i] == _stakingAddress){
                 exist = true;
                 break;
             }
         }
-        require(exist == false , "Staking contract address already exist");
-        activeContracts.push(_stakingContract);
-    }
-    /**
-     * @dev Remove active contract from active contracts array
-     * @param _stakingContract address of the staking contract
-     */
-    function removeActiveStakingContract(address _stakingContract) public {
-        _onlyAvatar();
-        uint index;
-        bool exist;
-        for (uint8 i=0; i < activeContracts.length; i++){ 
-            if(activeContracts[i] == _stakingContract){
-                exist = true;
-                index = i;
-                break;
+        
+        if(_isBlackListed == false){
+            
+            if(exist == false) activeContracts.push(_stakingAddress);
+        } else {
+            if(exist == true){
+                activeContracts[i] = activeContracts[activeContracts.length - 1];
+                activeContracts.pop();
             }
         }
-        require(exist==true, "There is no such a address to delete");
-        activeContracts[index] = activeContracts[activeContracts.length - 1];
-        activeContracts.pop();
     }
+    
     /**
      * @dev sets the token bridge address on mainnet and the recipient of minted UBI (avatar on sidechain)
      * @param _bridgeContract address
