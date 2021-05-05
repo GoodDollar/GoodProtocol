@@ -58,7 +58,6 @@ contract BaseGovernanceShareField is DAOContract {
         uint256 reward = multiplier * rewardsPerBlock; // rewardsPerBlock is in GDAO which is in 0 decimals
 
         accAmountPerShare = accAmountPerShare + rdiv(reward ,totalProductivity * 1e16) / 1e9; // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals then rdiv and  divide result of it to 1e9 so reduce it to 18decimals
-        console.log("acc amount per share %s",accAmountPerShare);
 		lastRewardBlock = block.number;
 	}
 
@@ -72,7 +71,6 @@ contract BaseGovernanceShareField is DAOContract {
 				uint256 pending =
 					(userInfo.amount * accAmountPerShare) / 1e2
 					- userInfo.rewardDebt; // Divide 1e2 to reduce 2 Decimals since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
-				console.log("pending %s",pending);
 				userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
 				mintCumulation = mintCumulation + pending;
 			}

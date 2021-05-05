@@ -36,7 +36,7 @@ contract GovernanceStakingToken is BaseGovernanceShareField{
     function _transfer(address from, address to, uint value) private {
         require(balanceOf[from] >= value, 'ERC20Token: INSUFFICIENT_BALANCE');
         balanceOf[from] = balanceOf[from] - value;
-        balanceOf[to] = balanceOf[to] - value;
+        balanceOf[to] = balanceOf[to] + value;
         if (to == address(0)) { // burn
             totalSupply = totalSupply - value;
         }

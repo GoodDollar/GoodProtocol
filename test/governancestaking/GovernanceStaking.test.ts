@@ -191,4 +191,53 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await governanceStaking.withdrawStake("100")
   })
 
+  it("Should be able to withdraw transfered stakes",async() => {
+    await goodDollar.mint(staker.address, "100");
+    await goodDollar.connect(staker).approve(governanceStaking.address, "100");
+    await governanceStaking.connect(staker).stake("100");
+    await advanceBlocks(4);
+    await governanceStaking.connect(staker).transfer(founder.address,"100")
+    const gdaoBalanceBeforeWithdraw = await grep.balanceOf(founder.address)
+    await governanceStaking.withdrawStake("100")
+    const gdaoBalanceAfterWithdraw =await grep.balanceOf(founder.address)
+    expect(gdaoBalanceAfterWithdraw.gt(gdaoBalanceBeforeWithdraw)).to.be.true;
+
+
+  })
+
+  it("should not be able to withdraw after they send their stake to somebody else",async() =>{
+
+    let transaction = await governanceStaking.connect(staker).withdrawStake("100").catch(e=>e)
+    expect(transaction.message).to.have.string("Not enough token staked")
+  })
+
+  it("it should distribute reward with correct precision", async() => {
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    const governanceStakingFactory = await ethers.getContractFactory(
+      "GovernanceStaking"
+    );
+    let encodedCall = governanceStakingFactory.interface.encodeFunctionData(
+      "setRewardsPerBlock",
+      ["100000000000000"] // Give 0.0001 GDAO per block
+    );
+    await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
+    
+    await goodDollar.mint(founder.address, "100");
+    await goodDollar.approve(governanceStaking.address, "100");
+    await governanceStaking.stake("100");
+    await advanceBlocks(4);
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
+    await governanceStaking.withdrawStake("100")
+    const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
+    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("500000000000000")
+    encodedCall = governanceStakingFactory.interface.encodeFunctionData(
+      "setRewardsPerBlock",
+      [ethers.utils.parseEther("7")]
+    );
+  await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
+  })
 });
