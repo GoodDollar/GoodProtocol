@@ -9,15 +9,19 @@ import "hardhat/console.sol";
 
 contract BaseGovernanceShareField is DAOContract {
 	using SafeMath for uint256;
-
+	// Total Amount of stakes
 	uint256 totalProductivity;
+	// Reward amount of the each share
 	uint256 accAmountPerShare;
-
-	uint256 public mintedShare;
+	// Amount of the rewards which minted so far
+	uint256 public rewardsMintedSoFar;
+	// Amount of the rewards with pending and minted ones together
 	uint256 public mintCumulation;
+	// The address of the reward token
 	address public shareToken;
-
+	// Block number of last reward calculation made
 	uint256 public lastRewardBlock;
+	// Rewards amount that will be provided each block
     uint256 public rewardsPerBlock;
 
 	struct UserInfo {
@@ -168,7 +172,7 @@ contract BaseGovernanceShareField is DAOContract {
 		UserInfo storage userInfo = users[user];
 		uint256 amount = userInfo.rewardEarn;
 		userInfo.rewardEarn = 0;
-		mintedShare = mintedShare + amount;
+		rewardsMintedSoFar = rewardsMintedSoFar + amount;
 		amount = amount / 1e2; // Reduce it 0 deciamls since GDAO in 0 decimals
 		ERC20(shareToken).mint(user,amount);
 		return amount ;
