@@ -40,6 +40,10 @@ contract GovernanceStaking is Pausable, GovernanceStakingToken {
     event StakeWithdraw(address indexed staker, address token, uint256 value, uint256 remainingBalance);
 
 	/**
+	 * @dev Emitted when `staker` withdraws their rewards `value` tokens 
+ 	 */
+	event RewardsWithdraw(address indexed staker,address token,uint256 value);
+	/**
 	 * @dev Constructor
      * @param _iToken Address of the Govarnance token which is reward token
 	 * @param _ns The address of the NameService contract
@@ -108,16 +112,27 @@ contract GovernanceStaking is Pausable, GovernanceStakingToken {
 			token.balanceOf(address(this))
 		);
 	}
-
+	/**
+	 * @dev Staker can withdraw their rewards without withdraw their stake 
+	 */
 	function withdrawRewards() public {
 		
-		_mintRewards(msg.sender);
+		uint amount = _mintRewards(msg.sender);
+		emit RewardsWithdraw(msg.sender,shareToken,amount);
 
 	}
 
+	/** 
+	 * @dev Mint rewards of the staker
+	 * @param user Receipent address of the rewards
+	 * @return Returns amount of the minted rewards 
+	 */
 
-
-
+	function _mintRewards(address user) internal returns(uint){
+		uint256 amount = _calcAndUpdateRewards(user);
+		ERC20(shareToken).mint(user,amount);
+		return amount;
+	}
 	function getStakerData(address _staker)
 		public
 		view
@@ -136,34 +151,5 @@ contract GovernanceStaking is Pausable, GovernanceStakingToken {
 
 	
 
-	/**
-	 * @dev making the contract inactive
-	 * NOTICE: this could theoretically result in future interest earned in cdai to remain locked
-	 * but we dont expect any other stakers but us in SimpleDAIStaking
-	 */
-	function end() public {
-		_onlyAvatar();
-		pause();
-	}
-
-	/**
-	 * @dev method to recover any stuck erc20 tokens (ie  compound COMP)
-	 * @param _token the ERC20 token to recover
-	 */
-	function recover(ERC20 _token) public {
-		_onlyAvatar();
-		uint256 toWithdraw = _token.balanceOf(address(this));
-
-		// recover left iToken(stakers token) only when all stakes have been withdrawn
-		if (address(_token) == address(token)) {
-			require(
-				totalProductivity == 0 && paused(),
-				"can recover token only when stakes have been withdrawn"
-			);
-		}
-		require(
-			_token.transfer(address(avatar), toWithdraw),
-			"recover transfer failed"
-		);
-	}
+	
 }

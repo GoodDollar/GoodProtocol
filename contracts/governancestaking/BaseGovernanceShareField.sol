@@ -158,12 +158,12 @@ contract BaseGovernanceShareField is DAOContract {
 	}
 
 	/** 
-    @dev Mint earned rewards of the user and update their reward info
+    @dev Calculate earned rewards of the user and update their reward info
     * @param user address of the user that will be accounted
     * @return returns minted amount
     */
 
-	function _mintRewards(address user)
+	function _calcAndUpdateRewards(address user)
 		internal
 		returns (uint256)
 	{
@@ -174,7 +174,6 @@ contract BaseGovernanceShareField is DAOContract {
 		userInfo.rewardEarn = 0;
 		rewardsMintedSoFar = rewardsMintedSoFar + amount;
 		amount = amount / 1e2; // Reduce it 0 deciamls since GDAO in 0 decimals
-		ERC20(shareToken).mint(user,amount);
 		return amount ;
 	}
 
