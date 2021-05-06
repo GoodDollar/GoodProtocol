@@ -17,8 +17,6 @@ import "../Interfaces.sol";
 contract GReputation is Reputation {
 	bytes32 public constant ROOT_STATE = keccak256("rootState");
 
-	string public constant name = "GReputation";
-
 	/// @notice The EIP-712 typehash for the contract's domain
 	bytes32 public constant DOMAIN_TYPEHASH =
 		keccak256(
@@ -57,7 +55,7 @@ contract GReputation is Reputation {
 	/// @notice keep map of user -> delegate
 	mapping(address => address) public delegates;
 
-	/// @notice map of user non delegatd + delegated votes to user. this is used for actual voting
+	/// @notice map of user non delegated + delegated votes to user. this is used for actual voting
 	mapping(address => uint256[]) public activeVotes;
 
 	/// @notice An event thats emitted when a delegate account's vote balance changes

@@ -2,10 +2,12 @@
 pragma solidity >=0.8.0;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "../DAOStackInterfaces.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract CompoundVotingMachine {
+import "../DAOStackInterfaces.sol";
+import "../utils/DAOContract.sol";
+
+contract CompoundVotingMachine is Initializable, DAOContract {
 	/// @notice The name of this contract
 	string public constant name = "GoodDAO Voting Machine";
 
@@ -58,9 +60,6 @@ contract CompoundVotingMachine {
 	function gracePeriod() public pure returns (uint256) {
 		return 3 days;
 	} //3 days
-
-	/// @notice The address of the DAO controller
-	Controller public controller;
 
 	/// @notice The address of the DAO reputation token
 	ReputationInterface public rep;
@@ -174,12 +173,11 @@ contract CompoundVotingMachine {
 	event ProposalExecuted(uint256 id);
 
 	constructor(
-		Avatar avatar_, // the DAO avatar
-		address rep_, // address reputation
+		NameService ns_, // the DAO avatar
 		uint256 votingPeriodBlocks_ //number of blocks a proposal is open for voting before expiring
 	) {
-		controller = Controller(avatar_.owner());
-		rep = ReputationInterface(rep_);
+		setDAO(ns_);
+		rep = ReputationInterface(ns_.addresses(ns_.REPUTATION()));
 		votingPeriodBlocks = votingPeriodBlocks_;
 		guardian = msg.sender;
 	}
@@ -343,17 +341,11 @@ contract CompoundVotingMachine {
 		bool ok;
 		bytes memory result;
 
-		if (target == address(controller)) {
+		if (target == address(dao)) {
 			(ok, result) = target.call{ value: value }(callData);
 		} else {
-			if (value > 0)
-				payable(address(controller.avatar())).transfer(value); //make sure avatar have the funds to pay
-			(ok, result) = controller.genericCall(
-				target,
-				callData,
-				controller.avatar(),
-				value
-			);
+			if (value > 0) payable(address(avatar)).transfer(value); //make sure avatar have the funds to pay
+			(ok, result) = dao.genericCall(target, callData, avatar, value);
 		}
 		require(
 			ok,
@@ -644,8 +636,7 @@ contract CompoundVotingMachine {
 
 	function setGuardian(address _guardian) public {
 		require(
-			msg.sender == address(controller.avatar()) ||
-				msg.sender == guardian,
+			msg.sender == address(avatar) || msg.sender == guardian,
 			"CompoundVotingMachine: not avatar or guardian"
 		);
 

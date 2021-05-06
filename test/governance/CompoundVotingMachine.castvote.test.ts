@@ -28,7 +28,13 @@ describe("CompoundVotingMachine#CastVote", () => {
       "CompoundVotingMachine"
     );
 
-    let { daoCreator, avatar, reputation, setDAOAddress } = await createDAO();
+    let {
+      daoCreator,
+      avatar,
+      reputation,
+      setDAOAddress,
+      nameService
+    } = await createDAO();
 
     grep = (await ethers.getContractAt(
       "GReputation",
@@ -36,8 +42,7 @@ describe("CompoundVotingMachine#CastVote", () => {
     )) as GReputation;
 
     gov = (await CompoundVotingMachine.deploy(
-      avatar,
-      grep.address,
+      nameService.address,
       5760
     )) as CompoundVotingMachine;
 

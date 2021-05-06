@@ -80,7 +80,8 @@ describe("CompoundVotingMachine#DAOScheme", () => {
       avatar: av,
       setSchemes,
       reputation,
-      setDAOAddress
+      setDAOAddress,
+      nameService
     } = await createDAO();
     Controller = controller;
     avatar = av;
@@ -91,8 +92,7 @@ describe("CompoundVotingMachine#DAOScheme", () => {
     )) as GReputation;
 
     gov = (await CompoundVotingMachine.deploy(
-      avatar,
-      grep.address,
+      nameService.address,
       5760
     )) as CompoundVotingMachine;
 

@@ -17,6 +17,7 @@ contract NameService is Initializable {
 	bytes32 public constant IDENTITY = keccak256("IDENTITY");
 	bytes32 public constant GOODDOLLAR = keccak256("GOODDOLLAR");
 	bytes32 public constant CAP_MANAGER = keccak256("CAP_MANAGER");
+	bytes32 public constant REPUTATION = keccak256("REPUTATION");
 
 	mapping(bytes32 => address) public addresses;
 

@@ -123,6 +123,12 @@ describe("GReputation", () => {
       .true;
   });
 
+  it("should have name, symbol and decimals", async () => {
+    expect(await grep.name()).to.equal("GoodDAO");
+    expect(await grep.symbol()).to.equal("GDAO");
+    expect(await grep.decimals()).to.equal(18);
+  });
+
   it("should get balanceOf", async () => {
     const repBalance = await grep.balanceOf(founder);
     expect(repBalance.toNumber()).to.be.equal(0);
@@ -334,7 +340,7 @@ describe("GReputation", () => {
       const tx = await (
         await grep.delegateBySig(delegate, nonce, expiry, sig.v, sig.r, sig.s)
       ).wait();
-      expect(tx.gasUsed).to.lt(130000);
+      expect(tx.gasUsed).to.lt(132000);
       expect(await grep.delegates(delegator.address)).to.equal(founder);
     });
   });

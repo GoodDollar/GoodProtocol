@@ -12,6 +12,7 @@ export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 let grep: GReputation, grepWithOwner: GReputation, identity, gd, bounty;
 let signers: SignerWithAddress[], founder, repOwner, rep1, rep2, rep3;
+let nameService;
 
 const encodeParameters = (types, values) =>
   ethers.utils.defaultAbiCoder.encode(types, values);
@@ -60,12 +61,14 @@ describe("CompoundVotingMachine#Guardian", () => {
       setSchemes,
       reputation,
       setDAOAddress,
-      genericCall
+      genericCall,
+      nameService: ns
     } = await createDAO();
 
     Controller = controller;
     avatar = av;
     avatarGenericCall = genericCall;
+    nameService = ns;
 
     grep = (await ethers.getContractAt(
       "GReputation",
@@ -73,8 +76,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     )) as GReputation;
 
     gov = (await CompoundVotingMachine.deploy(
-      avatar,
-      grep.address,
+      nameService.address,
       5760
     )) as CompoundVotingMachine;
 
@@ -145,8 +147,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     );
 
     const gov2 = (await CompoundVotingMachine.deploy(
-      avatar,
-      grep.address,
+      nameService.address,
       5760
     )) as CompoundVotingMachine;
     await expect(gov2.renounceGuardian()).to.not.reverted;

@@ -26,7 +26,7 @@ describe("GovernorAlpha#propose", () => {
       "CompoundVotingMachine"
     );
 
-    let { avatar, reputation, setDAOAddress } = await createDAO();
+    let { avatar, reputation, setDAOAddress, nameService } = await createDAO();
 
     grep = (await ethers.getContractAt(
       "GReputation",
@@ -34,8 +34,7 @@ describe("GovernorAlpha#propose", () => {
     )) as GReputation;
 
     gov = (await CompoundVotingMachine.deploy(
-      avatar,
-      grep.address,
+      nameService.address,
       5760
     )) as CompoundVotingMachine;
 

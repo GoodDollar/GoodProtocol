@@ -16,6 +16,9 @@ import "../utils/DAOContract.sol";
 contract Reputation is DAOContract, AccessControlUpgradeable {
 	bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
+	string public name;
+	string public symbol;
+
 	uint8 public decimals; //Number of decimals of the smallest unit
 	// Event indicating minting of reputation to an address.
 	event Mint(address indexed _to, uint256 _amount);
@@ -42,7 +45,9 @@ contract Reputation is DAOContract, AccessControlUpgradeable {
 	 * @dev initialize
 	 */
 	function initialize(NameService _ns) public initializer {
-		decimals = 0;
+		decimals = 18;
+		name = "GoodDAO";
+		symbol = "GDAO";
 		__Context_init_unchained();
 		__ERC165_init_unchained();
 		__AccessControl_init_unchained();
