@@ -342,13 +342,13 @@ contract GReputation is Reputation {
 	/// @notice delegate votes to another user
 	/// @param _delegate the recipient of votes
 	function delegateTo(address _delegate) public {
-		return _delegateTo(msg.sender, _delegate);
+		return _delegateTo(_msgSender(), _delegate);
 	}
 
 	/// @notice cancel user delegation
 	/// @dev makes user his own delegate
 	function undelegate() public {
-		return _delegateTo(msg.sender, msg.sender);
+		return _delegateTo(_msgSender(), _msgSender());
 	}
 
 	/**

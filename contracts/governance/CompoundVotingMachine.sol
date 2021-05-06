@@ -3,11 +3,16 @@ pragma solidity >=0.8.0;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 
 import "../DAOStackInterfaces.sol";
 import "../utils/DAOContract.sol";
 
-contract CompoundVotingMachine is Initializable, DAOContract {
+contract CompoundVotingMachine is
+	Initializable,
+	ContextUpgradeable,
+	DAOContract
+{
 	/// @notice The name of this contract
 	string public constant name = "GoodDAO Voting Machine";
 
@@ -181,7 +186,7 @@ contract CompoundVotingMachine is Initializable, DAOContract {
 		setDAO(ns_);
 		rep = ReputationInterface(ns_.addresses(ns_.REPUTATION()));
 		votingPeriodBlocks = votingPeriodBlocks_;
-		guardian = msg.sender;
+		guardian = _msgSender();
 	}
 
 	/// @notice make a proposal to be voted on
@@ -198,7 +203,7 @@ contract CompoundVotingMachine is Initializable, DAOContract {
 		string memory description
 	) public returns (uint256) {
 		require(
-			rep.getVotesAt(msg.sender, true, block.number - 1) >
+			rep.getVotesAt(_msgSender(), true, block.number - 1) >
 				proposalThreshold(block.number - 1),
 			"CompoundVotingMachine::propose: proposer votes below proposal threshold"
 		);
@@ -217,7 +222,7 @@ contract CompoundVotingMachine is Initializable, DAOContract {
 			"CompoundVotingMachine::propose: too many actions"
 		);
 
-		uint256 latestProposalId = latestProposalIds[msg.sender];
+		uint256 latestProposalId = latestProposalIds[_msgSender()];
 
 		if (latestProposalId != 0) {
 			ProposalState proposersLatestProposalState =
@@ -240,7 +245,7 @@ contract CompoundVotingMachine is Initializable, DAOContract {
 		proposalCount++;
 		Proposal storage newProposal = proposals[proposalCount];
 		newProposal.id = proposalCount;
-		newProposal.proposer = msg.sender;
+		newProposal.proposer = _msgSender();
 		newProposal.eta = 0;
 		newProposal.targets = targets;
 		newProposal.values = values;
@@ -258,7 +263,7 @@ contract CompoundVotingMachine is Initializable, DAOContract {
 
 		emit ProposalCreated(
 			newProposal.id,
-			msg.sender,
+			_msgSender(),
 			targets,
 			values,
 			signatures,
@@ -370,7 +375,7 @@ contract CompoundVotingMachine is Initializable, DAOContract {
 
 		Proposal storage proposal = proposals[proposalId];
 		require(
-			msg.sender == guardian ||
+			_msgSender() == guardian ||
 				rep.getVotesAt(proposal.proposer, true, block.number - 1) <
 				proposalThreshold(proposal.startBlock),
 			"CompoundVotingMachine::cancel: proposer above threshold"
@@ -451,8 +456,8 @@ contract CompoundVotingMachine is Initializable, DAOContract {
 	function castVote(uint256 proposalId, bool support) public {
 		//get all votes in all blockchains including delegated
 		Proposal storage proposal = proposals[proposalId];
-		uint256 votes = rep.getVotesAt(msg.sender, true, proposal.startBlock);
-		return _castVote(msg.sender, proposal, support, votes);
+		uint256 votes = rep.getVotesAt(_msgSender(), true, proposal.startBlock);
+		return _castVote(_msgSender(), proposal, support, votes);
 	}
 
 	struct VoteSig {
@@ -631,19 +636,22 @@ contract CompoundVotingMachine is Initializable, DAOContract {
 	}
 
 	function renounceGuardian() public {
-		require(msg.sender == guardian, "CompoundVotingMachine: not guardian");
+		require(
+			_msgSender() == guardian,
+			"CompoundVotingMachine: not guardian"
+		);
 		guardian = address(0);
 		foundationGuardianRelease = 0;
 	}
 
 	function setGuardian(address _guardian) public {
 		require(
-			msg.sender == address(avatar) || msg.sender == guardian,
+			_msgSender() == address(avatar) || _msgSender() == guardian,
 			"CompoundVotingMachine: not avatar or guardian"
 		);
 
 		require(
-			msg.sender == guardian ||
+			_msgSender() == guardian ||
 				block.timestamp > foundationGuardianRelease,
 			"CompoundVotingMachine: foundation expiration not reached"
 		);
