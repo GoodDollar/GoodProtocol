@@ -334,4 +334,26 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
 
 
   });
+
+  it("it should be able to tranfer tokens when user approve",async()=>{
+    await goodDollar.mint(founder.address, "100");
+    await goodDollar.approve(governanceStaking.address, "100");
+    await governanceStaking.stake("100");
+    await governanceStaking.approve(staker.address,"100")
+    await governanceStaking.connect(staker).transferFrom(founder.address,staker.address,"100")
+    const GDAOBalanceBeforeWithdraw = await governanceStaking.balanceOf(staker.address)
+    await governanceStaking.connect(staker).withdrawStake("100")
+    const GDAOBalanceAfterWithdraw = await governanceStaking.balanceOf(staker.address)
+    await governanceStaking.withdrawRewards()
+
+    expect(GDAOBalanceAfterWithdraw.gt(GDAOBalanceBeforeWithdraw))
+
+  })
+  it("it should return staker data",async()=>{
+
+    const stakerData = await governanceStaking.getStakerData(staker.address)
+    expect(stakerData[0].toString()).to.be.equal("0")
+    expect(stakerData[1].toString()).to.be.equal("0")
+    expect(stakerData[2].toString()).to.be.equal("0")
+  })
 });
