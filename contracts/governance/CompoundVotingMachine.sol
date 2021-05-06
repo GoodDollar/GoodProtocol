@@ -11,7 +11,8 @@ contract CompoundVotingMachine is Initializable, DAOContract {
 	/// @notice The name of this contract
 	string public constant name = "GoodDAO Voting Machine";
 
-	uint64 public foundationGuardianRelease = 1672531200;
+	/// @notice timestamp when foundation releases guardian veto rights
+	uint64 public foundationGuardianRelease;
 
 	/// @notice the number of blocks a proposal is open for voting (before passing quorum)
 	uint256 public votingPeriodBlocks;
@@ -172,10 +173,11 @@ contract CompoundVotingMachine is Initializable, DAOContract {
 	/// @notice An event emitted when a proposal has been executed
 	event ProposalExecuted(uint256 id);
 
-	constructor(
+	function initialize(
 		NameService ns_, // the DAO avatar
 		uint256 votingPeriodBlocks_ //number of blocks a proposal is open for voting before expiring
-	) {
+	) public initializer {
+		foundationGuardianRelease = 1672531200; //01/01/2023
 		setDAO(ns_);
 		rep = ReputationInterface(ns_.addresses(ns_.REPUTATION()));
 		votingPeriodBlocks = votingPeriodBlocks_;

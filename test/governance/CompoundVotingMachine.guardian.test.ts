@@ -75,10 +75,10 @@ describe("CompoundVotingMachine#Guardian", () => {
       reputation
     )) as GReputation;
 
-    gov = (await CompoundVotingMachine.deploy(
+    gov = (await upgrades.deployProxy(CompoundVotingMachine, [
       nameService.address,
       5760
-    )) as CompoundVotingMachine;
+    ])) as CompoundVotingMachine;
 
     //this will give root minter permissions
     setDAOAddress("GDAO_CLAIMERS", root.address);
@@ -146,10 +146,11 @@ describe("CompoundVotingMachine#Guardian", () => {
       "CompoundVotingMachine"
     );
 
-    const gov2 = (await CompoundVotingMachine.deploy(
+    const gov2 = (await upgrades.deployProxy(CompoundVotingMachine, [
       nameService.address,
       5760
-    )) as CompoundVotingMachine;
+    ])) as CompoundVotingMachine;
+
     await expect(gov2.renounceGuardian()).to.not.reverted;
     expect(await gov2.guardian()).to.equal(ethers.constants.AddressZero);
 

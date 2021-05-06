@@ -78,10 +78,10 @@ describe("CompoundVotingMachine#Delegation", () => {
       reputation
     )) as GReputation;
 
-    gov = (await CompoundVotingMachine.deploy(
+    gov = (await upgrades.deployProxy(CompoundVotingMachine, [
       nameService.address,
       5760
-    )) as CompoundVotingMachine;
+    ])) as CompoundVotingMachine;
 
     //this will give root minter permissions
     setDAOAddress("GDAO_CLAIMERS", root.address);
