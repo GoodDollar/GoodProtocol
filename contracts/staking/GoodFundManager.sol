@@ -130,9 +130,8 @@ contract GoodFundManager is DAOContract {
 		address _cDai,
 		address _bridgeContract,
 		address _ubiRecipient,
-		uint256 _blockInterval
-	) //ActivePeriod(block.timestamp, block.timestamp * 2, _avatar)
-	{
+		uint256 _blockInterval //ActivePeriod(block.timestamp, block.timestamp * 2, _avatar)
+	) {
 		setDAO(_ns);
 		cDai = ERC20(_cDai);
 		bridgeContract = _bridgeContract;
