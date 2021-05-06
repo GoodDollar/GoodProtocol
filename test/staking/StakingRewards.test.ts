@@ -437,7 +437,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "50"
     );
     const currentBlockNumber = await ethers.provider.getBlockNumber();
-    const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+    let encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       [
         "1000",
@@ -467,6 +467,17 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(
       gdBalanceStakerAfterWithdraw.sub(gdBalanceStakerBeforeWithdraw).toString()
     ).to.be.equal("30000"); // 50 blocks reward worth 500gd but since it's with the 0.5x multiplier so 250gd then there is 5 blocks which gets full reward so total reward is 300gd
+    encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking.address,
+        currentBlockNumber,
+        currentBlockNumber + 100,
+        true
+      ] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
   });
 
   it("Should transfer somebody's staking token's when they approve", async () => {
@@ -628,6 +639,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const contractsToBeCollected = await goodFundManager.calcSortedContracts(
       "770000"
     );
+    console.log(contractsToBeCollected.toString())
     await goodFundManager.collectInterest(contractsToBeCollected, {
       gasLimit: 770000
     });
@@ -679,5 +691,31 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(sortedArrays[1][3]).to.be.equal(founder.address)
     expect(sortedArrays[1][0]).to.be.equal(cDAI1.address)
   })
+
+  it("It should not be able to calc and sort array when there is no active staking contract",async()=>{
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["100", goodCompoundStaking.address, 0, 10, true]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    const contractsToInterestCollected = await goodFundManager.calcSortedContracts("800000").catch(e=>e)
+    expect(contractsToInterestCollected.message).to.have.string("There should be at least one active staking contract")
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["100", goodCompoundStaking.address, 0, 10, false]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+  })
+
+  
+
 });
 

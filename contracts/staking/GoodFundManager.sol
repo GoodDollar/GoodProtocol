@@ -264,7 +264,7 @@ contract GoodFundManager is DAOContract {
 		// Transfers the minted tokens to the given staking contract
 		IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
 
-		if (gdUBI > 0)
+		if (gdUBI > 0) {
 			//transfer ubi to avatar on sidechain via bridge
 			require(
 				token.transferAndCall(
@@ -274,6 +274,7 @@ contract GoodFundManager is DAOContract {
 				),
 				"ubi bridge transfer failed"
 			);
+		}
 		lastCollectedInterest = block.timestamp;
 		uint256 gasCostToMintReward = 200000; // Gas cost to mint GD reward to keeper hardcoded so should be changed according to calculations
 		uint256 totalUsedGas =
