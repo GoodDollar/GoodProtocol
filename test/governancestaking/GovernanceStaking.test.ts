@@ -107,12 +107,9 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     });
 
     console.log("setting permissions...");
-    governanceStaking =await upgrades.deployProxy(
+    governanceStaking = await upgrades.deployProxy(
       governanceStakingFactory,
-      [ grep.address,
-        nameService.address,
-        "DAOStaking",
-        "DST"],
+      [grep.address, nameService.address, "DAOStaking", "DST"],
       {
         unsafeAllowCustomTypes: true
       }
@@ -171,58 +168,64 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       [ethers.utils.parseEther("10")]
     );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
-    
+
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
     await governanceStaking.stake("100");
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
-    await governanceStaking.withdrawStake("100")
+    await governanceStaking.withdrawStake("100");
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("50000000000000000000")
+    expect(
+      GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
+    ).to.be.equal("50000000000000000000");
     encodedCall = governanceStakingFactory.interface.encodeFunctionData(
-        "setMonthlyRewards",
-        [ethers.utils.parseEther("12000000")]
-      );
+      "setMonthlyRewards",
+      [ethers.utils.parseEther("12000000")]
+    );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
   });
 
   it("Should be able to withdraw rewards without withdraw stake", async () => {
-
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
     await governanceStaking.stake("100");
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
-    const transaction = await(await governanceStaking.withdrawRewards()).wait()
+    const transaction = await (
+      await governanceStaking.withdrawRewards()
+    ).wait();
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("347222222222222222220")
-    expect(transaction.events.find(_ => _.event === "RewardsWithdraw")).to.be.not
-      .empty;
-    await governanceStaking.withdrawStake("100")
-  })
+    expect(
+      GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
+    ).to.be.equal("347222222222222222220");
+    expect(transaction.events.find(_ => _.event === "RewardsWithdraw")).to.be
+      .not.empty;
+    await governanceStaking.withdrawStake("100");
+  });
 
-  it("Should be able to withdraw transferred stakes",async() => {
+  it("Should be able to withdraw transferred stakes", async () => {
     await goodDollar.mint(staker.address, "100");
     await goodDollar.connect(staker).approve(governanceStaking.address, "100");
     await governanceStaking.connect(staker).stake("100");
     await advanceBlocks(4);
-    await governanceStaking.connect(staker).transfer(founder.address,"100")
-    const gdaoBalanceBeforeWithdraw = await grep.balanceOf(founder.address)
-    await governanceStaking.withdrawStake("100")
-    const gdaoBalanceAfterWithdraw =await grep.balanceOf(founder.address)
+    await governanceStaking.connect(staker).transfer(founder.address, "100");
+    await governanceStaking.connect(staker).withdrawRewards()
+    const gdaoBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
+    await governanceStaking.withdrawStake("100");
+    const gdaoBalanceAfterWithdraw = await grep.balanceOf(founder.address);
     expect(gdaoBalanceAfterWithdraw.gt(gdaoBalanceBeforeWithdraw)).to.be.true;
+  });
 
+  it("should not be able to withdraw after they send their stake to somebody else", async () => {
+    let transaction = await governanceStaking
+      .connect(staker)
+      .withdrawStake("100")
+      .catch(e => e);
+    expect(transaction.message).to.have.string("Not enough token staked");
+  });
 
-  })
-
-  it("should not be able to withdraw after they send their stake to somebody else",async() =>{
-
-    let transaction = await governanceStaking.connect(staker).withdrawStake("100").catch(e=>e)
-    expect(transaction.message).to.have.string("Not enough token staked")
-  })
-
-  it("it should distribute reward with correct precision", async() => {
+  it("it should distribute reward with correct precision", async () => {
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
@@ -236,23 +239,25 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       ["100000000000000"] // Give 0.0001 GDAO per block
     );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
-    
+
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
     await governanceStaking.stake("100");
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
-    await governanceStaking.withdrawStake("100")
+    await governanceStaking.withdrawStake("100");
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("500000000000000")
+    expect(
+      GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
+    ).to.be.equal("500000000000000");
     encodedCall = governanceStakingFactory.interface.encodeFunctionData(
       "setRewardsPerBlock",
       [ethers.utils.parseEther("7")]
     );
-  await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
-  })
-  
-  it("it should not generate rewards when rewards per block set to 0",async() =>{
+    await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
+  });
+
+  it("it should not generate rewards when rewards per block set to 0", async () => {
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
@@ -266,55 +271,80 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       ["0"] // Give 0.0001 GDAO per block
     );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
-    
+
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
     await governanceStaking.stake("100");
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
-    await governanceStaking.withdrawStake("100")
+    await governanceStaking.withdrawStake("100");
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("0")
+    expect(
+      GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
+    ).to.be.equal("0");
     encodedCall = governanceStakingFactory.interface.encodeFunctionData(
       "setMonthlyRewards",
       [ethers.utils.parseEther("12000000")]
     );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
-  })
+  });
 
-  it("it should return productivity values correctly", async() =>{
-
+  it("it should return productivity values correctly", async () => {
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
     await governanceStaking.stake("100");
-    const productivityValue = await governanceStaking.getProductivity(founder.address)
-    
-    expect(productivityValue[0].toString()).to.be.equal("100")
-    expect(productivityValue[1].toString()).to.be.equal("100")
-    await governanceStaking.withdrawStake("100")
-  })
+    const productivityValue = await governanceStaking.getProductivity(
+      founder.address
+    );
 
-  it("it should return earned rewards with pending ones properly", async() =>{
+    expect(productivityValue[0].toString()).to.be.equal("100");
+    expect(productivityValue[1].toString()).to.be.equal("100");
+    await governanceStaking.withdrawStake("100");
+  });
 
+  it("it should return earned rewards with pending ones properly", async () => {
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
     await governanceStaking.stake("100");
     await advanceBlocks(5);
-    const totalEarned = await governanceStaking.getUserPendingReward(founder.address)
-    expect(totalEarned.toString()).to.be.equal("347222222222222222220")
-    await governanceStaking.withdrawStake("100")
-  })
+    const totalEarned = await governanceStaking.getUserPendingReward(
+      founder.address
+    );
+    expect(totalEarned.toString()).to.be.equal("347222222222222222220");
+    await governanceStaking.withdrawStake("100");
+  });
 
-  it("it should be withdraw without issue when staking amount is too large",async()=>{
-
+  it("Accumulated per share has enough precision when reward << totalproductivity", async () => {
     await goodDollar.mint(founder.address, "100000000000000"); // 1 trillion gd stake
     await goodDollar.approve(governanceStaking.address, "1000000000000");
     await governanceStaking.stake("1000000000000");
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
-    await governanceStaking.withdrawStake("1000000000000")
+    await governanceStaking.withdrawStake("1000000000000");
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("347222222222222222220")
-  })
+    expect(
+      GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
+    ).to.be.equal("347222222222222222220");
+  });
 
+  it("user receive fractional gdao properly when his stake << totalProductivity", async () => {
+    await goodDollar.mint(founder.address, "800"); // 8gd
+    await goodDollar.mint(staker.address, "200") // 2gd
+    await goodDollar.approve(governanceStaking.address, "800");
+    await goodDollar.connect(staker).approve(governanceStaking.address,"200")
+    await governanceStaking.stake("800");
+    await governanceStaking.connect(staker).stake("200")
+    await advanceBlocks(4);
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOf(staker.address);
+    const FounderGDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
+    await governanceStaking.withdrawStake("800");
+    await governanceStaking.connect(staker).withdrawStake("200")
+    const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address);
+    const FounderGDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
+   
+    expect(FounderGDAOBalanceAfterWithdraw.sub(FounderGDAOBalanceBeforeWithdraw).toString()).to.be.equal("347222222222222222220")
+    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("138888888888888888888"); // it gets full amount of rewards for 1 block plus 1/5 of amounts for 5 blokcs so 69444444444444444444 + 69444444444444444444
+
+
+  });
 });

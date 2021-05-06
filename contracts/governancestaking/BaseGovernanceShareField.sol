@@ -5,7 +5,6 @@ import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DAOContract.sol";
 import "../utils/DSMath.sol";
-
 contract BaseGovernanceShareField is DAOContract {
 	using SafeMath for uint256;
 	// Total Amount of stakes
