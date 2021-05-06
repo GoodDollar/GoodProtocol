@@ -356,4 +356,30 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     expect(stakerData[1].toString()).to.be.equal("0")
     expect(stakerData[2].toString()).to.be.equal("0")
   })
+
+  it("it should return zero rewards when totalProductiviy is zero",async()=>{
+    const userPendingRewards = await governanceStaking.getUserPendingReward(staker.address)
+    expect(userPendingRewards.toString()).to.be.equal("0")
+  })
+
+  it("it should be able get accumulated rewards per share",async()=>{
+    const governanceStakingFactory = await ethers.getContractFactory(
+      "GovernanceStaking"
+    );
+    const simpleGovernanceStaking = await upgrades.deployProxy(
+      governanceStakingFactory,
+      [grep.address, nameService.address, "DAOStaking", "DST",ethers.utils.parseEther("12000000")],
+      {
+        unsafeAllowCustomTypes: true
+      }
+    );
+    await goodDollar.mint(founder.address, "200");
+    await goodDollar.approve(simpleGovernanceStaking.address, "200");
+    await simpleGovernanceStaking.stake("100");
+    await simpleGovernanceStaking.stake("100");
+    const accumulatedRewardsPerShare = await simpleGovernanceStaking.totalRewardsPerShare()
+    expect(accumulatedRewardsPerShare.toString()).to.be.equal('69444444444444444444000000000')
+   
+  })
+
 });

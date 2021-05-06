@@ -98,7 +98,7 @@ contract BaseGovernanceShareField is DAOContract {
 
 		totalProductivity = totalProductivity + value;
 		userInfo.amount = userInfo.amount + value;
-		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e11; // Divide to 1e11 to keep rewardDebt in 18 decimals
+		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e11; // Divide to 1e11 to keep rewardDebt in 18 decimals since accAmountPerShare is in 27 decimals and amount is GD which is 2 decimals
 		return true;
 	}
 
@@ -122,7 +122,7 @@ contract BaseGovernanceShareField is DAOContract {
 		_audit(user);
 		
 		userInfo.amount = userInfo.amount - value;
-		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e11; // Divide to 1e11 to keep rewardDebt in 18 decimals
+		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e11; // Divide to 1e11 to keep rewardDebt in 18 decimals since accAmountPerShare is in 27 decimals and amount is GD which is 2 decimals
 		totalProductivity = totalProductivity - value;
 
 		return true;
