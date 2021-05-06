@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
@@ -75,15 +75,8 @@ contract Reputation is DAOContract, AccessControlUpgradeable {
 		returns (uint256)
 	{
 		uint256 curTotalSupply = totalSupply();
-		require(
-			curTotalSupply + _amount >= curTotalSupply,
-			"total supply overflow"
-		); // Check for overflow
 		uint256 previousBalanceTo = balanceOf(_user);
-		require(
-			previousBalanceTo + _amount >= previousBalanceTo,
-			"balance overflow"
-		); // Check for overflow
+
 		updateValueAtNow(totalSupplyHistory, curTotalSupply + _amount);
 		updateValueAtNow(balances[_user], previousBalanceTo + _amount);
 		emit Mint(_user, _amount);

@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "../DAOStackInterfaces.sol";
 
 contract CompoundVotingMachine {
-	using SafeMathUpgradeable for uint256;
 	/// @notice The name of this contract
 	string public constant name = "GoodDAO Voting Machine";
 
@@ -17,7 +16,7 @@ contract CompoundVotingMachine {
 
 	/// @notice The number of votes in support of a proposal required in order for a quorum to be reached and for a vote to succeed
 	function quorumVotes() public view returns (uint256) {
-		return rep.totalSupply().mul(3).div(100);
+		return (rep.totalSupply() * 3) / 100;
 	} //3%
 
 	/// @notice The number of votes required in order for a voter to become a proposer
@@ -26,8 +25,8 @@ contract CompoundVotingMachine {
 		view
 		returns (uint256)
 	{
-		return rep.totalSupplyAt(blockNumber).mul(1).div(100);
-	} // 1%
+		return (rep.totalSupplyAt(blockNumber) * 1) / 100; //1%
+	}
 
 	/// @notice The maximum number of actions that can be included in a proposal
 	function proposalMaxOperations() public pure returns (uint256) {
@@ -199,8 +198,8 @@ contract CompoundVotingMachine {
 		string memory description
 	) public returns (uint256) {
 		require(
-			rep.getVotesAt(msg.sender, true, block.number.sub(1)) >
-				proposalThreshold(block.number.sub(1)),
+			rep.getVotesAt(msg.sender, true, block.number - 1) >
+				proposalThreshold(block.number - 1),
 			"CompoundVotingMachine::propose: proposer votes below proposal threshold"
 		);
 		require(
@@ -235,8 +234,8 @@ contract CompoundVotingMachine {
 			);
 		}
 
-		uint256 startBlock = block.number.add(votingDelay());
-		uint256 endBlock = startBlock.add(votingPeriod());
+		uint256 startBlock = block.number + votingDelay();
+		uint256 endBlock = startBlock + votingPeriod();
 
 		proposalCount++;
 		Proposal storage newProposal = proposals[proposalCount];
@@ -279,21 +278,19 @@ contract CompoundVotingMachine {
 		internal
 	{
 		//if absolute majority allow to execute immediately
-		if (proposal.forVotes > rep.totalSupplyAt(proposal.startBlock).div(2)) {
+		if (proposal.forVotes > rep.totalSupplyAt(proposal.startBlock) / 2) {
 			proposal.eta = block.timestamp;
 		}
 		//first time we have a quorom we ask for a no change in decision period
 		else if (proposal.eta == 0) {
-			proposal.eta = block.timestamp.add(queuePeriod());
+			proposal.eta = block.timestamp + queuePeriod();
 		}
 		//if we have a gamechanger then we extend current eta to have at least gameChangerPeriod left
 		else if (hasVoteChanged) {
-			uint256 timeLeft = proposal.eta.sub(block.timestamp);
-			proposal.eta = proposal.eta.add(
-				timeLeft > gameChangerPeriod()
-					? 0
-					: gameChangerPeriod().sub(timeLeft)
-			);
+			uint256 timeLeft = proposal.eta - block.timestamp;
+			proposal.eta += timeLeft > gameChangerPeriod()
+				? 0
+				: gameChangerPeriod() - timeLeft;
 		} else {
 			return;
 		}
@@ -380,7 +377,7 @@ contract CompoundVotingMachine {
 		Proposal storage proposal = proposals[proposalId];
 		require(
 			msg.sender == guardian ||
-				rep.getVotesAt(proposal.proposer, true, block.number.sub(1)) <
+				rep.getVotesAt(proposal.proposer, true, block.number - 1) <
 				proposalThreshold(proposal.startBlock),
 			"CompoundVotingMachine::cancel: proposer above threshold"
 		);
@@ -445,8 +442,7 @@ contract CompoundVotingMachine {
 		) {
 			return ProposalState.Defeated;
 		} else if (
-			proposal.eta > 0 &&
-			block.timestamp >= proposal.eta.add(gracePeriod())
+			proposal.eta > 0 && block.timestamp >= proposal.eta + gracePeriod()
 		) {
 			//expired if not executed gracePeriod after eta
 			return ProposalState.Expired;
@@ -614,9 +610,9 @@ contract CompoundVotingMachine {
 
 		bool hasChanged = proposal.forVotes > proposal.againstVotes;
 		if (support) {
-			proposal.forVotes = proposal.forVotes.add(votes);
+			proposal.forVotes += votes;
 		} else {
-			proposal.againstVotes = proposal.againstVotes.add(votes);
+			proposal.againstVotes += votes;
 		}
 
 		hasChanged = hasChanged != (proposal.forVotes > proposal.againstVotes);
