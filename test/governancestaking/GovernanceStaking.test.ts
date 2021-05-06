@@ -109,21 +109,12 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     console.log("setting permissions...");
     governanceStaking = await upgrades.deployProxy(
       governanceStakingFactory,
-      [grep.address, nameService.address, "DAOStaking", "DST"],
+      [grep.address, nameService.address, "DAOStaking", "DST",ethers.utils.parseEther("12000000")],
       {
         unsafeAllowCustomTypes: true
       }
     );
-    const ictrl = await ethers.getContractAt(
-      "Controller",
-      controller,
-      schemeMock
-    );
-    let encodedCall = governanceStakingFactory.interface.encodeFunctionData(
-      "setMonthlyRewards",
-      [ethers.utils.parseEther("12000000")]
-    );
-    await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
+    
     setDAOAddress("CDAI", cDAI.address);
     setDAOAddress("DAI", dai.address);
 
@@ -164,8 +155,8 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       "GovernanceStaking"
     );
     let encodedCall = governanceStakingFactory.interface.encodeFunctionData(
-      "setRewardsPerBlock",
-      [ethers.utils.parseEther("10")]
+      "setMonthlyRewards",
+      [ethers.utils.parseEther("1728000")]
     );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
 
@@ -235,8 +226,8 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       "GovernanceStaking"
     );
     let encodedCall = governanceStakingFactory.interface.encodeFunctionData(
-      "setRewardsPerBlock",
-      ["100000000000000"] // Give 0.0001 GDAO per block
+      "setMonthlyRewards",
+      ["17280000000000000000"] // Give 0.0001 GDAO per block so 17.28 GDAO per month
     );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
 
@@ -250,11 +241,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     expect(
       GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
     ).to.be.equal("500000000000000");
-    encodedCall = governanceStakingFactory.interface.encodeFunctionData(
-      "setRewardsPerBlock",
-      [ethers.utils.parseEther("7")]
-    );
-    await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
+   
   });
 
   it("it should not generate rewards when rewards per block set to 0", async () => {
@@ -267,8 +254,8 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       "GovernanceStaking"
     );
     let encodedCall = governanceStakingFactory.interface.encodeFunctionData(
-      "setRewardsPerBlock",
-      ["0"] // Give 0.0001 GDAO per block
+      "setMonthlyRewards",
+      ["0"] // Give 0 GDAO per block
     );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
 

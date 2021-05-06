@@ -29,13 +29,7 @@ contract BaseGovernanceShareField is DAOContract {
 	}
 
 	mapping(address => UserInfo) public users;
-	/**
-	 * @dev Function to set rewards for per block in GDAO so 0 decimals
-	 */
-	function setRewardsPerBlock (uint256 _rewardsPerBlock) public{
-        _onlyAvatar();
-        rewardsPerBlock = _rewardsPerBlock;
-    }
+	
 	/**
 	 * @dev Calculate rewards per block from monthly amount of rewards and set it
 	 * @param _monthlyAmount total rewards which will distribute monthly

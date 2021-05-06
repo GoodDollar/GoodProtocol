@@ -47,18 +47,21 @@ contract GovernanceStaking is GovernanceStakingToken,Initializable{
 	 * @param _ns The address of the NameService contract
 	 * @param _tokenName The name of the staking token
 	 * @param _tokenSymbol The symbol of the staking token
+	 * @param _monthlyRewards Amount of the total rewards will be distributed over month
 	 */
 	function initialize(
 		address _iToken,
 		NameService _ns,
 		string memory _tokenName,
-		string memory _tokenSymbol
+		string memory _tokenSymbol,
+		uint256 _monthlyRewards
 	) public virtual initializer {
 		setDAO(_ns);
 		token = ERC20(address(avatar.nativeToken()));
 		_setShareToken(_iToken);
 		name = _tokenName;
         symbol = _tokenSymbol;
+		rewardsPerBlock = _monthlyRewards / 172800;
         
 	}
 
