@@ -4,8 +4,6 @@ pragma solidity >=0.7.0;
 
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../reserve/GoodReserveCDai.sol";
-
-import "hardhat/console.sol";
 import "../Interfaces.sol";
 
 interface StakingContract {
