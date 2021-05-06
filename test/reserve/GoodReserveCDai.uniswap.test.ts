@@ -10,7 +10,6 @@ import {
 } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { createDAO, increaseTime, advanceBlocks } from "../helpers";
-import { MaxUint256 } from 'ethers/constants'
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
@@ -23,7 +22,11 @@ export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 1;
 
 describe("GoodReserve - buy/sell with any token through uniswap", () => {
-  let dai: Contract, tokenA: Contract, pair: Contract,wethPair:Contract, uniswapRouter: Contract;
+  let dai: Contract,
+    tokenA: Contract,
+    pair: Contract,
+    wethPair: Contract,
+    uniswapRouter: Contract;
   let cDAI;
   let goodReserve: GoodReserveCDai;
   let goodDollar,
@@ -447,35 +450,35 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     expect(reserveRatioBefore).to.be.equal(reserveRatioAfter); // RR should stay same
   });
 
-  
-  it("should be able to buy GD with ETH",async()=>{
-    
+  it("should be able to buy GD with ETH", async () => {
     let mintAmount = ethers.utils.parseEther("100");
-    const ETHAmount =ethers.utils.parseEther("5")
+    const ETHAmount = ethers.utils.parseEther("5");
 
     await dai["mint(uint256)"](mintAmount);
     let buyAmount = ethers.utils.parseEther("10");
-    await addETHLiquidity(mintAmount,ETHAmount)
-    const gdBalanceBeforeSwap = await goodDollar.balanceOf(founder.address)
+    await addETHLiquidity(mintAmount, ETHAmount);
+    const gdBalanceBeforeSwap = await goodDollar.balanceOf(founder.address);
     let transaction = await (
-      await goodReserve.buyWithETH(0, 0, founder.address,{value:buyAmount})
+      await goodReserve.buyWithETH(0, 0, founder.address, { value: buyAmount })
     ).wait();
-    const gdBalanceAfterSwap = await goodDollar.balanceOf(founder.address)
+    const gdBalanceAfterSwap = await goodDollar.balanceOf(founder.address);
     expect(gdBalanceAfterSwap.gt(gdBalanceBeforeSwap)).to.be.true; // Gd balance after swap should greater than before swap
-   
-  })
+  });
 
-  it("should be able to sell GD for ETH",async() =>{
-    const sellAmount = BN.from("1000") // 10gd
-    const ethBalanceBeforeSwap =await ethers.provider.getBalance(founder.address)
-    await goodDollar.approve(goodReserve.address,sellAmount);
+  it("should be able to sell GD for ETH", async () => {
+    const sellAmount = BN.from("1000"); // 10gd
+    const ethBalanceBeforeSwap = await ethers.provider.getBalance(
+      founder.address
+    );
+    await goodDollar.approve(goodReserve.address, sellAmount);
     let transaction = await (
-      await goodReserve.sell(NULL_ADDRESS,sellAmount, 0, 0, founder.address)
+      await goodReserve.sell(NULL_ADDRESS, sellAmount, 0, 0, founder.address)
     ).wait();
-    const ethBalanceAfterSwap = await ethers.provider.getBalance(founder.address)
-    expect(ethBalanceAfterSwap.gt(ethBalanceBeforeSwap))
-
-  })
+    const ethBalanceAfterSwap = await ethers.provider.getBalance(
+      founder.address
+    );
+    expect(ethBalanceAfterSwap.gt(ethBalanceBeforeSwap));
+  });
 
   async function addLiquidity(
     token0Amount: BigNumber,
@@ -486,10 +489,21 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     await pair.mint(founder.address);
   }
 
-  async function addETHLiquidity(token0Amount: BigNumber, WETHAmount: BigNumber) {
-    await dai.approve(uniswapRouter.address, MaxUint256)
-    await uniswapRouter.addLiquidityETH(dai.address, token0Amount, token0Amount, WETHAmount, founder.address, MaxUint256, {
-      value: WETHAmount
-    })
+  async function addETHLiquidity(
+    token0Amount: BigNumber,
+    WETHAmount: BigNumber
+  ) {
+    await dai.approve(uniswapRouter.address, ethers.constants.MaxUint256);
+    await uniswapRouter.addLiquidityETH(
+      dai.address,
+      token0Amount,
+      token0Amount,
+      WETHAmount,
+      founder.address,
+      ethers.constants.MaxUint256,
+      {
+        value: WETHAmount
+      }
+    );
   }
 });
