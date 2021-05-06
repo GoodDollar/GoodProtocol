@@ -108,12 +108,12 @@ contract GoodFundManager is DAOContract {
         uint256 gdAmountToMint
     );
 
-	modifier reserveHasInitialized {
+	function _reserveHasInitialized () internal view{
 		require(
 			nameService.addresses(nameService.RESERVE()) != address(0x0),
 			"reserve has not initialized"
 		);
-		_;
+		
 	}
 
     /**
@@ -231,14 +231,11 @@ contract GoodFundManager is DAOContract {
      */
     function collectInterest(address[] memory _stakingContracts)
         public
-        reserveHasInitialized
-        //requireDAOContract(address(_staking))
+        
     {
-        // require(
-        //     canRun(),
-        //     "Need to wait for the next interval"
-        // );
+
         uint initialGas = gasleft();
+        _reserveHasInitialized();
         lastTransferred = block.number.div(blockInterval);
         ERC20 iToken = ERC20(nameService.getAddress("CDAI"));
         // iToken balance of the reserve contract
@@ -277,11 +274,12 @@ contract GoodFundManager is DAOContract {
                 gdUBI,
                 abi.encodePacked(ubiRecipient)
             ),"ubi bridge transfer failed");
+        lastCollectedInterest = block.timestamp;
         uint256 gasCostToMintReward = 200000; // Gas cost to mint GD reward to keeper hardcoded so should be changed according to calculations
         uint256 totalUsedGas = (initialGas - gasleft() + gasCostToMintReward) * 110 / 100; // We will return as reward 1.1x of used gas in GD 
         uint256 gdAmountToMint= getGasPriceInGD(totalUsedGas);
         GoodReserveCDai(nameService.addresses(nameService.RESERVE())).mintRewardFromRR(nameService.getAddress("CDAI"),msg.sender,gdAmountToMint);
-        lastCollectedInterest = block.timestamp;
+        
         emit FundsTransferred(
             msg.sender,
             nameService.addresses(nameService.RESERVE()),
