@@ -292,7 +292,7 @@ contract GoodFundManager is DAOContract {
 			// 5184000 is 2 months in seconds
 			require(
 				interest >= gasPriceIncDAI,
-				"Collected interest should be bigger than spent gas"
+				"Collected interest value should be larger than spent gas costs"
 			); // This require is necessary to keeper can not abuse this function
 		} else {
 			require(
