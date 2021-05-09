@@ -111,7 +111,9 @@ contract ClaimersDistribution is Initializable, DAOContract {
 					months[prevMonth].totalClaims;
 			if (userShare > 0) {
 				GReputation grep =
-					GReputation(nameService.getAddress("GReputation"));
+					GReputation(
+						nameService.addresses(nameService.REPUTATION())
+					);
 				grep.mint(_claimer, userShare);
 			}
 		}
