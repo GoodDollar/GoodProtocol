@@ -8,14 +8,14 @@ import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "./BaseGovernanceShareField.sol";
-
+import "../utils/DAOContract.sol";
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Tokens
  * or withdraw their stake in Tokens
  * the contracts buy intrest tokens and can transfer the daily interest to the  DAO
  */
-contract GovernanceStaking is ERC20Upgradeable,BaseGovernanceShareField{
+contract GovernanceStaking is ERC20Upgradeable,BaseGovernanceShareField,DAOContract{
 	
 
 	// Token address
@@ -173,5 +173,14 @@ contract GovernanceStaking is ERC20Upgradeable,BaseGovernanceShareField{
         return true;
     }
 
+		/**
+	 * @dev Calculate rewards per block from monthly amount of rewards and set it
+	 * @param _monthlyAmount total rewards which will distribute monthly
+	 */
+	function setMonthlyRewards(uint256 _monthlyAmount) public{
+		_onlyAvatar();
+		_setMonthlyRewards(_monthlyAmount);
+		
+	}
 	
 }

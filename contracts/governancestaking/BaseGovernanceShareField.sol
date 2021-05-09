@@ -3,9 +3,9 @@ pragma solidity >=0.6.6;
 import "../Interfaces.sol";
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
-import "../utils/DAOContract.sol";
+
 import "../utils/DSMath.sol";
-contract BaseGovernanceShareField is DAOContract {
+contract BaseGovernanceShareField {
 	using SafeMath for uint256;
 	// Total Amount of stakes
 	uint256 totalProductivity;
@@ -14,7 +14,7 @@ contract BaseGovernanceShareField is DAOContract {
 	// Amount of the rewards which minted so far
 	uint256 public rewardsMintedSoFar;
 	// Amount of the rewards with pending and minted ones together
-	uint256 public cumRewards;
+	uint256 public totalRewardsAccumulated;
 	// The address of the reward token
 	address public shareToken;
 	// Block number of last reward calculation made
@@ -34,8 +34,8 @@ contract BaseGovernanceShareField is DAOContract {
 	 * @dev Calculate rewards per block from monthly amount of rewards and set it
 	 * @param _monthlyAmount total rewards which will distribute monthly
 	 */
-	function setMonthlyRewards(uint256 _monthlyAmount) public{
-		_onlyAvatar();
+	function _setMonthlyRewards(uint256 _monthlyAmount) internal{
+		
 		rewardsPerBlock = _monthlyAmount / 172800;
 		
 	}
@@ -74,7 +74,7 @@ contract BaseGovernanceShareField is DAOContract {
 					(userInfo.amount * accAmountPerShare) / 1e11
 					- userInfo.rewardDebt; // Divide 1e11(because userinfo.amount in 2 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
 				userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
-				cumRewards = cumRewards + pending;
+				totalRewardsAccumulated = totalRewardsAccumulated + pending;
 			}
 		} 
 	
