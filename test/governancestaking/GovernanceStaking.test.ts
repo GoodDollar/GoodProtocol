@@ -109,12 +109,12 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     console.log("setting permissions...");
     governanceStaking = await upgrades.deployProxy(
       governanceStakingFactory,
-      [nameService.address,ethers.utils.parseEther("12000000")],
+      [nameService.address, ethers.utils.parseEther("12000000")],
       {
         unsafeAllowCustomTypes: true
       }
     );
-    
+
     setDAOAddress("CDAI", cDAI.address);
     setDAOAddress("DAI", dai.address);
 
@@ -201,7 +201,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await governanceStaking.connect(staker).stake("100");
     await advanceBlocks(4);
     await governanceStaking.connect(staker).transfer(founder.address, "100");
-    await governanceStaking.connect(staker).withdrawRewards()
+    await governanceStaking.connect(staker).withdrawRewards();
     const gdaoBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
     await governanceStaking.withdrawStake("100");
     const gdaoBalanceAfterWithdraw = await grep.balanceOf(founder.address);
@@ -241,7 +241,6 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     expect(
       GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
     ).to.be.equal("500000000000000");
-   
   });
 
   it("it should not generate rewards when rewards per block set to 0", async () => {
@@ -316,59 +315,73 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
 
   it("user receive fractional gdao properly when his stake << totalProductivity", async () => {
     await goodDollar.mint(founder.address, "800"); // 8gd
-    await goodDollar.mint(staker.address, "200") // 2gd
+    await goodDollar.mint(staker.address, "200"); // 2gd
     await goodDollar.approve(governanceStaking.address, "800");
-    await goodDollar.connect(staker).approve(governanceStaking.address,"200")
+    await goodDollar.connect(staker).approve(governanceStaking.address, "200");
     await governanceStaking.stake("800");
-    await governanceStaking.connect(staker).stake("200")
+    await governanceStaking.connect(staker).stake("200");
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(staker.address);
-    const FounderGDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
+    const FounderGDAOBalanceBeforeWithdraw = await grep.balanceOf(
+      founder.address
+    );
     await governanceStaking.withdrawStake("800");
-    await governanceStaking.connect(staker).withdrawStake("200")
+    await governanceStaking.connect(staker).withdrawStake("200");
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address);
-    const FounderGDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-   
-    expect(FounderGDAOBalanceAfterWithdraw.sub(FounderGDAOBalanceBeforeWithdraw).toString()).to.be.equal("347222222222222222220")
-    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()).to.be.equal("138888888888888888888"); // it gets full amount of rewards for 1 block plus 1/5 of amounts for 5 blokcs so 69444444444444444444 + 69444444444444444444
+    const FounderGDAOBalanceAfterWithdraw = await grep.balanceOf(
+      founder.address
+    );
 
-
+    expect(
+      FounderGDAOBalanceAfterWithdraw.sub(
+        FounderGDAOBalanceBeforeWithdraw
+      ).toString()
+    ).to.be.equal("347222222222222222220");
+    expect(
+      GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
+    ).to.be.equal("138888888888888888888"); // it gets full amount of rewards for 1 block plus 1/5 of amounts for 5 blokcs so 69444444444444444444 + 69444444444444444444
   });
 
-  it("it should be able to tranfer tokens when user approve",async()=>{
+  it("it should be able to tranfer tokens when user approve", async () => {
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
     await governanceStaking.stake("100");
-    await governanceStaking.approve(staker.address,"100")
-    await governanceStaking.connect(staker).transferFrom(founder.address,staker.address,"100")
-    const GDAOBalanceBeforeWithdraw = await governanceStaking.balanceOf(staker.address)
-    await governanceStaking.connect(staker).withdrawStake("100")
-    const GDAOBalanceAfterWithdraw = await governanceStaking.balanceOf(staker.address)
-    await governanceStaking.withdrawRewards()
+    await governanceStaking.approve(staker.address, "100");
+    await governanceStaking
+      .connect(staker)
+      .transferFrom(founder.address, staker.address, "100");
+    const GDAOBalanceBeforeWithdraw = await governanceStaking.balanceOf(
+      staker.address
+    );
+    await governanceStaking.connect(staker).withdrawStake("100");
+    const GDAOBalanceAfterWithdraw = await governanceStaking.balanceOf(
+      staker.address
+    );
+    await governanceStaking.withdrawRewards();
 
-    expect(GDAOBalanceAfterWithdraw.gt(GDAOBalanceBeforeWithdraw))
+    expect(GDAOBalanceAfterWithdraw.gt(GDAOBalanceBeforeWithdraw));
+  });
+  it("it should return staker data", async () => {
+    const stakerData = await governanceStaking.getStakerData(staker.address);
+    expect(stakerData[0].toString()).to.be.equal("0");
+    expect(stakerData[1].toString()).to.be.equal("0");
+    expect(stakerData[2].toString()).to.be.equal("0");
+  });
 
-  })
-  it("it should return staker data",async()=>{
+  it("it should return zero rewards when totalProductiviy is zero", async () => {
+    const userPendingRewards = await governanceStaking.getUserPendingReward(
+      staker.address
+    );
+    expect(userPendingRewards.toString()).to.be.equal("0");
+  });
 
-    const stakerData = await governanceStaking.getStakerData(staker.address)
-    expect(stakerData[0].toString()).to.be.equal("0")
-    expect(stakerData[1].toString()).to.be.equal("0")
-    expect(stakerData[2].toString()).to.be.equal("0")
-  })
-
-  it("it should return zero rewards when totalProductiviy is zero",async()=>{
-    const userPendingRewards = await governanceStaking.getUserPendingReward(staker.address)
-    expect(userPendingRewards.toString()).to.be.equal("0")
-  })
-
-  it("it should be able get accumulated rewards per share",async()=>{
+  it("it should be able get accumulated rewards per share", async () => {
     const governanceStakingFactory = await ethers.getContractFactory(
       "GovernanceStaking"
     );
     const simpleGovernanceStaking = await upgrades.deployProxy(
       governanceStakingFactory,
-      [nameService.address,ethers.utils.parseEther("12000000")],
+      [nameService.address, ethers.utils.parseEther("12000000")],
       {
         unsafeAllowCustomTypes: true
       }
@@ -377,9 +390,46 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await goodDollar.approve(simpleGovernanceStaking.address, "200");
     await simpleGovernanceStaking.stake("100");
     await simpleGovernanceStaking.stake("100");
-    const accumulatedRewardsPerShare = await simpleGovernanceStaking.totalRewardsPerShare()
-    expect(accumulatedRewardsPerShare.toString()).to.be.equal('69444444444444444444000000000')
-   
-  })
+    const accumulatedRewardsPerShare = await simpleGovernanceStaking.totalRewardsPerShare();
+    expect(accumulatedRewardsPerShare.toString()).to.be.equal(
+      "69444444444444444444000000000"
+    );
+  });
 
+  it("Staking tokens should be 2 decimals", async () => {
+    const decimals = await governanceStaking.decimals();
+    expect(decimals.toString()).to.be.equal("2");
+  });
+
+  it("Stake amount should be positive", async () => {
+    const tx = await governanceStaking.stake("0").catch(e => e);
+    expect(tx.message).to.have.string(
+      "You need to stake a positive token amount"
+    );
+  });
+
+  it("It should approve stake amount in order to stake", async () => {
+    const tx = await governanceStaking
+      .stake(ethers.utils.parseEther("10000000"))
+      .catch(e => e);
+    expect(tx.message).not.to.be.empty;
+  });
+
+  it("Withdraw amount should be positive", async () => {
+    const tx = await governanceStaking.withdrawStake("0").catch(e => e);
+    expect(tx.message).to.have.string("Should withdraw positive amount");
+  });
+
+  it("Should transferFrom staking token if transfer amount larger than approved amount", async () => {
+    const tx = await governanceStaking
+      .transferFrom(
+        founder.address,
+        staker.address,
+        ethers.utils.parseEther("10000000")
+      )
+      .catch(e => e);
+    expect(tx.message).to.have.string(
+      "ERC20: transfer amount exceeds allowance"
+    );
+  });
 });

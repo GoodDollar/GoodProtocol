@@ -5,6 +5,7 @@ import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 
 import "../utils/DSMath.sol";
+
 contract BaseGovernanceShareField {
 	using SafeMath for uint256;
 	// Total Amount of stakes
@@ -20,7 +21,7 @@ contract BaseGovernanceShareField {
 	// Block number of last reward calculation made
 	uint256 public lastRewardBlock;
 	// Rewards amount that will be provided each block
-    uint256 public rewardsPerBlock;
+	uint256 public rewardsPerBlock;
 
 	struct UserInfo {
 		uint256 amount; // How many tokens the user has staked.
@@ -29,24 +30,23 @@ contract BaseGovernanceShareField {
 	}
 
 	mapping(address => UserInfo) public users;
-	
+
 	/**
 	 * @dev Calculate rewards per block from monthly amount of rewards and set it
 	 * @param _monthlyAmount total rewards which will distribute monthly
 	 */
-	function _setMonthlyRewards(uint256 _monthlyAmount) internal{
-		
+	function _setMonthlyRewards(uint256 _monthlyAmount) internal {
 		rewardsPerBlock = _monthlyAmount / 172800;
-		
 	}
+
 	function _setShareToken(address _shareToken) internal {
 		shareToken = _shareToken;
 	}
 
 	/**
 	 * @dev Update reward variables of the given pool to be up-to-date.
-	 * Make reward calculations according to passed blocks and updates rewards by 
-	 * multiplying passed blocks since last calculation with rewards per block value 
+	 * Make reward calculations according to passed blocks and updates rewards by
+	 * multiplying passed blocks since last calculation with rewards per block value
 	 * and add it to accumalated amount per share by dividing total productivity
 	 */
 	function _update() internal virtual {
@@ -54,12 +54,13 @@ contract BaseGovernanceShareField {
 			lastRewardBlock = block.number;
 			return;
 		}
-		
-		
-        uint256 multiplier = block.number - lastRewardBlock; // Blocks passed since last reward block
-        uint256 reward = multiplier * rewardsPerBlock; // rewardsPerBlock is in GDAO which is in 18 decimals
 
-        accAmountPerShare = accAmountPerShare + rdiv(reward ,totalProductivity * 1e16); // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
+		uint256 multiplier = block.number - lastRewardBlock; // Blocks passed since last reward block
+		uint256 reward = multiplier * rewardsPerBlock; // rewardsPerBlock is in GDAO which is in 18 decimals
+
+		accAmountPerShare =
+			accAmountPerShare +
+			rdiv(reward, totalProductivity * 1e16); // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
 		lastRewardBlock = block.number;
 	}
 
@@ -69,17 +70,14 @@ contract BaseGovernanceShareField {
 	function _audit(address user) internal virtual {
 		UserInfo storage userInfo = users[user];
 		if (userInfo.amount > 0) {
-		
-				uint256 pending =
-					(userInfo.amount * accAmountPerShare) / 1e11
-					- userInfo.rewardDebt; // Divide 1e11(because userinfo.amount in 2 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
-				userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
-				totalRewardsAccumulated = totalRewardsAccumulated + pending;
-			}
-		} 
-	
-
-	
+			uint256 pending =
+				(userInfo.amount * accAmountPerShare) /
+					1e11 -
+					userInfo.rewardDebt; // Divide 1e11(because userinfo.amount in 2 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
+			userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
+			totalRewardsAccumulated = totalRewardsAccumulated + pending;
+		}
+	}
 
 	/**
 	 * @dev This function increase user's productivity and updates the global productivity.
@@ -122,7 +120,7 @@ contract BaseGovernanceShareField {
 
 		_update();
 		_audit(user);
-		
+
 		userInfo.amount = userInfo.amount - value;
 		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e11; // Divide to 1e11 to keep rewardDebt in 18 decimals since accAmountPerShare is in 27 decimals and amount is GD which is 2 decimals
 		totalProductivity = totalProductivity - value;
@@ -137,25 +135,23 @@ contract BaseGovernanceShareField {
 	function getUserPendingReward(address user) public view returns (uint256) {
 		UserInfo memory userInfo = users[user];
 		uint256 _accAmountPerShare = accAmountPerShare;
-	
+
 		uint256 pending = 0;
-	
-		if (totalProductivity != 0) 
-        {
+
+		if (totalProductivity != 0) {
 			uint256 multiplier = block.number - lastRewardBlock;
 			uint256 reward = multiplier * rewardsPerBlock; // rewardsPerBlock is in GDAO which is in 18 decimals
-		
 
-			_accAmountPerShare = _accAmountPerShare + rdiv(reward ,totalProductivity * 1e16); // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
-			
-			
+			_accAmountPerShare =
+				_accAmountPerShare +
+				rdiv(reward, totalProductivity * 1e16); // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
+
 			pending =
-					(userInfo.amount * _accAmountPerShare) / 1e11
-					- userInfo.rewardDebt; // Divide 1e11(because userinfo.amount in 2 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
-				
-			
+				(userInfo.amount * _accAmountPerShare) /
+				1e11 -
+				userInfo.rewardDebt; // Divide 1e11(because userinfo.amount in 2 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
 		}
-		return userInfo.rewardEarn + pending ; 
+		return userInfo.rewardEarn + pending;
 	}
 
 	/** 
@@ -164,17 +160,14 @@ contract BaseGovernanceShareField {
     * @return returns minted amount
     */
 
-	function _issueEarnedRewards(address user)
-		internal
-		returns (uint256)
-	{
+	function _issueEarnedRewards(address user) internal returns (uint256) {
 		_update();
 		_audit(user);
 		UserInfo storage userInfo = users[user];
 		uint256 amount = userInfo.rewardEarn;
 		userInfo.rewardEarn = 0;
 		rewardsMintedSoFar = rewardsMintedSoFar + amount;
-		return amount ;
+		return amount;
 	}
 
 	/**
@@ -196,7 +189,8 @@ contract BaseGovernanceShareField {
 	function totalRewardsPerShare() public view virtual returns (uint256) {
 		return accAmountPerShare;
 	}
-    function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
+
+	function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
 		z = x.mul(y).add(10**27 / 2) / 10**27;
 	}
 
