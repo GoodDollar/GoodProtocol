@@ -263,7 +263,7 @@ contract GoodFundManager is DAOContract {
 				interest // interest
 			);
 		// Transfers the minted tokens to the given staking contract
-		IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
+		IGoodDollar token = IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
 
 		if (gdUBI > 0) {
 			//transfer ubi to avatar on sidechain via bridge
