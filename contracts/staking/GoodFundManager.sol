@@ -297,7 +297,7 @@ contract GoodFundManager is DAOContract {
 		} else {
 			require(
 				interest >= 4 * gasPriceIncDAI,
-				"Collected interests should be at least 4 times bigger than gas cost since last call of this function sooner than 2 months"
+				"Collected interest value should be 4x gas costs"
 			);
 		}
 		emit FundsTransferred(
