@@ -69,7 +69,7 @@ contract GovernanceStaking is
 	 * @dev Allows a staker to deposit Tokens. Notice that `approve` is
 	 * needed to be executed before the execution of this method.
 	 * Can be executed only when the contract is not paused.
-	 * @param _amount The amount of DAI to stake
+	 * @param _amount The amount of GD to stake
 	 */
 	function stake(uint256 _amount) external {
 		require(_amount > 0, "You need to stake a positive token amount");
@@ -176,15 +176,17 @@ contract GovernanceStaking is
 		address recipient,
 		uint256 amount
 	) public virtual override returns (bool) {
-		_decreaseProductivity(sender, amount);
-		_increaseProductivity(recipient, amount);
-		_transfer(sender, recipient, amount);
-
 		uint256 currentAllowance = allowance(sender, _msgSender());
 		require(
 			currentAllowance >= amount,
 			"ERC20: transfer amount exceeds allowance"
 		);
+		
+		_decreaseProductivity(sender, amount);
+		_increaseProductivity(recipient, amount);
+		_transfer(sender, recipient, amount);
+
+		
 		_approve(sender, _msgSender(), currentAllowance - amount);
 
 		return true;
