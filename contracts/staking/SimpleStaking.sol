@@ -8,7 +8,6 @@ import "../Interfaces.sol";
 import "./AbstractGoodStaking.sol";
 import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
-import "../utils/Pausable.sol";
 import "../utils/DAOContract.sol";
 import "./StakingToken.sol";
 
@@ -18,7 +17,7 @@ import "./StakingToken.sol";
  * or withdraw their stake in Tokens
  * the contracts buy intrest tokens and can transfer the daily interest to the  DAO
  */
-contract SimpleStaking is Pausable, AbstractGoodStaking, StakingToken {
+contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	using SafeMath for uint256;
 
 	// Token address
@@ -42,6 +41,8 @@ contract SimpleStaking is Pausable, AbstractGoodStaking, StakingToken {
 	// uint256 public totalStaked = 0;
 
 	uint256 constant DECIMAL1e18 = 10**18;
+
+	bool public isPaused;
 
 	/**
 	 * @dev Constructor
@@ -69,8 +70,6 @@ contract SimpleStaking is Pausable, AbstractGoodStaking, StakingToken {
 		blockInterval = _blockInterval;
 		lastUBICollection = block.number.div(blockInterval);
 		_setShareToken(address(avatar.nativeToken()));
-		// Adds the avatar as a pauser of this contract
-		addPauser(address(avatar));
 	}
 
 	/**
@@ -80,11 +79,8 @@ contract SimpleStaking is Pausable, AbstractGoodStaking, StakingToken {
 	 * @param _amount The amount of DAI to stake
 	 * @param _donationPer The % of interest staker want to donate.
 	 */
-	function stake(uint256 _amount, uint256 _donationPer)
-		external
-		override
-		whenNotPaused
-	{
+	function stake(uint256 _amount, uint256 _donationPer) external override {
+		require(isPaused == false, "Staking is paused");
 		require(_amount > 0, "You need to stake a positive token amount");
 		require(
 			token.transferFrom(msg.sender, address(this), _amount),
@@ -297,14 +293,18 @@ contract SimpleStaking is Pausable, AbstractGoodStaking, StakingToken {
 		);
 	}
 
+	function pause(bool _isPaused) public {
+		_onlyAvatar();
+		isPaused = _isPaused;
+	}
+
 	/**
 	 * @dev making the contract inactive
 	 * NOTICE: this could theoretically result in future interest earned in cdai to remain locked
 	 * but we dont expect any other stakers but us in SimpleDAIStaking
 	 */
 	function end() public {
-		_onlyAvatar();
-		pause();
+		pause(true);
 	}
 
 	/**
@@ -318,7 +318,7 @@ contract SimpleStaking is Pausable, AbstractGoodStaking, StakingToken {
 		// recover left iToken(stakers token) only when all stakes have been withdrawn
 		if (address(_token) == address(iToken)) {
 			require(
-				totalProductivity == 0 && paused(),
+				totalProductivity == 0 && isPaused,
 				"can recover iToken only when stakes have been withdrawn"
 			);
 		}

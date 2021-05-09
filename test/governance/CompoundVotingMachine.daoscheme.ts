@@ -65,32 +65,45 @@ describe("CompoundVotingMachine#DAOScheme", () => {
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
 
-    const GReputation = await ethers.getContractFactory("GReputation");
+    // const GReputation = await ethers.getContractFactory("GReputation");
     const CompoundVotingMachine = await ethers.getContractFactory(
       "CompoundVotingMachine"
     );
 
-    grep = (await upgrades.deployProxy(GReputation, [root.address], {
-      unsafeAllowCustomTypes: true
-    })) as GReputation;
+    // grep = (await upgrades.deployProxy(GReputation, [root.address], {
+    //   unsafeAllowCustomTypes: true
+    // })) as GReputation;
 
-    let { daoCreator, controller, avatar: av, setSchemes } = await createDAO();
+    let {
+      daoCreator,
+      controller,
+      avatar: av,
+      setSchemes,
+      reputation,
+      setDAOAddress
+    } = await createDAO();
     Controller = controller;
     avatar = av;
+
+    grep = (await ethers.getContractAt(
+      "GReputation",
+      reputation
+    )) as GReputation;
+
     gov = (await CompoundVotingMachine.deploy(
       avatar,
       grep.address,
       5760
     )) as CompoundVotingMachine;
 
+    //this will give root minter permissions
+    setDAOAddress("GDAO_CLAIMERS", root.address);
+
     //set voting machiine as scheme with permissions
     await setSchemes([gov.address]);
 
     await grep.mint(root.address, ethers.BigNumber.from("1000000"));
     await grep.mint(acct.address, ethers.BigNumber.from("500000"));
-
-    //set avatar as owner of rep
-    await grep.transferOwnership(avatar);
 
     queuePeriod = await gov.queuePeriod().then(_ => _.toNumber());
 

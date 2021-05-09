@@ -13,29 +13,34 @@ const encodeParameters = (types, values) =>
   ethers.utils.defaultAbiCoder.encode(types, values);
 
 describe("GovernorAlpha#propose", () => {
-  let gov: CompoundVotingMachine, root: SignerWithAddress, acct: SignerWithAddress;
+  let gov: CompoundVotingMachine,
+    root: SignerWithAddress,
+    acct: SignerWithAddress;
 
   let trivialProposal, targets, values, signatures, callDatas;
   let proposalBlock, proposalId, voteDelay, votePeriod;
 
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
-    const GReputation = await ethers.getContractFactory("GReputation");
     const CompoundVotingMachine = await ethers.getContractFactory(
       "CompoundVotingMachine"
     );
 
-    grep = (await upgrades.deployProxy(GReputation, [root.address], {
-      unsafeAllowCustomTypes: true
-    })) as GReputation;
+    let { avatar, reputation, setDAOAddress } = await createDAO();
 
-    let { daoCreator } = await createDAO();
-    let avatar = await daoCreator.avatar();
+    grep = (await ethers.getContractAt(
+      "GReputation",
+      reputation
+    )) as GReputation;
+
     gov = (await CompoundVotingMachine.deploy(
       avatar,
       grep.address,
       5760
     )) as CompoundVotingMachine;
+
+    //this will give root minter permissions
+    setDAOAddress("GDAO_CLAIMERS", root.address);
 
     await grep.mint(root.address, ethers.BigNumber.from("1000000"));
     targets = [root.address];
@@ -74,7 +79,9 @@ describe("GovernorAlpha#propose", () => {
     });
 
     it("Start block is set to the current block number plus vote delay", async () => {
-      expect(trivialProposal.startBlock).to.equal(proposalBlock + voteDelay + "");
+      expect(trivialProposal.startBlock).to.equal(
+        proposalBlock + voteDelay + ""
+      );
     });
 
     it("End block is set to the current block number plus the sum of vote delay and vote period", async () => {
@@ -154,7 +161,13 @@ describe("GovernorAlpha#propose", () => {
         );
 
         await expect(
-          gov.propose(targets, values.concat(values), signatures, callDatas, "do nothing")
+          gov.propose(
+            targets,
+            values.concat(values),
+            signatures,
+            callDatas,
+            "do nothing"
+          )
         ).to.revertedWith(
           "revert CompoundVotingMachine::propose: proposal function information arity mismatch"
         );
@@ -194,7 +207,9 @@ describe("GovernorAlpha#propose", () => {
     it("This function returns the id of the newly created proposal. # proposalId(n) = succ(proposalId(n-1))", async () => {
       await grep.delegateTo(acct.address);
 
-      await gov.connect(acct).propose(targets, values, signatures, callDatas, "yoot");
+      await gov
+        .connect(acct)
+        .propose(targets, values, signatures, callDatas, "yoot");
 
       expect(await gov.proposalCount()).to.equal(+trivialProposal.id + 1);
     });
