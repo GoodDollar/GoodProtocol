@@ -14,7 +14,7 @@ contract BaseGovernanceShareField is DAOContract {
 	// Amount of the rewards which minted so far
 	uint256 public rewardsMintedSoFar;
 	// Amount of the rewards with pending and minted ones together
-	uint256 public mintCumulation;
+	uint256 public cumRewards;
 	// The address of the reward token
 	address public shareToken;
 	// Block number of last reward calculation made
@@ -74,7 +74,7 @@ contract BaseGovernanceShareField is DAOContract {
 					(userInfo.amount * accAmountPerShare) / 1e11
 					- userInfo.rewardDebt; // Divide 1e11(because userinfo.amount in 2 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
 				userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
-				mintCumulation = mintCumulation + pending;
+				cumRewards = cumRewards + pending;
 			}
 		} 
 	
