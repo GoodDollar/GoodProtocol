@@ -126,20 +126,18 @@ contract UBIScheme is Initializable, DAOContract {
 	 * @param _ns the DAO
 	 * @param _firstClaimPool A pool for GD to give out to activated users
 	 * @param _maxInactiveDays Days of grace without claiming request
-	 * @param _cycleLength number of days current UBI pool is divided to
 	 */
 	function initialize(
 		NameService _ns,
 		IFirstClaimPool _firstClaimPool,
-		uint256 _maxInactiveDays,
-		uint256 _cycleLength
+		uint256 _maxInactiveDays
 	) public initializer {
 		require(_maxInactiveDays > 0, "Max inactive days cannot be zero");
 		setDAO(_ns);
 		maxInactiveDays = _maxInactiveDays;
 		firstClaimPool = _firstClaimPool;
 		shouldWithdrawFromDAO = false;
-		cycleLength = _cycleLength;
+		cycleLength = 90; //90 days
 		iterationGasLimit = 150000;
 	}
 
@@ -227,13 +225,22 @@ contract UBIScheme is Initializable, DAOContract {
 	 */
 	function distributionFormula() internal returns (uint256) {
 		setDay();
+
 		// on first day or once in 24 hrs calculate distribution
+		//on day 0 all users receive from firstclaim pool
 		if (currentDay != lastWithdrawDay) {
 			IGoodDollar token = nativeToken();
 			uint256 currentBalance = token.balanceOf(address(this));
-
+			uint256 currentCycleStartingBalance =
+				dailyCyclePool * currentCycleLength;
+			//we start a new cycle earlier if we got some significant funds deposited (currentBalance > 1.3 * openBalance[prevDay]) and currentBalance > 80% of prev cycle starting balance
+			uint256 prevDayBalance = dailyUBIHistory[currentDay - 1].openAmount;
+			bool shouldStartEarlyCycle =
+				currentBalance >= (prevDayBalance * 130) / 100 &&
+					currentBalance > (currentCycleStartingBalance * 80) / 100;
 			if (
-				currentDayInCycle() >= currentCycleLength
+				currentDayInCycle() >= currentCycleLength ||
+				shouldStartEarlyCycle
 			) //start of cycle or first time
 			{
 				if (shouldWithdrawFromDAO) _withdrawFromDao();
@@ -421,11 +428,10 @@ contract UBIScheme is Initializable, DAOContract {
 			"UBIScheme: not whitelisted"
 		);
 		bool didClaim = _claim(msg.sender);
-		if (didClaim) {
-			ClaimersDistribution(
-				nameService.addresses(nameService.GDAO_CLAIMERS())
-			)
-				.updateClaim(msg.sender);
+		address claimerDistribution =
+			nameService.addresses(nameService.GDAO_CLAIMERS());
+		if (didClaim && claimerDistribution != address(0)) {
+			ClaimersDistribution(claimerDistribution).updateClaim(msg.sender);
 		}
 		return didClaim;
 	}
