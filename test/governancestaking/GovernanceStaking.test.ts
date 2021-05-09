@@ -109,7 +109,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     console.log("setting permissions...");
     governanceStaking = await upgrades.deployProxy(
       governanceStakingFactory,
-      [grep.address, nameService.address, "DAOStaking", "DST",ethers.utils.parseEther("12000000")],
+      [nameService.address, "DAOStaking", "DST",ethers.utils.parseEther("12000000")],
       {
         unsafeAllowCustomTypes: true
       }
@@ -368,7 +368,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     );
     const simpleGovernanceStaking = await upgrades.deployProxy(
       governanceStakingFactory,
-      [grep.address, nameService.address, "DAOStaking", "DST",ethers.utils.parseEther("12000000")],
+      [nameService.address, "DAOStaking", "DST",ethers.utils.parseEther("12000000")],
       {
         unsafeAllowCustomTypes: true
       }

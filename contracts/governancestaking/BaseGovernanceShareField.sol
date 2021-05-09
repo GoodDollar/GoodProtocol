@@ -23,8 +23,8 @@ contract BaseGovernanceShareField is DAOContract {
     uint256 public rewardsPerBlock;
 
 	struct UserInfo {
-		uint256 amount; // How many tokens the user has provided.
-		uint256 rewardDebt; // Reward debt.
+		uint256 amount; // How many tokens the user has staked.
+		uint256 rewardDebt; // Rewards that accounted already so should be substracted while calculating rewards of staker
 		uint256 rewardEarn; // Reward earn and not minted
 	}
 
@@ -45,7 +45,9 @@ contract BaseGovernanceShareField is DAOContract {
 
 	/**
 	 * @dev Update reward variables of the given pool to be up-to-date.
-	 * Calculates passed blocks and adding to the reward pool
+	 * Make reward calculations according to passed blocks and updates rewards by 
+	 * multiplying passed blocks since last calculation with rewards per block value 
+	 * and add it to accumalated amount per share by dividing total productivity
 	 */
 	function _update() internal virtual {
 		if (totalProductivity == 0) {
@@ -201,4 +203,6 @@ contract BaseGovernanceShareField is DAOContract {
 	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
 		z = x.mul(10**27).add(y / 2) / y;
 	}
+
+	uint256[50] private _gap;
 }
