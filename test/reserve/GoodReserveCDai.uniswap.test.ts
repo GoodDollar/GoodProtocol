@@ -17,6 +17,7 @@ import ERC20 from "@uniswap/v2-core/build/ERC20.json";
 import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
 
+const MaxUint256 = ethers.constants.MaxUint256;
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 1;
@@ -493,14 +494,14 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     token0Amount: BigNumber,
     WETHAmount: BigNumber
   ) {
-    await dai.approve(uniswapRouter.address, ethers.constants.MaxUint256);
+    await dai.approve(uniswapRouter.address, MaxUint256);
     await uniswapRouter.addLiquidityETH(
       dai.address,
       token0Amount,
       token0Amount,
       WETHAmount,
       founder.address,
-      ethers.constants.MaxUint256,
+      MaxUint256,
       {
         value: WETHAmount
       }

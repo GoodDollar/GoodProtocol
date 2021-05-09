@@ -123,6 +123,12 @@ describe("GReputation", () => {
       .true;
   });
 
+  it("should have name, symbol and decimals", async () => {
+    expect(await grep.name()).to.equal("GoodDAO");
+    expect(await grep.symbol()).to.equal("GDAO");
+    expect(await grep.decimals()).to.equal(18);
+  });
+
   it("should get balanceOf", async () => {
     const repBalance = await grep.balanceOf(founder);
     expect(repBalance.toNumber()).to.be.equal(0);

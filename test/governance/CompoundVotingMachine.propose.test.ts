@@ -26,18 +26,17 @@ describe("GovernorAlpha#propose", () => {
       "CompoundVotingMachine"
     );
 
-    let { avatar, reputation, setDAOAddress } = await createDAO();
+    let { avatar, reputation, setDAOAddress, nameService } = await createDAO();
 
     grep = (await ethers.getContractAt(
       "GReputation",
       reputation
     )) as GReputation;
 
-    gov = (await CompoundVotingMachine.deploy(
-      avatar,
-      grep.address,
+    gov = (await upgrades.deployProxy(CompoundVotingMachine, [
+      nameService.address,
       5760
-    )) as CompoundVotingMachine;
+    ])) as CompoundVotingMachine;
 
     //this will give root minter permissions
     setDAOAddress("GDAO_CLAIMERS", root.address);

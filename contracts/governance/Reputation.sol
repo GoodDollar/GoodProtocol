@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
@@ -15,6 +15,9 @@ import "../utils/DAOContract.sol";
  */
 contract Reputation is DAOContract, AccessControlUpgradeable {
 	bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+
+	string public name;
+	string public symbol;
 
 	uint8 public decimals; //Number of decimals of the smallest unit
 	// Event indicating minting of reputation to an address.
@@ -43,6 +46,8 @@ contract Reputation is DAOContract, AccessControlUpgradeable {
 	 */
 	function initialize(NameService _ns) public initializer {
 		decimals = 18;
+		name = "GoodDAO";
+		symbol = "GDAO";
 		__Context_init_unchained();
 		__ERC165_init_unchained();
 		__AccessControl_init_unchained();
@@ -75,15 +80,8 @@ contract Reputation is DAOContract, AccessControlUpgradeable {
 		returns (uint256)
 	{
 		uint256 curTotalSupply = totalSupply();
-		require(
-			curTotalSupply + _amount >= curTotalSupply,
-			"total supply overflow"
-		); // Check for overflow
 		uint256 previousBalanceTo = balanceOf(_user);
-		require(
-			previousBalanceTo + _amount >= previousBalanceTo,
-			"balance overflow"
-		); // Check for overflow
+
 		updateValueAtNow(totalSupplyHistory, curTotalSupply + _amount);
 		updateValueAtNow(balances[_user], previousBalanceTo + _amount);
 		emit Mint(_user, _amount);

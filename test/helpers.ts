@@ -215,7 +215,7 @@ export const createDAO = async () => {
 
   await setDAOAddress("RESERVE", goodReserve.address);
   await setDAOAddress("MARKET_MAKER", marketMaker.address);
-  await setDAOAddress("GReputation", reputation.address);
+  await setDAOAddress("REPUTATION", reputation.address);
 
   await setReserveToken(
     cDAI.address,
