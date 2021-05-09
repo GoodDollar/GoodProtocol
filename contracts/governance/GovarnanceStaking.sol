@@ -91,10 +91,7 @@ contract GovernanceStaking is
 		require(_amount > 0, "Should withdraw positive amount");
 		require(userProductivity >= _amount, "Not enough token staked");
 		uint256 tokenWithdraw = _amount;
-		uint256 tokenActual = token.balanceOf(address(this));
-		if (tokenActual < tokenWithdraw) {
-			tokenWithdraw = tokenActual;
-		}
+		
 		_burn(_msgSender(), _amount); // burn their staking tokens
 		_decreaseProductivity(_msgSender(), _amount);
 		_mintRewards(_msgSender());

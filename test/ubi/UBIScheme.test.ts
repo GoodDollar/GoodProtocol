@@ -60,7 +60,7 @@ describe("UBIScheme", () => {
     let ubi1 = await (await ethers.getContractFactory("UBIScheme")).deploy();
 
     await expect(
-      ubi1.initialize(nameService.address, firstClaimPool.address, 0, 7)
+      ubi1.initialize(nameService.address, firstClaimPool.address, 0)
     ).revertedWith("Max inactive days cannot be zero");
   });
 

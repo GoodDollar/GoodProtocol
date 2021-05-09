@@ -90,7 +90,6 @@ contract BaseGovernanceShareField {
 		virtual
 		returns (bool)
 	{
-		require(value > 0, "PRODUCTIVITY_VALUE_MUST_BE_GREATER_THAN_ZERO");
 
 		UserInfo storage userInfo = users[user];
 		_update();
@@ -188,10 +187,6 @@ contract BaseGovernanceShareField {
 	 */
 	function totalRewardsPerShare() public view virtual returns (uint256) {
 		return accAmountPerShare;
-	}
-
-	function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = x.mul(y).add(10**27 / 2) / 10**27;
 	}
 
 	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
