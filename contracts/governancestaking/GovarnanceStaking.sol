@@ -43,20 +43,17 @@ contract GovernanceStaking is ERC20Upgradeable,BaseGovernanceShareField{
 	/**
 	 * @dev Constructor
 	 * @param _ns The address of the NameService contract
-	 * @param _tokenName The name of the staking token
-	 * @param _tokenSymbol The symbol of the staking token
 	 * @param _monthlyRewards Amount of the total rewards will be distributed over month
 	 */
 	function initialize(
 		NameService _ns,
-		string memory _tokenName,
-		string memory _tokenSymbol,
+
 		uint256 _monthlyRewards
 	) public virtual initializer {
 		setDAO(_ns);
 		token = ERC20(nameService.addresses(nameService.GOODDOLLAR()));
 		_setShareToken(nameService.addresses(nameService.REPUTATION()));
-		__ERC20_init(_tokenName,_tokenSymbol);
+		__ERC20_init("GDAO Staking","sGDAO");
 		rewardsPerBlock = _monthlyRewards / 172800;
         
 	}
