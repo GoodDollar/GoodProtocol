@@ -313,29 +313,35 @@ describe("GReputation", () => {
       ).to.revertedWith("revert GReputation::delegateBySig: signature expired");
     });
 
-    it("delegates on behalf of the signatory", async () => {
-      const delegate = founder,
-        nonce = 0,
-        expiry = 10e9;
-      const signature = await delegator._signTypedData(
-        await Domain(grep),
-        Types,
-        {
-          delegate,
-          nonce,
-          expiry
-        }
-      );
+    describe("delegates on behalf of the signatory", () => {
+      let txForGas;
+      it("should delegate using signature", async () => {
+        const delegate = founder,
+          nonce = 0,
+          expiry = 10e9;
+        const signature = await delegator._signTypedData(
+          await Domain(grep),
+          Types,
+          {
+            delegate,
+            nonce,
+            expiry
+          }
+        );
 
-      const sig = ethers.utils.splitSignature(signature);
-      expect(await grep.delegates(delegator.address)).to.equal(
-        ethers.constants.AddressZero
-      );
-      const tx = await (
-        await grep.delegateBySig(delegate, nonce, expiry, sig.v, sig.r, sig.s)
-      ).wait();
-      expect(tx.gasUsed).to.lt(130000);
-      expect(await grep.delegates(delegator.address)).to.equal(founder);
+        const sig = ethers.utils.splitSignature(signature);
+        expect(await grep.delegates(delegator.address)).to.equal(
+          ethers.constants.AddressZero
+        );
+        txForGas = await (
+          await grep.delegateBySig(delegate, nonce, expiry, sig.v, sig.r, sig.s)
+        ).wait();
+        expect(await grep.delegates(delegator.address)).to.equal(founder);
+      });
+
+      it("should delegate with X gas [@skip-on-coverage]", async () => {
+        expect(txForGas.gasUsed).to.lt(130000);
+      });
     });
   });
 
