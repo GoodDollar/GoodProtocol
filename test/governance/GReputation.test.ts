@@ -551,5 +551,14 @@ describe("GReputation", () => {
         await grep.getVotes("0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8")
       ).to.be.eq(prevVotes.add(1199)); //add new blockchain rep
     });
+    
+    it("it should be able get votes at the specific block",async()=>{
+      let currentBlock = await ethers.provider.getBlockNumber()
+      let votes = await grep["getVotesAt(address,uint256)"]("0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8",currentBlock)
+      expect(votes.toString()).to.be.equal("1199")
+    })
+
+    
   });
+ 
 });
