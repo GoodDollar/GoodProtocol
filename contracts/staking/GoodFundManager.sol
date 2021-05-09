@@ -327,10 +327,6 @@ contract GoodFundManager is DAOContract {
 		uint256 tempInterest;
 		uint256 totalInterest;
 		int256 i;
-		require(
-			activeContractsLength > 0,
-			"There should be at least one active staking contract"
-		);
 		for (i = 0; i < int256(activeContractsLength); i++) {
 			(tempInterest, , ) = StakingContract(activeContracts[uint256(i)])
 				.currentUBIInterest();
@@ -341,10 +337,11 @@ contract GoodFundManager is DAOContract {
 			}
 		}
 		uint256 gasCostInCdai = getGasPriceInCDAI(_maxGasAmount); // Get gas price in cDAI so can compare with possible interest amount to get
-		require(
-			totalInterest >= gasCostInCdai,
-			"Current interest's worth less than spent gas worth"
-		);
+		address[] memory emptyArray = new address[](0);
+		if (totalInterest < gasCostInCdai){
+			
+			return emptyArray;
+		}
 		quick(balances, addresses); // sort the values according to interest balance
 		uint256 gasCost;
 		uint256 possibleCollected;
@@ -374,15 +371,12 @@ contract GoodFundManager is DAOContract {
 		}
 		if (block.timestamp >= lastCollectedInterest + 5184000) {
 			// 5184000 is 2 months in seconds
-			require(
-				possibleCollected >= gasCostInCdai,
-				"Collected interests does not cover gas cost"
-			);
+		
+				if(possibleCollected < gasCostInCdai) return emptyArray;
+				
 		} else {
-			require(
-				possibleCollected >= 4 * gasCostInCdai,
-				"Collected interests should be at least 4 times bigger than gas cost since last call of this function sooner than 2 months"
-			);
+			if(possibleCollected < 4 * gasCostInCdai) return emptyArray;
+				
 		}
 		return addresses;
 	}

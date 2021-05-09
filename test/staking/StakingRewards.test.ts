@@ -639,7 +639,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const contractsToBeCollected = await goodFundManager.calcSortedContracts(
       "770000"
     );
-    console.log(contractsToBeCollected.toString())
     await goodFundManager.collectInterest(contractsToBeCollected, {
       gasLimit: 770000
     });
@@ -671,13 +670,13 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .approve(goodCompoundStaking.address, stakingAmount);
 
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
-    const contractsToInterestCollected = await goodFundManager.calcSortedContracts("800000").catch(e=>e)
+    const contractsToInterestCollected = await goodFundManager.calcSortedContracts("800000")
     const transaction = await goodFundManager.collectInterest([goodCompoundStaking.address], {
       gasLimit: 770000
     }).catch(e=>e);
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
     expect(transaction.message).to.have.string("Collected interests should be at least 4 times bigger than gas cost since last call of this function sooner than 2 months");
-    expect(contractsToInterestCollected.message).to.have.string("Current interest's worth less than spent gas worth")
+    expect(contractsToInterestCollected.length).to.be.equal(0)
   })
 
   it("It should sort array from lowest to highest ",async()=>{
@@ -706,8 +705,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       ["100", goodCompoundStaking.address, 0, 10, true]
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
-    const contractsToInterestCollected = await goodFundManager.calcSortedContracts("800000").catch(e=>e)
-    expect(contractsToInterestCollected.message).to.have.string("There should be at least one active staking contract")
+    const contractsToInterestCollected = await goodFundManager.calcSortedContracts("800000")
+    expect(contractsToInterestCollected.length).to.be.equal(0)
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["100", goodCompoundStaking.address, 0, 10, false]
