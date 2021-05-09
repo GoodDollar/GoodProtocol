@@ -107,7 +107,7 @@ contract GoodFundManager is DAOContract {
 		uint256 gdUBI,
 		// Amount of GD to be minted as reward
 		//to the keeper which collect interests
-		uint256 gdAmountToMint
+		uint256 gdReward
 	);
 
 	function _reserveHasInitialized() internal view {
