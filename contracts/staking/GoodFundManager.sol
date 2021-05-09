@@ -233,16 +233,17 @@ contract GoodFundManager is DAOContract {
 		_reserveHasInitialized();
 		lastTransferred = block.number.div(blockInterval);
 		ERC20 iToken = ERC20(nameService.getAddress("CDAI"));
+		address reserveAddress = nameService.addresses(nameService.RESERVE());
 		// iToken balance of the reserve contract
 		uint256 currentBalance =
-			iToken.balanceOf(nameService.addresses(nameService.RESERVE()));
+			iToken.balanceOf(reserveAddress);
 
 		for (uint256 i = _stakingContracts.length - 1; i >= 0; i--) {
 			// zxelements are sorted by balances from lowest to highest
 
 			if (_stakingContracts[i] != address(0x0)) {
 				StakingContract(_stakingContracts[i]).collectUBIInterest(
-					nameService.addresses(nameService.RESERVE())
+					reserveAddress
 				);
 			}
 
@@ -251,12 +252,12 @@ contract GoodFundManager is DAOContract {
 
 		// Finds the actual transferred iToken
 		uint256 interest =
-			iToken.balanceOf(nameService.addresses(nameService.RESERVE())) -
+			iToken.balanceOf(reserveAddress) -
 				currentBalance;
 
 		// Mints gd while the interest amount is equal to the transferred amount
 		uint256 gdUBI =
-			GoodReserveCDai(nameService.addresses(nameService.RESERVE()))
+			GoodReserveCDai(reserveAddress)
 				.mintUBI(
 				iToken,
 				interest // interest
@@ -280,7 +281,7 @@ contract GoodFundManager is DAOContract {
 		uint256 totalUsedGas =
 			((initialGas - gasleft() + gasCostToMintReward) * 110) / 100; // We will return as reward 1.1x of used gas in GD
 		uint256 gdAmountToMint = getGasPriceInGD(totalUsedGas);
-		GoodReserveCDai(nameService.addresses(nameService.RESERVE()))
+		GoodReserveCDai(reserveAddress)
 			.mintRewardFromRR(
 			nameService.getAddress("CDAI"),
 			msg.sender,
@@ -301,7 +302,7 @@ contract GoodFundManager is DAOContract {
 		}
 		emit FundsTransferred(
 			msg.sender,
-			nameService.addresses(nameService.RESERVE()),
+			reserveAddress,
 			_stakingContracts,
 			interest,
 			gdUBI,

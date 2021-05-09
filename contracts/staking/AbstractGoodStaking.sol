@@ -97,7 +97,7 @@ contract AbstractGoodStaking {
         
     }
     /**
-     * @dev Get gas cost for interest transfer 
+     * @dev Get gas cost for interest transfer so can be used in the calculation of collectable interest for particular gas amount
      * @return returns hardcoded gas cost
      */
     function getGasCostForInterestTransfer() external view virtual returns(uint256){}
