@@ -215,7 +215,7 @@ export const createDAO = async () => {
 
   await setDAOAddress("RESERVE", goodReserve.address);
   await setDAOAddress("MARKET_MAKER", marketMaker.address);
-  await setDAOAddress("GReputation", reputation.address);
+  await setDAOAddress("REPUTATION", reputation.address);
 
   await setReserveToken(
     cDAI.address,
@@ -264,12 +264,12 @@ export const deployUBI = async deployedDAO => {
   );
 
   console.log("deploying ubischeme and starting...", {
-    input: [nameService.address, firstClaim.address, 14, 7]
+    input: [nameService.address, firstClaim.address, 14]
   });
 
   let ubiScheme = await upgrades.deployProxy(
     await ethers.getContractFactory("UBIScheme"),
-    [nameService.address, firstClaim.address, 14, 7]
+    [nameService.address, firstClaim.address, 14]
   );
 
   const gd = await nameService.addresses(await nameService.GOODDOLLAR());

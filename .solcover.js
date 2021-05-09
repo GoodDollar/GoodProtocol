@@ -15,8 +15,8 @@ module.exports = {
     "utils/DSMath.sol"
   ],
   mocha: {
-    grep: /gas/,
-    invert: true,
+    grep: "@skip-on-coverage", // Find everything with this tag
+    invert: true, // Run the grep's inverse set.
     enableTimeouts: false,
     timeout: 3600000
   }
