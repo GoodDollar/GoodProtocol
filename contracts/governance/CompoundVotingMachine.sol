@@ -51,10 +51,15 @@ contract CompoundVotingMachine is
 		return votingPeriodBlocks;
 	} // ~14 days in blocks (assuming 15s blocks)
 
-	/// @notice The duration of time after proposal passed thershold before it can be expected
+	/// @notice The duration of time after proposal passed thershold before it can be executed
 	function queuePeriod() public pure returns (uint256) {
 		return 2 days;
 	} // 2 days
+
+	/// @notice The duration of time after proposal passed with absolute majority before it can be executed
+	function fastQueuePeriod() public pure returns (uint256) {
+		return 1 days / 8;
+	} // 3 hours
 
 	/// @notice During the queue period if vote decision has changed, we extend queue period so
 	/// that at least gameChangerPeriod is left
@@ -282,9 +287,9 @@ contract CompoundVotingMachine is
 	function _updateETA(Proposal storage proposal, bool hasVoteChanged)
 		internal
 	{
-		//if absolute majority allow to execute immediately
+		//if absolute majority allow to execute quickly
 		if (proposal.forVotes > rep.totalSupplyAt(proposal.startBlock) / 2) {
-			proposal.eta = block.timestamp;
+			proposal.eta = block.timestamp + fastQueuePeriod();
 		}
 		//first time we have a quorom we ask for a no change in decision period
 		else if (proposal.eta == 0) {
@@ -309,10 +314,7 @@ contract CompoundVotingMachine is
 			state(proposalId) == ProposalState.Succeeded,
 			"CompoundVotingMachine::execute: proposal can only be executed if it is succeeded"
 		);
-		require(
-			proposals[proposalId].eta <= block.timestamp,
-			"CompoundVotingMachine::execute: proposal can only be executed if no game changers"
-		);
+
 		Proposal storage proposal = proposals[proposalId];
 		proposal.executed = true;
 		for (uint256 i = 0; i < proposal.targets.length; i++) {

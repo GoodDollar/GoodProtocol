@@ -240,6 +240,14 @@ describe("CompoundVotingMachine#States", () => {
     expect(states[await gov.state(proposalId)]).to.equal("Executed");
   });
 
+  it("can not cancel executed proposal", async () => {
+    let actor = signers[1];
+    let proposalId = await gov.latestProposalIds(actor.address);
+    await expect(gov.cancel(proposalId)).to.be.revertedWith(
+      "cannot cancel executed proposal"
+    );
+  });
+
   it("Game changer extends eta", async () => {
     let gameChangerPeriod = await gov
       .gameChangerPeriod()
@@ -261,6 +269,33 @@ describe("CompoundVotingMachine#States", () => {
     await increaseTime(gameChangerPeriod - 10); //almost to end of gameChangerPeriod
     expect(states[await gov.state(proposalId)]).to.equal("ActiveTimelock"); //should be still active after almost 24hours
     await increaseTime(10);
-    expect(states[await gov.state(proposalId)]).to.equal("Succeeded"); //still defeated after expiration
+    expect(states[await gov.state(proposalId)]).to.equal("Succeeded");
+    await increaseTime(gracePeriod);
+  });
+
+  it("can be executed after short activetimelock period when passed with absolute majority", async () => {
+    let fastQueuePeriod = await gov.fastQueuePeriod().then(_ => _.toNumber());
+    await advanceBlocks(1);
+    await gov
+      .connect(signers[0])
+      .propose(targets, values, signatures, callDatas, "do nothing");
+    let proposalId = await gov.proposalCount();
+    await advanceBlocks(1);
+
+    //vote with > 50%
+    await gov.connect(root).castVote(proposalId, true);
+    await gov.connect(signers[0]).castVote(proposalId, true);
+    await gov.connect(signers[1]).castVote(proposalId, true);
+
+    let proposal = await gov.proposals(proposalId);
+    expect(proposal.forVotes).gt((await grep.totalSupply()).div(2)); //verify absolute majority
+
+    await increaseTime(fastQueuePeriod / 2);
+    expect(states[await gov.state(proposalId)]).to.equal("ActiveTimelock"); //active while in queue period
+
+    await increaseTime(fastQueuePeriod / 2);
+    await advanceBlocks(1);
+    expect(states[await gov.state(proposalId)]).to.equal("Succeeded");
+    await expect(gov.execute(proposalId)).to.not.reverted;
   });
 });

@@ -18,6 +18,8 @@ contract NameService is Initializable {
 	bytes32 public constant GOODDOLLAR = keccak256("GOODDOLLAR");
 	bytes32 public constant CAP_MANAGER = keccak256("CAP_MANAGER");
 	bytes32 public constant REPUTATION = keccak256("REPUTATION");
+	bytes32 public constant GDAO_STAKING = keccak256("GDAO_STAKING");
+	bytes32 public constant GDAO_CLAIMERS = keccak256("GDAO_CLAIMERS");
 
 	mapping(bytes32 => address) public addresses;
 
@@ -33,6 +35,7 @@ contract NameService is Initializable {
 			addresses[_nameHashes[i]] = _addresses[i];
 		}
 		addresses[CONTROLLER] = address(_dao);
+		addresses[AVATAR] = address(_dao.avatar());
 	}
 
 	function setAddress(string memory name, address addr) public {
