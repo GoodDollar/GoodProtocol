@@ -5,7 +5,6 @@ import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgrad
 
 import "./Reputation.sol";
 import "../Interfaces.sol";
-
 /**
  * @title GReputation extends Reputation with delegation and cross blockchain merkle states
  * @dev NOTICE: this breaks DAOStack nativeReputation usage, since it is not possiible to upgrade
@@ -144,7 +143,6 @@ contract GReputation is Reputation {
 			!isRootState || super.totalSupplyAt(block.number) == 0,
 			"rootState already created"
 		);
-
 		uint256 i = 0;
 		for (; !isRootState && i < activeBlockchains.length; i++) {
 			if (activeBlockchains[i] == idHash) break;
@@ -409,7 +407,7 @@ contract GReputation is Reputation {
 	function _delegateTo(address _user, address _delegate) internal {
 		require(
 			_delegate != address(0),
-			"GReputation::delegate can't delegat to null address"
+			"GReputation::delegate can't delegate to null address"
 		);
 
 		address curDelegator = delegates[_user];
