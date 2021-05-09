@@ -69,7 +69,7 @@ contract GoodFundManager is DAOContract {
 	// has been executed in
 	uint256 public lastTransferred;
 
-	//address of the activate staking contracts
+	//address of the active staking contracts
 	address[] public activeContracts;
 
 	//Structure that hold reward information and if its blacklicksted or not for particular staking Contract
