@@ -264,12 +264,12 @@ export const deployUBI = async deployedDAO => {
   );
 
   console.log("deploying ubischeme and starting...", {
-    input: [nameService.address, firstClaim.address, 14, 7]
+    input: [nameService.address, firstClaim.address, 14]
   });
 
   let ubiScheme = await upgrades.deployProxy(
     await ethers.getContractFactory("UBIScheme"),
-    [nameService.address, firstClaim.address, 14, 7]
+    [nameService.address, firstClaim.address, 14]
   );
 
   const gd = await nameService.addresses(await nameService.GOODDOLLAR());
