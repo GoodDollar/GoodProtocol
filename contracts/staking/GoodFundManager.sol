@@ -280,12 +280,12 @@ contract GoodFundManager is DAOContract {
 		uint256 gasCostToMintReward = 200000; // Gas cost to mint GD reward to keeper hardcoded so should be changed according to calculations
 		uint256 totalUsedGas =
 			((initialGas - gasleft() + gasCostToMintReward) * 110) / 100; // We will return as reward 1.1x of used gas in GD
-		uint256 gdAmountToMint = getGasPriceInGD(totalUsedGas);
+		uint256 gdRewardToMint = getGasPriceInGD(totalUsedGas);
 		GoodReserveCDai(reserveAddress)
 			.mintRewardFromRR(
 			nameService.getAddress("CDAI"),
 			msg.sender,
-			gdAmountToMint
+			gdRewardToMint
 		);
 		uint256 gasPriceIncDAI = getGasPriceInCDAI(initialGas - gasleft());
 		if (block.timestamp >= lastCollectedInterest + 5184000) {
@@ -306,7 +306,7 @@ contract GoodFundManager is DAOContract {
 			_stakingContracts,
 			interest,
 			gdUBI,
-			gdAmountToMint
+			gdRewardToMint
 		);
 	}
 
