@@ -12,6 +12,8 @@ interface ERC20 {
 	function approve(address spender, uint256 amount) external returns (bool);
 
 	function decimals() external view returns (uint8);
+	
+	function mint(address to, uint256 mintAmount) external returns (uint256);
 
 	function totalSupply() external view returns (uint256);
 
@@ -42,7 +44,7 @@ interface cERC20 is ERC20 {
 interface IGoodDollar is ERC20 {
 	function getFees(uint256 value) external view returns (uint256, bool);
 
-	function mint(address to, uint256 mintAmount) external returns (uint256);
+	
 
 	function burn(uint256 amount) external;
 
