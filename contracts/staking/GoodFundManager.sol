@@ -5,7 +5,7 @@ pragma solidity >=0.7.0;
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../reserve/GoodReserveCDai.sol";
 import "../Interfaces.sol";
-
+import "hardhat/console.sol";
 interface StakingContract {
 	function collectUBIInterest(address recipient)
 		external
@@ -55,7 +55,8 @@ contract GoodFundManager is DAOContract {
 	// Last block number which `transferInterest`
 	// has been executed in
 	uint256 public lastTransferred;
-
+	// Gas cost for minting GD for keeper
+	uint256 gdMintGasAmount;
 	//address of the active staking contracts
 	address[] public activeContracts;
 
@@ -116,6 +117,7 @@ contract GoodFundManager is DAOContract {
 		setDAO(_ns);
 		blockInterval = _blockInterval;
 		lastTransferred = block.number.div(blockInterval);
+		gdMintGasAmount = 140000; // While testing highest amount was 130k so put 140k to be safe
 	}
 
 	/**
@@ -126,7 +128,14 @@ contract GoodFundManager is DAOContract {
 	// addRights();
 	//   super.start();
 	// }
-
+	/**
+	 * @dev Set gas cost to mint GD rewards for keeper
+	 * @param _gasAmount amount of gas to spend for minting gd reward
+	 */
+	 function setGasCost(uint256 _gasAmount) public {
+		_onlyAvatar();
+		gdMintGasAmount = _gasAmount;
+	 }
 	/**
 	 * @dev Sets the Reward for particular Staking contract
 	 * @param _rewardsPerBlock reward for per block
@@ -231,9 +240,8 @@ contract GoodFundManager is DAOContract {
 			);
 		}
 		lastCollectedInterest = block.timestamp;
-		uint256 gasCostToMintReward = 200000; // Gas cost to mint GD reward to keeper hardcoded so should be changed according to calculations
 		uint256 totalUsedGas =
-			((initialGas - gasleft() + gasCostToMintReward) * 110) / 100; // We will return as reward 1.1x of used gas in GD
+			((initialGas - gasleft() + gdMintGasAmount) * 110) / 100; // We will return as reward 1.1x of used gas in GD
 		uint256 gdRewardToMint = getGasPriceInGD(totalUsedGas);
 		GoodReserveCDai(reserveAddress).mintRewardFromRR(
 			nameService.getAddress("CDAI"),
