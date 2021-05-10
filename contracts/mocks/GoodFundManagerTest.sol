@@ -13,7 +13,7 @@ contract GoodFundManagerTest is GoodFundManager{
 		address _bridgeContract,
 		address _ubiRecipient,
 		uint256 _blockInterval //ActivePeriod(block.timestamp, block.timestamp * 2, _avatar)
-	) GoodFundManager(_ns,_cDai,_bridgeContract,_ubiRecipient,_blockInterval){
+	) GoodFundManager(_ns,_blockInterval){
 
     }
     /**

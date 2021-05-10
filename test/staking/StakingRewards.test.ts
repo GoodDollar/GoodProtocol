@@ -80,9 +80,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     });
     goodFundManager = await goodFundManagerFactory.deploy(
       nameService.address,
-      cDAI.address,
-      founder.address,
-      founder.address,
       BLOCK_INTERVAL
     );
     console.log("Deployed goodfund manager", {
@@ -354,9 +351,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .approve(goodCompoundStaking.address, stakingAmount);
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
 
-    for (let i = 0; i <= 1500; i++) {
-      await cDAI.exchangeRateCurrent(); // increase interest by calling exchangeRateCurrent
-    }
+   
+    await cDAI.increasePriceWithMultiplier('1500'); // increase interest by calling exchangeRateCurrent
+    
     const currentUBIInterestBeforeWithdraw = await goodCompoundStaking.currentUBIInterest();
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
     const gdBalanceBeforeCollectInterest = await goodDollar.balanceOf(
@@ -572,7 +569,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       stakerGDAmountAfterStake.sub(stakerGDAmountBeforeStake).toString()
     );
   });
-  
   it("should be able to sort staking contracts and collect interests from highest to lowest and only one staking contract's interest should be collected due to gas amount", async () => {
     const stakingAmount = ethers.utils.parseEther("100");
 
@@ -582,9 +578,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .approve(goodCompoundStaking.address, stakingAmount);
 
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
-    for (let i = 0; i <= 6000; i++) {
-      await cDAI.exchangeRateCurrent(); // increase interest by calling exchangeRateCurrent
-    }
+    
+      await cDAI.increasePriceWithMultiplier('6000'); // increase interest by calling exchangeRateCurrent
+    
 
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
@@ -632,9 +628,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
     await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
     await simpleStaking1.connect(staker).stake(stakingAmount, 100);
-    for (let i = 0; i <= 200; i++) {
-      await cDAI.exchangeRateCurrent(); // increase interest by calling exchangeRateCurrent
-    }
+    
+    await cDAI.increasePriceWithMultiplier('200'); // increase interest by calling increasePriceWithMultiplier
+    
     const simpleStakingCurrentInterestBeforeCollect = await simpleStaking.currentUBIInterest();
     const contractsToBeCollected = await goodFundManager.calcSortedContracts(
       "770000"
@@ -675,7 +671,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       gasLimit: 770000
     }).catch(e=>e);
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
-    expect(transaction.message).to.have.string("Collected interests should be at least 4 times bigger than gas cost since last call of this function sooner than 2 months");
+    expect(transaction.message).to.have.string("Collected interest value should be 4x gas costs");
     expect(contractsToInterestCollected.length).to.be.equal(0)
   })
 

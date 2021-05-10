@@ -78,9 +78,6 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     });
     goodFundManager = await goodFundManagerFactory.deploy(
       nameService.address,
-      cDAI.address,
-      founder.address,
-      founder.address,
       BLOCK_INTERVAL
     );
     console.log("Deployed goodfund manager", {
@@ -1030,20 +1027,20 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       .connect(staker)
       .stake(stakingAmount, 100)
       .catch(e => e);
-    for (let i = 0; i <= 1500; i++) {
-      await cDAI.exchangeRateCurrent(); // increase interest by calling exchangeRateCurrent
-    }
+    
+    await cDAI.increasePriceWithMultiplier('1500'); // increase interest by calling exchangeRateCurrent
+    
     const gains = await goodCompoundStaking.currentUBIInterest();
     const cdaiGains = gains["0"];
     const precisionLossDai = gains["2"]; //last 10 decimals since cdai is only 8 decimals while dai is 18
     const fundBalance0 = await cDAI.balanceOf(goodReserve.address);
     const contractAddressesToBeCollected = await goodFundManager.calcSortedContracts(
-      "800000"
+      "850000"
     );
     const res = await goodFundManager.collectInterest(
       contractAddressesToBeCollected,
       {
-        gasLimit: 800000
+        gasLimit: 850000
       }
     );
     const fundBalance1 = await cDAI.balanceOf(goodReserve.address);
@@ -1053,7 +1050,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
     expect(fundDaiWorth.toString()).to.be.equal(
       //10 gwei = 10 decimals + precisionLoss = 20 decimals = 100 ether of DAI
-      ethers.utils.parseUnits("1", 9) + precisionLossDai
+      ethers.utils.parseUnits("1", 8) + precisionLossDai
     );
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
   });

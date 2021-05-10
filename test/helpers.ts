@@ -103,7 +103,9 @@ export const createDAO = async () => {
         "CONTRIBUTION_CALCULATION",
         "BANCOR_FORMULA",
         "DAI",
-        "CDAI"
+        "CDAI",
+        "UBISCHEME",
+        "BRIDGE_CONTRACT"
       ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
       [
         controller,
@@ -113,7 +115,9 @@ export const createDAO = async () => {
         contribution.address,
         BancorFormula.address,
         dai.address,
-        cDAI.address
+        cDAI.address,
+        root.address,
+        root.address
       ]
     ]
   );

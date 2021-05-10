@@ -42,23 +42,13 @@ interface StakingContract {
 contract GoodFundManager is DAOContract {
 	using SafeMath for uint256;
 
-	// The address of cDai
-	ERC20 public cDai;
+	
 	// timestamp that indicates last time that interests collected
 	uint256 public lastCollectedInterest;
 
 	uint256 constant DECIMAL1e18 = 10**18;
 
-	// The address of the bridge contract
-	// which transfers in his turn the
-	// UBI funds to the given recipient
-	// address on the sidechain
-	address public bridgeContract;
-
-	// The recipient address on the
-	// sidechain. The bridge transfers
-	// the funds to the following address
-	address public ubiRecipient;
+	
 
 	// Determines how many blocks should
 	// be passed before the next
@@ -120,22 +110,13 @@ contract GoodFundManager is DAOContract {
 	/**
 	 * @dev Constructor
 	 * @param _ns The address of the name Service
-	 * @param _cDai The address of cDai
-	 * @param _bridgeContract The address of the bridge contract
-	 * @param _ubiRecipient The recipient address on the sidechain
 	 * @param _blockInterval How many blocks should be passed before the next execution of `transferInterest
 	 */
 	constructor(
 		NameService _ns,
-		address _cDai,
-		address _bridgeContract,
-		address _ubiRecipient,
 		uint256 _blockInterval //ActivePeriod(block.timestamp, block.timestamp * 2, _avatar)
 	) {
 		setDAO(_ns);
-		cDai = ERC20(_cDai);
-		bridgeContract = _bridgeContract;
-		ubiRecipient = _ubiRecipient;
 		blockInterval = _blockInterval;
 		lastTransferred = block.number.div(blockInterval);
 	}
@@ -189,28 +170,7 @@ contract GoodFundManager is DAOContract {
 		}
 	}
 
-	/**
-	 * @dev sets the token bridge address on mainnet and the recipient of minted UBI (avatar on sidechain)
-	 * @param _bridgeContract address
-	 * @param _recipient address
-	 */
-
-	/**
-	 * @dev Sets the bridge address on the current network and the recipient
-	 * address on the sidechain. Only Avatar can call this method.
-	 * @param _bridgeContract The new bridge address
-	 * @param _recipient The new recipient address (NOTICE: this address may be a
-	 * sidechain address)
-	 */
-	function setBridgeAndUBIRecipient(
-		address _bridgeContract,
-		address _recipient
-	) public {
-		_onlyAvatar();
-
-		bridgeContract = _bridgeContract;
-		ubiRecipient = _recipient;
-	}
+	
 
 	/**
 	 * @dev Allows the DAO to change the block interval
@@ -269,9 +229,9 @@ contract GoodFundManager is DAOContract {
 			//transfer ubi to avatar on sidechain via bridge
 			require(
 				token.transferAndCall(
-					bridgeContract,
+					nameService.addresses(nameService.BRIDGE_CONTRACT()),
 					gdUBI,
-					abi.encodePacked(ubiRecipient)
+					abi.encodePacked(nameService.addresses(nameService.UBISCHEME()))
 				),
 				"ubi bridge transfer failed"
 			);
@@ -475,7 +435,7 @@ contract GoodFundManager is DAOContract {
 
 		uint256 result = rdiv(uint256(gasPrice) * 1e9, uint256(daiInETH)) / 1e9; // 1 gas amount in DAI gas price in gwei but with 0 decimal so we should multiply it by 1e9 to get value in 18 decimals and after rdiv we should divide 1e9 to obtain value in 18 decimals
 		result =
-			(rdiv(result * 1e10, cERC20(address(cDai)).exchangeRateStored()) /
+			(rdiv(result * 1e10, cERC20(nameService.getAddress("CDAI")).exchangeRateStored()) /
 				1e19) *
 			_gasAmount; // since cDAI token returns exchange rate scaled by 18 so we increase resolution of DAI result as well then divide to each other then multiply by _gasAmount
 		return result;
