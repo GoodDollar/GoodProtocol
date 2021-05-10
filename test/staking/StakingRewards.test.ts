@@ -636,14 +636,11 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "770000"
     );
     await goodFundManager.collectInterest(contractsToBeCollected, {
-      gasLimit: 770000
+      gasLimit: 800000
     });
     const simpleStakingCurrentInterest = await simpleStaking.currentUBIInterest();
     const goodCompoundStakingCurrentInterest = await goodCompoundStaking.currentUBIInterest();
-    expect(goodCompoundStakingCurrentInterest[0].toString()).to.be.equal("0"); // Goodcompound staking's interest should be collected so currentinterest should be 0
-    expect(simpleStakingCurrentInterestBeforeCollect[0]).to.be.equal(
-      simpleStakingCurrentInterest[0]
-    ); // simple staking's interest shouldn't be collected so currentinterest should be equal to before collectinterest
+   
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
@@ -655,6 +652,10 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       ["100", simpleStaking1.address, 0, 10, true]
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    expect(goodCompoundStakingCurrentInterest[0].toString()).to.be.equal("0"); // Goodcompound staking's interest should be collected so currentinterest should be 0
+    expect(simpleStakingCurrentInterestBeforeCollect[0]).to.be.equal(
+      simpleStakingCurrentInterest[0]
+    ); // simple staking's interest shouldn't be collected so currentinterest should be equal to before collectinterest
   });
 
   it("It should not collect interest when interest is lower than gas cost",async() =>{
@@ -710,6 +711,11 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
   })
 
+  it("it should return empty array with calcSortedContracts when requirements does not meet",async()=>{
+    const contractsToInterestCollected = await goodFundManager.calcSortedContracts("800000")
+    console.log(contractsToInterestCollected.toString())
+    expect(contractsToInterestCollected.length).to.be.equal(0)
+  })
   
 
 });
