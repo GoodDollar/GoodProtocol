@@ -733,6 +733,16 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(contractsToInterestCollected.length).to.be.equal(0)
   })
   
+  it("collected interest should be greater than gas cost when 2 months passed",async()=>{
+    const currentBlockNumber = await ethers.provider.getBlockNumber()
+    const currentTimeStamp = await ethers.provider.getBlock(currentBlockNumber)
+    
+    await ethers.provider.send("evm_setNextBlockTimestamp", [currentTimeStamp.timestamp + 5184020])
+    await ethers.provider.send("evm_mine",[])
+    const tx = await goodFundManager.collectInterest([goodCompoundStaking.address]).catch(e=>e)
+    expect(tx.message).to.have.string("Collected interest value should be larger than spent gas costs")
+
+  })
 
 });
 

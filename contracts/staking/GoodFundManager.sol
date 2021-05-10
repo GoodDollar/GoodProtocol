@@ -5,7 +5,6 @@ pragma solidity >=0.7.0;
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../reserve/GoodReserveCDai.sol";
 import "../Interfaces.sol";
-import "hardhat/console.sol";
 interface StakingContract {
 	function collectUBIInterest(address recipient)
 		external
@@ -239,7 +238,6 @@ contract GoodFundManager is DAOContract {
 				"ubi bridge transfer failed"
 			);
 		}
-		lastCollectedInterest = block.timestamp;
 		uint256 totalUsedGas =
 			((initialGas - gasleft() + gdMintGasAmount) * 110) / 100; // We will return as reward 1.1x of used gas in GD
 		uint256 gdRewardToMint = getGasPriceInGD(totalUsedGas);
@@ -249,6 +247,7 @@ contract GoodFundManager is DAOContract {
 			gdRewardToMint
 		);
 		uint256 gasPriceIncDAI = getGasPriceInCDAI(initialGas - gasleft());
+		
 		if (block.timestamp >= lastCollectedInterest + 5184000) {
 			// 5184000 is 2 months in seconds
 			require(
@@ -269,6 +268,7 @@ contract GoodFundManager is DAOContract {
 			gdUBI,
 			gdRewardToMint
 		);
+		lastCollectedInterest = block.timestamp;
 	}
 
 	/**
