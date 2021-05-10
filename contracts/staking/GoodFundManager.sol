@@ -42,13 +42,10 @@ interface StakingContract {
 contract GoodFundManager is DAOContract {
 	using SafeMath for uint256;
 
-	
 	// timestamp that indicates last time that interests collected
 	uint256 public lastCollectedInterest;
 
 	uint256 constant DECIMAL1e18 = 10**18;
-
-	
 
 	// Determines how many blocks should
 	// be passed before the next
@@ -170,8 +167,6 @@ contract GoodFundManager is DAOContract {
 		}
 	}
 
-	
-
 	/**
 	 * @dev Allows the DAO to change the block interval
 	 * @param _blockInterval the new interval value
@@ -195,8 +190,7 @@ contract GoodFundManager is DAOContract {
 		ERC20 iToken = ERC20(nameService.getAddress("CDAI"));
 		address reserveAddress = nameService.addresses(nameService.RESERVE());
 		// iToken balance of the reserve contract
-		uint256 currentBalance =
-			iToken.balanceOf(reserveAddress);
+		uint256 currentBalance = iToken.balanceOf(reserveAddress);
 
 		for (uint256 i = _stakingContracts.length - 1; i >= 0; i--) {
 			// zxelements are sorted by balances from lowest to highest
@@ -211,19 +205,17 @@ contract GoodFundManager is DAOContract {
 		}
 
 		// Finds the actual transferred iToken
-		uint256 interest =
-			iToken.balanceOf(reserveAddress) -
-				currentBalance;
+		uint256 interest = iToken.balanceOf(reserveAddress) - currentBalance;
 
 		// Mints gd while the interest amount is equal to the transferred amount
 		uint256 gdUBI =
-			GoodReserveCDai(reserveAddress)
-				.mintUBI(
+			GoodReserveCDai(reserveAddress).mintUBI(
 				iToken,
 				interest // interest
 			);
 		// Transfers the minted tokens to the given staking contract
-		IGoodDollar token = IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
+		IGoodDollar token =
+			IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
 
 		if (gdUBI > 0) {
 			//transfer ubi to avatar on sidechain via bridge
@@ -231,7 +223,9 @@ contract GoodFundManager is DAOContract {
 				token.transferAndCall(
 					nameService.addresses(nameService.BRIDGE_CONTRACT()),
 					gdUBI,
-					abi.encodePacked(nameService.addresses(nameService.UBISCHEME()))
+					abi.encodePacked(
+						nameService.addresses(nameService.UBISCHEME())
+					)
 				),
 				"ubi bridge transfer failed"
 			);
@@ -241,8 +235,7 @@ contract GoodFundManager is DAOContract {
 		uint256 totalUsedGas =
 			((initialGas - gasleft() + gasCostToMintReward) * 110) / 100; // We will return as reward 1.1x of used gas in GD
 		uint256 gdRewardToMint = getGasPriceInGD(totalUsedGas);
-		GoodReserveCDai(reserveAddress)
-			.mintRewardFromRR(
+		GoodReserveCDai(reserveAddress).mintRewardFromRR(
 			nameService.getAddress("CDAI"),
 			msg.sender,
 			gdRewardToMint
@@ -298,10 +291,7 @@ contract GoodFundManager is DAOContract {
 		}
 		uint256 gasCostInCdai = getGasPriceInCDAI(_maxGasAmount); // Get gas price in cDAI so can compare with possible interest amount to get
 		address[] memory emptyArray = new address[](0);
-		if (totalInterest < gasCostInCdai){
-			
-			return emptyArray;
-		}
+
 		quick(balances, addresses); // sort the values according to interest balance
 		uint256 gasCost;
 		uint256 possibleCollected;
@@ -331,12 +321,9 @@ contract GoodFundManager is DAOContract {
 		}
 		if (block.timestamp >= lastCollectedInterest + 5184000) {
 			// 5184000 is 2 months in seconds
-		
-				if(possibleCollected < gasCostInCdai) return emptyArray;
-				
+			if (possibleCollected < gasCostInCdai) return emptyArray;
 		} else {
-			if(possibleCollected < 4 * gasCostInCdai) return emptyArray;
-				
+			if (possibleCollected < 4 * gasCostInCdai) return emptyArray;
 		}
 		return addresses;
 	}
@@ -435,8 +422,10 @@ contract GoodFundManager is DAOContract {
 
 		uint256 result = rdiv(uint256(gasPrice) * 1e9, uint256(daiInETH)) / 1e9; // 1 gas amount in DAI gas price in gwei but with 0 decimal so we should multiply it by 1e9 to get value in 18 decimals and after rdiv we should divide 1e9 to obtain value in 18 decimals
 		result =
-			(rdiv(result * 1e10, cERC20(nameService.getAddress("CDAI")).exchangeRateStored()) /
-				1e19) *
+			(rdiv(
+				result * 1e10,
+				cERC20(nameService.getAddress("CDAI")).exchangeRateStored()
+			) / 1e19) *
 			_gasAmount; // since cDAI token returns exchange rate scaled by 18 so we increase resolution of DAI result as well then divide to each other then multiply by _gasAmount
 		return result;
 	}

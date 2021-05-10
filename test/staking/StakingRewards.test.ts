@@ -530,7 +530,23 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(earnedRewardAfterWithdrawReward.toString()).to.be.equal("0");
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
   });
+  it("it should not mint reward when staking contract is not registered",async()=>{
+    const goodCompoundStakingFactory = await ethers.getContractFactory(
+      "GoodCompoundStaking"
+    );
+    const simpleStaking = await goodCompoundStakingFactory.deploy(
+      dai.address,
+      cDAI.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good DAI",
+      "gDAI",
+      "50"
+    );
+    const tx = await simpleStaking.withdrawRewards().catch(e=>e)
+    expect(tx.message).to.have.string("Staking contract not registered")
 
+  })
   it("should be able earn to 50% of rewards when owns 50% of total productivity", async () => {
     const stakingAmount = ethers.utils.parseEther("100");
 
@@ -569,7 +585,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       stakerGDAmountAfterStake.sub(stakerGDAmountBeforeStake).toString()
     );
   });
-  it("should be able to sort staking contracts and collect interests from highest to lowest and only one staking contract's interest should be collected due to gas amount", async () => {
+  
+  it("should be able to sort staking contracts and collect interests from highest to lowest and only one staking contract's interest should be collected due to gas amount [ @skip-on-coverage ]", async () => {
     const stakingAmount = ethers.utils.parseEther("100");
 
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
@@ -658,7 +675,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     ); // simple staking's interest shouldn't be collected so currentinterest should be equal to before collectinterest
   });
 
-  it("It should not collect interest when interest is lower than gas cost",async() =>{
+  it("It should not collect interest when interest is lower than gas cost [ @skip-on-coverage ]",async() =>{
     const stakingAmount = ethers.utils.parseEther("100");
 
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
@@ -713,7 +730,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
   it("it should return empty array with calcSortedContracts when requirements does not meet",async()=>{
     const contractsToInterestCollected = await goodFundManager.calcSortedContracts("800000")
-    console.log(contractsToInterestCollected.toString())
     expect(contractsToInterestCollected.length).to.be.equal(0)
   })
   
