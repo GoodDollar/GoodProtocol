@@ -544,7 +544,7 @@ describe("GReputation", () => {
         expect(newRep2.toNumber()).to.be.equal(0);
       });
 
-      it("should return another state when state.blockNumber > _blockNumber",async()=>{
+      it("should return previous state when state.blockNumber > _blockNumber",async()=>{
         const blockNumber = await ethers.provider.getBlockNumber()
         const newRep2 = await grep.getVotesAtBlockchain(
           fuseHash,
@@ -554,6 +554,14 @@ describe("GReputation", () => {
        
         
         expect(newRep2.toNumber()).to.be.equal(200); // returns previous state
+      })
+      it("should return another state's total supply when states[uint256(i)].blockNumber > _blockNumber in totalSupplyAtBlockchain",async()=>{
+        const blockNumber = await ethers.provider.getBlockNumber()
+        const newRep2 = await grep.totalSupplyAtBlockchain(
+          fuseHash,
+          blockNumber - 4
+        );
+       
       })
     });
   });
