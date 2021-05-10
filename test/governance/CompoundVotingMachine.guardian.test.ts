@@ -12,6 +12,7 @@ export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 let grep: GReputation, grepWithOwner: GReputation, identity, gd, bounty;
 let signers: SignerWithAddress[], founder, repOwner, rep1, rep2, rep3;
+let nameService;
 
 const encodeParameters = (types, values) =>
   ethers.utils.defaultAbiCoder.encode(types, values);
@@ -49,41 +50,44 @@ describe("CompoundVotingMachine#Guardian", () => {
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
 
-    const GReputation = await ethers.getContractFactory("GReputation");
     const CompoundVotingMachine = await ethers.getContractFactory(
       "CompoundVotingMachine"
     );
-
-    grep = (await upgrades.deployProxy(GReputation, [root.address], {
-      unsafeAllowCustomTypes: true
-    })) as GReputation;
 
     let {
       daoCreator,
       controller,
       avatar: av,
       setSchemes,
-      genericCall
+      reputation,
+      setDAOAddress,
+      genericCall,
+      nameService: ns
     } = await createDAO();
 
     Controller = controller;
     avatar = av;
     avatarGenericCall = genericCall;
+    nameService = ns;
 
-    gov = (await CompoundVotingMachine.deploy(
-      avatar,
-      grep.address,
+    grep = (await ethers.getContractAt(
+      "GReputation",
+      reputation
+    )) as GReputation;
+
+    gov = (await upgrades.deployProxy(CompoundVotingMachine, [
+      nameService.address,
       5760
-    )) as CompoundVotingMachine;
+    ])) as CompoundVotingMachine;
+
+    //this will give root minter permissions
+    setDAOAddress("GDAO_CLAIMERS", root.address);
 
     //set voting machiine as scheme with permissions
     await setSchemes([gov.address]);
 
     await grep.mint(root.address, ethers.BigNumber.from("1000000"));
     await grep.mint(acct.address, ethers.BigNumber.from("500000"));
-
-    //set avatar as owner of rep
-    await grep.transferOwnership(avatar);
 
     queuePeriod = await gov.queuePeriod().then(_ => _.toNumber());
 
@@ -142,11 +146,11 @@ describe("CompoundVotingMachine#Guardian", () => {
       "CompoundVotingMachine"
     );
 
-    const gov2 = (await CompoundVotingMachine.deploy(
-      avatar,
-      grep.address,
+    const gov2 = (await upgrades.deployProxy(CompoundVotingMachine, [
+      nameService.address,
       5760
-    )) as CompoundVotingMachine;
+    ])) as CompoundVotingMachine;
+
     await expect(gov2.renounceGuardian()).to.not.reverted;
     expect(await gov2.guardian()).to.equal(ethers.constants.AddressZero);
 

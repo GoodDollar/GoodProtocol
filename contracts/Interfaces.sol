@@ -229,8 +229,18 @@ interface IIdentity {
 	function setAvatar(address _avatar) external;
 }
 
-interface UBIScheme {
+interface IUBIScheme {
 	function currentDay() external view returns (uint256);
+
+	function periodStart() external view returns (uint256);
+
+	function hasClaimed(address claimer) external view returns (bool);
+}
+
+interface IFirstClaimPool {
+	function awardUser(address user) external returns (uint256);
+
+	function claimAmount() external view returns (uint256);
 }
 
 interface ProxyAdmin {

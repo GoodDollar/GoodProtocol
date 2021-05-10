@@ -15,29 +15,39 @@ const encodeParameters = (types, values) =>
   ethers.utils.defaultAbiCoder.encode(types, values);
 
 describe("CompoundVotingMachine#CastVote", () => {
-  let gov: CompoundVotingMachine, root: SignerWithAddress, acct: SignerWithAddress;
+  let gov: CompoundVotingMachine,
+    root: SignerWithAddress,
+    acct: SignerWithAddress;
 
   let trivialProposal, targets, values, signatures, callDatas;
   let proposalBlock, proposalId, voteDelay, votePeriod;
 
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
-    const GReputation = await ethers.getContractFactory("GReputation");
     const CompoundVotingMachine = await ethers.getContractFactory(
       "CompoundVotingMachine"
     );
 
-    let { daoCreator } = await createDAO();
+    let {
+      daoCreator,
+      avatar,
+      reputation,
+      setDAOAddress,
+      nameService
+    } = await createDAO();
 
-    grep = (await upgrades.deployProxy(GReputation, [root.address], {
-      unsafeAllowCustomTypes: true
-    })) as GReputation;
+    grep = (await ethers.getContractAt(
+      "GReputation",
+      reputation
+    )) as GReputation;
 
-    gov = (await CompoundVotingMachine.deploy(
-      await daoCreator.avatar(),
-      grep.address,
+    gov = (await upgrades.deployProxy(CompoundVotingMachine, [
+      nameService.address,
       5760
-    )) as CompoundVotingMachine;
+    ])) as CompoundVotingMachine;
+
+    //this will give root minter permissions
+    setDAOAddress("GDAO_CLAIMERS", root.address);
 
     await grep.mint(root.address, ethers.BigNumber.from("1000000"));
     targets = [acct.address];
@@ -63,7 +73,9 @@ describe("CompoundVotingMachine#CastVote", () => {
 
     it("Such proposal already has an entry in its voters set matching the sender", async () => {
       await gov.connect(signers[0]).castVote(proposalId, true);
-      await expect(gov.connect(signers[0]).castVote(proposalId, true)).to.revertedWith(
+      await expect(
+        gov.connect(signers[0]).castVote(proposalId, true)
+      ).to.revertedWith(
         "revert CompoundVotingMachine::_castVote: voter already voted"
       );
     });
@@ -96,14 +108,18 @@ describe("CompoundVotingMachine#CastVote", () => {
         await gov.connect(actor).castVote(proposalId, true);
 
         let aftreFors = (await gov.proposals(proposalId)).forVotes;
-        expect(aftreFors).to.equal(beforeFors.add(ethers.BigNumber.from("100001")));
+        expect(aftreFors).to.equal(
+          beforeFors.add(ethers.BigNumber.from("100001"))
+        );
       });
 
       it("or AgainstVotes corresponding to the caller's support flag.", async () => {
         let actor = signers[4];
 
         await grep.mint(actor.address, ethers.BigNumber.from("100001"));
-        console.log(await grep.balanceOf(actor.address).then(_ => _.toString()));
+        console.log(
+          await grep.balanceOf(actor.address).then(_ => _.toString())
+        );
         let tx = await gov
           .connect(actor)
           .propose(targets, values, signatures, callDatas, "do nothing");
@@ -163,19 +179,31 @@ describe("CompoundVotingMachine#CastVote", () => {
               .propose(targets, values, signatures, callDatas, "do nothing");
             let proposalId = await gov.latestProposalIds(actor.address);
 
-            const signature = await wallet._signTypedData(await Domain(gov), Types, {
-              proposalId: proposalId,
-              support: true
-            });
+            const signature = await wallet._signTypedData(
+              await Domain(gov),
+              Types,
+              {
+                proposalId: proposalId,
+                support: true
+              }
+            );
 
             const sig = ethers.utils.splitSignature(signature);
 
             let beforeFors = (await gov.proposals(proposalId)).forVotes;
             await ethers.provider.send("evm_mine", []);
-            let tx = await gov.castVoteBySig(proposalId, true, sig.v, sig.r, sig.s);
+            let tx = await gov.castVoteBySig(
+              proposalId,
+              true,
+              sig.v,
+              sig.r,
+              sig.s
+            );
             receipt = await tx.wait();
             let afterFors = (await gov.proposals(proposalId)).forVotes;
-            expect(afterFors).to.equal(beforeFors.add(ethers.BigNumber.from("100001")));
+            expect(afterFors).to.equal(
+              beforeFors.add(ethers.BigNumber.from("100001"))
+            );
           });
 
           xit("gas costs for cast vote by sig", async () => {
@@ -202,10 +230,14 @@ describe("CompoundVotingMachine#CastVote", () => {
             let actor = wallet;
             // await grep.mint(actor.address, ethers.BigNumber.from("1"));
             let support = Math.random() < 0.5;
-            const signature = await wallet._signTypedData(await Domain(gov), Types, {
-              proposalId: proposalId,
-              support
-            });
+            const signature = await wallet._signTypedData(
+              await Domain(gov),
+              Types,
+              {
+                proposalId: proposalId,
+                support
+              }
+            );
             const sig = ethers.utils.splitSignature(signature);
             if (support)
               sigsFor.push({

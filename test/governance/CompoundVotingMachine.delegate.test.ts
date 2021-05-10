@@ -47,29 +47,44 @@ const states = [
 ];
 
 describe("CompoundVotingMachine#Delegation", () => {
-  let gov: CompoundVotingMachine, root: SignerWithAddress, acct: SignerWithAddress;
+  let gov: CompoundVotingMachine,
+    root: SignerWithAddress,
+    acct: SignerWithAddress;
 
   let trivialProposal, targets, values, signatures, callDatas;
-  let proposalBlock, proposalId, voteDelay, votePeriod, queuePeriod, gracePeriod;
+  let proposalBlock,
+    proposalId,
+    voteDelay,
+    votePeriod,
+    queuePeriod,
+    gracePeriod;
 
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
-    const GReputation = await ethers.getContractFactory("GReputation");
+
     const CompoundVotingMachine = await ethers.getContractFactory(
       "CompoundVotingMachine"
     );
 
-    grep = (await upgrades.deployProxy(GReputation, [root.address], {
-      unsafeAllowCustomTypes: true
-    })) as GReputation;
-
-    let { daoCreator } = await createDAO();
-    let avatar = await daoCreator.avatar();
-    gov = (await CompoundVotingMachine.deploy(
+    let {
+      daoCreator,
+      reputation,
       avatar,
-      grep.address,
+      setDAOAddress,
+      nameService
+    } = await createDAO();
+    grep = (await ethers.getContractAt(
+      "GReputation",
+      reputation
+    )) as GReputation;
+
+    gov = (await upgrades.deployProxy(CompoundVotingMachine, [
+      nameService.address,
       5760
-    )) as CompoundVotingMachine;
+    ])) as CompoundVotingMachine;
+
+    //this will give root minter permissions
+    setDAOAddress("GDAO_CLAIMERS", root.address);
 
     await grep.mint(root.address, ethers.BigNumber.from("1000000"));
     await grep.mint(acct.address, ethers.BigNumber.from("500000"));
@@ -119,13 +134,17 @@ describe("CompoundVotingMachine#Delegation", () => {
   });
 
   it("should not count delegatees that voted", async () => {
-    await gov.connect(acct).propose(targets, values, signatures, callDatas, "do nothing");
+    await gov
+      .connect(acct)
+      .propose(targets, values, signatures, callDatas, "do nothing");
     let proposalId = await gov.latestProposalIds(acct.address);
     await advanceBlocks(1);
     await gov.castVote(proposalId, false);
     await gov.connect(acct).castVote(proposalId, false);
 
-    expect((await gov.getReceipt(proposalId, acct.address)).votes).to.eq(BN.from(500000));
+    expect((await gov.getReceipt(proposalId, acct.address)).votes).to.eq(
+      BN.from(500000)
+    );
 
     const delegateeReceipt = await gov.getReceipt(proposalId, root.address);
     expect(delegateeReceipt.votes).to.eq(BN.from(1000000));

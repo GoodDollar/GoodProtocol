@@ -5,6 +5,8 @@ import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
 import AddFoundersABI from "@gooddollar/goodcontracts/build/contracts/AddFoundersGoodDollar.json";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
+import FirstClaimPool from "@gooddollar/goodcontracts/stakingModel/build/contracts/FirstClaimPool.json";
+
 import { Controller, GoodMarketMaker } from "../types";
 
 export const createDAO = async () => {
@@ -47,6 +49,7 @@ export const createDAO = async () => {
   const daoCreator = await DAOCreatorFactory.deploy(AddFounders.address);
   const FeeFormula = await FeeFormulaFactory.deploy(0);
 
+  await Identity.setAuthenticationPeriod(365);
   await daoCreator.forgeOrg(
     "G$",
     "G$",
@@ -78,6 +81,16 @@ export const createDAO = async () => {
 
   const contribution = await ccFactory.deploy(Avatar.address, 0, 1e15);
 
+  console.log("deploying nameService", [
+    controller,
+    Avatar.address,
+    Identity.address,
+    await Avatar.nativeToken(),
+    contribution.address,
+    BancorFormula.address,
+    dai.address,
+    cDAI.address
+  ]);
   const nameService = await upgrades.deployProxy(
     await ethers.getContractFactory("NameService"),
     [
@@ -180,11 +193,15 @@ export const createDAO = async () => {
     return ictrl.genericCall(target, encodedFunc, Avatar.address, 0);
   };
 
+  const addWhitelisted = (addr, did, isContract = false) => {
+    if (isContract) return Identity.addContract(addr);
+    return Identity.addWhitelistedWithDID(addr, did);
+  };
   await daoCreator.setSchemes(
     Avatar.address,
-    [schemeMock.address],
-    [ethers.constants.HashZero],
-    ["0x0000001F"],
+    [schemeMock.address, Identity.address],
+    [ethers.constants.HashZero, ethers.constants.HashZero],
+    ["0x0000001F", "0x0000001F"],
     ""
   );
 
@@ -198,7 +215,7 @@ export const createDAO = async () => {
 
   await setDAOAddress("RESERVE", goodReserve.address);
   await setDAOAddress("MARKET_MAKER", marketMaker.address);
-  await setDAOAddress("GReputation", reputation.address);
+  await setDAOAddress("REPUTATION", reputation.address);
 
   await setReserveToken(
     cDAI.address,
@@ -219,12 +236,62 @@ export const createDAO = async () => {
     setSchemes,
     setReserveToken,
     genericCall,
+    addWhitelisted,
     marketMaker,
     feeFormula: FeeFormula,
     daiAddress: dai.address,
     cdaiAddress: cDAI.address,
     reputation: reputation.address
   };
+};
+
+export const deployUBI = async deployedDAO => {
+  let { nameService, setSchemes, genericCall, setDAOAddress } = deployedDAO;
+  const fcFactory = new ethers.ContractFactory(
+    FirstClaimPool.abi,
+    FirstClaimPool.bytecode,
+    (await ethers.getSigners())[0]
+  );
+
+  console.log("deploying first claim...", {
+    avatar: await nameService.addresses(await nameService.AVATAR()),
+    identity: await nameService.addresses(await nameService.IDENTITY())
+  });
+  const firstClaim = await fcFactory.deploy(
+    await nameService.addresses(await nameService.AVATAR()),
+    await nameService.addresses(await nameService.IDENTITY()),
+    1000
+  );
+
+  console.log("deploying ubischeme and starting...", {
+    input: [nameService.address, firstClaim.address, 14]
+  });
+
+  let ubiScheme = await upgrades.deployProxy(
+    await ethers.getContractFactory("UBIScheme"),
+    [nameService.address, firstClaim.address, 14]
+  );
+
+  const gd = await nameService.addresses(await nameService.GOODDOLLAR());
+  //make GoodCap minter
+  let encoded = (
+    await ethers.getContractAt("IGoodDollar", gd)
+  ).interface.encodeFunctionData("mint", [firstClaim.address, 1000000]);
+
+  await genericCall(gd, encoded);
+
+  encoded = (
+    await ethers.getContractAt("IGoodDollar", gd)
+  ).interface.encodeFunctionData("mint", [ubiScheme.address, 1000000]);
+
+  await genericCall(gd, encoded);
+
+  console.log("set firstclaim,ubischeme as scheme and starting...");
+  await setSchemes([firstClaim.address, ubiScheme.address]);
+  await firstClaim.start();
+  await ubiScheme.start();
+  setDAOAddress("UBISCHEME", ubiScheme.address);
+  return { firstClaim, ubiScheme };
 };
 
 export async function increaseTime(seconds) {

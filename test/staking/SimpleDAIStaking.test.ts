@@ -1183,7 +1183,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       avatar,
       0
     );
-    const isPaused = await goodCompoundStaking.paused();
+    const isPaused = await goodCompoundStaking.isPaused();
     expect(isPaused).to.be.true;
   });
 

@@ -1,23 +1,30 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
-import "../DAOStackInterfaces.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 
-contract CompoundVotingMachine {
-	using SafeMathUpgradeable for uint256;
+import "../DAOStackInterfaces.sol";
+import "../utils/DAOContract.sol";
+
+contract CompoundVotingMachine is
+	Initializable,
+	ContextUpgradeable,
+	DAOContract
+{
 	/// @notice The name of this contract
 	string public constant name = "GoodDAO Voting Machine";
 
-	uint64 public foundationGuardianRelease = 1672531200;
+	/// @notice timestamp when foundation releases guardian veto rights
+	uint64 public foundationGuardianRelease;
 
 	/// @notice the number of blocks a proposal is open for voting (before passing quorum)
 	uint256 public votingPeriodBlocks;
 
 	/// @notice The number of votes in support of a proposal required in order for a quorum to be reached and for a vote to succeed
 	function quorumVotes() public view returns (uint256) {
-		return rep.totalSupply().mul(3).div(100);
+		return (rep.totalSupply() * 3) / 100;
 	} //3%
 
 	/// @notice The number of votes required in order for a voter to become a proposer
@@ -26,8 +33,8 @@ contract CompoundVotingMachine {
 		view
 		returns (uint256)
 	{
-		return rep.totalSupplyAt(blockNumber).mul(1).div(100);
-	} // 1%
+		return (rep.totalSupplyAt(blockNumber) * 1) / 100; //1%
+	}
 
 	/// @notice The maximum number of actions that can be included in a proposal
 	function proposalMaxOperations() public pure returns (uint256) {
@@ -44,10 +51,15 @@ contract CompoundVotingMachine {
 		return votingPeriodBlocks;
 	} // ~14 days in blocks (assuming 15s blocks)
 
-	/// @notice The duration of time after proposal passed thershold before it can be expected
+	/// @notice The duration of time after proposal passed thershold before it can be executed
 	function queuePeriod() public pure returns (uint256) {
 		return 2 days;
 	} // 2 days
+
+	/// @notice The duration of time after proposal passed with absolute majority before it can be executed
+	function fastQueuePeriod() public pure returns (uint256) {
+		return 1 days / 8;
+	} // 3 hours
 
 	/// @notice During the queue period if vote decision has changed, we extend queue period so
 	/// that at least gameChangerPeriod is left
@@ -59,9 +71,6 @@ contract CompoundVotingMachine {
 	function gracePeriod() public pure returns (uint256) {
 		return 3 days;
 	} //3 days
-
-	/// @notice The address of the DAO controller
-	Controller public controller;
 
 	/// @notice The address of the DAO reputation token
 	ReputationInterface public rep;
@@ -174,15 +183,15 @@ contract CompoundVotingMachine {
 	/// @notice An event emitted when a proposal has been executed
 	event ProposalExecuted(uint256 id);
 
-	constructor(
-		Avatar avatar_, // the DAO avatar
-		address rep_, // address reputation
+	function initialize(
+		NameService ns_, // the DAO avatar
 		uint256 votingPeriodBlocks_ //number of blocks a proposal is open for voting before expiring
-	) {
-		controller = Controller(avatar_.owner());
-		rep = ReputationInterface(rep_);
+	) public initializer {
+		foundationGuardianRelease = 1672531200; //01/01/2023
+		setDAO(ns_);
+		rep = ReputationInterface(ns_.addresses(ns_.REPUTATION()));
 		votingPeriodBlocks = votingPeriodBlocks_;
-		guardian = msg.sender;
+		guardian = _msgSender();
 	}
 
 	/// @notice make a proposal to be voted on
@@ -199,8 +208,8 @@ contract CompoundVotingMachine {
 		string memory description
 	) public returns (uint256) {
 		require(
-			rep.getVotesAt(msg.sender, true, block.number.sub(1)) >
-				proposalThreshold(block.number.sub(1)),
+			rep.getVotesAt(_msgSender(), true, block.number - 1) >
+				proposalThreshold(block.number - 1),
 			"CompoundVotingMachine::propose: proposer votes below proposal threshold"
 		);
 		require(
@@ -218,7 +227,7 @@ contract CompoundVotingMachine {
 			"CompoundVotingMachine::propose: too many actions"
 		);
 
-		uint256 latestProposalId = latestProposalIds[msg.sender];
+		uint256 latestProposalId = latestProposalIds[_msgSender()];
 
 		if (latestProposalId != 0) {
 			ProposalState proposersLatestProposalState =
@@ -235,13 +244,13 @@ contract CompoundVotingMachine {
 			);
 		}
 
-		uint256 startBlock = block.number.add(votingDelay());
-		uint256 endBlock = startBlock.add(votingPeriod());
+		uint256 startBlock = block.number + votingDelay();
+		uint256 endBlock = startBlock + votingPeriod();
 
 		proposalCount++;
 		Proposal storage newProposal = proposals[proposalCount];
 		newProposal.id = proposalCount;
-		newProposal.proposer = msg.sender;
+		newProposal.proposer = _msgSender();
 		newProposal.eta = 0;
 		newProposal.targets = targets;
 		newProposal.values = values;
@@ -259,7 +268,7 @@ contract CompoundVotingMachine {
 
 		emit ProposalCreated(
 			newProposal.id,
-			msg.sender,
+			_msgSender(),
 			targets,
 			values,
 			signatures,
@@ -278,22 +287,20 @@ contract CompoundVotingMachine {
 	function _updateETA(Proposal storage proposal, bool hasVoteChanged)
 		internal
 	{
-		//if absolute majority allow to execute immediately
-		if (proposal.forVotes > rep.totalSupplyAt(proposal.startBlock).div(2)) {
-			proposal.eta = block.timestamp;
+		//if absolute majority allow to execute quickly
+		if (proposal.forVotes > rep.totalSupplyAt(proposal.startBlock) / 2) {
+			proposal.eta = block.timestamp + fastQueuePeriod();
 		}
 		//first time we have a quorom we ask for a no change in decision period
 		else if (proposal.eta == 0) {
-			proposal.eta = block.timestamp.add(queuePeriod());
+			proposal.eta = block.timestamp + queuePeriod();
 		}
 		//if we have a gamechanger then we extend current eta to have at least gameChangerPeriod left
 		else if (hasVoteChanged) {
-			uint256 timeLeft = proposal.eta.sub(block.timestamp);
-			proposal.eta = proposal.eta.add(
-				timeLeft > gameChangerPeriod()
-					? 0
-					: gameChangerPeriod().sub(timeLeft)
-			);
+			uint256 timeLeft = proposal.eta - block.timestamp;
+			proposal.eta += timeLeft > gameChangerPeriod()
+				? 0
+				: gameChangerPeriod() - timeLeft;
 		} else {
 			return;
 		}
@@ -307,10 +314,7 @@ contract CompoundVotingMachine {
 			state(proposalId) == ProposalState.Succeeded,
 			"CompoundVotingMachine::execute: proposal can only be executed if it is succeeded"
 		);
-		require(
-			proposals[proposalId].eta <= block.timestamp,
-			"CompoundVotingMachine::execute: proposal can only be executed if no game changers"
-		);
+
 		Proposal storage proposal = proposals[proposalId];
 		proposal.executed = true;
 		for (uint256 i = 0; i < proposal.targets.length; i++) {
@@ -346,17 +350,11 @@ contract CompoundVotingMachine {
 		bool ok;
 		bytes memory result;
 
-		if (target == address(controller)) {
+		if (target == address(dao)) {
 			(ok, result) = target.call{ value: value }(callData);
 		} else {
-			if (value > 0)
-				payable(address(controller.avatar())).transfer(value); //make sure avatar have the funds to pay
-			(ok, result) = controller.genericCall(
-				target,
-				callData,
-				controller.avatar(),
-				value
-			);
+			if (value > 0) payable(address(avatar)).transfer(value); //make sure avatar have the funds to pay
+			(ok, result) = dao.genericCall(target, callData, avatar, value);
 		}
 		require(
 			ok,
@@ -379,8 +377,8 @@ contract CompoundVotingMachine {
 
 		Proposal storage proposal = proposals[proposalId];
 		require(
-			msg.sender == guardian ||
-				rep.getVotesAt(proposal.proposer, true, block.number.sub(1)) <
+			_msgSender() == guardian ||
+				rep.getVotesAt(proposal.proposer, true, block.number - 1) <
 				proposalThreshold(proposal.startBlock),
 			"CompoundVotingMachine::cancel: proposer above threshold"
 		);
@@ -445,8 +443,7 @@ contract CompoundVotingMachine {
 		) {
 			return ProposalState.Defeated;
 		} else if (
-			proposal.eta > 0 &&
-			block.timestamp >= proposal.eta.add(gracePeriod())
+			proposal.eta > 0 && block.timestamp >= proposal.eta + gracePeriod()
 		) {
 			//expired if not executed gracePeriod after eta
 			return ProposalState.Expired;
@@ -461,8 +458,8 @@ contract CompoundVotingMachine {
 	function castVote(uint256 proposalId, bool support) public {
 		//get all votes in all blockchains including delegated
 		Proposal storage proposal = proposals[proposalId];
-		uint256 votes = rep.getVotesAt(msg.sender, true, proposal.startBlock);
-		return _castVote(msg.sender, proposal, support, votes);
+		uint256 votes = rep.getVotesAt(_msgSender(), true, proposal.startBlock);
+		return _castVote(_msgSender(), proposal, support, votes);
 	}
 
 	struct VoteSig {
@@ -614,9 +611,9 @@ contract CompoundVotingMachine {
 
 		bool hasChanged = proposal.forVotes > proposal.againstVotes;
 		if (support) {
-			proposal.forVotes = proposal.forVotes.add(votes);
+			proposal.forVotes += votes;
 		} else {
-			proposal.againstVotes = proposal.againstVotes.add(votes);
+			proposal.againstVotes += votes;
 		}
 
 		hasChanged = hasChanged != (proposal.forVotes > proposal.againstVotes);
@@ -641,20 +638,22 @@ contract CompoundVotingMachine {
 	}
 
 	function renounceGuardian() public {
-		require(msg.sender == guardian, "CompoundVotingMachine: not guardian");
+		require(
+			_msgSender() == guardian,
+			"CompoundVotingMachine: not guardian"
+		);
 		guardian = address(0);
 		foundationGuardianRelease = 0;
 	}
 
 	function setGuardian(address _guardian) public {
 		require(
-			msg.sender == address(controller.avatar()) ||
-				msg.sender == guardian,
+			_msgSender() == address(avatar) || _msgSender() == guardian,
 			"CompoundVotingMachine: not avatar or guardian"
 		);
 
 		require(
-			msg.sender == guardian ||
+			_msgSender() == guardian ||
 				block.timestamp > foundationGuardianRelease,
 			"CompoundVotingMachine: foundation expiration not reached"
 		);

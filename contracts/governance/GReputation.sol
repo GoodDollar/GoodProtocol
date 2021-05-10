@@ -17,8 +17,6 @@ import "../Interfaces.sol";
 contract GReputation is Reputation {
 	bytes32 public constant ROOT_STATE = keccak256("rootState");
 
-	string public constant name = "GReputation";
-
 	/// @notice The EIP-712 typehash for the contract's domain
 	bytes32 public constant DOMAIN_TYPEHASH =
 		keccak256(
@@ -57,7 +55,7 @@ contract GReputation is Reputation {
 	/// @notice keep map of user -> delegate
 	mapping(address => address) public delegates;
 
-	/// @notice map of user non delegatd + delegated votes to user. this is used for actual voting
+	/// @notice map of user non delegated + delegated votes to user. this is used for actual voting
 	mapping(address => uint256[]) public activeVotes;
 
 	/// @notice An event thats emitted when a delegate account's vote balance changes
@@ -70,8 +68,10 @@ contract GReputation is Reputation {
 
 	function _canMint() internal view override {
 		require(
-			_msgSender() == nameService.getAddress("GDAO_CLAIMERS") ||
-				_msgSender() == nameService.getAddress("GDAO_STAKING") ||
+			_msgSender() ==
+				nameService.addresses(nameService.GDAO_CLAIMERS()) ||
+				_msgSender() ==
+				nameService.addresses(nameService.GDAO_STAKING()) ||
 				hasRole(MINTER_ROLE, _msgSender()),
 			"GReputation: need minter role or be GDAO contract"
 		);
@@ -344,13 +344,13 @@ contract GReputation is Reputation {
 	/// @notice delegate votes to another user
 	/// @param _delegate the recipient of votes
 	function delegateTo(address _delegate) public {
-		return _delegateTo(msg.sender, _delegate);
+		return _delegateTo(_msgSender(), _delegate);
 	}
 
 	/// @notice cancel user delegation
 	/// @dev makes user his own delegate
 	function undelegate() public {
-		return _delegateTo(msg.sender, msg.sender);
+		return _delegateTo(_msgSender(), _msgSender());
 	}
 
 	/**
