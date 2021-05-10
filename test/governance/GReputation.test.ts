@@ -543,9 +543,21 @@ describe("GReputation", () => {
         );
         expect(newRep2.toNumber()).to.be.equal(0);
       });
+
+      it("should return another state when state.blockNumber > _blockNumber",async()=>{
+        const blockNumber = await ethers.provider.getBlockNumber()
+        const newRep2 = await grep.getVotesAtBlockchain(
+          fuseHash,
+          rep2,
+          blockNumber - 4
+        );
+       
+        
+        expect(newRep2.toNumber()).to.be.equal(200); // returns previous state
+      })
     });
   });
-
+  
   describe("real example of airdrop", async () => {
     it("should set a new state hash", async () => {
       let encodedCall = grep.interface.encodeFunctionData(

@@ -89,7 +89,13 @@ describe("Reputation", () => {
       "total reputation should be sum of accounts"
     );
   });
-
+  it("it should not burn somebody's reputation if he has no minting permission", async () => {
+    let tx = await reputation
+      .connect(signers[1])
+      .burn(signers[0].address, ethers.utils.parseEther("1"))
+      .catch(e => e);
+    expect(tx.message).to.have.string("Reputation: need minter role");
+  });
   it("check total reputation overflow", async () => {
     let BigNumber = ethers.BigNumber;
     let bigNum = BigNumber.from(2)
