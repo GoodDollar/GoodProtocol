@@ -579,7 +579,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(
       stakerTwoGDAmountAfterStake
         .sub(stakerTwoGDAmountBeforeStake)
-        .sub(ubiAmount[0])
         .toString()
     ).to.be.equal(
       stakerGDAmountAfterStake.sub(stakerGDAmountBeforeStake).toString()
@@ -735,13 +734,30 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   
   it("collected interest should be greater than gas cost when 2 months passed",async()=>{
     const currentBlockNumber = await ethers.provider.getBlockNumber()
-    const currentTimeStamp = await ethers.provider.getBlock(currentBlockNumber)
+    const currentBlock= await ethers.provider.getBlock(currentBlockNumber)
     
-    await ethers.provider.send("evm_setNextBlockTimestamp", [currentTimeStamp.timestamp + 5184020])
+    await ethers.provider.send("evm_setNextBlockTimestamp", [currentBlock.timestamp + 5184020])
     await ethers.provider.send("evm_mine",[])
+    const collectableContracts = await goodFundManager.calcSortedContracts("700000").catch(e=>e)
     const tx = await goodFundManager.collectInterest([goodCompoundStaking.address]).catch(e=>e)
     expect(tx.message).to.have.string("Collected interest value should be larger than spent gas costs")
 
+  })
+
+  it("Avatar should be able to set gd minting gas amount",async()=>{
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setGasCost",
+      ["140000"]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
   })
 
 });
