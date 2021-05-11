@@ -77,8 +77,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       avatar
     });
     goodFundManager = await goodFundManagerFactory.deploy(
-      nameService.address,
-      BLOCK_INTERVAL
+      nameService.address
     );
     console.log("Deployed goodfund manager", {
       manager: goodFundManager.address

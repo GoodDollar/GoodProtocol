@@ -45,11 +45,6 @@ contract GoodFundManager is DAOContract {
 	uint256 public lastCollectedInterest;
 
 
-	// Determines how many blocks should
-	// be passed before the next
-	// execution of `transferInterest`
-	uint256 public blockInterval;
-
 	// Last block number which `transferInterest`
 	// has been executed in
 	uint256 public lastTransferred;
@@ -110,15 +105,11 @@ contract GoodFundManager is DAOContract {
 	/**
 	 * @dev Constructor
 	 * @param _ns The address of the name Service
-	 * @param _blockInterval How many blocks should be passed before the next execution of `transferInterest
 	 */
 	constructor(
-		NameService _ns,
-		uint256 _blockInterval //ActivePeriod(block.timestamp, block.timestamp * 2, _avatar)
+		NameService _ns
 	) {
 		setDAO(_ns);
-		blockInterval = _blockInterval;
-		lastTransferred = block.number.div(blockInterval);
 		gdMintGasCost = 140000; // While testing highest amount was 130k so put 140k to be safe
 		collectInterestTimeThreshold = 5184000; // 5184000 is 2 months in seconds
 		interestMultiplier = 4;
@@ -141,6 +132,22 @@ contract GoodFundManager is DAOContract {
 		_onlyAvatar();
 		gdMintGasCost = _gasAmount;
 	 }
+	/**
+	 * @dev Set collectInterestTimeThreshold to determine how much time should pass after collectInterest called to cancel out multiplier for collected interest
+	 * @param _timeThreshold new threshold in seconds
+	*/
+	function setCollectInterestTimeThreshold(uint256 _timeThreshold) public{
+		_onlyAvatar();
+		collectInterestTimeThreshold = _timeThreshold;
+
+	}
+	/**
+	 * @dev Set multiplier to determine how much times larger should be collected interest than spent gas when threshold did not pass
+	 */
+	function setInterestMultiplier(uint8 _newMultiplier) public{
+		_onlyAvatar();
+		interestMultiplier = _newMultiplier;
+	}
 	/**
 	 * @dev Sets the Reward for particular Staking contract
 	 * @param _rewardsPerBlock reward for per block
@@ -181,14 +188,6 @@ contract GoodFundManager is DAOContract {
 		}
 	}
 
-	/**
-	 * @dev Allows the DAO to change the block interval
-	 * @param _blockInterval the new interval value
-	 */
-	function setBlockInterval(uint256 _blockInterval) public {
-		_onlyAvatar();
-		blockInterval = _blockInterval;
-	}
 
 	/**
 	 * @dev Collects UBI interest in iToken from a given staking contract and transfers
@@ -200,7 +199,6 @@ contract GoodFundManager is DAOContract {
 	function collectInterest(address[] memory _stakingContracts) public {
 		uint256 initialGas = gasleft();
 		_reserveHasInitialized();
-		lastTransferred = block.number.div(blockInterval);
 		ERC20 iToken = ERC20(nameService.getAddress("CDAI"));
 		address reserveAddress = nameService.addresses(nameService.RESERVE());
 		// iToken balance of the reserve contract

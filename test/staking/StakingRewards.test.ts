@@ -79,8 +79,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       avatar
     });
     goodFundManager = await goodFundManagerFactory.deploy(
-      nameService.address,
-      BLOCK_INTERVAL
+      nameService.address
     );
     console.log("Deployed goodfund manager", {
       manager: goodFundManager.address
@@ -759,6 +758,37 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
   })
+ it("Avatar should be able to set collectInterestTimeThreshold",async()=>{
+  const goodFundManagerFactory = await ethers.getContractFactory(
+    "GoodFundManager"
+  );
+  const ictrl = await ethers.getContractAt(
+    "Controller",
+    controller,
+    schemeMock
+  );
+  let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+    "setCollectInterestTimeThreshold",
+    ["5184000"]
+  );
+  await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+ })
+ it("Avatar should be able set interestMultiplier",async()=>{
+  const goodFundManagerFactory = await ethers.getContractFactory(
+    "GoodFundManager"
+  );
+  const ictrl = await ethers.getContractAt(
+    "Controller",
+    controller,
+    schemeMock
+  );
+  let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+    "setInterestMultiplier",
+    ["4"]
+  );
+  await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+
+ })
 
 });
 
