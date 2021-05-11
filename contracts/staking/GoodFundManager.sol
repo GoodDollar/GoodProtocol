@@ -50,7 +50,7 @@ contract GoodFundManager is DAOContract {
 	uint256 public lastTransferred;
 	// Gas cost for minting GD for keeper
 	uint256 gdMintGasCost;
-	// after collectInterest called how much time should pass in order to cancel gas cost multiplier for next collectInterest
+	// how much time since last collectInterest should pass in order to cancel gas cost multiplier requirement for next collectInterest
 	uint256 collectInterestTimeThreshold;
 	// Related to above variable refers how much times larger should be collected interest than spent gas
 	uint8 interestMultiplier;
