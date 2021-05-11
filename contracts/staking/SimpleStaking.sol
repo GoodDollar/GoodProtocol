@@ -86,12 +86,9 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			token.transferFrom(msg.sender, address(this), _amount),
 			"transferFrom failed, make sure you approved token transfer"
 		);
-
-		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
-		fm.transferInterest(address(this));
 		// approve the transfer to defi protocol
 		token.approve(address(iToken), _amount);
-		mint(_amount); //mint iToken
+		mintInterestToken(_amount); //mint iToken
 		_mint(msg.sender, _amount); // mint Staking token for staker
 		_increaseProductivity(msg.sender, _amount);
 		emit Staked(msg.sender, address(token), _amount);
@@ -107,7 +104,6 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		require(userProductivity >= _amount, "Not enough token staked");
 		uint256 tokenWithdraw = _amount;
 		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
-		fm.transferInterest(address(this));
 		redeem(tokenWithdraw);
 		uint256 tokenActual = token.balanceOf(address(this));
 		if (tokenActual < tokenWithdraw) {

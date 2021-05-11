@@ -9,6 +9,7 @@ module.exports = {
     "utils/ReputationTestHelper.sol",
     "mocks/cDAIMock.sol",
     "mocks/cDAILowWorthMock.sol",
+    "mocks/cDAIHighWorthMock.sol",
     "mocks/cDAINonMintableMock.sol",
     "mocks/DAIMock.sol",
     "utils/BancorFormula.sol",

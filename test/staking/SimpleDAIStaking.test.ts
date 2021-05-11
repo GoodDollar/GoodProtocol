@@ -18,6 +18,7 @@ export const BLOCK_INTERVAL = 30;
 describe("SimpleDAISTAking - staking with cDAI mocks", () => {
   let dai: Contract;
   let cDAI, cDAI1, cDAI2, cDAI3: Contract;
+  let gasFeeOracle, daiEthOracle: Contract;
   let goodReserve: GoodReserveCDai;
   let goodCompoundStaking;
   let goodFundManager: Contract;
@@ -76,11 +77,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       avatar
     });
     goodFundManager = await goodFundManagerFactory.deploy(
-      nameService.address,
-      cDAI.address,
-      founder.address,
-      founder.address,
-      BLOCK_INTERVAL
+      nameService.address
     );
     console.log("Deployed goodfund manager", {
       manager: goodFundManager.address
@@ -137,11 +134,23 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       schemeMock
     );
 
-    const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+    const encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["1000", goodCompoundStaking.address, "1", "44", false] // set 10 gd per block
     );
-    await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+
+    const gasFeeMockFactory = await ethers.getContractFactory(
+      "GasPriceMockOracle"
+    );
+    gasFeeOracle = await gasFeeMockFactory.deploy();
+    const daiEthPriceMockFactory = await ethers.getContractFactory(
+      "DaiEthPriceMockOracle"
+    );
+    daiEthOracle = await daiEthPriceMockFactory.deploy();
+    await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
+    await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
+    await setDAOAddress("MARKET_MAKER", marketMaker.address);
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
   });
 
@@ -278,7 +287,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+    let encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["1000", simpleStaking1.address, "1", "44", false] // set 10 gd per block
     );
@@ -322,6 +331,11 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await setDAOAddress("CDAI", cDAI.address);
     //update reserve addresses
     await goodReserve.setAddresses();
+    encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["1000", simpleStaking1.address, "1", "44", true] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
   });
 
   it("should not transfer user's funds when execute recover", async () => {
@@ -385,7 +399,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+    let encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["1000", simpleStaking1.address, "1", "44", false] // set 10 gd per block
     );
@@ -423,6 +437,11 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await setDAOAddress("CDAI", cDAI.address);
     //update reserve addresses
     await goodReserve.setAddresses();
+    encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["1000", simpleStaking1.address, "1", "44", true] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
   });
 
   it("should transfer excessive dai funds when execute recover", async () => {
@@ -502,7 +521,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await goodCompoundStaking
       .connect(staker)
       .stake(ethers.utils.parseEther("100"), 100)
-      .catch(console.log);
+      .catch(e => e);
     let totalStakedAfter = await goodCompoundStaking.getProductivity(
       founder.address
     );
@@ -593,7 +612,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+    let encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["1000", simpleStaking1.address, "1", "44", false] // set 10 gd per block
     );
@@ -615,6 +634,11 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await setDAOAddress("CDAI", cDAI.address);
     //update reserve addresses
     await goodReserve.setAddresses();
+    encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["1000", simpleStaking1.address, "1", "44", true] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
   });
   it("should return 0s for gains when the current cdai worth is lower than the inital worth", async () => {
     //should set CDAI in nameService to cDAI1 address
@@ -666,7 +690,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await goodCompoundStaking
       .connect(staker)
       .stake(ethers.utils.parseEther("100"), 100)
-      .catch(console.log);
+      .catch(e => e);
     let stakedcDaiBalance = await cDAI.balanceOf(goodCompoundStaking.address);
     let stakercDaiBalance = await cDAI.balanceOf(staker.address);
     expect(stakedcDaiBalance.toString()).to.be.equal(
@@ -821,7 +845,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await goodCompoundStaking
       .connect(staker)
       .stake(ethers.utils.parseEther("100"), 100)
-      .catch(console.log);
+      .catch(e => e);
 
     let balanceAfter = await goodCompoundStaking.getStakerData(staker.address);
     expect((balanceAfter[0] - balanceBefore[0]).toString()).to.be.equal(
@@ -910,7 +934,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await goodCompoundStaking
       .connect(staker)
       .stake(weiAmount, 100)
-      .catch(console.log);
+      .catch(e => e);
     const gains = await goodCompoundStaking.currentUBIInterest();
     const cdaiGains = gains["0"];
     const precisionLossDai = gains["2"].toString(); //last 10 decimals since cdai is only 8 decimals while dai is 18
@@ -981,7 +1005,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await goodCompoundStaking
       .connect(staker)
       .stake(stakingAmount, 100)
-      .catch(console.log);
+      .catch(e => e);
     await cDAI.exchangeRateCurrent();
     const gains = await goodCompoundStaking.currentUBIInterest();
 
@@ -1001,13 +1025,22 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await goodCompoundStaking
       .connect(staker)
       .stake(stakingAmount, 100)
-      .catch(console.log);
+      .catch(e => e);
+    
+    await cDAI.increasePriceWithMultiplier('1500'); // increase interest by calling exchangeRateCurrent
+    
     const gains = await goodCompoundStaking.currentUBIInterest();
     const cdaiGains = gains["0"];
     const precisionLossDai = gains["2"]; //last 10 decimals since cdai is only 8 decimals while dai is 18
     const fundBalance0 = await cDAI.balanceOf(goodReserve.address);
-    const res = await goodFundManager.transferInterest(
-      goodCompoundStaking.address
+    const contractAddressesToBeCollected = await goodFundManager.calcSortedContracts(
+      "850000"
+    );
+    const res = await goodFundManager.collectInterest(
+      contractAddressesToBeCollected,
+      {
+        gasLimit: 850000
+      }
     );
     const fundBalance1 = await cDAI.balanceOf(goodReserve.address);
     const fundDaiWorth = await goodCompoundStaking.currentTokenWorth();
@@ -1016,7 +1049,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
     expect(fundDaiWorth.toString()).to.be.equal(
       //10 gwei = 10 decimals + precisionLoss = 20 decimals = 100 ether of DAI
-      ethers.utils.parseUnits("1", 10) + precisionLossDai
+      ethers.utils.parseUnits("1", 8) + precisionLossDai
     );
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
   });
@@ -1042,7 +1075,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await goodCompoundStaking
       .connect(staker)
       .withdrawStake(balance[0])
-      .catch(e => console.log({ e }));
+      .catch(e => e);
     const error = await goodCompoundStaking
       .connect(staker)
       .withdrawStake(stakingAmount)
@@ -1075,7 +1108,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await goodCompoundStaking
       .connect(staker)
       .stake(weiAmount, 100)
-      .catch(console.log);
+      .catch(e => e);
     let stakedcDaiBalanceBefore = await cDAI.balanceOf(
       goodCompoundStaking.address
     ); // simpleStaking cDAI balance
@@ -1096,7 +1129,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await goodCompoundStaking
       .connect(staker)
       .stake(weiAmount, 100)
-      .catch(console.log);
+      .catch(e => e);
 
     const gains = await goodCompoundStaking.currentUBIInterest();
     const cdaiGains = gains["0"];

@@ -157,7 +157,6 @@ contract BaseShareField is DAOContract {
 		virtual
 		returns (bool)
 	{
-		require(value > 0, "PRODUCTIVITY_VALUE_MUST_BE_GREATER_THAN_ZERO");
 
 		UserInfo storage userInfo = users[user];
 		_update();

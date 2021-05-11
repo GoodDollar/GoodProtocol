@@ -4,7 +4,6 @@ pragma solidity >=0.7.0;
 
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../reserve/GoodReserveCDai.sol";
-
 import "../Interfaces.sol";
 
 interface StakingContract {
@@ -18,12 +17,18 @@ interface StakingContract {
 
 	function iToken() external view returns (address);
 
+	function currentUBIInterest()
+		external
+		view
+		returns (
+			uint256,
+			uint256,
+			uint256
+		);
+
 	function getRewardEarned(address user) external view returns (uint256);
 
-	function updateGlobalGDYieldPerToken(
-		uint256 _blockGDInterest,
-		uint256 _blockInterestTokenEarned
-	) external;
+	function getGasCostForInterestTransfer() external view returns (uint256);
 
 	function rewardsMinted(address user) external returns (uint256);
 }
@@ -37,30 +42,23 @@ interface StakingContract {
 contract GoodFundManager is DAOContract {
 	using SafeMath for uint256;
 
-	// The address of cDai
-	ERC20 public cDai;
-
-	uint256 constant DECIMAL1e18 = 10**18;
-
-	// The address of the bridge contract
-	// which transfers in his turn the
-	// UBI funds to the given recipient
-	// address on the sidechain
-	address public bridgeContract;
-
-	// The recipient address on the
-	// sidechain. The bridge transfers
-	// the funds to the following address
-	address public ubiRecipient;
-
-	// Determines how many blocks should
-	// be passed before the next
-	// execution of `transferInterest`
-	uint256 public blockInterval;
+	// timestamp that indicates last time that interests collected
+	uint256 public lastCollectedInterest;
 
 	// Last block number which `transferInterest`
 	// has been executed in
 	uint256 public lastTransferred;
+	// Gas cost for mint ubi+bridge ubi+mint rewards
+	uint256 gasCostExceptInterestCollect;
+	// Gas cost for minting GD for keeper
+	uint256 gdMintGasCost;
+	// how much time since last collectInterest should pass in order to cancel gas cost multiplier requirement for next collectInterest
+	uint256 collectInterestTimeThreshold;
+	// to allow keeper to collect interest, total interest collected should be interestMultiplier*gas costs
+	uint8 interestMultiplier;
+	//address of the active staking contracts
+	address[] public activeContracts;
+
 	//Structure that hold reward information and if its blacklicksted or not for particular staking Contract
 	struct Reward {
 		uint32 blockReward; //in G$
@@ -77,50 +75,45 @@ contract GoodFundManager is DAOContract {
 		// The caller address
 		address indexed caller,
 		// The staking contract address
-		address indexed staking,
+		//address indexed staking,
 		// The reserve contract address
 		address indexed reserve,
+		//addresses of the staking contracts
+		address[] indexed stakings,
 		// Amount of cDai that was transferred
 		// from the staking contract to the
 		// reserve contract
 		uint256 cDAIinterestEarned,
 		// The number of tokens that have been minted
+		// by the reserve to the staking contract
+		//uint256 gdInterest,
+		// The number of tokens that have been minted
 		// by the reserve to the bridge which in his
 		// turn should transfer those funds to the
 		// sidechain
-		uint256 gdUBI
+		uint256 gdUBI,
+		// Amount of GD to be minted as reward
+		//to the keeper which collect interests
+		uint256 gdReward
 	);
 
-	modifier reserveHasInitialized {
+	function _reserveHasInitialized() internal view {
 		require(
 			nameService.addresses(nameService.RESERVE()) != address(0x0),
 			"reserve has not initialized"
 		);
-		_;
 	}
 
 	/**
 	 * @dev Constructor
 	 * @param _ns The address of the name Service
-	 * @param _cDai The address of cDai
-	 * @param _bridgeContract The address of the bridge contract
-	 * @param _ubiRecipient The recipient address on the sidechain
-	 * @param _blockInterval How many blocks should be passed before the next execution of `transferInterest
 	 */
-	constructor(
-		NameService _ns,
-		address _cDai,
-		address _bridgeContract,
-		address _ubiRecipient,
-		uint256 _blockInterval
-	) //ActivePeriod(block.timestamp, block.timestamp * 2, _avatar)
-	{
+	constructor(NameService _ns) {
 		setDAO(_ns);
-		cDai = ERC20(_cDai);
-		bridgeContract = _bridgeContract;
-		ubiRecipient = _ubiRecipient;
-		blockInterval = _blockInterval;
-		lastTransferred = block.number.div(blockInterval);
+		gdMintGasCost = 140000; // While testing highest amount was 130k so put 140k to be safe
+		collectInterestTimeThreshold = 5184000; // 5184000 is 2 months in seconds
+		interestMultiplier = 4;
+		gasCostExceptInterestCollect = 650000;
 	}
 
 	/**
@@ -131,6 +124,40 @@ contract GoodFundManager is DAOContract {
 	// addRights();
 	//   super.start();
 	// }
+	/**
+	 * @dev Set gas cost to mint GD rewards for keeper
+	 * @param _gasAmount amount of gas to spend for minting gd reward
+	 */
+	function setGasCost(uint256 _gasAmount) public {
+		_onlyAvatar();
+		gdMintGasCost = _gasAmount;
+	}
+
+	/**
+	 * @dev Set collectInterestTimeThreshold to determine how much time should pass after collectInterest called to cancel out multiplier for collected interest
+	 * @param _timeThreshold new threshold in seconds
+	 */
+	function setCollectInterestTimeThreshold(uint256 _timeThreshold) public {
+		_onlyAvatar();
+		collectInterestTimeThreshold = _timeThreshold;
+	}
+
+	/**
+	 * @dev Set multiplier to determine how much times larger should be collected interest than spent gas when threshold did not pass
+	 */
+	function setInterestMultiplier(uint8 _newMultiplier) public {
+		_onlyAvatar();
+		interestMultiplier = _newMultiplier;
+	}
+
+	/**
+	 * @dev Set Gas cost for needed further transactions after collect interests in collectInterest function
+	 * @dev _gasAmount The gas amount that needed for further transactions
+	 */
+	function setGasCostExceptInterestCollect(uint256 _gasAmount) public {
+		_onlyAvatar();
+		gasCostExceptInterestCollect = _gasAmount;
+	}
 
 	/**
 	 * @dev Sets the Reward for particular Staking contract
@@ -151,47 +178,25 @@ contract GoodFundManager is DAOContract {
 		Reward memory reward =
 			Reward(_rewardsPerBlock, _blockStart, _blockEnd, _isBlackListed);
 		rewardsForStakingContract[_stakingAddress] = reward;
-	}
+		bool exist;
+		uint8 i;
+		for (i = 0; i < activeContracts.length; i++) {
+			if (activeContracts[i] == _stakingAddress) {
+				exist = true;
+				break;
+			}
+		}
 
-	/**
-	 * @dev sets the token bridge address on mainnet and the recipient of minted UBI (avatar on sidechain)
-	 * @param _bridgeContract address
-	 * @param _recipient address
-	 */
-
-	/**
-	 * @dev Sets the bridge address on the current network and the recipient
-	 * address on the sidechain. Only Avatar can call this method.
-	 * @param _bridgeContract The new bridge address
-	 * @param _recipient The new recipient address (NOTICE: this address may be a
-	 * sidechain address)
-	 */
-	function setBridgeAndUBIRecipient(
-		address _bridgeContract,
-		address _recipient
-	) public {
-		_onlyAvatar();
-
-		bridgeContract = _bridgeContract;
-		ubiRecipient = _recipient;
-	}
-
-	/**
-	 * @dev Allows the DAO to change the block interval
-	 * @param _blockInterval the new interval value
-	 */
-	function setBlockInterval(uint256 _blockInterval) public {
-		_onlyAvatar();
-		blockInterval = _blockInterval;
-	}
-
-	/**
-	 * @dev Checks if enough time has passed away since the
-	 * last funds transfer time
-	 * @return (bool) True if enough time has passed
-	 */
-	function canRun() public view returns (bool) {
-		return block.number.div(blockInterval) > lastTransferred;
+		if (_isBlackListed == false) {
+			if (exist == false) activeContracts.push(_stakingAddress);
+		} else {
+			if (exist == true) {
+				activeContracts[i] = activeContracts[
+					activeContracts.length - 1
+				];
+				activeContracts.pop();
+			}
+		}
 	}
 
 	/**
@@ -200,60 +205,153 @@ contract GoodFundManager is DAOContract {
 	 * received from the reserve contract back to the staking contract and to the
 	 * bridge, which locks the funds and then the GD tokens are been minted to the
 	 * given address on the sidechain
-	 * @param _staking Contract that implements `collectUBIInterest` and transfer iTokeb to
-	 * a given address. The given address should be the same whitelisted `reserve`
-	 * address in the current contract, in case that the given staking contract transfers
-	 * the funds to another contract, zero GD tokens will be minted by the reserve contract.
-	 * Emits `FundsTransferred` event in case which interest has been passed to the `reserve`
 	 */
-	function transferInterest(StakingContract _staking)
-		public
-		reserveHasInitialized
-	//requireDAOContract(address(_staking))
-	{
-		// require(
-		//     canRun(),
-		//     "Need to wait for the next interval"
-		// );
+	function collectInterest(address[] memory _stakingContracts) public {
+		uint256 initialGas = gasleft();
+		_reserveHasInitialized();
+		ERC20 iToken = ERC20(nameService.getAddress("CDAI"));
 		address reserveAddress = nameService.addresses(nameService.RESERVE());
-		lastTransferred = block.number.div(blockInterval);
-		ERC20 iToken = ERC20(_staking.iToken());
 		// iToken balance of the reserve contract
 		uint256 currentBalance = iToken.balanceOf(reserveAddress);
-		// collects the interest from the staking contract and transfer it directly to the reserve contract
-		//`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
-		_staking.collectUBIInterest(reserveAddress);
+
+		for (uint256 i = _stakingContracts.length - 1; i >= 0; i--) {
+			// zxelements are sorted by balances from lowest to highest
+
+			if (_stakingContracts[i] != address(0x0)) {
+				StakingContract(_stakingContracts[i]).collectUBIInterest(
+					reserveAddress
+				);
+			}
+
+			if (i == 0) break; // when active contracts length is 1 then gives error
+		}
 
 		// Finds the actual transferred iToken
-		uint256 interest = iToken.balanceOf(reserveAddress).sub(currentBalance);
-		//uint256 effectiveInterest =
-		//	interest.mul(avgEffectiveStakedRatio).div(DECIMAL1e18);
-		//uint256 interestDonated = interest.sub(effectiveInterest);
+		uint256 interest = iToken.balanceOf(reserveAddress) - currentBalance;
+
 		// Mints gd while the interest amount is equal to the transferred amount
 		uint256 gdUBI =
-			GoodReserveCDai(reserveAddress).mintUBI(iToken, interest);
-		//_staking.updateGlobalGDYieldPerToken(gdInterest, interest);
+			GoodReserveCDai(reserveAddress).mintUBI(
+				iToken,
+				interest // interest
+			);
 		// Transfers the minted tokens to the given staking contract
-		IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
-		//if(gdInterest > 0)
-		//    require(token.transfer(address(_staking), gdInterest),"interest transfer failed");
-		if (gdUBI > 0)
+		IGoodDollar token =
+			IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
+
+		if (gdUBI > 0) {
 			//transfer ubi to avatar on sidechain via bridge
 			require(
 				token.transferAndCall(
-					bridgeContract,
+					nameService.addresses(nameService.BRIDGE_CONTRACT()),
 					gdUBI,
-					abi.encodePacked(ubiRecipient)
+					abi.encodePacked(
+						nameService.addresses(nameService.UBI_RECIPIENT())
+					)
 				),
 				"ubi bridge transfer failed"
 			);
+		}
+		uint256 totalUsedGas =
+			((initialGas - gasleft() + gdMintGasCost) * 110) / 100; // We will return as reward 1.1x of used gas in GD
+		uint256 gdRewardToMint = getGasPriceInGD(totalUsedGas);
+		GoodReserveCDai(reserveAddress).mintRewardFromRR(
+			nameService.getAddress("CDAI"),
+			msg.sender,
+			gdRewardToMint
+		);
+		uint256 gasPriceIncDAI = getGasPriceInCDAI(initialGas - gasleft());
+
+		if (
+			block.timestamp >=
+			lastCollectedInterest + collectInterestTimeThreshold
+		) {
+			require(
+				interest >= gasPriceIncDAI,
+				"Collected interest value should be larger than spent gas costs"
+			); // This require is necessary to keeper can not abuse this function
+		} else {
+			require(
+				interest >= interestMultiplier * gasPriceIncDAI,
+				"Collected interest value should be interestMultiplier x gas costs"
+			);
+		}
 		emit FundsTransferred(
 			msg.sender,
-			address(_staking),
 			reserveAddress,
+			_stakingContracts,
 			interest,
-			gdUBI
+			gdUBI,
+			gdRewardToMint
 		);
+		lastCollectedInterest = block.timestamp;
+	}
+
+	/**
+	 * @dev  Function that get addresses of staking contracts which interests
+	 * can be collected with the gas amount that provided as parameter
+	 * @param _maxGasAmount The maximum amount of the gas that keeper willing to spend collect interests
+	 * @return addresses of the staking contracts to the collect interests
+	 */
+	function calcSortedContracts(uint256 _maxGasAmount)
+		public
+		view
+		returns (address[] memory)
+	{
+		uint256 activeContractsLength = activeContracts.length;
+		address[] memory addresses = new address[](activeContractsLength);
+		uint256[] memory balances = new uint256[](activeContractsLength);
+		uint256 tempInterest;
+		uint256 totalInterest;
+		int256 i;
+		for (i = 0; i < int256(activeContractsLength); i++) {
+			(tempInterest, , ) = StakingContract(activeContracts[uint256(i)])
+				.currentUBIInterest();
+			totalInterest += tempInterest;
+			if (tempInterest != 0) {
+				addresses[uint256(i)] = activeContracts[uint256(i)];
+				balances[uint256(i)] = tempInterest;
+			}
+		}
+		uint256 gasCostInCdai = getGasPriceInCDAI(_maxGasAmount); // Get gas price in cDAI so can compare with possible interest amount to get
+		address[] memory emptyArray = new address[](0);
+
+		quick(balances, addresses); // sort the values according to interest balance
+		uint256 gasCost;
+		uint256 possibleCollected;
+		for (i = int256(activeContractsLength) - 1; i >= 0; i--) {
+			// elements are sorted by balances from lowest to highest
+
+			if (addresses[uint256(i)] != address(0x0)) {
+				gasCost = StakingContract(addresses[uint256(i)])
+					.getGasCostForInterestTransfer();
+				if (_maxGasAmount - gasCost >= gasCostExceptInterestCollect) {
+					// collects the interest from the staking contract and transfer it directly to the reserve contract
+					//`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
+					possibleCollected += balances[uint256(i)];
+					_maxGasAmount = _maxGasAmount - gasCost;
+				} else {
+					break;
+				}
+			} else {
+				break; // if addresses are null after this element then break because we initialize array in size activecontracts but if their interest balance is zero then we dont put it in this array
+			}
+		}
+
+		while (i > -1) {
+			addresses[uint256(i)] = address(0x0);
+			i -= 1;
+		}
+		if (
+			block.timestamp >=
+			lastCollectedInterest + collectInterestTimeThreshold
+		) {
+			if (possibleCollected < gasCostInCdai) return emptyArray;
+		} else {
+			if (possibleCollected < interestMultiplier * gasCostInCdai)
+				return emptyArray;
+		}
+		return addresses;
 	}
 
 	/**
@@ -288,4 +386,85 @@ contract GoodFundManager is DAOContract {
         }
         super.internalEnd(avatar);
     }*/
+
+	function quick(uint256[] memory data, address[] memory addresses)
+		internal
+		pure
+	{
+		if (data.length > 1) {
+			quickPart(data, addresses, 0, data.length - 1);
+		}
+	}
+
+	/**
+     @dev quicksort algorithm to sort array
+     */
+	function quickPart(
+		uint256[] memory data,
+		address[] memory addresses,
+		uint256 low,
+		uint256 high
+	) internal pure {
+		if (low < high) {
+			uint256 pivotVal = data[(low + high) / 2];
+
+			uint256 low1 = low;
+			uint256 high1 = high;
+			for (;;) {
+				while (data[low1] < pivotVal) low1++;
+				while (data[high1] > pivotVal) high1--;
+				if (low1 >= high1) break;
+				(data[low1], data[high1]) = (data[high1], data[low1]);
+				(addresses[low1], addresses[high1]) = (
+					addresses[high1],
+					addresses[low1]
+				);
+				low1++;
+				high1--;
+			}
+			if (low < high1) quickPart(data, addresses, low, high1);
+			high1++;
+			if (high1 < high) quickPart(data, addresses, high1, high);
+		}
+	}
+
+	/**
+     @dev Helper function to get gasPrice in GWEI then change it to cDAI
+     @param _gasAmount gas amount to be calculated worth in cDAI
+     @return Price of the gas which used in cDAI
+     */
+	function getGasPriceInCDAI(uint256 _gasAmount)
+		public
+		view
+		returns (uint256)
+	{
+		AggregatorV3Interface gasPriceOracle =
+			AggregatorV3Interface(nameService.getAddress("GAS_PRICE_ORACLE"));
+		(, int256 gasPrice, , , ) = gasPriceOracle.latestRoundData(); // returns gas price in 0 decimal as GWEI so 1eth / 1e9 eth
+
+		AggregatorV3Interface daiETHOracle =
+			AggregatorV3Interface(nameService.getAddress("DAI_ETH_ORACLE"));
+		(, int256 daiInETH, , , ) = daiETHOracle.latestRoundData(); // returns DAI price in ETH
+
+		uint256 result = rdiv(uint256(gasPrice) * 1e9, uint256(daiInETH)) / 1e9; // 1 gas amount in DAI gas price in gwei but with 0 decimal so we should multiply it by 1e9 to get value in 18 decimals and after rdiv we should divide 1e9 to obtain value in 18 decimals
+		result =
+			(rdiv(
+				result * 1e10,
+				cERC20(nameService.getAddress("CDAI")).exchangeRateStored()
+			) / 1e19) *
+			_gasAmount; // since cDAI token returns exchange rate scaled by 18 so we increase resolution of DAI result as well then divide to each other then multiply by _gasAmount
+		return result;
+	}
+
+	function getGasPriceInGD(uint256 _gasAmount) public view returns (uint256) {
+		uint256 priceInCdai = getGasPriceInCDAI(_gasAmount);
+		uint256 gdPriceIncDAI =
+			GoodReserveCDai(nameService.addresses(nameService.RESERVE()))
+				.currentPrice();
+		return rdiv(priceInCdai, gdPriceIncDAI) / 1e25; // rdiv returns result in 27 decimals since GD$ in 2 decimals then divide 1e25
+	}
+
+	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
+		z = x.mul(10**27).add(y / 2) / y;
+	}
 }

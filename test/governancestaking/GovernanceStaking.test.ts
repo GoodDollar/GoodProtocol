@@ -82,9 +82,6 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     });
     goodFundManager = await goodFundManagerFactory.deploy(
       nameService.address,
-      cDAI.address,
-      founder.address,
-      founder.address,
       BLOCK_INTERVAL
     );
     grep = (await ethers.getContractAt(
