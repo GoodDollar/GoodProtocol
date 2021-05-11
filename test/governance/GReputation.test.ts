@@ -6,7 +6,7 @@ import { sign } from "crypto";
 import { expect } from "chai";
 import { GReputation } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { createDAO, increaseTime } from "../helpers";
+import { advanceBlocks, createDAO, increaseTime } from "../helpers";
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
@@ -154,7 +154,6 @@ describe("GReputation", () => {
       const rootState = await grep.blockchainStates(await grep.ROOT_STATE(), 0);
       expect(rootState[0]).to.be.equal("0x" + merkleRoot.toString("hex"));
     });
-
     it("rootState should not change totalsupply until proof", async () => {
       expect(await grep.totalSupply()).to.equal(0);
     });
@@ -170,7 +169,17 @@ describe("GReputation", () => {
       expect(newVotes.toNumber()).to.be.equal(1);
       expect(await grep.totalSupply()).to.equal(1);
     });
-
+    it("should not set rootState again",async()=>{
+      await setDAOAddress("GDAO_CLAIMERS", repOwner);
+      await grepWithOwner["mint(address,uint256)"](founder,ethers.utils.parseEther("1"))
+      let encodedCall = grep.interface.encodeFunctionData(
+        "setBlockchainStateHash",
+        ["rootState", "0x" + merkleRoot.toString("hex"), 100]
+      );
+      
+      const tx = await (await avatarGenericCall(grep.address, encodedCall)).wait()
+      await grepWithOwner["burn(address,uint256)"](founder,ethers.utils.parseEther("1"))
+    })
     it("should reject invalid merkle proof", async () => {
       const e = await grep
         .proveBalanceOfAtBlockchain("rootState", rep3, 10, proof)
@@ -278,6 +287,26 @@ describe("GReputation", () => {
       ).to.revertedWith("revert GReputation::delegateBySig: invalid signature");
     });
 
+    it("It should not be delegate when delegation address is null", async () => {
+      let tx = await grep["delegateTo(address)"](NULL_ADDRESS).catch(e => e);
+      expect(tx.message).to.have.string(
+        "GReputation::delegate can't delegate to null address"
+      );
+    });
+
+    it("It should not be able to delegate votes if they are already delagating", async () => {
+      await grepWithOwner["mint(address,uint256)"](
+        founder,
+        ethers.utils.parseEther("1")
+      );
+      await grep.delegateTo(rep1);
+      const tx = await grep.delegateTo(rep1).catch(e => e);
+      expect(tx.message).to.have.string("already delegating to delegator");
+      await grepWithOwner["burn(address,uint256)"](
+        founder,
+        ethers.utils.parseEther("1")
+      );
+    });
     it("reverts if the nonce is bad ", async () => {
       const delegate = founder,
         nonce = 1,
@@ -369,7 +398,6 @@ describe("GReputation", () => {
       await expect(avatarGenericCall(grep.address, encodedCall)).to.not.be
         .reverted;
     });
-
     it("should not reset core balance", async () => {
       //before proving new rep in new root balance should be 0
       const newRep = await grep.balanceOf(rep1);
@@ -500,7 +528,6 @@ describe("GReputation", () => {
         expect(state.totalSupply.toNumber()).to.be.equal(100);
         expect(state.blockNumber.toNumber()).to.be.greaterThan(0);
       });
-
       it("should reset blockchain balance to 0 before proof of new state", async () => {
         //before proving new rep in new root balance should be 0
         const newRep = await grep.getVotesAtBlockchain(
@@ -516,9 +543,29 @@ describe("GReputation", () => {
         );
         expect(newRep2.toNumber()).to.be.equal(0);
       });
+
+      it("should return previous state when state.blockNumber > _blockNumber",async()=>{
+        const blockNumber = await ethers.provider.getBlockNumber()
+        const newRep2 = await grep.getVotesAtBlockchain(
+          fuseHash,
+          rep2,
+          blockNumber - 4
+        );
+       
+        
+        expect(newRep2.toNumber()).to.be.equal(200); // returns previous state
+      })
+      it("should return another state's total supply when states[uint256(i)].blockNumber > _blockNumber in totalSupplyAtBlockchain",async()=>{
+        const blockNumber = await ethers.provider.getBlockNumber()
+        const newRep2 = await grep.totalSupplyAtBlockchain(
+          fuseHash,
+          blockNumber - 4
+        );
+       
+      })
     });
   });
-
+  
   describe("real example of airdrop", async () => {
     it("should set a new state hash", async () => {
       let encodedCall = grep.interface.encodeFunctionData(
@@ -562,6 +609,106 @@ describe("GReputation", () => {
       expect(
         await grep.getVotes("0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8")
       ).to.be.eq(prevVotes.add(1199)); //add new blockchain rep
+    });
+
+    it("it should be able get votes at the specific block", async () => {
+      let currentBlock = await ethers.provider.getBlockNumber();
+      let votes = await grep["getVotesAt(address,uint256)"](
+        "0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8",
+        currentBlock
+      );
+      expect(votes.toString()).to.be.equal("1199");
+    });
+
+    it("it should be able to get totalSupply for particular block", async () => {
+      let currentSupply = await grep["totalSupply()"]();
+      await grepWithOwner["mint(address,uint256)"](
+        founder,
+        ethers.utils.parseEther("1")
+      );
+      let currentBlock = await ethers.provider.getBlockNumber();
+      let totalSupply = await grep.totalSupplyLocal(currentBlock);
+      expect(
+        totalSupply
+          .sub(currentSupply)
+          .sub(ethers.utils.parseEther("1"))
+          .toString()
+      ).to.be.equal("0");
+      await grepWithOwner["burn(address,uint256)"](
+        founder,
+        ethers.utils.parseEther("1")
+      );
+    });
+
+    it("it should return 0 when particular blockchain state is empty", async () => {
+      let state = await grep["getVotesAtBlockchain(bytes32,address,uint256)"](
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("notExist")),
+        "0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8",
+        "300"
+      );
+      expect(state.toString()).to.be.equal("0");
+    });
+
+    it("It should not be able to get total supply when particular blockchain state is empty", async () => {
+      let state = await grep["totalSupplyAtBlockchain(bytes32,uint256)"](
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("notExist")),
+        "300"
+      );
+      expect(state.toString()).to.be.equal("0");
+    });
+    it("it should prove balance of blockchain for particular chain only once", async () => {
+      const proof = [
+        "0x6429597531910c38ed2ac8f73a890245ef7f67db49e1a947049fe8d987b0ee09",
+        "0x2225a8a896fbfc6d8b9d15574ff43d6025a1e811b790df431b84e08dc3287ce4",
+        "0xa83c67b8ca77de2b6cd01571d03d21a61df664f8128c805b1b27c202862ac5f8",
+        "0xb11cfc679f76ed949270ef345f8268571b9ed317f25970332a0e0fb3a4feaea8",
+        "0xb93eefff7353452bcb68e1af11b94ac4aa0f59e3dc6770027a7f9ac3a8d55d87",
+        "0xed638b497e00aec652c528d142de5f261238cf99395c93472820bcd8b55ef5bb",
+        "0xfa3ef97384d7e03d0980873fd18ec3ae7f57d266f4d6495e631257c5b5c11081",
+        "0x66cbd6385735911728866e1208db6ca94698c6ef726dd06334e80d81cf0e59e4",
+        "0xf6c5fbaf4bd80f598dae62ca88af460bbdc618739959c1f0a00a8ecabe2be51d",
+        "0x9fba3d9d96b8c268d322548cc41b1c9bb37b8bf7108184fc33784b3f089f45dc",
+        "0x0582b0084b238128163879a707f336e6932ce8ddcfe1fdfce9dbc37ab7c430a5",
+        "0x278db5f9072c404b1d8d9baba030c171943a4a5cdc51e8c9b21fee01f2fe32bd",
+        "0xe3d136bf3ea1fbed0055294cd43a0fd4b52d6388ecb524627a88b73db57a3429",
+        "0x2c8245c2d4c0e4ac0ae22754005d62d994aabe2bdb05f46cfe3ac63a4bf72a32"
+      ];
+      const tx = await grep
+        .proveBalanceOfAtBlockchain(
+          "realState",
+          "0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8",
+          1199,
+          proof
+        )
+        .catch(e => e);
+      expect(tx.message).to.have.string("stateHash already proved");
+    });
+    it("It should not prove balance of blockchain if particular chain does not exist", async () => {
+      const proof = [
+        "0x6429597531910c38ed2ac8f73a890245ef7f67db49e1a947049fe8d987b0ee09",
+        "0x2225a8a896fbfc6d8b9d15574ff43d6025a1e811b790df431b84e08dc3287ce4",
+        "0xa83c67b8ca77de2b6cd01571d03d21a61df664f8128c805b1b27c202862ac5f8",
+        "0xb11cfc679f76ed949270ef345f8268571b9ed317f25970332a0e0fb3a4feaea8",
+        "0xb93eefff7353452bcb68e1af11b94ac4aa0f59e3dc6770027a7f9ac3a8d55d87",
+        "0xed638b497e00aec652c528d142de5f261238cf99395c93472820bcd8b55ef5bb",
+        "0xfa3ef97384d7e03d0980873fd18ec3ae7f57d266f4d6495e631257c5b5c11081",
+        "0x66cbd6385735911728866e1208db6ca94698c6ef726dd06334e80d81cf0e59e4",
+        "0xf6c5fbaf4bd80f598dae62ca88af460bbdc618739959c1f0a00a8ecabe2be51d",
+        "0x9fba3d9d96b8c268d322548cc41b1c9bb37b8bf7108184fc33784b3f089f45dc",
+        "0x0582b0084b238128163879a707f336e6932ce8ddcfe1fdfce9dbc37ab7c430a5",
+        "0x278db5f9072c404b1d8d9baba030c171943a4a5cdc51e8c9b21fee01f2fe32bd",
+        "0xe3d136bf3ea1fbed0055294cd43a0fd4b52d6388ecb524627a88b73db57a3429",
+        "0x2c8245c2d4c0e4ac0ae22754005d62d994aabe2bdb05f46cfe3ac63a4bf72a32"
+      ];
+      let tx = await grep
+        .proveBalanceOfAtBlockchain(
+          "notExist",
+          "0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8",
+          1199,
+          proof
+        )
+        .catch(e => e);
+      expect(tx.message).to.have.string("no state found for given _id");
     });
   });
 });
