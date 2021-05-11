@@ -48,6 +48,8 @@ contract GoodFundManager is DAOContract {
 	// Last block number which `transferInterest`
 	// has been executed in
 	uint256 public lastTransferred;
+	// Gas cost for mint ubi+bridge ubi+mint rewards
+	uint256 gasCostExceptInterestCollect;
 	// Gas cost for minting GD for keeper
 	uint256 gdMintGasCost;
 	// how much time since last collectInterest should pass in order to cancel gas cost multiplier requirement for next collectInterest
@@ -111,6 +113,7 @@ contract GoodFundManager is DAOContract {
 		gdMintGasCost = 140000; // While testing highest amount was 130k so put 140k to be safe
 		collectInterestTimeThreshold = 5184000; // 5184000 is 2 months in seconds
 		interestMultiplier = 4;
+		gasCostExceptInterestCollect = 650000;
 	}
 
 	/**
@@ -145,6 +148,15 @@ contract GoodFundManager is DAOContract {
 	function setInterestMultiplier(uint8 _newMultiplier) public {
 		_onlyAvatar();
 		interestMultiplier = _newMultiplier;
+	}
+
+	/**
+	 * @dev Set Gas cost for needed further transactions after collect interests in collectInterest function
+	 * @dev _gasAmount The gas amount that needed for further transactions
+	 */
+	function setGasCostExceptInterestCollect(uint256 _gasAmount) public {
+		_onlyAvatar();
+		gasCostExceptInterestCollect = _gasAmount;
 	}
 
 	/**
@@ -313,8 +325,7 @@ contract GoodFundManager is DAOContract {
 			if (addresses[uint256(i)] != address(0x0)) {
 				gasCost = StakingContract(addresses[uint256(i)])
 					.getGasCostForInterestTransfer();
-				if (_maxGasAmount - gasCost >= 650000) {
-					// this value will change. Its hardcoded for further transactions such as ubiMINTING,gas price calculations and gdMINT
+				if (_maxGasAmount - gasCost >= gasCostExceptInterestCollect) {
 					// collects the interest from the staking contract and transfer it directly to the reserve contract
 					//`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
 					possibleCollected += balances[uint256(i)];

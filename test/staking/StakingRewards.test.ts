@@ -687,7 +687,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       gasLimit: 770000
     }).catch(e=>e);
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
-    expect(transaction.message).to.have.string("Collected interest value should be 4x gas costs");
+    expect(transaction.message).to.have.string("Collected interest value should be interestMultiplier x gas costs");
     expect(contractsToInterestCollected.length).to.be.equal(0)
   })
 
@@ -785,6 +785,22 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
     "setInterestMultiplier",
     ["4"]
+  );
+  await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+
+ })
+ it("Avatar should be able set gasCostExceptInterestCollect",async()=>{
+  const goodFundManagerFactory = await ethers.getContractFactory(
+    "GoodFundManager"
+  );
+  const ictrl = await ethers.getContractAt(
+    "Controller",
+    controller,
+    schemeMock
+  );
+  let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+    "setGasCostExceptInterestCollect",
+    ["650000"]
   );
   await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
 
