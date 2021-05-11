@@ -4,7 +4,6 @@ pragma solidity >=0.7.0;
 import "./SimpleStaking.sol";
 import "../Interfaces.sol";
 
-
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit DAI/ETH
@@ -62,6 +61,14 @@ contract GoodCompoundStaking is SimpleStaking {
         require(cToken.redeemUnderlying(_amount) == 0, "Failed to redeem cDai");
 
     }
+
+     function redeemUnderlying(uint _amount) internal override returns(address, uint){
+        uint256 tokenBalance = token.balanceOf(address(this));
+        cERC20 cToken = cERC20(address(iToken));
+        require(cToken.redeem(_amount) == 0, "Failed to redeem cDai");
+        uint256 redeemedAmount = token.balanceOf(address(this)) - tokenBalance;
+        return (address(token),redeemedAmount);
+     }
 
     /**
      * @dev returns Dai to cDai Exchange rate.

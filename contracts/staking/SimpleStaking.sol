@@ -10,7 +10,6 @@ import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";
 import "./StakingToken.sol";
-
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Tokens
@@ -40,7 +39,6 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	// The total staked Token amount in the contract
 	// uint256 public totalStaked = 0;
 
-	uint256 constant DECIMAL1e18 = 10**18;
 
 	bool public isPaused;
 
@@ -259,12 +257,15 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			_recipient != address(this),
 			"Recipient cannot be the staking contract"
 		);
+		address daiAddress = nameService.getAddress("DAI");
 		(uint256 iTokenGains, uint256 tokenGains, uint256 precisionLossToken) =
 			currentUBIInterest();
 		lastUBICollection = block.number.div(blockInterval);
-		if (iTokenGains > 0)
+		(address redeemedToken,uint256 redeemTokens) = redeemUnderlying(iTokenGains);
+		require(redeemedToken == daiAddress,"Redeemed token should be DAI");
+		if (redeemTokens > 0)
 			require(
-				iToken.transfer(_recipient, iTokenGains),
+				ERC20(daiAddress).transfer(_recipient, redeemTokens),
 				"collect transfer failed"
 			);
 		emit InterestCollected(

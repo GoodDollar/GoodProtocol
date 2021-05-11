@@ -5,7 +5,6 @@ pragma solidity >=0.7.0;
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../reserve/GoodReserveCDai.sol";
 import "../Interfaces.sol";
-
 interface StakingContract {
 	function collectUBIInterest(address recipient)
 		external
@@ -113,7 +112,7 @@ contract GoodFundManager is DAOContract {
 		gdMintGasCost = 140000; // While testing highest amount was 130k so put 140k to be safe
 		collectInterestTimeThreshold = 5184000; // 5184000 is 2 months in seconds
 		interestMultiplier = 4;
-		gasCostExceptInterestCollect = 650000;
+		gasCostExceptInterestCollect = 700000; // while testing max amount was arount 670000 so set 700000
 	}
 
 	/**
@@ -209,13 +208,14 @@ contract GoodFundManager is DAOContract {
 	function collectInterest(address[] memory _stakingContracts) public {
 		uint256 initialGas = gasleft();
 		_reserveHasInitialized();
-		ERC20 iToken = ERC20(nameService.getAddress("CDAI"));
+		cERC20 iToken = cERC20(nameService.getAddress("CDAI"));
+		ERC20 daiToken = ERC20(nameService.getAddress("DAI"));
 		address reserveAddress = nameService.addresses(nameService.RESERVE());
-		// iToken balance of the reserve contract
-		uint256 currentBalance = iToken.balanceOf(reserveAddress);
+		// DAI balance of the reserve contract
+		uint256 currentBalance = daiToken.balanceOf(reserveAddress);
 
 		for (uint256 i = _stakingContracts.length - 1; i >= 0; i--) {
-			// zxelements are sorted by balances from lowest to highest
+			// elements are sorted by balances from lowest to highest
 
 			if (_stakingContracts[i] != address(0x0)) {
 				StakingContract(_stakingContracts[i]).collectUBIInterest(
@@ -225,15 +225,17 @@ contract GoodFundManager is DAOContract {
 
 			if (i == 0) break; // when active contracts length is 1 then gives error
 		}
-
-		// Finds the actual transferred iToken
-		uint256 interest = iToken.balanceOf(reserveAddress) - currentBalance;
-
+		// Finds the actual transferred DAI
+		uint256 interest = daiToken.balanceOf(reserveAddress) - currentBalance;
+		// Convert DAI to cDAI and continue further transactions with cDAI
+		uint256 cDAIBalance = iToken.balanceOf(reserveAddress);
+		GoodReserveCDai(reserveAddress).convertDAItoCDAI(interest);
+		uint256 interestInCdai = iToken.balanceOf(reserveAddress) - cDAIBalance;
 		// Mints gd while the interest amount is equal to the transferred amount
 		uint256 gdUBI =
 			GoodReserveCDai(reserveAddress).mintUBI(
 				iToken,
-				interest // interest
+				interestInCdai // interest
 			);
 		// Transfers the minted tokens to the given staking contract
 		IGoodDollar token =
@@ -280,7 +282,7 @@ contract GoodFundManager is DAOContract {
 			msg.sender,
 			reserveAddress,
 			_stakingContracts,
-			interest,
+			interestInCdai,
 			gdUBI,
 			gdRewardToMint
 		);

@@ -350,7 +350,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .approve(goodCompoundStaking.address, stakingAmount);
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
 
-   
+    await dai["mint(address,uint256)"](staker.address, ethers.utils.parseEther("1000000"));
+    await dai.connect(staker).transfer(cDAI.address,ethers.utils.parseEther("1000000")) // We should put extra DAI to mock cDAI contract in order to provide interest
     await cDAI.increasePriceWithMultiplier('1500'); // increase interest by calling exchangeRateCurrent
     
     const currentUBIInterestBeforeWithdraw = await goodCompoundStaking.currentUBIInterest();
@@ -651,7 +652,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "770000"
     );
     await goodFundManager.collectInterest(contractsToBeCollected, {
-      gasLimit: 800000
+      gasLimit: 900000
     });
     const simpleStakingCurrentInterest = await simpleStaking.currentUBIInterest();
     const goodCompoundStakingCurrentInterest = await goodCompoundStaking.currentUBIInterest();
