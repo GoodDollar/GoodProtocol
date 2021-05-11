@@ -52,7 +52,7 @@ contract GoodFundManager is DAOContract {
 	uint256 gdMintGasCost;
 	// how much time since last collectInterest should pass in order to cancel gas cost multiplier requirement for next collectInterest
 	uint256 collectInterestTimeThreshold;
-	// Related to above variable refers how much times larger should be collected interest than spent gas
+	// to allow keeper to collect interest, total interest collected should be interestMultiplier*gas costs
 	uint8 interestMultiplier;
 	//address of the active staking contracts
 	address[] public activeContracts;
