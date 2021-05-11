@@ -11,14 +11,19 @@ import {
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { createDAO, increaseTime, advanceBlocks } from "../helpers";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
-
+import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
+import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
+import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
+import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 30;
 
 describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar", () => {
   let dai: Contract;
-  let cDAI, cDAI1, cDAI2, cDAI3: Contract;
+  let bat:Contract;
+  let pair: Contract, uniswapRouter: Contract;
+  let cDAI, cDAI1, cDAI2, cDAI3, cBat: Contract;
   let gasFeeOracle, daiEthOracle: Contract;
   let goodReserve: GoodReserveCDai;
   let goodCompoundStaking;
@@ -41,13 +46,29 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     [founder, staker, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
     const cdaiFactory = await ethers.getContractFactory("cDAIMock");
+    const cBatFactory = await ethers.getContractFactory("cBATMock")
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-
+    const routerFactory = new ethers.ContractFactory(
+      UniswapV2Router02.abi,
+      UniswapV2Router02.bytecode,
+      founder
+    );
+    const uniswapFactory = new ethers.ContractFactory(
+      UniswapV2Factory.abi,
+      UniswapV2Factory.bytecode,
+      founder
+    );
+    const wethFactory = new ethers.ContractFactory(
+      WETH9.abi,
+      WETH9.bytecode,
+      founder
+    );
+    const daiFactory = await ethers.getContractFactory("DAIMock");
     let {
       controller: ctrl,
       avatar: av,
@@ -91,7 +112,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
 
     marketMaker = mm;
-
+    const weth = await wethFactory.deploy();
+    const factory = await uniswapFactory.deploy(founder.address);
+    uniswapRouter = await routerFactory.deploy(factory.address, weth.address);
     console.log("deployed contribution, deploying reserve...", {
       founder: founder.address
     });
@@ -119,6 +142,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "cDAINonMintableMock"
     );
     cDAI3 = await cdaiNonMintableFactory.deploy(dai.address);
+    bat = await daiFactory.deploy(); // Another erc20 token for uniswap router test
+    cBat = await cBatFactory.deploy(bat.address)
     await initializeToken(
       cDAI1.address,
       "100", //1gd
@@ -137,7 +162,14 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "10000", //0.0001 cDai
       "1000000" //100% rr
     );
-
+    setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
+    await factory.createPair(bat.address, dai.address); // Create tokenA and dai pair
+    const pairAddress = factory.getPair(bat.address, dai.address);
+    pair = new Contract(
+      pairAddress,
+      JSON.stringify(IUniswapV2Pair.abi),
+      staker
+    ).connect(founder);
     setDAOAddress("CDAI", cDAI.address);
     setDAOAddress("DAI", dai.address);
 
@@ -806,6 +838,59 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
 
  })
+
+ it("It should be able to collect Interest from non DAI or cDAI staking contract as well",async()=>{
+  const goodFundManagerFactory = await ethers.getContractFactory(
+    "GoodFundManager"
+  );
+  const goodCompoundStakingFactory = await ethers.getContractFactory(
+    "GoodBatStaking"
+  );
+  const simpleStaking = await goodCompoundStakingFactory.deploy(
+    bat.address,
+    cBat.address,
+    BLOCK_INTERVAL,
+    nameService.address,
+    "Good BaT",
+    "gBAT",
+    "50"
+  );
+  
+  const ictrl = await ethers.getContractAt(
+    "Controller",
+    controller,
+    schemeMock
+  );
+  let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+    "setStakingReward",
+    ["100", simpleStaking.address, 10, 10000, false]
+  );
+  await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+  const stakingAmount = ethers.utils.parseEther("1000100");
+  await dai["mint(address,uint256)"](founder.address, stakingAmount);
+  await bat["mint(address,uint256)"](founder.address,stakingAmount);
+  
+  await addLiquidity(ethers.utils.parseEther("1000000"),ethers.utils.parseEther("1000000"))
+
+  await dai.approve(goodCompoundStaking.address,ethers.utils.parseEther("100"))
+  await goodCompoundStaking.stake(ethers.utils.parseEther("100"),100)
+  await bat.approve(simpleStaking.address,ethers.utils.parseEther("100"))
+  await simpleStaking.stake(ethers.utils.parseEther("100"),100)
+
+  await cDAI.increasePriceWithMultiplier("2000")
+  await cBat.increasePriceWithMultiplier("500")
+  
+
+ })
+
+ async function addLiquidity(
+  token0Amount: BigNumber,
+  token1Amount: BigNumber
+) {
+  await bat.transfer(pair.address, token0Amount);
+  await dai.transfer(pair.address, token1Amount);
+  await pair.mint(founder.address);
+}
 
 });
 
