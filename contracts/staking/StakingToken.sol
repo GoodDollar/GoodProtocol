@@ -18,7 +18,7 @@ contract StakingToken is BaseShareField{
     event Transfer(address indexed from, address indexed to, uint value);
     event Approval(address indexed owner, address indexed spender, uint value);
     
-    function _mintStakingToken(address to, uint value) internal {
+    function _mint(address to, uint value) internal {
         totalSupply = totalSupply.add(value);
         balanceOf[to] = balanceOf[to].add(value);
         emit Transfer(address(0), to, value);

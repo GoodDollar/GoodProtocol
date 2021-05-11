@@ -88,8 +88,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		);
 		// approve the transfer to defi protocol
 		token.approve(address(iToken), _amount);
-		mint(_amount); //mint iToken
-		_mintStakingToken(msg.sender, _amount); // mint Staking token for staker
+		mintInterestToken(_amount); //mint iToken
+		_mint(msg.sender, _amount); // mint Staking token for staker
 		_increaseProductivity(msg.sender, _amount);
 		emit Staked(msg.sender, address(token), _amount);
 	}

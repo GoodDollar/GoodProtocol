@@ -44,7 +44,6 @@ contract GoodFundManager is DAOContract {
 	// timestamp that indicates last time that interests collected
 	uint256 public lastCollectedInterest;
 
-	uint256 constant DECIMAL1e18 = 10**18;
 
 	// Determines how many blocks should
 	// be passed before the next
@@ -55,7 +54,11 @@ contract GoodFundManager is DAOContract {
 	// has been executed in
 	uint256 public lastTransferred;
 	// Gas cost for minting GD for keeper
-	uint256 gdMintGasAmount;
+	uint256 gdMintGasCost;
+	// after collectInterest called how much time should pass in order to cancel gas cost multiplier for next collectInterest
+	uint256 collectInterestTimeThreshold;
+	// Related to above variable refers how much times larger should be collected interest than spent gas
+	uint8 interestMultiplier;
 	//address of the active staking contracts
 	address[] public activeContracts;
 
@@ -116,7 +119,10 @@ contract GoodFundManager is DAOContract {
 		setDAO(_ns);
 		blockInterval = _blockInterval;
 		lastTransferred = block.number.div(blockInterval);
-		gdMintGasAmount = 140000; // While testing highest amount was 130k so put 140k to be safe
+		gdMintGasCost = 140000; // While testing highest amount was 130k so put 140k to be safe
+		collectInterestTimeThreshold = 5184000; // 5184000 is 2 months in seconds
+		interestMultiplier = 4;
+
 	}
 
 	/**
@@ -133,7 +139,7 @@ contract GoodFundManager is DAOContract {
 	 */
 	 function setGasCost(uint256 _gasAmount) public {
 		_onlyAvatar();
-		gdMintGasAmount = _gasAmount;
+		gdMintGasCost = _gasAmount;
 	 }
 	/**
 	 * @dev Sets the Reward for particular Staking contract
@@ -232,14 +238,14 @@ contract GoodFundManager is DAOContract {
 					nameService.addresses(nameService.BRIDGE_CONTRACT()),
 					gdUBI,
 					abi.encodePacked(
-						nameService.addresses(nameService.UBISCHEME())
+						nameService.addresses(nameService.UBI_RECIPIENT())
 					)
 				),
 				"ubi bridge transfer failed"
 			);
 		}
 		uint256 totalUsedGas =
-			((initialGas - gasleft() + gdMintGasAmount) * 110) / 100; // We will return as reward 1.1x of used gas in GD
+			((initialGas - gasleft() + gdMintGasCost) * 110) / 100; // We will return as reward 1.1x of used gas in GD
 		uint256 gdRewardToMint = getGasPriceInGD(totalUsedGas);
 		GoodReserveCDai(reserveAddress).mintRewardFromRR(
 			nameService.getAddress("CDAI"),
@@ -248,15 +254,15 @@ contract GoodFundManager is DAOContract {
 		);
 		uint256 gasPriceIncDAI = getGasPriceInCDAI(initialGas - gasleft());
 		
-		if (block.timestamp >= lastCollectedInterest + 5184000) {
-			// 5184000 is 2 months in seconds
+		if (block.timestamp >= lastCollectedInterest + collectInterestTimeThreshold) {
+
 			require(
 				interest >= gasPriceIncDAI,
 				"Collected interest value should be larger than spent gas costs"
 			); // This require is necessary to keeper can not abuse this function
 		} else {
 			require(
-				interest >= 4 * gasPriceIncDAI,
+				interest >= interestMultiplier * gasPriceIncDAI,
 				"Collected interest value should be 4x gas costs"
 			);
 		}
@@ -327,11 +333,11 @@ contract GoodFundManager is DAOContract {
 			addresses[uint256(i)] = address(0x0);
 			i -= 1;
 		}
-		if (block.timestamp >= lastCollectedInterest + 5184000) {
-			// 5184000 is 2 months in seconds
+		if (block.timestamp >= lastCollectedInterest + collectInterestTimeThreshold) {
+			
 			if (possibleCollected < gasCostInCdai) return emptyArray;
 		} else {
-			if (possibleCollected < 4 * gasCostInCdai) return emptyArray;
+			if (possibleCollected < interestMultiplier * gasCostInCdai) return emptyArray;
 		}
 		return addresses;
 	}

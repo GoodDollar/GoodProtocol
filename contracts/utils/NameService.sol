@@ -22,6 +22,7 @@ contract NameService is Initializable {
 	bytes32 public constant GDAO_CLAIMERS = keccak256("GDAO_CLAIMERS");
 	bytes32 public constant UBISCHEME = keccak256("UBISCHEME");
 	bytes32 public constant BRIDGE_CONTRACT = keccak256("BRIDGE_CONTRACT");
+	bytes32 public constant UBI_RECIPIENT = keccak256("UBI_RECIPIENT");
 
 	mapping(bytes32 => address) public addresses;
 

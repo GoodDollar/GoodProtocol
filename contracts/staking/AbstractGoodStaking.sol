@@ -106,7 +106,7 @@ contract AbstractGoodStaking {
      * @dev Invests staked tokens to defi protocol.
      * @param amount tokens staked.
      */
-    function mint(uint amount) internal virtual{}
+    function mintInterestToken(uint amount) internal virtual{}
 
     /**
      * @dev Redeem invested tokens from defi protocol.

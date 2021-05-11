@@ -39,7 +39,7 @@ contract GoodCompoundStaking is SimpleStaking {
      * @dev stake some DAI
      * @param _amount of dai to stake
      */
-    function mint(uint256 _amount) internal override{
+    function mintInterestToken(uint256 _amount) internal override{
         
         cERC20 cToken = cERC20(address(iToken));
         uint res = cToken.mint(_amount);
