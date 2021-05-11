@@ -5,6 +5,7 @@ pragma solidity >=0.7.0;
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../reserve/GoodReserveCDai.sol";
 import "../Interfaces.sol";
+
 interface StakingContract {
 	function collectUBIInterest(address recipient)
 		external
@@ -43,7 +44,6 @@ contract GoodFundManager is DAOContract {
 
 	// timestamp that indicates last time that interests collected
 	uint256 public lastCollectedInterest;
-
 
 	// Last block number which `transferInterest`
 	// has been executed in
@@ -106,14 +106,11 @@ contract GoodFundManager is DAOContract {
 	 * @dev Constructor
 	 * @param _ns The address of the name Service
 	 */
-	constructor(
-		NameService _ns
-	) {
+	constructor(NameService _ns) {
 		setDAO(_ns);
 		gdMintGasCost = 140000; // While testing highest amount was 130k so put 140k to be safe
 		collectInterestTimeThreshold = 5184000; // 5184000 is 2 months in seconds
 		interestMultiplier = 4;
-
 	}
 
 	/**
@@ -128,26 +125,28 @@ contract GoodFundManager is DAOContract {
 	 * @dev Set gas cost to mint GD rewards for keeper
 	 * @param _gasAmount amount of gas to spend for minting gd reward
 	 */
-	 function setGasCost(uint256 _gasAmount) public {
+	function setGasCost(uint256 _gasAmount) public {
 		_onlyAvatar();
 		gdMintGasCost = _gasAmount;
-	 }
+	}
+
 	/**
 	 * @dev Set collectInterestTimeThreshold to determine how much time should pass after collectInterest called to cancel out multiplier for collected interest
 	 * @param _timeThreshold new threshold in seconds
-	*/
-	function setCollectInterestTimeThreshold(uint256 _timeThreshold) public{
+	 */
+	function setCollectInterestTimeThreshold(uint256 _timeThreshold) public {
 		_onlyAvatar();
 		collectInterestTimeThreshold = _timeThreshold;
-
 	}
+
 	/**
 	 * @dev Set multiplier to determine how much times larger should be collected interest than spent gas when threshold did not pass
 	 */
-	function setInterestMultiplier(uint8 _newMultiplier) public{
+	function setInterestMultiplier(uint8 _newMultiplier) public {
 		_onlyAvatar();
 		interestMultiplier = _newMultiplier;
 	}
+
 	/**
 	 * @dev Sets the Reward for particular Staking contract
 	 * @param _rewardsPerBlock reward for per block
@@ -187,7 +186,6 @@ contract GoodFundManager is DAOContract {
 			}
 		}
 	}
-
 
 	/**
 	 * @dev Collects UBI interest in iToken from a given staking contract and transfers
@@ -251,9 +249,11 @@ contract GoodFundManager is DAOContract {
 			gdRewardToMint
 		);
 		uint256 gasPriceIncDAI = getGasPriceInCDAI(initialGas - gasleft());
-		
-		if (block.timestamp >= lastCollectedInterest + collectInterestTimeThreshold) {
 
+		if (
+			block.timestamp >=
+			lastCollectedInterest + collectInterestTimeThreshold
+		) {
 			require(
 				interest >= gasPriceIncDAI,
 				"Collected interest value should be larger than spent gas costs"
@@ -261,7 +261,7 @@ contract GoodFundManager is DAOContract {
 		} else {
 			require(
 				interest >= interestMultiplier * gasPriceIncDAI,
-				"Collected interest value should be 4x gas costs"
+				"Collected interest value should be interestMultiplier x gas costs"
 			);
 		}
 		emit FundsTransferred(
@@ -331,11 +331,14 @@ contract GoodFundManager is DAOContract {
 			addresses[uint256(i)] = address(0x0);
 			i -= 1;
 		}
-		if (block.timestamp >= lastCollectedInterest + collectInterestTimeThreshold) {
-			
+		if (
+			block.timestamp >=
+			lastCollectedInterest + collectInterestTimeThreshold
+		) {
 			if (possibleCollected < gasCostInCdai) return emptyArray;
 		} else {
-			if (possibleCollected < interestMultiplier * gasCostInCdai) return emptyArray;
+			if (possibleCollected < interestMultiplier * gasCostInCdai)
+				return emptyArray;
 		}
 		return addresses;
 	}
