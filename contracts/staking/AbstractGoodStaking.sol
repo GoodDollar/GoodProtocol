@@ -101,7 +101,12 @@ contract AbstractGoodStaking {
      * @return returns hardcoded gas cost
      */
     function getGasCostForInterestTransfer() external view virtual returns(uint256){}
-
+    /**
+     * @dev Get Token price in USD
+     * @param _amount Amount of token to get worth of it in USD
+     * @return Returns Worth of Token in USD
+     */
+    function getTokenPriceInUSD(uint _amount) internal view virtual returns(uint256){}
     /**
      * @dev Invests staked tokens to defi protocol.
      * @param amount tokens staked.
@@ -113,7 +118,6 @@ contract AbstractGoodStaking {
      * @param amount tokens to be redeemed.
      */
     function redeem(uint amount) internal virtual{}
-
     /**
      * @dev Redeem invested underlying tokens from defi protocol
      * @dev amount tokens to be redeemed
@@ -125,7 +129,6 @@ contract AbstractGoodStaking {
      * @return exchange rate.
      */
     function exchangeRate() internal view virtual returns(uint) {}
-
     /**
      * @dev Returns decimal value for token.
      */

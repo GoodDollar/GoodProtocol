@@ -231,6 +231,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 				10**decimalDifference
 			);
 		}
+
+		tokenGains = getTokenPriceInUSD(tokenGains);
 		return (iTokenGains, tokenGains, precisionLossToken);
 	}
 
@@ -261,11 +263,11 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		(uint256 iTokenGains, uint256 tokenGains, uint256 precisionLossToken) =
 			currentUBIInterest();
 		lastUBICollection = block.number.div(blockInterval);
-		(address redeemedToken,uint256 redeemTokens) = redeemUnderlying(iTokenGains);
+		(address redeemedToken,uint256 redeemedAmount) = redeemUnderlying(iTokenGains);
 		require(redeemedToken == daiAddress,"Redeemed token should be DAI");
-		if (redeemTokens > 0)
+		if (redeemedAmount > 0)
 			require(
-				ERC20(daiAddress).transfer(_recipient, redeemTokens),
+				ERC20(daiAddress).transfer(_recipient, redeemedAmount),
 				"collect transfer failed"
 			);
 		emit InterestCollected(

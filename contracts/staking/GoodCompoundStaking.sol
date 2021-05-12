@@ -94,7 +94,17 @@ contract GoodCompoundStaking is SimpleStaking {
         ERC20 cToken = ERC20(address(iToken));
         return uint(cToken.decimals());
     }
-
+    /**
+	 @dev function calculate DAI price in USD 
+	 @dev _amount Amount of DAI to calculate worth of it
+	 @return Returns worth of DAIs in USD
+	 */
+	function getTokenPriceInUSD(uint _amount) internal view override returns (uint256) {
+		AggregatorV3Interface daiPriceOracle =
+			AggregatorV3Interface(nameService.getAddress("DAI_USD_ORACLE"));
+		(, int256 daiPriceinUSD, , , ) = daiPriceOracle.latestRoundData();
+		return (uint256(daiPriceinUSD) * _amount) / 1e18; // daiPriceinUSD in 8 decimals and _amount is in 18 decimals so we divide it 1e18 at the end to reduce 8 decimals back
+	}
     function getGasCostForInterestTransfer() external view override returns(uint256){
         return uint256(67917);
     }

@@ -18,6 +18,7 @@ contract GoodBatStaking is SimpleStaking {
 	 * @param _tokenName Name of the staking token which will be provided to staker for their staking share
 	 * @param _tokenSymbol Symbol of the staking token which will be provided to staker for their staking share
 	 * @param _tokenSymbol Determines blocks to pass for 1x Multiplier
+	 * @param _batUsdOracleAddress Address of the BAT/USD price oracle
 	 */
 	constructor(
 		address _token,
@@ -26,7 +27,8 @@ contract GoodBatStaking is SimpleStaking {
 		NameService _ns,
 		string memory _tokenName,
 		string memory _tokenSymbol,
-		uint64 _maxRewardThreshold
+		uint64 _maxRewardThreshold,
+		address _batUsdOracleAddress
 	)
 		SimpleStaking(
 			_token,
@@ -37,7 +39,11 @@ contract GoodBatStaking is SimpleStaking {
 			_tokenSymbol,
 			_maxRewardThreshold
 		)
-	{}
+	{
+		batUsdOracleAddress = _batUsdOracleAddress;
+	}
+
+	address batUsdOracleAddress;
 
 	/**
 	 * @dev stake some BAT
@@ -73,9 +79,10 @@ contract GoodBatStaking is SimpleStaking {
 		cERC20 cToken = cERC20(address(iToken));
 		require(cToken.redeem(_amount) == 0, "Failed to redeem cBat");
 		uint256 redeemedAmount = token.balanceOf(address(this)) - tokenBalance;
+		address daiAddress = nameService.getAddress("DAI");
 		address[] memory path = new address[](2);
 		path[0] = address(token);
-		path[1] = nameService.getAddress("DAI");
+		path[1] = daiAddress;
 		Uniswap uniswapContract =
 			Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 		token.approve(address(uniswapContract), redeemedAmount);
@@ -84,13 +91,13 @@ contract GoodBatStaking is SimpleStaking {
 				redeemedAmount,
 				0,
 				path,
-				nameService.getAddress("RESERVE"),
+				address(this),
 				block.timestamp
 			);
 
 		uint256 dai = swap[1];
 		require(dai > 0, "token selling failed");
-		return (address(token), redeemedAmount);
+		return (daiAddress, swap[1]);
 	}
 
 	/**
@@ -117,12 +124,24 @@ contract GoodBatStaking is SimpleStaking {
 		return uint256(cToken.decimals());
 	}
 
+	/**
+	 @dev function calculate BAT price in USD 
+	 @dev _amount Amount of BAT to calculate worth of it
+	 @return Returns worth of BATs in USD
+	 */
+	function getTokenPriceInUSD(uint _amount) internal view override returns (uint256) {
+		AggregatorV3Interface batPriceOracle =
+			AggregatorV3Interface(batUsdOracleAddress);
+		(, int256 batPriceInUSD, , , ) = batPriceOracle.latestRoundData();
+		return (uint256(batPriceInUSD) * _amount) / 1e18; // batPriceInUSD in 8 decimals and _amount is in 18 decimals so we divide it 1e18 at the end to reduce 8 decimals back
+	}
+
 	function getGasCostForInterestTransfer()
 		external
 		view
 		override
 		returns (uint256)
 	{
-		return uint256(67917);
+		return uint256(300000);
 	}
 }

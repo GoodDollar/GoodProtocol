@@ -109,10 +109,10 @@ contract GoodFundManager is DAOContract {
 	 */
 	constructor(NameService _ns) {
 		setDAO(_ns);
-		gdMintGasCost = 140000; // While testing highest amount was 130k so put 140k to be safe
+		gdMintGasCost = 250000; // While testing highest amount was 240k so put 250k to be safe
 		collectInterestTimeThreshold = 5184000; // 5184000 is 2 months in seconds
 		interestMultiplier = 4;
-		gasCostExceptInterestCollect = 700000; // while testing max amount was arount 670000 so set 700000
+		gasCostExceptInterestCollect = 850000; //while testing highest amount was 800k so put 850k to be safe
 	}
 
 	/**
@@ -263,7 +263,6 @@ contract GoodFundManager is DAOContract {
 			gdRewardToMint
 		);
 		uint256 gasPriceIncDAI = getGasPriceInCDAI(initialGas - gasleft());
-
 		if (
 			block.timestamp >=
 			lastCollectedInterest + collectInterestTimeThreshold
@@ -307,7 +306,7 @@ contract GoodFundManager is DAOContract {
 		uint256 totalInterest;
 		int256 i;
 		for (i = 0; i < int256(activeContractsLength); i++) {
-			(tempInterest, , ) = StakingContract(activeContracts[uint256(i)])
+			(, tempInterest, ) = StakingContract(activeContracts[uint256(i)])
 				.currentUBIInterest();
 			totalInterest += tempInterest;
 			if (tempInterest != 0) {
@@ -315,7 +314,7 @@ contract GoodFundManager is DAOContract {
 				balances[uint256(i)] = tempInterest;
 			}
 		}
-		uint256 gasCostInCdai = getGasPriceInCDAI(_maxGasAmount); // Get gas price in cDAI so can compare with possible interest amount to get
+		uint256 gasCostInUSD = getGasPriceInUsd(_maxGasAmount); // Get gas price in USD so can compare with possible interest amount to get
 		address[] memory emptyArray = new address[](0);
 
 		quick(balances, addresses); // sort the values according to interest balance
@@ -348,9 +347,9 @@ contract GoodFundManager is DAOContract {
 			block.timestamp >=
 			lastCollectedInterest + collectInterestTimeThreshold
 		) {
-			if (possibleCollected < gasCostInCdai) return emptyArray;
+			if (possibleCollected < gasCostInUSD) return emptyArray;
 		} else {
-			if (possibleCollected < interestMultiplier * gasCostInCdai)
+			if (possibleCollected < interestMultiplier * gasCostInUSD)
 				return emptyArray;
 		}
 		return addresses;
@@ -457,7 +456,15 @@ contract GoodFundManager is DAOContract {
 			_gasAmount; // since cDAI token returns exchange rate scaled by 18 so we increase resolution of DAI result as well then divide to each other then multiply by _gasAmount
 		return result;
 	}
-
+	function getGasPriceInUsd(uint256 _gasAmount) public view returns(uint256){
+		AggregatorV3Interface gasPriceOracle =
+			AggregatorV3Interface(nameService.getAddress("GAS_PRICE_ORACLE"));
+		(, int256 gasPrice, , , ) = gasPriceOracle.latestRoundData(); // returns gas price in 0 decimal as GWEI so 1eth / 1e9 eth
+		AggregatorV3Interface ethUsdOracle =
+			AggregatorV3Interface(nameService.getAddress("ETH_USD_ORACLE"));
+		(, int256 ethInUsd, , ,) = ethUsdOracle.latestRoundData(); // returns eth price in USD
+		return _gasAmount * (uint256(gasPrice) * 1e9)  * uint256(ethInUsd) / 1e18; // gasPrice is gwei but in 0 decimals so we multiply it by 1e9 to bring eth decimals(18 decimals) then multiply by ethInUsd which is 8 decimals then divide it to 1e18 in order to get 8 decimals
+	}
 	function getGasPriceInGD(uint256 _gasAmount) public view returns (uint256) {
 		uint256 priceInCdai = getGasPriceInCDAI(_gasAmount);
 		uint256 gdPriceIncDAI =

@@ -24,7 +24,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   let bat:Contract;
   let pair: Contract, uniswapRouter: Contract;
   let cDAI, cDAI1, cDAI2, cDAI3, cBat: Contract;
-  let gasFeeOracle, daiEthOracle: Contract;
+  let gasFeeOracle, daiEthOracle: Contract, daiUsdOracle:Contract,batUsdOracle:Contract,ethUsdOracle:Contract;
   let goodReserve: GoodReserveCDai;
   let goodCompoundStaking;
   let goodFundManager: Contract;
@@ -189,6 +189,14 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "DaiEthPriceMockOracle"
     );
     daiEthOracle = await daiEthPriceMockFactory.deploy();
+    const tokenUsdOracleFactory = await ethers.getContractFactory("BatUSDMockOracle")
+    const ethUsdOracleFactory = await ethers.getContractFactory("EthUSDMockOracle")
+    daiUsdOracle = await tokenUsdOracleFactory.deploy()
+    batUsdOracle = await tokenUsdOracleFactory.deploy()
+    ethUsdOracle = await ethUsdOracleFactory.deploy()
+
+    await setDAOAddress("ETH_USD_ORACLE",ethUsdOracle.address)
+    await setDAOAddress("DAI_USD_ORACLE",daiUsdOracle.address)
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
@@ -681,10 +689,10 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     
     const simpleStakingCurrentInterestBeforeCollect = await simpleStaking.currentUBIInterest();
     const contractsToBeCollected = await goodFundManager.calcSortedContracts(
-      "770000"
+      "920000"
     );
     await goodFundManager.collectInterest(contractsToBeCollected, {
-      gasLimit: 900000
+      gasLimit: 920000
     });
     const simpleStakingCurrentInterest = await simpleStaking.currentUBIInterest();
     const goodCompoundStakingCurrentInterest = await goodCompoundStaking.currentUBIInterest();
@@ -839,21 +847,22 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
  })
 
- it("It should be able to collect Interest from non DAI or cDAI staking contract as well",async()=>{
+ it("It should be able to collect Interest from non DAI or cDAI staking contract",async()=>{
   const goodFundManagerFactory = await ethers.getContractFactory(
     "GoodFundManager"
   );
-  const goodCompoundStakingFactory = await ethers.getContractFactory(
+  const goodBatStakingFactory = await ethers.getContractFactory(
     "GoodBatStaking"
   );
-  const simpleStaking = await goodCompoundStakingFactory.deploy(
+  const simpleStaking = await goodBatStakingFactory.deploy(
     bat.address,
     cBat.address,
     BLOCK_INTERVAL,
     nameService.address,
     "Good BaT",
     "gBAT",
-    "50"
+    "50",
+    batUsdOracle.address
   );
   
   const ictrl = await ethers.getContractAt(
@@ -866,6 +875,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     ["100", simpleStaking.address, 10, 10000, false]
   );
   await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+  await bat["mint(address,uint256)"](staker.address, ethers.utils.parseEther("1000000"));
+  await bat.connect(staker).transfer(cBat.address,ethers.utils.parseEther("1000000")) // We should put extra BAT to mock cBAT contract in order to provide interest
   const stakingAmount = ethers.utils.parseEther("1000100");
   await dai["mint(address,uint256)"](founder.address, stakingAmount);
   await bat["mint(address,uint256)"](founder.address,stakingAmount);
@@ -876,9 +887,14 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   await goodCompoundStaking.stake(ethers.utils.parseEther("100"),100)
   await bat.approve(simpleStaking.address,ethers.utils.parseEther("100"))
   await simpleStaking.stake(ethers.utils.parseEther("100"),100)
-
+  
   await cDAI.increasePriceWithMultiplier("2000")
   await cBat.increasePriceWithMultiplier("500")
+
+  const collectableContracts = await goodFundManager.calcSortedContracts("1500000")
+  await goodFundManager.collectInterest(collectableContracts,{
+    gasLimit: 1500000
+  })
   
 
  })
