@@ -590,7 +590,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       signers[0].address
     );
     let stakerGDAmountAfterStake = await goodDollar.balanceOf(staker.address);
-    console.log(stakerGDAmountAfterStake.sub(stakerGDAmountBeforeStake).toString())
     expect(
       stakerTwoGDAmountAfterStake
         .sub(stakerTwoGDAmountBeforeStake)
