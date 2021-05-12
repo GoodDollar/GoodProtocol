@@ -76,7 +76,7 @@ contract BaseShareField is DAOContract {
 			uint256 multiplier = block.number - lastRewardBlock; // Blocks passed since last reward block
 			uint256 reward = multiplier * (rewardsPerBlock * 1e16); // rewardsPerBlock is in G$ which is only 2 decimals, we turn it into 18 decimals by multiplying 1e16
 
-			accAmountPerShare = accAmountPerShare + rdiv(reward  , totalProductivity * 10 ** tokenDecimalDifference); // Increase totalproductivity decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
+			accAmountPerShare = accAmountPerShare + rdiv(reward  , totalProductivity * (10 ** tokenDecimalDifference)); // Increase totalproductivity decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
            
 		}
 		lastRewardBlock = block.number;
