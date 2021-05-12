@@ -129,7 +129,12 @@ contract GoodBatStaking is SimpleStaking {
 	 @dev _amount Amount of BAT to calculate worth of it
 	 @return Returns worth of BATs in USD
 	 */
-	function getTokenPriceInUSD(uint _amount) internal view override returns (uint256) {
+	function getTokenPriceInUSD(uint256 _amount)
+		internal
+		view
+		override
+		returns (uint256)
+	{
 		AggregatorV3Interface batPriceOracle =
 			AggregatorV3Interface(batUsdOracleAddress);
 		(, int256 batPriceInUSD, , , ) = batPriceOracle.latestRoundData();

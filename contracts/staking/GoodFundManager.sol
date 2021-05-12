@@ -5,6 +5,7 @@ pragma solidity >=0.7.0;
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../reserve/GoodReserveCDai.sol";
 import "../Interfaces.sol";
+
 interface StakingContract {
 	function collectUBIInterest(address recipient)
 		external
@@ -456,15 +457,22 @@ contract GoodFundManager is DAOContract {
 			_gasAmount; // since cDAI token returns exchange rate scaled by 18 so we increase resolution of DAI result as well then divide to each other then multiply by _gasAmount
 		return result;
 	}
-	function getGasPriceInUsd(uint256 _gasAmount) public view returns(uint256){
+
+	function getGasPriceInUsd(uint256 _gasAmount)
+		public
+		view
+		returns (uint256)
+	{
 		AggregatorV3Interface gasPriceOracle =
 			AggregatorV3Interface(nameService.getAddress("GAS_PRICE_ORACLE"));
 		(, int256 gasPrice, , , ) = gasPriceOracle.latestRoundData(); // returns gas price in 0 decimal as GWEI so 1eth / 1e9 eth
 		AggregatorV3Interface ethUsdOracle =
 			AggregatorV3Interface(nameService.getAddress("ETH_USD_ORACLE"));
-		(, int256 ethInUsd, , ,) = ethUsdOracle.latestRoundData(); // returns eth price in USD
-		return _gasAmount * (uint256(gasPrice) * 1e9)  * uint256(ethInUsd) / 1e18; // gasPrice is gwei but in 0 decimals so we multiply it by 1e9 to bring eth decimals(18 decimals) then multiply by ethInUsd which is 8 decimals then divide it to 1e18 in order to get 8 decimals
+		(, int256 ethInUsd, , , ) = ethUsdOracle.latestRoundData(); // returns eth price in USD
+		return
+			(_gasAmount * (uint256(gasPrice) * 1e9) * uint256(ethInUsd)) / 1e18; // gasPrice is gwei but in 0 decimals so we multiply it by 1e9 to bring eth decimals(18 decimals) then multiply by ethInUsd which is 8 decimals then divide it to 1e18 in order to get 8 decimals
 	}
+
 	function getGasPriceInGD(uint256 _gasAmount) public view returns (uint256) {
 		uint256 priceInCdai = getGasPriceInCDAI(_gasAmount);
 		uint256 gdPriceIncDAI =
