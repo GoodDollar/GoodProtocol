@@ -43,7 +43,7 @@ contract GoodBatStaking is SimpleStaking {
 		batUsdOracleAddress = _batUsdOracleAddress;
 	}
 
-	address batUsdOracleAddress;
+	address public batUsdOracleAddress;
 
 	/**
 	 * @dev stake some BAT
