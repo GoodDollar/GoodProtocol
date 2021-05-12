@@ -8,7 +8,7 @@ contract StakingToken is BaseShareField{
 
     string public name;
     string public symbol;
-    uint8 public constant decimals = 18;
+    uint8 public decimals;
     uint public totalSupply;
     
     mapping(address => uint) public balanceOf;

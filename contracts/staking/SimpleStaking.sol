@@ -66,6 +66,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		setDAO(_ns);
 		token = ERC20(_token);
 		iToken = ERC20(_iToken);
+		decimals = token.decimals(); // Staking token decimals should be same with token's decimals
+		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;
 		blockInterval = _blockInterval;
 		lastUBICollection = block.number.div(blockInterval);

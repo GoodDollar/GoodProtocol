@@ -33,7 +33,8 @@ contract BaseShareField is DAOContract {
 	address public shareToken;
 
 	uint256 public lastRewardBlock;
-
+	// Token decimal difference with 18
+	uint8 public tokenDecimalDifference;
 	struct UserInfo {
 		uint256 amount; // How many tokens the user has provided.
 		uint256 rewardDebt; // Reward debt.
@@ -75,7 +76,7 @@ contract BaseShareField is DAOContract {
 			uint256 multiplier = block.number - lastRewardBlock; // Blocks passed since last reward block
 			uint256 reward = multiplier * (rewardsPerBlock * 1e16); // rewardsPerBlock is in G$ which is only 2 decimals, we turn it into 18 decimals by multiplying 1e16
 
-			accAmountPerShare =accAmountPerShare + rdiv(reward  , totalProductivity) / 1e9; // divide 1e9 so reduce to 18 decimals
+			accAmountPerShare = accAmountPerShare + rdiv(reward  , totalProductivity * 10 ** tokenDecimalDifference); // Increase totalproductivity decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
            
 		}
 		lastRewardBlock = block.number;
@@ -98,9 +99,9 @@ contract BaseShareField is DAOContract {
 
 			if (blocksToPay != 0) {
 				uint256 pending =
-					(userInfo.amount * accAmountPerShare) /
-						1e18 -
-						userInfo.rewardDebt; // Divide 1e18 to reduce 18 Decimals since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
+					(userInfo.amount * (10 ** tokenDecimalDifference) * accAmountPerShare) /
+						1e27 -
+						userInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
 				uint256 rewardPerBlock =
 					rdiv(pending , blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
 				pending =
@@ -165,7 +166,7 @@ contract BaseShareField is DAOContract {
 		totalProductivity = totalProductivity + value;
 		userInfo.lastRewardTime = uint64(block.number);
 		userInfo.amount = userInfo.amount + value;
-		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e18; // Divide to 1e18 to keep rewardDebt in 18 decimals
+		userInfo.rewardDebt = (userInfo.amount * (10 ** tokenDecimalDifference) * accAmountPerShare) / 1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is 27 decimals
 		return true;
 	}
 
@@ -190,7 +191,7 @@ contract BaseShareField is DAOContract {
 		userInfo.lastRewardTime = uint64(block.number);
 		userInfo.multiplierResetTime = uint64(block.number);
 		userInfo.amount = userInfo.amount - value;
-		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e18;
+		userInfo.rewardDebt = (userInfo.amount * (10 ** tokenDecimalDifference) * accAmountPerShare) / 1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is 27 decimals
 		totalProductivity = totalProductivity - value;
 
 		return true;
@@ -222,14 +223,14 @@ contract BaseShareField is DAOContract {
 			) = _auditCalcs(userInfo);
 
 			_accAmountPerShare =
-				_accAmountPerShare +
-				rdiv(reward  , totalProductivity) / 1e9; // divide 1e9 so reduce to 18 decimals
+				_accAmountPerShare + 
+				rdiv(reward  , totalProductivity * 10 ** tokenDecimalDifference); // Increase totalproductivity decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
 			UserInfo memory tempUserInfo = userInfo; // to prevent stack too deep error any other recommendation?
 			if (blocksToPay != 0) {
 				pending =
-					(tempUserInfo.amount * _accAmountPerShare) /
-					1e18 -
-					tempUserInfo.rewardDebt; // Divide 1e18 to reduce 18 Decimals since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
+					(tempUserInfo.amount * (10 ** tokenDecimalDifference) * _accAmountPerShare) /
+						1e27 -
+						tempUserInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
 				uint256 rewardPerBlock =
 					rdiv(pending , blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals and rdiv returns in 27decimals
 				pending =
