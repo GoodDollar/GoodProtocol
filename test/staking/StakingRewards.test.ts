@@ -798,7 +798,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(contractsToInterestCollected.length).to.be.equal(0);
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
-      ["100", goodCompoundStaking.address, 0, 10, false]
+      ["100", goodCompoundStaking.address, 100, 1000, false]
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
   });
@@ -951,6 +951,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await goodFundManager.collectInterest(collectableContracts, {
       gasLimit: 1500000
     });
+    await simpleStaking.withdrawStake(ethers.utils.parseEther("100"));
+    await goodCompoundStaking.withdrawStake(ethers.utils.parseEther("100"));
   });
 
   async function addLiquidity(

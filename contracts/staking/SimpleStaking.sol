@@ -109,7 +109,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		}
 		_burn(msg.sender, _amount); // burn their staking tokens
 		_decreaseProductivity(msg.sender, _amount);
-		fm.mintReward(address(iToken), msg.sender); // send rewards to user
+		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
 		require(
 			token.transfer(msg.sender, tokenWithdraw),
 			"withdraw transfer failed"
@@ -124,7 +124,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 
 	function withdrawRewards() public {
 		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
-		fm.mintReward(address(iToken), msg.sender); // send rewards to user
+		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
 	}
 
 	/**
