@@ -107,14 +107,14 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		require(userProductivity >= _amount, "Not enough token staked");
 		uint256 tokenWithdraw = _amount;
 		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
+		_burn(msg.sender, _amount); // burn their staking tokens
+		_decreaseProductivity(msg.sender, _amount);
+		fm.mintReward(address(iToken), msg.sender); // send rewards to user
 		redeem(tokenWithdraw);
 		uint256 tokenActual = token.balanceOf(address(this));
 		if (tokenActual < tokenWithdraw) {
 			tokenWithdraw = tokenActual;
 		}
-		_burn(msg.sender, _amount); // burn their staking tokens
-		_decreaseProductivity(msg.sender, _amount);
-		fm.mintReward(address(iToken), msg.sender); // send rewards to user
 		require(
 			token.transfer(msg.sender, tokenWithdraw),
 			"withdraw transfer failed"
@@ -156,7 +156,19 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		}
 		return tokenBalance;
 	}
+	/**
+     * @dev Calculates worth of given amount of token in iToken
+     * @param _amount Amount of token to calculate worth in iToken
+     * @return Worth of given amount of token in iToken
+     */
+     function tokenWorthinIToken(uint256 _amount) external view override returns(uint256){
+		 uint256 er = exchangeRate();
 
+		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
+		uint256 iTokenWorth = _amount * 10 ** (18 - decimalDifference) / (er / 10 ** decimalDifference); // calculation based on https://compound.finance/docs/ctokens#exchange-rate
+		return iTokenWorth;
+
+	 }
 	// @dev To find difference in token's decimal and iToken's decimal
 	// @return difference in decimals.
 	// @return true if token's decimal is more than iToken's

@@ -660,7 +660,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await simpleStaking1.connect(staker).stake(stakingAmount, 100);
 
     await cDAI.increasePriceWithMultiplier("200"); // increase interest by calling increasePriceWithMultiplier
-
+    const daiWorthinCdai = await goodCompoundStaking.tokenWorthinIToken(stakingAmount)
+    console.log(daiWorthinCdai.toString())
     const simpleStakingCurrentInterestBeforeCollect = await simpleStaking.currentUBIInterest();
     const contractsToBeCollected = await goodFundManager.calcSortedContracts(
       "770000"
