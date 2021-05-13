@@ -81,7 +81,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 */
 	function stake(uint256 _amount, uint256 _donationPer) external override {
 		require(isPaused == false, "Staking is paused");
-		require(_donationPer >= 0 && _donationPer <= 100 , "Donation percentage should be between 0 and 100");
+		require(_donationPer == 0 || _donationPer == 100 , "Donation percentage should be 0 or 100");
 		require(_amount > 0, "You need to stake a positive token amount");
 		require(
 			token.transferFrom(msg.sender, address(this), _amount),

@@ -261,8 +261,7 @@ contract BaseShareField is DAOContract {
 		_audit(user);
 		UserInfo storage userInfo = users[user];
 		uint256 amount = userInfo.rewardEarn;
-		uint256 donationAmount = amount * userInfo.donationPer / 100;
-		amount -= donationAmount;
+		amount = userInfo.donationPer == 100 ? 0 : amount;
 		userInfo.rewardEarn = 0;
 		userInfo.lastRewardTime = uint64(block.number);
 		userInfo.multiplierResetTime = uint64(block.number);
