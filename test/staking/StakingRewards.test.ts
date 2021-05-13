@@ -249,7 +249,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await dai
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0);
     let gdBalanceBeforeWithdraw = await goodDollar.balanceOf(staker.address);
     await advanceBlocks(4);
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
@@ -330,7 +330,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await dai
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0);
 
     let gdBalanceBeforeWithdraw = await goodDollar.balanceOf(staker.address);
     advanceBlocks(5);
@@ -453,7 +453,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await dai
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0);
 
     await advanceBlocks(4);
     let rewardsEarned = await goodCompoundStaking.getUserPendingReward(
@@ -504,7 +504,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     let gdBalanceStakerBeforeWithdraw = await goodDollar.balanceOf(
       staker.address
     );
-    await simpleStaking.connect(staker).stake(stakingAmount, 100);
+    await simpleStaking.connect(staker).stake(stakingAmount, 0);
 
     await advanceBlocks(54);
     await simpleStaking.connect(staker).withdrawStake(stakingAmount);
@@ -632,7 +632,29 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       stakerGDAmountAfterStake.sub(stakerGDAmountBeforeStake).toString()
     );
   });
+  it("it should not get any reward when donationPer set to 100", async () => {
+    const stakingAmount = ethers.utils.parseEther("100");
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    let stakerGDAmountBeforeStake = await goodDollar.balanceOf(staker.address);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    await advanceBlocks(4);
+    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
+    let stakerGDAmountAfterStake = await goodDollar.balanceOf(staker.address);
+    expect(stakerGDAmountAfterStake).to.be.equal(stakerGDAmountBeforeStake);
+  });
+  it("it should be reverted when donation per set to different than 0 or 100",async()=>{
+    const stakingAmount = ethers.utils.parseEther("100");
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    const tx = await goodCompoundStaking.connect(staker).stake(stakingAmount, 55).catch(e=>e);
+    expect(tx.message).to.have.string("Donation percentage should be 0 or 100")
 
+  })
   it("should be able to sort staking contracts and collect interests from highest to lowest and only one staking contract's interest should be collected due to gas amount [ @skip-on-coverage ]", async () => {
     const stakingAmount = ethers.utils.parseEther("100");
 
