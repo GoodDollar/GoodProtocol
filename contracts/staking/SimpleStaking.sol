@@ -81,11 +81,14 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 */
 	function stake(uint256 _amount, uint256 _donationPer) external override {
 		require(isPaused == false, "Staking is paused");
+		require(_donationPer == 0 || _donationPer == 100 , "Donation percentage should be 0 or 100");
 		require(_amount > 0, "You need to stake a positive token amount");
 		require(
 			token.transferFrom(msg.sender, address(this), _amount),
 			"transferFrom failed, make sure you approved token transfer"
 		);
+		UserInfo storage userInfo = users[msg.sender];
+		userInfo.donationPer = uint8(_donationPer);
 		// approve the transfer to defi protocol
 		token.approve(address(iToken), _amount);
 		mintInterestToken(_amount); //mint iToken
