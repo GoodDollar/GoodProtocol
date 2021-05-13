@@ -32,11 +32,11 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	// blocks that shall be passed before the
 	// next execution of `collectUBIInterest`
 	uint256 public blockInterval;
-
+	// Gas cost to collect interest from this staking contract
+	uint32 public collectInterestGasCost;
 	// The last block number which
 	// `collectUBIInterest` has been executed in
 	uint256 public lastUBICollection;
-
 	// The total staked Token amount in the contract
 	// uint256 public totalStaked = 0;
 
@@ -67,9 +67,18 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		maxMultiplierThreshold = _maxRewardThreshold;
 		blockInterval = _blockInterval;
 		lastUBICollection = block.number.div(blockInterval);
+		collectInterestGasCost = 100000; // Should be adjusted according to this contract's gas cost
 		_setShareToken(address(avatar.nativeToken()));
 	}
 
+	/**
+	 * @dev Set Gas cost to interest collection for this contract
+	 * @param _amount Gas cost to collect interest
+	 */
+	 function setcollectInterestGasCost(uint32 _amount) external {
+		 _onlyAvatar();
+		 collectInterestGasCost = _amount;
+	 }
 	/**
 	 * @dev Allows a staker to deposit Tokens. Notice that `approve` is
 	 * needed to be executed before the execution of this method.
@@ -191,7 +200,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 
 	/**
 	 * @dev Calculates the current interest that was gained.
-	 * @return (uint256, uint256, uint256) The interest in iToken, the interest in Token,
+	 * @return (uint256, uint256, uint256) The interest in iToken, the interest in USD,
 	 * the amount which is not covered by precision of Token
 	 */
 	function currentUBIInterest()
@@ -329,5 +338,21 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			_token.transfer(address(avatar), toWithdraw),
 			"recover transfer failed"
 		);
+	}
+
+	/**
+	 @dev function calculate Token price in USD 
+	 @dev _amount Amount of Token to calculate worth of it
+	 @return Returns worth of Tokens in USD
+	 */
+	function getTokenPriceInUSD(uint256 _amount)
+		public
+		view
+		returns (uint256)
+	{	
+		AggregatorV3Interface tokenPriceOracle =
+			AggregatorV3Interface(getTokenUsdOracle());
+		(, int256 tokenPriceinUSD, , , ) = tokenPriceOracle.latestRoundData();
+		return (uint256(tokenPriceinUSD) * _amount) / (10 ** token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's at the end to reduce 8 decimals back
 	}
 }

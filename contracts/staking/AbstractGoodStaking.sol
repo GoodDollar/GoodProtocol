@@ -100,13 +100,12 @@ contract AbstractGoodStaking {
      * @dev Get gas cost for interest transfer so can be used in the calculation of collectable interest for particular gas amount
      * @return returns hardcoded gas cost
      */
-    function getGasCostForInterestTransfer() external view virtual returns(uint256){}
+    function getGasCostForInterestTransfer() external view virtual returns(uint32){}
     /**
-     * @dev Get Token price in USD
-     * @param _amount Amount of token to get worth of it in USD
-     * @return Returns Worth of Token in USD
+     * @dev Function to get TOKEN/USD oracle address
+     * @return TOKEN/USD oracle address
      */
-    function getTokenPriceInUSD(uint _amount) internal view virtual returns(uint256){}
+    function getTokenUsdOracle() internal view virtual returns(address){}
     /**
      * @dev Invests staked tokens to defi protocol.
      * @param amount tokens staked.

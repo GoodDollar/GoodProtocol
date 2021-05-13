@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 import "./SimpleStaking.sol";
 import "../Interfaces.sol";
 
 /**
  * @title Staking contract that donates earned interest to the DAO
- * allowing stakers to deposit DAI/ETH
- * or withdraw their stake in DAI
- * the contracts buy cDai and can transfer the daily interest to the  DAO
+ * allowing stakers to deposit Token
+ * or withdraw their stake in Token
+ * the contracts buy cToken and can transfer the daily interest to the  DAO
  */
 contract GoodCompoundStaking is SimpleStaking {
 	/**
@@ -18,6 +18,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @param _tokenName Name of the staking token which will be provided to staker for their staking share
 	 * @param _tokenSymbol Symbol of the staking token which will be provided to staker for their staking share
 	 * @param _tokenSymbol Determines blocks to pass for 1x Multiplier
+     * @param _tokenUsdOracle address of the TOKEN/USD oracle
 	 */
 	constructor(
 		address _token,
@@ -26,7 +27,8 @@ contract GoodCompoundStaking is SimpleStaking {
 		NameService _ns,
 		string memory _tokenName,
 		string memory _tokenSymbol,
-		uint64 _maxRewardThreshold
+		uint64 _maxRewardThreshold,
+        address _tokenUsdOracle
 	)
 		SimpleStaking(
 			_token,
@@ -37,47 +39,73 @@ contract GoodCompoundStaking is SimpleStaking {
 			_tokenSymbol,
 			_maxRewardThreshold
 		)
-	{}
-
+	{
+        tokenUsdOracle = _tokenUsdOracle;
+    }
+    // Address of the TOKEN/USD oracle from chainlink
+	address public tokenUsdOracle;
 	/**
-	 * @dev stake some DAI
-	 * @param _amount of dai to stake
+	 * @dev stake some Token
+	 * @param _amount of Token to stake
 	 */
 	function mintInterestToken(uint256 _amount) internal override {
 		cERC20 cToken = cERC20(address(iToken));
 		uint256 res = cToken.mint(_amount);
 
-		if (
-			res > 0
-		) //cDAI returns >0 if error happened while minting. make sure no errors, if error return DAI funds
-		{
-			require(res == 0, "Minting cDai failed, funds returned");
-		}
+	    require(res == 0, "Minting cToken failed, funds returned");
+	
 	}
 
 	/**
-	 * @dev redeem DAI from compound
-	 * @param _amount of dai to redeem
+	 * @dev redeem Token from compound
+	 * @param _amount of token to redeem in Token
 	 */
 	function redeem(uint256 _amount) internal override {
 		cERC20 cToken = cERC20(address(iToken));
-		require(cToken.redeemUnderlying(_amount) == 0, "Failed to redeem cDai");
+		require(cToken.redeemUnderlying(_amount) == 0, "Failed to redeem cToken");
 	}
 
+    /**
+     * @dev Function to redeem cToken for DAI
+     * @dev _amount of token in iToken
+     * @return return address of the DAI and amount of the DAI
+     */
 	function redeemUnderlying(uint256 _amount)
 		internal
 		override
 		returns (address, uint256)
 	{
-		uint256 tokenBalance = token.balanceOf(address(this));
-		cERC20 cToken = cERC20(address(iToken));
-		require(cToken.redeem(_amount) == 0, "Failed to redeem cDai");
-		uint256 redeemedAmount = token.balanceOf(address(this)) - tokenBalance;
-		return (address(token), redeemedAmount);
+
+        uint256 tokenBalance = token.balanceOf(address(this));
+        cERC20 cToken = cERC20(address(iToken));
+        require(cToken.redeem(_amount) == 0, "Failed to redeem cToken");
+        uint256 redeemedAmount = token.balanceOf(address(this)) - tokenBalance;
+        if(address(iToken) == nameService.getAddress("CDAI")){
+            return (address(token), redeemedAmount);
+        }
+		address daiAddress = nameService.getAddress("DAI");
+		address[] memory path = new address[](2);
+		path[0] = address(token);
+		path[1] = daiAddress;
+		Uniswap uniswapContract =
+			Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+		token.approve(address(uniswapContract), redeemedAmount);
+		uint256[] memory swap =
+			uniswapContract.swapExactTokensForTokens(
+				redeemedAmount,
+				0,
+				path,
+				address(this),
+				block.timestamp
+			);
+
+		uint256 dai = swap[1];
+		require(dai > 0, "token selling failed");
+		return (daiAddress, swap[1]);	
 	}
 
 	/**
-	 * @dev returns Dai to cDai Exchange rate.
+	 * @dev returns token to iToken Exchange rate.
 	 */
 	function exchangeRate() internal view override returns (uint256) {
 		cERC20 cToken = cERC20(address(iToken));
@@ -101,28 +129,19 @@ contract GoodCompoundStaking is SimpleStaking {
 	}
 
 	/**
-	 @dev function calculate DAI price in USD 
-	 @dev _amount Amount of DAI to calculate worth of it
-	 @return Returns worth of DAIs in USD
-	 */
-	function getTokenPriceInUSD(uint256 _amount)
-		internal
-		view
-		override
-		returns (uint256)
-	{
-		AggregatorV3Interface daiPriceOracle =
-			AggregatorV3Interface(nameService.getAddress("DAI_USD_ORACLE"));
-		(, int256 daiPriceinUSD, , , ) = daiPriceOracle.latestRoundData();
-		return (uint256(daiPriceinUSD) * _amount) / 1e18; // daiPriceinUSD in 8 decimals and _amount is in 18 decimals so we divide it 1e18 at the end to reduce 8 decimals back
-	}
+     * @dev Function to get TOKEN/USD oracle address
+     * @return address of the TOKEN/USD oracle
+     */
+     function getTokenUsdOracle() internal view override returns(address){
+         return tokenUsdOracle;
+     }
 
 	function getGasCostForInterestTransfer()
 		external
 		view
 		override
-		returns (uint256)
+		returns (uint32)
 	{
-		return uint256(67917);
+		return collectInterestGasCost;
 	}
 }

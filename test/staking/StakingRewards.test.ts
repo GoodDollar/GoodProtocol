@@ -122,7 +122,10 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     });
 
     console.log("setting permissions...");
-
+    const tokenUsdOracleFactory = await ethers.getContractFactory(
+      "BatUSDMockOracle"
+    );
+    daiUsdOracle = await tokenUsdOracleFactory.deploy();
     goodCompoundStaking = await goodCompoundStakingFactory.deploy(
       dai.address,
       cDAI.address,
@@ -130,7 +133,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       nameService.address,
       "Good DAI",
       "gDAI",
-      "172800"
+      "172800",
+      daiUsdOracle.address
     );
 
     console.log("initializing marketmaker...");
@@ -191,18 +195,15 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "DaiEthPriceMockOracle"
     );
     daiEthOracle = await daiEthPriceMockFactory.deploy();
-    const tokenUsdOracleFactory = await ethers.getContractFactory(
-      "BatUSDMockOracle"
-    );
+    
     const ethUsdOracleFactory = await ethers.getContractFactory(
       "EthUSDMockOracle"
     );
-    daiUsdOracle = await tokenUsdOracleFactory.deploy();
+    
     batUsdOracle = await tokenUsdOracleFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
 
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
-    await setDAOAddress("DAI_USD_ORACLE", daiUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
@@ -482,7 +483,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       nameService.address,
       "Good DAI",
       "gDAI",
-      "50"
+      "50",
+      daiUsdOracle.address
     );
     const currentBlockNumber = await ethers.provider.getBlockNumber();
     let encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
@@ -592,7 +594,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       nameService.address,
       "Good DAI",
       "gDAI",
-      "50"
+      "50",
+      daiUsdOracle.address
     );
     const tx = await simpleStaking.withdrawRewards().catch(e => e);
     expect(tx.message).to.have.string("Staking contract not registered");
@@ -677,7 +680,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       nameService.address,
       "Good DAI",
       "gDAI",
-      "50"
+      "50",
+      daiUsdOracle.address
     );
     const simpleStaking1 = await goodCompoundStakingFactory.deploy(
       dai.address,
@@ -686,7 +690,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       nameService.address,
       "Good DAI",
       "gDAI",
-      "50"
+      "50",
+      daiUsdOracle.address
     );
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
@@ -718,10 +723,10 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
     const simpleStakingCurrentInterestBeforeCollect = await simpleStaking.currentUBIInterest();
     const contractsToBeCollected = await goodFundManager.calcSortedContracts(
-      "920000"
+      "960000"
     );
     await goodFundManager.collectInterest(contractsToBeCollected, {
-      gasLimit: 920000
+      gasLimit: 960000
     });
     const simpleStakingCurrentInterest = await simpleStaking.currentUBIInterest();
     const goodCompoundStakingCurrentInterest = await goodCompoundStaking.currentUBIInterest();
@@ -916,10 +921,10 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const goodBatStakingFactory = await ethers.getContractFactory(
-      "GoodBatStaking"
+    const goodCompoundStakingFactory = await ethers.getContractFactory(
+      "GoodCompoundStaking"
     );
-    const simpleStaking = await goodBatStakingFactory.deploy(
+    const simpleStaking = await goodCompoundStakingFactory.deploy(
       bat.address,
       cBat.address,
       BLOCK_INTERVAL,
@@ -940,6 +945,11 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       ["100", simpleStaking.address, 10, 10000, false]
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
+      "setcollectInterestGasCost",
+      ["300000"]
+    )
+    await ictrl.genericCall(simpleStaking.address, encodedData, avatar, 0);
     await bat["mint(address,uint256)"](
       staker.address,
       ethers.utils.parseEther("1000000")
