@@ -78,20 +78,38 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 * Can be executed only when the contract is not paused.
 	 * @param _amount The amount of DAI to stake
 	 * @param _donationPer The % of interest staker want to donate.
+	 * @param _inInterestToken specificy if stake in iToken or Token
 	 */
-	function stake(uint256 _amount, uint256 _donationPer) external override {
+	function stake(
+		uint256 _amount,
+		uint256 _donationPer,
+		bool _inInterestToken
+	) external override {
 		require(isPaused == false, "Staking is paused");
-		require(_donationPer == 0 || _donationPer == 100 , "Donation percentage should be 0 or 100");
-		require(_amount > 0, "You need to stake a positive token amount");
 		require(
-			token.transferFrom(msg.sender, address(this), _amount),
-			"transferFrom failed, make sure you approved token transfer"
+			_donationPer == 0 || _donationPer == 100,
+			"Donation percentage should be 0 or 100"
 		);
+		require(_amount > 0, "You need to stake a positive token amount");
+		if (_inInterestToken) {
+			require(
+				iToken.transferFrom(msg.sender, address(this), _amount),
+				"transferFrom failed, make sure you approved token transfer"
+			);
+			_amount = iTokenWorthinToken(_amount);
+		} else {
+			require(
+				token.transferFrom(msg.sender, address(this), _amount),
+				"transferFrom failed, make sure you approved token transfer"
+			);
+			// approve the transfer to defi protocol
+			token.approve(address(iToken), _amount);
+			mintInterestToken(_amount); //mint iToken
+		}
+
 		UserInfo storage userInfo = users[msg.sender];
 		userInfo.donationPer = uint8(_donationPer);
-		// approve the transfer to defi protocol
-		token.approve(address(iToken), _amount);
-		mintInterestToken(_amount); //mint iToken
+
 		_mint(msg.sender, _amount); // mint Staking token for staker
 		_increaseProductivity(msg.sender, _amount);
 		emit Staked(msg.sender, address(token), _amount);
@@ -99,30 +117,47 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 
 	/**
 	 * @dev Withdraws the sender staked Token.
+	 * @param _inInterestToken specificy if stake in iToken or Token
 	 */
-	function withdrawStake(uint256 _amount) external override {
+	function withdrawStake(uint256 _amount, bool _inInterestToken)
+		external
+		override
+	{
 		//InterestDistribution.Staker storage staker = interestData.stakers[msg.sender];
-		(uint256 userProductivity, ) = getProductivity(msg.sender);
+		uint256 tokenWithdraw;
 		require(_amount > 0, "Should withdraw positive amount");
-		require(userProductivity >= _amount, "Not enough token staked");
-		uint256 tokenWithdraw = _amount;
+		(uint256 userProductivity, ) = getProductivity(msg.sender);
+		if (_inInterestToken) {
+			uint256 tokenWorth = iTokenWorthinToken(_amount);
+			require(userProductivity >= tokenWorth, "Not enough token staked");
+			require(
+				iToken.transfer(msg.sender, _amount),
+				"withdraw transfer failed"
+			);
+			_amount = tokenWorth;
+		} else {
+			tokenWithdraw = _amount;
+			require(userProductivity >= _amount, "Not enough token staked");
+			redeem(tokenWithdraw);
+			uint256 tokenActual = token.balanceOf(address(this));
+			if (tokenActual < tokenWithdraw) {
+				tokenWithdraw = tokenActual;
+			}
+			require(
+				token.transfer(msg.sender, tokenWithdraw),
+				"withdraw transfer failed"
+			);
+		}
+
 		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
 		_burn(msg.sender, _amount); // burn their staking tokens
 		_decreaseProductivity(msg.sender, _amount);
 		fm.mintReward(address(iToken), msg.sender); // send rewards to user
-		redeem(tokenWithdraw);
-		uint256 tokenActual = token.balanceOf(address(this));
-		if (tokenActual < tokenWithdraw) {
-			tokenWithdraw = tokenActual;
-		}
-		require(
-			token.transfer(msg.sender, tokenWithdraw),
-			"withdraw transfer failed"
-		);
+
 		emit StakeWithdraw(
 			msg.sender,
 			address(token),
-			tokenWithdraw,
+			_inInterestToken == false ? tokenWithdraw : _amount,
 			token.balanceOf(address(this))
 		);
 	}
@@ -156,6 +191,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		}
 		return tokenBalance;
 	}
+
 	// @dev To find difference in token's decimal and iToken's decimal
 	// @return difference in decimals.
 	// @return true if token's decimal is more than iToken's
