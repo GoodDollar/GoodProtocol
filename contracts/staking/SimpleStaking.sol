@@ -268,6 +268,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			uint256
 		)
 	{
+		address daiAddress = nameService.getAddress("DAI");
+		address cDAIAddress = nameService.getAddress("CDAI");
 		// otherwise fund manager has to wait for the next interval
 		require(
 			_recipient != address(this),
@@ -283,6 +285,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 				ERC20(redeemedToken).transfer(_recipient, redeemedAmount),
 				"collect transfer failed"
 			);
+		require(redeemedToken == daiAddress || redeemedToken == cDAIAddress, "Redeemed token should be DAI or cDAI");
 		emit InterestCollected(
 			_recipient,
 			address(token),
