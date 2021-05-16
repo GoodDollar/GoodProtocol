@@ -1,0 +1,12 @@
+{
+  "default": {
+    "governance": {
+      "proposalVotingPeriod": 241920
+    }
+  },
+  "production-mainnet": {
+    "governance": {
+      "proposalVotingPeriod": 80640
+    }
+  }
+}
