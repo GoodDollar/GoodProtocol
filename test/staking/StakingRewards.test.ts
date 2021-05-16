@@ -203,7 +203,13 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     
     batUsdOracle = await tokenUsdOracleFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
+    await dai["mint(address,uint256)"](founder.address, ethers.utils.parseEther("2000000"));
+    await bat["mint(address,uint256)"](founder.address, ethers.utils.parseEther("2000000"));
 
+    await addLiquidity(
+      ethers.utils.parseEther("2000000"),
+      ethers.utils.parseEther("2000000")
+    );
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
@@ -963,14 +969,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await bat
       .connect(staker)
       .transfer(cBat.address, ethers.utils.parseEther("1000000")); // We should put extra BAT to mock cBAT contract in order to provide interest
-    const stakingAmount = ethers.utils.parseEther("1000100");
-    await dai["mint(address,uint256)"](founder.address, stakingAmount);
-    await bat["mint(address,uint256)"](founder.address, stakingAmount);
-
-    await addLiquidity(
-      ethers.utils.parseEther("1000000"),
-      ethers.utils.parseEther("1000000")
-    );
 
     await dai.approve(
       goodCompoundStaking.address,
@@ -992,7 +990,34 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await simpleStaking.withdrawStake(ethers.utils.parseEther("100"));
     await goodCompoundStaking.withdrawStake(ethers.utils.parseEther("100"));
   });
+  it("It should redeem underlying token to DAI",async()=>{
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const goodCompoundStakingTestFactory = await ethers.getContractFactory(
+      "GoodCompoundStakingTest"
+    );
+    const simpleStaking = await goodCompoundStakingTestFactory.deploy(
+      bat.address,
+      cBat.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good BaT",
+      "gBAT",
+      "50",
+      batUsdOracle.address,
+      "100000"
+    );
+    await bat["mint(address,uint256)"](cBat.address,ethers.utils.parseEther("1000"))
+    await cBat["mint(address,uint256)"](simpleStaking.address,ethers.utils.parseUnits("1000",8))
+    const balanceBeforeRedeem = await dai.balanceOf(simpleStaking.address)
+    await simpleStaking.redeemUnderlyingToDAITest(ethers.utils.parseUnits("10",8))
+    const balanceAfterRedeem = await dai.balanceOf(simpleStaking.address)
+    expect(balanceAfterRedeem.gt(balanceBeforeRedeem)).to.be.true;
 
+
+
+  })
   async function addLiquidity(
     token0Amount: BigNumber,
     token1Amount: BigNumber

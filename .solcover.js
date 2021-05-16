@@ -13,7 +13,8 @@ module.exports = {
     "mocks/cDAINonMintableMock.sol",
     "mocks/DAIMock.sol",
     "utils/BancorFormula.sol",
-    "utils/DSMath.sol"
+    "utils/DSMath.sol",
+    "utils/cBATMock.sol"
   ],
   mocha: {
     grep: "@skip-on-coverage", // Find everything with this tag
