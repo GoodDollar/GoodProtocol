@@ -39,7 +39,6 @@
   },
   "homepage": "https://gooddollar.org",
   "dependencies": {
-    "@daostack/arc": "^0.0.1-rc.57",
     "@gooddollar/goodcontracts": "^2.6.1",
     "@openzeppelin/contracts-upgradeable": "^4.0.0",
     "openzeppelin-solidity": "^4.0.0"
@@ -52,7 +51,7 @@
     "@nomiclabs/hardhat-ethers": "*",
     "@nomiclabs/hardhat-etherscan": "*",
     "@nomiclabs/hardhat-waffle": "*",
-    "@openzeppelin/hardhat-upgrades": "*",
+    "@openzeppelin/hardhat-upgrades": "^1.7.0",
     "@typechain/ethers-v5": "*",
     "@types/mocha": "*",
     "@types/node": "*",
@@ -70,7 +69,7 @@
     "hardhat": "*",
     "hardhat-gas-reporter": "^1.0.4",
     "hardhat-typechain": "*",
-    "lodash": "*",
+    "lodash": "^4.17.21",
     "merkle-tree-solidity": "*",
     "mocha-lcov-reporter": "*",
     "node-fetch": "*",
