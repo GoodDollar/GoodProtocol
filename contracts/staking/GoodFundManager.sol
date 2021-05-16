@@ -113,8 +113,7 @@ contract GoodFundManager is DAOContract {
 		address _bridgeContract,
 		address _ubiRecipient,
 		uint256 _blockInterval
-	) //ActivePeriod(block.timestamp, block.timestamp * 2, _avatar)
-	{
+	) {
 		setDAO(_ns);
 		cDai = ERC20(_cDai);
 		bridgeContract = _bridgeContract;
@@ -149,7 +148,12 @@ contract GoodFundManager is DAOContract {
 	) public {
 		_onlyAvatar();
 		Reward memory reward =
-			Reward(_rewardsPerBlock, _blockStart, _blockEnd, _isBlackListed);
+			Reward(
+				_rewardsPerBlock,
+				_blockStart > 0 ? _blockStart : uint32(block.number),
+				_blockEnd > 0 ? _blockEnd : 0xFFFFFFFF,
+				_isBlackListed
+			);
 		rewardsForStakingContract[_stakingAddress] = reward;
 	}
 
@@ -234,7 +238,8 @@ contract GoodFundManager is DAOContract {
 			GoodReserveCDai(reserveAddress).mintUBI(iToken, interest);
 		//_staking.updateGlobalGDYieldPerToken(gdInterest, interest);
 		// Transfers the minted tokens to the given staking contract
-		IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
+		IGoodDollar token =
+			IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
 		//if(gdInterest > 0)
 		//    require(token.transfer(address(_staking), gdInterest),"interest transfer failed");
 		if (gdUBI > 0)

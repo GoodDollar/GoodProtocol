@@ -14,7 +14,7 @@ import "../Interfaces.sol";
 contract DAOContract {
 	Controller public dao;
 
-	Avatar public avatar;
+	address public avatar;
 
 	NameService public nameService;
 

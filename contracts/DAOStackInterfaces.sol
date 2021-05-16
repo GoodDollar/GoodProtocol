@@ -3,20 +3,22 @@
 pragma solidity >=0.7.0;
 
 interface Avatar {
-	function nativeToken() external returns (address);
+	function nativeToken() external view returns (address);
 
-	function owner() external returns (address);
+	function nativeReputation() external view returns (address);
+
+	function owner() external view returns (address);
 }
 
 interface Controller {
 	function genericCall(
 		address _contract,
 		bytes calldata _data,
-		Avatar _avatar,
+		address _avatar,
 		uint256 _value
 	) external returns (bool, bytes memory);
 
-	function avatar() external view returns (Avatar);
+	function avatar() external view returns (address);
 
 	function unregisterScheme(address _scheme, address _avatar)
 		external

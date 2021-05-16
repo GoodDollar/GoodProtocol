@@ -69,7 +69,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		maxMultiplierThreshold = _maxRewardThreshold;
 		blockInterval = _blockInterval;
 		lastUBICollection = block.number.div(blockInterval);
-		_setShareToken(address(avatar.nativeToken()));
+		_setShareToken(nameService.addresses(nameService.GOODDOLLAR()));
 	}
 
 	/**

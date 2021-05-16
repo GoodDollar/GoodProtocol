@@ -354,7 +354,12 @@ contract CompoundVotingMachine is
 			(ok, result) = target.call{ value: value }(callData);
 		} else {
 			if (value > 0) payable(address(avatar)).transfer(value); //make sure avatar have the funds to pay
-			(ok, result) = dao.genericCall(target, callData, avatar, value);
+			(ok, result) = dao.genericCall(
+				target,
+				callData,
+				address(avatar),
+				value
+			);
 		}
 		require(
 			ok,
