@@ -21,10 +21,10 @@ export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 1;
 
 describe("NameService - Setup and functionalities", () => {
-  let nameService, dai, avatar, controller, schemeMock;
+  let nameService, dai, avatar, controller, schemeMock, signers;
 
   before(async () => {
-    const signers = await ethers.getSigners();
+    signers = await ethers.getSigners();
     schemeMock = signers.pop();
     const daiFactory = await ethers.getContractFactory("DAIMock");
 
@@ -61,6 +61,18 @@ describe("NameService - Setup and functionalities", () => {
     );
   });
 
+  it(" addresses should not be set  ", async () => {
+    await expect(
+      nameService.setAddresses(
+        [
+          ethers.utils.formatBytes32String("DAI"),
+          ethers.utils.formatBytes32String("cDAI")
+        ],
+        [(signers[0].address, signers[1].address)]
+      )
+    ).to.be.revertedWith("only avatar can call this method");
+  });
+
   it("should set address by avatar", async () => {
     const nsFactory = await ethers.getContractFactory("NameService");
     const encoded = nsFactory.interface.encodeFunctionData("setAddress", [
@@ -76,5 +88,28 @@ describe("NameService - Setup and functionalities", () => {
 
     await ictrl.genericCall(nameService.address, encoded, avatar, 0);
     expect(await nameService.getAddress("DAI")).to.be.equal(dai.address);
+  });
+
+  it("should set multiple addresses by avatar", async () => {
+    const nsFactory = await ethers.getContractFactory("NameService");
+    const encoded = nsFactory.interface.encodeFunctionData("setAddresses", [
+      [
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("DAI")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("cDAI"))
+      ],
+      [signers[0].address, signers[1].address]
+    ]);
+
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+
+    await ictrl.genericCall(nameService.address, encoded, avatar, 0);
+    expect(await nameService.getAddress("DAI")).to.be.equal(signers[0].address);
+    expect(await nameService.getAddress("cDAI")).to.be.equal(
+      signers[1].address
+    );
   });
 });
