@@ -156,19 +156,6 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		}
 		return tokenBalance;
 	}
-	/**
-     * @dev Calculates worth of given amount of token in iToken
-     * @param _amount Amount of token to calculate worth in iToken
-     * @return Worth of given amount of token in iToken
-     */
-     function tokenWorthinIToken(uint256 _amount) external view override returns(uint256){
-		 uint256 er = exchangeRate();
-
-		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
-		uint256 iTokenWorth = _amount * 10 ** (18 - decimalDifference) / (er / 10 ** decimalDifference); // calculation based on https://compound.finance/docs/ctokens#exchange-rate
-		return iTokenWorth;
-
-	 }
 	// @dev To find difference in token's decimal and iToken's decimal
 	// @return difference in decimals.
 	// @return true if token's decimal is more than iToken's

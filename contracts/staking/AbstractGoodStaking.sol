@@ -53,7 +53,7 @@ contract AbstractGoodStaking {
      * @param _amount Amount of token to calculate worth in iToken
      * @return Worth of given amount of token in iToken
      */
-     function tokenWorthinIToken(uint256 _amount) external view virtual returns(uint256){}
+     function iTokenWorthinToken(uint256 _amount) external view virtual returns(uint256){}
     /**
      * @dev calculates the holding of intrestToken by staking contract in terms of token value.
      * @return It will return the token worth of intrest token that contract is holding.

@@ -91,4 +91,18 @@ contract GoodCompoundStaking is SimpleStaking {
     function getGasCostForInterestTransfer() external view override returns(uint256){
         return uint256(67917);
     }
+
+	/**
+     * @dev Calculates worth of given amount of iToken in Token
+     * @param _amount Amount of token to calculate worth in Token
+     * @return Worth of given amount of token in Token
+     */
+     function iTokenWorthinToken(uint256 _amount) external view override returns(uint256){
+		uint256 er = exchangeRate();
+		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
+		uint mantissa = 18 + tokenDecimal() - iTokenDecimal();
+		uint256 tokenWorth = caseType == true ? _amount * decimalDifference * er / 10 ** mantissa : _amount / decimalDifference * er / 10 ** mantissa; // calculation based on https://compound.finance/docs#protocol-math
+		return tokenWorth;
+
+	 }
 }
