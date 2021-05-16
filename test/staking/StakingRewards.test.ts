@@ -922,7 +922,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
   });
 
-  it("It should be able to collect Interest from non DAI or cDAI staking contract", async () => {
+  it("It should be able to collect Interest from non DAI or cDAI staking contract [ @skip-on-coverage ]", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
