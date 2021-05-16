@@ -66,6 +66,20 @@ contract GReputation is Reputation {
 		uint256 newBalance
 	);
 
+	/**
+	 * @dev initialize
+	 */
+	function initialize(
+		NameService _ns,
+		string calldata stateId,
+		bytes32 stateHash,
+		uint256 totalSupply
+	) external initializer {
+		__Reputation_init(_ns);
+		if (totalSupply > 0)
+			_setBlockchainStateHash(stateId, stateHash, totalSupply);
+	}
+
 	function _canMint() internal view override {
 		require(
 			_msgSender() ==
@@ -136,6 +150,18 @@ contract GReputation is Reputation {
 		uint256 _totalSupply
 	) public {
 		_onlyAvatar();
+		_setBlockchainStateHash(_id, _hash, _totalSupply);
+	}
+
+	/// @notice sets the state hash of a blockchain, can only be called by owner
+	/// @param _id the string name of the blockchain (will be hashed to produce byte32 id)
+	/// @param _hash the state hash
+	/// @param _totalSupply total supply of reputation on the specific blockchain
+	function _setBlockchainStateHash(
+		string memory _id,
+		bytes32 _hash,
+		uint256 _totalSupply
+	) internal {
 		bytes32 idHash = keccak256(bytes(_id));
 
 		//dont consider rootState as blockchain,  it is a special state hash
