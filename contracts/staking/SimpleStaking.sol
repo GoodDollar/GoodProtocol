@@ -51,6 +51,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 * @param _tokenName The name of the staking token
 	 * @param _tokenSymbol The symbol of the staking token
 	 * @param _maxRewardThreshold the blocks that should pass to get 1x reward multiplier
+	 * @param _collectInterestGasCost Gas cost for the collect interest of this staking contract
 	 */
 	constructor(
 		address _token,
@@ -59,7 +60,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		NameService _ns,
 		string memory _tokenName,
 		string memory _tokenSymbol,
-		uint64 _maxRewardThreshold
+		uint64 _maxRewardThreshold,
+		uint32 _collectInterestGasCost
 	) StakingToken(_tokenName, _tokenSymbol) {
 		setDAO(_ns);
 		token = ERC20(_token);
@@ -67,7 +69,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		maxMultiplierThreshold = _maxRewardThreshold;
 		blockInterval = _blockInterval;
 		lastUBICollection = block.number.div(blockInterval);
-		collectInterestGasCost = 100000; // Should be adjusted according to this contract's gas cost
+		collectInterestGasCost = _collectInterestGasCost; // Should be adjusted according to this contract's gas cost
 		_setShareToken(address(avatar.nativeToken()));
 	}
 
@@ -271,16 +273,14 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			_recipient != address(this),
 			"Recipient cannot be the staking contract"
 		);
-		address daiAddress = nameService.getAddress("DAI");
 		(uint256 iTokenGains, uint256 tokenGains, uint256 precisionLossToken) =
 			currentUBIInterest();
 		lastUBICollection = block.number.div(blockInterval);
 		(address redeemedToken, uint256 redeemedAmount) =
-			redeemUnderlying(iTokenGains);
-		require(redeemedToken == daiAddress, "Redeemed token should be DAI");
+			redeemUnderlyingToDAI(iTokenGains);
 		if (redeemedAmount > 0)
 			require(
-				ERC20(daiAddress).transfer(_recipient, redeemedAmount),
+				ERC20(redeemedToken).transfer(_recipient, redeemedAmount),
 				"collect transfer failed"
 			);
 		emit InterestCollected(

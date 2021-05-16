@@ -214,7 +214,7 @@ contract GoodFundManager is DAOContract {
 		address reserveAddress = nameService.addresses(nameService.RESERVE());
 		// DAI balance of the reserve contract
 		uint256 currentBalance = daiToken.balanceOf(reserveAddress);
-
+		uint256 cDAIBalance = iToken.balanceOf(reserveAddress);
 		for (uint256 i = _stakingContracts.length - 1; i >= 0; i--) {
 			// elements are sorted by balances from lowest to highest
 
@@ -229,7 +229,6 @@ contract GoodFundManager is DAOContract {
 		// Finds the actual transferred DAI
 		uint256 interest = daiToken.balanceOf(reserveAddress) - currentBalance;
 		// Convert DAI to cDAI and continue further transactions with cDAI
-		uint256 cDAIBalance = iToken.balanceOf(reserveAddress);
 		GoodReserveCDai(reserveAddress).convertDAItoCDAI(interest);
 		uint256 interestInCdai = iToken.balanceOf(reserveAddress) - cDAIBalance;
 		// Mints gd while the interest amount is equal to the transferred amount
@@ -238,10 +237,8 @@ contract GoodFundManager is DAOContract {
 				iToken,
 				interestInCdai // interest
 			);
-		// Transfers the minted tokens to the given staking contract
 		IGoodDollar token =
 			IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
-
 		if (gdUBI > 0) {
 			//transfer ubi to avatar on sidechain via bridge
 			require(
@@ -263,18 +260,18 @@ contract GoodFundManager is DAOContract {
 			msg.sender,
 			gdRewardToMint
 		);
-		uint256 gasPriceIncDAI = getGasPriceInCDAI(initialGas - gasleft());
+		uint256 gasPriceIncDAI = getGasPriceInCDAI(initialGas - gasleft());	
 		if (
 			block.timestamp >=
 			lastCollectedInterest + collectInterestTimeThreshold
 		) {
 			require(
-				interest >= gasPriceIncDAI,
+				interestInCdai >= gasPriceIncDAI,
 				"Collected interest value should be larger than spent gas costs"
 			); // This require is necessary to keeper can not abuse this function
 		} else {
 			require(
-				interest >= interestMultiplier * gasPriceIncDAI,
+				interestInCdai >= interestMultiplier * gasPriceIncDAI,
 				"Collected interest value should be interestMultiplier x gas costs"
 			);
 		}

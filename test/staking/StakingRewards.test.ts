@@ -134,7 +134,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good DAI",
       "gDAI",
       "172800",
-      daiUsdOracle.address
+      daiUsdOracle.address,
+      "100000"
     );
 
     console.log("initializing marketmaker...");
@@ -484,7 +485,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good DAI",
       "gDAI",
       "50",
-      daiUsdOracle.address
+      daiUsdOracle.address,
+      "100000"
     );
     const currentBlockNumber = await ethers.provider.getBlockNumber();
     let encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
@@ -595,7 +597,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good DAI",
       "gDAI",
       "50",
-      daiUsdOracle.address
+      daiUsdOracle.address,
+      "100000"
     );
     const tx = await simpleStaking.withdrawRewards().catch(e => e);
     expect(tx.message).to.have.string("Staking contract not registered");
@@ -681,7 +684,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good DAI",
       "gDAI",
       "50",
-      daiUsdOracle.address
+      daiUsdOracle.address,
+      "100000"
     );
     const simpleStaking1 = await goodCompoundStakingFactory.deploy(
       dai.address,
@@ -691,7 +695,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good DAI",
       "gDAI",
       "50",
-      daiUsdOracle.address
+      daiUsdOracle.address,
+      "100000"
     );
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
@@ -932,7 +937,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good BaT",
       "gBAT",
       "50",
-      batUsdOracle.address
+      batUsdOracle.address,
+      "100000"
     );
 
     const ictrl = await ethers.getContractAt(

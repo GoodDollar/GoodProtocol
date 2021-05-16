@@ -18,7 +18,8 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @param _tokenName Name of the staking token which will be provided to staker for their staking share
 	 * @param _tokenSymbol Symbol of the staking token which will be provided to staker for their staking share
 	 * @param _tokenSymbol Determines blocks to pass for 1x Multiplier
-     * @param _tokenUsdOracle address of the TOKEN/USD oracle
+	 * @param _tokenUsdOracle address of the TOKEN/USD oracle
+	 * @param _collectInterestGasCost Gas cost for the collect interest of this staking contract
 	 */
 	constructor(
 		address _token,
@@ -28,7 +29,8 @@ contract GoodCompoundStaking is SimpleStaking {
 		string memory _tokenName,
 		string memory _tokenSymbol,
 		uint64 _maxRewardThreshold,
-        address _tokenUsdOracle
+		address _tokenUsdOracle,
+		uint32 _collectInterestGasCost
 	)
 		SimpleStaking(
 			_token,
@@ -37,13 +39,16 @@ contract GoodCompoundStaking is SimpleStaking {
 			_ns,
 			_tokenName,
 			_tokenSymbol,
-			_maxRewardThreshold
+			_maxRewardThreshold,
+			_collectInterestGasCost
 		)
 	{
-        tokenUsdOracle = _tokenUsdOracle;
-    }
-    // Address of the TOKEN/USD oracle from chainlink
+		tokenUsdOracle = _tokenUsdOracle;
+	}
+
+	// Address of the TOKEN/USD oracle from chainlink
 	address public tokenUsdOracle;
+
 	/**
 	 * @dev stake some Token
 	 * @param _amount of Token to stake
@@ -52,8 +57,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		cERC20 cToken = cERC20(address(iToken));
 		uint256 res = cToken.mint(_amount);
 
-	    require(res == 0, "Minting cToken failed, funds returned");
-	
+		require(res == 0, "Minting cToken failed, funds returned");
 	}
 
 	/**
@@ -62,27 +66,29 @@ contract GoodCompoundStaking is SimpleStaking {
 	 */
 	function redeem(uint256 _amount) internal override {
 		cERC20 cToken = cERC20(address(iToken));
-		require(cToken.redeemUnderlying(_amount) == 0, "Failed to redeem cToken");
+		require(
+			cToken.redeemUnderlying(_amount) == 0,
+			"Failed to redeem cToken"
+		);
 	}
 
-    /**
-     * @dev Function to redeem cToken for DAI
-     * @dev _amount of token in iToken
-     * @return return address of the DAI and amount of the DAI
-     */
-	function redeemUnderlying(uint256 _amount)
+	/**
+	 * @dev Function to redeem cToken for DAI
+	 * @dev _amount of token in iToken
+	 * @return return address of the DAI and amount of the DAI
+	 */
+	function redeemUnderlyingToDAI(uint256 _amount)
 		internal
 		override
 		returns (address, uint256)
 	{
-
-        uint256 tokenBalance = token.balanceOf(address(this));
-        cERC20 cToken = cERC20(address(iToken));
-        require(cToken.redeem(_amount) == 0, "Failed to redeem cToken");
-        uint256 redeemedAmount = token.balanceOf(address(this)) - tokenBalance;
-        if(address(iToken) == nameService.getAddress("CDAI")){
-            return (address(token), redeemedAmount);
-        }
+		
+		if (address(iToken) == nameService.getAddress("CDAI")) {
+			return (address(iToken), _amount); // If iToken is cDAI then just return cDAI 
+		}
+		cERC20 cToken = cERC20(address(iToken));
+		require(cToken.redeem(_amount) == 0, "Failed to redeem cToken");
+		uint256 redeemedAmount = token.balanceOf(address(this));
 		address daiAddress = nameService.getAddress("DAI");
 		address[] memory path = new address[](2);
 		path[0] = address(token);
@@ -101,7 +107,7 @@ contract GoodCompoundStaking is SimpleStaking {
 
 		uint256 dai = swap[1];
 		require(dai > 0, "token selling failed");
-		return (daiAddress, swap[1]);	
+		return (daiAddress, swap[1]);
 	}
 
 	/**
@@ -129,12 +135,12 @@ contract GoodCompoundStaking is SimpleStaking {
 	}
 
 	/**
-     * @dev Function to get TOKEN/USD oracle address
-     * @return address of the TOKEN/USD oracle
-     */
-     function getTokenUsdOracle() internal view override returns(address){
-         return tokenUsdOracle;
-     }
+	 * @dev Function to get TOKEN/USD oracle address
+	 * @return address of the TOKEN/USD oracle
+	 */
+	function getTokenUsdOracle() internal view override returns (address) {
+		return tokenUsdOracle;
+	}
 
 	function getGasCostForInterestTransfer()
 		external
