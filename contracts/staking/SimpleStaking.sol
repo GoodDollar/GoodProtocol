@@ -175,7 +175,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		uint256 er = exchangeRate();
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		uint mantissa = 18 + tokenDecimal() - iTokenDecimal();
-		uint256 tokenWorth = caseType == true ? _amount * decimalDifference * er / 10 ** mantissa : _amount / decimalDifference * er / 10 ** mantissa; // calculation based on https://compound.finance/docs#protocol-math
+		uint256 tokenWorth = caseType == true ? _amount * ( 10 ** decimalDifference) * er / 10 ** mantissa : _amount / ( 10 ** decimalDifference) * er / 10 ** mantissa; // calculation based on https://compound.finance/docs#protocol-math
 		return tokenWorth;
 
 	 }
