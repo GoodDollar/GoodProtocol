@@ -963,13 +963,15 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     )
     await ictrl.genericCall(simpleStaking.address, encodedData, avatar, 0);
     await bat["mint(address,uint256)"](
-      staker.address,
-      ethers.utils.parseEther("1000000")
+      founder.address,
+      ethers.utils.parseEther("1001000")
     );
     await bat
-      .connect(staker)
       .transfer(cBat.address, ethers.utils.parseEther("1000000")); // We should put extra BAT to mock cBAT contract in order to provide interest
-
+    await dai["mint(address,uint256)"](
+      founder.address,
+      ethers.utils.parseEther("1000000")
+    );
     await dai.approve(
       goodCompoundStaking.address,
       ethers.utils.parseEther("100")
@@ -1013,11 +1015,103 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const balanceBeforeRedeem = await dai.balanceOf(simpleStaking.address)
     await simpleStaking.redeemUnderlyingToDAITest(ethers.utils.parseUnits("10",8))
     const balanceAfterRedeem = await dai.balanceOf(simpleStaking.address)
+    const accAmountPerShare = await simpleStaking.interestsPerBlock()
+    expect(accAmountPerShare.toString()).to.be.equal("0")
     expect(balanceAfterRedeem.gt(balanceBeforeRedeem)).to.be.true;
 
 
 
   })
+  
+  it("it should not decrease proudctivity when there is no enough amount of stake",async()=>{
+    const goodCompoundStakingTestFactory = await ethers.getContractFactory(
+      "GoodCompoundStakingTest"
+    );
+    const simpleStaking = await goodCompoundStakingTestFactory.deploy(
+      bat.address,
+      cBat.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good BaT",
+      "gBAT",
+      "50",
+      batUsdOracle.address,
+      "100000"
+    );
+    const tx = await simpleStaking.decreaseProductivityTest(founder.address,ethers.utils.parseEther("100")).catch(e=>e)
+    expect(tx.message).to.have.string("INSUFFICIENT_PRODUCTIVITY")
+  })
+
+  it("User pending reward should be zero when there is no stake of user",async()=>{
+    const goodCompoundStakingTestFactory = await ethers.getContractFactory(
+      "GoodCompoundStakingTest"
+    );
+    const simpleStaking = await goodCompoundStakingTestFactory.deploy(
+      bat.address,
+      cBat.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good BaT",
+      "gBAT",
+      "50",
+      batUsdOracle.address,
+      "100000"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    let encodedData = goodCompoundStakingTestFactory.interface.encodeFunctionData(
+      "setcollectInterestGasCost",
+      ["100000"]
+    );
+    await ictrl.genericCall(simpleStaking.address, encodedData, avatar, 0);
+    const pendingReward = await simpleStaking.getUserPendingReward(founder.address)
+    expect(pendingReward.toString()).to.be.equal("0")
+  })
+  it("It should not transfer staking token where there is no enough balance",async()=>{
+    const goodCompoundStakingTestFactory = await ethers.getContractFactory(
+      "GoodCompoundStakingTest"
+    );
+    const simpleStaking = await goodCompoundStakingTestFactory.deploy(
+      bat.address,
+      cBat.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good BaT",
+      "gBAT",
+      "50",
+      batUsdOracle.address,
+      "100000"
+    );
+    const tx = await simpleStaking.transfer(staker.address,"10000").catch(e=>e)
+    expect(tx.message).to.have.string("ERC20Token: INSUFFICIENT_BALANCE")
+  })
+
+  it("it should burn staking tokens when they send it to zero address",async()=>{
+    const goodCompoundStakingTestFactory = await ethers.getContractFactory(
+      "GoodCompoundStakingTest"
+    );
+    const simpleStaking = await goodCompoundStakingTestFactory.deploy(
+      bat.address,
+      cBat.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good BaT",
+      "gBAT",
+      "50",
+      batUsdOracle.address,
+      "100000"
+    );
+    await bat["mint(address,uint256)"](founder.address,ethers.utils.parseEther("10"))
+    await bat.approve(simpleStaking.address,ethers.utils.parseEther("10"))
+    await simpleStaking.stake(ethers.utils.parseEther("10"),0)
+    await simpleStaking.transfer(NULL_ADDRESS,ethers.utils.parseEther("10"))
+    const stakingTokenTotalSupply = await simpleStaking.totalSupply()
+    expect(stakingTokenTotalSupply.toString()).to.be.equal("0")
+  })
+
   async function addLiquidity(
     token0Amount: BigNumber,
     token1Amount: BigNumber
