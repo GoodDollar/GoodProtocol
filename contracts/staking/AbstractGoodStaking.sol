@@ -45,7 +45,7 @@ contract AbstractGoodStaking {
     /**
      * @dev withdraw staked tokens
      */
-    function withdrawStake(uint256 _amount) virtual external {
+    function withdrawStake(uint256 _amount,bool _inInterestToken) virtual external {
         
     }
     /**
