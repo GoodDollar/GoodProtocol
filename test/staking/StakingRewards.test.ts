@@ -19,6 +19,7 @@ export const BLOCK_INTERVAL = 30;
 describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar", () => {
   let dai: Contract;
   let cDAI, cDAI1, cDAI2, cDAI3: Contract;
+  let gasFeeOracle, daiEthOracle: Contract;
   let goodReserve: GoodReserveCDai;
   let goodCompoundStaking;
   let goodFundManager: Contract;
@@ -77,13 +78,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       controller,
       avatar
     });
-    goodFundManager = await goodFundManagerFactory.deploy(
-      nameService.address,
-      cDAI.address,
-      founder.address,
-      founder.address,
-      BLOCK_INTERVAL
-    );
+    goodFundManager = await goodFundManagerFactory.deploy(nameService.address);
     console.log("Deployed goodfund manager", {
       manager: goodFundManager.address
     });
@@ -152,7 +147,16 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
     //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
     await goodReserve.setAddresses();
-
+    const gasFeeMockFactory = await ethers.getContractFactory(
+      "GasPriceMockOracle"
+    );
+    gasFeeOracle = await gasFeeMockFactory.deploy();
+    const daiEthPriceMockFactory = await ethers.getContractFactory(
+      "DaiEthPriceMockOracle"
+    );
+    daiEthOracle = await daiEthPriceMockFactory.deploy();
+    await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
+    await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
   });
@@ -197,7 +201,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await dai
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0);
     let gdBalanceBeforeWithdraw = await goodDollar.balanceOf(staker.address);
     await advanceBlocks(4);
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
@@ -278,7 +282,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await dai
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0);
 
     let gdBalanceBeforeWithdraw = await goodDollar.balanceOf(staker.address);
     advanceBlocks(5);
@@ -344,13 +348,26 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .approve(goodCompoundStaking.address, stakingAmount);
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
 
-    await cDAI.exchangeRateCurrent(); // Call this function to change exchange rate so interest would be generated
-    const currentUBIInterestBeforeWithdraw = await goodCompoundStaking.currentUBIInterest();
+    await cDAI.increasePriceWithMultiplier("1500"); // increase interest by calling exchangeRateCurrent
 
+    const currentUBIInterestBeforeWithdraw = await goodCompoundStaking.currentUBIInterest();
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
+    const gdBalanceBeforeCollectInterest = await goodDollar.balanceOf(
+      staker.address
+    );
+    const contractAddressesToBeCollected = await goodFundManager.calcSortedContracts(
+      "1000000"
+    );
+    await goodFundManager
+      .connect(staker)
+      .collectInterest(contractAddressesToBeCollected);
+    const gdBalanceAfterCollectInterest = await goodDollar.balanceOf(
+      staker.address
+    );
     const currentUBIInterestAfterWithdraw = await goodCompoundStaking.currentUBIInterest();
     expect(currentUBIInterestBeforeWithdraw[0].toString()).to.not.be.equal("0");
     expect(currentUBIInterestAfterWithdraw[0].toString()).to.be.equal("0");
+    expect(gdBalanceAfterCollectInterest.gt(gdBalanceBeforeCollectInterest));
   });
 
   it("it should get rewards with updated values", async () => {
@@ -381,7 +398,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await dai
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0);
 
     await advanceBlocks(4);
     let rewardsEarned = await goodCompoundStaking.getUserPendingReward(
@@ -413,7 +430,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "50"
     );
     const currentBlockNumber = await ethers.provider.getBlockNumber();
-    const encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+    let encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       [
         "1000",
@@ -432,7 +449,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     let gdBalanceStakerBeforeWithdraw = await goodDollar.balanceOf(
       staker.address
     );
-    await simpleStaking.connect(staker).stake(stakingAmount, 100);
+    await simpleStaking.connect(staker).stake(stakingAmount, 0);
 
     await advanceBlocks(54);
     await simpleStaking.connect(staker).withdrawStake(stakingAmount);
@@ -443,6 +460,17 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(
       gdBalanceStakerAfterWithdraw.sub(gdBalanceStakerBeforeWithdraw).toString()
     ).to.be.equal("30000"); // 50 blocks reward worth 500gd but since it's with the 0.5x multiplier so 250gd then there is 5 blocks which gets full reward so total reward is 300gd
+    encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking.address,
+        currentBlockNumber,
+        currentBlockNumber + 100,
+        true
+      ] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
   });
 
   it("Should transfer somebody's staking token's when they approve", async () => {
@@ -498,7 +526,22 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(earnedRewardAfterWithdrawReward.toString()).to.be.equal("0");
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
   });
-
+  it("it should not mint reward when staking contract is not registered", async () => {
+    const goodCompoundStakingFactory = await ethers.getContractFactory(
+      "GoodCompoundStaking"
+    );
+    const simpleStaking = await goodCompoundStakingFactory.deploy(
+      dai.address,
+      cDAI.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good DAI",
+      "gDAI",
+      "50"
+    );
+    const tx = await simpleStaking.withdrawRewards().catch(e => e);
+    expect(tx.message).to.have.string("Staking contract not registered");
+  });
   it("should be able earn to 50% of rewards when owns 50% of total productivity", async () => {
     const stakingAmount = ethers.utils.parseEther("100");
 
@@ -529,12 +572,288 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     let stakerGDAmountAfterStake = await goodDollar.balanceOf(staker.address);
 
     expect(
-      stakerTwoGDAmountAfterStake
-        .sub(stakerTwoGDAmountBeforeStake)
-        .sub(ubiAmount[0])
-        .toString()
+      stakerTwoGDAmountAfterStake.sub(stakerTwoGDAmountBeforeStake).toString()
     ).to.be.equal(
       stakerGDAmountAfterStake.sub(stakerGDAmountBeforeStake).toString()
     );
+  });
+  it("it should not get any reward when donationPer set to 100", async () => {
+    const stakingAmount = ethers.utils.parseEther("100");
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    let stakerGDAmountBeforeStake = await goodDollar.balanceOf(staker.address);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    await advanceBlocks(4);
+    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
+    let stakerGDAmountAfterStake = await goodDollar.balanceOf(staker.address);
+    expect(stakerGDAmountAfterStake).to.be.equal(stakerGDAmountBeforeStake);
+  });
+  it("it should be reverted when donation per set to different than 0 or 100",async()=>{
+    const stakingAmount = ethers.utils.parseEther("100");
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    const tx = await goodCompoundStaking.connect(staker).stake(stakingAmount, 55).catch(e=>e);
+    expect(tx.message).to.have.string("Donation percentage should be 0 or 100")
+
+  })
+  it("should be able to sort staking contracts and collect interests from highest to lowest and only one staking contract's interest should be collected due to gas amount [ @skip-on-coverage ]", async () => {
+    const stakingAmount = ethers.utils.parseEther("100");
+
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+
+    await cDAI.increasePriceWithMultiplier("6000"); // increase interest by calling exchangeRateCurrent
+
+    const goodCompoundStakingFactory = await ethers.getContractFactory(
+      "GoodCompoundStaking"
+    );
+    const simpleStaking = await goodCompoundStakingFactory.deploy(
+      dai.address,
+      cDAI.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good DAI",
+      "gDAI",
+      "50"
+    );
+    const simpleStaking1 = await goodCompoundStakingFactory.deploy(
+      dai.address,
+      cDAI.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good DAI",
+      "gDAI",
+      "50"
+    );
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["100", simpleStaking.address, 0, 10, false]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["100", simpleStaking1.address, 0, 10, false]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai.connect(staker).approve(simpleStaking.address, stakingAmount);
+    await simpleStaking.connect(staker).stake(stakingAmount, 100);
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
+    await simpleStaking1.connect(staker).stake(stakingAmount, 100);
+
+    await cDAI.increasePriceWithMultiplier("200"); // increase interest by calling increasePriceWithMultiplier
+
+    const simpleStakingCurrentInterestBeforeCollect = await simpleStaking.currentUBIInterest();
+    const contractsToBeCollected = await goodFundManager.calcSortedContracts(
+      "770000"
+    );
+    await goodFundManager.collectInterest(contractsToBeCollected, {
+      gasLimit: 800000
+    });
+    const simpleStakingCurrentInterest = await simpleStaking.currentUBIInterest();
+    const goodCompoundStakingCurrentInterest = await goodCompoundStaking.currentUBIInterest();
+
+    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["100", simpleStaking.address, 0, 10, true]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["100", simpleStaking1.address, 0, 10, true]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    expect(goodCompoundStakingCurrentInterest[0].toString()).to.be.equal("0"); // Goodcompound staking's interest should be collected so currentinterest should be 0
+    expect(simpleStakingCurrentInterestBeforeCollect[0]).to.be.equal(
+      simpleStakingCurrentInterest[0]
+    ); // simple staking's interest shouldn't be collected so currentinterest should be equal to before collectinterest
+  });
+
+  it("It should not collect interest when interest is lower than gas cost [ @skip-on-coverage ]", async () => {
+    const stakingAmount = ethers.utils.parseEther("100");
+
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    const contractsToInterestCollected = await goodFundManager.calcSortedContracts(
+      "800000"
+    );
+    const transaction = await goodFundManager
+      .collectInterest([goodCompoundStaking.address], {
+        gasLimit: 770000
+      })
+      .catch(e => e);
+    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
+    expect(transaction.message).to.have.string(
+      "Collected interest value should be interestMultiplier x gas costs"
+    );
+    expect(contractsToInterestCollected.length).to.be.equal(0);
+  });
+
+  it("It should sort array from lowest to highest ", async () => {
+    const goodFundManagerTestFactory = await ethers.getContractFactory(
+      "GoodFundManagerTest"
+    );
+    const goodFundManagerTest = await goodFundManagerTestFactory.deploy(
+      nameService.address,
+      cDAI.address,
+      founder.address,
+      founder.address,
+      "30"
+    );
+    const addresses = [
+      founder.address,
+      staker.address,
+      cDAI.address,
+      cDAI1.address
+    ];
+    const balances = [
+      ethers.utils.parseEther("100"),
+      ethers.utils.parseEther("85"),
+      ethers.utils.parseEther("90"),
+      ethers.utils.parseEther("30")
+    ];
+    const sortedArrays = await goodFundManagerTest.testSorting(
+      balances,
+      addresses
+    );
+    expect(sortedArrays[0][0]).to.be.equal(ethers.utils.parseEther("30"));
+    expect(sortedArrays[0][3]).to.be.equal(ethers.utils.parseEther("100"));
+    expect(sortedArrays[1][3]).to.be.equal(founder.address);
+    expect(sortedArrays[1][0]).to.be.equal(cDAI1.address);
+  });
+
+  it("It should not be able to calc and sort array when there is no active staking contract", async () => {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["100", goodCompoundStaking.address, 0, 10, true]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    const contractsToInterestCollected = await goodFundManager.calcSortedContracts(
+      "800000"
+    );
+    expect(contractsToInterestCollected.length).to.be.equal(0);
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["100", goodCompoundStaking.address, 0, 10, false]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+  });
+
+  it("it should return empty array with calcSortedContracts when requirements does not meet", async () => {
+    const contractsToInterestCollected = await goodFundManager.calcSortedContracts(
+      "800000"
+    );
+    expect(contractsToInterestCollected.length).to.be.equal(0);
+  });
+
+  it("collected interest should be greater than gas cost when 2 months passed", async () => {
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    const currentBlock = await ethers.provider.getBlock(currentBlockNumber);
+
+    await ethers.provider.send("evm_setNextBlockTimestamp", [
+      currentBlock.timestamp + 5184020
+    ]);
+    await ethers.provider.send("evm_mine", []);
+    const collectableContracts = await goodFundManager
+      .calcSortedContracts("700000")
+      .catch(e => e);
+    const tx = await goodFundManager
+      .collectInterest([goodCompoundStaking.address])
+      .catch(e => e);
+    expect(tx.message).to.have.string(
+      "Collected interest value should be larger than spent gas costs"
+    );
+  });
+
+  it("Avatar should be able to set gd minting gas amount", async () => {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setGasCost",
+      ["140000"]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+  });
+  it("Avatar should be able to set collectInterestTimeThreshold", async () => {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setCollectInterestTimeThreshold",
+      ["5184000"]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+  });
+  it("Avatar should be able set interestMultiplier", async () => {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setInterestMultiplier",
+      ["4"]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+  });
+  it("Avatar should be able set gasCostExceptInterestCollect", async () => {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setGasCostExceptInterestCollect",
+      ["650000"]
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
   });
 });

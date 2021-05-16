@@ -40,6 +40,7 @@ contract BaseShareField is DAOContract {
 		uint256 rewardEarn; // Reward earn and not minted
 		uint64 lastRewardTime; // Last time that user got rewards
 		uint64 multiplierResetTime; // Reset time of multiplier
+		uint8 donationPer; // The percentage of donation from their reward
 	}
 
 	mapping(address => UserInfo) public users;
@@ -157,7 +158,6 @@ contract BaseShareField is DAOContract {
 		virtual
 		returns (bool)
 	{
-		require(value > 0, "PRODUCTIVITY_VALUE_MUST_BE_GREATER_THAN_ZERO");
 
 		UserInfo storage userInfo = users[user];
 		_update();
@@ -261,6 +261,7 @@ contract BaseShareField is DAOContract {
 		_audit(user);
 		UserInfo storage userInfo = users[user];
 		uint256 amount = userInfo.rewardEarn;
+		amount = userInfo.donationPer == 100 ? 0 : amount;
 		userInfo.rewardEarn = 0;
 		userInfo.lastRewardTime = uint64(block.number);
 		userInfo.multiplierResetTime = uint64(block.number);

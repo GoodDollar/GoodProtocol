@@ -96,12 +96,17 @@ contract AbstractGoodStaking {
     {
         
     }
+    /**
+     * @dev Get gas cost for interest transfer so can be used in the calculation of collectable interest for particular gas amount
+     * @return returns hardcoded gas cost
+     */
+    function getGasCostForInterestTransfer() external view virtual returns(uint256){}
 
     /**
      * @dev Invests staked tokens to defi protocol.
      * @param amount tokens staked.
      */
-    function mint(uint amount) internal virtual{}
+    function mintInterestToken(uint amount) internal virtual{}
 
     /**
      * @dev Redeem invested tokens from defi protocol.
