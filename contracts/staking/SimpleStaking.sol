@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../Interfaces.sol";
@@ -66,6 +66,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		setDAO(_ns);
 		token = ERC20(_token);
 		iToken = ERC20(_iToken);
+		require(token.decimals() <= 18, "Token decimals should be less than 18 decimals");
 		decimals = token.decimals(); // Staking token decimals should be same with token's decimals
 		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;

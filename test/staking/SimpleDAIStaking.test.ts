@@ -1354,4 +1354,24 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     let balanceAfter = await cdai1.balanceOf(avatar);
     expect(balanceAfter.toString()).to.be.equal(balanceBefore.toString());
   });
+
+  it("it should be reverted when staking contract initialised with token that larger than 18 decimals",async()=>{
+    const twentyDecimalTokenFactory = await ethers.getContractFactory("TwentyDecimalsTokenMock");
+    const twentyDecimalsToken = await twentyDecimalTokenFactory.deploy()
+    const goodCompoundStakingFactory = await ethers.getContractFactory(
+      "GoodCompoundStaking"
+    );
+
+    let simpleStaking = await goodCompoundStakingFactory.deploy(
+      twentyDecimalsToken.address,
+      cDAI.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good DAI",
+      "gDAI",
+      "172800"
+    ).catch(e=>e);
+    expect(simpleStaking.message).to.have.string("Token decimals should be less than 18 decimals")
+
+  })
 });
