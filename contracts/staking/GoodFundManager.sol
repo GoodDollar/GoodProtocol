@@ -5,7 +5,6 @@ pragma solidity >=0.7.0;
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../reserve/GoodReserveCDai.sol";
 import "../Interfaces.sol";
-
 interface StakingContract {
 	function collectUBIInterest(address recipient)
 		external

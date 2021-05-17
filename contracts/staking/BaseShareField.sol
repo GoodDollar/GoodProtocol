@@ -5,7 +5,6 @@ import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DAOContract.sol";
 import "../utils/DSMath.sol";
-
 interface FundManager {
 	function rewardsForStakingContract(address _staking)
 		external

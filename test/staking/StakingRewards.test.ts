@@ -419,8 +419,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       staker.address
     );
     const contractAddressesToBeCollected = await goodFundManager.calcSortedContracts(
-      "1000000"
+      "1100000"
     );
+    console.log(contractAddressesToBeCollected.toString())
     await goodFundManager
       .connect(staker)
       .collectInterest(contractAddressesToBeCollected);
@@ -644,8 +645,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       signers[0].address
     );
     let stakerGDAmountBeforeStake = await goodDollar.balanceOf(staker.address);
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
-    await goodCompoundStaking.connect(signers[0]).stake(stakingAmount, 100);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0);
+    await goodCompoundStaking.connect(signers[0]).stake(stakingAmount, 0);
     await advanceBlocks(4);
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
     await goodCompoundStaking.connect(signers[0]).withdrawStake(stakingAmount);
@@ -684,7 +685,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const stakingAmount = ethers.utils.parseEther("1000000000")
     await dai["mint(address,uint256)"](founder.address, stakingAmount); // 1 billion dai to stake
     await dai.approve(goodCompoundStaking.address, stakingAmount);
-    await goodCompoundStaking.stake(stakingAmount,100);
+    await goodCompoundStaking.stake(stakingAmount,0);
     await advanceBlocks(4);
     const gdBalanceBeforeWithdraw = await goodDollar.balanceOf(founder.address);
     await goodCompoundStaking.withdrawStake(stakingAmount)

@@ -3,7 +3,6 @@
 pragma solidity >=0.8.0;
 import "./SimpleStaking.sol";
 import "../Interfaces.sol";
-
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Token

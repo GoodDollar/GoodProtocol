@@ -1409,7 +1409,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       nameService.address,
       "Good DAI",
       "gDAI",
-      "172800"
+      "172800",
+      daiUsdOracle.address,
+      "100000"
     ).catch(e=>e);
     expect(simpleStaking.message).to.have.string("Token decimals should be less than 18 decimals")
 

@@ -10,7 +10,6 @@ import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";
 import "./StakingToken.sol";
-
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Tokens
@@ -152,6 +151,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		uint256 er = exchangeRate();
 
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
+		uint mantissa = 18 + tokenDecimal() - iTokenDecimal();
 		uint256 tokenBalance;
 		if (caseType) {
 			tokenBalance = rmul(
@@ -160,11 +160,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			)
 				.div(10);
 		} else {
-			tokenBalance = rmul(
-				iToken.balanceOf(address(this)).div(10**decimalDifference),
-				er
-			)
-				.div(10);
+			tokenBalance = 
+				iToken.balanceOf(address(this)) / (10**decimalDifference) * er / 10 ** mantissa; // based on https://compound.finance/docs#protocol-math
 		}
 		return tokenBalance;
 	}
@@ -227,16 +224,17 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		//mul by `10^decimalDifference` to equalize precision otherwise since exchangerate is very big, dividing by it would result in 0.
 		uint256 iTokenGains;
+		uint mantissa = 18 + tokenDecimal() - iTokenDecimal(); // based on https://compound.finance/docs#protocol-math
 		if (caseType) {
 			iTokenGains = rdiv(tokenGains.mul(10**decimalDifference), er);
 		} else {
-			iTokenGains = rdiv(tokenGains.div(10**decimalDifference), er);
+			iTokenGains = (tokenGains * 10 ** decimalDifference) * 10 ** mantissa / er ; // based on https://compound.finance/docs#protocol-math
 		}
 		//get right most bits not covered by precision of iToken.
 		uint256 precisionDecimal = uint256(27).sub(iTokenDecimal());
 		uint256 precisionLossITokenRay = iTokenGains % (10**precisionDecimal);
 		// lower back to iToken's decimals
-		iTokenGains = iTokenGains.div(10**precisionDecimal);
+		iTokenGains = caseType == true ? iTokenGains.div(10**precisionDecimal) : iTokenGains;
 		//div by `10^decimalDifference` to get results in dai precision 1e18
 		uint256 precisionLossToken;
 		if (caseType) {
@@ -248,7 +246,6 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 				10**decimalDifference
 			);
 		}
-
 		tokenGains = getTokenPriceInUSD(tokenGains);
 		return (iTokenGains, tokenGains, precisionLossToken);
 	}
