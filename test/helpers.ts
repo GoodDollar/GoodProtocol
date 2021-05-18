@@ -155,7 +155,6 @@ export const createDAO = async () => {
     GReputation,
     [nameService.address, "", ethers.constants.HashZero, 0],
     {
-      unsafeAllowCustomTypes: true,
       initializer: "initialize(address, string, bytes32, uint256)"
     }
   );

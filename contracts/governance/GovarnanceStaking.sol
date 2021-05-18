@@ -21,6 +21,8 @@ contract GovernanceStaking is
 	BaseGovernanceShareField,
 	DAOContract
 {
+	uint256 public constant FUSE_MONTHLY_BLOCKS = 12 * 60 * 24 * 30;
+
 	// Token address
 	ERC20 token;
 
@@ -51,18 +53,13 @@ contract GovernanceStaking is
 	/**
 	 * @dev Constructor
 	 * @param _ns The address of the NameService contract
-	 * @param _monthlyRewards Amount of the total rewards will be distributed over month
 	 */
-	function initialize(NameService _ns, uint256 _monthlyRewards)
-		public
-		virtual
-		initializer
-	{
+	function initialize(NameService _ns) public virtual initializer {
 		setDAO(_ns);
 		token = ERC20(nameService.addresses(nameService.GOODDOLLAR()));
 		_setShareToken(nameService.addresses(nameService.REPUTATION()));
 		__ERC20_init("GDAO Staking", "sGDAO");
-		rewardsPerBlock = _monthlyRewards / 172800;
+		rewardsPerBlock = (2 ether * 1e6) / FUSE_MONTHLY_BLOCKS; // (2M monthly GDAO as specified in specs, divided by blocks in month )
 	}
 
 	/**
@@ -91,7 +88,7 @@ contract GovernanceStaking is
 		require(_amount > 0, "Should withdraw positive amount");
 		require(userProductivity >= _amount, "Not enough token staked");
 		uint256 tokenWithdraw = _amount;
-		
+
 		_burn(_msgSender(), _amount); // burn their staking tokens
 		_decreaseProductivity(_msgSender(), _amount);
 		_mintRewards(_msgSender());
@@ -178,12 +175,11 @@ contract GovernanceStaking is
 			currentAllowance >= amount,
 			"ERC20: transfer amount exceeds allowance"
 		);
-		
+
 		_decreaseProductivity(sender, amount);
 		_increaseProductivity(recipient, amount);
 		_transfer(sender, recipient, amount);
 
-		
 		_approve(sender, _msgSender(), currentAllowance - amount);
 
 		return true;
