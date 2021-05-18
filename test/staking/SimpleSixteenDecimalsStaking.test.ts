@@ -19,15 +19,15 @@ const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 30;
 
-describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
+describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
   let dai: Contract;
-  let eightDecimalsToken: Contract;
+  let sixteenDecimalsToken: Contract;
   let pair: Contract, uniswapRouter: Contract;
-  let cDAI, cEDT: Contract; // cEDT is for c Eight decimal token
+  let cDAI, cSDT: Contract; // cSDT is for c Sixteen decimals token
   let gasFeeOracle,
     daiEthOracle: Contract,
     daiUsdOracle: Contract,
-    eightDecimalsUsdOracle: Contract,
+    sixteenDecimalsUsdOracle: Contract,
     ethUsdOracle: Contract;
   let goodReserve: GoodReserveCDai;
   let goodCompoundStaking;
@@ -50,7 +50,7 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
     [founder, staker, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
     const cdaiFactory = await ethers.getContractFactory("cDAIMock");
-    const cEDTFactory = await ethers.getContractFactory("cEDTMock");
+    const cSDTFactory = await ethers.getContractFactory("cSDTMock");
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -72,7 +72,7 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
       WETH9.bytecode,
       founder
     );
-    const edtFactory = await ethers.getContractFactory("EightDecimalsMock");
+    const sdtFactory = await ethers.getContractFactory("SixteenDecimalsTokenMock");
     let {
       controller: ctrl,
       avatar: av,
@@ -129,15 +129,12 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
 
     console.log("initializing marketmaker...");
 
-    eightDecimalsToken = await edtFactory.deploy(); // Another erc20 token for uniswap router test
-    cEDT = await cEDTFactory.deploy(eightDecimalsToken.address);
-
+    sixteenDecimalsToken = await sdtFactory.deploy(); // Another erc20 token for uniswap router test
+    cSDT = await cSDTFactory.deploy(sixteenDecimalsToken.address);
+    
     setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
-    await factory.createPair(eightDecimalsToken.address, dai.address); // Create tokenA and dai pair
-    const pairAddress = factory.getPair(
-      eightDecimalsToken.address,
-      dai.address
-    );
+    await factory.createPair(sixteenDecimalsToken.address, dai.address); // Create tokenA and dai pair
+    const pairAddress = factory.getPair(sixteenDecimalsToken.address, dai.address);
     pair = new Contract(
       pairAddress,
       JSON.stringify(IUniswapV2Pair.abi),
@@ -162,35 +159,29 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
       "DaiEthPriceMockOracle"
     );
     daiEthOracle = await daiEthPriceMockFactory.deploy();
-
+    
     const ethUsdOracleFactory = await ethers.getContractFactory(
       "EthUSDMockOracle"
     );
-
-    eightDecimalsUsdOracle = await tokenUsdOracleFactory.deploy();
+    
+    sixteenDecimalsUsdOracle = await tokenUsdOracleFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
     goodCompoundStaking = await goodCompoundStakingFactory.deploy(
-      eightDecimalsToken.address,
-      cEDT.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good EDT",
-      "gEDT",
-      "172800",
-      eightDecimalsUsdOracle.address,
-      "200000"
-    );
-    await dai["mint(address,uint256)"](
-      founder.address,
-      ethers.utils.parseEther("2000000")
-    );
-    await eightDecimalsToken["mint(address,uint256)"](
-      founder.address,
-      ethers.utils.parseUnits("2000000", 8)
-    );
+        sixteenDecimalsToken.address,
+        cSDT.address,
+        BLOCK_INTERVAL,
+        nameService.address,
+        "Good SDT",
+        "gSDT",
+        "172800",
+        sixteenDecimalsUsdOracle.address,
+        "200000"
+      );
+    await dai["mint(address,uint256)"](founder.address, ethers.utils.parseEther("2000000"));
+    await sixteenDecimalsToken["mint(address,uint256)"](founder.address, ethers.utils.parseUnits("2000000",16));
 
     await addLiquidity(
-      ethers.utils.parseUnits("2000000", 8),
+      ethers.utils.parseUnits("2000000",16),
       ethers.utils.parseEther("2000000")
     );
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
@@ -234,12 +225,9 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
   });
 
   it("should be able to earn rewards after some block passed", async () => {
-    let stakingAmount = ethers.utils.parseUnits("100", 8);
-    await eightDecimalsToken["mint(address,uint256)"](
-      staker.address,
-      stakingAmount
-    );
-    await eightDecimalsToken
+    let stakingAmount = ethers.utils.parseUnits("100",16);
+    await sixteenDecimalsToken["mint(address,uint256)"](staker.address, stakingAmount);
+    await sixteenDecimalsToken
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 0);
@@ -250,45 +238,43 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
     expect(gdBalancerAfterWithdraw.toString()).to.be.equal("2500");
   });
 
-  it("should be able to stake edt", async () => {
+  it("should be able to stake sdt", async () => {
     let totalStakedBefore = await goodCompoundStaking.getProductivity(
       founder.address
     );
     totalStakedBefore = totalStakedBefore[1];
-    await eightDecimalsToken["mint(address,uint256)"](
+    await sixteenDecimalsToken["mint(address,uint256)"](
       staker.address,
-      ethers.utils.parseUnits("100", 8)
+      ethers.utils.parseUnits("100",16)
     );
-    await eightDecimalsToken
+    await sixteenDecimalsToken
       .connect(staker)
-      .approve(goodCompoundStaking.address, ethers.utils.parseUnits("100", 8));
+      .approve(goodCompoundStaking.address, ethers.utils.parseUnits("100",16));
     await goodCompoundStaking
       .connect(staker)
-      .stake(ethers.utils.parseUnits("100", 8), 0);
+      .stake(ethers.utils.parseUnits("100",16), 0)
     let totalStakedAfter = await goodCompoundStaking.getProductivity(
       founder.address
     );
     totalStakedAfter = totalStakedAfter[1];
     let balance = await goodCompoundStaking.getStakerData(staker.address);
     expect(balance[0].toString()).to.be.equal(
-      ethers.utils.parseUnits("100", 8) //100 edt
+        ethers.utils.parseUnits("100",16) //100 sdt
     );
     expect(totalStakedAfter.sub(totalStakedBefore).toString()).to.be.equal(
-      ethers.utils.parseUnits("100", 8)
+        ethers.utils.parseUnits("100",16)
     );
-    let stakedcEDTBalance = await cEDT.balanceOf(goodCompoundStaking.address);
+    let stakedcEDTBalance = await cSDT.balanceOf(goodCompoundStaking.address);
     expect(stakedcEDTBalance.toString()).to.be.equal(
-      "500000000000" //8 decimals precision (99 cedt because of the exchange rate edt <> cedt)
+      "500000000000" //8 decimals precision (99 csdt because of the exchange rate sdt <> csdt)
     );
   });
 
   it("should be able to withdraw stake by staker", async () => {
-    let stakedcEDTBalanceBefore = await cEDT.balanceOf(
+    let stakedcSDTBalanceBefore = await cSDT.balanceOf(
       goodCompoundStaking.address
-    ); // simpleStaking cEDT balance
-    let stakerEDTBalanceBefore = await eightDecimalsToken.balanceOf(
-      staker.address
-    ); // staker EDT balance
+    ); // simpleStaking cSDT balance
+    let stakerSDTBalanceBefore = await sixteenDecimalsToken.balanceOf(staker.address); // staker SDT balance
     let balanceBefore = await goodCompoundStaking.getStakerData(staker.address); // user staked balance in GoodStaking
     let totalStakedBefore = await goodCompoundStaking.getProductivity(
       founder.address
@@ -297,27 +283,25 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
     const transaction = await (
       await goodCompoundStaking.connect(staker).withdrawStake(balanceBefore[0])
     ).wait();
-    let stakedcEDTBalanceAfter = await cEDT.balanceOf(
+    let stakedcSDTBalanceAfter = await cSDT.balanceOf(
       goodCompoundStaking.address
-    ); // simpleStaking cEDT balance
-    let stakerEDTBalanceAfter = await eightDecimalsToken.balanceOf(
-      staker.address
-    ); // staker EDT balance
+    ); // simpleStaking cSDT balance
+    let stakerSDTBalanceAfter = await sixteenDecimalsToken.balanceOf(staker.address); // staker SDT balance
     let balanceAfter = await goodCompoundStaking.getStakerData(staker.address); // user staked balance in GoodStaking
     let totalStakedAfter = await goodCompoundStaking.getProductivity(
       founder.address
     ); // total staked in GoodStaking
     totalStakedAfter = totalStakedAfter[1];
-    expect(stakedcEDTBalanceAfter.lt(stakedcEDTBalanceBefore)).to.be.true;
-    expect(stakerEDTBalanceAfter.gt(stakerEDTBalanceBefore)).to.be.true;
+    expect(stakedcSDTBalanceAfter.lt(stakedcSDTBalanceBefore)).to.be.true;
+    expect(stakerSDTBalanceAfter.gt(stakerSDTBalanceBefore)).to.be.true;
     expect(balanceBefore[0].toString()).to.be.equal(
-      (stakerEDTBalanceAfter - stakerEDTBalanceBefore).toString()
+      (stakerSDTBalanceAfter - stakerSDTBalanceBefore).toString()
     );
     expect((totalStakedBefore - totalStakedAfter).toString()).to.be.equal(
       balanceBefore[0].toString()
     );
     expect(balanceAfter[0].toString()).to.be.equal("0");
-    expect(stakedcEDTBalanceAfter.toString()).to.be.equal("0");
+    expect(stakedcSDTBalanceAfter.toString()).to.be.equal("0");
     expect(transaction.events.find(_ => _.event === "StakeWithdraw")).to.be.not
       .empty;
     expect(
@@ -327,29 +311,26 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
       transaction.events
         .find(_ => _.event === "StakeWithdraw")
         .args.value.toString()
-    ).to.be.equal((stakerEDTBalanceAfter - stakerEDTBalanceBefore).toString());
+    ).to.be.equal((stakerSDTBalanceAfter - stakerSDTBalanceBefore).toString());
   });
 
   it("stake should generate some interest and shoul be used to generate UBI", async () => {
-    const stakingAmount = ethers.utils.parseUnits("100", 8);
+    const stakingAmount = ethers.utils.parseUnits("100",16);
 
-    await eightDecimalsToken["mint(address,uint256)"](
-      staker.address,
-      stakingAmount
-    );
-    await eightDecimalsToken
+    await sixteenDecimalsToken["mint(address,uint256)"](staker.address, stakingAmount);
+    await sixteenDecimalsToken
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
 
-    await eightDecimalsToken["mint(address,uint256)"](
+    await sixteenDecimalsToken["mint(address,uint256)"](
       staker.address,
-      ethers.utils.parseUnits("1000000", 8)
+      ethers.utils.parseUnits("1000000",16)
     );
-    await eightDecimalsToken
+    await sixteenDecimalsToken
       .connect(staker)
-      .transfer(cEDT.address, ethers.utils.parseUnits("1000000", 8)); // We should put extra EDT to mock cEDT contract in order to provide interest
-    await cEDT.increasePriceWithMultiplier("3500"); // increase interest by calling exchangeRateCurrent
+      .transfer(cSDT.address, ethers.utils.parseUnits("1000000",16)); // We should put extra SDT to mock cSDT contract in order to provide interest
+    await cSDT.increasePriceWithMultiplier("3500"); // increase interest by calling exchangeRateCurrent
 
     const currentUBIInterestBeforeWithdraw = await goodCompoundStaking.currentUBIInterest();
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
@@ -393,13 +374,10 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
     );
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
 
-    const stakingAmount = ethers.utils.parseUnits("100", 8);
+    const stakingAmount = ethers.utils.parseUnits("100",16);
 
-    await eightDecimalsToken["mint(address,uint256)"](
-      staker.address,
-      stakingAmount
-    );
-    await eightDecimalsToken
+    await sixteenDecimalsToken["mint(address,uint256)"](staker.address, stakingAmount);
+    await sixteenDecimalsToken
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 0);
@@ -425,14 +403,14 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
       schemeMock
     );
     const simpleStaking = await goodCompoundStakingFactory.deploy(
-      eightDecimalsToken.address,
-      cEDT.address,
+      sixteenDecimalsToken.address,
+      cSDT.address,
       BLOCK_INTERVAL,
       nameService.address,
-      "Good EDT",
-      "gEDT",
+      "Good SDT",
+      "gSDT",
       "50",
-      eightDecimalsUsdOracle.address,
+      sixteenDecimalsUsdOracle.address,
       "100000"
     );
     const currentBlockNumber = await ethers.provider.getBlockNumber();
@@ -448,15 +426,10 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
     );
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
 
-    const stakingAmount = ethers.utils.parseUnits("100", 8);
+    const stakingAmount = ethers.utils.parseUnits("100",8);
 
-    await eightDecimalsToken["mint(address,uint256)"](
-      staker.address,
-      stakingAmount
-    );
-    await eightDecimalsToken
-      .connect(staker)
-      .approve(simpleStaking.address, stakingAmount);
+    await sixteenDecimalsToken["mint(address,uint256)"](staker.address, stakingAmount);
+    await sixteenDecimalsToken.connect(staker).approve(simpleStaking.address, stakingAmount);
     let gdBalanceStakerBeforeWithdraw = await goodDollar.balanceOf(
       staker.address
     );
@@ -504,21 +477,15 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
         false
       ] // set 10 gd per block
     );
+    
+    const stakingAmount = ethers.utils.parseUnits("100",16);
 
-    const stakingAmount = ethers.utils.parseUnits("100", 8);
-
-    await eightDecimalsToken["mint(address,uint256)"](
-      staker.address,
-      stakingAmount
-    );
-    await eightDecimalsToken["mint(address,uint256)"](
-      signers[0].address,
-      stakingAmount
-    ); // We use some different signer than founder since founder also UBI INTEREST collector
-    await eightDecimalsToken
+    await sixteenDecimalsToken["mint(address,uint256)"](staker.address, stakingAmount);
+    await sixteenDecimalsToken["mint(address,uint256)"](signers[0].address, stakingAmount); // We use some different signer than founder since founder also UBI INTEREST collector
+    await sixteenDecimalsToken
       .connect(signers[0])
       .approve(goodCompoundStaking.address, stakingAmount);
-    await eightDecimalsToken
+    await sixteenDecimalsToken
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
     let stakerTwoGDAmountBeforeStake = await goodDollar.balanceOf(
@@ -542,6 +509,7 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
   });
 
   it("Accumulated per share has enough precision when reward << totalproductivity", async () => {
+   
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -562,19 +530,13 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedDataTwo, avatar, 0);
-    const stakingAmount = ethers.utils.parseUnits("1000000000", 8);
-    await eightDecimalsToken["mint(address,uint256)"](
-      founder.address,
-      stakingAmount
-    ); // 1 billion EDT to stake
-    await eightDecimalsToken.approve(
-      goodCompoundStaking.address,
-      stakingAmount
-    );
-    await goodCompoundStaking.stake(stakingAmount, 0);
+    const stakingAmount = ethers.utils.parseUnits("1000000000",16)
+    await sixteenDecimalsToken["mint(address,uint256)"](founder.address, stakingAmount); // 1 billion sdt to stake
+    await sixteenDecimalsToken.approve(goodCompoundStaking.address, stakingAmount);
+    await goodCompoundStaking.stake(stakingAmount,0);
     await advanceBlocks(4);
     const gdBalanceBeforeWithdraw = await goodDollar.balanceOf(founder.address);
-    await goodCompoundStaking.withdrawStake(stakingAmount);
+    await goodCompoundStaking.withdrawStake(stakingAmount)
     const gdBalanceAfterWithdraw = await goodDollar.balanceOf(founder.address);
     expect(
       gdBalanceAfterWithdraw.sub(gdBalanceBeforeWithdraw).toString()
@@ -582,43 +544,40 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
   });
 
   it("should be able to sort staking contracts and collect interests from highest to lowest and only one staking contract's interest should be collected due to gas amount [ @skip-on-coverage ]", async () => {
-    const stakingAmount = ethers.utils.parseUnits("100", 8);
+    const stakingAmount = ethers.utils.parseUnits("100",16);
 
-    await eightDecimalsToken["mint(address,uint256)"](
-      staker.address,
-      stakingAmount
-    );
-    await eightDecimalsToken
+    await sixteenDecimalsToken["mint(address,uint256)"](staker.address, stakingAmount);
+    await sixteenDecimalsToken
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
 
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
 
-    await cEDT.increasePriceWithMultiplier("20000"); // increase interest by calling exchangeRateCurrent
+    await cSDT.increasePriceWithMultiplier("20000"); // increase interest by calling exchangeRateCurrent
 
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
     const simpleStaking = await goodCompoundStakingFactory.deploy(
-      eightDecimalsToken.address,
-      cEDT.address,
+        sixteenDecimalsToken.address,
+      cSDT.address,
       BLOCK_INTERVAL,
       nameService.address,
-      "Good EDT",
-      "gEDT",
+      "Good SDT",
+      "gSDT",
       "50",
-      eightDecimalsUsdOracle.address,
+      sixteenDecimalsUsdOracle.address,
       "200000"
     );
     const simpleStaking1 = await goodCompoundStakingFactory.deploy(
-      eightDecimalsToken.address,
-      cEDT.address,
+        sixteenDecimalsToken.address,
+      cSDT.address,
       BLOCK_INTERVAL,
       nameService.address,
-      "Good EDT",
-      "gEDT",
+      "Good SDT",
+      "gSDT",
       "50",
-      eightDecimalsUsdOracle.address,
+      sixteenDecimalsUsdOracle.address,
       "200000"
     );
     const goodFundManagerFactory = await ethers.getContractFactory(
@@ -640,24 +599,14 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
 
-    await eightDecimalsToken["mint(address,uint256)"](
-      staker.address,
-      stakingAmount
-    );
-    await eightDecimalsToken
-      .connect(staker)
-      .approve(simpleStaking.address, stakingAmount);
+    await sixteenDecimalsToken["mint(address,uint256)"](staker.address, stakingAmount);
+    await sixteenDecimalsToken.connect(staker).approve(simpleStaking.address, stakingAmount);
     await simpleStaking.connect(staker).stake(stakingAmount, 100);
-    await eightDecimalsToken["mint(address,uint256)"](
-      staker.address,
-      stakingAmount
-    );
-    await eightDecimalsToken
-      .connect(staker)
-      .approve(simpleStaking1.address, stakingAmount);
+    await sixteenDecimalsToken["mint(address,uint256)"](staker.address, stakingAmount);
+    await sixteenDecimalsToken.connect(staker).approve(simpleStaking1.address, stakingAmount);
     await simpleStaking1.connect(staker).stake(stakingAmount, 100);
 
-    await cEDT.increasePriceWithMultiplier("200"); // increase interest by calling increasePriceWithMultiplier
+    await cSDT.increasePriceWithMultiplier("200"); // increase interest by calling increasePriceWithMultiplier
 
     const simpleStakingCurrentInterestBeforeCollect = await simpleStaking.currentUBIInterest();
     const contractsToBeCollected = await goodFundManager.calcSortedContracts(
@@ -689,8 +638,9 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
     token0Amount: BigNumber,
     token1Amount: BigNumber
   ) {
-    await eightDecimalsToken.transfer(pair.address, token0Amount);
+    await sixteenDecimalsToken.transfer(pair.address, token0Amount);
     await dai.transfer(pair.address, token1Amount);
     await pair.mint(founder.address);
   }
-});
+
+})

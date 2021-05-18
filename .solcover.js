@@ -14,8 +14,10 @@ module.exports = {
     "mocks/DAIMock.sol",
     "utils/BancorFormula.sol",
     "utils/DSMath.sol",
-    "utils/cBATMock.sol",
-    "utils/UsdcMock.sol"
+    "mocks/cBATMock.sol",
+    "mocks/UsdcMock.sol",
+    "mocks/EightDecimalsTokenMock.sol",
+    "mocks/TwentyDecimalsTokenMock.sol"
   ],
   mocha: {
     grep: "@skip-on-coverage", // Find everything with this tag

@@ -10,7 +10,6 @@ interface StakingContract {
 		external
 		returns (
 			uint256,
-			uint256,
 			uint256
 		);
 
@@ -20,7 +19,6 @@ interface StakingContract {
 		external
 		view
 		returns (
-			uint256,
 			uint256,
 			uint256
 		);
@@ -303,7 +301,7 @@ contract GoodFundManager is DAOContract {
 		uint256 totalInterest;
 		int256 i;
 		for (i = 0; i < int256(activeContractsLength); i++) {
-			(, tempInterest, ) = StakingContract(activeContracts[uint256(i)])
+			(, tempInterest) = StakingContract(activeContracts[uint256(i)])
 				.currentUBIInterest();
 			totalInterest += tempInterest;
 			if (tempInterest != 0) {

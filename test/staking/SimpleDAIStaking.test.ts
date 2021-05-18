@@ -692,7 +692,6 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
 
     expect(gains["0"].toString()).to.be.equal("0"); // cdaiGains
     expect(gains["1"].toString()).to.be.equal("0"); // daiGains
-    expect(gains["2"].toString()).to.be.equal("0"); // precisionLossDai
     //should revert cdai address back in nameservice
     await setDAOAddress("CDAI", cDAI.address);
     //update reserve addresses
@@ -963,7 +962,6 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       .catch(e => e);
     const gains = await goodCompoundStaking.currentUBIInterest();
     const cdaiGains = gains["0"];
-    const precisionLossDai = gains["2"].toString(); //last 10 decimals since cdai is only 8 decimals while dai is 18
     const fundBalanceBefore = await cDAI.balanceOf(founder.address);
     await advanceBlocks(BLOCK_INTERVAL);
     await setDAOAddress("FUND_MANAGER", founder.address);
@@ -971,7 +969,6 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     const fundBalanceAfter = await cDAI.balanceOf(founder.address);
     expect(cdaiGains.toString()).to.be.equal("0");
-    expect(precisionLossDai.toString()).to.be.equal("0");
     expect(fundBalanceAfter.toString()).to.be.equal(
       fundBalanceBefore.toString()
     );
@@ -1038,9 +1035,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const gains = await goodCompoundStaking.currentUBIInterest();
 
     const cdaiGains = gains["0"];
-    const precisionLossDai = gains["2"];
-    expect(cdaiGains.toString()).to.be.equal("380659786"); //8 decimals precision
-    expect(precisionLossDai.toString()).to.be.equal("5733333332"); //10 decimals precision lost
+
+    expect(cdaiGains.toString()).to.be.equal("380659785"); //8 decimals precision
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
   });
 
@@ -1065,7 +1061,6 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
 
     const gains = await goodCompoundStaking.currentUBIInterest();
     const cdaiGains = gains["0"];
-    const precisionLossDai = gains["2"]; //last 10 decimals since cdai is only 8 decimals while dai is 18
     const fundBalance0 = await cDAI.balanceOf(goodReserve.address);
     const contractAddressesToBeCollected = await goodFundManager.calcSortedContracts(
       "1000000"
@@ -1082,8 +1077,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       fundBalance1.sub(fundBalance0).toString()
     );
     expect(fundDaiWorth.toString()).to.be.equal(
-      //10 gwei = 10 decimals + precisionLoss = 20 decimals = 100 ether of DAI
-      ethers.utils.parseUnits("1", 8) + precisionLossDai
+      //it should be equal 100000000000000000000 but since there is some precision loss due to iToken decimal < token decimal it returns 100000000124064646464
+      "100000000124064646464"
     );
     await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
   });
@@ -1167,7 +1162,6 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
 
     const gains = await goodCompoundStaking.currentUBIInterest();
     const cdaiGains = gains["0"];
-    const precisionLossDai = gains["2"].toString(); //last 10 decimals since cdai is only 8 decimals while dai is 18
     await advanceBlocks(BLOCK_INTERVAL);
     await setDAOAddress("FUND_MANAGER", founder.address);
     const res = await goodCompoundStaking.collectUBIInterest(staker.address);

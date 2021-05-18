@@ -154,11 +154,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		uint mantissa = 18 + tokenDecimal() - iTokenDecimal();
 		uint256 tokenBalance;
 		if (caseType) {
-			tokenBalance = rmul(
-				iToken.balanceOf(address(this)).mul(10**decimalDifference),
-				er
-			)
-				.div(10);
+			tokenBalance = iToken.balanceOf(address(this)) * (10 ** decimalDifference) * er / 10 ** mantissa; // based on https://compound.finance/docs#protocol-math
 		} else {
 			tokenBalance = 
 				iToken.balanceOf(address(this)) / (10**decimalDifference) * er / 10 ** mantissa; // based on https://compound.finance/docs#protocol-math
@@ -202,8 +198,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 
 	/**
 	 * @dev Calculates the current interest that was gained.
-	 * @return (uint256, uint256, uint256) The interest in iToken, the interest in USD,
-	 * the amount which is not covered by precision of Token
+	 * @return (uint256, uint256, uint256) The interest in iToken, the interest in USD
 	 */
 	function currentUBIInterest()
 		public
@@ -211,14 +206,13 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		override
 		returns (
 			uint256,
-			uint256,
 			uint256
 		)
 	{
 		uint256 er = exchangeRate();
 		uint256 tokenWorth = currentTokenWorth();
 		if (tokenWorth <= totalProductivity) {
-			return (0, 0, 0);
+			return (0, 0);
 		}
 		uint256 tokenGains = tokenWorth.sub(totalProductivity);
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
@@ -226,44 +220,25 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		uint256 iTokenGains;
 		uint mantissa = 18 + tokenDecimal() - iTokenDecimal(); // based on https://compound.finance/docs#protocol-math
 		if (caseType) {
-			iTokenGains = rdiv(tokenGains.mul(10**decimalDifference), er);
+			iTokenGains = (tokenGains / 10 ** decimalDifference) * 10 ** mantissa / er ; // based on https://compound.finance/docs#protocol-math
 		} else {
 			iTokenGains = (tokenGains * 10 ** decimalDifference) * 10 ** mantissa / er ; // based on https://compound.finance/docs#protocol-math
 		}
-		//get right most bits not covered by precision of iToken.
-		uint256 precisionDecimal = uint256(27).sub(iTokenDecimal());
-		uint256 precisionLossITokenRay = iTokenGains % (10**precisionDecimal);
-		// lower back to iToken's decimals
-		iTokenGains = caseType == true ? iTokenGains.div(10**precisionDecimal) : iTokenGains;
-		//div by `10^decimalDifference` to get results in dai precision 1e18
-		uint256 precisionLossToken;
-		if (caseType) {
-			precisionLossToken = rmul(precisionLossITokenRay, er).div(
-				10**decimalDifference
-			);
-		} else {
-			precisionLossToken = rmul(precisionLossITokenRay, er).mul(
-				10**decimalDifference
-			);
-		}
 		tokenGains = getTokenPriceInUSD(tokenGains);
-		return (iTokenGains, tokenGains, precisionLossToken);
+		return (iTokenGains, tokenGains);
 	}
 
 	/**
 	 * @dev Collects gained interest by fundmanager. Can be collected only once
 	 * in an interval which is defined above.
 	 * @param _recipient The recipient of cDAI gains
-	 * @return (uint256, uint256, uint256,uint256) The interest in iToken, the interest in Token,
-	 * the amount which is not covered by precision of Token, how much of the generated interest is donated
+	 * @return (uint256, uint256) The interest in iToken, the interest in Token
 	 */
 	function collectUBIInterest(address _recipient)
 		public
 		override
 		onlyFundManager
 		returns (
-			uint256,
-			uint256,
 			uint256,
 			uint256
 		)
@@ -273,7 +248,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			_recipient != address(this),
 			"Recipient cannot be the staking contract"
 		);
-		(uint256 iTokenGains, uint256 tokenGains, uint256 precisionLossToken) =
+		(uint256 iTokenGains, uint256 tokenGains) =
 			currentUBIInterest();
 		lastUBICollection = block.number.div(blockInterval);
 		(address redeemedToken, uint256 redeemedAmount) =
@@ -289,20 +264,11 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			address(token),
 			address(iToken),
 			iTokenGains,
-			tokenGains,
-			precisionLossToken
+			tokenGains
 		);
-		uint256 avgEffectiveStakedRatio = 0;
-		//	if (interestData.globalTotalStaked > 0)
-		//		avgEffectiveStakedRatio = interestData
-		//			.globalTotalEffectiveStake
-		//			.mul(DECIMAL1e18)
-		//			.div(interestData.globalTotalStaked);
 		return (
 			iTokenGains,
-			tokenGains,
-			precisionLossToken,
-			avgEffectiveStakedRatio
+			tokenGains
 		);
 	}
 
