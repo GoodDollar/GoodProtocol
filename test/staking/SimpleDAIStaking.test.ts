@@ -1168,6 +1168,22 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const productivityAfterWithdraw = await goodCompoundStaking.getProductivity(staker.address)
     expect(productivityBeforeStake[0]).to.be.equal(productivityAfterWithdraw[0])
   })
+  it("it should be able to stake in iToken and withdraw in Token",async()=>{
+    const stakingAmount = ethers.utils.parseUnits("100",8);
+    const daiMintAmount = ethers.utils.parseEther("100000")
+    await dai["mint(address,uint256)"](cDAI.address, daiMintAmount);
+    await cDAI["mint(address,uint256)"](staker.address, stakingAmount);
+    await cDAI.connect(staker).approve(goodCompoundStaking.address, stakingAmount);
+    const productivityBeforeStake = await goodCompoundStaking.getProductivity(staker.address)
+    await goodCompoundStaking
+      .connect(staker)
+      .stake(stakingAmount, 100, true)
+      await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake("1603010101010101010101", false) // 1603010101010101010101 is equaliavent of 100cDAI in DAI with currentexchange rate
+    const productivityAfterWithdraw = await goodCompoundStaking.getProductivity(staker.address)
+    expect(productivityBeforeStake[0]).to.be.equal(productivityAfterWithdraw[0])
+  })
   it("should not withdraw interest if the recipient specified by the owner is the staking contract", async () => {
     await advanceBlocks(BLOCK_INTERVAL);
     await setDAOAddress("FUND_MANAGER", founder.address);

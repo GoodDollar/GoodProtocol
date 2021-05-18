@@ -10,7 +10,6 @@ import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";
 import "./StakingToken.sol";
-
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Tokens
@@ -76,7 +75,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 * @dev Allows a staker to deposit Tokens. Notice that `approve` is
 	 * needed to be executed before the execution of this method.
 	 * Can be executed only when the contract is not paused.
-	 * @param _amount The amount of DAI to stake
+	 * @param _amount The amount of Token or iToken to stake (it depends on _inInterestToken parameter)
 	 * @param _donationPer The % of interest staker want to donate.
 	 * @param _inInterestToken specificy if stake in iToken or Token
 	 */
@@ -117,6 +116,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 
 	/**
 	 * @dev Withdraws the sender staked Token.
+	 * @dev _amount Amount to withdraw in Token or iToken depends on the _inInterestToken parameter
 	 * @param _inInterestToken specificy if stake in iToken or Token
 	 */
 	function withdrawStake(uint256 _amount, bool _inInterestToken)
