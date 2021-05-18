@@ -62,10 +62,7 @@ contract AbstractGoodStaking {
 		external
 		view
 		virtual
-		returns (
-			uint256,
-			uint256
-		)
+		returns (uint256, uint256)
 	{}
 
 	/**
@@ -77,10 +74,7 @@ contract AbstractGoodStaking {
 	function collectUBIInterest(address recipient)
 		external
 		virtual
-		returns (
-			uint256,
-			uint256
-		)
+		returns (uint256, uint256)
 	{}
 
 	/**

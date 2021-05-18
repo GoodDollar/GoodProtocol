@@ -153,7 +153,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const daiEthPriceMockFactory = await ethers.getContractFactory(
       "DaiEthPriceMockOracle"
     );
-    
+
     const ethUsdOracleFactory = await ethers.getContractFactory(
       "EthUSDMockOracle"
     );
@@ -1008,7 +1008,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       .connect(staker)
       .stake(weiAmount, 100)
       .catch(e => e);
-    expect(error.message).to.have.string("Minting cToken failed, funds returned");
+    expect(error.message).to.have.string(
+      "Minting cToken failed, funds returned"
+    );
     //should revert cdai address back in nameservice
     await setDAOAddress("CDAI", cDAI.address);
     //update reserve addresses
@@ -1389,25 +1391,30 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     expect(balanceAfter.toString()).to.be.equal(balanceBefore.toString());
   });
 
-  it("it should be reverted when staking contract initialised with token that larger than 18 decimals",async()=>{
-    const twentyDecimalTokenFactory = await ethers.getContractFactory("TwentyDecimalsTokenMock");
-    const twentyDecimalsToken = await twentyDecimalTokenFactory.deploy()
+  it("it should be reverted when staking contract initialised with token that larger than 18 decimals", async () => {
+    const twentyDecimalTokenFactory = await ethers.getContractFactory(
+      "TwentyDecimalsTokenMock"
+    );
+    const twentyDecimalsToken = await twentyDecimalTokenFactory.deploy();
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
 
-    let simpleStaking = await goodCompoundStakingFactory.deploy(
-      twentyDecimalsToken.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    ).catch(e=>e);
-    expect(simpleStaking.message).to.have.string("Token decimals should be less than 18 decimals")
-
-  })
+    let simpleStaking = await goodCompoundStakingFactory
+      .deploy(
+        twentyDecimalsToken.address,
+        cDAI.address,
+        BLOCK_INTERVAL,
+        nameService.address,
+        "Good DAI",
+        "gDAI",
+        "172800",
+        daiUsdOracle.address,
+        "100000"
+      )
+      .catch(e => e);
+    expect(simpleStaking.message).to.have.string(
+      "Token decimals should be less than 18 decimals"
+    );
+  });
 });
