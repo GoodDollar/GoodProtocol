@@ -176,7 +176,12 @@ contract GoodFundManager is DAOContract {
 	) public {
 		_onlyAvatar();
 		Reward memory reward =
-			Reward(_rewardsPerBlock, _blockStart, _blockEnd, _isBlackListed);
+			Reward(
+				_rewardsPerBlock,
+				_blockStart > 0 ? _blockStart : uint32(block.number),
+				_blockEnd > 0 ? _blockEnd : 0xFFFFFFFF,
+				_isBlackListed
+			);
 		rewardsForStakingContract[_stakingAddress] = reward;
 		bool exist;
 		uint8 i;

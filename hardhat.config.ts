@@ -40,6 +40,10 @@ const hhconfig: HardhatUserConfig = {
     apiKey: etherscan_key
   },
   networks: {
+    develop: {
+      gasPrice: 1000000000, //1 gwei
+      url: "http://127.0.0.1:8545/"
+    },
     ropsten: {
       accounts: { mnemonic },
       url: "https://ropsten.infura.io/v3/" + infura_api,

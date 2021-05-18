@@ -12,11 +12,11 @@ import "../DAOStackInterfaces.sol";
 contract NameService is Initializable {
 	bytes32 public constant FUND_MANAGER = keccak256("FUND_MANAGER");
 	bytes32 public constant RESERVE = keccak256("RESERVE");
+	bytes32 public constant MARKET_MAKER = keccak256("MARKET_MAKER");
 	bytes32 public constant CONTROLLER = keccak256("CONTROLLER");
 	bytes32 public constant AVATAR = keccak256("AVATAR");
 	bytes32 public constant IDENTITY = keccak256("IDENTITY");
 	bytes32 public constant GOODDOLLAR = keccak256("GOODDOLLAR");
-	bytes32 public constant CAP_MANAGER = keccak256("CAP_MANAGER");
 	bytes32 public constant REPUTATION = keccak256("REPUTATION");
 	bytes32 public constant GDAO_STAKING = keccak256("GDAO_STAKING");
 	bytes32 public constant GDAO_CLAIMERS = keccak256("GDAO_CLAIMERS");
@@ -41,7 +41,7 @@ contract NameService is Initializable {
 		addresses[AVATAR] = address(_dao.avatar());
 	}
 
-	function setAddress(string memory name, address addr) public {
+	function setAddress(string memory name, address addr) external {
 		require(
 			address(dao.avatar()) == msg.sender,
 			"only avatar can call this method"
@@ -49,7 +49,19 @@ contract NameService is Initializable {
 		addresses[keccak256(bytes(name))] = addr;
 	}
 
-	function getAddress(string memory name) public view returns (address) {
+	function setAddresses(bytes32[] calldata hash, address[] calldata addrs)
+		external
+	{
+		require(
+			address(dao.avatar()) == msg.sender,
+			"only avatar can call this method"
+		);
+		for (uint256 i = 0; i < hash.length; i++) {
+			addresses[hash[i]] = addrs[i];
+		}
+	}
+
+	function getAddress(string memory name) external view returns (address) {
 		return addresses[keccak256(bytes(name))];
 	}
 }

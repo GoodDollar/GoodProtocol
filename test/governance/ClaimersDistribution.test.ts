@@ -85,7 +85,9 @@ describe("ClaimersDistribution", () => {
     expect(await cd.getMonthClaims(claimer1.address)).to.equal(1);
     const monthData = await cd.months(await cd.currentMonth());
     expect(monthData.totalClaims).to.equal(1);
-    expect(monthData.monthlyDistribution).to.equal(4000000);
+    expect(monthData.monthlyDistribution).to.equal(
+      ethers.utils.parseEther("4000000")
+    );
   });
 
   it("should not update claim if already updated", async () => {
@@ -101,7 +103,9 @@ describe("ClaimersDistribution", () => {
     expect(await cd.getMonthClaims(claimer2.address)).to.equal(1);
     const monthData = await cd.months(await cd.currentMonth());
     expect(monthData.totalClaims).to.equal(2);
-    expect(monthData.monthlyDistribution).to.equal(4000000);
+    expect(monthData.monthlyDistribution).to.equal(
+      ethers.utils.parseEther("4000000")
+    );
   });
 
   it("should distribute reputation after a month and update to current monthly distribution", async () => {
@@ -123,7 +127,9 @@ describe("ClaimersDistribution", () => {
       "GReputation",
       reputation
     )) as GReputation;
-    expect(await rep.balanceOf(claimer2.address)).to.equal(2000000); //half of reputation since he claimed once out of 2 claims
+    expect(await rep.balanceOf(claimer2.address)).to.equal(
+      ethers.utils.parseEther("2000000")
+    ); //half of reputation since he claimed once out of 2 claims
   });
 
   it("should be able to call distribute reputation directly", async () => {
@@ -138,7 +144,9 @@ describe("ClaimersDistribution", () => {
       "GReputation",
       reputation
     )) as GReputation;
-    expect(await rep.balanceOf(claimer1.address)).to.equal(2000000); //half of reputation since he claimed once out of 2 claims
+    expect(await rep.balanceOf(claimer1.address)).to.equal(
+      ethers.utils.parseEther("2000000")
+    ); //half of reputation since he claimed once out of 2 claims
   });
 
   //testing branch condition in ClaimersDistribution.sol line 85
