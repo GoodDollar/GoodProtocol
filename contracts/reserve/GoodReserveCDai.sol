@@ -695,7 +695,15 @@ contract GoodReserveCDai is
 			"recover transfer failed"
 		);
 	}
-
+	/**
+	 * @dev convert DAI balance of reserve to cDAI
+	 * @param _amount DAI amount to convert cDAI
+	 */
+	function convertDAItoCDAI(uint256 _amount) public{
+		
+		ERC20(daiAddress).approve(cDaiAddress,_amount);
+		cERC20(cDaiAddress).mint(_amount);
+	}
 	/**
 	 * @notice prove user balance in a specific blockchain state hash
 	 * @dev "rootState" is a special state that can be supplied once, and actually mints reputation on the current blockchain
