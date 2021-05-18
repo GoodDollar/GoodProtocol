@@ -10,6 +10,7 @@ import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";
 import "./StakingToken.sol";
+
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Tokens
@@ -76,10 +77,11 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 * @dev Set Gas cost to interest collection for this contract
 	 * @param _amount Gas cost to collect interest
 	 */
-	 function setcollectInterestGasCost(uint32 _amount) external {
-		 _onlyAvatar();
-		 collectInterestGasCost = _amount;
-	 }
+	function setcollectInterestGasCost(uint32 _amount) external {
+		_onlyAvatar();
+		collectInterestGasCost = _amount;
+	}
+
 	/**
 	 * @dev Allows a staker to deposit Tokens. Notice that `approve` is
 	 * needed to be executed before the execution of this method.
@@ -174,19 +176,28 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
 	}
+
 	/**
-     * @dev Calculates worth of given amount of iToken in Token
-     * @param _amount Amount of token to calculate worth in Token
-     * @return Worth of given amount of token in Token
-     */
-     function iTokenWorthinToken(uint256 _amount) public view override returns(uint256){
+	 * @dev Calculates worth of given amount of iToken in Token
+	 * @param _amount Amount of token to calculate worth in Token
+	 * @return Worth of given amount of token in Token
+	 */
+	function iTokenWorthinToken(uint256 _amount)
+		public
+		view
+		override
+		returns (uint256)
+	{
 		uint256 er = exchangeRate();
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
-		uint mantissa = 18 + tokenDecimal() - iTokenDecimal();
-		uint256 tokenWorth = caseType == true ? _amount * ( 10 ** decimalDifference) * er / 10 ** mantissa : _amount / ( 10 ** decimalDifference) * er / 10 ** mantissa; // calculation based on https://compound.finance/docs#protocol-math
+		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
+		uint256 tokenWorth =
+			caseType == true
+				? (_amount * (10**decimalDifference) * er) / 10**mantissa
+				: ((_amount / (10**decimalDifference)) * er) / 10**mantissa; // calculation based on https://compound.finance/docs#protocol-math
 		return tokenWorth;
+	}
 
-	 }
 	/**
 	 * @dev Calculates the worth of the staked iToken tokens in Token.
 	 * @return (uint256) The worth in Token
@@ -329,7 +340,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 				ERC20(redeemedToken).transfer(_recipient, redeemedAmount),
 				"collect transfer failed"
 			);
-		
+
 		emit InterestCollected(
 			_recipient,
 			address(token),
@@ -392,14 +403,10 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 @dev _amount Amount of Token to calculate worth of it
 	 @return Returns worth of Tokens in USD
 	 */
-	function getTokenPriceInUSD(uint256 _amount)
-		public
-		view
-		returns (uint256)
-	{	
+	function getTokenPriceInUSD(uint256 _amount) public view returns (uint256) {
 		AggregatorV3Interface tokenPriceOracle =
 			AggregatorV3Interface(getTokenUsdOracle());
 		(, int256 tokenPriceinUSD, , , ) = tokenPriceOracle.latestRoundData();
-		return (uint256(tokenPriceinUSD) * _amount) / (10 ** token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's at the end to reduce 8 decimals back
+		return (uint256(tokenPriceinUSD) * _amount) / (10**token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's at the end to reduce 8 decimals back
 	}
 }
