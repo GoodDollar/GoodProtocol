@@ -3,7 +3,7 @@
 pragma solidity >=0.7.0;
 
 /**
- * @title Abstract contract that holds all the data, 
+ * @title Abstract contract that holds all the data,
  * events and functions for staking contract.
  * The staking contract will inherit this interface
  */
@@ -101,11 +101,22 @@ contract AbstractGoodStaking {
     {
         
     }
-    /**
-     * @dev Get gas cost for interest transfer so can be used in the calculation of collectable interest for particular gas amount
-     * @return returns hardcoded gas cost
-     */
-    function getGasCostForInterestTransfer() external view virtual returns(uint256){}
+   /**
+	 * @dev Get gas cost for interest transfer so can be used in the calculation of collectable interest for particular gas amount
+	 * @return returns hardcoded gas cost
+	 */
+	function getGasCostForInterestTransfer()
+		external
+		view
+		virtual
+		returns (uint32)
+	{}
+
+	/**
+	 * @dev Function to get TOKEN/USD oracle address
+	 * @return TOKEN/USD oracle address
+	 */
+	function getTokenUsdOracle() internal view virtual returns (address) {}
 
     /**
      * @dev Invests staked tokens to defi protocol.
@@ -120,11 +131,15 @@ contract AbstractGoodStaking {
     function redeem(uint amount) internal virtual{}
 
     /**
-     * @dev Redeem invested underlying tokens from defi protocol
-     * @dev amount tokens to be redeemed
-     * @return token which redeemed from protocol and redeemed amount
-     */
-     function redeemUnderlying(uint amount) internal virtual returns(address, uint){}
+	 * @dev Redeem invested underlying tokens from defi protocol
+	 * @dev amount tokens to be redeemed
+	 * @return token which redeemed from protocol and redeemed amount
+	 */
+	function redeemUnderlyingToDAI(uint256 _amount)
+		internal
+		virtual
+		returns (address, uint256)
+	{}
     /**
      * @dev Calculates exchange rate for token to intrest token from defi protocol.
      * @return exchange rate.

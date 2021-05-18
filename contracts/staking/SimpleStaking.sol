@@ -31,15 +31,13 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	// blocks that shall be passed before the
 	// next execution of `collectUBIInterest`
 	uint256 public blockInterval;
-
+	// Gas cost to collect interest from this staking contract
+	uint32 public collectInterestGasCost;
 	// The last block number which
 	// `collectUBIInterest` has been executed in
 	uint256 public lastUBICollection;
-
 	// The total staked Token amount in the contract
 	// uint256 public totalStaked = 0;
-
-	uint256 constant DECIMAL1e18 = 10**18;
 
 	bool public isPaused;
 
@@ -52,6 +50,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 * @param _tokenName The name of the staking token
 	 * @param _tokenSymbol The symbol of the staking token
 	 * @param _maxRewardThreshold the blocks that should pass to get 1x reward multiplier
+	 * @param _collectInterestGasCost Gas cost for the collect interest of this staking contract
 	 */
 	constructor(
 		address _token,
@@ -60,7 +59,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		NameService _ns,
 		string memory _tokenName,
 		string memory _tokenSymbol,
-		uint64 _maxRewardThreshold
+		uint64 _maxRewardThreshold,
+		uint32 _collectInterestGasCost
 	) StakingToken(_tokenName, _tokenSymbol) {
 		setDAO(_ns);
 		token = ERC20(_token);
@@ -68,9 +68,18 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		maxMultiplierThreshold = _maxRewardThreshold;
 		blockInterval = _blockInterval;
 		lastUBICollection = block.number.div(blockInterval);
-		_setShareToken(address(avatar.nativeToken()));
+		_setShareToken(nameService.addresses(nameService.GOODDOLLAR()));
+		collectInterestGasCost = _collectInterestGasCost; // Should be adjusted according to this contract's gas cost
 	}
 
+	/**
+	 * @dev Set Gas cost to interest collection for this contract
+	 * @param _amount Gas cost to collect interest
+	 */
+	 function setcollectInterestGasCost(uint32 _amount) external {
+		 _onlyAvatar();
+		 collectInterestGasCost = _amount;
+	 }
 	/**
 	 * @dev Allows a staker to deposit Tokens. Notice that `approve` is
 	 * needed to be executed before the execution of this method.
@@ -152,8 +161,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
 		_burn(msg.sender, _amount); // burn their staking tokens
 		_decreaseProductivity(msg.sender, _amount);
-		fm.mintReward(address(iToken), msg.sender); // send rewards to user
-
+		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
 		emit StakeWithdraw(
 			msg.sender,
 			address(token),
@@ -164,7 +172,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 
 	function withdrawRewards() public {
 		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
-		fm.mintReward(address(iToken), msg.sender); // send rewards to user
+		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
 	}
 	/**
      * @dev Calculates worth of given amount of iToken in Token
@@ -240,7 +248,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 
 	/**
 	 * @dev Calculates the current interest that was gained.
-	 * @return (uint256, uint256, uint256) The interest in iToken, the interest in Token,
+	 * @return (uint256, uint256, uint256) The interest in iToken, the interest in USD,
 	 * the amount which is not covered by precision of Token
 	 */
 	function currentUBIInterest()
@@ -283,6 +291,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 				10**decimalDifference
 			);
 		}
+
+		tokenGains = getTokenPriceInUSD(tokenGains);
 		return (iTokenGains, tokenGains, precisionLossToken);
 	}
 
@@ -312,11 +322,14 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		(uint256 iTokenGains, uint256 tokenGains, uint256 precisionLossToken) =
 			currentUBIInterest();
 		lastUBICollection = block.number.div(blockInterval);
-		if (iTokenGains > 0)
+		(address redeemedToken, uint256 redeemedAmount) =
+			redeemUnderlyingToDAI(iTokenGains);
+		if (redeemedAmount > 0)
 			require(
-				iToken.transfer(_recipient, iTokenGains),
+				ERC20(redeemedToken).transfer(_recipient, redeemedAmount),
 				"collect transfer failed"
 			);
+		
 		emit InterestCollected(
 			_recipient,
 			address(token),
@@ -372,5 +385,21 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			_token.transfer(address(avatar), toWithdraw),
 			"recover transfer failed"
 		);
+	}
+
+	/**
+	 @dev function calculate Token price in USD 
+	 @dev _amount Amount of Token to calculate worth of it
+	 @return Returns worth of Tokens in USD
+	 */
+	function getTokenPriceInUSD(uint256 _amount)
+		public
+		view
+		returns (uint256)
+	{	
+		AggregatorV3Interface tokenPriceOracle =
+			AggregatorV3Interface(getTokenUsdOracle());
+		(, int256 tokenPriceinUSD, , , ) = tokenPriceOracle.latestRoundData();
+		return (uint256(tokenPriceinUSD) * _amount) / (10 ** token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's at the end to reduce 8 decimals back
 	}
 }

@@ -476,7 +476,7 @@ contract GoodReserveCDai is
 		returns (uint256, uint256)
 	{
 		ERC20 sellTo = ERC20(cDaiAddress);
-		IGoodDollar(address(avatar.nativeToken())).burnFrom(
+		IGoodDollar(nameService.addresses(nameService.GOODDOLLAR())).burnFrom(
 			msg.sender,
 			_gdAmount
 		);
@@ -587,13 +587,17 @@ contract GoodReserveCDai is
 		);
 
 		require(
-			IGoodDollar(address(avatar.nativeToken())).totalSupply() +
+			IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()))
+				.totalSupply() +
 				_gdToMint <=
 				cap,
 			"GoodReserve: cap enforced"
 		);
 
-		IGoodDollar(address(avatar.nativeToken())).mint(_to, _gdToMint);
+		IGoodDollar(nameService.addresses(nameService.GOODDOLLAR())).mint(
+			_to,
+			_gdToMint
+		);
 	}
 
 	function _mintGDX(address _to, uint256 _gdx) internal {
@@ -616,7 +620,7 @@ contract GoodReserveCDai is
 		// uint256 price = currentPrice(_interestToken);
 		uint256 gdInterestToMint =
 			getMarketMaker().mintInterest(_interestToken, _transfered);
-		//IGoodDollar gooddollar = IGoodDollar(address(avatar.nativeToken()));
+		//IGoodDollar gooddollar = IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
 		//uint256 precisionLoss = uint256(27).sub(uint256(gooddollar.decimals()));
 		//uint256 gdInterest = rdiv(_interest, price).div(10**precisionLoss);
 		uint256 gdExpansionToMint =
@@ -670,12 +674,14 @@ contract GoodReserveCDai is
 			);
 		}
 
-		// // restore minting to avatar, so he can re-delegate it
-		IGoodDollar gd = IGoodDollar(address(avatar.nativeToken()));
+		//restore minting to avatar, so he can re-delegate it
+		IGoodDollar gd =
+			IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
 		if (gd.isMinter(address(avatar)) == false)
 			gd.addMinter(address(avatar));
 
-		IGoodDollar(address(avatar.nativeToken())).renounceMinter();
+		IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()))
+			.renounceMinter();
 	}
 
 	/**
@@ -689,7 +695,15 @@ contract GoodReserveCDai is
 			"recover transfer failed"
 		);
 	}
-
+	/**
+	 * @dev convert DAI balance of reserve to cDAI
+	 * @param _amount DAI amount to convert cDAI
+	 */
+	function convertDAItoCDAI(uint256 _amount) public{
+		
+		ERC20(daiAddress).approve(cDaiAddress,_amount);
+		cERC20(cDaiAddress).mint(_amount);
+	}
 	/**
 	 * @notice prove user balance in a specific blockchain state hash
 	 * @dev "rootState" is a special state that can be supplied once, and actually mints reputation on the current blockchain

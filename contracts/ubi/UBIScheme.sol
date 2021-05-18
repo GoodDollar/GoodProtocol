@@ -190,7 +190,7 @@ contract UBIScheme is Initializable, DAOContract {
 				address(this),
 				toWithdraw
 			),
-			avatar,
+			address(avatar),
 			0
 		);
 		uint256 newBalance = prevBalance + toWithdraw;
@@ -505,7 +505,7 @@ contract UBIScheme is Initializable, DAOContract {
 		dao.genericCall(
 			address(firstClaimPool),
 			abi.encodeWithSignature("setUBIScheme(address)", address(this)),
-			avatar,
+			address(avatar),
 			0
 		);
 	}
@@ -531,14 +531,14 @@ contract UBIScheme is Initializable, DAOContract {
 			dao.genericCall(
 				prevUBIScheme,
 				abi.encodeWithSignature("end()"),
-				avatar,
+				address(avatar),
 				0
 			);
 
 			dao.genericCall(
 				address(firstClaimPool),
 				abi.encodeWithSignature("setClaimAmount(uint256)", 1000),
-				avatar,
+				address(avatar),
 				0
 			);
 

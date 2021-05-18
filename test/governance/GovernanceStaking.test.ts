@@ -80,10 +80,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       controller,
       avatar
     });
-    goodFundManager = await goodFundManagerFactory.deploy(
-      nameService.address,
-      BLOCK_INTERVAL
-    );
+    goodFundManager = await goodFundManagerFactory.deploy(nameService.address);
     grep = (await ethers.getContractAt(
       "GReputation",
       reputation
@@ -104,13 +101,9 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     });
 
     console.log("setting permissions...");
-    governanceStaking = await upgrades.deployProxy(
-      governanceStakingFactory,
-      [nameService.address, ethers.utils.parseEther("12000000")],
-      {
-        unsafeAllowCustomTypes: true
-      }
-    );
+    governanceStaking = await upgrades.deployProxy(governanceStakingFactory, [
+      nameService.address
+    ]);
 
     setDAOAddress("CDAI", cDAI.address);
     setDAOAddress("DAI", dai.address);
@@ -372,24 +365,74 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     expect(userPendingRewards.toString()).to.be.equal("0");
   });
 
-  it("it should be able get accumulated rewards per share", async () => {
+  it("it should calculate accumulated rewards per share correctly", async () => {
     const governanceStakingFactory = await ethers.getContractFactory(
       "GovernanceStaking"
     );
     const simpleGovernanceStaking = await upgrades.deployProxy(
       governanceStakingFactory,
-      [nameService.address, ethers.utils.parseEther("12000000")],
-      {
-        unsafeAllowCustomTypes: true
-      }
+      [nameService.address]
     );
     await goodDollar.mint(founder.address, "200");
+    await goodDollar.mint(staker.address, "200");
+
     await goodDollar.approve(simpleGovernanceStaking.address, "200");
+    await goodDollar
+      .connect(staker)
+      .approve(simpleGovernanceStaking.address, "200");
+
     await simpleGovernanceStaking.stake("100");
+    let accumulatedRewardsPerShare = await simpleGovernanceStaking.totalRewardsPerShare();
+    expect(accumulatedRewardsPerShare).to.equal(0); //first has no accumulated rewards yet, since no blocks have passed since staking
+
     await simpleGovernanceStaking.stake("100");
-    const accumulatedRewardsPerShare = await simpleGovernanceStaking.totalRewardsPerShare();
-    expect(accumulatedRewardsPerShare.toString()).to.be.equal(
-      "69444444444444444444000000000"
+    accumulatedRewardsPerShare = await simpleGovernanceStaking.totalRewardsPerShare();
+    expect(await simpleGovernanceStaking.rewardsPerBlock()).to.equal(
+      ethers.utils
+        .parseEther("2000000") //2M reputation
+        .div(await simpleGovernanceStaking.FUSE_MONTHLY_BLOCKS())
+    );
+    let totalProductiviy = BN.from("100");
+    //totalRewardsPerShare is in 1e27 , divid by  1e9 to get 1e18 decimals
+    expect(accumulatedRewardsPerShare.div(BN.from(1e9))).to.equal(
+      ethers.utils
+        .parseEther("2000000")
+        .mul(BN.from(1e2)) //G$ is 2 decimals, dividing reduces decimals by 2, so we first increase to 1e20 decimals
+        .div(await simpleGovernanceStaking.FUSE_MONTHLY_BLOCKS())
+        .div(totalProductiviy)
+        .mul(BN.from("1")),
+      "1 block"
+    ); //1 block passed with actual staking
+
+    totalProductiviy = totalProductiviy.add(BN.from("100")); //second stake
+    await simpleGovernanceStaking.connect(staker).stake("100");
+    let accumulatedRewardsPerShare2 = await simpleGovernanceStaking.totalRewardsPerShare();
+
+    //shouldnt be naive accumlattion of 2 blocks, since total productivity has changed between blocks
+    expect(accumulatedRewardsPerShare2.div(BN.from(1e9))).to.not.equal(
+      ethers.utils
+        .parseEther("2000000")
+        .mul(BN.from(1e2)) //G$ is 2 decimals, dividing reduces decimals by 2, so we first increase to 1e20 decimals
+        .div(await simpleGovernanceStaking.FUSE_MONTHLY_BLOCKS())
+        .div(totalProductiviy)
+        .mul(BN.from("2")),
+      "2 blocks"
+    ); //2 blocks passed but now we have 200 total productivity before 3rd stake
+
+    console.log(
+      accumulatedRewardsPerShare2.toString(),
+      accumulatedRewardsPerShare.toString()
+    );
+
+    //accumulated so far plus block accumulation
+    expect(accumulatedRewardsPerShare2.div(BN.from(1e9))).to.equal(
+      ethers.utils
+        .parseEther("2000000")
+        .mul(BN.from(1e2)) //G$ is 2 decimals, dividing reduces decimals by 2, so we first increase to 1e20 decimals
+        .div(await simpleGovernanceStaking.FUSE_MONTHLY_BLOCKS())
+        .div(totalProductiviy)
+        .add(accumulatedRewardsPerShare.div(BN.from(1e9))),
+      "2 blocks correct"
     );
   });
 

@@ -16,12 +16,14 @@ export const getFounders = async network => {
   await Promise.all(
     founders.map(async f => {
       const b = await ethers.provider.getBalance(f.address);
-      console.log("founder balance:", { f: f.address, b });
+      console.log("founder balance:", { f: f.address, bal: b.toString() });
       if (BigInt(b) < BigInt(ethers.utils.parseEther("0.004"))) {
-        const toTop = (BigInt(ethers.utils.parseEther("0.009")) - BigInt(b)).toString();
+        const toTop = (
+          BigInt(ethers.utils.parseEther("0.009")) - BigInt(b)
+        ).toString();
         const receipt = await founders[0].sendTransaction({
           to: f.address,
-          value: toTop
+          value: ethers.BigNumber.from(toTop)
         });
         console.log("topped founder,", { f, receipt });
       }

@@ -6,6 +6,9 @@ import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.
 import AddFoundersABI from "@gooddollar/goodcontracts/build/contracts/AddFoundersGoodDollar.json";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
 import FirstClaimPool from "@gooddollar/goodcontracts/stakingModel/build/contracts/FirstClaimPool.json";
+import SchemeRegistrar from "@gooddollar/goodcontracts/build/contracts/SchemeRegistrar.json";
+import AbsoluteVote from "@gooddollar/goodcontracts/build/contracts/AbsoluteVote.json";
+import UpgradeScheme from "@gooddollar/goodcontracts/build/contracts/UpgradeScheme.json";
 
 import { Controller, GoodMarketMaker } from "../types";
 
@@ -56,9 +59,9 @@ export const createDAO = async () => {
     0,
     FeeFormula.address,
     Identity.address,
-    [root.address],
+    [root.address, signers[0].address, signers[1].address],
     1000,
-    [100000]
+    [100000, 100000, 100000]
   );
 
   const Avatar = new ethers.Contract(
@@ -150,9 +153,9 @@ export const createDAO = async () => {
   const GReputation = await ethers.getContractFactory("GReputation");
   let reputation = await upgrades.deployProxy(
     GReputation,
-    [nameService.address],
+    [nameService.address, "", ethers.constants.HashZero, 0],
     {
-      unsafeAllowCustomTypes: true
+      initializer: "initialize(address, string, bytes32, uint256)"
     }
   );
 
@@ -166,11 +169,11 @@ export const createDAO = async () => {
     schemeMock
   );
 
-  const setSchemes = async addrs => {
-    for (let addr of addrs) {
+  const setSchemes = async (addrs, params = []) => {
+    for (let i in addrs) {
       await ictrl.registerScheme(
-        addr,
-        ethers.constants.HashZero,
+        addrs[i],
+        params[i] || ethers.constants.HashZero,
         "0x0000001F",
         Avatar.address
       );
@@ -279,7 +282,7 @@ export const deployUBI = async deployedDAO => {
   );
 
   const gd = await nameService.addresses(await nameService.GOODDOLLAR());
-  //make GoodCap minter
+
   let encoded = (
     await ethers.getContractAt("IGoodDollar", gd)
   ).interface.encodeFunctionData("mint", [firstClaim.address, 1000000]);
@@ -313,5 +316,75 @@ export const advanceBlocks = async (blocks: number) => {
       await Promise.all(ps);
       ps = [];
     }
+  }
+};
+
+export const deployOldVoting = async dao => {
+  try {
+    const SchemeRegistrarF = new ethers.ContractFactory(
+      SchemeRegistrar.abi,
+      SchemeRegistrar.bytecode,
+      (await ethers.getSigners())[0]
+    );
+    const UpgradeSchemeF = new ethers.ContractFactory(
+      UpgradeScheme.abi,
+      UpgradeScheme.bytecode,
+      (await ethers.getSigners())[0]
+    );
+    const AbsoluteVoteF = new ethers.ContractFactory(
+      AbsoluteVote.abi,
+      AbsoluteVote.bytecode,
+      (await ethers.getSigners())[0]
+    );
+
+    const [absoluteVote, upgradeScheme, schemeRegistrar] = await Promise.all([
+      AbsoluteVoteF.deploy(),
+      UpgradeSchemeF.deploy(),
+      SchemeRegistrarF.deploy()
+    ]);
+    console.log("setting parameters");
+    const voteParametersHash = await absoluteVote.getParametersHash(
+      50,
+      ethers.constants.AddressZero
+    );
+
+    console.log("setting params for voting machine and schemes");
+
+    await Promise.all([
+      schemeRegistrar.setParameters(
+        voteParametersHash,
+        voteParametersHash,
+        absoluteVote.address
+      ),
+      absoluteVote.setParameters(50, ethers.constants.AddressZero),
+      upgradeScheme.setParameters(voteParametersHash, absoluteVote.address)
+    ]);
+    const upgradeParametersHash = await upgradeScheme.getParametersHash(
+      voteParametersHash,
+      absoluteVote.address
+    );
+
+    // Deploy SchemeRegistrar
+    const schemeRegisterParams = await schemeRegistrar.getParametersHash(
+      voteParametersHash,
+      voteParametersHash,
+      absoluteVote.address
+    );
+
+    let schemesArray;
+    let paramsArray;
+    let permissionArray;
+
+    // Subscribe schemes
+    schemesArray = [schemeRegistrar.address, upgradeScheme.address];
+    paramsArray = [schemeRegisterParams, upgradeParametersHash];
+    await dao.setSchemes(schemesArray, paramsArray);
+    return {
+      schemeRegistrar,
+      upgradeScheme,
+      absoluteVote
+    };
+  } catch (e) {
+    console.log("deployVote failed", e);
   }
 };
