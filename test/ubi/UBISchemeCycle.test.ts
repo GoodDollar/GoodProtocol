@@ -96,7 +96,7 @@ describe("UBIScheme cycle", () => {
   });
 
   it("should calculate cycle on first day", async () => {
-    await increaseTime(ONE_DAY); //make sure
+    await increaseTime(ONE_DAY + 10); //make sure
     let transaction = await (await ubiScheme.connect(claimer1).claim()).wait();
     await ubiScheme.connect(claimer2).claim();
     let cycleLength = await ubiScheme.cycleLength();

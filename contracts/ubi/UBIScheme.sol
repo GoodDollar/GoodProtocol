@@ -6,7 +6,7 @@ import "../utils/DAOContract.sol";
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../governance/ClaimersDistribution.sol";
-
+import "hardhat/console.sol";
 /* @title Dynamic amount-per-day UBI scheme allowing claim once a day
  */
 contract UBIScheme is Initializable, DAOContract {
@@ -225,7 +225,6 @@ contract UBIScheme is Initializable, DAOContract {
 	 */
 	function distributionFormula() internal returns (uint256) {
 		setDay();
-
 		// on first day or once in 24 hrs calculate distribution
 		//on day 0 all users receive from firstclaim pool
 		if (currentDay != lastWithdrawDay) {
