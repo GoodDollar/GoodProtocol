@@ -9,7 +9,7 @@ import FirstClaimPool from "@gooddollar/goodcontracts/stakingModel/build/contrac
 import SchemeRegistrar from "@gooddollar/goodcontracts/build/contracts/SchemeRegistrar.json";
 import AbsoluteVote from "@gooddollar/goodcontracts/build/contracts/AbsoluteVote.json";
 import UpgradeScheme from "@gooddollar/goodcontracts/build/contracts/UpgradeScheme.json";
-
+import UBIScheme from '@gooddollar/goodcontracts/stakingModel/build/contracts/UBIScheme.json';
 import { Controller, GoodMarketMaker } from "../types";
 
 export const createDAO = async () => {
@@ -302,7 +302,63 @@ export const deployUBI = async deployedDAO => {
   setDAOAddress("UBISCHEME", ubiScheme.address);
   return { firstClaim, ubiScheme };
 };
+export const deployOldUBI = async deployedDAO => {
+  let { nameService, setSchemes, genericCall, setDAOAddress } = deployedDAO;
+  const fcFactory = new ethers.ContractFactory(
+    FirstClaimPool.abi,
+    FirstClaimPool.bytecode,
+    (await ethers.getSigners())[0]
+  );
+  const ubiSchemeFactory = new ethers.ContractFactory(
+    UBIScheme.abi,
+    UBIScheme.bytecode,
+    (await ethers.getSigners())[0]
+  )
+  console.log("deploying first claim...", {
+    avatar: await nameService.addresses(await nameService.AVATAR()),
+    identity: await nameService.addresses(await nameService.IDENTITY())
+  });
+  const firstClaim = await fcFactory.deploy(
+    await nameService.addresses(await nameService.AVATAR()),
+    await nameService.addresses(await nameService.IDENTITY()),
+    100
+  );
 
+  console.log("deploying ubischeme and starting...", {
+    input: [nameService.address, firstClaim.address, 14]
+  });
+  const block = await ethers.provider.getBlock("latest");
+  const startUBI = block.timestamp - 60 * 60 * 24 * 2;
+  const endUBI = startUBI + 60 * 60 * 24 * 30;
+  let ubiScheme = await ubiSchemeFactory.deploy(
+    await nameService.addresses(await nameService.AVATAR()),
+    await nameService.addresses(await nameService.IDENTITY()),
+    firstClaim.address,
+    startUBI,
+    endUBI,
+    3,
+    1
+  );
+
+  const gd = await nameService.addresses(await nameService.GOODDOLLAR());
+
+  let encoded = (
+    await ethers.getContractAt("IGoodDollar", gd)
+  ).interface.encodeFunctionData("mint", [firstClaim.address, 1000000]);
+
+  await genericCall(gd, encoded);
+
+  encoded = (
+    await ethers.getContractAt("IGoodDollar", gd)
+  ).interface.encodeFunctionData("mint", [ubiScheme.address, 1000000]);
+
+  await genericCall(gd, encoded);
+
+  console.log("set firstclaim,ubischeme as scheme and starting...");
+  await setSchemes([firstClaim.address]);
+  await firstClaim.start();
+  return { firstClaim, ubiScheme };
+};
 export async function increaseTime(seconds) {
   await ethers.provider.send("evm_increaseTime", [seconds]);
   await advanceBlocks(1);

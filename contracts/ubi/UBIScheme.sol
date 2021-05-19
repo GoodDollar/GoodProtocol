@@ -6,7 +6,6 @@ import "../utils/DAOContract.sol";
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../governance/ClaimersDistribution.sol";
-import "hardhat/console.sol";
 /* @title Dynamic amount-per-day UBI scheme allowing claim once a day
  */
 contract UBIScheme is Initializable, DAOContract {
@@ -533,14 +532,12 @@ contract UBIScheme is Initializable, DAOContract {
 				address(avatar),
 				0
 			);
-
 			dao.genericCall(
 				address(firstClaimPool),
 				abi.encodeWithSignature("setClaimAmount(uint256)", 1000),
 				address(avatar),
 				0
 			);
-
 			if (ubiBalance > 0) {
 				dao.externalTokenTransfer(
 					address(gd),
