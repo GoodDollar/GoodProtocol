@@ -164,12 +164,12 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		if (caseType) {
 			tokenBalance =
 				(iToken.balanceOf(address(this)) *
-					(10**decimalDifference) *
+					(10 ** decimalDifference) *
 					er) /
 				10 ** mantissa; // based on https://compound.finance/docs#protocol-math
 		} else {
 			tokenBalance =
-				((iToken.balanceOf(address(this)) / (10**decimalDifference)) *
+				((iToken.balanceOf(address(this)) / (10 ** decimalDifference)) *
 					er) /
 				10 ** mantissa; // based on https://compound.finance/docs#protocol-math
 		}
@@ -232,11 +232,11 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal(); // based on https://compound.finance/docs#protocol-math
 		if (caseType) {
 			iTokenGains =
-				((tokenGains / 10**decimalDifference) * 10**mantissa) /
+				((tokenGains / 10 ** decimalDifference) * 10 ** mantissa) /
 				er; // based on https://compound.finance/docs#protocol-math
 		} else {
 			iTokenGains =
-				((tokenGains * 10**decimalDifference) * 10**mantissa) /
+				((tokenGains * 10 ** decimalDifference) * 10 ** mantissa) /
 				er; // based on https://compound.finance/docs#protocol-math
 		}
 		tokenGains = getTokenPriceInUSD(tokenGains);
@@ -324,6 +324,6 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		AggregatorV3Interface tokenPriceOracle =
 			AggregatorV3Interface(getTokenUsdOracle());
 		(, int256 tokenPriceinUSD, , , ) = tokenPriceOracle.latestRoundData();
-		return (uint256(tokenPriceinUSD) * _amount) / (10**token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's at the end to reduce 8 decimals back
+		return (uint256(tokenPriceinUSD) * _amount) / (10 ** token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's decimal at the end to reduce 8 decimals back
 	}
 }

@@ -33,7 +33,7 @@ contract BaseShareField is DAOContract {
 	address public shareToken;
 
 	uint256 public lastRewardBlock;
-	// Token decimal difference with 18
+	// Staking contracts accepts Token's most with 18 decimals so this variable to hold decimal difference between 18 and Token's decimal in order to make calculations
 	uint8 public tokenDecimalDifference;
 	struct UserInfo {
 		uint256 amount; // How many tokens the user has provided.
