@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../Interfaces.sol";
@@ -66,6 +66,12 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		setDAO(_ns);
 		token = ERC20(_token);
 		iToken = ERC20(_iToken);
+		require(
+			token.decimals() <= 18,
+			"Token decimals should be less than 18 decimals"
+		);
+		decimals = token.decimals(); // Staking token decimals should be same with token's decimals
+		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;
 		blockInterval = _blockInterval;
 		lastUBICollection = block.number.div(blockInterval);
@@ -77,10 +83,11 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 * @dev Set Gas cost to interest collection for this contract
 	 * @param _amount Gas cost to collect interest
 	 */
-	 function setcollectInterestGasCost(uint32 _amount) external {
-		 _onlyAvatar();
-		 collectInterestGasCost = _amount;
-	 }
+	function setcollectInterestGasCost(uint32 _amount) external {
+		_onlyAvatar();
+		collectInterestGasCost = _amount;
+	}
+
 	/**
 	 * @dev Allows a staker to deposit Tokens. Notice that `approve` is
 	 * needed to be executed before the execution of this method.
@@ -90,7 +97,10 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 */
 	function stake(uint256 _amount, uint256 _donationPer) external override {
 		require(isPaused == false, "Staking is paused");
-		require(_donationPer == 0 || _donationPer == 100 , "Donation percentage should be 0 or 100");
+		require(
+			_donationPer == 0 || _donationPer == 100,
+			"Donation percentage should be 0 or 100"
+		);
 		require(_amount > 0, "You need to stake a positive token amount");
 		require(
 			token.transferFrom(msg.sender, address(this), _amount),
@@ -149,19 +159,19 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		uint256 er = exchangeRate();
 
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
+		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
 		uint256 tokenBalance;
 		if (caseType) {
-			tokenBalance = rmul(
-				iToken.balanceOf(address(this)).mul(10**decimalDifference),
-				er
-			)
-				.div(10);
+			tokenBalance =
+				(iToken.balanceOf(address(this)) *
+					(10 ** decimalDifference) *
+					er) /
+				10 ** mantissa; // based on https://compound.finance/docs#protocol-math
 		} else {
-			tokenBalance = rmul(
-				iToken.balanceOf(address(this)).div(10**decimalDifference),
-				er
-			)
-				.div(10);
+			tokenBalance =
+				((iToken.balanceOf(address(this)) / (10 ** decimalDifference)) *
+					er) /
+				10 ** mantissa; // based on https://compound.finance/docs#protocol-math
 		}
 		return tokenBalance;
 	}
@@ -202,79 +212,55 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 
 	/**
 	 * @dev Calculates the current interest that was gained.
-	 * @return (uint256, uint256, uint256) The interest in iToken, the interest in USD,
-	 * the amount which is not covered by precision of Token
+	 * @return (uint256, uint256, uint256) The interest in iToken, the interest in USD
 	 */
 	function currentUBIInterest()
 		public
 		view
 		override
-		returns (
-			uint256,
-			uint256,
-			uint256
-		)
+		returns (uint256, uint256)
 	{
 		uint256 er = exchangeRate();
 		uint256 tokenWorth = currentTokenWorth();
 		if (tokenWorth <= totalProductivity) {
-			return (0, 0, 0);
+			return (0, 0);
 		}
 		uint256 tokenGains = tokenWorth.sub(totalProductivity);
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		//mul by `10^decimalDifference` to equalize precision otherwise since exchangerate is very big, dividing by it would result in 0.
 		uint256 iTokenGains;
+		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal(); // based on https://compound.finance/docs#protocol-math
 		if (caseType) {
-			iTokenGains = rdiv(tokenGains.mul(10**decimalDifference), er);
+			iTokenGains =
+				((tokenGains / 10 ** decimalDifference) * 10 ** mantissa) /
+				er; // based on https://compound.finance/docs#protocol-math
 		} else {
-			iTokenGains = rdiv(tokenGains.div(10**decimalDifference), er);
+			iTokenGains =
+				((tokenGains * 10 ** decimalDifference) * 10 ** mantissa) /
+				er; // based on https://compound.finance/docs#protocol-math
 		}
-		//get right most bits not covered by precision of iToken.
-		uint256 precisionDecimal = uint256(27).sub(iTokenDecimal());
-		uint256 precisionLossITokenRay = iTokenGains % (10**precisionDecimal);
-		// lower back to iToken's decimals
-		iTokenGains = iTokenGains.div(10**precisionDecimal);
-		//div by `10^decimalDifference` to get results in dai precision 1e18
-		uint256 precisionLossToken;
-		if (caseType) {
-			precisionLossToken = rmul(precisionLossITokenRay, er).div(
-				10**decimalDifference
-			);
-		} else {
-			precisionLossToken = rmul(precisionLossITokenRay, er).mul(
-				10**decimalDifference
-			);
-		}
-
 		tokenGains = getTokenPriceInUSD(tokenGains);
-		return (iTokenGains, tokenGains, precisionLossToken);
+		return (iTokenGains, tokenGains);
 	}
 
 	/**
 	 * @dev Collects gained interest by fundmanager. Can be collected only once
 	 * in an interval which is defined above.
 	 * @param _recipient The recipient of cDAI gains
-	 * @return (uint256, uint256, uint256,uint256) The interest in iToken, the interest in Token,
-	 * the amount which is not covered by precision of Token, how much of the generated interest is donated
+	 * @return (uint256, uint256) The interest in iToken, the interest in Token
 	 */
 	function collectUBIInterest(address _recipient)
 		public
 		override
 		onlyFundManager
-		returns (
-			uint256,
-			uint256,
-			uint256,
-			uint256
-		)
+		returns (uint256, uint256)
 	{
 		// otherwise fund manager has to wait for the next interval
 		require(
 			_recipient != address(this),
 			"Recipient cannot be the staking contract"
 		);
-		(uint256 iTokenGains, uint256 tokenGains, uint256 precisionLossToken) =
-			currentUBIInterest();
+		(uint256 iTokenGains, uint256 tokenGains) = currentUBIInterest();
 		lastUBICollection = block.number.div(blockInterval);
 		(address redeemedToken, uint256 redeemedAmount) =
 			redeemUnderlyingToDAI(iTokenGains);
@@ -283,27 +269,15 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 				ERC20(redeemedToken).transfer(_recipient, redeemedAmount),
 				"collect transfer failed"
 			);
-		
+
 		emit InterestCollected(
 			_recipient,
 			address(token),
 			address(iToken),
 			iTokenGains,
-			tokenGains,
-			precisionLossToken
+			tokenGains
 		);
-		uint256 avgEffectiveStakedRatio = 0;
-		//	if (interestData.globalTotalStaked > 0)
-		//		avgEffectiveStakedRatio = interestData
-		//			.globalTotalEffectiveStake
-		//			.mul(DECIMAL1e18)
-		//			.div(interestData.globalTotalStaked);
-		return (
-			iTokenGains,
-			tokenGains,
-			precisionLossToken,
-			avgEffectiveStakedRatio
-		);
+		return (iTokenGains, tokenGains);
 	}
 
 	function pause(bool _isPaused) public {
@@ -346,14 +320,10 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 @dev _amount Amount of Token to calculate worth of it
 	 @return Returns worth of Tokens in USD
 	 */
-	function getTokenPriceInUSD(uint256 _amount)
-		public
-		view
-		returns (uint256)
-	{	
+	function getTokenPriceInUSD(uint256 _amount) public view returns (uint256) {
 		AggregatorV3Interface tokenPriceOracle =
 			AggregatorV3Interface(getTokenUsdOracle());
 		(, int256 tokenPriceinUSD, , , ) = tokenPriceOracle.latestRoundData();
-		return (uint256(tokenPriceinUSD) * _amount) / (10 ** token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's at the end to reduce 8 decimals back
+		return (uint256(tokenPriceinUSD) * _amount) / (10 ** token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's decimal at the end to reduce 8 decimals back
 	}
 }

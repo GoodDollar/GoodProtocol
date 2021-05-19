@@ -33,8 +33,7 @@ contract AbstractGoodStaking {
 		address token,
 		address intrestToken,
 		uint256 intrestTokenValue,
-		uint256 tokenValue,
-		uint256 tokenPrecisionLoss
+		uint256 tokenValue
 	);
 
 	/**
@@ -58,17 +57,12 @@ contract AbstractGoodStaking {
 	 * @dev calculates the tokenGain, intrestTokenGain and precisionLossToken
 	 * @return Intrest gained on lending the tokens.
 	 * @return Intrest gained on lending the tokens in terms of token rate.
-	 * @return Token's precision loss due to decimal difference.
 	 */
 	function currentUBIInterest()
 		external
 		view
 		virtual
-		returns (
-			uint256,
-			uint256,
-			uint256
-		)
+		returns (uint256, uint256)
 	{}
 
 	/**
@@ -76,18 +70,11 @@ contract AbstractGoodStaking {
 	 * @param recipient of intrestToken gains
 	 * @return Intrest gained on lending the tokens.
 	 * @return Intrest gained on lending the tokens in terms of token rate.
-	 * @return Token's precision loss due to decimal difference.
-	 * @return average intrest donation ratio.
 	 */
 	function collectUBIInterest(address recipient)
 		external
 		virtual
-		returns (
-			uint256,
-			uint256,
-			uint256,
-			uint256
-		)
+		returns (uint256, uint256)
 	{}
 
 	/**
