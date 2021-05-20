@@ -56,7 +56,7 @@ contract AbstractGoodStaking {
 	{}
 
 	/**
-	 * @dev Calculates worth of given amount of token in Token
+	 * @dev Calculates worth of given amount of iToken in Token
 	 * @param _amount Amount of token to calculate worth in Token
 	 * @return Worth of given amount of token in Token
 	 */
