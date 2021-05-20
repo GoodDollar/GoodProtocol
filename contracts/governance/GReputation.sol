@@ -5,6 +5,7 @@ import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgrad
 
 import "./Reputation.sol";
 import "../Interfaces.sol";
+
 /**
  * @title GReputation extends Reputation with delegation and cross blockchain merkle states
  * @dev NOTICE: this breaks DAOStack nativeReputation usage, since it is not possiible to upgrade
@@ -85,6 +86,8 @@ contract GReputation is Reputation {
 				nameService.addresses(nameService.GDAO_CLAIMERS()) ||
 				_msgSender() ==
 				nameService.addresses(nameService.GDAO_STAKING()) ||
+				_msgSender() ==
+				nameService.addresses(nameService.GDAO_STAKERS()) ||
 				hasRole(MINTER_ROLE, _msgSender()),
 			"GReputation: need minter role or be GDAO contract"
 		);
