@@ -1205,21 +1205,25 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const stakercDAIBalanceBeforeStake = await cDAI.balanceOf(staker.address)
     await cDAI.connect(staker).approve(goodCompoundStaking.address, stakingAmount);
     const productivityBeforeStake = await goodCompoundStaking.getProductivity(staker.address)
-
+    const stakingContractCdaiBalanceBeforeStake = await cDAI.balanceOf(goodCompoundStaking.address)
     await goodCompoundStaking
       .connect(staker)
       .stake(stakingAmount, 100, true)
+    const stakingContractCdaiBalanceAfterStake = await cDAI.balanceOf(goodCompoundStaking.address)
     const stakercDAIBalanceAfterStake = await cDAI.balanceOf(staker.address)
     const productivityAfterStake = await goodCompoundStaking.getProductivity(staker.address)
       await goodCompoundStaking
       .connect(staker)
       .withdrawStake(stakingAmount, true)
+    const stakingContractCdaiBalanceAfterWithdraw = await cDAI.balanceOf(goodCompoundStaking.address)
     const stakerCdaiBalanceAfterWithdraw = await cDAI.balanceOf(staker.address)
     const productivityAfterWithdraw = await goodCompoundStaking.getProductivity(staker.address)
     expect(productivityAfterStake[0].gt(productivityBeforeStake[0])).to.be.true;
     expect(productivityBeforeStake[0]).to.be.equal(productivityAfterWithdraw[0])
     expect(stakercDAIBalanceBeforeStake.sub(stakingAmount)).to.be.equal(stakercDAIBalanceAfterStake)
     expect(stakerCdaiBalanceAfterWithdraw).to.be.equal(stakercDAIBalanceBeforeStake)
+    expect(stakingContractCdaiBalanceAfterStake.sub(stakingAmount)).to.be.equal(stakingContractCdaiBalanceBeforeStake)
+    expect(stakingContractCdaiBalanceAfterWithdraw.add(stakingAmount)).to.be.equal(stakingContractCdaiBalanceAfterStake)
   })
   it("it should be able to stake in iToken and withdraw in Token",async()=>{
     const stakingAmount = ethers.utils.parseUnits("100",8);
