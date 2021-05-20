@@ -75,7 +75,6 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		maxMultiplierThreshold = _maxRewardThreshold;
 		blockInterval = _blockInterval;
 		lastUBICollection = block.number.div(blockInterval);
-		_setShareToken(nameService.addresses(nameService.GOODDOLLAR()));
 		collectInterestGasCost = _collectInterestGasCost; // Should be adjusted according to this contract's gas cost
 	}
 
@@ -113,6 +112,16 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		mintInterestToken(_amount); //mint iToken
 		_mint(msg.sender, _amount); // mint Staking token for staker
 		_increaseProductivity(msg.sender, _amount);
+
+		//notify GDAO distrbution for stakers
+		StakersDistribution sd =
+			StakersDistribution(
+				nameService.addresses(nameService.GDAO_STAKERS())
+			);
+		if (address(sd) != 0) {
+			sd.userStaked(msg.sender, _amount);
+		}
+
 		emit Staked(msg.sender, address(token), _amount);
 	}
 
@@ -138,6 +147,16 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			token.transfer(msg.sender, tokenWithdraw),
 			"withdraw transfer failed"
 		);
+
+		//notify GDAO distrbution for stakers
+		StakersDistribution sd =
+			StakersDistribution(
+				nameService.addresses(nameService.GDAO_STAKERS())
+			);
+		if (address(sd) != 0) {
+			sd.userWithdraw(msg.sender, _amount);
+		}
+
 		emit StakeWithdraw(
 			msg.sender,
 			address(token),

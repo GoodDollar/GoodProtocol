@@ -5,6 +5,7 @@ import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DAOContract.sol";
 import "../utils/DSMath.sol";
+
 interface FundManager {
 	function rewardsForStakingContract(address _staking)
 		external
@@ -30,7 +31,6 @@ contract BaseShareField is DAOContract {
 	uint256 public mintedShare;
 	uint256 public mintCumulation;
 	uint64 public maxMultiplierThreshold;
-	address public shareToken;
 
 	uint256 public lastRewardBlock;
 	// Staking contracts accepts Token's most with 18 decimals so this variable to hold decimal difference between 18 and Token's decimal in order to make calculations
@@ -52,10 +52,6 @@ contract BaseShareField is DAOContract {
 			"Only FundManager can call this method"
 		);
 		_;
-	}
-
-	function _setShareToken(address _shareToken) internal {
-		shareToken = _shareToken;
 	}
 
 	/**
