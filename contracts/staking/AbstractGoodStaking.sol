@@ -58,7 +58,7 @@ contract AbstractGoodStaking {
 	/**
 	 * @dev Calculates worth of given amount of iToken in Token
 	 * @param _amount Amount of iToken to calculate worth in Token
-	 * @return Worth of given amount of token in Token
+	 * @return Worth of given amount of iToken in Token
 	 */
 	function iTokenWorthinToken(uint256 _amount)
 		external
