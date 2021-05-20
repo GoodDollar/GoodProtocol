@@ -76,6 +76,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		lastUBICollection = block.number.div(blockInterval);
 		_setShareToken(nameService.addresses(nameService.GOODDOLLAR()));
 		collectInterestGasCost = _collectInterestGasCost; // Should be adjusted according to this contract's gas cost
+		
+		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
 	}
 
 	/**
@@ -112,8 +114,6 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			);
 		_amount =_inInterestToken ? iTokenWorthinToken(_amount) : _amount;
 		if (_inInterestToken == false){
-			// approve the transfer to defi protocol
-			token.approve(address(iToken), _amount);
 			mintInterestToken(_amount); //mint iToken
 		}
 
