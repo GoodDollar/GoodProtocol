@@ -102,7 +102,18 @@ contract StakersDistribution is
 	 * @param _value the value to increase by
 	 */
 	function userStaked(address _staker, uint256 _value) external {
-		_increaseProductivity(msg.sender, _staker, _value);
+		(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) =
+			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()))
+				.rewardsForStakingContract(msg.sender);
+
+		if (isBlackListed == false)
+			_increaseProductivity(
+				msg.sender,
+				_staker,
+				_value,
+				blockStart,
+				blockEnd
+			);
 		_updateMonth(); //previous calls will use previous month reputation
 	}
 
@@ -112,7 +123,18 @@ contract StakersDistribution is
 	 * @param _value the value to decrease by
 	 */
 	function userWithdraw(address _staker, uint256 _value) external {
-		_decreaseProductivity(msg.sender, _staker, _value);
+		(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) =
+			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()))
+				.rewardsForStakingContract(msg.sender);
+
+		if (isBlackListed == false)
+			_decreaseProductivity(
+				msg.sender,
+				_staker,
+				_value,
+				blockStart,
+				blockEnd
+			);
 		_updateMonth(); //previous calls will use previous month reputation
 	}
 
@@ -126,9 +148,22 @@ contract StakersDistribution is
 		address[] calldata _stakingContracts
 	) external {
 		uint256 totalRep;
+		GoodFundManager gfm =
+			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()));
+
 		for (uint256 i = 0; i < _stakingContracts.length; i++) {
-			totalRep += _issueEarnedRewards(_stakingContracts[i], _staker);
+			(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) =
+				gfm.rewardsForStakingContract(_stakingContracts[i]);
+
+			if (isBlackListed == false)
+				totalRep += _issueEarnedRewards(
+					_stakingContracts[i],
+					_staker,
+					blockStart,
+					blockEnd
+				);
 		}
+
 		GReputation(nameService.addresses(nameService.REPUTATION())).mint(
 			_staker,
 			totalRep

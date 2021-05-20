@@ -51,19 +51,32 @@ abstract contract MultiBaseGovernanceShareField {
 	 * multiplying passed blocks since last calculation with rewards per block value
 	 * and add it to accumalated amount per share by dividing total productivity
 	 */
-	function _update(address _contract) internal virtual {
+	function _update(
+		address _contract,
+		uint256 _blockStart,
+		uint256 _blockEnd
+	) internal virtual {
 		if (totalProductivity[_contract] == 0) {
 			lastRewardBlock[_contract] = block.number;
 			return;
 		}
 
-		uint256 multiplier = block.number - lastRewardBlock[_contract]; // Blocks passed since last reward block
+		uint256 _lastRewardBlock = lastRewardBlock[_contract];
+
+		_lastRewardBlock = _lastRewardBlock < _blockStart
+			? _blockStart
+			: _lastRewardBlock;
+
+		uint256 curRewardBlock =
+			block.number > _blockEnd ? _blockEnd : block.number;
+
+		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block
 		uint256 reward = multiplier * rewardsPerBlock[_contract]; // rewardsPerBlock is in GDAO which is in 18 decimals
 
 		accAmountPerShare[_contract] =
 			accAmountPerShare[_contract] +
 			rdiv(reward, totalProductivity[_contract] * 1e16); // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
-		lastRewardBlock[_contract] = block.number;
+		lastRewardBlock[_contract] = curRewardBlock;
 	}
 
 	/**
@@ -92,10 +105,12 @@ abstract contract MultiBaseGovernanceShareField {
 	function _increaseProductivity(
 		address _contract,
 		address _user,
-		uint256 _value
+		uint256 _value,
+		uint256 _blockStart,
+		uint256 _blockEnd
 	) internal virtual returns (bool) {
 		UserInfo storage userInfo = contractToUsers[_contract][_user];
-		_update(_contract);
+		_update(_contract, _blockStart, _blockEnd);
 		_audit(_contract, _user);
 
 		totalProductivity[_contract] = totalProductivity[_contract] + _value;
@@ -114,7 +129,9 @@ abstract contract MultiBaseGovernanceShareField {
 	function _decreaseProductivity(
 		address _contract,
 		address _user,
-		uint256 _value
+		uint256 _value,
+		uint256 _blockStart,
+		uint256 _blockEnd
 	) internal virtual returns (bool) {
 		UserInfo storage userInfo = contractToUsers[_contract][_user];
 		require(
@@ -122,7 +139,7 @@ abstract contract MultiBaseGovernanceShareField {
 			"INSUFFICIENT_PRODUCTIVITY"
 		);
 
-		_update(_contract);
+		_update(_contract, _blockStart, _blockEnd);
 		_audit(_contract, _user);
 
 		userInfo.amount = userInfo.amount - _value;
@@ -171,11 +188,13 @@ abstract contract MultiBaseGovernanceShareField {
     * @return returns minted amount
     */
 
-	function _issueEarnedRewards(address _contract, address _user)
-		internal
-		returns (uint256)
-	{
-		_update(_contract);
+	function _issueEarnedRewards(
+		address _contract,
+		address _user,
+		uint256 _blockStart,
+		uint256 _blockEnd
+	) internal returns (uint256) {
+		_update(_contract, _blockStart, _blockEnd);
 		_audit(_contract, _user);
 		UserInfo storage userInfo = contractToUsers[_contract][_user];
 		uint256 amount = userInfo.rewardEarn;

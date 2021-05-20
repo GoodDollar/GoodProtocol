@@ -69,6 +69,7 @@ contract BaseShareField is DAOContract {
 		if (block.number >= blockStart && lastRewardBlock < blockStart) {
 			lastRewardBlock = blockStart;
 		}
+
 		if (block.number >= blockStart && blockEnd >= block.number) {
 			uint256 multiplier = block.number - lastRewardBlock; // Blocks passed since last reward block
 			uint256 reward = multiplier * (rewardsPerBlock * 1e16); // rewardsPerBlock is in G$ which is only 2 decimals, we turn it into 18 decimals by multiplying 1e16
