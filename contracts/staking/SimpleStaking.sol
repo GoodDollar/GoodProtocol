@@ -164,14 +164,14 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		if (caseType) {
 			tokenBalance =
 				(iToken.balanceOf(address(this)) *
-					(10 ** decimalDifference) *
+					(10**decimalDifference) *
 					er) /
-				10 ** mantissa; // based on https://compound.finance/docs#protocol-math
+				10**mantissa; // based on https://compound.finance/docs#protocol-math
 		} else {
 			tokenBalance =
-				((iToken.balanceOf(address(this)) / (10 ** decimalDifference)) *
+				((iToken.balanceOf(address(this)) / (10**decimalDifference)) *
 					er) /
-				10 ** mantissa; // based on https://compound.finance/docs#protocol-math
+				10**mantissa; // based on https://compound.finance/docs#protocol-math
 		}
 		return tokenBalance;
 	}
@@ -232,14 +232,14 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal(); // based on https://compound.finance/docs#protocol-math
 		if (caseType) {
 			iTokenGains =
-				((tokenGains / 10 ** decimalDifference) * 10 ** mantissa) /
+				((tokenGains / 10**decimalDifference) * 10**mantissa) /
 				er; // based on https://compound.finance/docs#protocol-math
 		} else {
 			iTokenGains =
-				((tokenGains * 10 ** decimalDifference) * 10 ** mantissa) /
+				((tokenGains * 10**decimalDifference) * 10**mantissa) /
 				er; // based on https://compound.finance/docs#protocol-math
 		}
-		tokenGains = getTokenPriceInUSD(tokenGains);
+		tokenGains = getTokenValueInUSD(tokenGains);
 		return (iTokenGains, tokenGains);
 	}
 
@@ -320,10 +320,10 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 @dev _amount Amount of Token to calculate worth of it
 	 @return Returns worth of Tokens in USD
 	 */
-	function getTokenPriceInUSD(uint256 _amount) public view returns (uint256) {
+	function getTokenValueInUSD(uint256 _amount) public view returns (uint256) {
 		AggregatorV3Interface tokenPriceOracle =
 			AggregatorV3Interface(getTokenUsdOracle());
 		(, int256 tokenPriceinUSD, , , ) = tokenPriceOracle.latestRoundData();
-		return (uint256(tokenPriceinUSD) * _amount) / (10 ** token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's decimal at the end to reduce 8 decimals back
+		return (uint256(tokenPriceinUSD) * _amount) / (10**token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's decimal at the end to reduce 8 decimals back
 	}
 }
