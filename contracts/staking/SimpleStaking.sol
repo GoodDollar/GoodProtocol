@@ -10,6 +10,7 @@ import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";
 import "./StakingToken.sol";
+import "../governance/StakersDistribution.sol";
 
 /**
  * @title Staking contract that donates earned interest to the DAO
@@ -118,7 +119,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			StakersDistribution(
 				nameService.addresses(nameService.GDAO_STAKERS())
 			);
-		if (address(sd) != 0) {
+		if (address(sd) != address(0)) {
 			sd.userStaked(msg.sender, _amount);
 		}
 
@@ -153,7 +154,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			StakersDistribution(
 				nameService.addresses(nameService.GDAO_STAKERS())
 			);
-		if (address(sd) != 0) {
+		if (address(sd) != address(0)) {
 			sd.userWithdraw(msg.sender, _amount);
 		}
 
