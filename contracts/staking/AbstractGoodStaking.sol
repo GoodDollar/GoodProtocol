@@ -44,7 +44,7 @@ contract AbstractGoodStaking {
 	function stake(
 		uint256 _amount,
 		uint256 _donationPer,
-		bool inInterestToken
+		bool _inInterestToken
 	) external virtual {}
 
 	/**
