@@ -10,7 +10,6 @@ import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";
 import "./StakingToken.sol";
-
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Tokens
@@ -101,17 +100,13 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			"Donation percentage should be 0 or 100"
 		);
 		require(_amount > 0, "You need to stake a positive token amount");
-		if (_inInterestToken) {
-			require(
-				iToken.transferFrom(msg.sender, address(this), _amount),
+		require(
+				(_inInterestToken ? iToken : token).transferFrom(msg.sender, address(this), _amount),
 				"transferFrom failed, make sure you approved token transfer"
 			);
+		if (_inInterestToken) {
 			_amount = iTokenWorthinToken(_amount);
 		} else {
-			require(
-				token.transferFrom(msg.sender, address(this), _amount),
-				"transferFrom failed, make sure you approved token transfer"
-			);
 			// approve the transfer to defi protocol
 			token.approve(address(iToken), _amount);
 			mintInterestToken(_amount); //mint iToken

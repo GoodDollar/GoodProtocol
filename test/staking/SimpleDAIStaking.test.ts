@@ -1188,21 +1188,38 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     //   web3.utils.toWei("10", "gwei") + precisionLossDai
     // );
   });
+  it("it should be reverted when approved iToken amount is less than stake amount",async()=>{
+    const stakingAmount = ethers.utils.parseUnits("100",8);
+    await cDAI["mint(address,uint256)"](staker.address, stakingAmount);
+    await cDAI.connect(staker).approve(goodCompoundStaking.address, stakingAmount.div(2));
+    const transaction = await goodCompoundStaking
+    .connect(staker)
+    .stake(stakingAmount, 100, true).catch(e=>e)
+    expect(transaction.message).to.have.string("ERC20: transfer amount exceeds allowance")
+
+  })
   it("it should be able stake and withdraw their stake in iToken",async()=>{
     const stakingAmount = ethers.utils.parseUnits("100",8);
 
     await cDAI["mint(address,uint256)"](staker.address, stakingAmount);
+    const stakercDAIBalanceBeforeStake = await cDAI.balanceOf(staker.address)
     await cDAI.connect(staker).approve(goodCompoundStaking.address, stakingAmount);
     const productivityBeforeStake = await goodCompoundStaking.getProductivity(staker.address)
 
     await goodCompoundStaking
       .connect(staker)
       .stake(stakingAmount, 100, true)
+    const stakercDAIBalanceAfterStake = await cDAI.balanceOf(staker.address)
+    const productivityAfterStake = await goodCompoundStaking.getProductivity(staker.address)
       await goodCompoundStaking
       .connect(staker)
       .withdrawStake(stakingAmount, true)
+    const stakerCdaiBalanceAfterWithdraw = await cDAI.balanceOf(staker.address)
     const productivityAfterWithdraw = await goodCompoundStaking.getProductivity(staker.address)
+    expect(productivityAfterStake[0].gt(productivityBeforeStake[0])).to.be.true;
     expect(productivityBeforeStake[0]).to.be.equal(productivityAfterWithdraw[0])
+    expect(stakercDAIBalanceBeforeStake.sub(stakingAmount)).to.be.equal(stakercDAIBalanceAfterStake)
+    expect(stakerCdaiBalanceAfterWithdraw).to.be.equal(stakercDAIBalanceBeforeStake)
   })
   it("it should be able to stake in iToken and withdraw in Token",async()=>{
     const stakingAmount = ethers.utils.parseUnits("100",8);
@@ -1211,31 +1228,47 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await cDAI["mint(address,uint256)"](staker.address, stakingAmount);
     await cDAI.connect(staker).approve(goodCompoundStaking.address, stakingAmount);
     const productivityBeforeStake = await goodCompoundStaking.getProductivity(staker.address)
+    const stakerCdaiBalanceBeforeStake = await cDAI.balanceOf(staker.address)
     await goodCompoundStaking
       .connect(staker)
       .stake(stakingAmount, 100, true)
+    const stakerCdaiBalanceAfterStake = await cDAI.balanceOf(staker.address)
+    const productivityAfterStaker = await goodCompoundStaking.getProductivity(staker.address)
+    const stakerDaiBalanceBeforeWithdraw = await dai.balanceOf(staker.address)
       await goodCompoundStaking
       .connect(staker)
       .withdrawStake("1603010101010101010101", false) // 1603010101010101010101 is equaliavent of 100cDAI in DAI with currentexchange rate
+    const stakerDaiBalanceAfterWithdraw = await dai.balanceOf(staker.address)
     const productivityAfterWithdraw = await goodCompoundStaking.getProductivity(staker.address)
     expect(productivityBeforeStake[0]).to.be.equal(productivityAfterWithdraw[0])
+    expect (stakerDaiBalanceAfterWithdraw.gt(stakerDaiBalanceBeforeWithdraw))
+    expect(productivityAfterStaker[0].gt(productivityBeforeStake[0])).to.be.true;
+    expect(stakerCdaiBalanceBeforeStake.sub(stakingAmount)).to.be.equal(stakerCdaiBalanceAfterStake)
   })
 
   it("it should be able to stake in Token and withdraw in iToken",async()=>{
     const stakingAmount = ethers.utils.parseEther("100")
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
     await dai.connect(staker).approve(goodCompoundStaking.address, stakingAmount);
+    const stakerDaiBalanceBeforeStake = await dai.balanceOf(staker.address)
     const productivityBeforeStake = await goodCompoundStaking.getProductivity(staker.address)
     await goodCompoundStaking
       .connect(staker)
       .stake(stakingAmount, 100, false)
+    const stakerDaiBalanceAfterStake = await dai.balanceOf(staker.address)
+    const productivityAfterStake = await goodCompoundStaking.getProductivity(staker.address)
+    const stakerCdaiBalanceBeforeWithdraw = await cDAI.balanceOf(staker.address)
     await goodCompoundStaking
       .connect(staker)
       .withdrawStake("623826387", true) 
     await goodCompoundStaking.connect(staker).withdrawStake("000000000036236363637",false);// 000000000036236363637 is precision loss due to itoken decimals < token decimals
+    const stakerCdaiBalanceAfterWithdraw = await cDAI.balanceOf(staker.address)
     const productivityAfterWithdraw = await goodCompoundStaking.getProductivity(staker.address)
     
-    expect(productivityBeforeStake[0]).to.be.equal(productivityAfterWithdraw[0]) 
+    expect(productivityBeforeStake[0]).to.be.equal(productivityAfterWithdraw[0])
+    expect(productivityAfterStake[0].gt(productivityBeforeStake[0])).to.be.true;
+    expect(stakerDaiBalanceAfterStake.add(stakingAmount)).to.be.equal(stakerDaiBalanceBeforeStake)
+    expect(stakerCdaiBalanceBeforeWithdraw.add("623826387")).to.be.equal(stakerCdaiBalanceAfterWithdraw)
   })
 
   it("should not withdraw interest if the recipient specified by the owner is the staking contract", async () => {
