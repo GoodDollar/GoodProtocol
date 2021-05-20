@@ -104,9 +104,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 				(_inInterestToken ? iToken : token).transferFrom(msg.sender, address(this), _amount),
 				"transferFrom failed, make sure you approved token transfer"
 			);
-		if (_inInterestToken) {
-			_amount = iTokenWorthinToken(_amount);
-		} else {
+		_amount =_inInterestToken ? iTokenWorthinToken(_amount) : _amount;
+		if (_inInterestToken == false){
 			// approve the transfer to defi protocol
 			token.approve(address(iToken), _amount);
 			mintInterestToken(_amount); //mint iToken
