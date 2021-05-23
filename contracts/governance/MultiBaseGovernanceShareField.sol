@@ -62,20 +62,18 @@ abstract contract MultiBaseGovernanceShareField {
 		}
 
 		uint256 _lastRewardBlock = lastRewardBlock[_contract];
-
-		_lastRewardBlock = _lastRewardBlock < _blockStart
+		_lastRewardBlock = _lastRewardBlock < _blockStart && block.number >= _blockStart
 			? _blockStart
 			: _lastRewardBlock;
-
 		uint256 curRewardBlock =
 			block.number > _blockEnd ? _blockEnd : block.number;
-
+		if(_lastRewardBlock > _blockEnd) return;
 		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block
 		uint256 reward = multiplier * rewardsPerBlock[_contract]; // rewardsPerBlock is in GDAO which is in 18 decimals
 
 		accAmountPerShare[_contract] =
 			accAmountPerShare[_contract] +
-			rdiv(reward, totalProductivity[_contract] * 1e16); // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
+			rdiv(reward, totalProductivity[_contract]); // totalProductivity in 18decimals  so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
 		lastRewardBlock[_contract] = curRewardBlock;
 	}
 
@@ -87,8 +85,8 @@ abstract contract MultiBaseGovernanceShareField {
 		if (userInfo.amount > 0) {
 			uint256 pending =
 				(userInfo.amount * accAmountPerShare[_contract]) /
-					1e11 -
-					userInfo.rewardDebt; // Divide 1e11(because userinfo.amount in 2 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
+					1e27 -
+					userInfo.rewardDebt; // Divide 1e27(because userinfo.amount in 18 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
 			userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
 			totalRewardsAccumulated[_contract] =
 				totalRewardsAccumulated[_contract] +
@@ -117,7 +115,7 @@ abstract contract MultiBaseGovernanceShareField {
 		userInfo.amount = userInfo.amount + _value;
 		userInfo.rewardDebt =
 			(userInfo.amount * accAmountPerShare[_contract]) /
-			1e11; // Divide to 1e11 to keep rewardDebt in 18 decimals since accAmountPerShare is in 27 decimals and amount is GD which is 2 decimals
+			1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is in 27 decimals and amount is 18 decimals
 		return true;
 	}
 
@@ -145,7 +143,7 @@ abstract contract MultiBaseGovernanceShareField {
 		userInfo.amount = userInfo.amount - _value;
 		userInfo.rewardDebt =
 			(userInfo.amount * accAmountPerShare[_contract]) /
-			1e11; // Divide to 1e11 to keep rewardDebt in 18 decimals since accAmountPerShare is in 27 decimals and amount is GD which is 2 decimals
+			1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is in 27 decimals and amount is 18 decimals
 		totalProductivity[_contract] = totalProductivity[_contract] - _value;
 
 		return true;
@@ -174,13 +172,13 @@ abstract contract MultiBaseGovernanceShareField {
 
 				_accAmountPerShare =
 					_accAmountPerShare +
-					rdiv(reward, totalProductivity[_contract] * 1e16); // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
+					rdiv(reward, totalProductivity[_contract]); // totalProductivity in 18decimals  so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
 
 				pending += userInfo.rewardEarn;
 				pending +=
 					(userInfo.amount * _accAmountPerShare) /
-					1e11 -
-					userInfo.rewardDebt; // Divide 1e11(because userinfo.amount in 2 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
+					1e27 -
+					userInfo.rewardDebt; // Divide 1e27(because userinfo.amount in 18 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
 			}
 		}
 		return pending;

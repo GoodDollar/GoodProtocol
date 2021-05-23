@@ -28,8 +28,8 @@ contract StakersDistribution is
 
 	function initialize(NameService _ns) public initializer {
 		monthlyReputationDistribution = 2000000 ether; //2M as specified in specs
-		_updateMonth();
 		setDAO(_ns);
+		_updateMonth();	
 	}
 
 	function getChainBlocksPerMonth() public pure override returns (uint256) {
@@ -60,7 +60,6 @@ contract StakersDistribution is
 				);
 
 			uint256 activeContractsCount = gfm.getActiveContractsCount();
-
 			address payable[] memory activeStakingList =
 				new address payable[](activeContractsCount);
 			uint256[] memory contractLockedValue =
@@ -71,7 +70,7 @@ contract StakersDistribution is
 				activeStakingList[i] = payable(gfm.activeContracts(i));
 				(, uint64 blockStart, uint64 blockEnd, ) =
 					gfm.rewardsForStakingContract(activeStakingList[i]);
-				if (blockStart >= block.number && blockEnd < block.number) {
+				if (blockStart <= block.number && blockEnd > block.number) {
 					contractLockedValue[i] = SimpleStaking(activeStakingList[i])
 						.getTokenValueInUSD(
 						SimpleStaking(activeStakingList[i]).currentTokenWorth()
@@ -115,7 +114,7 @@ contract StakersDistribution is
 				blockEnd
 			);
 
-		address[] memory contracts;
+		address[] memory contracts = new address[](1);
 		contracts[0] = (address(this));
 		_claimReputation(_staker, contracts);
 
@@ -141,7 +140,7 @@ contract StakersDistribution is
 				blockEnd
 			);
 
-		address[] memory contracts;
+		address[] memory contracts = new address[](1);
 		contracts[0] = (address(this));
 		_claimReputation(_staker, contracts);
 		_updateMonth(); //previous calls will use previous month reputation

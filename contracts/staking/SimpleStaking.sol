@@ -120,7 +120,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 				nameService.addresses(nameService.GDAO_STAKERS())
 			);
 		if (address(sd) != address(0)) {
-			sd.userStaked(msg.sender, _amount);
+			uint stakeAmountInEighteenDecimals = token.decimals() == 18 ? _amount : _amount * 10 ** (18 - token.decimals());
+			sd.userStaked(msg.sender, stakeAmountInEighteenDecimals);
 		}
 
 		emit Staked(msg.sender, address(token), _amount);
@@ -155,7 +156,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 				nameService.addresses(nameService.GDAO_STAKERS())
 			);
 		if (address(sd) != address(0)) {
-			sd.userWithdraw(msg.sender, _amount);
+			uint withdrawAmountInEighteenDecimals = token.decimals() == 18 ? _amount : _amount * 10 ** (18 - token.decimals());
+			sd.userWithdraw(msg.sender, withdrawAmountInEighteenDecimals);
 		}
 
 		emit StakeWithdraw(
