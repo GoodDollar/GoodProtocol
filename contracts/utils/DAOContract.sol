@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../DAOStackInterfaces.sol";
 import "./NameService.sol";
 import "../Interfaces.sol";
 
 /**
-@title Simple contract that adds onlyAvatar modifier
+@title Simple contract that keeps DAO contracts registery
 */
 
 contract DAOContract {

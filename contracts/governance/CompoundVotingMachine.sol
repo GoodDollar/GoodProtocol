@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 
 import "../DAOStackInterfaces.sol";
-import "../utils/DAOContract.sol";
+import "../utils/DAOUpgradableContract.sol";
 
-contract CompoundVotingMachine is
-	Initializable,
-	ContextUpgradeable,
-	DAOContract
-{
+contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradableContract {
 	/// @notice The name of this contract
 	string public constant name = "GoodDAO Voting Machine";
 

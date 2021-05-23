@@ -40,7 +40,7 @@
   "homepage": "https://gooddollar.org",
   "dependencies": {
     "@gooddollar/goodcontracts": "^2.6.1",
-    "@openzeppelin/contracts-upgradeable": "^4.0.0",
+    "@openzeppelin/contracts-upgradeable": "^4.1.0",
     "openzeppelin-solidity": "^4.0.0"
   },
   "devDependencies": {

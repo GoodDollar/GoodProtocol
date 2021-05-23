@@ -17,7 +17,7 @@ import "../staking/SimpleStaking.sol";
  */
 contract StakersDistribution is
 	Initializable,
-	DAOContract,
+	DAOUpgradableContract,
 	MultiBaseGovernanceShareField
 {
 	///@notice reputation to distribute each month, will effect next month when set

@@ -2,12 +2,12 @@
 pragma solidity >=0.8.0;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-import "../utils/DAOContract.sol";
+import "../utils/DAOUpgradableContract.sol";
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../governance/GReputation.sol";
 
-contract ClaimersDistribution is Initializable, DAOContract {
+contract ClaimersDistribution is Initializable, DAOUpgradableContract {
 	///@notice reputation to distribute each month, will effect next month when set
 	uint256 public monthlyReputationDistribution;
 

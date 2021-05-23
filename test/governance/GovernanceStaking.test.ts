@@ -102,9 +102,11 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     });
 
     console.log("setting permissions...");
-    governanceStaking = await upgrades.deployProxy(governanceStakingFactory, [
-      nameService.address
-    ]);
+    governanceStaking = await upgrades.deployProxy(
+      governanceStakingFactory,
+      [nameService.address],
+      { kind: "uups" }
+    );
 
     setDAOAddress("CDAI", cDAI.address);
     setDAOAddress("DAI", dai.address);
@@ -414,7 +416,8 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     );
     const simpleGovernanceStaking = await upgrades.deployProxy(
       governanceStakingFactory,
-      [nameService.address]
+      [nameService.address],
+      { kind: "uups" }
     );
     await setDAOAddress("GDAO_STAKING", simpleGovernanceStaking.address);
     await goodDollar.mint(founder.address, "200");

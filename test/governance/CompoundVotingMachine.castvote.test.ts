@@ -33,18 +33,14 @@ describe("CompoundVotingMachine#CastVote", () => {
       avatar,
       reputation,
       setDAOAddress,
-      nameService
+      nameService,
+      votingMachine
     } = await createDAO();
-
+    gov = votingMachine;
     grep = (await ethers.getContractAt(
       "GReputation",
       reputation
     )) as GReputation;
-
-    gov = (await upgrades.deployProxy(CompoundVotingMachine, [
-      nameService.address,
-      5760
-    ])) as CompoundVotingMachine;
 
     //this will give root minter permissions
     setDAOAddress("GDAO_CLAIMERS", root.address);

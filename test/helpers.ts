@@ -10,7 +10,7 @@ import SchemeRegistrar from "@gooddollar/goodcontracts/build/contracts/SchemeReg
 import AbsoluteVote from "@gooddollar/goodcontracts/build/contracts/AbsoluteVote.json";
 import UpgradeScheme from "@gooddollar/goodcontracts/build/contracts/UpgradeScheme.json";
 
-import { Controller, GoodMarketMaker } from "../types";
+import { Controller, GoodMarketMaker, CompoundVotingMachine } from "../types";
 
 export const createDAO = async () => {
   let [root, ...signers] = await ethers.getSigners();
@@ -155,6 +155,7 @@ export const createDAO = async () => {
     GReputation,
     [nameService.address, "", ethers.constants.HashZero, 0],
     {
+      kind: "uups",
       initializer: "initialize(address, string, bytes32, uint256)"
     }
   );
@@ -233,6 +234,12 @@ export const createDAO = async () => {
     "1000000" //100% rr
   );
 
+  const votingMachine = (await upgrades.deployProxy(
+    await ethers.getContractFactory("CompoundVotingMachine"),
+    [nameService.address, 5760],
+    { kind: "uups" }
+  )) as CompoundVotingMachine;
+
   return {
     daoCreator,
     controller,
@@ -250,7 +257,8 @@ export const createDAO = async () => {
     feeFormula: FeeFormula,
     daiAddress: dai.address,
     cdaiAddress: cDAI.address,
-    reputation: reputation.address
+    reputation: reputation.address,
+    votingMachine
   };
 };
 

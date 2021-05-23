@@ -111,34 +111,41 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     const tokenUsdOracleFactory = await ethers.getContractFactory(
-        "BatUSDMockOracle"
-      );
-      daiUsdOracle = await tokenUsdOracleFactory.deploy();
-      simpleStaking = await simpleStakingFactory.deploy(
-        dai.address,
-        cDAI.address,
-        BLOCK_INTERVAL,
-        nameService.address,
-        "Good DAI",
-        "gDAI",
-        "200",
-        daiUsdOracle.address,
-        "100000"
-      );
-      const ictrl = await ethers.getContractAt(
-        "Controller",
-        controller,
-        schemeMock
-      );
-      const currentBlockNumber = await ethers.provider.getBlockNumber()
-      const encodedData = goodFundManagerFactory.interface.encodeFunctionData(
-        "setStakingReward",
-        ["1000", simpleStaking.address, currentBlockNumber, currentBlockNumber + 1000, false] // set 10 gd per block
-      );
-      await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+      "BatUSDMockOracle"
+    );
+    daiUsdOracle = await tokenUsdOracleFactory.deploy();
+    simpleStaking = await simpleStakingFactory.deploy(
+      dai.address,
+      cDAI.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good DAI",
+      "gDAI",
+      "200",
+      daiUsdOracle.address,
+      "100000"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    const encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking.address,
+        currentBlockNumber,
+        currentBlockNumber + 1000,
+        false
+      ] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
     stakersDistribution = await upgrades.deployProxy(
       stakersDistributiongFactory,
-      [nameService.address]
+      [nameService.address],
+      { kind: "uups" }
     );
 
     setDAOAddress("CDAI", cDAI.address);
@@ -162,8 +169,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
-    await setDAOAddress("GDAO_STAKERS",stakersDistribution.address)
-   
+    await setDAOAddress("GDAO_STAKERS", stakersDistribution.address);
   });
 
   it("it should have 2M monthly Reputation distribution", async () => {
@@ -173,35 +179,51 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     );
   });
 
-  it("it should have 0 monthly rewards since staking amount was zero while initializing stakersDistribution",async()=>{
-    const rewardsPerBlock = await stakersDistribution.rewardsPerBlock(simpleStaking.address)
-    expect(rewardsPerBlock).to.be.equal(0)
-  })
+  it("it should have 0 monthly rewards since staking amount was zero while initializing stakersDistribution", async () => {
+    const rewardsPerBlock = await stakersDistribution.rewardsPerBlock(
+      simpleStaking.address
+    );
+    expect(rewardsPerBlock).to.be.equal(0);
+  });
 
-  it("It should update monthly rewards according to staking amount of staking contract after one month passed from initialized",async() =>{
-      const stakingAmount = ethers.utils.parseEther("1000")
-      const rewardsPerBlockBeforeStake = await stakersDistribution.rewardsPerBlock(simpleStaking.address)
-     
-      await dai["mint(address,uint256)"](staker.address,stakingAmount.mul(2))
-      await dai.connect(staker).approve(simpleStaking.address,stakingAmount.mul(2))
-      await simpleStaking.connect(staker).stake(stakingAmount,0)
-      await increaseTime(86700 * 30)
-      await simpleStaking.connect(staker).stake(stakingAmount,0)
-      const rewardsPerBlockAfterStake = await stakersDistribution.rewardsPerBlock(simpleStaking.address)
-      await simpleStaking.connect(staker).withdrawStake(stakingAmount.mul(2))
-      const rewardsPerBlockAfterWithdraw = await stakersDistribution.rewardsPerBlock(simpleStaking.address)
-      const chainBlockPerMonth = await stakersDistribution.getChainBlocksPerMonth()
-      expect(rewardsPerBlockBeforeStake).to.be.equal(BN.from("0"))
-      expect(rewardsPerBlockAfterStake).to.be.equal(ethers.utils.parseEther("2000000").div(chainBlockPerMonth))
-      expect(rewardsPerBlockAfterStake).to.be.equal(rewardsPerBlockAfterWithdraw)
-  })
+  it("It should update monthly rewards according to staking amount of staking contract after one month passed from initialized", async () => {
+    const stakingAmount = ethers.utils.parseEther("1000");
+    const rewardsPerBlockBeforeStake = await stakersDistribution.rewardsPerBlock(
+      simpleStaking.address
+    );
 
-  it("it should not be set monthly reputation when not Avatar",async()=>{
-    const transaction = await stakersDistribution.setMonthlyReputationDistribution("1000000").catch(e=>e)
-    expect(transaction.message).to.have.string("only avatar can call this method")
-  })
-  
-  it("it should distribute monthly rewards according to staking amount of contracts so in this particular case simpleStaking contract should get %75 of the monthly rewards ",async()=>{
+    await dai["mint(address,uint256)"](staker.address, stakingAmount.mul(2));
+    await dai
+      .connect(staker)
+      .approve(simpleStaking.address, stakingAmount.mul(2));
+    await simpleStaking.connect(staker).stake(stakingAmount, 0);
+    await increaseTime(86700 * 30);
+    await simpleStaking.connect(staker).stake(stakingAmount, 0);
+    const rewardsPerBlockAfterStake = await stakersDistribution.rewardsPerBlock(
+      simpleStaking.address
+    );
+    await simpleStaking.connect(staker).withdrawStake(stakingAmount.mul(2));
+    const rewardsPerBlockAfterWithdraw = await stakersDistribution.rewardsPerBlock(
+      simpleStaking.address
+    );
+    const chainBlockPerMonth = await stakersDistribution.getChainBlocksPerMonth();
+    expect(rewardsPerBlockBeforeStake).to.be.equal(BN.from("0"));
+    expect(rewardsPerBlockAfterStake).to.be.equal(
+      ethers.utils.parseEther("2000000").div(chainBlockPerMonth)
+    );
+    expect(rewardsPerBlockAfterStake).to.be.equal(rewardsPerBlockAfterWithdraw);
+  });
+
+  it("it should not be set monthly reputation when not Avatar", async () => {
+    const transaction = await stakersDistribution
+      .setMonthlyReputationDistribution("1000000")
+      .catch(e => e);
+    expect(transaction.message).to.have.string(
+      "only avatar can call this method"
+    );
+  });
+
+  it("it should distribute monthly rewards according to staking amount of contracts so in this particular case simpleStaking contract should get %75 of the monthly rewards ", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -225,37 +247,62 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       controller,
       schemeMock
     );
-    const currentBlockNumber = await ethers.provider.getBlockNumber()
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
     let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
-      ["1000", simpleStaking1.address, currentBlockNumber, currentBlockNumber+1000, false] // set 10 gd per block
+      [
+        "1000",
+        simpleStaking1.address,
+        currentBlockNumber,
+        currentBlockNumber + 1000,
+        false
+      ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
-    const stakingAmount = ethers.utils.parseEther("1000")
-    const rewardsPerBlockBeforeStakeContractOne = await stakersDistribution.rewardsPerBlock(simpleStaking.address)
-    const rewardsPerBlockBeforeStakeContractTwo = await stakersDistribution.rewardsPerBlock(simpleStaking1.address)
-    
-    await dai["mint(address,uint256)"](staker.address,stakingAmount.mul(100))
-    await dai.connect(staker).approve(simpleStaking.address,stakingAmount.mul(75))
-    await simpleStaking.connect(staker).stake(stakingAmount.mul(50),0)
-    await dai.connect(staker).approve(simpleStaking1.address,stakingAmount.mul(25))
-    await simpleStaking1.connect(staker).stake(stakingAmount.mul(25),0)
-    await increaseTime(86700 * 30) // Increase one month
-    await simpleStaking.connect(staker).stake(stakingAmount.mul(25),0)
+    const stakingAmount = ethers.utils.parseEther("1000");
+    const rewardsPerBlockBeforeStakeContractOne = await stakersDistribution.rewardsPerBlock(
+      simpleStaking.address
+    );
+    const rewardsPerBlockBeforeStakeContractTwo = await stakersDistribution.rewardsPerBlock(
+      simpleStaking1.address
+    );
 
+    await dai["mint(address,uint256)"](staker.address, stakingAmount.mul(100));
+    await dai
+      .connect(staker)
+      .approve(simpleStaking.address, stakingAmount.mul(75));
+    await simpleStaking.connect(staker).stake(stakingAmount.mul(50), 0);
+    await dai
+      .connect(staker)
+      .approve(simpleStaking1.address, stakingAmount.mul(25));
+    await simpleStaking1.connect(staker).stake(stakingAmount.mul(25), 0);
+    await increaseTime(86700 * 30); // Increase one month
+    await simpleStaking.connect(staker).stake(stakingAmount.mul(25), 0);
 
-    const rewardsPerBlockAfterStakeContractOne = await stakersDistribution.rewardsPerBlock(simpleStaking.address)
-    const rewardsPerBlockAftereStakeContractTwo = await stakersDistribution.rewardsPerBlock(simpleStaking1.address)
-    await simpleStaking.connect(staker).withdrawStake(stakingAmount.mul(75))
-    expect(rewardsPerBlockAfterStakeContractOne).to.be.equal(rewardsPerBlockAftereStakeContractTwo.mul(3).add(BN.from('69444445'))) // added 69444445 cause of precision loss
+    const rewardsPerBlockAfterStakeContractOne = await stakersDistribution.rewardsPerBlock(
+      simpleStaking.address
+    );
+    const rewardsPerBlockAftereStakeContractTwo = await stakersDistribution.rewardsPerBlock(
+      simpleStaking1.address
+    );
+    await simpleStaking.connect(staker).withdrawStake(stakingAmount.mul(75));
+    expect(rewardsPerBlockAfterStakeContractOne).to.be.equal(
+      rewardsPerBlockAftereStakeContractTwo.mul(3).add(BN.from("69444445"))
+    ); // added 69444445 cause of precision loss
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
-      ["1000", simpleStaking1.address, currentBlockNumber, currentBlockNumber+1000, true] // set 10 gd per block
+      [
+        "1000",
+        simpleStaking1.address,
+        currentBlockNumber,
+        currentBlockNumber + 1000,
+        true
+      ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
-  })
+  });
 
-  it("It should not update monthly rewards if staking contract's blockEnd Passed",async()=>{
+  it("It should not update monthly rewards if staking contract's blockEnd Passed", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -267,125 +314,98 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       controller,
       schemeMock
     );
-    const currentBlockNumber = await ethers.provider.getBlockNumber()
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
     let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
-      ["1000", simpleStaking.address, currentBlockNumber - 5, currentBlockNumber + 20, false] // set 10 gd per block
+      [
+        "1000",
+        simpleStaking.address,
+        currentBlockNumber - 5,
+        currentBlockNumber + 20,
+        false
+      ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
-    const stakingAmount = ethers.utils.parseEther("1000")
-    await dai["mint(address,uint256)"](staker.address,stakingAmount.mul(2))
-    await dai.connect(staker).approve(simpleStaking.address,stakingAmount.mul(2))
-    const rewardsPerBlockBeforeStake = await stakersDistribution.rewardsPerBlock(simpleStaking.address)
-    const blockNumberOfStake = (await ethers.provider.getBlockNumber()) + 1
-    await simpleStaking.connect(staker).stake(stakingAmount,0)
-    await advanceBlocks(40)
-    await increaseTime(86700 * 30) // Increase one month
-    const stakerGDAOBalanceBeforeStake= await grep.balanceOf(staker.address)
-    await simpleStaking.connect(staker).stake(stakingAmount,0)
-    const stakerGDAOBalanceAfterStake = await grep.balanceOf(staker.address)
-    await simpleStaking.connect(staker).withdrawRewards()
-    
-    const rewardsPerBlockAfterStake = await stakersDistribution.rewardsPerBlock(simpleStaking.address)
-    const GDAOBalanceBeforeWithdraw = await grep.balanceOf(staker.address)
-    await advanceBlocks(10)
-    await simpleStaking.connect(staker).withdrawStake(stakingAmount)
-    const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address)
+    const stakingAmount = ethers.utils.parseEther("1000");
+    await dai["mint(address,uint256)"](staker.address, stakingAmount.mul(2));
+    await dai
+      .connect(staker)
+      .approve(simpleStaking.address, stakingAmount.mul(2));
+    const rewardsPerBlockBeforeStake = await stakersDistribution.rewardsPerBlock(
+      simpleStaking.address
+    );
+    await simpleStaking.connect(staker).stake(stakingAmount, 0);
+    await advanceBlocks(40);
+    await increaseTime(86700 * 30); // Increase one month
+    await simpleStaking.connect(staker).stake(stakingAmount, 0);
+    const stakerGDAOBalanceBeforeWithdrawRewards = await grep.balanceOf(
+      staker.address
+    );
+    await simpleStaking.connect(staker).withdrawRewards();
+    const stakerGDAOBalanceAfterWithdrawRewards = await grep.balanceOf(
+      staker.address
+    );
+    const rewardsPerBlockAfterStake = await stakersDistribution.rewardsPerBlock(
+      simpleStaking.address
+    );
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOf(staker.address);
+    await advanceBlocks(10);
+    await simpleStaking.connect(staker).withdrawStake(stakingAmount);
+    const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address);
     expect(rewardsPerBlockAfterStake).to.be.equal(rewardsPerBlockBeforeStake); // Should not update rewards per block since simplestaking blockend passed
-    expect(GDAOBalanceBeforeWithdraw).to.be.equal(GDAOBalanceAfterWithdraw) // Should not earn any GDAO since simplestaking blockend passed
-    expect(stakerGDAOBalanceAfterStake).to.be.gt(stakerGDAOBalanceBeforeStake)
-    expect(stakerGDAOBalanceAfterStake).to.be.equal(stakerGDAOBalanceBeforeStake.add(rewardsPerBlockBeforeStake.mul((currentBlockNumber + 20 - blockNumberOfStake))))
-    
-  })
+    expect(GDAOBalanceBeforeWithdraw).to.be.equal(GDAOBalanceAfterWithdraw); // Should not earn any GDAO since simplestaking blockend passed
+    expect(
+      stakerGDAOBalanceAfterWithdrawRewards.gt(
+        stakerGDAOBalanceBeforeWithdrawRewards
+      )
+    ).to.be.true;
+  });
 
-  it("it should give distribute if blockend passed but some of the rewards during reward period was not distributed",async()=>{
-      const goodFundManagerFactory = await ethers.getContractFactory(
-        "GoodFundManager"
-      );
-      const ictrl = await ethers.getContractAt(
-        "Controller",
-        controller,
-        schemeMock
-      );
-      const currentBlockNumber = await ethers.provider.getBlockNumber()
-      let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
-        "setStakingReward",
-        ["1000", simpleStaking.address, currentBlockNumber - 5, currentBlockNumber + 20, false] // set 10 gd per block
-      );
-      await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
-    const stakingAmount = ethers.utils.parseEther("1000")
-    await simpleStaking.connect(staker).withdrawStake(stakingAmount)
-    
-    await dai["mint(address,uint256)"](staker.address,stakingAmount)
-    await dai.connect(staker).approve(simpleStaking.address,stakingAmount)
-    const rewardsPerBlock = await stakersDistribution.rewardsPerBlock(simpleStaking.address)
-    const blockNumberOfStake = (await ethers.provider.getBlockNumber()) + 1
-    await simpleStaking.connect(staker).stake(stakingAmount,0)
-    await advanceBlocks(30)
-    const GDAOBalanceBeforeWithdraw = await grep.balanceOf(staker.address)
-    await simpleStaking.connect(staker).withdrawStake(stakingAmount)
-    
-    const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address)
-    expect(GDAOBalanceAfterWithdraw).to.be.gt(GDAOBalanceBeforeWithdraw)
-    
-    expect(GDAOBalanceAfterWithdraw).to.be.equal(GDAOBalanceBeforeWithdraw.add(rewardsPerBlock.mul((currentBlockNumber + 20) - blockNumberOfStake)))
-  })
-
-  it("it should not distribute any reward if current.block < blockStart",async()=>{
-
-      const goodFundManagerFactory = await ethers.getContractFactory(
-        "GoodFundManager"
-      );
-      const ictrl = await ethers.getContractAt(
-        "Controller",
-        controller,
-        schemeMock
-      );
-      const currentBlockNumber = await ethers.provider.getBlockNumber()
-      let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
-        "setStakingReward",
-        ["1000", simpleStaking.address, currentBlockNumber + 500, currentBlockNumber + 1000, false] // set 10 gd per block
-      );
-      await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
-      await stakersDistribution.claimReputation(staker.address,[simpleStaking.address])
-      const stakingAmount = ethers.utils.parseEther("1000")
-      await dai["mint(address,uint256)"](staker.address,stakingAmount)
-      await dai.connect(staker).approve(simpleStaking.address,stakingAmount)
-      const GDAOBalanceBeforeStake= await grep.balanceOf(staker.address)
-      await simpleStaking.connect(staker).stake(stakingAmount,0)
-      const productivityOfStaker = await stakersDistribution.getProductivity(simpleStaking.address,staker.address)
-      await simpleStaking.connect(staker).withdrawStake(stakingAmount)
-      const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address)
-      expect(productivityOfStaker[0]).to.be.equal(stakingAmount)
-      expect(GDAOBalanceBeforeStake).to.be.equal(GDAOBalanceAfterWithdraw)
-
-  })
-
-  it("it should not increaseProductivity of staking contract which is blacklisted",async()=>{
-
+  it("it should give distribute if blockend passed but some of the rewards during reward period was not distributed", async () => {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
     const simpleStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const simpleStaking1 = await simpleStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "200",
-      daiUsdOracle.address,
-      "100000"
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
     );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking.address,
+        currentBlockNumber - 5,
+        currentBlockNumber + 20,
+        false
+      ] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    const stakingAmount = ethers.utils.parseEther("1000");
+    await simpleStaking.connect(staker).withdrawStake(stakingAmount);
 
-    const stakingAmount = ethers.utils.parseEther("1000")
-    await dai["mint(address,uint256)"](staker.address,stakingAmount)
-    await dai.connect(staker).approve(simpleStaking1.address,stakingAmount)
-    await simpleStaking1.connect(staker).stake(stakingAmount,0)
-    const productivityOfStaker = await stakersDistribution.getProductivity(simpleStaking.address,staker.address)
-    expect(productivityOfStaker[0]).to.be.equal(0)
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai.connect(staker).approve(simpleStaking.address, stakingAmount);
+    const rewardsPerBlock = await stakersDistribution.rewardsPerBlock(
+      simpleStaking.address
+    );
+    const blockNumberOfStake = (await ethers.provider.getBlockNumber()) + 1;
+    await simpleStaking.connect(staker).stake(stakingAmount, 0);
+    await advanceBlocks(30);
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOf(staker.address);
+    await simpleStaking.connect(staker).withdrawStake(stakingAmount);
 
+    const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address);
+    expect(GDAOBalanceAfterWithdraw).to.be.gt(GDAOBalanceBeforeWithdraw);
 
-  })
-  
+    expect(GDAOBalanceAfterWithdraw).to.be.equal(
+      GDAOBalanceBeforeWithdraw.add(
+        rewardsPerBlock.mul(currentBlockNumber + 20 - blockNumberOfStake)
+      )
+    );
+  });
 });
