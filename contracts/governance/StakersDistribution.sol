@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import "../utils/DAOContract.sol";
 import "../utils/NameService.sol";
@@ -16,7 +15,6 @@ import "../staking/SimpleStaking.sol";
  * each staker will receive his share pro rata per staking contract he participates in
  */
 contract StakersDistribution is
-	Initializable,
 	DAOUpgradableContract,
 	MultiBaseGovernanceShareField
 {
