@@ -155,30 +155,35 @@ abstract contract MultiBaseGovernanceShareField {
 	 * @dev Query user's pending reward with updated variables
 	 * @return returns  amount of user's earned but not minted rewards
 	 */
-	function getUserPendingReward(address _contract, address _user)
+	function getUserPendingReward(address[] _contracts, address _user)
 		public
 		view
 		returns (uint256)
 	{
-		UserInfo memory userInfo = contractToUsers[_contract][_user];
-		uint256 _accAmountPerShare = accAmountPerShare[_contract];
-
 		uint256 pending = 0;
 
-		if (totalProductivity[_contract] != 0) {
-			uint256 multiplier = block.number - lastRewardBlock[_contract];
-			uint256 reward = multiplier * rewardsPerBlock[_contract]; // rewardsPerBlock is in GDAO which is in 18 decimals
+		for (uint256 i = 0; i < _contracts.length; i++) {
+			address _contract = _contracts[i];
 
-			_accAmountPerShare =
-				_accAmountPerShare +
-				rdiv(reward, totalProductivity[_contract] * 1e16); // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
+			UserInfo memory userInfo = contractToUsers[_contract][_user];
+			uint256 _accAmountPerShare = accAmountPerShare[_contract];
 
-			pending =
-				(userInfo.amount * _accAmountPerShare) /
-				1e11 -
-				userInfo.rewardDebt; // Divide 1e11(because userinfo.amount in 2 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
+			if (totalProductivity[_contract] != 0) {
+				uint256 multiplier = block.number - lastRewardBlock[_contract];
+				uint256 reward = multiplier * rewardsPerBlock[_contract]; // rewardsPerBlock is in GDAO which is in 18 decimals
+
+				_accAmountPerShare =
+					_accAmountPerShare +
+					rdiv(reward, totalProductivity[_contract] * 1e16); // totalProductivity in 2decimals since it is GD so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
+
+				pending += userInfo.rewardEarn;
+				pending +=
+					(userInfo.amount * _accAmountPerShare) /
+					1e11 -
+					userInfo.rewardDebt; // Divide 1e11(because userinfo.amount in 2 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
+			}
 		}
-		return userInfo.rewardEarn + pending;
+		return pending;
 	}
 
 	/** 
