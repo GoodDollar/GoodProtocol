@@ -6,6 +6,10 @@ import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 
 import "../utils/DSMath.sol";
 
+/**
+ * Contract to calculate staking rewards shares.
+ * WARNING: WILL ONLY WORK WITH G$ IE STAKING TOKEN WITH 2 DECIMALS
+ */
 contract BaseGovernanceShareField {
 	using SafeMath for uint256;
 	// Total Amount of stakes
