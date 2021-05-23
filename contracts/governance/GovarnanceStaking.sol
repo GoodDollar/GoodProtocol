@@ -75,7 +75,7 @@ contract GovernanceStaking is
 		);
 		_increaseProductivity(_msgSender(), _amount);
 		_mint(_msgSender(), _amount); // mint Staking token for staker
-
+		_mintRewards(_msgSender());
 		emit Staked(_msgSender(), address(token), _amount);
 	}
 
@@ -108,9 +108,8 @@ contract GovernanceStaking is
 	/**
 	 * @dev Staker can withdraw their rewards without withdraw their stake
 	 */
-	function withdrawRewards() public {
-		uint256 amount = _mintRewards(_msgSender());
-		emit RewardsWithdraw(_msgSender(), amount);
+	function withdrawRewards() public returns (uint256) {
+		return _mintRewards(_msgSender());
 	}
 
 	/**
@@ -125,23 +124,8 @@ contract GovernanceStaking is
 			user,
 			amount
 		);
+		emit RewardsWithdraw(_msgSender(), amount);
 		return amount;
-	}
-
-	function getStakerData(address _staker)
-		public
-		view
-		returns (
-			uint256,
-			uint256,
-			uint256
-		)
-	{
-		return (
-			users[_staker].amount,
-			users[_staker].rewardDebt,
-			users[_staker].rewardEarn
-		);
 	}
 
 	/**
@@ -158,6 +142,8 @@ contract GovernanceStaking is
 	) internal override {
 		_decreaseProductivity(from, value);
 		_increaseProductivity(to, value);
+		_mintRewards(from);
+		_mintRewards(to);
 		super._transfer(from, to, value);
 	}
 
