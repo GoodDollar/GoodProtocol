@@ -141,7 +141,7 @@ contract StakersDistribution is
 			);
 
 		address[] memory contracts = new address[](1);
-		contracts[0] = (address(this));
+		contracts[0] = (msg.sender);
 		_claimReputation(_staker, contracts);
 		_updateMonth(); //previous calls will use previous month reputation
 	}

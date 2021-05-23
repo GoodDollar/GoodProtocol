@@ -289,13 +289,46 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await advanceBlocks(10)
     await simpleStaking.connect(staker).withdrawStake(stakingAmount)
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address)
-    expect(rewardsPerBlockAfterStake).to.be.equal(rewardsPerBlockBeforeStake); // Should not update rewards per block since simplestaking blacklisted
-    expect(GDAOBalanceBeforeWithdraw).to.be.equal(GDAOBalanceAfterWithdraw) // Should not earn any GDAO since it's blacklisted
-    expect(stakerGDAOBalanceAfterWithdrawRewards).to.be.gt(stakerGDAOBalanceBeforeWithdrawRewards)
+    expect(rewardsPerBlockAfterStake).to.be.equal(rewardsPerBlockBeforeStake); // Should not update rewards per block since simplestaking blockend passed
+    expect(GDAOBalanceBeforeWithdraw).to.be.equal(GDAOBalanceAfterWithdraw) // Should not earn any GDAO since simplestaking blockend passed
+    expect(stakerGDAOBalanceAfterWithdrawRewards.gt(stakerGDAOBalanceBeforeWithdrawRewards)).to.be.true;
+    
+  })
 
-
-
-
+  it("it should give distribute if blockend passed but some of the rewards during reward period was not distributed",async()=>{
+      const goodFundManagerFactory = await ethers.getContractFactory(
+        "GoodFundManager"
+      );
+      const simpleStakingFactory = await ethers.getContractFactory(
+        "GoodCompoundStaking"
+      );
+      const ictrl = await ethers.getContractAt(
+        "Controller",
+        controller,
+        schemeMock
+      );
+      const currentBlockNumber = await ethers.provider.getBlockNumber()
+      let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+        "setStakingReward",
+        ["1000", simpleStaking.address, currentBlockNumber - 5, currentBlockNumber + 20, false] // set 10 gd per block
+      );
+      await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    const stakingAmount = ethers.utils.parseEther("1000")
+    await simpleStaking.connect(staker).withdrawStake(stakingAmount)
+    
+    await dai["mint(address,uint256)"](staker.address,stakingAmount)
+    await dai.connect(staker).approve(simpleStaking.address,stakingAmount)
+    const rewardsPerBlock = await stakersDistribution.rewardsPerBlock(simpleStaking.address)
+    const blockNumberOfStake = (await ethers.provider.getBlockNumber()) + 1
+    await simpleStaking.connect(staker).stake(stakingAmount,0)
+    await advanceBlocks(30)
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOf(staker.address)
+    await simpleStaking.connect(staker).withdrawStake(stakingAmount)
+    
+    const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address)
+    expect(GDAOBalanceAfterWithdraw).to.be.gt(GDAOBalanceBeforeWithdraw)
+    
+    expect(GDAOBalanceAfterWithdraw).to.be.equal(GDAOBalanceBeforeWithdraw.add(rewardsPerBlock.mul((currentBlockNumber + 20) - blockNumberOfStake)))
   })
   
 });
