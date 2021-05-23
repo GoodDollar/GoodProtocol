@@ -172,10 +172,12 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       ethers.utils.parseEther("2000000")
     );
   });
+
   it("it should have 0 monthly rewards since staking amount was zero while initializing stakersDistribution",async()=>{
     const rewardsPerBlock = await stakersDistribution.rewardsPerBlock(simpleStaking.address)
     expect(rewardsPerBlock).to.be.equal(0)
   })
+
   it("It should update monthly rewards according to staking amount of staking contract after one month passed from initialized",async() =>{
       const stakingAmount = ethers.utils.parseEther("1000")
       const rewardsPerBlockBeforeStake = await stakersDistribution.rewardsPerBlock(simpleStaking.address)
@@ -183,7 +185,6 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       await dai["mint(address,uint256)"](staker.address,stakingAmount.mul(2))
       await dai.connect(staker).approve(simpleStaking.address,stakingAmount.mul(2))
       await simpleStaking.connect(staker).stake(stakingAmount,0)
-      console.log("fail");
       await increaseTime(86700 * 30)
       await simpleStaking.connect(staker).stake(stakingAmount,0)
       const rewardsPerBlockAfterStake = await stakersDistribution.rewardsPerBlock(simpleStaking.address)
@@ -191,11 +192,12 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       const rewardsPerBlockAfterWithdraw = await stakersDistribution.rewardsPerBlock(simpleStaking.address)
       const chainBlockPerMonth = await stakersDistribution.getChainBlocksPerMonth()
       expect(rewardsPerBlockBeforeStake).to.be.equal(BN.from("0"))
-
       expect(rewardsPerBlockAfterStake).to.be.equal(ethers.utils.parseEther("2000000").div(chainBlockPerMonth))
       expect(rewardsPerBlockAfterStake).to.be.equal(rewardsPerBlockAfterWithdraw)
+  })
 
-
+  it("it should not be set monthly reputation when not Avatar",async()=>{
+    const transaction = stakersDistribution.setMonthlyReputationDistribution("1000000").catch(e=>e)
   })
 
   
