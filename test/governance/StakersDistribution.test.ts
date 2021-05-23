@@ -24,6 +24,10 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
   let stakersDistribution: Contract;
   let goodFundManager: Contract;
   let simpleStaking: Contract;
+  let simpleUsdcStaking:Contract;
+  let usdcUsdOracle: Contract;
+  let usdc: Contract;
+  let cUsdc: Contract;
   let grep: GReputation;
   let avatar,
     goodDollar,
@@ -47,6 +51,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     [founder, staker, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
     const cdaiFactory = await ethers.getContractFactory("cDAIMock");
+    const cUsdcFactory = await ethers.getContractFactory("cUSDCMock");
+    const usdcFactory = await ethers.getContractFactory("USDCMock");
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -114,6 +120,20 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       "BatUSDMockOracle"
     );
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
+    usdc = await usdcFactory.deploy(); 
+    cUsdc = await cUsdcFactory.deploy(usdc.address);
+    usdcUsdOracle = await tokenUsdOracleFactory.deploy();
+    simpleUsdcStaking =await simpleStakingFactory.deploy(
+      usdc.address,
+      cUsdc.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good USDC",
+      "gUSDC",
+      "172800",
+      usdcUsdOracle.address,
+      "200000"
+    );
     simpleStaking = await simpleStakingFactory.deploy(
       dai.address,
       cDAI.address,
@@ -147,7 +167,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       [nameService.address],
       { kind: "uups" }
     );
-
+    
     setDAOAddress("CDAI", cDAI.address);
     setDAOAddress("DAI", dai.address);
 
@@ -509,5 +529,131 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     expect(productivityOfStaker[0]).to.be.equal(stakingAmount);
   });
 
+  it("it should not earn rewards when current block < startBlock",async()=>{
+      const goodFundManagerFactory = await ethers.getContractFactory(
+        "GoodFundManager"
+      );
+      const simpleStakingFactory = await ethers.getContractFactory(
+        "GoodCompoundStaking"
+      );
+      const simpleStaking1 = await simpleStakingFactory.deploy(
+        dai.address,
+        cDAI.address,
+        BLOCK_INTERVAL,
+        nameService.address,
+        "Good DAI",
+        "gDAI",
+        "200",
+        daiUsdOracle.address,
+        "100000"
+      );
+
+      const ictrl = await ethers.getContractAt(
+        "Controller",
+        controller,
+        schemeMock
+      );
+      const currentBlockNumber = await ethers.provider.getBlockNumber();
+      let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+        "setStakingReward",
+        [
+          "1000",
+          simpleStaking1.address,
+          currentBlockNumber + 500,
+          currentBlockNumber + 1000,
+          false
+        ] // set 10 gd per block
+      );
+      await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+      const stakingAmount = ethers.utils.parseEther("1000");
+    const userProductivityBeforeStaking = await stakersDistribution.getProductivity(simpleStaking1.address,staker.address)
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
+    await simpleStaking1.connect(staker).stake(stakingAmount, 0);
+    const userProductivityAfterStaking = await stakersDistribution.getProductivity(simpleStaking1.address,staker.address)
+    await advanceBlocks(10)
+    const userPendingRewards = await stakersDistribution.getUserPendingReward(simpleStaking1.address,currentBlockNumber + 500,currentBlockNumber + 1000,staker.address)
+
+    expect(userProductivityAfterStaking[0]).to.be.equal(stakingAmount);
+    expect(userProductivityAfterStaking[0]).to.be.gt(userProductivityBeforeStaking[0])
+    expect(userPendingRewards).to.be.equal(0)
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking1.address,
+        currentBlockNumber + 500,
+        currentBlockNumber + 1000,
+        true
+      ] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+  })
+
+  it("Accumulated per share has enough precision when reward << totalproductivity", async () => {
+   
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const simpleStakingFactory = await ethers.getContractFactory(
+      "GoodCompoundStaking"
+    );
+    const simpleStaking1 = await simpleStakingFactory.deploy(
+      dai.address,
+      cDAI.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good DAI",
+      "gDAI",
+      "200",
+      daiUsdOracle.address,
+      "100000"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking1.address,
+        currentBlockNumber - 10,
+        currentBlockNumber + 100,
+        false
+      ] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    const stakingAmount = ethers.utils.parseEther("10000000000")
+    await dai["mint(address,uint256)"](staker.address, stakingAmount); // 10 billion dai to stake
+    await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
+    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1
+    await simpleStaking1.connect(staker).stake(stakingAmount,0);
+    const rewardsPerBlock = await stakersDistribution.rewardsPerBlock(
+      simpleStaking1.address
+    );
+    await advanceBlocks(4);
+    const gdaoBalanceBeforeWithdraw = await goodDollar.balanceOf(staker.address);
+    await simpleStaking1.connect(staker).withdrawStake(stakingAmount)
+    const withdrawBlockNumber = await ethers.provider.getBlockNumber()
+    const gdaoBalanceAfterWithdraw = await goodDollar.balanceOf(staker.address);
+    const calculatedNewBalance = gdaoBalanceBeforeWithdraw.add(rewardsPerBlock.mul(withdrawBlockNumber - stakeBlockNumber))
+    expect(gdaoBalanceAfterWithdraw).to.be.gt(gdaoBalanceBeforeWithdraw)
+
+    expect(gdaoBalanceBeforeWithdraw).to.be.equal(calculatedNewBalance)
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking1.address,
+        currentBlockNumber + 500,
+        currentBlockNumber + 1000,
+        true
+      ] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+  });
 
 });
