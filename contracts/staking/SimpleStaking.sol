@@ -168,12 +168,19 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		);
 	}
 
+	/**
+	 * @dev withdraw staker G$ rewards + GDAO rewards
+	 * withdrawing rewards resets the multiplier! so if user just want GDAO he should use claimReputation()
+	 */
 	function withdrawRewards() public {
 		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
 		claimReputation();
 	}
 
+	/**
+	 * @dev withdraw staker GDAO rewards
+	 */
 	function claimReputation() public {
 		//claim reputation rewards
 		StakersDistribution sd =
@@ -184,6 +191,30 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			address[] memory contracts;
 			contracts[0] = (address(this));
 			sd.claimReputation(msg.sender, contracts);
+		}
+	}
+
+	/**
+	 * @dev notify stakersdistribution when user performs transfer operation
+	 */
+	function _transfer(
+		address from,
+		address to,
+		uint256 value
+	) internal override {
+		super._transfer(from, to, value);
+
+		StakersDistribution sd =
+			StakersDistribution(
+				nameService.addresses(nameService.GDAO_STAKERS())
+			);
+		if (address(sd) != address(0)) {
+			address[] memory contracts;
+			contracts[0] = (address(this));
+			sd.userWithdraw(from, value);
+			sd.userStaked(to, value);
+			sd.claimReputation(to, contracts);
+			sd.claimReputation(from, contracts);
 		}
 	}
 
