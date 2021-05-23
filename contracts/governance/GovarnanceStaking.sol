@@ -48,7 +48,7 @@ contract GovernanceStaking is
 	/**
 	 * @dev Emitted when `staker` withdraws their rewards `value` tokens
 	 */
-	event RewardsWithdraw(address indexed staker, address token, uint256 value);
+	event RewardsWithdraw(address indexed staker, uint256 value);
 
 	/**
 	 * @dev Constructor
@@ -57,7 +57,6 @@ contract GovernanceStaking is
 	function initialize(NameService _ns) public virtual initializer {
 		setDAO(_ns);
 		token = ERC20(nameService.addresses(nameService.GOODDOLLAR()));
-		_setShareToken(nameService.addresses(nameService.REPUTATION()));
 		__ERC20_init("GDAO Staking", "sGDAO");
 		rewardsPerBlock = (2 ether * 1e6) / FUSE_MONTHLY_BLOCKS; // (2M monthly GDAO as specified in specs, divided by blocks in month )
 	}
@@ -92,6 +91,7 @@ contract GovernanceStaking is
 		_burn(_msgSender(), _amount); // burn their staking tokens
 		_decreaseProductivity(_msgSender(), _amount);
 		_mintRewards(_msgSender());
+
 		require(
 			token.transfer(_msgSender(), tokenWithdraw),
 			"withdraw transfer failed"
@@ -109,7 +109,7 @@ contract GovernanceStaking is
 	 */
 	function withdrawRewards() public {
 		uint256 amount = _mintRewards(_msgSender());
-		emit RewardsWithdraw(_msgSender(), shareToken, amount);
+		emit RewardsWithdraw(_msgSender(), amount);
 	}
 
 	/**
@@ -120,7 +120,10 @@ contract GovernanceStaking is
 
 	function _mintRewards(address user) internal returns (uint256) {
 		uint256 amount = _issueEarnedRewards(user);
-		ERC20(shareToken).mint(user, amount);
+		ERC20(nameService.addresses(nameService.REPUTATION())).mint(
+			user,
+			amount
+		);
 		return amount;
 	}
 
@@ -147,42 +150,14 @@ contract GovernanceStaking is
 		return 2;
 	}
 
-	/**
-	 * @dev Override transfer function of ERC20
-	 */
-	function transfer(address to, uint256 value)
-		public
-		virtual
-		override
-		returns (bool)
-	{
-		_decreaseProductivity(_msgSender(), value);
+	function _transfer(
+		address from,
+		address to,
+		uint256 value
+	) internal override {
+		_decreaseProductivity(from, value);
 		_increaseProductivity(to, value);
-		_transfer(_msgSender(), to, value);
-		return true;
-	}
-
-	/**
-	 * @dev Override transferFrom function of ERC20
-	 */
-	function transferFrom(
-		address sender,
-		address recipient,
-		uint256 amount
-	) public virtual override returns (bool) {
-		uint256 currentAllowance = allowance(sender, _msgSender());
-		require(
-			currentAllowance >= amount,
-			"ERC20: transfer amount exceeds allowance"
-		);
-
-		_decreaseProductivity(sender, amount);
-		_increaseProductivity(recipient, amount);
-		_transfer(sender, recipient, amount);
-
-		_approve(sender, _msgSender(), currentAllowance - amount);
-
-		return true;
+		super._transfer(from, to, value);
 	}
 
 	/**

@@ -32,6 +32,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     controller,
     founder,
     staker,
+    staker2,
     schemeMock,
     signers,
     nameService,
@@ -39,7 +40,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     setDAOAddress;
 
   before(async () => {
-    [founder, staker, ...signers] = await ethers.getSigners();
+    [founder, staker, staker2, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
     const cdaiFactory = await ethers.getContractFactory("cDAIMock");
     const goodFundManagerFactory = await ethers.getContractFactory(
@@ -132,7 +133,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await governanceStaking.withdrawStake("100");
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
 
-    expect(GDAOBalanceAfterWithdraw.gt(GDAOBalanceBeforeWithdraw)).to.be.true;
+    expect(GDAOBalanceAfterWithdraw).to.gt(GDAOBalanceBeforeWithdraw);
   });
 
   it("Avatar should be able to change rewards per block", async () => {
@@ -195,7 +196,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const gdaoBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
     await governanceStaking.withdrawStake("100");
     const gdaoBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-    expect(gdaoBalanceAfterWithdraw.gt(gdaoBalanceBeforeWithdraw)).to.be.true;
+    expect(gdaoBalanceAfterWithdraw).to.gt(gdaoBalanceBeforeWithdraw);
   });
 
   it("should not be able to withdraw after they send their stake to somebody else", async () => {
@@ -255,9 +256,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
     await governanceStaking.withdrawStake("100");
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-    expect(
-      GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
-    ).to.be.equal("0");
+    expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw)).to.equal(0);
     encodedCall = governanceStakingFactory.interface.encodeFunctionData(
       "setMonthlyRewards",
       [ethers.utils.parseEther("12000000")]
@@ -340,29 +339,60 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await governanceStaking
       .connect(staker)
       .transferFrom(founder.address, staker.address, "100");
-    const GDAOBalanceBeforeWithdraw = await governanceStaking.balanceOf(
-      staker.address
-    );
-    await governanceStaking.connect(staker).withdrawStake("100");
-    const GDAOBalanceAfterWithdraw = await governanceStaking.balanceOf(
-      staker.address
-    );
-    await governanceStaking.withdrawRewards();
 
-    expect(GDAOBalanceAfterWithdraw.gt(GDAOBalanceBeforeWithdraw));
+    expect(await governanceStaking.balanceOf(founder.address)).to.equal(0);
+    expect(await governanceStaking.balanceOf(staker.address)).to.equal(100);
+
+    expect((await governanceStaking.users(staker.address)).amount).to.equal(
+      100
+    );
   });
+
   it("it should return staker data", async () => {
-    const stakerData = await governanceStaking.getStakerData(staker.address);
-    expect(stakerData[0].toString()).to.be.equal("0");
-    expect(stakerData[1].toString()).to.be.equal("0");
-    expect(stakerData[2].toString()).to.be.equal("0");
+    await goodDollar.mint(staker2.address, "100");
+    await goodDollar.connect(staker2).approve(governanceStaking.address, "100");
+    await governanceStaking.connect(staker2).stake("100");
+
+    await advanceBlocks(10);
+
+    expect((await governanceStaking.users(staker2.address)).rewardDebt).to.gt(
+      0
+    ); //debt should start according to accumulated rewards in contract. debt is the user stake starting point.
+
+    await governanceStaking.connect(staker2).withdrawStake("1");
+
+    expect(await governanceStaking.balanceOf(staker2.address)).to.equal(99);
+
+    expect((await governanceStaking.users(staker2.address)).amount).to.equal(
+      99
+    );
+    expect((await governanceStaking.users(staker2.address)).rewardDebt).to.gt(
+      0
+    ); //should have withdrawn rewards after withdraw stake
+    expect(
+      (await governanceStaking.users(staker2.address)).rewardEarn
+    ).to.equal(0); //should have 0 pending rewards after withdraw stake
+
+    await advanceBlocks(10);
+    await goodDollar.connect(staker2).approve(governanceStaking.address, "200");
+
+    await governanceStaking.connect(staker2).stake("1"); //should calculate user pending rewards
+
+    expect((await governanceStaking.users(staker2.address)).rewardEarn).to.gt(
+      0 //should have pending rewards
+    );
   });
 
   it("it should return zero rewards when totalProductiviy is zero", async () => {
-    const userPendingRewards = await governanceStaking.getUserPendingReward(
+    let userPendingRewards = await governanceStaking.getUserPendingReward(
       staker.address
     );
-    expect(userPendingRewards.toString()).to.be.equal("0");
+    expect(userPendingRewards).to.be.gt(0);
+    await governanceStaking.connect(staker).withdrawRewards();
+    userPendingRewards = await governanceStaking.getUserPendingReward(
+      staker.address
+    );
+    expect(userPendingRewards).to.be.equal(0);
   });
 
   it("it should calculate accumulated rewards per share correctly", async () => {
@@ -460,7 +490,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     expect(tx.message).to.have.string("Should withdraw positive amount");
   });
 
-  it("Should transferFrom staking token if transfer amount larger than approved amount", async () => {
+  it("Should use overriden _transfer that handles productivity when using transferFrom which is defined in super erc20 contract", async () => {
     const tx = await governanceStaking
       .transferFrom(
         founder.address,
@@ -468,8 +498,6 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
         ethers.utils.parseEther("10000000")
       )
       .catch(e => e);
-    expect(tx.message).to.have.string(
-      "ERC20: transfer amount exceeds allowance"
-    );
+    expect(tx.message).to.have.string("INSUFFICIENT_PRODUCTIVITY");
   });
 });

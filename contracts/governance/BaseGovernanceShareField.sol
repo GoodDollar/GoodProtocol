@@ -16,8 +16,6 @@ contract BaseGovernanceShareField {
 	uint256 public rewardsMintedSoFar;
 	// Amount of the rewards with pending and minted ones together
 	uint256 public totalRewardsAccumulated;
-	// The address of the reward token
-	address public shareToken;
 	// Block number of last reward calculation made
 	uint256 public lastRewardBlock;
 	// Rewards amount that will be provided each block
@@ -37,10 +35,6 @@ contract BaseGovernanceShareField {
 	 */
 	function _setMonthlyRewards(uint256 _monthlyAmount) internal {
 		rewardsPerBlock = _monthlyAmount / 172800;
-	}
-
-	function _setShareToken(address _shareToken) internal {
-		shareToken = _shareToken;
 	}
 
 	/**
@@ -90,7 +84,6 @@ contract BaseGovernanceShareField {
 		virtual
 		returns (bool)
 	{
-
 		UserInfo storage userInfo = users[user];
 		_update();
 		_audit(user);
