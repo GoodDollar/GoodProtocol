@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 
 import "../Interfaces.sol";
 
@@ -120,11 +120,13 @@ contract GovernanceStaking is
 
 	function _mintRewards(address user) internal returns (uint256) {
 		uint256 amount = _issueEarnedRewards(user);
-		ERC20(nameService.addresses(nameService.REPUTATION())).mint(
-			user,
-			amount
-		);
-		emit RewardsWithdraw(_msgSender(), amount);
+		if (amount > 0) {
+			ERC20(nameService.addresses(nameService.REPUTATION())).mint(
+				user,
+				amount
+			);
+			emit RewardsWithdraw(_msgSender(), amount);
+		}
 		return amount;
 	}
 

@@ -29,7 +29,7 @@ contract StakersDistribution is
 	function initialize(NameService _ns) public initializer {
 		monthlyReputationDistribution = 2000000 ether; //2M as specified in specs
 		setDAO(_ns);
-		_updateMonth();	
+		_updateMonth();
 	}
 
 	function getChainBlocksPerMonth() public pure override returns (uint256) {
@@ -179,10 +179,10 @@ contract StakersDistribution is
 					blockEnd
 				);
 		}
-
-		GReputation(nameService.addresses(nameService.REPUTATION())).mint(
-			_staker,
-			totalRep
-		);
+		if (totalRep > 0)
+			GReputation(nameService.addresses(nameService.REPUTATION())).mint(
+				_staker,
+				totalRep
+			);
 	}
 }
