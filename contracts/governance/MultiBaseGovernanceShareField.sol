@@ -155,8 +155,8 @@ abstract contract MultiBaseGovernanceShareField {
 	 * @dev Query user's pending reward with updated variables
 	 * @return returns  amount of user's earned but not minted rewards
 	 */
-	function getUserPendingReward(address[] _contracts, address _user)
-		public
+	function getUserPendingReward(address[] calldata _contracts, address _user)
+		external
 		view
 		returns (uint256)
 	{

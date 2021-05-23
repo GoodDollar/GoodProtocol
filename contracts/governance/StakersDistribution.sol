@@ -114,6 +114,11 @@ contract StakersDistribution is
 				blockStart,
 				blockEnd
 			);
+
+		address[] memory contracts;
+		contracts[0] = (address(this));
+		_claimReputation(_staker, contracts);
+
 		_updateMonth(); //previous calls will use previous month reputation
 	}
 
@@ -135,6 +140,10 @@ contract StakersDistribution is
 				blockStart,
 				blockEnd
 			);
+
+		address[] memory contracts;
+		contracts[0] = (address(this));
+		_claimReputation(_staker, contracts);
 		_updateMonth(); //previous calls will use previous month reputation
 	}
 
@@ -147,6 +156,14 @@ contract StakersDistribution is
 		address _staker,
 		address[] calldata _stakingContracts
 	) external {
+		_claimReputation(_staker, _stakingContracts);
+		_updateMonth(); //previous calls will use previous month reputation
+	}
+
+	function _claimReputation(
+		address _staker,
+		address[] memory _stakingContracts
+	) internal {
 		uint256 totalRep;
 		GoodFundManager gfm =
 			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()));
@@ -168,7 +185,5 @@ contract StakersDistribution is
 			_staker,
 			totalRep
 		);
-
-		_updateMonth(); //previous calls will use previous month reputation
 	}
 }

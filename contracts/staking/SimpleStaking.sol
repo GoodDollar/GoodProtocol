@@ -169,6 +169,20 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	function withdrawRewards() public {
 		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
+		claimReputation();
+	}
+
+	function claimReputation() public {
+		//claim reputation rewards
+		StakersDistribution sd =
+			StakersDistribution(
+				nameService.addresses(nameService.GDAO_STAKERS())
+			);
+		if (address(sd) != address(0)) {
+			address[] memory contracts;
+			contracts[0] = (address(this));
+			sd.claimReputation(msg.sender, contracts);
+		}
 	}
 
 	/**
