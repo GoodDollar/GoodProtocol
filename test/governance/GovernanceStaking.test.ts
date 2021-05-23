@@ -392,6 +392,12 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     userPendingRewards = await governanceStaking.getUserPendingReward(
       staker.address
     );
+    expect(userPendingRewards).to.be.gt(0); //withdrawrewards mines a block so pending will still not be 0.
+
+    await governanceStaking.connect(staker).withdrawStake(0);
+    userPendingRewards = await governanceStaking.getUserPendingReward(
+      staker.address
+    );
     expect(userPendingRewards).to.be.equal(0);
   });
 

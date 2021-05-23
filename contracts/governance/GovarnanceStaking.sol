@@ -84,6 +84,7 @@ contract GovernanceStaking is
 	 */
 	function withdrawStake(uint256 _amount) external {
 		(uint256 userProductivity, ) = getProductivity(_msgSender());
+		if (_amount == 0) _amount = userProductivity;
 		require(_amount > 0, "Should withdraw positive amount");
 		require(userProductivity >= _amount, "Not enough token staked");
 		uint256 tokenWithdraw = _amount;
