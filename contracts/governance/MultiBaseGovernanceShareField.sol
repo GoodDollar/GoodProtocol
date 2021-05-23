@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.6.6;
+pragma solidity >=0.8.0;
 import "../Interfaces.sol";
-import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
-import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 
 import "../utils/DSMath.sol";
 
@@ -10,7 +8,6 @@ import "../utils/DSMath.sol";
  * supports accounting for multiple staking contracts
  */
 abstract contract MultiBaseGovernanceShareField {
-	using SafeMath for uint256;
 	// Total Amount of stakes
 	mapping(address => uint256) totalProductivity;
 	// Reward amount of the each share
@@ -62,12 +59,13 @@ abstract contract MultiBaseGovernanceShareField {
 		}
 
 		uint256 _lastRewardBlock = lastRewardBlock[_contract];
-		_lastRewardBlock = _lastRewardBlock < _blockStart && block.number >= _blockStart
+		_lastRewardBlock = _lastRewardBlock < _blockStart &&
+			block.number >= _blockStart
 			? _blockStart
 			: _lastRewardBlock;
 		uint256 curRewardBlock =
 			block.number > _blockEnd ? _blockEnd : block.number;
-		if(_lastRewardBlock > _blockEnd) return;
+		if (_lastRewardBlock > _blockEnd) return;
 		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block
 		uint256 reward = multiplier * rewardsPerBlock[_contract]; // rewardsPerBlock is in GDAO which is in 18 decimals
 
@@ -235,7 +233,7 @@ abstract contract MultiBaseGovernanceShareField {
 	}
 
 	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = x.mul(10**27).add(y / 2) / y;
+		z = (x * 10**27 + (y / 2)) / y;
 	}
 
 	uint256[50] private _gap;

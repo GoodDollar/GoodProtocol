@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.6.6;
+pragma solidity >=0.8.0;
 import "../Interfaces.sol";
-import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
-import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 
 import "../utils/DSMath.sol";
 
@@ -11,7 +9,6 @@ import "../utils/DSMath.sol";
  * WARNING: WILL ONLY WORK WITH G$ IE STAKING TOKEN WITH 2 DECIMALS
  */
 contract BaseGovernanceShareField {
-	using SafeMath for uint256;
 	// Total Amount of stakes
 	uint256 totalProductivity;
 	// Reward amount of the each share
@@ -187,7 +184,7 @@ contract BaseGovernanceShareField {
 	}
 
 	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = x.mul(10**27).add(y / 2) / y;
+		z = (x * 10**27 + (y / 2)) / y;
 	}
 
 	uint256[50] private _gap;
