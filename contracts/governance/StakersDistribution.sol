@@ -101,14 +101,15 @@ contract StakersDistribution is
 	 * @param _value the value to increase by
 	 */
 	function userStaked(address _staker, uint256 _value) external {
+		address stakingContract = msg.sender;
 		(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) =
 			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()))
-				.rewardsForStakingContract(msg.sender);
+				.rewardsForStakingContract(stakingContract);
 
 		if (isBlackListed) return; //dont do anything if staking contract has been blacklisted;
 
 		_increaseProductivity(
-			msg.sender,
+			stakingContract,
 			_staker,
 			_value,
 			blockStart,
@@ -116,7 +117,7 @@ contract StakersDistribution is
 		);
 
 		address[] memory contracts = new address[](1);
-		contracts[0] = (address(this));
+		contracts[0] = stakingContract;
 		_claimReputation(_staker, contracts);
 
 		_updateMonth(); //previous calls will use previous month reputation
@@ -128,14 +129,15 @@ contract StakersDistribution is
 	 * @param _value the value to decrease by
 	 */
 	function userWithdraw(address _staker, uint256 _value) external {
+		address stakingContract = msg.sender;
 		(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) =
 			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()))
-				.rewardsForStakingContract(msg.sender);
+				.rewardsForStakingContract(stakingContract);
 
 		if (isBlackListed) return; //dont do anything if staking contract has been blacklisted;
 
 		_decreaseProductivity(
-			msg.sender,
+			stakingContract,
 			_staker,
 			_value,
 			blockStart,
@@ -143,7 +145,7 @@ contract StakersDistribution is
 		);
 
 		address[] memory contracts = new address[](1);
-		contracts[0] = (msg.sender);
+		contracts[0] = stakingContract;
 		_claimReputation(_staker, contracts);
 		_updateMonth(); //previous calls will use previous month reputation
 	}
