@@ -164,6 +164,17 @@ contract GoodFundManager is DAOContract {
 		bool _isBlackListed
 	) public {
 		_onlyAvatar();
+
+		//we dont allow to undo blacklisting as it will mess up rewards accounting.
+		//staking contracts are assumed immutable and thus non fixable
+		require(
+			false ==
+				(_isBlackListed == false &&
+					rewardsForStakingContract[_stakingAddress].isBlackListed ==
+					true),
+			"can't undo blacklisting"
+		);
+
 		Reward memory reward =
 			Reward(
 				_rewardsPerBlock,
