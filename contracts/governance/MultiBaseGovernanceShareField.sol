@@ -3,7 +3,6 @@ pragma solidity >=0.8.0;
 import "../Interfaces.sol";
 
 import "../utils/DSMath.sol";
-
 /***
  * supports accounting for multiple staking contracts to calculate GDAO rewards
  */
@@ -82,12 +81,15 @@ abstract contract MultiBaseGovernanceShareField {
 			: _lastRewardBlock;
 		uint256 curRewardBlock =
 			block.number > _blockEnd ? _blockEnd : block.number;
+		if(curRewardBlock < _blockStart) 
+			return (_lastRewardBlock, _accAmountPerShare);
 		if (_lastRewardBlock >= _blockEnd)
 			return (_lastRewardBlock, _accAmountPerShare);
+		
 		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block
 		uint256 reward = multiplier * rewardsPerBlock[_contract]; // rewardsPerBlock is in GDAO which is in 18 decimals
 
-		_accAmountPerShare += rdiv(reward, totalProductivity[_contract]); // totalProductivity in 18decimals  so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
+		_accAmountPerShare += rdiv(reward, totalProductivity[_contract]); // totalProductivity in 18decimals  and reward in 18 decimals so rdiv result in 27decimals
 		_lastRewardBlock = curRewardBlock;
 	}
 
