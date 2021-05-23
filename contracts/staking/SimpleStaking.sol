@@ -188,7 +188,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 				nameService.addresses(nameService.GDAO_STAKERS())
 			);
 		if (address(sd) != address(0)) {
-			address[] memory contracts;
+			address[] memory contracts = new address[](1);
 			contracts[0] = (address(this));
 			sd.claimReputation(msg.sender, contracts);
 		}
