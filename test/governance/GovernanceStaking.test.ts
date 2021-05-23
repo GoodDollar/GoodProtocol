@@ -378,12 +378,16 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
 
     await governanceStaking.connect(staker2).stake("1"); //should calculate user pending rewards
 
-    expect((await governanceStaking.users(staker2.address)).rewardEarn).to.be.equal(
-      0 //should have 0 rewardEarned
+    expect(
+      (await governanceStaking.users(staker2.address)).rewardEarn
+    ).to.be.equal(
+      0 //should have 0 rewardEarned because every action, like the above stake withdraws gdao rewards
     );
     await advanceBlocks(2); // pass some blocks
-    const userPendingReward = await governanceStaking.getUserPendingReward(staker2.address)
-    expect(userPendingReward).to.be.gt(0)
+    const userPendingReward = await governanceStaking.getUserPendingReward(
+      staker2.address
+    );
+    expect(userPendingReward).to.be.gt(0);
   });
 
   it("it should return zero rewards when totalProductiviy is zero", async () => {
@@ -405,7 +409,6 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
   });
 
   it("it should calculate accumulated rewards per share correctly", async () => {
-    
     const governanceStakingFactory = await ethers.getContractFactory(
       "GovernanceStaking"
     );
@@ -413,7 +416,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       governanceStakingFactory,
       [nameService.address]
     );
-    await setDAOAddress("GDAO_STAKING", simpleGovernanceStaking.address); 
+    await setDAOAddress("GDAO_STAKING", simpleGovernanceStaking.address);
     await goodDollar.mint(founder.address, "200");
     await goodDollar.mint(staker.address, "200");
 
@@ -475,7 +478,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
         .add(accumulatedRewardsPerShare.div(BN.from(1e9))),
       "2 blocks correct"
     );
-    await setDAOAddress("GDAO_STAKING", governanceStaking.address); 
+    await setDAOAddress("GDAO_STAKING", governanceStaking.address);
   });
 
   it("Staking tokens should be 2 decimals", async () => {

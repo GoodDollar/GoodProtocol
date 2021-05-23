@@ -5,7 +5,7 @@ import "../Interfaces.sol";
 import "../utils/DSMath.sol";
 
 /***
- * supports accounting for multiple staking contracts
+ * supports accounting for multiple staking contracts to calculate GDAO rewards
  */
 abstract contract MultiBaseGovernanceShareField {
 	// Total Amount of stakes
@@ -58,21 +58,37 @@ abstract contract MultiBaseGovernanceShareField {
 			return;
 		}
 
-		uint256 _lastRewardBlock = lastRewardBlock[_contract];
+		(uint256 _lastRewardBlock, uint256 _accAmountPerShare) =
+			_calcUpdate(_contract, _blockStart, _blockEnd);
+
+		accAmountPerShare[_contract] = _accAmountPerShare;
+		lastRewardBlock[_contract] = _lastRewardBlock;
+	}
+
+	function _calcUpdate(
+		address _contract,
+		uint256 _blockStart,
+		uint256 _blockEnd
+	)
+		internal
+		view
+		returns (uint256 _lastRewardBlock, uint256 _accAmountPerShare)
+	{
+		_accAmountPerShare = accAmountPerShare[_contract];
+		_lastRewardBlock = lastRewardBlock[_contract];
 		_lastRewardBlock = _lastRewardBlock < _blockStart &&
 			block.number >= _blockStart
 			? _blockStart
 			: _lastRewardBlock;
 		uint256 curRewardBlock =
 			block.number > _blockEnd ? _blockEnd : block.number;
-		if (_lastRewardBlock > _blockEnd) return;
+		if (_lastRewardBlock >= _blockEnd)
+			return (_lastRewardBlock, _accAmountPerShare);
 		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block
 		uint256 reward = multiplier * rewardsPerBlock[_contract]; // rewardsPerBlock is in GDAO which is in 18 decimals
 
-		accAmountPerShare[_contract] =
-			accAmountPerShare[_contract] +
-			rdiv(reward, totalProductivity[_contract]); // totalProductivity in 18decimals  so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
-		lastRewardBlock[_contract] = curRewardBlock;
+		_accAmountPerShare += rdiv(reward, totalProductivity[_contract]); // totalProductivity in 18decimals  so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
+		_lastRewardBlock = curRewardBlock;
 	}
 
 	/**
@@ -151,34 +167,25 @@ abstract contract MultiBaseGovernanceShareField {
 	 * @dev Query user's pending reward with updated variables
 	 * @return returns  amount of user's earned but not minted rewards
 	 */
-	function getUserPendingReward(address[] calldata _contracts, address _user)
-		external
-		view
-		returns (uint256)
-	{
+	function getUserPendingReward(
+		address _contract,
+		uint256 _blockStart,
+		uint256 _blockEnd,
+		address _user
+	) public view returns (uint256) {
+		UserInfo memory userInfo = contractToUsers[_contract][_user];
 		uint256 pending = 0;
+		if (totalProductivity[_contract] != 0) {
+			(, uint256 _accAmountPerShare) =
+				_calcUpdate(_contract, _blockStart, _blockEnd);
 
-		for (uint256 i = 0; i < _contracts.length; i++) {
-			address _contract = _contracts[i];
-
-			UserInfo memory userInfo = contractToUsers[_contract][_user];
-			uint256 _accAmountPerShare = accAmountPerShare[_contract];
-
-			if (totalProductivity[_contract] != 0) {
-				uint256 multiplier = block.number - lastRewardBlock[_contract];
-				uint256 reward = multiplier * rewardsPerBlock[_contract]; // rewardsPerBlock is in GDAO which is in 18 decimals
-
-				_accAmountPerShare =
-					_accAmountPerShare +
-					rdiv(reward, totalProductivity[_contract]); // totalProductivity in 18decimals  so we multiply it by 1e16 to bring 18 decimals and rdiv result in 27decimals
-
-				pending += userInfo.rewardEarn;
-				pending +=
-					(userInfo.amount * _accAmountPerShare) /
-					1e27 -
-					userInfo.rewardDebt; // Divide 1e27(because userinfo.amount in 18 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
-			}
+			pending = userInfo.rewardEarn;
+			pending +=
+				(userInfo.amount * _accAmountPerShare) /
+				1e27 -
+				userInfo.rewardDebt; // Divide 1e27(because userinfo.amount in 18 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
 		}
+
 		return pending;
 	}
 

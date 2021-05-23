@@ -105,14 +105,15 @@ contract StakersDistribution is
 			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()))
 				.rewardsForStakingContract(msg.sender);
 
-		if (isBlackListed == false)
-			_increaseProductivity(
-				msg.sender,
-				_staker,
-				_value,
-				blockStart,
-				blockEnd
-			);
+		if (isBlackListed) return; //dont do anything if staking contract has been blacklisted;
+
+		_increaseProductivity(
+			msg.sender,
+			_staker,
+			_value,
+			blockStart,
+			blockEnd
+		);
 
 		address[] memory contracts = new address[](1);
 		contracts[0] = (address(this));
@@ -131,14 +132,15 @@ contract StakersDistribution is
 			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()))
 				.rewardsForStakingContract(msg.sender);
 
-		if (isBlackListed == false)
-			_decreaseProductivity(
-				msg.sender,
-				_staker,
-				_value,
-				blockStart,
-				blockEnd
-			);
+		if (isBlackListed) return; //dont do anything if staking contract has been blacklisted;
+
+		_decreaseProductivity(
+			msg.sender,
+			_staker,
+			_value,
+			blockStart,
+			blockEnd
+		);
 
 		address[] memory contracts = new address[](1);
 		contracts[0] = (msg.sender);
@@ -184,5 +186,31 @@ contract StakersDistribution is
 				_staker,
 				totalRep
 			);
+	}
+
+	function getUserPendingRewards(address[] calldata _contracts, address _user)
+		external
+		view
+		returns (uint256)
+	{
+		uint256 pending;
+		for (uint256 i = 0; i < _contracts.length; i++) {
+			(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) =
+				GoodFundManager(
+					nameService.addresses(nameService.FUND_MANAGER())
+				)
+					.rewardsForStakingContract(_contracts[i]);
+
+			if (isBlackListed == false) {
+				pending += getUserPendingReward(
+					_contracts[i],
+					blockStart,
+					blockEnd,
+					_user
+				);
+			}
+		}
+
+		return pending;
 	}
 }
