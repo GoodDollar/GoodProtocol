@@ -337,14 +337,11 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await simpleStaking.connect(staker).stake(stakingAmount, 0);
     await advanceBlocks(40);
     await increaseTime(86700 * 30); // Increase one month
+    const stakerGDAOBalanceBeforeStake = await grep.balanceOf(staker.address);
     await simpleStaking.connect(staker).stake(stakingAmount, 0);
-    const stakerGDAOBalanceBeforeWithdrawRewards = await grep.balanceOf(
-      staker.address
-    );
+    const stakerGDAOBalanceAfterStake = await grep.balanceOf(staker.address);
     await simpleStaking.connect(staker).withdrawRewards();
-    const stakerGDAOBalanceAfterWithdrawRewards = await grep.balanceOf(
-      staker.address
-    );
+
     const rewardsPerBlockAfterStake = await stakersDistribution.rewardsPerBlock(
       simpleStaking.address
     );
@@ -354,11 +351,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address);
     expect(rewardsPerBlockAfterStake).to.be.equal(rewardsPerBlockBeforeStake); // Should not update rewards per block since simplestaking blockend passed
     expect(GDAOBalanceBeforeWithdraw).to.be.equal(GDAOBalanceAfterWithdraw); // Should not earn any GDAO since simplestaking blockend passed
-    expect(
-      stakerGDAOBalanceAfterWithdrawRewards.gt(
-        stakerGDAOBalanceBeforeWithdrawRewards
-      )
-    ).to.be.true;
+    expect(stakerGDAOBalanceAfterStake.gt(stakerGDAOBalanceBeforeStake)).to.be
+      .true;
   });
 
   it("it should give distribute if blockend passed but some of the rewards during reward period was not distributed", async () => {
@@ -408,4 +402,112 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       )
     );
   });
+
+  it("it should not increaseProductivity of staking contract which is blacklisted", async () => {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const simpleStakingFactory = await ethers.getContractFactory(
+      "GoodCompoundStaking"
+    );
+    const simpleStaking1 = await simpleStakingFactory.deploy(
+      dai.address,
+      cDAI.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good DAI",
+      "gDAI",
+      "200",
+      daiUsdOracle.address,
+      "100000"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking1.address,
+        currentBlockNumber - 5,
+        currentBlockNumber + 20,
+        true
+      ] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    const stakingAmount = ethers.utils.parseEther("1000");
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
+    await simpleStaking1.connect(staker).stake(stakingAmount, 0);
+    const productivityOfStaker = await stakersDistribution.getProductivity(
+      simpleStaking1.address,
+      staker.address
+    );
+    expect(productivityOfStaker[0]).to.be.equal(0);
+  });
+
+  it("it should not decreaseProductivity of staking contract which is blacklisted", async () => {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const simpleStakingFactory = await ethers.getContractFactory(
+      "GoodCompoundStaking"
+    );
+    const simpleStaking1 = await simpleStakingFactory.deploy(
+      dai.address,
+      cDAI.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good DAI",
+      "gDAI",
+      "200",
+      daiUsdOracle.address,
+      "100000"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking1.address,
+        currentBlockNumber - 5,
+        currentBlockNumber + 20,
+        false
+      ] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+
+    const stakingAmount = ethers.utils.parseEther("1000");
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
+    await simpleStaking1.connect(staker).stake(stakingAmount, 0);
+    
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking1.address,
+        currentBlockNumber - 5,
+        currentBlockNumber + 20,
+        true
+      ] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    await simpleStaking1.connect(staker).withdrawStake(stakingAmount);
+    const productivityOfStaker = await stakersDistribution.getProductivity(
+      simpleStaking1.address,
+      staker.address
+    );
+    expect(productivityOfStaker[0]).to.be.equal(stakingAmount);
+  });
+
+
 });
