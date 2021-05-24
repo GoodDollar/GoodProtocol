@@ -525,7 +525,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
-
+    await increaseTime(86700 * 30); // Increase one month
     const stakingAmount = ethers.utils.parseEther("1000");
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
     await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
@@ -806,6 +806,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     expect(UserPendingGdaos).to.be.equal(
       usdcStakingPendingGdaos.add(daiStakingPendingGdaos)
     );
+    expect(usdcStakingProductivity[0]).to.be.equal(stakingAmountUsdc.mul(1e12)) // mul with 1e12 since usdc in 6 decimals but we keep productivity in 18 decimals
+    expect(daiStakingProductivity[0]).to.be.equal(stakingAmountDai)
     expect(usdcStakingProductivity[0]).to.be.equal(daiStakingProductivity[0]);
     expect(usdcStakingProductivity[1]).to.be.equal(daiStakingProductivity[1]);
     expect(usdcStakingRewardsPerBlock).to.be.equal(
