@@ -151,6 +151,9 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
 
+    expect(await governanceStaking.rewardsPerBlock()).to.equal(
+      ethers.utils.parseEther("1728000").div(BN.from("518400"))
+    );
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
     await governanceStaking.stake("100");
@@ -180,7 +183,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
     expect(
       GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
-    ).to.be.equal("347222222222222222220");
+    ).to.be.equal("16666666666666666665");
     expect(transaction.events.find(_ => _.event === "RewardsWithdraw")).to.be
       .not.empty;
     await governanceStaking.withdrawStake("100");
@@ -231,7 +234,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
     expect(
       GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
-    ).to.be.equal("500000000000000");
+    ).to.be.equal("166666666666665");
   });
 
   it("it should not generate rewards when rewards per block set to 0", async () => {
@@ -273,7 +276,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     );
 
     expect(productivityValue[0].toString()).to.be.equal("100");
-    expect(productivityValue[1].toString()).to.be.equal("100");
+    expect(productivityValue[1].toString()).to.be.equal("200");
     await governanceStaking.withdrawStake("100");
   });
 
@@ -285,7 +288,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const totalEarned = await governanceStaking.getUserPendingReward(
       founder.address
     );
-    expect(totalEarned.toString()).to.be.equal("347222222222222222220");
+    expect(totalEarned.toString()).to.be.equal("115740740740740740740");
     await governanceStaking.withdrawStake("100");
   });
 
@@ -299,7 +302,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
     expect(
       GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
-    ).to.be.equal("347222222222222222220");
+    ).to.be.equal("115740740740740740743");
   });
 
   it("user receive fractional gdao properly when his stake << totalProductivity", async () => {
@@ -325,7 +328,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       FounderGDAOBalanceAfterWithdraw.sub(
         FounderGDAOBalanceBeforeWithdraw
       ).toString()
-    ).to.be.equal("347222222222222222220");
+    ).to.be.equal("115740740740740740742");
     expect(
       GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
     ).to.be.equal("138888888888888888888"); // it gets full amount of rewards for 1 block plus 1/5 of amounts for 5 blokcs so 69444444444444444444 + 69444444444444444444

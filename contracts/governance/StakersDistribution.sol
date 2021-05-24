@@ -13,6 +13,7 @@ import "../staking/SimpleStaking.sol";
  * Staking contracts will update this contract with staker token stake amount
  * This contract will be able to mint GDAO. 2M GDAO that will be allocated between staking contracts each month pro-rate based on $ value staked.
  * Each staker will receive his share pro rata per staking contract he participates in
+ * NOTICE: a contract will start earning GDAO rewards only after first month
  */
 contract StakersDistribution is
 	DAOUpgradableContract,
