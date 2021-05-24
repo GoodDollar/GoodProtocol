@@ -193,7 +193,15 @@ contract GoodFundManager is DAOContract {
 		}
 
 		if (_isBlackListed == false) {
-			if (exist == false) activeContracts.push(_stakingAddress);
+			if (exist == false && _rewardsPerBlock != 0) {
+				activeContracts.push(_stakingAddress);
+				}else {
+					activeContracts[i] = activeContracts[
+					activeContracts.length - 1
+				];
+					activeContracts.pop();
+				}
+			
 		} else {
 			if (exist == true) {
 				activeContracts[i] = activeContracts[

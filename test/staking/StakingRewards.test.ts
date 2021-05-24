@@ -1234,4 +1234,45 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     data = await goodFundManager.rewardsForStakingContract(signers[0].address);
     expect(data.isBlackListed).to.equal(true);
   });
+
+  it("it should remove staking contract from active staking contracts when it's reward set to zero",async()=>{
+    const activeContractsCount = await goodFundManager.getActiveContractsCount()
+    const goodCompoundStakingTestFactory = await ethers.getContractFactory(
+      "GoodCompoundStakingTest"
+    );
+    const simpleStaking = await goodCompoundStakingTestFactory.deploy(
+      bat.address,
+      cBat.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good BaT",
+      "gBAT",
+      "50",
+      batUsdOracle.address,
+      "100000"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    let encodedData = goodFundManager.interface.encodeFunctionData(
+      "setStakingReward",
+      ["1000", simpleStaking.address, 10, 1000, false] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    const activeContractsCountAfterAdded = await goodFundManager.getActiveContractsCount()
+    encodedData = goodFundManager.interface.encodeFunctionData(
+      "setStakingReward",
+      ["0", simpleStaking.address, 10, 1000, false] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+
+    const activeContractsCountAfterRemoved = await goodFundManager.getActiveContractsCount()
+
+    expect(activeContractsCountAfterAdded).to.be.gt(activeContractsCount)
+    expect(activeContractsCountAfterAdded).to.be.gt(activeContractsCountAfterRemoved)
+    expect(activeContractsCount).to.be.equal(activeContractsCountAfterRemoved)
+
+  })
 });
