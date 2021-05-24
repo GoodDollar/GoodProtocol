@@ -150,22 +150,24 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       [ethers.utils.parseEther("1728000")]
     );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
-    const rewardsPerBlock = await governanceStaking.rewardsPerBlock()
+    const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
     expect(rewardsPerBlock).to.equal(
       ethers.utils.parseEther("1728000").div(BN.from("518400"))
     );
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
-    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1
+    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await governanceStaking.stake("100");
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
     await governanceStaking.withdrawStake("100");
-    const withdrawBlockNumber = await ethers.provider.getBlockNumber()
+    const withdrawBlockNumber = await ethers.provider.getBlockNumber();
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-    const multiplier = withdrawBlockNumber - stakeBlockNumber
-    const calculatedReward = rewardsPerBlock.mul(multiplier)// We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
-    expect(GDAOBalanceAfterWithdraw).to.be.equal(GDAOBalanceBeforeWithdraw.add(calculatedReward));
+    const multiplier = withdrawBlockNumber - stakeBlockNumber;
+    const calculatedReward = rewardsPerBlock.mul(multiplier); // We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
+    expect(GDAOBalanceAfterWithdraw).to.be.equal(
+      GDAOBalanceBeforeWithdraw.add(calculatedReward)
+    );
     encodedCall = governanceStakingFactory.interface.encodeFunctionData(
       "setMonthlyRewards",
       [ethers.utils.parseEther("12000000")]
@@ -174,21 +176,23 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
   });
 
   it("Should be able to withdraw rewards without withdraw stake", async () => {
-    const rewardsPerBlock = await governanceStaking.rewardsPerBlock()
+    const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
-    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1
+    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await governanceStaking.stake("100");
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
     const transaction = await (
       await governanceStaking.withdrawRewards()
     ).wait();
-    const withdrawBlockNumber = await ethers.provider.getBlockNumber()
+    const withdrawBlockNumber = await ethers.provider.getBlockNumber();
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-    const multiplier = withdrawBlockNumber - stakeBlockNumber
-    const calculatedReward = rewardsPerBlock.mul(multiplier)// We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
-    expect(GDAOBalanceAfterWithdraw).to.be.equal(GDAOBalanceBeforeWithdraw.add(calculatedReward));
+    const multiplier = withdrawBlockNumber - stakeBlockNumber;
+    const calculatedReward = rewardsPerBlock.mul(multiplier); // We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
+    expect(GDAOBalanceAfterWithdraw).to.be.equal(
+      GDAOBalanceBeforeWithdraw.add(calculatedReward)
+    );
     expect(transaction.events.find(_ => _.event === "RewardsWithdraw")).to.be
       .not.empty;
     await governanceStaking.withdrawStake("100");
@@ -229,19 +233,21 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       ["17280000000000000000"] // Give 0.0001 GDAO per block so 17.28 GDAO per month
     );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
-    const rewardsPerBlock = await governanceStaking.rewardsPerBlock()
+    const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
-    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1
+    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await governanceStaking.stake("100");
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
     await governanceStaking.withdrawStake("100");
-    const withdrawBlockNumber = await ethers.provider.getBlockNumber()
+    const withdrawBlockNumber = await ethers.provider.getBlockNumber();
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-    const multiplier = withdrawBlockNumber - stakeBlockNumber
-    const calculatedReward = rewardsPerBlock.mul(multiplier)// We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
-    expect(GDAOBalanceAfterWithdraw).to.be.equal(GDAOBalanceBeforeWithdraw.add(calculatedReward));
+    const multiplier = withdrawBlockNumber - stakeBlockNumber;
+    const calculatedReward = rewardsPerBlock.mul(multiplier); // We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
+    expect(GDAOBalanceAfterWithdraw).to.be.equal(
+      GDAOBalanceBeforeWithdraw.add(calculatedReward)
+    );
   });
 
   it("it should not generate rewards when rewards per block set to 0", async () => {
@@ -262,8 +268,10 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
     await governanceStaking.stake("100");
-    const userProductivity = await governanceStaking.getProductivity(founder.address)
-    expect(userProductivity[0]).to.be.equal(BN.from("100"))
+    const userProductivity = await governanceStaking.getProductivity(
+      founder.address
+    );
+    expect(userProductivity[0]).to.be.equal(BN.from("100"));
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
     await governanceStaking.withdrawStake("100");
@@ -290,44 +298,49 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
   });
 
   it("it should return earned rewards with pending ones properly", async () => {
-    const rewardsPerBlock = await governanceStaking.rewardsPerBlock()
+    const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
-    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1
+    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await governanceStaking.stake("100");
     await advanceBlocks(5);
     const totalEarned = await governanceStaking.getUserPendingReward(
       founder.address
     );
-    const pendingRewardBlockNumber = await ethers.provider.getBlockNumber()
-    const multiplier = pendingRewardBlockNumber - stakeBlockNumber
-    const calculatedPendingReward = rewardsPerBlock.mul(multiplier)// We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
+    const pendingRewardBlockNumber = await ethers.provider.getBlockNumber();
+    const multiplier = pendingRewardBlockNumber - stakeBlockNumber;
+    const calculatedPendingReward = rewardsPerBlock.mul(multiplier); // We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
     expect(totalEarned).to.be.equal(calculatedPendingReward);
     await governanceStaking.withdrawStake("100");
   });
 
   it("Accumulated per share has enough precision when reward << totalproductivity", async () => {
-    const rewardsPerBlock = await governanceStaking.rewardsPerBlock()
+    const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
     await goodDollar.mint(founder.address, "100000000000000"); // 1 trillion gd stake
     await goodDollar.approve(governanceStaking.address, "1000000000000");
-    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1
+    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await governanceStaking.stake("1000000000000");
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
     await governanceStaking.withdrawStake("1000000000000");
-    const withdrawBlockNumber = await ethers.provider.getBlockNumber()
+    const withdrawBlockNumber = await ethers.provider.getBlockNumber();
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
-    const multiplier = withdrawBlockNumber - stakeBlockNumber
-    const calculatedReward = rewardsPerBlock.mul(multiplier)// We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
-    expect(GDAOBalanceAfterWithdraw).to.be.equal(GDAOBalanceBeforeWithdraw.add(calculatedReward));
+    const multiplier = withdrawBlockNumber - stakeBlockNumber;
+    const calculatedReward = rewardsPerBlock.mul(multiplier); // We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
+    expect(GDAOBalanceAfterWithdraw).to.be.equal(
+      GDAOBalanceBeforeWithdraw.add(calculatedReward)
+    );
   });
 
   it("user receive fractional gdao properly when his stake << totalProductivity", async () => {
+    const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
     await goodDollar.mint(founder.address, "800"); // 8gd
     await goodDollar.mint(staker.address, "200"); // 2gd
     await goodDollar.approve(governanceStaking.address, "800");
     await goodDollar.connect(staker).approve(governanceStaking.address, "200");
     await governanceStaking.stake("800");
+    const secondStakerStakeBlockNumber =
+      (await ethers.provider.getBlockNumber()) + 1;
     await governanceStaking.connect(staker).stake("200");
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(staker.address);
@@ -335,20 +348,29 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       founder.address
     );
     await governanceStaking.withdrawStake("800");
+    const founderWithdrawBlockNumber = await ethers.provider.getBlockNumber();
     await governanceStaking.connect(staker).withdrawStake("200");
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address);
     const FounderGDAOBalanceAfterWithdraw = await grep.balanceOf(
       founder.address
     );
-
-    expect(
-      FounderGDAOBalanceAfterWithdraw.sub(
-        FounderGDAOBalanceBeforeWithdraw
-      ).toString()
-    ).to.be.equal("115740740740740740740");
-    expect(
-      GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
-    ).to.be.equal("46296296296296296296"); // it gets full amount of rewards for 1 block plus 1/5 of amounts for 5 blocks so 69444444444444444444 + 69444444444444444444
+    const founderCalculatedRewards = rewardsPerBlock.add(
+      rewardsPerBlock
+        .mul(80)
+        .mul(founderWithdrawBlockNumber - secondStakerStakeBlockNumber)
+        .div(100)
+    ); // Founder should get full rewards for one block then owns of %80 of rewards
+    const stakerCalculatedRewards = rewardsPerBlock
+      .mul(20)
+      .mul(founderWithdrawBlockNumber - secondStakerStakeBlockNumber)
+      .div(100)
+      .add(rewardsPerBlock); // Staker should get %20 of rewards initially then when Founder withdraw their stake Staker would own %100 of rewards and would get full amount
+    expect(FounderGDAOBalanceAfterWithdraw).to.be.equal(
+      FounderGDAOBalanceBeforeWithdraw.add(founderCalculatedRewards)
+    );
+    expect(GDAOBalanceAfterWithdraw).to.be.equal(
+      GDAOBalanceBeforeWithdraw.add(stakerCalculatedRewards)
+    );
   });
 
   it("it should be able to tranfer tokens when user approve", async () => {
@@ -359,14 +381,16 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await governanceStaking
       .connect(staker)
       .transferFrom(founder.address, staker.address, "100");
-    const stakerProductivity = await governanceStaking.getProductivity(staker.address)
+    const stakerProductivity = await governanceStaking.getProductivity(
+      staker.address
+    );
     expect(await governanceStaking.balanceOf(founder.address)).to.equal(0);
     expect(await governanceStaking.balanceOf(staker.address)).to.equal(100);
 
     expect((await governanceStaking.users(staker.address)).amount).to.equal(
       100
     );
-    expect(stakerProductivity[0]).to.be.equal('100')
+    expect(stakerProductivity[0]).to.be.equal("100");
   });
 
   it("it should return staker data", async () => {
@@ -408,12 +432,11 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const userPendingReward = await governanceStaking.getUserPendingReward(
       staker2.address
     );
-    governanceStaking.connect(staker2).withdrawStake("100")
+    governanceStaking.connect(staker2).withdrawStake("100");
     expect(userPendingReward).to.be.gt(0);
   });
 
   it("it should return pendingRewards greater than zero", async () => {
-    
     let userPendingRewards = await governanceStaking.getUserPendingReward(
       staker.address
     );
@@ -539,21 +562,22 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     expect(tx.message).to.have.string("INSUFFICIENT_PRODUCTIVITY");
   });
 
-  it("it should get rewards for previous stakes when stake new amount of tokens",async()=>{
-    const rewardsPerBlock = await governanceStaking.rewardsPerBlock()
+  it("it should get rewards for previous stakes when stake new amount of tokens", async () => {
+    const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
     await goodDollar.mint(founder.address, "200");
     await goodDollar.approve(governanceStaking.address, "200");
-    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1
+    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await governanceStaking.stake("100");
-    await advanceBlocks(5)
-    const gdaoBalanceBeforeGetRewards = await grep.balanceOf(founder.address)
+    await advanceBlocks(5);
+    const gdaoBalanceBeforeGetRewards = await grep.balanceOf(founder.address);
     await governanceStaking.stake("100");
-    const getRewardsBlockNumber = await ethers.provider.getBlockNumber()
-    const gdaoBalanceAfterGetRewards = await grep.balanceOf(founder.address)
-    const multiplier = getRewardsBlockNumber - stakeBlockNumber
-    const calculatedReward = rewardsPerBlock.mul(multiplier) // We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
-    await governanceStaking.withdrawStake("200")
-    expect(gdaoBalanceAfterGetRewards).to.be.equal(gdaoBalanceBeforeGetRewards.add(calculatedReward))
-
-  })
+    const getRewardsBlockNumber = await ethers.provider.getBlockNumber();
+    const gdaoBalanceAfterGetRewards = await grep.balanceOf(founder.address);
+    const multiplier = getRewardsBlockNumber - stakeBlockNumber;
+    const calculatedReward = rewardsPerBlock.mul(multiplier); // We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
+    await governanceStaking.withdrawStake("200");
+    expect(gdaoBalanceAfterGetRewards).to.be.equal(
+      gdaoBalanceBeforeGetRewards.add(calculatedReward)
+    );
+  });
 });
