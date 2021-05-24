@@ -10,7 +10,14 @@ const MAX_INACTIVE_DAYS = 3;
 const ONE_DAY = 86400;
 
 describe("UBIScheme", () => {
-  let goodDollar, identity, formula, avatar, ubi, controller, firstClaimPool;
+  let goodDollar,
+    identity,
+    formula,
+    avatar,
+    ubi,
+    controller,
+    firstClaimPool,
+    newUbi;
   let reputation;
   let root,
     acct,
@@ -45,10 +52,10 @@ describe("UBIScheme", () => {
     genericCall = gn;
     reputation = rep;
 
-    let ubi = await deployUBI(deployedDAO);
+    let deployedUBI = await deployUBI(deployedDAO);
 
-    ubiScheme = ubi.ubiScheme;
-    firstClaimPool = ubi.firstClaim;
+    //ubiScheme = newUbi.ubiScheme;
+    firstClaimPool = deployedUBI.firstClaim;
 
     // setDAOAddress("GDAO_CLAIMERS", cd.address);
     addWhitelisted(claimer1.address, "claimer1");
@@ -64,63 +71,59 @@ describe("UBIScheme", () => {
     ).revertedWith("Max inactive days cannot be zero");
   });
 
-  // it("should deploy the ubi", async () => {
-  //   const block = await web3.eth.getBlock("latest");
-  //   const startUBI = block.timestamp;
-  //   const endUBI = startUBI + 60 * 60 * 24 * 30;
-  //   ubi = await UBIMock.new(
-  //     avatar.address,
-  //     identity.address,
-  //     firstClaimPool.address,
-  //     startUBI,
-  //     endUBI,
-  //     MAX_INACTIVE_DAYS,
-  //     1
-  //   );
-  //   let isActive = await ubi.isActive();
-  //   expect(isActive).to.be.false;
+  it("should deploy the ubi", async () => {
+    const block = await ethers.provider.getBlock("latest");
+    const startUBI = block.timestamp;
+    ubi = await upgrades.deployProxy(
+      await ethers.getContractFactory("UBIScheme"),
+      [nameService.address, firstClaimPool.address, 14]
+    );
+    const periodStart = await ubi.periodStart();
+    expect(periodStart.lt(startUBI)).to.be.true;
+  });
+
+  it("should not be able to set the claim amount if the sender is not the avatar", async () => {
+    let error = await firstClaimPool.setClaimAmount(200).catch(e => e);
+    expect(error.message).to.have.string("only Avatar");
+  });
+
+  it("should not be able to set the ubi scheme if the sender is not the avatar", async () => {
+    let error = await firstClaimPool.setUBIScheme(ubi.address).catch(e => e);
+    expect(error.message).to.have.string("only Avatar");
+  });
+
+  it("should not be able to execute claiming when ubischeme not whitelisted", async () => {
+    let error = await ubi.claim().catch(e => e);
+    expect(error.message).to.have.string("UBIScheme: not whitelisted");
+  });
+
+  //it("should not be able to execute fish when start has not been executed yet", async () => {
+  //  let error = await ubi.fish(NULL_ADDRESS).catch(e => e);
+  //  expect(error.message).to.have.string("not in periodStarted");
   // });
 
-  // it("should not be able to set the claim amount if the sender is not the avatar", async () => {
-  //   let error = await firstClaimPool.setClaimAmount(200).catch(e => e);
-  //   expect(error.message).to.have.string("only Avatar");
-  // });
+  //it("should not be able to execute fishMulti when start has not been executed yet", async () => {
+  // let error = await ubi.fishMulti([NULL_ADDRESS]).catch(e => e);
+  //  expect(error.message).to.have.string("is not active");
+  //});
 
-  // it("should not be able to set the ubi scheme if the sender is not the avatar", async () => {
-  //   let error = await firstClaimPool.setUBIScheme(ubi.address).catch(e => e);
-  //   expect(error.message).to.have.string("only Avatar");
-  // });
+  //it("should start the ubi", async () => {
+  //  await ubi.start();
+  //  const block = await ethers.provider.getBlock("latest");
+  //  const startUBI = block.timestamp;
+   // const newUbi = await firstClaimPool.ubi();
+   // let periodStart = await ubi.periodStart().then(_ => _.toNumber());
+    //let startDate = new Date(periodStart * 1000);
+    //expect(startDate.toISOString()).to.have.string("T12:00:00.000Z"); //contract set itself to start at noon GMT
+    //expect(newUbi.toString()).to.be.equal(ubi.address);
 
-  // it("should not be able to execute claiming when start has not been executed yet", async () => {
-  //   let error = await ubi.claim().catch(e => e);
-  //   expect(error.message).to.have.string("is not active");
-  // });
+    //expect(periodStart.gt(startUBI)).to.be.true;
+  //});
 
-  // it("should not be able to execute fish when start has not been executed yet", async () => {
-  //   let error = await ubi.fish(NULL_ADDRESS).catch(e => e);
-  //   expect(error.message).to.have.string("is not active");
-  // });
-
-  // it("should not be able to execute fishMulti when start has not been executed yet", async () => {
-  //   let error = await ubi.fishMulti([NULL_ADDRESS]).catch(e => e);
-  //   expect(error.message).to.have.string("is not active");
-  // });
-
-  // it("should start the ubi", async () => {
-  //   await ubi.start();
-  //   let isActive = await ubi.isActive();
-  //   const newUbi = await firstClaimPool.ubi();
-  //   let periodStart = await ubi.periodStart().then(_ => _.toNumber());
-  //   let startDate = new Date(periodStart * 1000);
-  //   expect(startDate.toISOString()).to.have.string("T12:00:00.000Z"); //contract set itself to start at noon GMT
-  //   expect(newUbi.toString()).to.be.equal(ubi.address);
-  //   expect(isActive).to.be.true;
-  // });
-
-  // it("should not be able to execute claiming when the caller is not whitelisted", async () => {
-  //   let error = await ubi.claim().catch(e => e);
-  //   expect(error.message).to.have.string("is not whitelisted");
-  // });
+  it("should not be able to execute claiming when the caller is not whitelisted", async () => {
+    let error = await ubi.claim().catch(e => e);
+    expect(error.message).to.have.string("UBIScheme: not whitelisted");
+  });
 
   // it("should not be able to claim when the claim pool is not active", async () => {
   //   await identity.addWhitelisted(claimer1);
