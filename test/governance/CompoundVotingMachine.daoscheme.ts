@@ -81,7 +81,8 @@ describe("CompoundVotingMachine#DAOScheme", () => {
       setSchemes,
       reputation,
       setDAOAddress,
-      nameService
+      nameService,
+      votingMachine
     } = await createDAO();
     Controller = controller;
     avatar = av;
@@ -91,10 +92,7 @@ describe("CompoundVotingMachine#DAOScheme", () => {
       reputation
     )) as GReputation;
 
-    gov = (await upgrades.deployProxy(CompoundVotingMachine, [
-      nameService.address,
-      5760
-    ])) as CompoundVotingMachine;
+    gov = votingMachine;
 
     //this will give root minter permissions
     setDAOAddress("GDAO_CLAIMERS", root.address);

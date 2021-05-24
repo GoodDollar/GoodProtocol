@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
-pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 
 import "../DAOStackInterfaces.sol";
-import "../utils/DAOContract.sol";
+import "../utils/DAOUpgradableContract.sol";
 
-contract CompoundVotingMachine is
-	Initializable,
-	ContextUpgradeable,
-	DAOContract
-{
+/**
+ * CompoundVotingMachine based on Compound's governance with a few differences
+ * 1. no timelock. once vote has passed it stays open for 'queuePeriod' (2 days by default).
+ * if vote decision has changed, execution will be delayed so at least 24 hours are left to vote.
+ * 2. execution modified to support DAOStack Avatar/Controller
+ */
+contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradableContract {
 	/// @notice The name of this contract
 	string public constant name = "GoodDAO Voting Machine";
 
@@ -183,6 +183,14 @@ contract CompoundVotingMachine is
 	/// @notice An event emitted when a proposal has been executed
 	event ProposalExecuted(uint256 id);
 
+	/// @notice An event emitted when a proposal call has been executed
+	event ProposalExecutionResult(
+		uint256 id,
+		uint256 index,
+		bool ok,
+		bytes result
+	);
+
 	function initialize(
 		NameService ns_, // the DAO avatar
 		uint256 votingPeriodBlocks_ //number of blocks a proposal is open for voting before expiring
@@ -318,12 +326,14 @@ contract CompoundVotingMachine is
 		Proposal storage proposal = proposals[proposalId];
 		proposal.executed = true;
 		for (uint256 i = 0; i < proposal.targets.length; i++) {
-			_executeTransaction(
-				proposal.targets[i],
-				proposal.values[i],
-				proposal.signatures[i],
-				proposal.calldatas[i]
-			);
+			(bool ok, bytes memory result) =
+				_executeTransaction(
+					proposal.targets[i],
+					proposal.values[i],
+					proposal.signatures[i],
+					proposal.calldatas[i]
+				);
+			emit ProposalExecutionResult(proposalId, i, ok, result);
 		}
 		emit ProposalExecuted(proposalId);
 	}
@@ -335,7 +345,7 @@ contract CompoundVotingMachine is
 		uint256 value,
 		string memory signature,
 		bytes memory data
-	) internal returns (bytes memory) {
+	) internal returns (bool, bytes memory) {
 		bytes memory callData;
 
 		if (bytes(signature).length == 0) {
@@ -366,8 +376,7 @@ contract CompoundVotingMachine is
 			"CompoundVotingMachine::executeTransaction: Transaction execution reverted."
 		);
 
-		//TODO: event with tx result
-		return result;
+		return (ok, result);
 	}
 
 	/// @notice cancel a proposal in case proposer no longer holds the votes that were required to propose

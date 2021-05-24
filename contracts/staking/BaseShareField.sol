@@ -5,6 +5,7 @@ import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DAOContract.sol";
 import "../utils/DSMath.sol";
+
 interface FundManager {
 	function rewardsForStakingContract(address _staking)
 		external
@@ -30,7 +31,6 @@ contract BaseShareField is DAOContract {
 	uint256 public mintedShare;
 	uint256 public mintCumulation;
 	uint64 public maxMultiplierThreshold;
-	address public shareToken;
 
 	uint256 public lastRewardBlock;
 	// Staking contracts accepts Token's most with 18 decimals so this variable to hold decimal difference between 18 and Token's decimal in order to make calculations
@@ -54,10 +54,6 @@ contract BaseShareField is DAOContract {
 		_;
 	}
 
-	function _setShareToken(address _shareToken) internal {
-		shareToken = _shareToken;
-	}
-
 	/**
 	 * @dev Update reward variables of the given pool to be up-to-date.
 	 * Calculates passed blocks and adding to the reward pool
@@ -73,6 +69,7 @@ contract BaseShareField is DAOContract {
 		if (block.number >= blockStart && lastRewardBlock < blockStart) {
 			lastRewardBlock = blockStart;
 		}
+
 		if (block.number >= blockStart && blockEnd >= block.number) {
 			uint256 multiplier = block.number - lastRewardBlock; // Blocks passed since last reward block
 			uint256 reward = multiplier * (rewardsPerBlock * 1e16); // rewardsPerBlock is in G$ which is only 2 decimals, we turn it into 18 decimals by multiplying 1e16
@@ -258,12 +255,12 @@ contract BaseShareField is DAOContract {
 		return userInfo.rewardEarn + pending / 1e16; // Reward earn in 18decimals so need to divide 1e16 to bring down gd decimals which is 2
 	}
 
-	/** 
-    @dev When the fundmanager calls this function it will updates the user records 
-    * get the user rewards which they earned but not minted and mark it as minted 
-    * @param user address of the user that will be accounted
-    * @return returns amount to mint as reward to the user
-    */
+	/**
+	 * @dev When the fundmanager calls this function it will updates the user records
+	 * get the user rewards which they earned but not minted and mark it as minted
+	 * @param user address of the user that will be accounted
+	 * @return returns amount to mint as reward to the user
+	 */
 
 	function rewardsMinted(address user)
 		public
