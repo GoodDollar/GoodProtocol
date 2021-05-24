@@ -6,6 +6,11 @@ import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../governance/GReputation.sol";
 
+/**
+ * ClaimersDistribution providers callbacks that can be used by UBIScheme to update when a citizen
+ * has claimed.
+ * It will distribute GDAO each month pro rata based on number of claims
+ */
 contract ClaimersDistribution is DAOUpgradableContract {
 	///@notice reputation to distribute each month, will effect next month when set
 	uint256 public monthlyReputationDistribution;

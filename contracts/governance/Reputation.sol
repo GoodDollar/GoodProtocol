@@ -8,7 +8,7 @@ import "../utils/DAOUpgradableContract.sol";
 /**
  * @title Reputation system
  * @dev A DAO has Reputation System which allows peers to rate other peers in order to build trust .
- * A reputation is use to assign influence measure to a DAO'S peers.
+ * A reputation is used to assign influence measure to a DAO'S peers.
  * Reputation is similar to regular tokens but with one crucial difference: It is non-transferable.
  * The Reputation contract maintain a map of address to reputation value.
  * It provides an only minter role functions to mint and burn reputation _to (or _from) a specific address.
