@@ -11,15 +11,12 @@ import "../DAOStackInterfaces.sol";
 import "./BaseGovernanceShareField.sol";
 
 /**
- * @title Staking contract that donates earned interest to the DAO
- * allowing stakers to deposit Tokens
- * or withdraw their stake in Tokens
- * the contracts buy intrest tokens and can transfer the daily interest to the  DAO
+ * @title Staking contract that allows citizens to stake G$ to get GDAO rewards
  */
 contract GovernanceStaking is
 	ERC20Upgradeable,
 	BaseGovernanceShareField,
-	DAOUpgradableContract
+	DAOContract
 {
 	uint256 public constant FUSE_MONTHLY_BLOCKS = 12 * 60 * 24 * 30;
 
@@ -54,11 +51,18 @@ contract GovernanceStaking is
 	 * @dev Constructor
 	 * @param _ns The address of the NameService contract
 	 */
-	function initialize(NameService _ns) public virtual initializer {
+	constructor(NameService _ns) {
 		setDAO(_ns);
 		token = ERC20(nameService.addresses(nameService.GOODDOLLAR()));
 		__ERC20_init("GDAO Staking", "sGDAO");
 		rewardsPerBlock = (2 ether * 1e6) / FUSE_MONTHLY_BLOCKS; // (2M monthly GDAO as specified in specs, divided by blocks in month )
+	}
+
+	/**
+	 * @dev this contract runs on fuse
+	 */
+	function getChainBlocksPerMonth() public pure override returns (uint256) {
+		return 518400; //12 * 60 * 24 * 30
 	}
 
 	/**

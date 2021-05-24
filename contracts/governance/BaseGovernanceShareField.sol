@@ -8,7 +8,7 @@ import "../utils/DSMath.sol";
  * Contract to calculate staking rewards shares.
  * WARNING: WILL ONLY WORK WITH G$ IE STAKING TOKEN WITH 2 DECIMALS
  */
-contract BaseGovernanceShareField {
+abstract contract BaseGovernanceShareField {
 	// Total Amount of stakes
 	uint256 totalProductivity;
 	// Reward amount of the each share
@@ -30,12 +30,14 @@ contract BaseGovernanceShareField {
 
 	mapping(address => UserInfo) public users;
 
+	function getChainBlocksPerMonth() public virtual returns (uint256);
+
 	/**
 	 * @dev Calculate rewards per block from monthly amount of rewards and set it
 	 * @param _monthlyAmount total rewards which will distribute monthly
 	 */
 	function _setMonthlyRewards(uint256 _monthlyAmount) internal {
-		rewardsPerBlock = _monthlyAmount / 172800;
+		rewardsPerBlock = _monthlyAmount / getChainBlocksPerMonth();
 	}
 
 	/**

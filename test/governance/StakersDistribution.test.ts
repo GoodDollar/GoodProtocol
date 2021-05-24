@@ -41,6 +41,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     signers,
     nameService,
     initializeToken,
+    genericCall,
     setDAOAddress,
     daiEthOracle,
     ethUsdOracle,
@@ -76,8 +77,11 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       cdaiAddress,
       reserve,
       reputation,
-      setReserveToken
+      setReserveToken,
+      genericCall: gc
     } = await createDAO();
+
+    genericCall = gc;
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
     avatar = av;
@@ -243,6 +247,23 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     );
   });
 
+  it("it should set monthly reputation when Avatar", async () => {
+    let encoded = stakersDistribution.interface.encodeFunctionData(
+      "setMonthlyReputationDistribution",
+      [ethers.utils.parseEther("1000000")]
+    );
+    await genericCall(stakersDistribution.address, encoded);
+    const monthlyReputationDistribution = await stakersDistribution.monthlyReputationDistribution();
+    expect(monthlyReputationDistribution).to.be.equal(
+      ethers.utils.parseEther("1000000")
+    );
+    encoded = stakersDistribution.interface.encodeFunctionData(
+      "setMonthlyReputationDistribution",
+      [ethers.utils.parseEther("2000000")]
+    );
+    await genericCall(stakersDistribution.address, encoded);
+  });
+
   it("it should distribute monthly rewards according to staking amount of contracts so in this particular case simpleStaking contract should get %75 of the monthly rewards ", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
@@ -307,8 +328,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     );
     await simpleStaking.connect(staker).withdrawStake(stakingAmount.mul(75));
     expect(rewardsPerBlockAfterStakeContractOne).to.be.equal(
-      rewardsPerBlockAftereStakeContractTwo.mul(3).add(BN.from("69444445"))
-    ); // added 69444445 cause of precision loss
+      rewardsPerBlockAftereStakeContractTwo.mul(3).add(2314817)
+    ); // added 2,314,817 cause of precision loss
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       [
@@ -496,7 +517,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       [
-        "1000",
+        "100000",
         simpleStaking1.address,
         currentBlockNumber - 5,
         currentBlockNumber + 20,
@@ -509,6 +530,14 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
     await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
     await simpleStaking1.connect(staker).stake(stakingAmount, 0);
+    await advanceBlocks(5); //should accumulate some gdao rewards
+
+    let pendingGDAO = await stakersDistribution.getUserPendingRewards(
+      [simpleStaking1.address],
+      staker.address
+    );
+
+    expect(pendingGDAO).gt(0);
 
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
@@ -527,6 +556,20 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       staker.address
     );
     expect(productivityOfStaker[0]).to.be.equal(stakingAmount);
+
+    const repBefore = await grep["balanceOf(address)"](staker.address);
+    await stakersDistribution.claimReputation(staker.address, [
+      simpleStaking1.address
+    ]);
+    const repAfter = await grep["balanceOf(address)"](staker.address);
+
+    expect(repBefore).to.equal(repAfter); //should not have been awarded rep accumulated before blacklisting contract
+
+    pendingGDAO = await stakersDistribution.getUserPendingRewards(
+      [simpleStaking1.address],
+      staker.address
+    );
+    expect(pendingGDAO).equal(0); //should have 0 pending after contract was blacklisted
   });
 
   it("it should not earn rewards when current block < startBlock", async () => {
@@ -749,18 +792,24 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const daiStakingRewardsPerBlock = await stakersDistribution.rewardsPerBlock(
       simpleStaking.address
     );
-    const gdaoBalanceBeforeWithdraw = await grep.balanceOf(staker.address)
+    const gdaoBalanceBeforeWithdraw = await grep.balanceOf(staker.address);
     await simpleUsdcStaking.connect(staker).withdrawStake(stakingAmountUsdc);
-    await simpleStaking.connect(staker).withdrawStake(stakingAmountDai.add('1'))
-    const gdaoBalanceAfterWithdraw = await grep.balanceOf(staker.address)
-    expect(gdaoBalanceAfterWithdraw.sub(gdaoBalanceBeforeWithdraw)).to.be.equal(UserPendingGdaos.add(usdcStakingRewardsPerBlock).add(daiStakingRewardsPerBlock.mul(2)))
+    await simpleStaking
+      .connect(staker)
+      .withdrawStake(stakingAmountDai.add("1"));
+    const gdaoBalanceAfterWithdraw = await grep.balanceOf(staker.address);
+    expect(gdaoBalanceAfterWithdraw.sub(gdaoBalanceBeforeWithdraw)).to.be.equal(
+      UserPendingGdaos.add(usdcStakingRewardsPerBlock).add(
+        daiStakingRewardsPerBlock.mul(2)
+      )
+    );
     expect(UserPendingGdaos).to.be.equal(
       usdcStakingPendingGdaos.add(daiStakingPendingGdaos)
     );
     expect(usdcStakingProductivity[0]).to.be.equal(daiStakingProductivity[0]);
     expect(usdcStakingProductivity[1]).to.be.equal(daiStakingProductivity[1]);
-    expect(usdcStakingRewardsPerBlock.sub(BN.from("173611111"))).to.be.equal(
-      daiStakingRewardsPerBlock
-    ); // add 173611111 cause of precision loss
+    expect(usdcStakingRewardsPerBlock).to.be.equal(
+      daiStakingRewardsPerBlock.add(5787037)
+    ); // sub 5,787,037 cause of precision loss
   });
 });

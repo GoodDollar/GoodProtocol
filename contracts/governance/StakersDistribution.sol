@@ -11,8 +11,8 @@ import "../staking/SimpleStaking.sol";
 
 /**
  * Staking contracts will update this contract with staker token stake amount
- * This contract will be able to mint GDAO based on initial 2M that will be allocated between staking contracts
- * each staker will receive his share pro rata per staking contract he participates in
+ * This contract will be able to mint GDAO. 2M GDAO that will be allocated between staking contracts each month pro-rate based on $ value staked.
+ * Each staker will receive his share pro rata per staking contract he participates in
  */
 contract StakersDistribution is
 	DAOUpgradableContract,
@@ -30,8 +30,11 @@ contract StakersDistribution is
 		_updateMonth();
 	}
 
+	/**
+	 * @dev this contract runs on ethereum
+	 */
 	function getChainBlocksPerMonth() public pure override returns (uint256) {
-		return 5760;
+		return 172800; //4 * 60 * 24 * 30
 	}
 
 	/**
