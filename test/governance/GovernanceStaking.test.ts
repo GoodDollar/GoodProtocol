@@ -163,7 +163,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
     expect(
       GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
-    ).to.be.equal("50000000000000000000");
+    ).to.be.equal("16666666666666666665");
     encodedCall = governanceStakingFactory.interface.encodeFunctionData(
       "setMonthlyRewards",
       [ethers.utils.parseEther("12000000")]
@@ -183,7 +183,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
     expect(
       GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
-    ).to.be.equal("16666666666666666665");
+    ).to.be.equal("115740740740740740740");
     expect(transaction.events.find(_ => _.event === "RewardsWithdraw")).to.be
       .not.empty;
     await governanceStaking.withdrawStake("100");
@@ -276,7 +276,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     );
 
     expect(productivityValue[0].toString()).to.be.equal("100");
-    expect(productivityValue[1].toString()).to.be.equal("200");
+    expect(productivityValue[1].toString()).to.be.equal("100");
     await governanceStaking.withdrawStake("100");
   });
 
@@ -302,7 +302,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
     expect(
       GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
-    ).to.be.equal("115740740740740740743");
+    ).to.be.equal("115740740740740740740");
   });
 
   it("user receive fractional gdao properly when his stake << totalProductivity", async () => {
@@ -328,10 +328,10 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       FounderGDAOBalanceAfterWithdraw.sub(
         FounderGDAOBalanceBeforeWithdraw
       ).toString()
-    ).to.be.equal("115740740740740740742");
+    ).to.be.equal("115740740740740740740");
     expect(
       GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw).toString()
-    ).to.be.equal("138888888888888888888"); // it gets full amount of rewards for 1 block plus 1/5 of amounts for 5 blokcs so 69444444444444444444 + 69444444444444444444
+    ).to.be.equal("46296296296296296296"); // it gets full amount of rewards for 1 block plus 1/5 of amounts for 5 blokcs so 69444444444444444444 + 69444444444444444444
   });
 
   it("it should be able to tranfer tokens when user approve", async () => {
@@ -502,9 +502,10 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     expect(tx.message).not.to.be.empty;
   });
 
-  it("Withdraw amount should be positive", async () => {
-    const tx = await governanceStaking.withdrawStake("0").catch(e => e);
-    expect(tx.message).to.have.string("Should withdraw positive amount");
+  it("Withdraw 0 should withdraw everything", async () => {
+    await expect(governanceStaking.withdrawStake("0")).to.revertedWith(
+      "positive amount"
+    );
   });
 
   it("Should use overriden _transfer that handles productivity when using transferFrom which is defined in super erc20 contract", async () => {
