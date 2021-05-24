@@ -774,18 +774,21 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       [simpleStaking.address, simpleUsdcStaking.address],
       staker.address
     );
+    expect(UserPendingGdaos).to.be.gt(0)
     const usdcStakingPendingGdaos = await stakersDistribution.getUserPendingReward(
       simpleUsdcStaking.address,
       currentBlockNumber - 5,
       currentBlockNumber + 200,
       staker.address
     );
+    expect(usdcStakingPendingGdaos).to.be.gt(0)
     const daiStakingPendingGdaos = await stakersDistribution.getUserPendingReward(
       simpleStaking.address,
       currentBlockNumber - 5,
       currentBlockNumber + 200,
       staker.address
     );
+    expect(daiStakingPendingGdaos).to.be.gt(0)
     const usdcStakingRewardsPerBlock = await stakersDistribution.rewardsPerBlock(
       simpleUsdcStaking.address
     );
