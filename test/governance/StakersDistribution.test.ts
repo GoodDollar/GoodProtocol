@@ -756,10 +756,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       .connect(staker)
       .approve(simpleUsdcStaking.address, stakingAmountUsdc);
     await simpleStaking.connect(staker).stake(stakingAmountDai, 0);
-    await simpleUsdcStaking.connect(staker).stake(stakingAmountUsdc, 0);
     await increaseTime(86700 * 30); // Increase one month
-    await dai["mint(address,uint256)"](staker.address, "1");
-    await dai.connect(staker).approve(simpleStaking.address, "1");
+    await simpleUsdcStaking.connect(staker).stake(stakingAmountUsdc, 0);
     const usdcStakingProductivity = await stakersDistribution.getProductivity(
       simpleUsdcStaking.address,
       staker.address
@@ -768,7 +766,6 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       simpleStaking.address,
       staker.address
     );
-    await simpleStaking.connect(staker).stake("1", 0); // Trigger update monthly rewards
     await advanceBlocks(10);
     const UserPendingGdaos = await stakersDistribution.getUserPendingRewards(
       [simpleStaking.address, simpleUsdcStaking.address],
@@ -799,7 +796,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await simpleUsdcStaking.connect(staker).withdrawStake(stakingAmountUsdc);
     await simpleStaking
       .connect(staker)
-      .withdrawStake(stakingAmountDai.add("1"));
+      .withdrawStake(stakingAmountDai);
     const gdaoBalanceAfterWithdraw = await grep.balanceOf(staker.address);
     expect(gdaoBalanceAfterWithdraw.sub(gdaoBalanceBeforeWithdraw)).to.be.equal(
       UserPendingGdaos.add(usdcStakingRewardsPerBlock).add(
@@ -815,6 +812,6 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     expect(usdcStakingProductivity[1]).to.be.equal(daiStakingProductivity[1]);
     expect(usdcStakingRewardsPerBlock).to.be.equal(
       daiStakingRewardsPerBlock.add(5787037)
-    ); // sub 5,787,037 cause of precision loss
+    ); // sub 5,787,037 cause of precision loss. Precision loss happens due to cToken has less decimals than Staking Token
   });
 });
