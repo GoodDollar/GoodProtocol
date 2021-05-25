@@ -96,13 +96,14 @@ describe("UBIScheme", () => {
       await ethers.getContractFactory("UBIScheme"),
       [nameService.address, firstClaimPool.address, 14]
     );
+    const periodStart = await ubi.periodStart();
+    console.log(periodStart.toString())
     // initializing the ubi
     let encodedCall = ubi.interface.encodeFunctionData(
       "setCycleLength",
       [1]
     );
     await genericCall(ubi.address, encodedCall); // we should set cyclelength to one cause this tests was implemented according to it
-    const periodStart = await ubi.periodStart();
     expect(periodStart.lt(startUBI)).to.be.true;
   });
 
@@ -139,11 +140,9 @@ describe("UBIScheme", () => {
     const newUbi = await firstClaimPool.ubi();
     let periodStart = await ubi.periodStart().then(_ => _.toNumber());
     let startDate = new Date(periodStart * 1000);
-    const periodStartBigNumber = await ubi.periodStart();
     expect(startDate.toISOString()).to.have.string("T12:00:00.000Z"); //contract set itself to start at noon GMT
     expect(newUbi.toString()).to.be.equal(ubi.address);
-
-    expect(periodStartBigNumber.lt(startUBI)).to.be.true;
+    await increaseTime(ONE_DAY / 2) // increase time half of the day to make sure ubi period started
   });
 
   it("should not be able to execute claiming when the caller is not whitelisted", async () => {
@@ -466,50 +465,50 @@ describe("UBIScheme", () => {
      ).to.be.equal(100);
    });
 
-  // it("distribute formula should return correct value", async () => {
-  //   await goodDollar.mint(avatar.address, "20");
-  //   await increaseTime(ONE_DAY);
-  //   let ubiBalance = await goodDollar.balanceOf(ubi.address);
-  //   let avatarBalance = await goodDollar.balanceOf(avatar.address);
-  //   let activeUsersCount = await ubi.activeUsersCount();
-  //   let claimer4BalanceBefore = await goodDollar.balanceOf(claimer2);
-  //   await ubi.claim({ from: claimer2 });
-  //   let claimer4BalanceAfter = await goodDollar.balanceOf(claimer2);
-  //   expect(
-  //     ubiBalance
-  //       .add(avatarBalance)
-  //       .div(activeUsersCount)
-  //       .toNumber()
-  //   ).to.be.equal(
-  //     claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
-  //   );
-  // });
+   it("distribute formula should return correct value", async () => {
+     await goodDollar.mint(avatar, "20");
+     await increaseTime(ONE_DAY);
+     let ubiBalance = await goodDollar.balanceOf(ubi.address);
+     let avatarBalance = await goodDollar.balanceOf(avatar);
+     let activeUsersCount = await ubi.activeUsersCount();
+     let claimer4BalanceBefore = await goodDollar.balanceOf(claimer2.address);
+     await ubi.connect(claimer2).claim();
+     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer2.address);
+     expect(
+       ubiBalance
+         .add(avatarBalance)
+         .div(activeUsersCount)
+         .toNumber()
+     ).to.be.equal(
+       claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
+     );
+   });
 
-  // it("distribute formula should return correct value while gd has transferred directly to the ubi", async () => {
-  //   await goodDollar.mint(ubi.address, "200");
-  //   await increaseTime(ONE_DAY);
-  //   let ubiBalance = await goodDollar.balanceOf(ubi.address);
-  //   let avatarBalance = await goodDollar.balanceOf(avatar.address);
-  //   let activeUsersCount = await ubi.activeUsersCount();
-  //   let claimer4BalanceBefore = await goodDollar.balanceOf(claimer2);
-  //   await ubi.claim({ from: claimer2 });
-  //   let claimer4BalanceAfter = await goodDollar.balanceOf(claimer2);
-  //   let dailyUbi = await ubi.dailyUbi();
-  //   expect(
-  //     ubiBalance
-  //       .add(avatarBalance)
-  //       .div(activeUsersCount)
-  //       .toNumber()
-  //   ).to.be.equal(
-  //     claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
-  //   );
-  //   expect(
-  //     ubiBalance
-  //       .add(avatarBalance)
-  //       .div(activeUsersCount)
-  //       .toNumber()
-  //   ).to.be.equal(dailyUbi.toNumber());
-  // });
+   it("distribute formula should return correct value while gd has transferred directly to the ubi", async () => {
+     await goodDollar.mint(ubi.address, "200");
+     await increaseTime(ONE_DAY);
+     let ubiBalance = await goodDollar.balanceOf(ubi.address);
+     let avatarBalance = await goodDollar.balanceOf(avatar);
+     let activeUsersCount = await ubi.activeUsersCount();
+     let claimer4BalanceBefore = await goodDollar.balanceOf(claimer2.address);
+     await ubi.connect(claimer2).claim();
+     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer2.address);
+     let dailyUbi = await ubi.dailyUbi();
+     expect(
+       ubiBalance
+         .add(avatarBalance)
+         .div(activeUsersCount)
+         .toNumber()
+     ).to.be.equal(
+       claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
+     );
+     expect(
+       ubiBalance
+         .add(avatarBalance)
+         .div(activeUsersCount)
+         .toNumber()
+     ).to.be.equal(dailyUbi.toNumber());
+   });
 
   // it("should calcualte the correct distribution formula and transfer the correct amount when the ubi has a large amount of tokens", async () => {
   //   await increaseTime(ONE_DAY);

@@ -1,6 +1,6 @@
 import { ethers, upgrades } from "hardhat";
 import { expect } from "chai";
-import { UBIScheme,GoodReserveCDai,GoodMarketMaker } from "../../types";
+import { UBIScheme,GoodReserveCDai,GoodMarketMaker ,GoodFundManager} from "../../types";
 import { createDAO, deployUBI, advanceBlocks, increaseTime } from "../helpers";
 
 
@@ -67,6 +67,7 @@ describe("UBIScheme - network e2e tests", () => {
       avatar: av,
       gd,
       identity,
+      identityDeployed,
       daoCreator,
       nameService: ns,
       setDAOAddress: sda,
@@ -102,7 +103,13 @@ describe("UBIScheme - network e2e tests", () => {
       daiUsdOracle.address,
       "100000"
     );
-    goodFundManager = await goodFundManagerFactory.deploy(nameService.address);
+    goodFundManager = (await upgrades.deployProxy(
+      goodFundManagerFactory,
+      [nameService.address],
+      {
+        kind: "uups"
+      }
+    )) as GoodFundManager;;
     console.log("Deployed goodfund manager", {
       manager: goodFundManager.address
     });
@@ -155,7 +162,7 @@ describe("UBIScheme - network e2e tests", () => {
     let amount = 1e8;
     await dai["mint(address,uint256)"](founder.address,ethers.utils.parseEther("1000"));
     dai.approve(simpleStaking.address, ethers.utils.parseEther("1000"));
-    await simpleStaking.stake(ethers.utils.parseEther("1000"),0);
+    await simpleStaking.stake(ethers.utils.parseEther("1000"),0,false);
     await cDAI["mint(address,uint256)"](founder.address,ethers.utils.parseUnits("1000",8));
     await cDAI.approve(goodReserve.address, amount);
     await goodReserve.buy(cDAI.address, amount, 0,0,NULL_ADDRESS);
