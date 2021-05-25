@@ -2,7 +2,7 @@ import { ethers, upgrades } from "hardhat";
 import { expect } from "chai";
 import { UBIScheme } from "../../types";
 import { createDAO, deployUBI, advanceBlocks, increaseTime } from "../helpers";
-
+import FirstClaimPool from "@gooddollar/goodcontracts/stakingModel/build/contracts/FirstClaimPool.json";
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -17,7 +17,6 @@ describe("UBIScheme", () => {
     ubi,
     controller,
     firstClaimPool,
-    newUbi,
     setSchemes,
     addWhitelisted;
   let reputation;
@@ -27,6 +26,7 @@ describe("UBIScheme", () => {
     claimer2,
     claimer3,
     signers,
+    fisherman,
     nameService,
     genericCall,
     ubiScheme;
@@ -38,28 +38,41 @@ describe("UBIScheme", () => {
       claimer1,
       claimer2,
       claimer3,
+      fisherman,
       ...signers
     ] = await ethers.getSigners();
-
+    const fcFactory = new ethers.ContractFactory(
+      FirstClaimPool.abi,
+      FirstClaimPool.bytecode,
+      (await ethers.getSigners())[0]
+    );
     const deployedDAO = await createDAO();
     let {
       nameService: ns,
       genericCall: gn,
       reputation: rep,
       setDAOAddress,
-      setSchemes:sc,
-      addWhitelisted:aw
+      setSchemes: sc,
+      addWhitelisted: aw,
+      gd,
+      avatar:av
     } = deployedDAO;
     nameService = ns;
     genericCall = gn;
     reputation = rep;
     setSchemes = sc;
+    avatar = av;
     addWhitelisted = aw;
+    goodDollar = await ethers.getContractAt("IGoodDollar", gd);
     let deployedUBI = await deployUBI(deployedDAO);
 
     //ubiScheme = newUbi.ubiScheme;
-    firstClaimPool = deployedUBI.firstClaim;
-
+    //firstClaimPool = deployedUBI.firstClaim;
+    firstClaimPool = await fcFactory.deploy(
+      await nameService.addresses(await nameService.AVATAR()),
+      await nameService.addresses(await nameService.IDENTITY()),
+      100
+    );
     // setDAOAddress("GDAO_CLAIMERS", cd.address);
     //addWhitelisted(claimer1.address, "claimer1");
     //await addWhitelisted(claimer2.address, "claimer2");
@@ -81,6 +94,12 @@ describe("UBIScheme", () => {
       await ethers.getContractFactory("UBIScheme"),
       [nameService.address, firstClaimPool.address, 14]
     );
+    // initializing the ubi
+    let encodedCall = ubi.interface.encodeFunctionData(
+      "setCycleLength",
+      [1]
+    );
+    await genericCall(ubi.address, encodedCall); // we should set cyclelength to one cause this tests was implemented according to it
     const periodStart = await ubi.periodStart();
     expect(periodStart.lt(startUBI)).to.be.true;
   });
@@ -103,22 +122,22 @@ describe("UBIScheme", () => {
   it("should not be able to execute fish when start has not been executed yet", async () => {
     let error = await ubi.fish(NULL_ADDRESS).catch(e => e);
     expect(error.message).to.have.string("not in periodStarted");
-   });
+  });
 
   it("should not be able to execute fishMulti when start has not been executed yet", async () => {
-   let error = await ubi.fishMulti([NULL_ADDRESS]).catch(e => e);
+    let error = await ubi.fishMulti([NULL_ADDRESS]).catch(e => e);
     expect(error.message).to.have.string("not in periodStarted");
   });
 
   it("should start the ubi", async () => {
-  await setSchemes([ubi.address]);
-   await ubi.start();
+    await setSchemes([ubi.address]);
+    await ubi.start();
     const block = await ethers.provider.getBlock("latest");
     const startUBI = block.timestamp;
     const newUbi = await firstClaimPool.ubi();
     let periodStart = await ubi.periodStart().then(_ => _.toNumber());
     let startDate = new Date(periodStart * 1000);
-    const periodStartBigNumber = await ubi.periodStart()
+    const periodStartBigNumber = await ubi.periodStart();
     expect(startDate.toISOString()).to.have.string("T12:00:00.000Z"); //contract set itself to start at noon GMT
     expect(newUbi.toString()).to.be.equal(ubi.address);
 
@@ -130,160 +149,144 @@ describe("UBIScheme", () => {
     expect(error.message).to.have.string("UBIScheme: not whitelisted");
   });
 
-  // it("should not be able to claim when the claim pool is not active", async () => {
-  //   await addWhitelisted(claimer1.address);
-  //   let error = await ubi.connect(claimer1).claim().catch(e => e);
-  //   expect(error.message).to.have.string("is not active");
-  // });
+  it("should not be able to claim when the claim pool is not active", async () => {
+    await addWhitelisted(claimer1.address, "claimer1");
+    let error = await ubi
+      .connect(claimer1)
+      .claim()
+      .catch(e => e);
+    expect(error.message).to.have.string("is not active");
+  });
 
-  // it("should set the ubi scheme by avatar", async () => {
-  //   let encodedCall = web3.eth.abi.encodeFunctionCall(
-  //     {
-  //       name: "setUBIScheme",
-  //       type: "function",
-  //       inputs: [
-  //         {
-  //           type: "address",
-  //           name: "_ubi"
-  //         }
-  //       ]
-  //     },
-  //     [NULL_ADDRESS]
-  //   );
-  //   await controller.genericCall(
-  //     firstClaimPool.address,
-  //     encodedCall,
-  //     avatar.address,
-  //     0
-  //   );
-  //   const newUbi = await firstClaimPool.ubi();
-  //   expect(newUbi.toString()).to.be.equal(NULL_ADDRESS);
-  // });
+   it("should set the ubi scheme by avatar", async () => {
+     
+     let encodedCall = firstClaimPool.interface.encodeFunctionData(
+      "setUBIScheme",
+      [NULL_ADDRESS]
+    );
+      await genericCall(firstClaimPool.address, encodedCall);
+     const newUbi = await firstClaimPool.ubi();
+     expect(newUbi.toString()).to.be.equal(NULL_ADDRESS);
+   });
 
-  // it("should not be able to claim when the ubi is not initialized", async () => {
-  //   await firstClaimPool.start();
-  //   let error = await ubi.claim({ from: claimer1 }).catch(e => e);
-  //   expect(error.message).to.have.string("ubi has not initialized");
+   it("should not be able to claim when the ubi is not initialized", async () => {
+    await setSchemes([firstClaimPool.address]) 
+    await firstClaimPool.start();
+     let error = await ubi.connect(claimer1).claim().catch(e => e);
+     expect(error.message).to.have.string("ubi has not initialized");
 
-  //   // initializing the ubi
-  //   let encodedCall = web3.eth.abi.encodeFunctionCall(
-  //     {
-  //       name: "setUBIScheme",
-  //       type: "function",
-  //       inputs: [
-  //         {
-  //           type: "address",
-  //           name: "_ubi"
-  //         }
-  //       ]
-  //     },
-  //     [ubi.address]
-  //   );
-  //   await controller.genericCall(
-  //     firstClaimPool.address,
-  //     encodedCall,
-  //     avatar.address,
-  //     0
-  //   );
-  // });
+     // initializing the ubi
+     let encodedCall = firstClaimPool.interface.encodeFunctionData(
+      "setUBIScheme",
+      [ubi.address]
+    );
+      await genericCall(firstClaimPool.address, encodedCall);
+   });
 
-  // it("should not be able to call award user if the caller is not the ubi", async () => {
-  //   let error = await firstClaimPool.awardUser(claimer1).catch(e => e);
-  //   expect(error.message).to.have.string("Only UBIScheme can call this method");
-  // });
+   it("should not be able to call award user if the caller is not the ubi", async () => {
+     let error = await firstClaimPool.awardUser(claimer1.address).catch(e => e);
+     expect(error.message).to.have.string("Only UBIScheme can call this method");
+   });
 
-  // it("should award a new user with 0 on first time execute claim if the first claim contract has no balance", async () => {
-  //   let tx = await ubi.claim({ from: claimer1 });
-  //   let claimer1Balance = await goodDollar.balanceOf(claimer1);
-  //   expect(claimer1Balance.toNumber()).to.be.equal(0);
-  //   const emittedEvents = tx.logs.map(e => e.event);
-  //   expect(emittedEvents).to.include.members(["ActivatedUser", "UBIClaimed"]);
-  // });
+   it("should award a new user with 0 on first time execute claim if the first claim contract has no balance", async () => {
+     let tx = await(await ubi.connect(claimer1).claim()).wait();
+     let claimer1Balance = await goodDollar.balanceOf(claimer1.address);
+     expect(claimer1Balance.toNumber()).to.be.equal(0);
 
-  // it("should award a new user with the award amount on first time execute claim", async () => {
-  //   await goodDollar.mint(firstClaimPool.address, "10000000");
-  //   await identity.addWhitelisted(claimer2);
-  //   let transaction = await ubi.claim({ from: claimer2 });
-  //   let activeUsersCount = await ubi.activeUsersCount();
-  //   let claimer2Balance = await goodDollar.balanceOf(claimer2);
-  //   expect(claimer2Balance.toNumber()).to.be.equal(100);
-  //   expect(activeUsersCount.toNumber()).to.be.equal(2);
-  //   const activatedUserEventExists = transaction.logs.some(
-  //     e => e.event === "ActivatedUser"
-  //   );
-  //   expect(activatedUserEventExists).to.be.true;
-  // });
+     expect(tx.events.find(_ => _.event === "ActivatedUser")).to.be.not
+      .empty;
+      expect(tx.events.find(_ => _.event === "UBIClaimed")).to.be.not
+      .empty;
+   });
 
-  // it("should updates the daily stats when a new user is getting an award", async () => {
-  //   await identity.addWhitelisted(claimer8);
-  //   const currentDay = await ubi.currentDay();
-  //   const amountOfClaimersBefore = await ubi.getClaimerCount(
-  //     currentDay.toString()
-  //   );
-  //   const claimAmountBefore = await ubi.getClaimAmount(currentDay.toString());
-  //   await ubi.claim({ from: claimer8 });
-  //   const amountOfClaimersAfter = await ubi.getClaimerCount(
-  //     currentDay.toString()
-  //   );
-  //   const claimAmountAfter = await ubi.getClaimAmount(currentDay.toString());
-  //   expect(
-  //     amountOfClaimersAfter.sub(amountOfClaimersBefore).toString()
-  //   ).to.be.equal("1");
-  //   expect(claimAmountAfter.sub(claimAmountBefore).toString()).to.be.equal(
-  //     "100"
-  //   );
-  // });
+   it("should award a new user with the award amount on first time execute claim", async () => {
+     await goodDollar.mint(firstClaimPool.address, "10000000");
+     await addWhitelisted(claimer2.address,"claimer2");
+     let transaction = await(await ubi.connect(claimer2).claim()).wait();
+     let activeUsersCount = await ubi.activeUsersCount();
+     let claimer2Balance = await goodDollar.balanceOf(claimer2.address);
+     expect(claimer2Balance.toNumber()).to.be.equal(100);
+     expect(activeUsersCount.toNumber()).to.be.equal(2);
+    expect(transaction.events.find(_ => _.event === "ActivatedUser")).to.be.not
+      .empty;
 
-  // it("should not be able to fish a new user", async () => {
-  //   let error = await ubi.fish(claimer1, { from: fisherman }).catch(e => e);
-  //   expect(error.message).to.have.string("is not an inactive user");
-  // });
+   });
 
-  // it("should not initiate the scheme balance and distribution formula when a new user execute claim", async () => {
-  //   let balance = await goodDollar.balanceOf(ubi.address);
-  //   let dailyUbi = await ubi.dailyUbi();
-  //   expect(balance.toString()).to.be.equal("0");
-  //   expect(dailyUbi.toString()).to.be.equal("0");
-  // });
+   it("should updates the daily stats when a new user is getting an award", async () => {
+     await addWhitelisted(claimer3.address,"claimer3");
+     const currentDay = await ubi.currentDay();
+     const amountOfClaimersBefore = await ubi.getClaimerCount(
+       currentDay.toString()
+     );
+     const claimAmountBefore = await ubi.getClaimAmount(currentDay.toString());
+     await ubi.connect(claimer3).claim();
+     const amountOfClaimersAfter = await ubi.getClaimerCount(
+       currentDay.toString()
+     );
+     const claimAmountAfter = await ubi.getClaimAmount(currentDay.toString());
+     expect(
+       amountOfClaimersAfter.sub(amountOfClaimersBefore).toString()
+     ).to.be.equal("1");
+     expect(claimAmountAfter.sub(claimAmountBefore).toString()).to.be.equal(
+       "100"
+     );
+   });
 
-  // it("should returns a valid distribution calculation when the current balance is lower than the number of daily claimers", async () => {
-  //   // there is 0.01 gd and 2 claimers
-  //   // this is an edge case
-  //   await goodDollar.mint(avatar.address, "1");
-  //   await increaseTime(ONE_DAY);
-  //   await ubi.claim({ from: claimer1 });
-  //   await ubi.claim({ from: claimer2 });
-  //   let ubiBalance = await goodDollar.balanceOf(ubi.address);
-  //   await increaseTime(ONE_DAY);
-  //   let dailyUbi = await ubi.dailyUbi();
-  //   let claimer1Balance = await goodDollar.balanceOf(claimer1);
-  //   expect(ubiBalance.toString()).to.be.equal("1");
-  //   expect(dailyUbi.toString()).to.be.equal("0");
-  //   expect(claimer1Balance.toString()).to.be.equal("0");
-  // });
+   it("should not be able to fish a new user", async () => {
+     let error = await ubi.connect(fisherman).fish(claimer1.address).catch(e => e);
+     expect(error.message).to.have.string("is not an inactive user");
+   });
 
-  // it("should calculate the daily distribution and withdraw balance from the dao when an active user executes claim", async () => {
-  //   // checking that the distirbution works ok also when not all claimers claim
-  //   // achieving that goal by leaving the claimed amount of the second claimer
-  //   // in the ubi and in the next day after transferring the balances from the
-  //   // dao, making sure that the tokens that have not been claimed are
-  //   // taken by the formula as expected.
-  //   const currentDay = await ubi.currentDayInCycle().then(_ => _.toNumber());
-  //   await increaseTime(ONE_DAY);
-  //   await goodDollar.mint(avatar.address, "901");
-  //   //ubi will have 902GD in pool so daily ubi is now 902/1(cycle)/3(claimers) = 300
-  //   await ubi.claim({ from: claimer1 });
-  //   await increaseTime(ONE_DAY);
-  //   await goodDollar.mint(avatar.address, "1");
-  //   //daily ubi is 0 since only 1 GD is in pool and can't be divided
-  //   // an edge case
-  //   await ubi.claim({ from: claimer1 });
-  //   let avatarBalance = await goodDollar.balanceOf(avatar.address);
-  //   let claimer1Balance = await goodDollar.balanceOf(claimer1);
-  //   expect(avatarBalance.toString()).to.be.equal("0");
-  //   // 300 GD from first day and 201 from the second day claimed in this test
-  //   expect(claimer1Balance.toString()).to.be.equal("501");
-  // });
+   it("should not initiate the scheme balance and distribution formula when a new user execute claim", async () => {
+     let balance = await goodDollar.balanceOf(ubi.address);
+     let dailyUbi = await ubi.dailyUbi();
+     expect(balance.toString()).to.be.equal("0");
+     expect(dailyUbi.toString()).to.be.equal("0");
+   });
+
+   it("should returns a valid distribution calculation when the current balance is lower than the number of daily claimers", async () => {
+     // there is 0.01 gd and 2 claimers
+     // this is an edge case
+     await goodDollar.mint(ubi.address, "1");
+     await increaseTime(ONE_DAY);
+     await ubi.connect(claimer1).claim();
+     await ubi.connect(claimer2).claim();
+     let ubiBalance = await goodDollar.balanceOf(ubi.address);
+     await increaseTime(ONE_DAY);
+     let dailyUbi = await ubi.dailyUbi();
+     let claimer1Balance = await goodDollar.balanceOf(claimer1.address);
+     expect(ubiBalance.toString()).to.be.equal("1");
+     expect(dailyUbi.toString()).to.be.equal("0");
+     expect(claimer1Balance.toString()).to.be.equal("0");
+   });
+
+   it("should calculate the daily distribution and withdraw balance from the dao when an active user executes claim", async () => {
+     // checking that the distirbution works ok also when not all claimers claim
+    // achieving that goal by leaving the claimed amount of the second claimer
+    // in the ubi and in the next day after transferring the balances from the
+    // dao, making sure that the tokens that have not been claimed are
+    // taken by the formula as expected.
+    let encodedCall = ubi.interface.encodeFunctionData(
+      "setShouldWithdrawFromDAO",
+      [true]
+    );
+    await genericCall(ubi.address, encodedCall); // we should set cyclelength to one cause this tests was implemented according to it
+    const currentDay = await ubi.currentDayInCycle().then(_ => _.toNumber());
+    await increaseTime(ONE_DAY);
+    await goodDollar.mint(avatar, "901");
+    //ubi will have 902GD in pool so daily ubi is now 902/1(cycle)/3(claimers) = 300
+    await ubi.connect(claimer1).claim();
+    await increaseTime(ONE_DAY);
+    await goodDollar.mint(avatar, "1");
+    //daily ubi is 0 since only 1 GD is in pool and can't be divided
+    // an edge case
+    await ubi.connect(claimer1).claim();
+    let avatarBalance = await goodDollar.balanceOf(avatar);
+    let claimer1Balance = await goodDollar.balanceOf(claimer1);
+    expect(avatarBalance.toString()).to.be.equal("0");
+    // 300 GD from first day and 201 from the second day claimed in this test
+    expect(claimer1Balance.toString()).to.be.equal("501");
+   });
 
   // it("should return the reward value for entitlement user", async () => {
   //   let amount = await ubi.checkEntitlement({ from: claimer4 });
