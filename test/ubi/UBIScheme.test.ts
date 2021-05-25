@@ -17,7 +17,9 @@ describe("UBIScheme", () => {
     ubi,
     controller,
     firstClaimPool,
-    newUbi;
+    newUbi,
+    setSchemes,
+    addWhitelisted;
   let reputation;
   let root,
     acct,
@@ -45,21 +47,22 @@ describe("UBIScheme", () => {
       genericCall: gn,
       reputation: rep,
       setDAOAddress,
-      setSchemes,
-      addWhitelisted
+      setSchemes:sc,
+      addWhitelisted:aw
     } = deployedDAO;
     nameService = ns;
     genericCall = gn;
     reputation = rep;
-
+    setSchemes = sc;
+    addWhitelisted = aw;
     let deployedUBI = await deployUBI(deployedDAO);
 
     //ubiScheme = newUbi.ubiScheme;
     firstClaimPool = deployedUBI.firstClaim;
 
     // setDAOAddress("GDAO_CLAIMERS", cd.address);
-    addWhitelisted(claimer1.address, "claimer1");
-    await addWhitelisted(claimer2.address, "claimer2");
+    //addWhitelisted(claimer1.address, "claimer1");
+    //await addWhitelisted(claimer2.address, "claimer2");
     // await increaseTime(60 * 60 * 24);
   });
 
@@ -92,33 +95,35 @@ describe("UBIScheme", () => {
     expect(error.message).to.have.string("only Avatar");
   });
 
-  it("should not be able to execute claiming when ubischeme not whitelisted", async () => {
+  it("should not be able to execute claiming when start has not been executed yet", async () => {
     let error = await ubi.claim().catch(e => e);
-    expect(error.message).to.have.string("UBIScheme: not whitelisted");
+    expect(error.message).to.have.string("not in periodStarted");
   });
 
-  //it("should not be able to execute fish when start has not been executed yet", async () => {
-  //  let error = await ubi.fish(NULL_ADDRESS).catch(e => e);
-  //  expect(error.message).to.have.string("not in periodStarted");
-  // });
+  it("should not be able to execute fish when start has not been executed yet", async () => {
+    let error = await ubi.fish(NULL_ADDRESS).catch(e => e);
+    expect(error.message).to.have.string("not in periodStarted");
+   });
 
-  //it("should not be able to execute fishMulti when start has not been executed yet", async () => {
-  // let error = await ubi.fishMulti([NULL_ADDRESS]).catch(e => e);
-  //  expect(error.message).to.have.string("is not active");
-  //});
+  it("should not be able to execute fishMulti when start has not been executed yet", async () => {
+   let error = await ubi.fishMulti([NULL_ADDRESS]).catch(e => e);
+    expect(error.message).to.have.string("not in periodStarted");
+  });
 
-  //it("should start the ubi", async () => {
-  //  await ubi.start();
-  //  const block = await ethers.provider.getBlock("latest");
-  //  const startUBI = block.timestamp;
-   // const newUbi = await firstClaimPool.ubi();
-   // let periodStart = await ubi.periodStart().then(_ => _.toNumber());
-    //let startDate = new Date(periodStart * 1000);
-    //expect(startDate.toISOString()).to.have.string("T12:00:00.000Z"); //contract set itself to start at noon GMT
-    //expect(newUbi.toString()).to.be.equal(ubi.address);
+  it("should start the ubi", async () => {
+  await setSchemes([ubi.address]);
+   await ubi.start();
+    const block = await ethers.provider.getBlock("latest");
+    const startUBI = block.timestamp;
+    const newUbi = await firstClaimPool.ubi();
+    let periodStart = await ubi.periodStart().then(_ => _.toNumber());
+    let startDate = new Date(periodStart * 1000);
+    const periodStartBigNumber = await ubi.periodStart()
+    expect(startDate.toISOString()).to.have.string("T12:00:00.000Z"); //contract set itself to start at noon GMT
+    expect(newUbi.toString()).to.be.equal(ubi.address);
 
-    //expect(periodStart.gt(startUBI)).to.be.true;
-  //});
+    expect(periodStartBigNumber.lt(startUBI)).to.be.true;
+  });
 
   it("should not be able to execute claiming when the caller is not whitelisted", async () => {
     let error = await ubi.claim().catch(e => e);
@@ -126,8 +131,8 @@ describe("UBIScheme", () => {
   });
 
   // it("should not be able to claim when the claim pool is not active", async () => {
-  //   await identity.addWhitelisted(claimer1);
-  //   let error = await ubi.claim({ from: claimer1 }).catch(e => e);
+  //   await addWhitelisted(claimer1.address);
+  //   let error = await ubi.connect(claimer1).claim().catch(e => e);
   //   expect(error.message).to.have.string("is not active");
   // });
 

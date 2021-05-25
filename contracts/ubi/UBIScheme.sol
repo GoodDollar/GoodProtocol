@@ -169,7 +169,7 @@ contract UBIScheme is Initializable, DAOContract {
 	}
 
 	modifier requireStarted() {
-		require(block.timestamp >= periodStart, "not in periodStarted");
+		require( periodStart > 0 && block.timestamp >= periodStart, "not in periodStarted");
 		_;
 	}
 
