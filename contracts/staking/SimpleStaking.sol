@@ -77,6 +77,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		blockInterval = _blockInterval;
 		lastUBICollection = block.number.div(blockInterval);
 		collectInterestGasCost = _collectInterestGasCost; // Should be adjusted according to this contract's gas cost
+		
+		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
 	}
 
 	/**
@@ -92,10 +94,15 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 * @dev Allows a staker to deposit Tokens. Notice that `approve` is
 	 * needed to be executed before the execution of this method.
 	 * Can be executed only when the contract is not paused.
-	 * @param _amount The amount of DAI to stake
+	 * @param _amount The amount of Token or iToken to stake (it depends on _inInterestToken parameter)
 	 * @param _donationPer The % of interest staker want to donate.
+	 * @param _inInterestToken specificy if stake in iToken or Token
 	 */
-	function stake(uint256 _amount, uint256 _donationPer) external override {
+	function stake(
+		uint256 _amount,
+		uint256 _donationPer,
+		bool _inInterestToken
+	) external override {
 		require(isPaused == false, "Staking is paused");
 		require(
 			_donationPer == 0 || _donationPer == 100,
@@ -103,14 +110,17 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		);
 		require(_amount > 0, "You need to stake a positive token amount");
 		require(
-			token.transferFrom(msg.sender, address(this), _amount),
-			"transferFrom failed, make sure you approved token transfer"
-		);
+				(_inInterestToken ? iToken : token).transferFrom(msg.sender, address(this), _amount),
+				"transferFrom failed, make sure you approved token transfer"
+			);
+		_amount =_inInterestToken ? iTokenWorthinToken(_amount) : _amount;
+		if (_inInterestToken == false){
+			mintInterestToken(_amount); //mint iToken
+		}
+
 		UserInfo storage userInfo = users[msg.sender];
 		userInfo.donationPer = uint8(_donationPer);
-		// approve the transfer to defi protocol
-		token.approve(address(iToken), _amount);
-		mintInterestToken(_amount); //mint iToken
+
 		_mint(msg.sender, _amount); // mint Staking token for staker
 		_increaseProductivity(msg.sender, _amount);
 
@@ -129,26 +139,43 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 
 	/**
 	 * @dev Withdraws the sender staked Token.
+	 * @dev _amount Amount to withdraw in Token or iToken depends on the _inInterestToken parameter
+	 * @param _inInterestToken specificy if stake in iToken or Token
 	 */
-	function withdrawStake(uint256 _amount) external override {
+	function withdrawStake(uint256 _amount, bool _inInterestToken)
+		external
+		override
+	{
 		//InterestDistribution.Staker storage staker = interestData.stakers[msg.sender];
-		(uint256 userProductivity, ) = getProductivity(msg.sender);
+		uint256 tokenWithdraw;
 		require(_amount > 0, "Should withdraw positive amount");
-		require(userProductivity >= _amount, "Not enough token staked");
-		uint256 tokenWithdraw = _amount;
-		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
-		redeem(tokenWithdraw);
-		uint256 tokenActual = token.balanceOf(address(this));
-		if (tokenActual < tokenWithdraw) {
-			tokenWithdraw = tokenActual;
+		(uint256 userProductivity, ) = getProductivity(msg.sender);
+		if (_inInterestToken) {
+			uint256 tokenWorth = iTokenWorthinToken(_amount);
+			require(userProductivity >= tokenWorth, "Not enough token staked");
+			require(
+				iToken.transfer(msg.sender, _amount),
+				"withdraw transfer failed"
+			);
+			_amount = tokenWorth;
+		} else {
+			tokenWithdraw = _amount;
+			require(userProductivity >= _amount, "Not enough token staked");
+			redeem(tokenWithdraw);
+			uint256 tokenActual = token.balanceOf(address(this));
+			if (tokenActual < tokenWithdraw) {
+				tokenWithdraw = tokenActual;
+			}
+			require(
+				token.transfer(msg.sender, tokenWithdraw),
+				"withdraw transfer failed"
+			);
 		}
+
+		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
 		_burn(msg.sender, _amount); // burn their staking tokens
 		_decreaseProductivity(msg.sender, _amount);
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
-		require(
-			token.transfer(msg.sender, tokenWithdraw),
-			"withdraw transfer failed"
-		);
 
 		//notify GDAO distrbution for stakers
 		StakersDistribution sd =
@@ -163,7 +190,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		emit StakeWithdraw(
 			msg.sender,
 			address(token),
-			tokenWithdraw,
+			_inInterestToken == false ? tokenWithdraw : _amount,
 			token.balanceOf(address(this))
 		);
 	}
@@ -216,6 +243,27 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			sd.claimReputation(to, contracts);
 			sd.claimReputation(from, contracts);
 		}
+	}
+
+	/**
+	 * @dev Calculates worth of given amount of iToken in Token
+	 * @param _amount Amount of token to calculate worth in Token
+	 * @return Worth of given amount of token in Token
+	 */
+	function iTokenWorthinToken(uint256 _amount)
+		public
+		view
+		override
+		returns (uint256)
+	{
+		uint256 er = exchangeRate();
+		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
+		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
+		uint256 tokenWorth =
+			caseType == true
+				? (_amount * (10 ** decimalDifference) * er) / 10 ** mantissa
+				: ((_amount / (10 ** decimalDifference)) * er) / 10 ** mantissa; // calculation based on https://compound.finance/docs#protocol-math
+		return tokenWorth;
 	}
 
 	/**

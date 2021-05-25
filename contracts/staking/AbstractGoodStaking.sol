@@ -40,12 +40,31 @@ contract AbstractGoodStaking {
 	 * @dev stake some tokens
 	 * @param _amount of Tokens to stake
 	 */
-	function stake(uint256 _amount, uint256 _donationPer) external virtual {}
+	function stake(
+		uint256 _amount,
+		uint256 _donationPer,
+		bool _inInterestToken
+	) external virtual {}
 
 	/**
 	 * @dev withdraw staked tokens
 	 */
-	function withdrawStake(uint256 _amount) external virtual {}
+	function withdrawStake(uint256 _amount, bool _inInterestToken)
+		external
+		virtual
+	{}
+
+	/**
+	 * @dev Calculates worth of given amount of iToken in Token
+	 * @param _amount Amount of iToken to calculate worth in Token
+	 * @return Worth of given amount of iToken in Token
+	 */
+	function iTokenWorthinToken(uint256 _amount)
+		external
+		view
+		virtual
+		returns (uint256)
+	{}
 
 	/**
 	 * @dev calculates the holding of intrestToken by staking contract in terms of token value.
