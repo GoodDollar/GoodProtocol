@@ -152,7 +152,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
     const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
     expect(rewardsPerBlock).to.equal(
-      ethers.utils.parseEther("1728000").div(BN.from("518400"))
+      ethers.utils.parseEther("1728000").div(BN.from("518400"))  // 1728000 is montlhy reward amount and 518400 is monthly blocks for FUSE chain
     );
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
@@ -378,6 +378,9 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await goodDollar.approve(governanceStaking.address, "100");
     await governanceStaking.stake("100");
     await governanceStaking.approve(staker.address, "100");
+    const stakerProductivityBeforeTransfer = await governanceStaking.getProductivity(
+      staker.address
+    );
     await governanceStaking
       .connect(staker)
       .transferFrom(founder.address, staker.address, "100");
@@ -390,6 +393,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     expect((await governanceStaking.users(staker.address)).amount).to.equal(
       100
     );
+    expect(stakerProductivityBeforeTransfer[0]).to.be.equal(0)
     expect(stakerProductivity[0]).to.be.equal("100");
   });
 
