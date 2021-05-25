@@ -66,6 +66,8 @@
     "ethers": "*",
     "ethers-eip712": "*",
     "fs-extra": "*",
+    "graphql": "^15.5.0",
+    "graphql-request": "^3.4.0",
     "hardhat": "*",
     "hardhat-gas-reporter": "^1.0.4",
     "hardhat-typechain": "*",
