@@ -57,6 +57,7 @@ describe("UBIScheme", () => {
       reputation: rep,
       setDAOAddress,
       setSchemes: sc,
+      identityDeployed:id,
       addWhitelisted: aw,
       gd,
       avatar:av
@@ -68,15 +69,12 @@ describe("UBIScheme", () => {
     avatar = av;
     addWhitelisted = aw;
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
-    let deployedUBI = await deployUBI(deployedDAO);
-
-    //ubiScheme = newUbi.ubiScheme;
-    //firstClaimPool = deployedUBI.firstClaim;
     firstClaimPool = await fcFactory.deploy(
       await nameService.addresses(await nameService.AVATAR()),
       await nameService.addresses(await nameService.IDENTITY()),
       100
     );
+    identity = id;
     // setDAOAddress("GDAO_CLAIMERS", cd.address);
     //addWhitelisted(claimer1.address, "claimer1");
     //await addWhitelisted(claimer2.address, "claimer2");
@@ -395,78 +393,78 @@ describe("UBIScheme", () => {
      expect(totalFishedEvent.args.total.toNumber() === 2).to.be.true;
    });
 
-  // it("should not be able to remove an active user that no longer whitelisted", async () => {
-  //   await goodDollar.mint(avatar.address, "20");
-  //   await ubi.claim({ from: claimer2 }); // makes sure that the user is active
-  //   await identity.removeWhitelisted(claimer2);
-  //   let claimer4BalanceBefore = await goodDollar.balanceOf(claimer4);
-  //   let isFishedBefore = await ubi.fishedUsersAddresses(claimer2);
-  //   let error = await ubi.fish(claimer2, { from: claimer4 }).catch(e => e);
-  //   let isFishedAfter = await ubi.fishedUsersAddresses(claimer2);
-  //   let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4);
-  //   expect(error.message).to.have.string("is not an inactive user");
-  //   expect(isFishedBefore).to.be.false;
-  //   expect(isFishedAfter).to.be.false;
-  //   expect(claimer4BalanceAfter.toNumber()).to.be.equal(
-  //     claimer4BalanceBefore.toNumber()
-  //   );
-  // });
+   it("should not be able to remove an active user that no longer whitelisted", async () => {
+     await goodDollar.mint(avatar, "20");
+     await ubi.connect(claimer2).claim(); // makes sure that the user is active
+     await identity.removeWhitelisted(claimer2.address);
+     let claimer4BalanceBefore = await goodDollar.balanceOf(claimer4.address);
+     let isFishedBefore = await ubi.fishedUsersAddresses(claimer2.address);
+     let error = await ubi.connect(claimer4).fish(claimer2.address).catch(e=>e)
+     let isFishedAfter = await ubi.fishedUsersAddresses(claimer2.address);
+     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4.address);
+     expect(error.message).to.have.string("is not an inactive user");
+     expect(isFishedBefore).to.be.false;
+     expect(isFishedAfter).to.be.false;
+     expect(claimer4BalanceAfter.toNumber()).to.be.equal(
+       claimer4BalanceBefore.toNumber()
+     );
+   });
 
-  // it("should be able to remove an inactive user that no longer whitelisted", async () => {
-  //   await goodDollar.mint(avatar.address, "20");
-  //   await increaseTime(MAX_INACTIVE_DAYS * ONE_DAY);
-  //   let claimer4BalanceBefore = await goodDollar.balanceOf(claimer4);
-  //   let isFishedBefore = await ubi.fishedUsersAddresses(claimer2);
-  //   let tx = await ubi.fish(claimer2, { from: claimer4 });
-  //   let isFishedAfter = await ubi.fishedUsersAddresses(claimer2);
-  //   let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4);
-  //   let dailyUbi = await ubi.dailyUbi();
-  //   expect(isFishedBefore).to.be.false;
-  //   expect(isFishedAfter).to.be.true;
-  //   expect(tx.logs.some(e => e.event === "InactiveUserFished")).to.be.true;
-  //   expect(
-  //     claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
-  //   ).to.be.equal(dailyUbi.toNumber());
-  // });
+   it("should be able to remove an inactive user that no longer whitelisted", async () => {
+     await goodDollar.mint(avatar, "20");
+     await increaseTime(MAX_INACTIVE_DAYS * ONE_DAY * 14);
+     let claimer4BalanceBefore = await goodDollar.balanceOf(claimer4.address);
+     let isFishedBefore = await ubi.fishedUsersAddresses(claimer2.address);
+     let tx = await (await ubi.connect(claimer4).fish(claimer2.address)).wait();
+     let isFishedAfter = await ubi.fishedUsersAddresses(claimer2.address);
+     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4.address);
+     let dailyUbi = await ubi.dailyUbi();
+     expect(isFishedBefore).to.be.false;
+     expect(isFishedAfter).to.be.true;
+     expect(tx.events.find(e => e.event === "InactiveUserFished")).to.be.not.empty;
+     expect(
+       claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
+     ).to.be.equal(dailyUbi.toNumber());
+   });
 
-  // it("should be able to fish user that removed from the whitelist", async () => {
-  //   await goodDollar.mint(avatar.address, "20");
-  //   await identity.addWhitelisted(claimer2);
-  //   await ubi.claim({ from: claimer2 });
-  //   await increaseTime(MAX_INACTIVE_DAYS * ONE_DAY);
-  //   await identity.removeWhitelisted(claimer2);
-  //   let claimer4BalanceBefore = await goodDollar.balanceOf(claimer4);
-  //   let isFishedBefore = await ubi.fishedUsersAddresses(claimer2);
-  //   let tx = await ubi.fish(claimer2, { from: claimer4 });
-  //   let isFishedAfter = await ubi.fishedUsersAddresses(claimer2);
-  //   let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4);
-  //   let dailyUbi = await ubi.dailyUbi();
-  //   expect(isFishedBefore).to.be.false;
-  //   expect(isFishedAfter).to.be.true;
-  //   expect(tx.logs.some(e => e.event === "InactiveUserFished")).to.be.true;
-  //   expect(
-  //     claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
-  //   ).to.be.equal(dailyUbi.toNumber());
-  // });
+   it("should be able to fish user that removed from the whitelist", async () => {
+     await goodDollar.mint(avatar, "20");
+     await identity.addWhitelisted(claimer2.address);
+     await ubi.connect(claimer2).claim();
+     await increaseTime(MAX_INACTIVE_DAYS * ONE_DAY * 14);
+     await identity.removeWhitelisted(claimer2.address);
+     let claimer4BalanceBefore = await goodDollar.balanceOf(claimer4.address);
+     let isFishedBefore = await ubi.fishedUsersAddresses(claimer2.address);
+     let tx = await (await ubi.connect(claimer4).fish(claimer2.address)).wait();
+     let isFishedAfter = await ubi.fishedUsersAddresses(claimer2.address);
+     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4.address);
+     let dailyUbi = await ubi.dailyUbi();
+     expect(isFishedBefore).to.be.false;
+     expect(isFishedAfter).to.be.true;
+     expect(tx.events.find(e => e.event === "InactiveUserFished")).to.be.not.empty;
+     expect(
+       claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
+     ).to.be.equal(dailyUbi.toNumber());
+   });
 
-  // it("should recieves a claim reward on claim after removed and added again to the whitelist", async () => {
-  //   let isFishedBefore = await ubi.fishedUsersAddresses(claimer2);
-  //   let activeUsersCountBefore = await ubi.activeUsersCount();
-  //   await identity.addWhitelisted(claimer2);
-  //   let claimerBalanceBefore = await goodDollar.balanceOf(claimer2);
-  //   await ubi.claim({ from: claimer2 });
-  //   let claimerBalanceAfter = await goodDollar.balanceOf(claimer2);
-  //   let isFishedAfter = await ubi.fishedUsersAddresses(claimer2);
-  //   let activeUsersCountAfter = await ubi.activeUsersCount();
-  //   expect(isFishedBefore).to.be.true;
-  //   expect(isFishedAfter).to.be.false;
-  //   expect(
-  //     activeUsersCountAfter.toNumber() - activeUsersCountBefore.toNumber()
-  //   ).to.be.equal(1);
-  //   expect(
-  //     claimerBalanceAfter.toNumber() - claimerBalanceBefore.toNumber()
-  //   ).to.be.equal(100);
-  // });
+   it("should recieves a claim reward on claim after removed and added again to the whitelist", async () => {
+     let isFishedBefore = await ubi.fishedUsersAddresses(claimer2.address);
+     let activeUsersCountBefore = await ubi.activeUsersCount();
+     await identity.addWhitelisted(claimer2.address);
+     let claimerBalanceBefore = await goodDollar.balanceOf(claimer2.address);
+     await ubi.connect(claimer2).claim();
+     let claimerBalanceAfter = await goodDollar.balanceOf(claimer2.address);
+     let isFishedAfter = await ubi.fishedUsersAddresses(claimer2.address);
+     let activeUsersCountAfter = await ubi.activeUsersCount();
+     expect(isFishedBefore).to.be.true;
+     expect(isFishedAfter).to.be.false;
+     expect(
+       activeUsersCountAfter.toNumber() - activeUsersCountBefore.toNumber()
+     ).to.be.equal(1);
+     expect(
+       claimerBalanceAfter.toNumber() - claimerBalanceBefore.toNumber()
+     ).to.be.equal(100);
+   });
 
   // it("distribute formula should return correct value", async () => {
   //   await goodDollar.mint(avatar.address, "20");

@@ -240,6 +240,7 @@ export const createDAO = async () => {
     avatar: await daoCreator.avatar(),
     gd: await Avatar.nativeToken(),
     identity: Identity.address,
+    identityDeployed:Identity,
     nameService,
     setDAOAddress,
     setSchemes,
