@@ -220,13 +220,15 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await dai
       .connect(staker)
       .approve(simpleStaking.address, stakingAmount.mul(2));
-    await simpleStaking.connect(staker).stake(stakingAmount, 0);
+    await simpleStaking.connect(staker).stake(stakingAmount, 0, false);
     await increaseTime(86700 * 30);
-    await simpleStaking.connect(staker).stake(stakingAmount, 0);
+    await simpleStaking.connect(staker).stake(stakingAmount, 0, false);
     const rewardsPerBlockAfterStake = await stakersDistribution.rewardsPerBlock(
       simpleStaking.address
     );
-    await simpleStaking.connect(staker).withdrawStake(stakingAmount.mul(2));
+    await simpleStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount.mul(2), false);
     const rewardsPerBlockAfterWithdraw = await stakersDistribution.rewardsPerBlock(
       simpleStaking.address
     );
@@ -312,13 +314,13 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await dai
       .connect(staker)
       .approve(simpleStaking.address, stakingAmount.mul(75));
-    await simpleStaking.connect(staker).stake(stakingAmount.mul(50), 0);
+    await simpleStaking.connect(staker).stake(stakingAmount.mul(50), 0, false);
     await dai
       .connect(staker)
       .approve(simpleStaking1.address, stakingAmount.mul(25));
-    await simpleStaking1.connect(staker).stake(stakingAmount.mul(25), 0);
+    await simpleStaking1.connect(staker).stake(stakingAmount.mul(25), 0, false);
     await increaseTime(86700 * 30); // Increase one month
-    await simpleStaking.connect(staker).stake(stakingAmount.mul(25), 0);
+    await simpleStaking.connect(staker).stake(stakingAmount.mul(25), 0, false);
 
     const rewardsPerBlockAfterStakeContractOne = await stakersDistribution.rewardsPerBlock(
       simpleStaking.address
@@ -326,7 +328,9 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const rewardsPerBlockAftereStakeContractTwo = await stakersDistribution.rewardsPerBlock(
       simpleStaking1.address
     );
-    await simpleStaking.connect(staker).withdrawStake(stakingAmount.mul(75));
+    await simpleStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount.mul(75), false);
     expect(rewardsPerBlockAfterStakeContractOne).to.be.equal(
       rewardsPerBlockAftereStakeContractTwo.mul(3).add(2314817)
     ); // added 2,314,817 cause of precision loss
@@ -375,11 +379,11 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const rewardsPerBlockBeforeStake = await stakersDistribution.rewardsPerBlock(
       simpleStaking.address
     );
-    await simpleStaking.connect(staker).stake(stakingAmount, 0);
+    await simpleStaking.connect(staker).stake(stakingAmount, 0, false);
     await advanceBlocks(40);
     await increaseTime(86700 * 30); // Increase one month
     const stakerGDAOBalanceBeforeStake = await grep.balanceOf(staker.address);
-    await simpleStaking.connect(staker).stake(stakingAmount, 0);
+    await simpleStaking.connect(staker).stake(stakingAmount, 0, false);
     const stakerGDAOBalanceAfterStake = await grep.balanceOf(staker.address);
     await simpleStaking.connect(staker).withdrawRewards();
 
@@ -388,7 +392,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     );
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(staker.address);
     await advanceBlocks(10);
-    await simpleStaking.connect(staker).withdrawStake(stakingAmount);
+    await simpleStaking.connect(staker).withdrawStake(stakingAmount, false);
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address);
     expect(rewardsPerBlockAfterStake).to.be.equal(rewardsPerBlockBeforeStake); // Should not update rewards per block since simplestaking blockend passed
     expect(GDAOBalanceBeforeWithdraw).to.be.equal(GDAOBalanceAfterWithdraw); // Should not earn any GDAO since simplestaking blockend passed
@@ -421,7 +425,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
     const stakingAmount = ethers.utils.parseEther("1000");
-    await simpleStaking.connect(staker).withdrawStake(stakingAmount);
+    await simpleStaking.connect(staker).withdrawStake(stakingAmount, false);
 
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
     await dai.connect(staker).approve(simpleStaking.address, stakingAmount);
@@ -429,10 +433,10 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       simpleStaking.address
     );
     const blockNumberOfStake = (await ethers.provider.getBlockNumber()) + 1;
-    await simpleStaking.connect(staker).stake(stakingAmount, 0);
+    await simpleStaking.connect(staker).stake(stakingAmount, 0, false);
     await advanceBlocks(30);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(staker.address);
-    await simpleStaking.connect(staker).withdrawStake(stakingAmount);
+    await simpleStaking.connect(staker).withdrawStake(stakingAmount, false);
 
     const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address);
     expect(GDAOBalanceAfterWithdraw).to.be.gt(GDAOBalanceBeforeWithdraw);
@@ -482,7 +486,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const stakingAmount = ethers.utils.parseEther("1000");
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
     await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
-    await simpleStaking1.connect(staker).stake(stakingAmount, 0);
+    await simpleStaking1.connect(staker).stake(stakingAmount, 0, false);
     const productivityOfStaker = await stakersDistribution.getProductivity(
       simpleStaking1.address,
       staker.address
@@ -529,7 +533,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const stakingAmount = ethers.utils.parseEther("1000");
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
     await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
-    await simpleStaking1.connect(staker).stake(stakingAmount, 0);
+    await simpleStaking1.connect(staker).stake(stakingAmount, 0, false);
     await advanceBlocks(5); //should accumulate some gdao rewards
 
     let pendingGDAO = await stakersDistribution.getUserPendingRewards(
@@ -550,7 +554,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
-    await simpleStaking1.connect(staker).withdrawStake(stakingAmount);
+    await simpleStaking1.connect(staker).withdrawStake(stakingAmount, false);
     const productivityOfStaker = await stakersDistribution.getProductivity(
       simpleStaking1.address,
       staker.address
@@ -615,7 +619,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     );
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
     await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
-    await simpleStaking1.connect(staker).stake(stakingAmount, 0);
+    await simpleStaking1.connect(staker).stake(stakingAmount, 0, false);
     const userProductivityAfterStaking = await stakersDistribution.getProductivity(
       simpleStaking1.address,
       staker.address
@@ -685,7 +689,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await dai["mint(address,uint256)"](staker.address, stakingAmount); // 10 billion dai to stake
     await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
-    await simpleStaking1.connect(staker).stake(stakingAmount, 0);
+    await simpleStaking1.connect(staker).stake(stakingAmount, 0, false);
     const rewardsPerBlock = await stakersDistribution.rewardsPerBlock(
       simpleStaking1.address
     );
@@ -693,7 +697,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const gdaoBalanceBeforeWithdraw = await goodDollar.balanceOf(
       staker.address
     );
-    await simpleStaking1.connect(staker).withdrawStake(stakingAmount);
+    await simpleStaking1.connect(staker).withdrawStake(stakingAmount, false);
     const withdrawBlockNumber = await ethers.provider.getBlockNumber();
     const gdaoBalanceAfterWithdraw = await goodDollar.balanceOf(staker.address);
     const calculatedNewBalance = gdaoBalanceBeforeWithdraw.add(
@@ -755,9 +759,9 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await usdc
       .connect(staker)
       .approve(simpleUsdcStaking.address, stakingAmountUsdc);
-    await simpleStaking.connect(staker).stake(stakingAmountDai, 0);
+    await simpleStaking.connect(staker).stake(stakingAmountDai, 0, false);
     await increaseTime(86700 * 30); // Increase one month
-    await simpleUsdcStaking.connect(staker).stake(stakingAmountUsdc, 0);
+    await simpleUsdcStaking.connect(staker).stake(stakingAmountUsdc, 0, false);
     const usdcStakingProductivity = await stakersDistribution.getProductivity(
       simpleUsdcStaking.address,
       staker.address
@@ -771,21 +775,21 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       [simpleStaking.address, simpleUsdcStaking.address],
       staker.address
     );
-    expect(UserPendingGdaos).to.be.gt(0)
+    expect(UserPendingGdaos).to.be.gt(0);
     const usdcStakingPendingGdaos = await stakersDistribution.getUserPendingReward(
       simpleUsdcStaking.address,
       currentBlockNumber - 5,
       currentBlockNumber + 200,
       staker.address
     );
-    expect(usdcStakingPendingGdaos).to.be.gt(0)
+    expect(usdcStakingPendingGdaos).to.be.gt(0);
     const daiStakingPendingGdaos = await stakersDistribution.getUserPendingReward(
       simpleStaking.address,
       currentBlockNumber - 5,
       currentBlockNumber + 200,
       staker.address
     );
-    expect(daiStakingPendingGdaos).to.be.gt(0)
+    expect(daiStakingPendingGdaos).to.be.gt(0);
     const usdcStakingRewardsPerBlock = await stakersDistribution.rewardsPerBlock(
       simpleUsdcStaking.address
     );
@@ -793,10 +797,10 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       simpleStaking.address
     );
     const gdaoBalanceBeforeWithdraw = await grep.balanceOf(staker.address);
-    await simpleUsdcStaking.connect(staker).withdrawStake(stakingAmountUsdc);
-    await simpleStaking
+    await simpleUsdcStaking
       .connect(staker)
-      .withdrawStake(stakingAmountDai);
+      .withdrawStake(stakingAmountUsdc, false);
+    await simpleStaking.connect(staker).withdrawStake(stakingAmountDai, false);
     const gdaoBalanceAfterWithdraw = await grep.balanceOf(staker.address);
     expect(gdaoBalanceAfterWithdraw.sub(gdaoBalanceBeforeWithdraw)).to.be.equal(
       UserPendingGdaos.add(usdcStakingRewardsPerBlock).add(
@@ -806,8 +810,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     expect(UserPendingGdaos).to.be.equal(
       usdcStakingPendingGdaos.add(daiStakingPendingGdaos)
     );
-    expect(usdcStakingProductivity[0]).to.be.equal(stakingAmountUsdc.mul(1e12)) // mul with 1e12 since usdc in 6 decimals but we keep productivity in 18 decimals
-    expect(daiStakingProductivity[0]).to.be.equal(stakingAmountDai)
+    expect(usdcStakingProductivity[0]).to.be.equal(stakingAmountUsdc.mul(1e12)); // mul with 1e12 since usdc in 6 decimals but we keep productivity in 18 decimals
+    expect(daiStakingProductivity[0]).to.be.equal(stakingAmountDai);
     expect(usdcStakingProductivity[0]).to.be.equal(daiStakingProductivity[0]);
     expect(usdcStakingProductivity[1]).to.be.equal(daiStakingProductivity[1]);
     expect(usdcStakingRewardsPerBlock).to.be.equal(
