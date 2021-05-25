@@ -10,6 +10,8 @@ import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";
 import "./StakingToken.sol";
+import "../governance/StakersDistribution.sol";
+
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Tokens
@@ -74,7 +76,6 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		maxMultiplierThreshold = _maxRewardThreshold;
 		blockInterval = _blockInterval;
 		lastUBICollection = block.number.div(blockInterval);
-		_setShareToken(nameService.addresses(nameService.GOODDOLLAR()));
 		collectInterestGasCost = _collectInterestGasCost; // Should be adjusted according to this contract's gas cost
 		
 		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
@@ -122,6 +123,17 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 
 		_mint(msg.sender, _amount); // mint Staking token for staker
 		_increaseProductivity(msg.sender, _amount);
+
+		//notify GDAO distrbution for stakers
+		StakersDistribution sd =
+			StakersDistribution(
+				nameService.addresses(nameService.GDAO_STAKERS())
+			);
+		if (address(sd) != address(0)) {
+			uint stakeAmountInEighteenDecimals = token.decimals() == 18 ? _amount : _amount * 10 ** (18 - token.decimals());
+			sd.userStaked(msg.sender, stakeAmountInEighteenDecimals);
+		}
+
 		emit Staked(msg.sender, address(token), _amount);
 	}
 
@@ -164,6 +176,17 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		_burn(msg.sender, _amount); // burn their staking tokens
 		_decreaseProductivity(msg.sender, _amount);
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
+
+		//notify GDAO distrbution for stakers
+		StakersDistribution sd =
+			StakersDistribution(
+				nameService.addresses(nameService.GDAO_STAKERS())
+			);
+		if (address(sd) != address(0)) {
+			uint withdrawAmountInEighteenDecimals = token.decimals() == 18 ? _amount : _amount * 10 ** (18 - token.decimals());
+			sd.userWithdraw(msg.sender, withdrawAmountInEighteenDecimals);
+		}
+
 		emit StakeWithdraw(
 			msg.sender,
 			address(token),
@@ -172,9 +195,54 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		);
 	}
 
+	/**
+	 * @dev withdraw staker G$ rewards + GDAO rewards
+	 * withdrawing rewards resets the multiplier! so if user just want GDAO he should use claimReputation()
+	 */
 	function withdrawRewards() public {
 		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
+		claimReputation();
+	}
+
+	/**
+	 * @dev withdraw staker GDAO rewards
+	 */
+	function claimReputation() public {
+		//claim reputation rewards
+		StakersDistribution sd =
+			StakersDistribution(
+				nameService.addresses(nameService.GDAO_STAKERS())
+			);
+		if (address(sd) != address(0)) {
+			address[] memory contracts = new address[](1);
+			contracts[0] = (address(this));
+			sd.claimReputation(msg.sender, contracts);
+		}
+	}
+
+	/**
+	 * @dev notify stakersdistribution when user performs transfer operation
+	 */
+	function _transfer(
+		address from,
+		address to,
+		uint256 value
+	) internal override {
+		super._transfer(from, to, value);
+
+		StakersDistribution sd =
+			StakersDistribution(
+				nameService.addresses(nameService.GDAO_STAKERS())
+			);
+		if (address(sd) != address(0)) {
+			address[] memory contracts;
+			contracts[0] = (address(this));
+			sd.userWithdraw(from, value);
+			sd.userStaked(to, value);
+			sd.claimReputation(to, contracts);
+			sd.claimReputation(from, contracts);
+		}
 	}
 
 	/**
@@ -211,14 +279,14 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		if (caseType) {
 			tokenBalance =
 				(iToken.balanceOf(address(this)) *
-					(10 ** decimalDifference) *
+					(10**decimalDifference) *
 					er) /
-				10 ** mantissa; // based on https://compound.finance/docs#protocol-math
+				10**mantissa; // based on https://compound.finance/docs#protocol-math
 		} else {
 			tokenBalance =
-				((iToken.balanceOf(address(this)) / (10 ** decimalDifference)) *
+				((iToken.balanceOf(address(this)) / (10**decimalDifference)) *
 					er) /
-				10 ** mantissa; // based on https://compound.finance/docs#protocol-math
+				10**mantissa; // based on https://compound.finance/docs#protocol-math
 		}
 		return tokenBalance;
 	}
@@ -279,14 +347,14 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal(); // based on https://compound.finance/docs#protocol-math
 		if (caseType) {
 			iTokenGains =
-				((tokenGains / 10 ** decimalDifference) * 10 ** mantissa) /
+				((tokenGains / 10**decimalDifference) * 10**mantissa) /
 				er; // based on https://compound.finance/docs#protocol-math
 		} else {
 			iTokenGains =
-				((tokenGains * 10 ** decimalDifference) * 10 ** mantissa) /
+				((tokenGains * 10**decimalDifference) * 10**mantissa) /
 				er; // based on https://compound.finance/docs#protocol-math
 		}
-		tokenGains = getTokenPriceInUSD(tokenGains);
+		tokenGains = getTokenValueInUSD(tokenGains);
 		return (iTokenGains, tokenGains);
 	}
 
@@ -367,10 +435,10 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 @dev _amount Amount of Token to calculate worth of it
 	 @return Returns worth of Tokens in USD
 	 */
-	function getTokenPriceInUSD(uint256 _amount) public view returns (uint256) {
+	function getTokenValueInUSD(uint256 _amount) public view returns (uint256) {
 		AggregatorV3Interface tokenPriceOracle =
 			AggregatorV3Interface(getTokenUsdOracle());
 		(, int256 tokenPriceinUSD, , , ) = tokenPriceOracle.latestRoundData();
-		return (uint256(tokenPriceinUSD) * _amount) / (10 ** token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's decimal at the end to reduce 8 decimals back
+		return (uint256(tokenPriceinUSD) * _amount) / (10**token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's decimal at the end to reduce 8 decimals back
 	}
 }

@@ -5,23 +5,15 @@ pragma solidity >=0.7.0;
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../reserve/GoodReserveCDai.sol";
 import "../Interfaces.sol";
+
 interface StakingContract {
 	function collectUBIInterest(address recipient)
 		external
-		returns (
-			uint256,
-			uint256
-		);
+		returns (uint256, uint256);
 
 	function iToken() external view returns (address);
 
-	function currentUBIInterest()
-		external
-		view
-		returns (
-			uint256,
-			uint256
-		);
+	function currentUBIInterest() external view returns (uint256, uint256);
 
 	function getRewardEarned(address user) external view returns (uint256);
 
@@ -172,6 +164,17 @@ contract GoodFundManager is DAOContract {
 		bool _isBlackListed
 	) public {
 		_onlyAvatar();
+
+		//we dont allow to undo blacklisting as it will mess up rewards accounting.
+		//staking contracts are assumed immutable and thus non fixable
+		require(
+			false ==
+				(_isBlackListed == false &&
+					rewardsForStakingContract[_stakingAddress].isBlackListed ==
+					true),
+			"can't undo blacklisting"
+		);
+
 		Reward memory reward =
 			Reward(
 				_rewardsPerBlock,
@@ -262,7 +265,7 @@ contract GoodFundManager is DAOContract {
 			msg.sender,
 			gdRewardToMint
 		);
-		uint256 gasPriceIncDAI = getGasPriceInCDAI(initialGas - gasleft());	
+		uint256 gasPriceIncDAI = getGasPriceInCDAI(initialGas - gasleft());
 		if (
 			block.timestamp >=
 			lastCollectedInterest + collectInterestTimeThreshold
@@ -482,5 +485,9 @@ contract GoodFundManager is DAOContract {
 
 	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
 		z = x.mul(10**27).add(y / 2) / y;
+	}
+
+	function getActiveContractsCount() public view returns (uint256) {
+		return activeContracts.length;
 	}
 }
