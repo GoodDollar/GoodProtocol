@@ -174,7 +174,6 @@ contract GoodFundManager is DAOContract {
 					true),
 			"can't undo blacklisting"
 		);
-
 		Reward memory reward =
 			Reward(
 				_rewardsPerBlock,
@@ -182,7 +181,8 @@ contract GoodFundManager is DAOContract {
 				_blockEnd > 0 ? _blockEnd : 0xFFFFFFFF,
 				_isBlackListed
 			);
-		rewardsForStakingContract[_stakingAddress] = reward;
+			rewardsForStakingContract[_stakingAddress] = reward;
+		
 		bool exist;
 		uint8 i;
 		for (i = 0; i < activeContracts.length; i++) {
@@ -192,15 +192,15 @@ contract GoodFundManager is DAOContract {
 			}
 		}
 
-		if (_isBlackListed == false) {
-			if (exist == false) activeContracts.push(_stakingAddress);
-		} else {
-			if (exist == true) {
-				activeContracts[i] = activeContracts[
-					activeContracts.length - 1
-				];
-				activeContracts.pop();
-			}
+		if (exist && (_isBlackListed || _rewardsPerBlock == 0)) {
+
+			activeContracts[i] = activeContracts[
+				activeContracts.length - 1
+			];
+			activeContracts.pop();
+		} else if (!exist && !(_isBlackListed || _rewardsPerBlock == 0)) {
+			activeContracts.push(_stakingAddress);
+			
 		}
 	}
 
