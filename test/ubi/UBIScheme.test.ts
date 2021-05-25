@@ -25,6 +25,8 @@ describe("UBIScheme", () => {
     claimer1,
     claimer2,
     claimer3,
+    claimer4,
+    claimer7,
     signers,
     fisherman,
     nameService,
@@ -38,6 +40,8 @@ describe("UBIScheme", () => {
       claimer1,
       claimer2,
       claimer3,
+      claimer4,
+      claimer7,
       fisherman,
       ...signers
     ] = await ethers.getSigners();
@@ -266,6 +270,9 @@ describe("UBIScheme", () => {
     // in the ubi and in the next day after transferring the balances from the
     // dao, making sure that the tokens that have not been claimed are
     // taken by the formula as expected.
+    let encoded = goodDollar.interface.encodeFunctionData("transfer", [signers[0].address, "1000"]);
+  
+    await genericCall(goodDollar.address, encoded);// There is 10gd initially allocated to avatar so I send it to another address for further transactions
     let encodedCall = ubi.interface.encodeFunctionData(
       "setShouldWithdrawFromDAO",
       [true]
@@ -282,114 +289,111 @@ describe("UBIScheme", () => {
     // an edge case
     await ubi.connect(claimer1).claim();
     let avatarBalance = await goodDollar.balanceOf(avatar);
-    let claimer1Balance = await goodDollar.balanceOf(claimer1);
+    let claimer1Balance = await goodDollar.balanceOf(claimer1.address);
     expect(avatarBalance.toString()).to.be.equal("0");
     // 300 GD from first day and 201 from the second day claimed in this test
     expect(claimer1Balance.toString()).to.be.equal("501");
    });
 
-  // it("should return the reward value for entitlement user", async () => {
-  //   let amount = await ubi.checkEntitlement({ from: claimer4 });
-  //   let claimAmount = await firstClaimPool.claimAmount();
-  //   expect(amount.toString()).to.be.equal(claimAmount.toString());
-  // });
+   it("should return the reward value for entitlement user", async () => {
+     let amount = await ubi.connect(claimer4).checkEntitlement();
+     let claimAmount = await firstClaimPool.claimAmount();
+     expect(amount.toString()).to.be.equal(claimAmount.toString());
+   });
 
-  // it("should return that a new user is not an active user", async () => {
-  //   let isActiveUser = await ubi.isActiveUser(claimer7);
-  //   expect(isActiveUser).to.be.false;
-  // });
+   it("should return that a new user is not an active user", async () => {
+     let isActiveUser = await ubi.isActiveUser(claimer7.address);
+     expect(isActiveUser).to.be.false;
+   });
 
-  // it("should not be able to fish an active user", async () => {
-  //   await identity.addWhitelisted(claimer3);
-  //   await identity.addWhitelisted(claimer4);
-  //   await ubi.claim({ from: claimer3 });
-  //   await ubi.claim({ from: claimer4 });
-  //   let isActiveUser = await ubi.isActiveUser(claimer4);
-  //   let error = await ubi.fish(claimer4, { from: fisherman }).catch(e => e);
-  //   expect(isActiveUser).to.be.true;
-  //   expect(error.message).to.have.string("is not an inactive use");
-  // });
+   it("should not be able to fish an active user", async () => {
+     await addWhitelisted(claimer4.address,"claimer4");
+     await ubi.connect(claimer3).claim();
+     await ubi.connect(claimer4).claim();
+     let isActiveUser = await ubi.isActiveUser(claimer4.address);
+     let error = await ubi.connect(fisherman).fish(claimer4.address).catch(e => e);
+     expect(isActiveUser).to.be.true;
+     expect(error.message).to.have.string("is not an inactive use");
+   });
 
-  // it("should not be able to execute claim twice a day", async () => {
-  //   await goodDollar.mint(avatar.address, "20");
-  //   await increaseTime(ONE_DAY);
-  //   let claimer4Balance1 = await goodDollar.balanceOf(claimer4);
-  //   await ubi.claim({ from: claimer4 });
-  //   let claimer4Balance2 = await goodDollar.balanceOf(claimer4);
-  //   let dailyUbi = await ubi.dailyUbi();
-  //   await ubi.claim({ from: claimer4 });
-  //   let claimer4Balance3 = await goodDollar.balanceOf(claimer4);
-  //   expect(
-  //     claimer4Balance2.toNumber() - claimer4Balance1.toNumber()
-  //   ).to.be.equal(dailyUbi.toNumber());
-  //   expect(
-  //     claimer4Balance3.toNumber() - claimer4Balance1.toNumber()
-  //   ).to.be.equal(dailyUbi.toNumber());
-  // });
+   it("should not be able to execute claim twice a day", async () => {
+     await goodDollar.mint(avatar, "20");
+     await increaseTime(ONE_DAY);
+     let claimer4Balance1 = await goodDollar.balanceOf(claimer4.address);
+     await ubi.connect(claimer4).claim();
+     let claimer4Balance2 = await goodDollar.balanceOf(claimer4.address);
+     let dailyUbi = await ubi.dailyUbi();
+     await ubi.connect(claimer4).claim();
+     let claimer4Balance3 = await goodDollar.balanceOf(claimer4.address);
+     expect(
+       claimer4Balance2.toNumber() - claimer4Balance1.toNumber()
+     ).to.be.equal(dailyUbi.toNumber());
+     expect(
+       claimer4Balance3.toNumber() - claimer4Balance1.toNumber()
+     ).to.be.equal(dailyUbi.toNumber());
+   });
 
-  // it("should return the daily ubi for entitlement user", async () => {
-  //   // claimer3 hasn't claimed during that interval so that user
-  //   // may have the dailyUbi
-  //   let amount = await ubi.checkEntitlement({ from: claimer3 });
-  //   let dailyUbi = await ubi.dailyUbi();
-  //   expect(amount.toString()).to.be.equal(dailyUbi.toString());
-  // });
+   it("should return the daily ubi for entitlement user", async () => {
+     // claimer3 hasn't claimed during that interval so that user
+     // may have the dailyUbi
+     let amount = await ubi.connect(claimer3).checkEntitlement();
+     let dailyUbi = await ubi.dailyUbi();
+     expect(amount.toString()).to.be.equal(dailyUbi.toString());
+   })
+   it("should return 0 for entitlement if the user has already claimed for today", async () => {
+     await ubi.connect(claimer4).claim();
+     let amount = await ubi.connect(claimer4).checkEntitlement();
+     expect(amount.toString()).to.be.equal("0");
+   });
 
-  // it("should return 0 for entitlement if the user has already claimed for today", async () => {
-  //   await ubi.claim({ from: claimer4 });
-  //   let amount = await ubi.checkEntitlement({ from: claimer4 });
-  //   expect(amount.toString()).to.be.equal("0");
-  // });
+   it("should be able to fish inactive user", async () => {
+     await goodDollar.mint(avatar, "20");
+     await increaseTime(MAX_INACTIVE_DAYS * ONE_DAY * 14);
+     let claimer4BalanceBefore = await goodDollar.balanceOf(claimer4.address);
+     let isFishedBefore = await ubi.fishedUsersAddresses(claimer1.address);
+     let tx = await (await ubi.connect(claimer4).fish(claimer1.address)).wait();
+     let isFishedAfter = await ubi.fishedUsersAddresses(claimer1.address);
+     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4.address);
+     let dailyUbi = await ubi.dailyUbi();
+     expect(isFishedBefore).to.be.false;
+     expect(isFishedAfter).to.be.true;
+     expect(tx.events.find(_ => _.event === "InactiveUserFished")).to.be.not.empty;
+     expect(
+       claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
+     ).to.be.equal(dailyUbi.toNumber());
+   });
 
-  // it("should be able to fish inactive user", async () => {
-  //   await goodDollar.mint(avatar.address, "20");
-  //   await increaseTime(MAX_INACTIVE_DAYS * ONE_DAY);
-  //   let claimer4BalanceBefore = await goodDollar.balanceOf(claimer4);
-  //   let isFishedBefore = await ubi.fishedUsersAddresses(claimer1);
-  //   let tx = await ubi.fish(claimer1, { from: claimer4 });
-  //   let isFishedAfter = await ubi.fishedUsersAddresses(claimer1);
-  //   let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4);
-  //   let dailyUbi = await ubi.dailyUbi();
-  //   expect(isFishedBefore).to.be.false;
-  //   expect(isFishedAfter).to.be.true;
-  //   expect(tx.logs.some(e => e.event === "InactiveUserFished")).to.be.true;
-  //   expect(
-  //     claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
-  //   ).to.be.equal(dailyUbi.toNumber());
-  // });
-
-  // it("should not be able to fish the same user twice", async () => {
-  //   await goodDollar.mint(avatar.address, "20");
-  //   await increaseTime(MAX_INACTIVE_DAYS * ONE_DAY);
-  //   let claimer4BalanceBefore = await goodDollar.balanceOf(claimer4);
-  //   let isFishedBefore = await ubi.fishedUsersAddresses(claimer1);
-  //   let error = await ubi.fish(claimer1, { from: claimer4 }).catch(e => e);
-  //   let isFishedAfter = await ubi.fishedUsersAddresses(claimer1);
-  //   let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4);
-  //   expect(error.message).to.have.string("already fished");
-  //   expect(isFishedBefore).to.be.true;
-  //   expect(isFishedAfter).to.be.true;
-  //   expect(claimer4BalanceAfter.toNumber()).to.be.equal(
-  //     claimer4BalanceBefore.toNumber()
-  //   );
-  // });
-
-  // it("should be able to fish multiple user", async () => {
-  //   await goodDollar.mint(avatar.address, "20");
-  //   await increaseTime(MAX_INACTIVE_DAYS * ONE_DAY);
-  //   let claimer4BalanceBefore = await goodDollar.balanceOf(claimer4);
-  //   let tx = await ubi.fishMulti([claimer2, claimer3], { from: claimer4 });
-  //   let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4);
-  //   let dailyUbi = await ubi.dailyUbi();
-  //   const totalFishedEventExists = tx.logs.some(
-  //     e => e.event === "TotalFished" && e.args["total"].toNumber() === 2
-  //   );
-  //   expect(tx.logs.some(e => e.event === "InactiveUserFished")).to.be.true;
-  //   expect(
-  //     claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
-  //   ).to.be.equal(2 * dailyUbi.toNumber());
-  //   expect(totalFishedEventExists).to.be.true;
-  // });
+   it("should not be able to fish the same user twice", async () => {
+     await goodDollar.mint(avatar, "200");
+     await increaseTime(MAX_INACTIVE_DAYS * ONE_DAY);
+     let claimer4BalanceBefore = await goodDollar.balanceOf(claimer4.address);
+     let isFishedBefore = await ubi.fishedUsersAddresses(claimer1.address);
+     let error = await ubi.connect(claimer4).fish(claimer1.address).catch(e => e);
+     let isFishedAfter = await ubi.fishedUsersAddresses(claimer1.address);
+     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4.address);
+     expect(error.message).to.have.string("already fished");
+     expect(isFishedBefore).to.be.true;
+     expect(isFishedAfter).to.be.true;
+     expect(claimer4BalanceAfter.toNumber()).to.be.equal(
+       claimer4BalanceBefore.toNumber()
+     );
+   })
+   it("should be able to fish multiple user", async () => {
+     await goodDollar.mint(avatar, "20");
+     await increaseTime(MAX_INACTIVE_DAYS * ONE_DAY);
+     let claimer4BalanceBefore = await goodDollar.balanceOf(claimer4.address);
+     let tx = await(await ubi.connect(claimer4).fishMulti([claimer2.address, claimer3.address])).wait();
+     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4.address);
+     let dailyUbi = await ubi.dailyUbi();
+     const totalFishedEvent = tx.events.find(
+       e => e.event === "TotalFished"
+     );
+     expect(tx.events.find(e => e.event === "InactiveUserFished")).to.be.not.empty;
+     expect(
+       claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
+     ).to.be.equal(2 * dailyUbi.toNumber());
+     expect(totalFishedEvent.args.total.toNumber() === 2).to.be.true;
+   });
 
   // it("should not be able to remove an active user that no longer whitelisted", async () => {
   //   await goodDollar.mint(avatar.address, "20");
