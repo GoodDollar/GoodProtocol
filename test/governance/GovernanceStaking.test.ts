@@ -81,7 +81,11 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       controller,
       avatar
     });
-    goodFundManager = await goodFundManagerFactory.deploy(nameService.address);
+    goodFundManager = await upgrades.deployProxy(
+      goodFundManagerFactory,
+      [nameService.address],
+      { kind: "uups" }
+    );
     grep = (await ethers.getContractAt(
       "GReputation",
       reputation
@@ -152,7 +156,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
     const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
     expect(rewardsPerBlock).to.equal(
-      ethers.utils.parseEther("1728000").div(BN.from("518400"))  // 1728000 is montlhy reward amount and 518400 is monthly blocks for FUSE chain
+      ethers.utils.parseEther("1728000").div(BN.from("518400")) // 1728000 is montlhy reward amount and 518400 is monthly blocks for FUSE chain
     );
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
@@ -393,7 +397,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     expect((await governanceStaking.users(staker.address)).amount).to.equal(
       100
     );
-    expect(stakerProductivityBeforeTransfer[0]).to.be.equal(0)
+    expect(stakerProductivityBeforeTransfer[0]).to.be.equal(0);
     expect(stakerProductivity[0]).to.be.equal("100");
   });
 

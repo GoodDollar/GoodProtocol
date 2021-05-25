@@ -1,21 +1,17 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.7.0;
-
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+pragma solidity >=0.8.0;
 
 import "../utils/DSMath.sol";
 import "../utils/BancorFormula.sol";
 import "../DAOStackInterfaces.sol";
 import "../Interfaces.sol";
-import "../utils/NameService.sol";
+import "../utils/DAOUpgradeableContract.sol";
+
 /**
 @title Dynamic reserve ratio market maker
 */
-contract GoodMarketMaker is Initializable, DSMath {
-	using SafeMathUpgradeable for uint256;
-
+contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 	// Entity that holds a reserve token
 	struct ReserveToken {
 		// Determines the reserve token balance
@@ -33,8 +29,6 @@ contract GoodMarketMaker is Initializable, DSMath {
 
 	// The map which holds the reserve token entities
 	mapping(address => ReserveToken) public reserveTokens;
-
-	NameService public nameService;
 
 	// Emits when a change has occurred in a
 	// reserve balance, i.e. buy / sell will
@@ -122,7 +116,7 @@ contract GoodMarketMaker is Initializable, DSMath {
 	) public virtual initializer {
 		reserveRatioDailyExpansion = rdiv(_nom, _denom);
 		decimals = 2;
-		nameService = _ns;
+		setDAO(_ns);
 	}
 
 	function _onlyActiveToken(ERC20 _token) internal view {
@@ -202,15 +196,15 @@ contract GoodMarketMaker is Initializable, DSMath {
 		if (ratio == 0) {
 			ratio = 1e6;
 		}
-		ratio = ratio.mul(1e21); //expand to e27 precision
+		ratio *= 1e21; //expand to e27 precision
 
 		uint256 daysPassed =
-			block.timestamp.sub(reserveToken.lastExpansion) / 1 days;
+			(block.timestamp - reserveToken.lastExpansion) / 1 days;
 		for (uint256 i = 0; i < daysPassed; i++) {
 			ratio = rmul(ratio, reserveRatioDailyExpansion);
 		}
 
-		return uint32(ratio.div(1e21)); // return to e6 precision
+		return uint32(ratio / 1e21); // return to e6 precision
 	}
 
 	/**
@@ -231,7 +225,7 @@ contract GoodMarketMaker is Initializable, DSMath {
 		//set last expansion to begining of expansion day
 		reserveToken.lastExpansion =
 			block.timestamp -
-			(block.timestamp.sub(reserveToken.lastExpansion) % 1 days);
+			((block.timestamp - reserveToken.lastExpansion) % 1 days);
 		return reserveToken.reserveRatio;
 	}
 
@@ -290,8 +284,8 @@ contract GoodMarketMaker is Initializable, DSMath {
 
 		uint256 gdReturn = buyReturn(_token, _tokenAmount);
 		ReserveToken storage rtoken = reserveTokens[address(_token)];
-		rtoken.gdSupply = rtoken.gdSupply.add(gdReturn);
-		rtoken.reserveSupply = rtoken.reserveSupply.add(_tokenAmount);
+		rtoken.gdSupply += gdReturn;
+		rtoken.reserveSupply += _tokenAmount;
 		emit BalancesUpdated(
 			msg.sender,
 			address(_token),
@@ -304,26 +298,25 @@ contract GoodMarketMaker is Initializable, DSMath {
 	}
 
 	/**
-	* @dev Updates the bonding curve params. Decrease RR to in order to mint gd in the amount of provided
-	* new RR = Reserve supply / (gd supply + gd mint amount) * price
-	* @param _gdAmount Amount of gd to add reserveParams
-	* @param _token The reserve token which is currently active
-	*/
-	function mintFromReserveRatio(ERC20 _token, uint _gdAmount)
-		public
-	
-		
-	{	
+	 * @dev Updates the bonding curve params. Decrease RR to in order to mint gd in the amount of provided
+	 * new RR = Reserve supply / (gd supply + gd mint amount) * price
+	 * @param _gdAmount Amount of gd to add reserveParams
+	 * @param _token The reserve token which is currently active
+	 */
+	function mintFromReserveRatio(ERC20 _token, uint256 _gdAmount) public {
 		_onlyReserveOrAvatar();
 		_onlyActiveToken(_token);
-		uint256 reserveDecimalsDiff = uint256(27).sub(_token.decimals()); // //result is in RAY precision
+		uint256 reserveDecimalsDiff = uint256(27) - _token.decimals(); // //result is in RAY precision
 		ReserveToken storage rtoken = reserveTokens[address(_token)];
-		uint priceBeforeGdSupplyChange = currentPrice(_token);
+		uint256 priceBeforeGdSupplyChange = currentPrice(_token);
 		rtoken.gdSupply += _gdAmount;
-		rtoken.reserveRatio = uint32(rdiv(rtoken.reserveSupply , (rtoken.gdSupply * priceBeforeGdSupplyChange)) / 10 ** reserveDecimalsDiff); // Divide it decimal diff to bring it proper decimal
-		
+		rtoken.reserveRatio = uint32(
+			rdiv(
+				rtoken.reserveSupply,
+				(rtoken.gdSupply * priceBeforeGdSupplyChange)
+			) / 10**reserveDecimalsDiff
+		); // Divide it decimal diff to bring it proper decimal
 	}
-
 
 	/**
 	 * @dev Calculates the sell return with contribution in _token and update the bonding curve params.
@@ -352,12 +345,12 @@ contract GoodMarketMaker is Initializable, DSMath {
 		);
 
 		// Deduces the convertible amount of GD tokens by the given contribution amount
-		uint256 amountAfterContribution = _gdAmount.sub(_contributionGdAmount);
+		uint256 amountAfterContribution = _gdAmount - _contributionGdAmount;
 
 		// The return value after the deduction
 		uint256 tokenReturn = sellReturn(_token, amountAfterContribution);
-		rtoken.gdSupply = rtoken.gdSupply.sub(_gdAmount);
-		rtoken.reserveSupply = rtoken.reserveSupply.sub(tokenReturn);
+		rtoken.gdSupply -= _gdAmount;
+		rtoken.reserveSupply -= tokenReturn;
 		emit BalancesUpdated(
 			msg.sender,
 			address(_token),
@@ -400,11 +393,10 @@ contract GoodMarketMaker is Initializable, DSMath {
 		view
 		returns (uint256)
 	{
-		uint256 decimalsDiff = uint256(27).sub(decimals);
+		uint256 decimalsDiff = uint256(27) - decimals;
 		//resulting amount is in RAY precision
 		//we divide by decimalsdiff to get precision in GD (2 decimals)
-		return
-			rdiv(_addTokenSupply, currentPrice(_token)).div(10**decimalsDiff);
+		return rdiv(_addTokenSupply, currentPrice(_token)) / (10**decimalsDiff);
 	}
 
 	/**
@@ -426,8 +418,8 @@ contract GoodMarketMaker is Initializable, DSMath {
 		ReserveToken storage reserveToken = reserveTokens[address(_token)];
 		uint256 gdSupply = reserveToken.gdSupply;
 		uint256 reserveBalance = reserveToken.reserveSupply;
-		reserveToken.gdSupply = gdSupply.add(toMint);
-		reserveToken.reserveSupply = reserveBalance.add(_addTokenSupply);
+		reserveToken.gdSupply += toMint;
+		reserveToken.reserveSupply += _addTokenSupply;
 		emit InterestMinted(
 			msg.sender,
 			address(_token),
@@ -453,22 +445,20 @@ contract GoodMarketMaker is Initializable, DSMath {
 	{
 		ReserveToken memory reserveToken = reserveTokens[address(_token)];
 		uint32 newReserveRatio = calculateNewReserveRatio(_token); // new reserve ratio
-		uint256 reserveDecimalsDiff = uint256(27).sub(_token.decimals()); // //result is in RAY precision
+		uint256 reserveDecimalsDiff = uint256(27) - _token.decimals(); // //result is in RAY precision
 		uint256 denom =
 			rmul(
-				uint256(newReserveRatio).mul(1e21),
-				currentPrice(_token).mul(10**reserveDecimalsDiff)
+				uint256(newReserveRatio) * 1e21,
+				currentPrice(_token) * (10**reserveDecimalsDiff)
 			); // (newreserveratio * currentprice) in RAY precision
-		uint256 gdDecimalsDiff = uint256(27).sub(decimals);
+		uint256 gdDecimalsDiff = uint256(27) - decimals;
 		uint256 toMint =
 			rdiv(
-				reserveToken.reserveSupply.mul(10**reserveDecimalsDiff), // reservebalance in RAY precision
+				reserveToken.reserveSupply * (10**reserveDecimalsDiff), // reservebalance in RAY precision
 				denom
-			)
-				.div(10**gdDecimalsDiff); // return to gd precision
-		return toMint.sub(reserveToken.gdSupply);
+			) / (10**gdDecimalsDiff); // return to gd precision
+		return toMint - reserveToken.gdSupply;
 	}
-
 
 	/**
 	 * @dev Updates bonding curve based on expansion change and new minted amount
@@ -482,7 +472,7 @@ contract GoodMarketMaker is Initializable, DSMath {
 		ReserveToken storage reserveToken = reserveTokens[address(_token)];
 		uint256 gdSupply = reserveToken.gdSupply;
 		uint256 ratio = reserveToken.reserveRatio;
-		reserveToken.gdSupply = gdSupply.add(toMint);
+		reserveToken.gdSupply += toMint;
 		expandReserveRatio(_token);
 		emit UBIExpansionMinted(
 			msg.sender,
@@ -493,5 +483,4 @@ contract GoodMarketMaker is Initializable, DSMath {
 		);
 		return toMint;
 	}
-
 }

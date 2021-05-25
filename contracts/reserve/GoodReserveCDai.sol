@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetMinterPauserUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 
-import "../utils/DAOContract.sol";
+import "../utils/DSMath.sol";
+import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "../DAOStackInterfaces.sol";
 import "../Interfaces.sol";
@@ -29,10 +28,10 @@ interface ContributionCalc {
 
 //TODO: feeless scheme, active period
 contract GoodReserveCDai is
-	Initializable,
-	DAOContract,
+	DAOUpgradeableContract,
 	ERC20PresetMinterPauserUpgradeable,
-	GlobalConstraintInterface
+	GlobalConstraintInterface,
+	DSMath
 {
 	using SafeMathUpgradeable for uint256;
 
@@ -142,14 +141,6 @@ contract GoodReserveCDai is
 		cap = 22 * 1e14; //22 trillion G$ cents
 
 		gdxAirdrop = _gdxAirdrop;
-	}
-
-	function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = x.mul(y).add(10**27 / 2) / 10**27;
-	}
-
-	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = x.mul(10**27).add(y / 2) / y;
 	}
 
 	/// @dev GDX decimals
@@ -695,15 +686,16 @@ contract GoodReserveCDai is
 			"recover transfer failed"
 		);
 	}
+
 	/**
 	 * @dev convert DAI balance of reserve to cDAI
 	 * @param _amount DAI amount to convert cDAI
 	 */
-	function convertDAItoCDAI(uint256 _amount) public{
-		
-		ERC20(daiAddress).approve(cDaiAddress,_amount);
+	function convertDAItoCDAI(uint256 _amount) public {
+		ERC20(daiAddress).approve(cDaiAddress, _amount);
 		cERC20(cDaiAddress).mint(_amount);
 	}
+
 	/**
 	 * @notice prove user balance in a specific blockchain state hash
 	 * @dev "rootState" is a special state that can be supplied once, and actually mints reputation on the current blockchain

@@ -97,7 +97,11 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       controller,
       avatar
     });
-    goodFundManager = await goodFundManagerFactory.deploy(nameService.address);
+    goodFundManager = await upgrades.deployProxy(
+      goodFundManagerFactory,
+      [nameService.address],
+      { kind: "uups" }
+    );
     grep = (await ethers.getContractAt(
       "GReputation",
       reputation

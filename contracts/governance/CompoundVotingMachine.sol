@@ -4,7 +4,7 @@ pragma solidity >=0.8.0;
 import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 
 import "../DAOStackInterfaces.sol";
-import "../utils/DAOUpgradableContract.sol";
+import "../utils/DAOUpgradeableContract.sol";
 
 /**
  * CompoundVotingMachine based on Compound's governance with a few differences
@@ -12,7 +12,7 @@ import "../utils/DAOUpgradableContract.sol";
  * if vote decision has changed, execution will be delayed so at least 24 hours are left to vote.
  * 2. execution modified to support DAOStack Avatar/Controller
  */
-contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradableContract {
+contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 	/// @notice The name of this contract
 	string public constant name = "GoodDAO Voting Machine";
 

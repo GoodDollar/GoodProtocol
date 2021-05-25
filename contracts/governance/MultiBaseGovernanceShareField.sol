@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 import "../Interfaces.sol";
-
 import "../utils/DSMath.sol";
+
 /***
  * supports accounting for multiple staking contracts to calculate GDAO rewards
  */
-abstract contract MultiBaseGovernanceShareField {
+abstract contract MultiBaseGovernanceShareField is DSMath {
 	// Total Amount of stakes
 	mapping(address => uint256) totalProductivity;
 	// Reward amount of the each share
@@ -81,11 +81,11 @@ abstract contract MultiBaseGovernanceShareField {
 			: _lastRewardBlock;
 		uint256 curRewardBlock =
 			block.number > _blockEnd ? _blockEnd : block.number;
-		if(curRewardBlock < _blockStart) 
+		if (curRewardBlock < _blockStart)
 			return (_lastRewardBlock, _accAmountPerShare);
 		if (_lastRewardBlock >= _blockEnd)
 			return (_lastRewardBlock, _accAmountPerShare);
-		
+
 		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block
 		uint256 reward = multiplier * rewardsPerBlock[_contract]; // rewardsPerBlock is in GDAO which is in 18 decimals
 
@@ -239,10 +239,6 @@ abstract contract MultiBaseGovernanceShareField {
 		returns (uint256)
 	{
 		return accAmountPerShare[_contract];
-	}
-
-	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = (x * 10**27 + (y / 2)) / y;
 	}
 
 	uint256[50] private _gap;

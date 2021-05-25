@@ -8,6 +8,7 @@ import "../governance/GReputation.sol";
 import "../governance/MultiBaseGovernanceShareField.sol";
 import "../staking/GoodFundManager.sol";
 import "../staking/SimpleStaking.sol";
+
 /**
  * Staking contracts will update this contract with staker token stake amount
  * This contract will be able to mint GDAO. 2M GDAO that will be allocated between staking contracts each month pro-rate based on $ value staked.
@@ -15,7 +16,7 @@ import "../staking/SimpleStaking.sol";
  * NOTICE: a contract will start earning GDAO rewards only after first month
  */
 contract StakersDistribution is
-	DAOUpgradableContract,
+	DAOUpgradeableContract,
 	MultiBaseGovernanceShareField
 {
 	///@notice reputation to distribute each month, will effect next month when set

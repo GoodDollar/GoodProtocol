@@ -22,7 +22,7 @@ interface FundManager {
 	function mintReward(address _token, address _user) external;
 }
 
-contract BaseShareField is DAOContract {
+contract BaseShareField is DAOContract, DSMath {
 	using SafeMath for uint256;
 
 	uint256 totalProductivity;
@@ -298,13 +298,5 @@ contract BaseShareField is DAOContract {
 	 */
 	function interestsPerBlock() public view virtual returns (uint256) {
 		return accAmountPerShare;
-	}
-
-	function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = x.mul(y).add(10**27 / 2) / 10**27;
-	}
-
-	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = x.mul(10**27).add(y / 2) / y;
 	}
 }

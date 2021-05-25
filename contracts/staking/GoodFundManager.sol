@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 
-import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../reserve/GoodReserveCDai.sol";
 import "../Interfaces.sol";
+import "../utils/DSMath.sol";
+import "../utils/DAOUpgradeableContract.sol";
 
 interface StakingContract {
 	function collectUBIInterest(address recipient)
@@ -28,9 +29,7 @@ interface StakingContract {
  * contract
  * cDAI support only
  */
-contract GoodFundManager is DAOContract {
-	using SafeMath for uint256;
-
+contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	// timestamp that indicates last time that interests collected
 	uint256 public lastCollectedInterest;
 
@@ -97,7 +96,7 @@ contract GoodFundManager is DAOContract {
 	 * @dev Constructor
 	 * @param _ns The address of the name Service
 	 */
-	constructor(NameService _ns) {
+	function initialize(NameService _ns) public virtual initializer {
 		setDAO(_ns);
 		gdMintGasCost = 250000; // While testing highest amount was 240k so put 250k to be safe
 		collectInterestTimeThreshold = 5184000; // 5184000 is 2 months in seconds
@@ -181,8 +180,8 @@ contract GoodFundManager is DAOContract {
 				_blockEnd > 0 ? _blockEnd : 0xFFFFFFFF,
 				_isBlackListed
 			);
-			rewardsForStakingContract[_stakingAddress] = reward;
-		
+		rewardsForStakingContract[_stakingAddress] = reward;
+
 		bool exist;
 		uint8 i;
 		for (i = 0; i < activeContracts.length; i++) {
@@ -193,14 +192,10 @@ contract GoodFundManager is DAOContract {
 		}
 
 		if (exist && (_isBlackListed || _rewardsPerBlock == 0)) {
-
-			activeContracts[i] = activeContracts[
-				activeContracts.length - 1
-			];
+			activeContracts[i] = activeContracts[activeContracts.length - 1];
 			activeContracts.pop();
 		} else if (!exist && !(_isBlackListed || _rewardsPerBlock == 0)) {
 			activeContracts.push(_stakingAddress);
-			
 		}
 	}
 
@@ -481,10 +476,6 @@ contract GoodFundManager is DAOContract {
 			GoodReserveCDai(nameService.addresses(nameService.RESERVE()))
 				.currentPrice();
 		return rdiv(priceInCdai, gdPriceIncDAI) / 1e25; // rdiv returns result in 27 decimals since GD$ in 2 decimals then divide 1e25
-	}
-
-	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = x.mul(10**27).add(y / 2) / y;
 	}
 
 	function getActiveContractsCount() public view returns (uint256) {

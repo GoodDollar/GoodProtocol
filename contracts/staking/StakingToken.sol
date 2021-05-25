@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 import "./BaseShareField.sol";
 
 contract StakingToken is BaseShareField {
-	using SafeMath for uint256;
-
 	string public name;
 	string public symbol;
 	uint8 public decimals;
@@ -23,8 +21,8 @@ contract StakingToken is BaseShareField {
 	);
 
 	function _mint(address to, uint256 value) internal {
-		totalSupply = totalSupply.add(value);
-		balanceOf[to] = balanceOf[to].add(value);
+		totalSupply += value;
+		balanceOf[to] += value;
 		emit Transfer(address(0), to, value);
 	}
 
@@ -36,8 +34,8 @@ contract StakingToken is BaseShareField {
 	receive() external payable {}
 
 	function _burn(address from, uint256 value) internal {
-		balanceOf[from] = balanceOf[from].sub(value);
-		totalSupply = totalSupply.sub(value);
+		balanceOf[from] -= value;
+		totalSupply -= value;
 		emit Transfer(from, address(0), value);
 	}
 
@@ -47,11 +45,11 @@ contract StakingToken is BaseShareField {
 		uint256 value
 	) internal virtual {
 		require(balanceOf[from] >= value, "ERC20Token: INSUFFICIENT_BALANCE");
-		balanceOf[from] = balanceOf[from].sub(value);
-		balanceOf[to] = balanceOf[to].add(value);
+		balanceOf[from] -= value;
+		balanceOf[to] += value;
 		if (to == address(0)) {
 			// burn
-			totalSupply = totalSupply.sub(value);
+			totalSupply -= value;
 		}
 
 		_decreaseProductivity(from, value);
@@ -79,7 +77,7 @@ contract StakingToken is BaseShareField {
 			allowance[from][msg.sender] >= value,
 			"ERC20Token: INSUFFICIENT_ALLOWANCE"
 		);
-		allowance[from][msg.sender] = allowance[from][msg.sender].sub(value);
+		allowance[from][msg.sender] -= value;
 		_transfer(from, to, value);
 		return true;
 	}

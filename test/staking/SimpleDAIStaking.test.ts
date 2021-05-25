@@ -79,7 +79,11 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       controller,
       avatar
     });
-    goodFundManager = await goodFundManagerFactory.deploy(nameService.address);
+    goodFundManager = await upgrades.deployProxy(
+      goodFundManagerFactory,
+      [nameService.address],
+      { kind: "uups" }
+    );
     console.log("Deployed goodfund manager", {
       manager: goodFundManager.address
     });
@@ -1043,7 +1047,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const cdaiGains = gains["0"];
 
     expect(cdaiGains.toString()).to.be.equal("380659785"); //8 decimals precision
-    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false);
   });
 
   it("should withdraw interest to owner", async () => {

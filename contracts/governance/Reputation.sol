@@ -3,7 +3,7 @@ pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
-import "../utils/DAOUpgradableContract.sol";
+import "../utils/DAOUpgradeableContract.sol";
 
 /**
  * @title Reputation system
@@ -13,7 +13,7 @@ import "../utils/DAOUpgradableContract.sol";
  * The Reputation contract maintain a map of address to reputation value.
  * It provides an only minter role functions to mint and burn reputation _to (or _from) a specific address.
  */
-contract Reputation is DAOUpgradableContract, AccessControlUpgradeable {
+contract Reputation is DAOUpgradeableContract, AccessControlUpgradeable {
 	bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
 	string public name;

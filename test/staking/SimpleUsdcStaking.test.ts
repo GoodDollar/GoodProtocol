@@ -103,7 +103,11 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
       controller,
       avatar
     });
-    goodFundManager = await goodFundManagerFactory.deploy(nameService.address);
+    goodFundManager = await upgrades.deployProxy(
+      goodFundManagerFactory,
+      [nameService.address],
+      { kind: "uups" }
+    );
     console.log("Deployed goodfund manager", {
       manager: goodFundManager.address
     });

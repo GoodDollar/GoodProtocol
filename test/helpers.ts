@@ -124,7 +124,10 @@ export const createDAO = async () => {
         root.address,
         root.address
       ]
-    ]
+    ],
+    {
+      kind: "uups"
+    }
   );
 
   console.log("deploying reserve...");
@@ -137,18 +140,19 @@ export const createDAO = async () => {
       "0x26ef809f3f845395c0bc66ce1eea85146516cb99afd030e2085b13e79514e94c"
     ],
     {
-      initializer: "initialize(address, bytes32)"
+      initializer: "initialize(address, bytes32)",
+      kind: "uups"
     }
   );
   console.log("deploying marketMaker...");
 
   const MM = await ethers.getContractFactory("GoodMarketMaker");
 
-  let marketMaker = (await upgrades.deployProxy(MM, [
-    nameService.address,
-    999388834642296,
-    1e15
-  ])) as GoodMarketMaker;
+  let marketMaker = (await upgrades.deployProxy(
+    MM,
+    [nameService.address, 999388834642296, 1e15],
+    { kind: "uups" }
+  )) as GoodMarketMaker;
 
   const GReputation = await ethers.getContractFactory("GReputation");
   let reputation = await upgrades.deployProxy(
@@ -286,7 +290,8 @@ export const deployUBI = async deployedDAO => {
 
   let ubiScheme = await upgrades.deployProxy(
     await ethers.getContractFactory("UBIScheme"),
-    [nameService.address, firstClaim.address, 14]
+    [nameService.address, firstClaim.address, 14],
+    { kind: "uups" }
   );
 
   const gd = await nameService.addresses(await nameService.GOODDOLLAR());

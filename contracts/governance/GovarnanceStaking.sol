@@ -4,7 +4,7 @@ pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
-import "../utils/DAOUpgradableContract.sol";
+import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
@@ -16,7 +16,7 @@ import "./BaseGovernanceShareField.sol";
 contract GovernanceStaking is
 	ERC20Upgradeable,
 	BaseGovernanceShareField,
-	DAOContract
+	DAOUpgradeableContract
 {
 	uint256 public constant FUSE_MONTHLY_BLOCKS = 12 * 60 * 24 * 30;
 

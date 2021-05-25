@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 import "../Interfaces.sol";
-
 import "../utils/DSMath.sol";
 
 /**
  * Contract to calculate staking rewards shares.
  * WARNING: WILL ONLY WORK WITH G$ IE STAKING TOKEN WITH 2 DECIMALS
  */
-abstract contract BaseGovernanceShareField {
+abstract contract BaseGovernanceShareField is DSMath {
 	// Total Amount of stakes
 	uint256 totalProductivity;
 	// Reward amount of the each share
@@ -183,10 +182,6 @@ abstract contract BaseGovernanceShareField {
 	 */
 	function totalRewardsPerShare() public view virtual returns (uint256) {
 		return accAmountPerShare;
-	}
-
-	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = (x * 10**27 + (y / 2)) / y;
 	}
 
 	uint256[50] private _gap;

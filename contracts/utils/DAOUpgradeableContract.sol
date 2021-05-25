@@ -11,7 +11,7 @@ import "./DAOContract.sol";
 @title Simple contract that adds upgradability to DAOContract
 */
 
-contract DAOUpgradableContract is Initializable, UUPSUpgradeable, DAOContract {
+contract DAOUpgradeableContract is Initializable, UUPSUpgradeable, DAOContract {
 	function _authorizeUpgrade(address) internal override {
 		_onlyAvatar();
 	}
