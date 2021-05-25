@@ -244,10 +244,12 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     await sixteenDecimalsToken
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
     let gdBalanceBeforeWithdraw = await goodDollar.balanceOf(staker.address);
     await advanceBlocks(4);
-    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false);
     let gdBalancerAfterWithdraw = await goodDollar.balanceOf(staker.address);
     expect(gdBalancerAfterWithdraw.toString()).to.be.equal("2500");
   });
@@ -266,7 +268,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       .approve(goodCompoundStaking.address, ethers.utils.parseUnits("100", 16));
     await goodCompoundStaking
       .connect(staker)
-      .stake(ethers.utils.parseUnits("100", 16), 0);
+      .stake(ethers.utils.parseUnits("100", 16), 0, false);
     let totalStakedAfter = await goodCompoundStaking.getProductivity(
       founder.address
     );
@@ -297,7 +299,9 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     ); // total staked in GoodStaking
     totalStakedBefore = totalStakedBefore[1];
     const transaction = await (
-      await goodCompoundStaking.connect(staker).withdrawStake(balanceBefore[0])
+      await goodCompoundStaking
+        .connect(staker)
+        .withdrawStake(balanceBefore[0], false)
     ).wait();
     let stakedcSDTBalanceAfter = await cSDT.balanceOf(
       goodCompoundStaking.address
@@ -342,7 +346,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     await sixteenDecimalsToken
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100, false);
 
     await sixteenDecimalsToken["mint(address,uint256)"](
       staker.address,
@@ -354,7 +358,9 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     await cSDT.increasePriceWithMultiplier("3500"); // increase interest by calling exchangeRateCurrent
 
     const currentUBIInterestBeforeWithdraw = await goodCompoundStaking.currentUBIInterest();
-    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false);
     const gdBalanceBeforeCollectInterest = await goodDollar.balanceOf(
       staker.address
     );
@@ -404,14 +410,16 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     await sixteenDecimalsToken
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
 
     await advanceBlocks(4);
     let rewardsEarned = await goodCompoundStaking.getUserPendingReward(
       staker.address
     );
     expect(rewardsEarned.toString()).to.be.equal("2000"); // Each block reward is 10gd so total reward 40gd but since multiplier is 0.5 for first month should get 20gd
-    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false);
   });
 
   it("it should get rewards with 1x multiplier for after threshold pass", async () => {
@@ -462,10 +470,10 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     let gdBalanceStakerBeforeWithdraw = await goodDollar.balanceOf(
       staker.address
     );
-    await simpleStaking.connect(staker).stake(stakingAmount, 0);
+    await simpleStaking.connect(staker).stake(stakingAmount, 0, false);
 
     await advanceBlocks(54);
-    await simpleStaking.connect(staker).withdrawStake(stakingAmount);
+    await simpleStaking.connect(staker).withdrawStake(stakingAmount, false);
     let gdBalanceStakerAfterWithdraw = await goodDollar.balanceOf(
       staker.address
     );
@@ -527,11 +535,17 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       signers[0].address
     );
     let stakerGDAmountBeforeStake = await goodDollar.balanceOf(staker.address);
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0);
-    await goodCompoundStaking.connect(signers[0]).stake(stakingAmount, 0);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
+    await goodCompoundStaking
+      .connect(signers[0])
+      .stake(stakingAmount, 0, false);
     await advanceBlocks(4);
-    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
-    await goodCompoundStaking.connect(signers[0]).withdrawStake(stakingAmount);
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false);
+    await goodCompoundStaking
+      .connect(signers[0])
+      .withdrawStake(stakingAmount, false);
     let stakerTwoGDAmountAfterStake = await goodDollar.balanceOf(
       signers[0].address
     );
@@ -573,10 +587,10 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       goodCompoundStaking.address,
       stakingAmount
     );
-    await goodCompoundStaking.stake(stakingAmount, 0);
+    await goodCompoundStaking.stake(stakingAmount, 0, false);
     await advanceBlocks(4);
     const gdBalanceBeforeWithdraw = await goodDollar.balanceOf(founder.address);
-    await goodCompoundStaking.withdrawStake(stakingAmount);
+    await goodCompoundStaking.withdrawStake(stakingAmount, false);
     const gdBalanceAfterWithdraw = await goodDollar.balanceOf(founder.address);
     expect(
       gdBalanceAfterWithdraw.sub(gdBalanceBeforeWithdraw).toString()
@@ -594,7 +608,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
 
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100, false);
 
     await cSDT.increasePriceWithMultiplier("20000"); // increase interest by calling exchangeRateCurrent
 
@@ -649,7 +663,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     await sixteenDecimalsToken
       .connect(staker)
       .approve(simpleStaking.address, stakingAmount);
-    await simpleStaking.connect(staker).stake(stakingAmount, 100);
+    await simpleStaking.connect(staker).stake(stakingAmount, 100, false);
     await sixteenDecimalsToken["mint(address,uint256)"](
       staker.address,
       stakingAmount
@@ -657,7 +671,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     await sixteenDecimalsToken
       .connect(staker)
       .approve(simpleStaking1.address, stakingAmount);
-    await simpleStaking1.connect(staker).stake(stakingAmount, 100);
+    await simpleStaking1.connect(staker).stake(stakingAmount, 100, false);
 
     await cSDT.increasePriceWithMultiplier("200"); // increase interest by calling increasePriceWithMultiplier
 
@@ -671,7 +685,9 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     const simpleStakingCurrentInterest = await simpleStaking.currentUBIInterest();
     const goodCompoundStakingCurrentInterest = await goodCompoundStaking.currentUBIInterest();
 
-    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount);
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false);
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["100", simpleStaking.address, 0, 10, true]

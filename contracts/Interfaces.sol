@@ -12,7 +12,7 @@ interface ERC20 {
 	function approve(address spender, uint256 amount) external returns (bool);
 
 	function decimals() external view returns (uint8);
-	
+
 	function mint(address to, uint256 mintAmount) external returns (uint256);
 
 	function totalSupply() external view returns (uint256);
@@ -27,6 +27,8 @@ interface ERC20 {
 		address recipient,
 		uint256 amount
 	) external returns (bool);
+
+	event Transfer(address indexed from, address indexed to, uint256 amount);
 }
 
 interface cERC20 is ERC20 {
@@ -43,8 +45,6 @@ interface cERC20 is ERC20 {
 
 interface IGoodDollar is ERC20 {
 	function getFees(uint256 value) external view returns (uint256, bool);
-
-	
 
 	function burn(uint256 amount) external;
 
@@ -259,37 +259,39 @@ interface ProxyAdmin {
 
 	function transferOwnership(address newOwner) external;
 }
+
 /**
  * @dev Interface for chainlink oracles to obtain price datas
  */
 interface AggregatorV3Interface {
+	function decimals() external view returns (uint8);
 
-  function decimals() external view returns (uint8);
-  function description() external view returns (string memory);
-  function version() external view returns (uint256);
+	function description() external view returns (string memory);
 
-  // getRoundData and latestRoundData should both raise "No data present"
-  // if they do not have data to report, instead of returning unset values
-  // which could be misinterpreted as actual reported values.
-  function getRoundData(uint80 _roundId)
-    external
-    view
-    returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
-    );
-  function latestRoundData()
-    external
-    view
-    returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
-    );
+	function version() external view returns (uint256);
 
+	// getRoundData and latestRoundData should both raise "No data present"
+	// if they do not have data to report, instead of returning unset values
+	// which could be misinterpreted as actual reported values.
+	function getRoundData(uint80 _roundId)
+		external
+		view
+		returns (
+			uint80 roundId,
+			int256 answer,
+			uint256 startedAt,
+			uint256 updatedAt,
+			uint80 answeredInRound
+		);
+
+	function latestRoundData()
+		external
+		view
+		returns (
+			uint80 roundId,
+			int256 answer,
+			uint256 startedAt,
+			uint256 updatedAt,
+			uint80 answeredInRound
+		);
 }
