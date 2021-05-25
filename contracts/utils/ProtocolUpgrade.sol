@@ -166,7 +166,6 @@ contract ProtocolUpgrade {
 		address upgradeScheme,
 		address compoundVotingMachine
 	) internal {
-		address avatar = address(avatar);
 		controller.unregisterScheme(schemeRegistrar, avatar);
 		controller.unregisterScheme(upgradeScheme, avatar);
 		controller.registerScheme(

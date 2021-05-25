@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.6.6;
+pragma solidity >=0.8.0;
 import "../Interfaces.sol";
-import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
-import "openzeppelin-solidity/contracts/utils/math/Math.sol";
-
 import "../utils/DSMath.sol";
 
-contract BaseGovernanceShareField {
-	using SafeMath for uint256;
+/**
+ * Contract to calculate staking rewards shares.
+ * WARNING: WILL ONLY WORK WITH G$ IE STAKING TOKEN WITH 2 DECIMALS
+ */
+abstract contract BaseGovernanceShareField is DSMath {
 	// Total Amount of stakes
 	uint256 totalProductivity;
 	// Reward amount of the each share
@@ -16,8 +16,6 @@ contract BaseGovernanceShareField {
 	uint256 public rewardsMintedSoFar;
 	// Amount of the rewards with pending and minted ones together
 	uint256 public totalRewardsAccumulated;
-	// The address of the reward token
-	address public shareToken;
 	// Block number of last reward calculation made
 	uint256 public lastRewardBlock;
 	// Rewards amount that will be provided each block
@@ -31,16 +29,14 @@ contract BaseGovernanceShareField {
 
 	mapping(address => UserInfo) public users;
 
+	function getChainBlocksPerMonth() public virtual returns (uint256);
+
 	/**
 	 * @dev Calculate rewards per block from monthly amount of rewards and set it
 	 * @param _monthlyAmount total rewards which will distribute monthly
 	 */
 	function _setMonthlyRewards(uint256 _monthlyAmount) internal {
-		rewardsPerBlock = _monthlyAmount / 172800;
-	}
-
-	function _setShareToken(address _shareToken) internal {
-		shareToken = _shareToken;
+		rewardsPerBlock = _monthlyAmount / getChainBlocksPerMonth();
 	}
 
 	/**
@@ -90,7 +86,6 @@ contract BaseGovernanceShareField {
 		virtual
 		returns (bool)
 	{
-
 		UserInfo storage userInfo = users[user];
 		_update();
 		_audit(user);
@@ -187,10 +182,6 @@ contract BaseGovernanceShareField {
 	 */
 	function totalRewardsPerShare() public view virtual returns (uint256) {
 		return accAmountPerShare;
-	}
-
-	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = x.mul(10**27).add(y / 2) / y;
 	}
 
 	uint256[50] private _gap;

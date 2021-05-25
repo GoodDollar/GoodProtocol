@@ -40,7 +40,7 @@
   "homepage": "https://gooddollar.org",
   "dependencies": {
     "@gooddollar/goodcontracts": "^2.6.1",
-    "@openzeppelin/contracts-upgradeable": "^4.0.0",
+    "@openzeppelin/contracts-upgradeable": "^4.1.0",
     "openzeppelin-solidity": "^4.0.0"
   },
   "devDependencies": {
@@ -66,6 +66,8 @@
     "ethers": "*",
     "ethers-eip712": "*",
     "fs-extra": "*",
+    "graphql": "^15.5.0",
+    "graphql-request": "^3.4.0",
     "hardhat": "*",
     "hardhat-gas-reporter": "^1.0.4",
     "hardhat-typechain": "*",

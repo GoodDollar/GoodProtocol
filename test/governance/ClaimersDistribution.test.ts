@@ -42,7 +42,8 @@ describe("ClaimersDistribution", () => {
     let ubi = await deployUBI(deployedDAO);
     cd = (await upgrades.deployProxy(
       await ethers.getContractFactory("ClaimersDistribution"),
-      [ns.address]
+      [ns.address],
+      { kind: "uups" }
     )) as ClaimersDistribution;
 
     ubiScheme = ubi.ubiScheme;

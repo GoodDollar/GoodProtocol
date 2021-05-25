@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-import "../utils/DAOContract.sol";
+import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../governance/GReputation.sol";
 
-contract ClaimersDistribution is Initializable, DAOContract {
+/**
+ * ClaimersDistribution providers callbacks that can be used by UBIScheme to update when a citizen
+ * has claimed.
+ * It will distribute GDAO each month pro rata based on number of claims
+ */
+contract ClaimersDistribution is DAOUpgradeableContract {
 	///@notice reputation to distribute each month, will effect next month when set
 	uint256 public monthlyReputationDistribution;
 

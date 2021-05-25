@@ -95,7 +95,7 @@ describe("GoodReserve - Enforce token cap", () => {
 
     await goodReserve
       .connect(founder)
-      .mintRewardFromRR(cDai,  founder.address, 10);
+      .mintRewardFromRR(cDai, founder.address, 10);
     expect(await goodDollar.balanceOf(founder.address)).to.equal(20);
     currentPrice = await goodReserve["currentPrice()"]();
     expect(currentPrice).to.be.gt(0, "should have cDai price");
@@ -138,9 +138,7 @@ describe("GoodReserve - Enforce token cap", () => {
     await ictrl.genericCall(goodDollar.address, encodedCall, avatar, 0);
 
     await expect(
-      goodReserve
-        .connect(founder)
-        .mintRewardFromRR(cDai,  founder.address, 10)
+      goodReserve.connect(founder).mintRewardFromRR(cDai, founder.address, 10)
     ).to.be.revertedWith("GoodReserve: not a minter");
   });
 
@@ -150,7 +148,7 @@ describe("GoodReserve - Enforce token cap", () => {
         await goodReserve.RESERVE_MINTER_ROLE(),
         granted.address
       )
-    ).to.be.revertedWith("AccessControl: sender must be an admin to grant");
+    ).to.be.revertedWith("is missing role");
   });
 
   it("should be able to grant minter role if Avatar", async () => {
@@ -176,7 +174,7 @@ describe("GoodReserve - Enforce token cap", () => {
   it("should be able to mint if granted RESERVE_MINTER_ROLE role", async () => {
     await goodReserve
       .connect(granted)
-      .mintRewardFromRR(cDai,  founder.address, 10);
+      .mintRewardFromRR(cDai, founder.address, 10);
     expect(await goodDollar.balanceOf(founder.address)).to.equal(40);
   });
 
@@ -184,7 +182,7 @@ describe("GoodReserve - Enforce token cap", () => {
     await expect(
       goodReserve
         .connect(granted)
-        .mintRewardFromRR(cDai,  founder.address, 22 * 1e14)
+        .mintRewardFromRR(cDai, founder.address, 22 * 1e14)
     ).to.be.revertedWith("GoodReserve: cap enforced");
   });
 

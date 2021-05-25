@@ -1,14 +1,13 @@
+// SPDX-License-Identifier: MIT
 pragma solidity >=0.8;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-
-import "../utils/DAOContract.sol";
+import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../governance/ClaimersDistribution.sol";
 /* @title Dynamic amount-per-day UBI scheme allowing claim once a day
  */
-contract UBIScheme is Initializable, DAOContract {
+contract UBIScheme is DAOUpgradeableContract {
 	struct Day {
 		mapping(address => bool) hasClaimed;
 		uint256 amountOfClaimers;

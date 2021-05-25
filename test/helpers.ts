@@ -10,7 +10,7 @@ import SchemeRegistrar from "@gooddollar/goodcontracts/build/contracts/SchemeReg
 import AbsoluteVote from "@gooddollar/goodcontracts/build/contracts/AbsoluteVote.json";
 import UpgradeScheme from "@gooddollar/goodcontracts/build/contracts/UpgradeScheme.json";
 import UBIScheme from '@gooddollar/goodcontracts/stakingModel/build/contracts/UBIScheme.json';
-import { Controller, GoodMarketMaker } from "../types";
+import { Controller, GoodMarketMaker, CompoundVotingMachine } from "../types";
 
 export const createDAO = async () => {
   let [root, ...signers] = await ethers.getSigners();
@@ -124,7 +124,10 @@ export const createDAO = async () => {
         root.address,
         root.address
       ]
-    ]
+    ],
+    {
+      kind: "uups"
+    }
   );
 
   console.log("deploying reserve...");
@@ -137,24 +140,26 @@ export const createDAO = async () => {
       "0x26ef809f3f845395c0bc66ce1eea85146516cb99afd030e2085b13e79514e94c"
     ],
     {
-      initializer: "initialize(address, bytes32)"
+      initializer: "initialize(address, bytes32)",
+      kind: "uups"
     }
   );
   console.log("deploying marketMaker...");
 
   const MM = await ethers.getContractFactory("GoodMarketMaker");
 
-  let marketMaker = (await upgrades.deployProxy(MM, [
-    nameService.address,
-    999388834642296,
-    1e15
-  ])) as GoodMarketMaker;
+  let marketMaker = (await upgrades.deployProxy(
+    MM,
+    [nameService.address, 999388834642296, 1e15],
+    { kind: "uups" }
+  )) as GoodMarketMaker;
 
   const GReputation = await ethers.getContractFactory("GReputation");
   let reputation = await upgrades.deployProxy(
     GReputation,
     [nameService.address, "", ethers.constants.HashZero, 0],
     {
+      kind: "uups",
       initializer: "initialize(address, string, bytes32, uint256)"
     }
   );
@@ -233,6 +238,12 @@ export const createDAO = async () => {
     "1000000" //100% rr
   );
 
+  const votingMachine = (await upgrades.deployProxy(
+    await ethers.getContractFactory("CompoundVotingMachine"),
+    [nameService.address, 5760],
+    { kind: "uups" }
+  )) as CompoundVotingMachine;
+
   return {
     daoCreator,
     controller,
@@ -251,7 +262,8 @@ export const createDAO = async () => {
     feeFormula: FeeFormula,
     daiAddress: dai.address,
     cdaiAddress: cDAI.address,
-    reputation: reputation.address
+    reputation: reputation.address,
+    votingMachine
   };
 };
 
@@ -279,7 +291,8 @@ export const deployUBI = async deployedDAO => {
 
   let ubiScheme = await upgrades.deployProxy(
     await ethers.getContractFactory("UBIScheme"),
-    [nameService.address, firstClaim.address, 14]
+    [nameService.address, firstClaim.address, 14],
+    { kind: "uups" }
   );
 
   const gd = await nameService.addresses(await nameService.GOODDOLLAR());

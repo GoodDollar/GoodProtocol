@@ -5,6 +5,7 @@ import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DAOContract.sol";
 import "../utils/DSMath.sol";
+
 interface FundManager {
 	function rewardsForStakingContract(address _staking)
 		external
@@ -21,7 +22,7 @@ interface FundManager {
 	function mintReward(address _token, address _user) external;
 }
 
-contract BaseShareField is DAOContract {
+contract BaseShareField is DAOContract, DSMath {
 	using SafeMath for uint256;
 
 	uint256 totalProductivity;
@@ -30,10 +31,10 @@ contract BaseShareField is DAOContract {
 	uint256 public mintedShare;
 	uint256 public mintCumulation;
 	uint64 public maxMultiplierThreshold;
-	address public shareToken;
 
 	uint256 public lastRewardBlock;
-
+	// Staking contracts accepts Token's most with 18 decimals so this variable to hold decimal difference between 18 and Token's decimal in order to make calculations
+	uint8 public tokenDecimalDifference;
 	struct UserInfo {
 		uint256 amount; // How many tokens the user has provided.
 		uint256 rewardDebt; // Reward debt.
@@ -53,10 +54,6 @@ contract BaseShareField is DAOContract {
 		_;
 	}
 
-	function _setShareToken(address _shareToken) internal {
-		shareToken = _shareToken;
-	}
-
 	/**
 	 * @dev Update reward variables of the given pool to be up-to-date.
 	 * Calculates passed blocks and adding to the reward pool
@@ -69,15 +66,17 @@ contract BaseShareField is DAOContract {
 		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
 		(uint256 rewardsPerBlock, uint256 blockStart, uint256 blockEnd, ) =
 			fm.rewardsForStakingContract(address(this));
-		if (block.number >= blockStart && lastRewardBlock < blockStart){
+		if (block.number >= blockStart && lastRewardBlock < blockStart) {
 			lastRewardBlock = blockStart;
 		}
+
 		if (block.number >= blockStart && blockEnd >= block.number) {
 			uint256 multiplier = block.number - lastRewardBlock; // Blocks passed since last reward block
 			uint256 reward = multiplier * (rewardsPerBlock * 1e16); // rewardsPerBlock is in G$ which is only 2 decimals, we turn it into 18 decimals by multiplying 1e16
 
-			accAmountPerShare =accAmountPerShare + rdiv(reward  , totalProductivity) / 1e9; // divide 1e9 so reduce to 18 decimals
-           
+			accAmountPerShare =
+				accAmountPerShare +
+				rdiv(reward, totalProductivity * (10**tokenDecimalDifference)); // Increase totalproductivity decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
 		}
 		lastRewardBlock = block.number;
 	}
@@ -99,18 +98,20 @@ contract BaseShareField is DAOContract {
 
 			if (blocksToPay != 0) {
 				uint256 pending =
-					(userInfo.amount * accAmountPerShare) /
-						1e18 -
-						userInfo.rewardDebt; // Divide 1e18 to reduce 18 Decimals since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
-				uint256 rewardPerBlock =
-					rdiv(pending , blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
+					(userInfo.amount *
+						(10**tokenDecimalDifference) *
+						accAmountPerShare) /
+						1e27 -
+						userInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
+				uint256 rewardPerBlock = rdiv(pending, blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
 				pending =
 					rmul(
-						((firstMonthBlocksToPay * 1e27 * 5 / 10) + // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e27 to get it 27decimals
+						(((firstMonthBlocksToPay * 1e27 * 5) / 10) + // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e27 to get it 27decimals
 							fullBlocksToPay *
-							1e27), // Multiply fullBlocksToPay with 1e27 to bring it to 27decimals 
-						rewardPerBlock // rewardPerBlock is in 27decimals 
-					) / 1e9; // Pending in 18 decimals so we divide 1e9 to bring it down to 18 decimals
+							1e27), // Multiply fullBlocksToPay with 1e27 to bring it to 27decimals
+						rewardPerBlock // rewardPerBlock is in 27decimals
+					) /
+					1e9; // Pending in 18 decimals so we divide 1e9 to bring it down to 18 decimals
 				userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
 				mintCumulation = mintCumulation + pending;
 			}
@@ -158,7 +159,6 @@ contract BaseShareField is DAOContract {
 		virtual
 		returns (bool)
 	{
-
 		UserInfo storage userInfo = users[user];
 		_update();
 		_audit(user);
@@ -166,7 +166,11 @@ contract BaseShareField is DAOContract {
 		totalProductivity = totalProductivity + value;
 		userInfo.lastRewardTime = uint64(block.number);
 		userInfo.amount = userInfo.amount + value;
-		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e18; // Divide to 1e18 to keep rewardDebt in 18 decimals
+		userInfo.rewardDebt =
+			(userInfo.amount *
+				(10**tokenDecimalDifference) *
+				accAmountPerShare) /
+			1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is 27 decimals
 		return true;
 	}
 
@@ -191,7 +195,11 @@ contract BaseShareField is DAOContract {
 		userInfo.lastRewardTime = uint64(block.number);
 		userInfo.multiplierResetTime = uint64(block.number);
 		userInfo.amount = userInfo.amount - value;
-		userInfo.rewardDebt = (userInfo.amount * accAmountPerShare) / 1e18;
+		userInfo.rewardDebt =
+			(userInfo.amount *
+				(10**tokenDecimalDifference) *
+				accAmountPerShare) /
+			1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is 27 decimals
 		totalProductivity = totalProductivity - value;
 
 		return true;
@@ -224,33 +232,35 @@ contract BaseShareField is DAOContract {
 
 			_accAmountPerShare =
 				_accAmountPerShare +
-				rdiv(reward  , totalProductivity) / 1e9; // divide 1e9 so reduce to 18 decimals
+				rdiv(reward, totalProductivity * 10**tokenDecimalDifference); // Increase totalproductivity decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
 			UserInfo memory tempUserInfo = userInfo; // to prevent stack too deep error any other recommendation?
 			if (blocksToPay != 0) {
 				pending =
-					(tempUserInfo.amount * _accAmountPerShare) /
-					1e18 -
-					tempUserInfo.rewardDebt; // Divide 1e18 to reduce 18 Decimals since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
-				uint256 rewardPerBlock =
-					rdiv(pending , blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals and rdiv returns in 27decimals
+					(tempUserInfo.amount *
+						(10**tokenDecimalDifference) *
+						_accAmountPerShare) /
+					1e27 -
+					tempUserInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
+				uint256 rewardPerBlock = rdiv(pending, blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals and rdiv returns in 27decimals
 				pending =
 					rmul(
-						((firstMonthBlocksToPay * 1e27 * 5 / 10) + // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e27 to get it 27decimals
+						(((firstMonthBlocksToPay * 1e27 * 5) / 10) + // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e27 to get it 27decimals
 							fullBlocksToPay *
-							1e27), // Multiply fullBlocksToPay with 1e27 to bring it to 27decimals 
-						rewardPerBlock // rewardPerBlock is in 27decimals 
-					) / 1e9; // Pending in 18 decimals so we divide 1e9 to bring it down to 18 decimals
+							1e27), // Multiply fullBlocksToPay with 1e27 to bring it to 27decimals
+						rewardPerBlock // rewardPerBlock is in 27decimals
+					) /
+					1e9; // Pending in 18 decimals so we divide 1e9 to bring it down to 18 decimals
 			}
 		}
 		return userInfo.rewardEarn + pending / 1e16; // Reward earn in 18decimals so need to divide 1e16 to bring down gd decimals which is 2
 	}
 
-	/** 
-    @dev When the fundmanager calls this function it will updates the user records 
-    * get the user rewards which they earned but not minted and mark it as minted 
-    * @param user address of the user that will be accounted
-    * @return returns amount to mint as reward to the user
-    */
+	/**
+	 * @dev When the fundmanager calls this function it will updates the user records
+	 * get the user rewards which they earned but not minted and mark it as minted
+	 * @param user address of the user that will be accounted
+	 * @return returns amount to mint as reward to the user
+	 */
 
 	function rewardsMinted(address user)
 		public
@@ -288,12 +298,5 @@ contract BaseShareField is DAOContract {
 	 */
 	function interestsPerBlock() public view virtual returns (uint256) {
 		return accAmountPerShare;
-	}
-    function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = x.mul(y).add(10**27 / 2) / 10**27;
-	}
-
-	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = x.mul(10**27).add(y / 2) / y;
 	}
 }

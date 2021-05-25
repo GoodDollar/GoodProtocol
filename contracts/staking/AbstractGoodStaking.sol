@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 
 /**
  * @title Abstract contract that holds all the data,
@@ -33,20 +33,38 @@ contract AbstractGoodStaking {
 		address token,
 		address intrestToken,
 		uint256 intrestTokenValue,
-		uint256 tokenValue,
-		uint256 tokenPrecisionLoss
+		uint256 tokenValue
 	);
 
 	/**
 	 * @dev stake some tokens
 	 * @param _amount of Tokens to stake
 	 */
-	function stake(uint256 _amount, uint256 _donationPer) external virtual {}
+	function stake(
+		uint256 _amount,
+		uint256 _donationPer,
+		bool _inInterestToken
+	) external virtual {}
 
 	/**
 	 * @dev withdraw staked tokens
 	 */
-	function withdrawStake(uint256 _amount) external virtual {}
+	function withdrawStake(uint256 _amount, bool _inInterestToken)
+		external
+		virtual
+	{}
+
+	/**
+	 * @dev Calculates worth of given amount of iToken in Token
+	 * @param _amount Amount of iToken to calculate worth in Token
+	 * @return Worth of given amount of iToken in Token
+	 */
+	function iTokenWorthinToken(uint256 _amount)
+		external
+		view
+		virtual
+		returns (uint256)
+	{}
 
 	/**
 	 * @dev calculates the holding of intrestToken by staking contract in terms of token value.
@@ -58,17 +76,12 @@ contract AbstractGoodStaking {
 	 * @dev calculates the tokenGain, intrestTokenGain and precisionLossToken
 	 * @return Intrest gained on lending the tokens.
 	 * @return Intrest gained on lending the tokens in terms of token rate.
-	 * @return Token's precision loss due to decimal difference.
 	 */
 	function currentUBIInterest()
 		external
 		view
 		virtual
-		returns (
-			uint256,
-			uint256,
-			uint256
-		)
+		returns (uint256, uint256)
 	{}
 
 	/**
@@ -76,18 +89,11 @@ contract AbstractGoodStaking {
 	 * @param recipient of intrestToken gains
 	 * @return Intrest gained on lending the tokens.
 	 * @return Intrest gained on lending the tokens in terms of token rate.
-	 * @return Token's precision loss due to decimal difference.
-	 * @return average intrest donation ratio.
 	 */
 	function collectUBIInterest(address recipient)
 		external
 		virtual
-		returns (
-			uint256,
-			uint256,
-			uint256,
-			uint256
-		)
+		returns (uint256, uint256)
 	{}
 
 	/**

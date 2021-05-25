@@ -1,30 +1,20 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 
-import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../reserve/GoodReserveCDai.sol";
 import "../Interfaces.sol";
+import "../utils/DSMath.sol";
+import "../utils/DAOUpgradeableContract.sol";
 
 interface StakingContract {
 	function collectUBIInterest(address recipient)
 		external
-		returns (
-			uint256,
-			uint256,
-			uint256
-		);
+		returns (uint256, uint256);
 
 	function iToken() external view returns (address);
 
-	function currentUBIInterest()
-		external
-		view
-		returns (
-			uint256,
-			uint256,
-			uint256
-		);
+	function currentUBIInterest() external view returns (uint256, uint256);
 
 	function getRewardEarned(address user) external view returns (uint256);
 
@@ -39,9 +29,7 @@ interface StakingContract {
  * contract
  * cDAI support only
  */
-contract GoodFundManager is DAOContract {
-	using SafeMath for uint256;
-
+contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	// timestamp that indicates last time that interests collected
 	uint256 public lastCollectedInterest;
 
@@ -108,7 +96,7 @@ contract GoodFundManager is DAOContract {
 	 * @dev Constructor
 	 * @param _ns The address of the name Service
 	 */
-	constructor(NameService _ns) {
+	function initialize(NameService _ns) public virtual initializer {
 		setDAO(_ns);
 		gdMintGasCost = 250000; // While testing highest amount was 240k so put 250k to be safe
 		collectInterestTimeThreshold = 5184000; // 5184000 is 2 months in seconds
@@ -175,6 +163,16 @@ contract GoodFundManager is DAOContract {
 		bool _isBlackListed
 	) public {
 		_onlyAvatar();
+
+		//we dont allow to undo blacklisting as it will mess up rewards accounting.
+		//staking contracts are assumed immutable and thus non fixable
+		require(
+			false ==
+				(_isBlackListed == false &&
+					rewardsForStakingContract[_stakingAddress].isBlackListed ==
+					true),
+			"can't undo blacklisting"
+		);
 		Reward memory reward =
 			Reward(
 				_rewardsPerBlock,
@@ -183,6 +181,7 @@ contract GoodFundManager is DAOContract {
 				_isBlackListed
 			);
 		rewardsForStakingContract[_stakingAddress] = reward;
+
 		bool exist;
 		uint8 i;
 		for (i = 0; i < activeContracts.length; i++) {
@@ -192,15 +191,11 @@ contract GoodFundManager is DAOContract {
 			}
 		}
 
-		if (_isBlackListed == false) {
-			if (exist == false) activeContracts.push(_stakingAddress);
-		} else {
-			if (exist == true) {
-				activeContracts[i] = activeContracts[
-					activeContracts.length - 1
-				];
-				activeContracts.pop();
-			}
+		if (exist && (_isBlackListed || _rewardsPerBlock == 0)) {
+			activeContracts[i] = activeContracts[activeContracts.length - 1];
+			activeContracts.pop();
+		} else if (!exist && !(_isBlackListed || _rewardsPerBlock == 0)) {
+			activeContracts.push(_stakingAddress);
 		}
 	}
 
@@ -265,7 +260,7 @@ contract GoodFundManager is DAOContract {
 			msg.sender,
 			gdRewardToMint
 		);
-		uint256 gasPriceIncDAI = getGasPriceInCDAI(initialGas - gasleft());	
+		uint256 gasPriceIncDAI = getGasPriceInCDAI(initialGas - gasleft());
 		if (
 			block.timestamp >=
 			lastCollectedInterest + collectInterestTimeThreshold
@@ -309,7 +304,7 @@ contract GoodFundManager is DAOContract {
 		uint256 totalInterest;
 		int256 i;
 		for (i = 0; i < int256(activeContractsLength); i++) {
-			(, tempInterest, ) = StakingContract(activeContracts[uint256(i)])
+			(, tempInterest) = StakingContract(activeContracts[uint256(i)])
 				.currentUBIInterest();
 			totalInterest += tempInterest;
 			if (tempInterest != 0) {
@@ -483,7 +478,7 @@ contract GoodFundManager is DAOContract {
 		return rdiv(priceInCdai, gdPriceIncDAI) / 1e25; // rdiv returns result in 27 decimals since GD$ in 2 decimals then divide 1e25
 	}
 
-	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = x.mul(10**27).add(y / 2) / y;
+	function getActiveContractsCount() public view returns (uint256) {
+		return activeContracts.length;
 	}
 }

@@ -1,25 +1,22 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.7.0;
+pragma solidity >=0.8.0;
 
-import "../Interfaces.sol";
-
-import "../DAOStackInterfaces.sol";
-import "../utils/NameService.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+
+import "../utils/DAOUpgradeableContract.sol";
+import "../utils/NameService.sol";
+import "../Interfaces.sol";
+import "../DAOStackInterfaces.sol";
 import "./BaseGovernanceShareField.sol";
-import "../utils/DAOContract.sol";
 
 /**
- * @title Staking contract that donates earned interest to the DAO
- * allowing stakers to deposit Tokens
- * or withdraw their stake in Tokens
- * the contracts buy intrest tokens and can transfer the daily interest to the  DAO
+ * @title Staking contract that allows citizens to stake G$ to get GDAO rewards
  */
 contract GovernanceStaking is
 	ERC20Upgradeable,
 	BaseGovernanceShareField,
-	DAOContract
+	DAOUpgradeableContract
 {
 	uint256 public constant FUSE_MONTHLY_BLOCKS = 12 * 60 * 24 * 30;
 
@@ -48,18 +45,24 @@ contract GovernanceStaking is
 	/**
 	 * @dev Emitted when `staker` withdraws their rewards `value` tokens
 	 */
-	event RewardsWithdraw(address indexed staker, address token, uint256 value);
+	event RewardsWithdraw(address indexed staker, uint256 value);
 
 	/**
 	 * @dev Constructor
 	 * @param _ns The address of the NameService contract
 	 */
-	function initialize(NameService _ns) public virtual initializer {
+	constructor(NameService _ns) {
 		setDAO(_ns);
 		token = ERC20(nameService.addresses(nameService.GOODDOLLAR()));
-		_setShareToken(nameService.addresses(nameService.REPUTATION()));
 		__ERC20_init("GDAO Staking", "sGDAO");
 		rewardsPerBlock = (2 ether * 1e6) / FUSE_MONTHLY_BLOCKS; // (2M monthly GDAO as specified in specs, divided by blocks in month )
+	}
+
+	/**
+	 * @dev this contract runs on fuse
+	 */
+	function getChainBlocksPerMonth() public pure override returns (uint256) {
+		return 518400; //12 * 60 * 24 * 30
 	}
 
 	/**
@@ -76,7 +79,7 @@ contract GovernanceStaking is
 		);
 		_increaseProductivity(_msgSender(), _amount);
 		_mint(_msgSender(), _amount); // mint Staking token for staker
-
+		_mintRewards(_msgSender());
 		emit Staked(_msgSender(), address(token), _amount);
 	}
 
@@ -85,6 +88,7 @@ contract GovernanceStaking is
 	 */
 	function withdrawStake(uint256 _amount) external {
 		(uint256 userProductivity, ) = getProductivity(_msgSender());
+		if (_amount == 0) _amount = userProductivity;
 		require(_amount > 0, "Should withdraw positive amount");
 		require(userProductivity >= _amount, "Not enough token staked");
 		uint256 tokenWithdraw = _amount;
@@ -92,6 +96,7 @@ contract GovernanceStaking is
 		_burn(_msgSender(), _amount); // burn their staking tokens
 		_decreaseProductivity(_msgSender(), _amount);
 		_mintRewards(_msgSender());
+
 		require(
 			token.transfer(_msgSender(), tokenWithdraw),
 			"withdraw transfer failed"
@@ -107,9 +112,8 @@ contract GovernanceStaking is
 	/**
 	 * @dev Staker can withdraw their rewards without withdraw their stake
 	 */
-	function withdrawRewards() public {
-		uint256 amount = _mintRewards(_msgSender());
-		emit RewardsWithdraw(_msgSender(), shareToken, amount);
+	function withdrawRewards() public returns (uint256) {
+		return _mintRewards(_msgSender());
 	}
 
 	/**
@@ -120,24 +124,14 @@ contract GovernanceStaking is
 
 	function _mintRewards(address user) internal returns (uint256) {
 		uint256 amount = _issueEarnedRewards(user);
-		ERC20(shareToken).mint(user, amount);
+		if (amount > 0) {
+			ERC20(nameService.addresses(nameService.REPUTATION())).mint(
+				user,
+				amount
+			);
+			emit RewardsWithdraw(_msgSender(), amount);
+		}
 		return amount;
-	}
-
-	function getStakerData(address _staker)
-		public
-		view
-		returns (
-			uint256,
-			uint256,
-			uint256
-		)
-	{
-		return (
-			users[_staker].amount,
-			users[_staker].rewardDebt,
-			users[_staker].rewardEarn
-		);
 	}
 
 	/**
@@ -147,42 +141,16 @@ contract GovernanceStaking is
 		return 2;
 	}
 
-	/**
-	 * @dev Override transfer function of ERC20
-	 */
-	function transfer(address to, uint256 value)
-		public
-		virtual
-		override
-		returns (bool)
-	{
-		_decreaseProductivity(_msgSender(), value);
+	function _transfer(
+		address from,
+		address to,
+		uint256 value
+	) internal override {
+		_decreaseProductivity(from, value);
 		_increaseProductivity(to, value);
-		_transfer(_msgSender(), to, value);
-		return true;
-	}
-
-	/**
-	 * @dev Override transferFrom function of ERC20
-	 */
-	function transferFrom(
-		address sender,
-		address recipient,
-		uint256 amount
-	) public virtual override returns (bool) {
-		uint256 currentAllowance = allowance(sender, _msgSender());
-		require(
-			currentAllowance >= amount,
-			"ERC20: transfer amount exceeds allowance"
-		);
-
-		_decreaseProductivity(sender, amount);
-		_increaseProductivity(recipient, amount);
-		_transfer(sender, recipient, amount);
-
-		_approve(sender, _msgSender(), currentAllowance - amount);
-
-		return true;
+		_mintRewards(from);
+		_mintRewards(to);
+		super._transfer(from, to, value);
 	}
 
 	/**
