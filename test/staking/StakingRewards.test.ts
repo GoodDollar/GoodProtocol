@@ -1193,14 +1193,10 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   });
 
   it("it should remove staking contract from active staking contracts when it's reward set to zero", async () => {
-    const activeContractsCount = await goodFundManager.getActiveContractsCount();
-    const lastActiveContractBeforeAdd = await goodFundManager.activeContracts(
-      activeContractsCount.sub(1)
-    );
     const goodCompoundStakingTestFactory = await ethers.getContractFactory(
       "GoodCompoundStakingTest"
     );
-    const simpleStaking = await goodCompoundStakingTestFactory.deploy(
+    const simpleStaking1 = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
       BLOCK_INTERVAL,
@@ -1212,6 +1208,27 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "100000"
     );
     let encodedData = goodFundManager.interface.encodeFunctionData(
+      "setStakingReward",
+      ["1000", simpleStaking1.address, 10, 1000, false] // set 10 gd per block
+    );
+    await genericCall(goodFundManager.address, encodedData, avatar, 0);
+    const activeContractsCount = await goodFundManager.getActiveContractsCount();
+    const lastActiveContractBeforeAdd = await goodFundManager.activeContracts(
+      activeContractsCount.sub(1)
+    );
+   
+    const simpleStaking = await goodCompoundStakingTestFactory.deploy(
+      bat.address,
+      cBat.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good BaT",
+      "gBAT",
+      "50",
+      batUsdOracle.address,
+      "100000"
+    );
+    encodedData = goodFundManager.interface.encodeFunctionData(
       "setStakingReward",
       ["1000", simpleStaking.address, 10, 1000, false] // set 10 gd per block
     );
