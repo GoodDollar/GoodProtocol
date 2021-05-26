@@ -5,7 +5,6 @@ import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../governance/ClaimersDistribution.sol";
-
 /* @title Dynamic amount-per-day UBI scheme allowing claim once a day
  */
 contract UBIScheme is DAOUpgradeableContract {
@@ -169,7 +168,7 @@ contract UBIScheme is DAOUpgradeableContract {
 	}
 
 	modifier requireStarted() {
-		require(block.timestamp >= periodStart, "not in periodStarted");
+		require( periodStart > 0 && block.timestamp >= periodStart, "not in periodStarted");
 		_;
 	}
 
@@ -224,7 +223,6 @@ contract UBIScheme is DAOUpgradeableContract {
 	 */
 	function distributionFormula() internal returns (uint256) {
 		setDay();
-
 		// on first day or once in 24 hrs calculate distribution
 		//on day 0 all users receive from firstclaim pool
 		if (currentDay != lastWithdrawDay) {
@@ -533,14 +531,12 @@ contract UBIScheme is DAOUpgradeableContract {
 				address(avatar),
 				0
 			);
-
 			dao.genericCall(
 				address(firstClaimPool),
 				abi.encodeWithSignature("setClaimAmount(uint256)", 1000),
 				address(avatar),
 				0
 			);
-
 			if (ubiBalance > 0) {
 				dao.externalTokenTransfer(
 					address(gd),

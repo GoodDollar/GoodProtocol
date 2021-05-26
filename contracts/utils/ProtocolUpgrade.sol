@@ -65,11 +65,11 @@ contract ProtocolUpgrade {
 
 		upgradeToNewReserve(ns, oldContracts[0], oldContracts[4]);
 
-		upgradeGovernance(
-			oldContracts[2],
-			oldContracts[3],
-			compoundVotingMachine
-		);
+		// upgradeGovernance(
+		// 	oldContracts[2],
+		// 	oldContracts[3],
+		// 	compoundVotingMachine
+		// );
 
 		selfdestruct(payable(owner));
 	}
