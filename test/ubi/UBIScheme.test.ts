@@ -21,11 +21,12 @@ describe("UBIScheme", () => {
     addWhitelisted;
   let reputation;
   let root,
-    acct,
     claimer1,
     claimer2,
     claimer3,
     claimer4,
+    claimer5,
+    claimer6,
     claimer7,
     signers,
     fisherman,
@@ -36,11 +37,12 @@ describe("UBIScheme", () => {
   before(async () => {
     [
       root,
-      acct,
       claimer1,
       claimer2,
       claimer3,
       claimer4,
+      claimer5,
+      claimer6,
       claimer7,
       fisherman,
       ...signers
@@ -510,115 +512,93 @@ describe("UBIScheme", () => {
      ).to.be.equal(dailyUbi.toNumber());
    });
 
-  // it("should calcualte the correct distribution formula and transfer the correct amount when the ubi has a large amount of tokens", async () => {
-  //   await increaseTime(ONE_DAY);
-  //   await goodDollar.mint(avatar.address, "948439324829"); // checking claim with a random number
-  //   await increaseTime(ONE_DAY);
-  //   await identity.authenticate(claimer1);
-  //   // first claim
-  //   await ubi.claim({ from: claimer1 });
-  //   await increaseTime(ONE_DAY);
-  //   let claimer1Balance1 = await goodDollar.balanceOf(claimer1);
-  //   // regular claim
-  //   await ubi.claim({ from: claimer1 });
-  //   let claimer1Balance2 = await goodDollar.balanceOf(claimer1);
-  //   // there are 4 claimers and the total ubi balance after the minting include the previous balance and
-  //   // the 948439324829 minting tokens. that divides into 4
-  //   expect(claimer1Balance2.sub(claimer1Balance1).toString()).to.be.equal(
-  //     "237109831254"
-  //   );
-  // });
+   it("should calcualte the correct distribution formula and transfer the correct amount when the ubi has a large amount of tokens", async () => {
+     await increaseTime(ONE_DAY);
+     await goodDollar.mint(avatar, "948439324829"); // checking claim with a random number
+     await increaseTime(ONE_DAY * 2);
+     await identity.authenticate(claimer1.address);
+     // first claim
+     await ubi.connect(claimer1).claim();
+     await increaseTime(ONE_DAY * 2);
+     let claimer1Balance1 = await goodDollar.balanceOf(claimer1.address);
+     // regular claim
+     await ubi.connect(claimer1).claim();
+     const ubiGdBalance = await goodDollar.balanceOf(ubi.address)
+     let claimer1Balance2 = await goodDollar.balanceOf(claimer1.address);
+     // there are 3 claimers and the total ubi balance after the minting include the previous balance and
+     // the dailyCyclePool is 948439324947 minting tokens. that divides into 3
+     expect(claimer1Balance2.sub(claimer1Balance1).toString()).to.be.equal(
+      BN.from("948439324947").div(3) 
+     );
+   });
 
-  // it("should be able to iterate over all accounts if enough gas in fishMulti", async () => {
-  //   //should not reach fishin first user because atleast 150k gas is required
-  //   let tx = await ubi
-  //     .fishMulti([claimer5, claimer6, claimer1], {
-  //       from: fisherman,
-  //       gas: 100000
-  //     })
-  //     .then(_ => true)
-  //     .catch(_ => console.log({ e }));
-  //   expect(tx).to.be.true;
-  //   //should loop over all users when enough gas without exceptions
-  //   let res = await ubi
-  //     .fishMulti([claimer5, claimer6, claimer1], { gas: 1000000 })
-  //     .then(_ => true)
-  //     .catch(e => console.log({ e }));
-  //   expect(res).to.be.true;
-  // });
+   it("should be able to iterate over all accounts if enough gas in fishMulti", async () => {
+     //should not reach fishin first user because atleast 150k gas is required
+     let tx = await ubi
+       .connect(fisherman).fishMulti([claimer5.address, claimer6.address, claimer1.address], {
+         gasLimit: 100000
+       }).then(_ => true)
+       .catch(e => console.log({ e }));
+     expect(tx).to.be.true;
+     //should loop over all users when enough gas without exceptions
+     let res = await ubi
+       .fishMulti([claimer5.address, claimer6.address, claimer1.address], { gasLimit: 1000000 })
+       .then(_ => true)
+       .catch(e => console.log({ e }));
+     expect(res).to.be.true;
+   });
 
-  // it("should return the reward value for entitlement user", async () => {
-  //   await increaseTime(ONE_DAY);
-  //   await ubi.claim({ from: claimer1 });
-  //   await increaseTime(ONE_DAY);
-  //   let amount = await ubi.checkEntitlement({ from: claimer1 });
-  //   let balance2 = await goodDollar.balanceOf(ubi.address);
-  //   let activeUsersCount = await ubi.activeUsersCount();
-  //   expect(amount.toString()).to.be.equal(
-  //     balance2.div(activeUsersCount).toString()
-  //   );
-  // });
+   it("should return the reward value for entitlement user", async () => {
+     await increaseTime(ONE_DAY);
+     await ubi.connect(claimer1).claim();
+     await increaseTime(ONE_DAY);
+     let amount = await ubi.connect(claimer1).checkEntitlement();
+     let balance2 = await goodDollar.balanceOf(ubi.address);
+     let activeUsersCount = await ubi.activeUsersCount();
+     expect(amount.toString()).to.be.equal(
+       balance2.div(activeUsersCount).toString()
+     );
+   });
 
-  // it("should set the ubi claim amount by avatar", async () => {
-  //   let encodedCall = web3.eth.abi.encodeFunctionCall(
-  //     {
-  //       name: "setClaimAmount",
-  //       type: "function",
-  //       inputs: [
-  //         {
-  //           type: "uint256",
-  //           name: "_claimAmount"
-  //         }
-  //       ]
-  //     },
-  //     [200]
-  //   );
-  //   await controller.genericCall(
-  //     firstClaimPool.address,
-  //     encodedCall,
-  //     avatar.address,
-  //     0
-  //   );
-  //   const claimAmount = await firstClaimPool.claimAmount();
-  //   expect(claimAmount.toString()).to.be.equal("200");
-  // });
+   it("should set the ubi claim amount by avatar", async () => {
+     
+    let encodedCall = firstClaimPool.interface.encodeFunctionData(
+      "setClaimAmount",
+      [200]
+    );
+   
+     genericCall(firstClaimPool.address,encodedCall)
+     const claimAmount = await firstClaimPool.claimAmount();
+     expect(claimAmount.toString()).to.be.equal("200");
+   });
 
-  // it("should set if withdraw from the dao or not", async () => {
-  //   let encodedCall = web3.eth.abi.encodeFunctionCall(
-  //     {
-  //       name: "setShouldWithdrawFromDAO",
-  //       type: "function",
-  //       inputs: [
-  //         {
-  //           type: "bool",
-  //           name: "_shouldWithdraw"
-  //         }
-  //       ]
-  //     },
-  //     [true]
-  //   );
-  //   await controller.genericCall(ubi.address, encodedCall, avatar.address, 0);
-  //   const shouldWithdrawFromDAO = await ubi.shouldWithdrawFromDAO();
-  //   expect(shouldWithdrawFromDAO).to.be.equal(true);
-  // });
+   it("should set if withdraw from the dao or not", async () => {
+    let encodedCall = ubi.interface.encodeFunctionData(
+      "setShouldWithdrawFromDAO",
+      [false]
+    );
+    await genericCall(ubi.address, encodedCall); // we should set cyclelength to one cause this tests was implemented according to it
+     const shouldWithdrawFromDAO = await ubi.shouldWithdrawFromDAO();
+     expect(shouldWithdrawFromDAO).to.be.equal(false);
+   });
 
-  // it("should not be able to destroy the ubi contract if not avatar", async () => {
-  //   await increaseTime(10 * ONE_DAY);
-  //   let avatarBalanceBefore = await goodDollar.balanceOf(avatar.address);
-  //   let contractBalanceBefore = await goodDollar.balanceOf(ubi.address);
-  //   let error = await ubi.end().catch(e => e);
-  //   expect(error.message).to.have.string("only Avatar can call this method");
-  //   let avatarBalanceAfter = await goodDollar.balanceOf(avatar.address);
-  //   let contractBalanceAfter = await goodDollar.balanceOf(ubi.address);
-  //   let isActive = await ubi.isActive();
-  //   expect((avatarBalanceAfter - avatarBalanceBefore).toString()).to.be.equal(
-  //     "0"
-  //   );
-  //   expect(contractBalanceAfter.toString()).to.be.equal(
-  //     contractBalanceBefore.toString()
-  //   );
-  //   expect(isActive.toString()).to.be.equal("true");
-  // });
+   //it("should not be able to destroy the ubi contract if not avatar", async () => {
+   //  await increaseTime(10 * ONE_DAY);
+   //  let avatarBalanceBefore = await goodDollar.balanceOf(avatar);
+   //  let contractBalanceBefore = await goodDollar.balanceOf(ubi.address);
+   //  let error = await ubi.end().catch(e => e);
+   //  expect(error.message).to.have.string("only Avatar can call this method");
+   //  let avatarBalanceAfter = await goodDollar.balanceOf(avatar);
+   //  let contractBalanceAfter = await goodDollar.balanceOf(ubi.address);
+   //  //let isActive = await ubi.isActive();
+   //  expect((avatarBalanceAfter - avatarBalanceBefore).toString()).to.be.equal(
+   //    "0"
+   //  );
+   //  expect(contractBalanceAfter.toString()).to.be.equal(
+   //    contractBalanceBefore.toString()
+   //  );
+   //  //expect(isActive.toString()).to.be.equal("true");
+   //});
 
   // it("should destroy the ubi contract and transfer funds to the avatar", async () => {
   //   let avatarBalanceBefore = await goodDollar.balanceOf(avatar.address);
