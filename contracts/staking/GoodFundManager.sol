@@ -20,7 +20,12 @@ interface StakingContract {
 
 	function getGasCostForInterestTransfer() external view returns (uint256);
 
-	function rewardsMinted(address user,uint256 rewardsPerBlock, uint256 blockStart, uint256 blockEnd ) external returns (uint256);
+	function rewardsMinted(
+		address user,
+		uint256 rewardsPerBlock,
+		uint256 blockStart,
+		uint256 blockEnd
+	) external returns (uint256);
 }
 
 /**
@@ -361,7 +366,12 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		Reward memory staking = rewardsForStakingContract[address(msg.sender)];
 		require(staking.blockStart > 0, "Staking contract not registered");
 		uint256 amount =
-			StakingContract(address(msg.sender)).rewardsMinted(_user,staking.blockReward,staking.blockStart,staking.blockEnd);
+			StakingContract(address(msg.sender)).rewardsMinted(
+				_user,
+				staking.blockReward,
+				staking.blockStart,
+				staking.blockEnd
+			);
 		if (amount > 0 && staking.isBlackListed == false) {
 			GoodReserveCDai(nameService.addresses(nameService.RESERVE()))
 				.mintRewardFromRR(_token, _user, amount);

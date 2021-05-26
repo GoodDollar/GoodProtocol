@@ -27,16 +27,21 @@ contract BaseShareField is DSMath {
 		uint8 donationPer; // The percentage of donation from their reward
 	}
 	mapping(address => UserInfo) public users;
-	
+
 	/**
 	 * @dev Helper function to check if caller is fund manager
 	 */
-	function _onlyFundManager() internal virtual{}
+	function _onlyFundManager() internal virtual {}
+
 	/**
 	 * @dev Update reward variables of the given pool to be up-to-date.
 	 * Calculates passed blocks and adding to the reward pool
 	 */
-	function _update(uint256 rewardsPerBlock,uint blockStart,uint256 blockEnd) internal virtual {
+	function _update(
+		uint256 rewardsPerBlock,
+		uint256 blockStart,
+		uint256 blockEnd
+	) internal virtual {
 		if (totalProductivity == 0) {
 			lastRewardBlock = block.number;
 			return;
@@ -129,13 +134,15 @@ contract BaseShareField is DSMath {
 	 * the users' actual share percentage will calculated by:
 	 * Formula:     user_productivity / global_productivity
 	 */
-	function _increaseProductivity(address user, uint256 value,uint256 rewardsPerBlock,uint blockStart,uint256 blockEnd)
-		internal
-		virtual
-		returns (bool)
-	{
+	function _increaseProductivity(
+		address user,
+		uint256 value,
+		uint256 rewardsPerBlock,
+		uint256 blockStart,
+		uint256 blockEnd
+	) internal virtual returns (bool) {
 		UserInfo storage userInfo = users[user];
-		_update(rewardsPerBlock,blockStart,blockEnd);
+		_update(rewardsPerBlock, blockStart, blockEnd);
 		_audit(user);
 
 		totalProductivity = totalProductivity + value;
@@ -154,18 +161,20 @@ contract BaseShareField is DSMath {
 	 * it will record which block this is happenning and accumulates the area of (productivity * time)
 	 */
 
-	function _decreaseProductivity(address user, uint256 value,uint256 rewardsPerBlock,uint blockStart,uint256 blockEnd)
-		internal
-		virtual
-		returns (bool)
-	{
+	function _decreaseProductivity(
+		address user,
+		uint256 value,
+		uint256 rewardsPerBlock,
+		uint256 blockStart,
+		uint256 blockEnd
+	) internal virtual returns (bool) {
 		UserInfo storage userInfo = users[user];
 		require(
 			value > 0 && userInfo.amount >= value,
 			"INSUFFICIENT_PRODUCTIVITY"
 		);
 
-		_update(rewardsPerBlock,blockStart,blockEnd);
+		_update(rewardsPerBlock, blockStart, blockEnd);
 		_audit(user);
 		userInfo.lastRewardTime = uint64(block.number);
 		userInfo.multiplierResetTime = uint64(block.number);
@@ -184,7 +193,12 @@ contract BaseShareField is DSMath {
 	 * @dev Query user's pending reward with updated variables
 	 * @return returns  amount of user's earned but not minted rewards
 	 */
-	function getUserPendingReward(address user, uint256 rewardsPerBlock, uint256 blockStart, uint256 blockEnd) public view returns (uint256) {
+	function getUserPendingReward(
+		address user,
+		uint256 rewardsPerBlock,
+		uint256 blockStart,
+		uint256 blockEnd
+	) public view returns (uint256) {
 		UserInfo memory userInfo = users[user];
 		uint256 _accAmountPerShare = accAmountPerShare;
 		// uint256 lpSupply = totalProductivity;
@@ -234,10 +248,12 @@ contract BaseShareField is DSMath {
 	 * @return returns amount to mint as reward to the user
 	 */
 
-	function rewardsMinted(address user,uint256 rewardsPerBlock, uint256 blockStart, uint256 blockEnd)
-		public
-		returns (uint256)
-	{
+	function rewardsMinted(
+		address user,
+		uint256 rewardsPerBlock,
+		uint256 blockStart,
+		uint256 blockEnd
+	) public returns (uint256) {
 		_onlyFundManager();
 		_update(rewardsPerBlock, blockStart, blockEnd);
 		_audit(user);

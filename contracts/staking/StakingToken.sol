@@ -51,8 +51,6 @@ contract StakingToken is BaseShareField {
 			// burn
 			totalSupply -= value;
 		}
-
-
 		emit Transfer(from, to, value);
 	}
 

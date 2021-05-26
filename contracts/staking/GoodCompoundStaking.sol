@@ -3,6 +3,7 @@
 pragma solidity >=0.8.0;
 import "./SimpleStaking.sol";
 import "../Interfaces.sol";
+
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Token
@@ -81,9 +82,8 @@ contract GoodCompoundStaking is SimpleStaking {
 		override
 		returns (address, uint256)
 	{
-		
 		if (address(iToken) == nameService.getAddress("CDAI")) {
-			return (address(iToken), _amount); // If iToken is cDAI then just return cDAI 
+			return (address(iToken), _amount); // If iToken is cDAI then just return cDAI
 		}
 		cERC20 cToken = cERC20(address(iToken));
 		require(cToken.redeem(_amount) == 0, "Failed to redeem cToken");
