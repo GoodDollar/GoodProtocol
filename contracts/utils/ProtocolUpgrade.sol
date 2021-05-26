@@ -33,10 +33,11 @@ contract ProtocolUpgrade {
 	address avatar;
 	address comp = address(0xc00e94Cb662C3520282E6f5717214004A7f26888);
 
-	constructor(Controller _controller) {
+	constructor(Controller _controller, address _comp) {
 		controller = _controller;
 		owner = msg.sender;
 		avatar = address(controller.avatar());
+		if (_comp != address(0)) comp = _comp;
 	}
 
 	function upgrade(
@@ -54,7 +55,7 @@ contract ProtocolUpgrade {
 			staking.length == monthlyRewards.length,
 			"staking length mismatch"
 		);
-		require(oldContracts.length == 4, "old contracts size mismatch");
+		require(oldContracts.length == 5, "old contracts size mismatch");
 
 		setNameServiceContracts(ns, nameHash, nameAddress);
 
@@ -64,11 +65,11 @@ contract ProtocolUpgrade {
 
 		upgradeToNewReserve(ns, oldContracts[0], oldContracts[4]);
 
-		upgradeGovernance(
-			oldContracts[2],
-			oldContracts[3],
-			compoundVotingMachine
-		);
+		// upgradeGovernance(
+		// 	oldContracts[2],
+		// 	oldContracts[3],
+		// 	compoundVotingMachine
+		// );
 
 		selfdestruct(payable(owner));
 	}
@@ -106,7 +107,8 @@ contract ProtocolUpgrade {
 		require(ok, "Calling addGlobalConstraint failed");
 	}
 
-	//TODO: transfer funds(cdai + comp) from old reserve to new reserve/avatar
+	//transfer funds(cdai + comp) from old reserve to new reserve/avatar
+	//end old reserve
 	//initialize new marketmaker with current cdai price, rr, reserves
 	function upgradeToNewReserve(
 		NameService ns,
@@ -121,7 +123,7 @@ contract ProtocolUpgrade {
 				0
 			);
 
-		require(ok, "calling Reserve recover failed");
+		require(ok, "calling Reserve comp recover failed");
 
 		(ok, ) = controller.genericCall(
 			oldReserve,
@@ -143,7 +145,7 @@ contract ProtocolUpgrade {
 			avatar
 		);
 
-		require(ok, "calling externalTokenTransfer failed");
+		require(ok, "transfer cdai to new reserve failed");
 
 		(ok, ) = controller.genericCall(
 			ns.addresses(ns.MARKET_MAKER()),

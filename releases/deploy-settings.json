@@ -2,7 +2,14 @@
   "default": {
     "governance": {
       "proposalVotingPeriod": 241920
+    },
+    "expansionRatio": {
+      "nom": 999388834642296,
+      "denom": 1e15
     }
+  },
+  "develop": {
+    "gdxAirdrop": "0x0000000000000000000000000000000000000000000000000000000000000000"
   },
   "production-mainnet": {
     "governance": {
