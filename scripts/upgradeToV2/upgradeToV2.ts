@@ -123,7 +123,27 @@ const main = async () => {
           protocolSettings.gdxAirdrop
         ]
       },
-
+      {
+        network: "mainnet",
+        name: "GoodFundManager",
+        args: [() => get(release, "NameService", newdao.NameService)]
+      },
+      {
+        network: "mainnet",
+        name: "StakersDistribution",
+        args: [() => get(release, "NameService", newdao.NameService)]
+      },
+      {
+        network: "fuse",
+        name: "ClaimersDistribution",
+        args: [() => get(release, "NameService", newdao.NameService)]
+      },
+      {
+        network: "fuse",
+        name: "GovernanceStaking",
+        args: [() => get(release, "NameService", newdao.NameService)],
+        isUpgradable: false
+      },
       {
         network: "mainnet",
         name: "ProtocolUpgrade",
