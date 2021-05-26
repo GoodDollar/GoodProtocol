@@ -107,7 +107,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       daiUsdOracle.address,
       "100000"
     );
-
+    await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     console.log("initializing marketmaker...");
 
     cDAI1 = await cdaiFactory.deploy(dai.address);
@@ -167,7 +167,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
-    await setDAOAddress("FUND_MANAGER", goodFundManager.address);
+    
   });
 
   it("should mock cdai exchange rate 1e28 precision", async () => {

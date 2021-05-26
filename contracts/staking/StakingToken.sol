@@ -52,8 +52,7 @@ contract StakingToken is BaseShareField {
 			totalSupply -= value;
 		}
 
-		_decreaseProductivity(from, value);
-		_increaseProductivity(to, value);
+
 		emit Transfer(from, to, value);
 	}
 

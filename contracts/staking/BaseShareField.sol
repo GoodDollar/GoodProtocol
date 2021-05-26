@@ -3,26 +3,9 @@ pragma solidity >=0.6.6;
 import "../Interfaces.sol";
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
-import "../utils/DAOContract.sol";
 import "../utils/DSMath.sol";
 
-interface FundManager {
-	function rewardsForStakingContract(address _staking)
-		external
-		view
-		returns (
-			uint256,
-			uint256,
-			uint256,
-			bool
-		);
-
-	function transferInterest(address _staking) external;
-
-	function mintReward(address _token, address _user) external;
-}
-
-contract BaseShareField is DAOContract, DSMath {
+contract BaseShareField is DSMath {
 	using SafeMath for uint256;
 
 	uint256 totalProductivity;
@@ -43,29 +26,21 @@ contract BaseShareField is DAOContract, DSMath {
 		uint64 multiplierResetTime; // Reset time of multiplier
 		uint8 donationPer; // The percentage of donation from their reward
 	}
-
 	mapping(address => UserInfo) public users;
-
-	modifier onlyFundManager {
-		require(
-			msg.sender == nameService.getAddress("FUND_MANAGER"),
-			"Only FundManager can call this method"
-		);
-		_;
-	}
-
+	
+	/**
+	 * @dev Helper function to check if caller is fund manager
+	 */
+	function _onlyFundManager() internal virtual{}
 	/**
 	 * @dev Update reward variables of the given pool to be up-to-date.
 	 * Calculates passed blocks and adding to the reward pool
 	 */
-	function _update() internal virtual {
+	function _update(uint256 rewardsPerBlock,uint blockStart,uint256 blockEnd) internal virtual {
 		if (totalProductivity == 0) {
 			lastRewardBlock = block.number;
 			return;
 		}
-		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
-		(uint256 rewardsPerBlock, uint256 blockStart, uint256 blockEnd, ) =
-			fm.rewardsForStakingContract(address(this));
 		if (block.number >= blockStart && lastRewardBlock < blockStart) {
 			lastRewardBlock = blockStart;
 		}
@@ -154,13 +129,13 @@ contract BaseShareField is DAOContract, DSMath {
 	 * the users' actual share percentage will calculated by:
 	 * Formula:     user_productivity / global_productivity
 	 */
-	function _increaseProductivity(address user, uint256 value)
+	function _increaseProductivity(address user, uint256 value,uint256 rewardsPerBlock,uint blockStart,uint256 blockEnd)
 		internal
 		virtual
 		returns (bool)
 	{
 		UserInfo storage userInfo = users[user];
-		_update();
+		_update(rewardsPerBlock,blockStart,blockEnd);
 		_audit(user);
 
 		totalProductivity = totalProductivity + value;
@@ -179,7 +154,7 @@ contract BaseShareField is DAOContract, DSMath {
 	 * it will record which block this is happenning and accumulates the area of (productivity * time)
 	 */
 
-	function _decreaseProductivity(address user, uint256 value)
+	function _decreaseProductivity(address user, uint256 value,uint256 rewardsPerBlock,uint blockStart,uint256 blockEnd)
 		internal
 		virtual
 		returns (bool)
@@ -190,7 +165,7 @@ contract BaseShareField is DAOContract, DSMath {
 			"INSUFFICIENT_PRODUCTIVITY"
 		);
 
-		_update();
+		_update(rewardsPerBlock,blockStart,blockEnd);
 		_audit(user);
 		userInfo.lastRewardTime = uint64(block.number);
 		userInfo.multiplierResetTime = uint64(block.number);
@@ -209,14 +184,11 @@ contract BaseShareField is DAOContract, DSMath {
 	 * @dev Query user's pending reward with updated variables
 	 * @return returns  amount of user's earned but not minted rewards
 	 */
-	function getUserPendingReward(address user) public view returns (uint256) {
+	function getUserPendingReward(address user, uint256 rewardsPerBlock, uint256 blockStart, uint256 blockEnd) public view returns (uint256) {
 		UserInfo memory userInfo = users[user];
 		uint256 _accAmountPerShare = accAmountPerShare;
 		// uint256 lpSupply = totalProductivity;
-		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
 		uint256 pending = 0;
-		(uint256 rewardsPerBlock, uint256 blockStart, uint256 blockEnd, ) =
-			fm.rewardsForStakingContract(address(this));
 		if (
 			totalProductivity != 0 &&
 			block.number >= blockStart &&
@@ -262,12 +234,12 @@ contract BaseShareField is DAOContract, DSMath {
 	 * @return returns amount to mint as reward to the user
 	 */
 
-	function rewardsMinted(address user)
+	function rewardsMinted(address user,uint256 rewardsPerBlock, uint256 blockStart, uint256 blockEnd)
 		public
-		onlyFundManager
 		returns (uint256)
 	{
-		_update();
+		_onlyFundManager();
+		_update(rewardsPerBlock, blockStart, blockEnd);
 		_audit(user);
 		UserInfo storage userInfo = users[user];
 		uint256 amount = userInfo.rewardEarn;

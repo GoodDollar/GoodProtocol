@@ -9,16 +9,16 @@ import "./AbstractGoodStaking.sol";
 import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";
+import "./GoodFundManager.sol";
 import "./StakingToken.sol";
 import "../governance/StakersDistribution.sol";
-
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Tokens
  * or withdraw their stake in Tokens
  * the contracts buy intrest tokens and can transfer the daily interest to the  DAO
  */
-contract SimpleStaking is AbstractGoodStaking, StakingToken {
+contract SimpleStaking is AbstractGoodStaking, StakingToken,DAOContract {
 	using SafeMath for uint256;
 
 	// Token address
@@ -122,7 +122,10 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		userInfo.donationPer = uint8(_donationPer);
 
 		_mint(msg.sender, _amount); // mint Staking token for staker
-		_increaseProductivity(msg.sender, _amount);
+		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd,) =
+			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()))
+				.rewardsForStakingContract(address(this));
+		_increaseProductivity(msg.sender, _amount, rewardsPerBlock, blockStart, blockEnd);
 
 		//notify GDAO distrbution for stakers
 		StakersDistribution sd =
@@ -172,9 +175,11 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			);
 		}
 
-		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
+		GoodFundManager fm = GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()));
 		_burn(msg.sender, _amount); // burn their staking tokens
-		_decreaseProductivity(msg.sender, _amount);
+		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
+			fm.rewardsForStakingContract(address(this));
+		_decreaseProductivity(msg.sender, _amount,rewardsPerBlock,blockStart,blockEnd);
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
 
 		//notify GDAO distrbution for stakers
@@ -200,7 +205,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 * withdrawing rewards resets the multiplier! so if user just want GDAO he should use claimReputation()
 	 */
 	function withdrawRewards() public {
-		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
+		GoodFundManager fm = GoodFundManager(nameService.getAddress("FUND_MANAGER"));
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
 		claimReputation();
 	}
@@ -235,6 +240,11 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			StakersDistribution(
 				nameService.addresses(nameService.GDAO_STAKERS())
 			);
+		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
+			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()))
+				.rewardsForStakingContract(address(this));
+		_decreaseProductivity(from, value, rewardsPerBlock, blockStart, blockEnd);
+		_increaseProductivity(to, value, rewardsPerBlock, blockStart, blockEnd);
 		if (address(sd) != address(0)) {
 			address[] memory contracts;
 			contracts[0] = (address(this));
@@ -367,9 +377,9 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	function collectUBIInterest(address _recipient)
 		public
 		override
-		onlyFundManager
 		returns (uint256, uint256)
 	{
+		_onlyFundManager();
 		// otherwise fund manager has to wait for the next interval
 		require(
 			_recipient != address(this),
@@ -440,5 +450,13 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			AggregatorV3Interface(getTokenUsdOracle());
 		(, int256 tokenPriceinUSD, , , ) = tokenPriceOracle.latestRoundData();
 		return (uint256(tokenPriceinUSD) * _amount) / (10**token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's decimal at the end to reduce 8 decimals back
+	}
+
+	function _onlyFundManager() internal override{
+		require(
+			msg.sender == nameService.getAddress("FUND_MANAGER"),
+			"Only FundManager can call this method"
+		);
+		
 	}
 }
