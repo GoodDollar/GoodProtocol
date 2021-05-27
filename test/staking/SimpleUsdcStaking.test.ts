@@ -108,6 +108,7 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
       [nameService.address],
       { kind: "uups" }
     );
+    await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     console.log("Deployed goodfund manager", {
       manager: goodFundManager.address
     });
@@ -198,7 +199,6 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
-    await setDAOAddress("FUND_MANAGER", goodFundManager.address);
   });
   it("should be set rewards per block for particular stacking contract", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
@@ -401,8 +401,12 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
 
     await advanceBlocks(4);
+    const stakingContractVals = await goodFundManager.rewardsForStakingContract(goodCompoundStaking.address)
     let rewardsEarned = await goodCompoundStaking.getUserPendingReward(
-      staker.address
+      staker.address,
+      stakingContractVals[0],
+      stakingContractVals[1],
+      stakingContractVals[2]
     );
     expect(rewardsEarned.toString()).to.be.equal("2000"); // Each block reward is 10gd so total reward 40gd but since multiplier is 0.5 for first month should get 20gd
     await goodCompoundStaking

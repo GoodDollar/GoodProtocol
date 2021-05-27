@@ -115,6 +115,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
         kind: "uups"
       }
     )) as GoodFundManager;
+    await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     console.log("Deployed goodfund manager", {
       manager: goodFundManager.address
     });
@@ -225,7 +226,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
-    await setDAOAddress("FUND_MANAGER", goodFundManager.address);
   });
 
   it("should be set rewards per block for particular stacking contract", async () => {
@@ -489,8 +489,14 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
 
     await advanceBlocks(4);
+    const stakingContractVals = await goodFundManager.rewardsForStakingContract(
+      goodCompoundStaking.address
+    );
     let rewardsEarned = await goodCompoundStaking.getUserPendingReward(
-      staker.address
+      staker.address,
+      stakingContractVals[0],
+      stakingContractVals[1],
+      stakingContractVals[2]
     );
     expect(rewardsEarned.toString()).to.be.equal("2000"); // Each block reward is 10gd so total reward 40gd but since multiplier is 0.5 for first month should get 20gd
     await goodCompoundStaking
@@ -600,12 +606,21 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 100, false);
     await advanceBlocks(5);
+    const stakingContractVals = await goodFundManager.rewardsForStakingContract(
+      goodCompoundStaking.address
+    );
     const earnedRewardBeforeWithdrawReward = await goodCompoundStaking.getUserPendingReward(
-      staker.address
+      staker.address,
+      stakingContractVals[0],
+      stakingContractVals[1],
+      stakingContractVals[2]
     );
     await goodCompoundStaking.connect(staker).withdrawRewards();
     const earnedRewardAfterWithdrawReward = await goodCompoundStaking.getUserPendingReward(
-      staker.address
+      staker.address,
+      stakingContractVals[0],
+      stakingContractVals[1],
+      stakingContractVals[2]
     );
 
     expect(earnedRewardAfterWithdrawReward.lt(earnedRewardBeforeWithdrawReward))
@@ -633,6 +648,110 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const tx = await simpleStaking.withdrawRewards().catch(e => e);
     expect(tx.message).to.have.string("Staking contract not registered");
   });
+  it("it should be able to distribute rewards when blockEnd passed but last Reward block was before blockend",async()=>{
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        goodCompoundStaking.address,
+        currentBlockNumber - 10,
+        currentBlockNumber + 50,
+        false
+      ] // set 10 gd per block
+    );
+    await genericCall(goodFundManager.address,encodedData)
+    const stakingAmount = ethers.utils.parseEther("100");
+    const initialGdBalance = await goodDollar.balanceOf(staker.address)
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
+    await advanceBlocks(5)
+    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount.div(2),false);
+    const gdBalanceAfterFirstWithdraw = await goodDollar.balanceOf(staker.address)
+    const firstWithdrawBlockNumber = await ethers.provider.getBlockNumber();
+    await advanceBlocks(60)
+
+    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount.div(2), false);
+    const gdBalanceAfterSecondWithdraw = await goodDollar.balanceOf(staker.address)
+    expect(gdBalanceAfterFirstWithdraw).to.be.gt(initialGdBalance)
+    expect(gdBalanceAfterFirstWithdraw.sub(initialGdBalance)).to.be.equal(BN.from("1000").mul(firstWithdrawBlockNumber - stakeBlockNumber).div(2))
+    expect(gdBalanceAfterSecondWithdraw).to.be.gt(gdBalanceAfterFirstWithdraw)
+    expect(gdBalanceAfterSecondWithdraw.sub(gdBalanceAfterFirstWithdraw)).to.be.equal(BN.from("1000").mul(currentBlockNumber + 50 - firstWithdrawBlockNumber).div(2).sub(1)) // sub 1 due to precision loss
+
+  })
+  it("it should not earn rewards when currentBlock < blockStart",async()=>{
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        goodCompoundStaking.address,
+        currentBlockNumber + 100,
+        currentBlockNumber + 500,
+        false
+      ] // set 10 gd per block
+    );
+    await genericCall(goodFundManager.address,encodedData)
+    const stakingAmount = ethers.utils.parseEther("100");
+    const initialGdBalance = await goodDollar.balanceOf(staker.address)
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
+    await advanceBlocks(50)
+    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount,false);
+    const gdBalanceAfterWithdraw = await goodDollar.balanceOf(staker.address)
+   
+    expect(initialGdBalance).to.be.gt(0);
+    expect(gdBalanceAfterWithdraw).to.be.equal(initialGdBalance)
+
+
+  })
+  
+  it("it should earn rewards when they stake before blockStart but keep their stake until after blockStart",async()=>{
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        goodCompoundStaking.address,
+        currentBlockNumber + 30,
+        currentBlockNumber + 500,
+        false
+      ] // set 10 gd per block
+    );
+    await genericCall(goodFundManager.address,encodedData)
+    const stakingAmount = ethers.utils.parseEther("100");
+    const initialGdBalance = await goodDollar.balanceOf(staker.address)
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
+    await advanceBlocks(50)
+    await goodCompoundStaking.connect(staker).withdrawStake(stakingAmount,false);
+    const withdrawBlockNumber = await ethers.provider.getBlockNumber()
+    const gdBalanceAfterWithdraw = await goodDollar.balanceOf(staker.address)
+    expect(initialGdBalance).to.be.gt(0);
+    expect(gdBalanceAfterWithdraw).to.be.gt(initialGdBalance)
+    expect(gdBalanceAfterWithdraw.sub(initialGdBalance)).to.be.equal(BN.from("1000").mul(withdrawBlockNumber - (currentBlockNumber + 30)).div(2).sub(1))
+    
+
+  })
   it("should be able earn to 50% of rewards when owns 50% of total productivity", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
@@ -1069,6 +1188,12 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(accAmountPerShare.toString()).to.be.equal("0");
     expect(balanceAfterRedeem.gt(balanceBeforeRedeem)).to.be.true;
   });
+  it("it should reverted when someone trying to call rewardsMinted function beside fundmanager", async () => {
+    const tx = await goodCompoundStaking
+      .rewardsMinted(founder.address, "1000", 50, 100)
+      .catch(e => e);
+    expect(tx.message).to.have.string("Only FundManager can call this method");
+  });
 
   it("it should not decrease proudctivity when there is no enough amount of stake", async () => {
     const goodCompoundStakingTestFactory = await ethers.getContractFactory(
@@ -1111,8 +1236,14 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       ["100000"]
     );
     await genericCall(simpleStaking.address, encodedData, avatar, 0);
+    const stakingContractVals = await goodFundManager.rewardsForStakingContract(
+      goodCompoundStaking.address
+    );
     const pendingReward = await simpleStaking.getUserPendingReward(
-      founder.address
+      founder.address,
+      stakingContractVals[0],
+      stakingContractVals[1],
+      stakingContractVals[2]
     );
     expect(pendingReward.toString()).to.be.equal("0");
   });
@@ -1134,33 +1265,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const tx = await simpleStaking
       .transfer(staker.address, "10000")
       .catch(e => e);
-    expect(tx.message).to.have.string("ERC20Token: INSUFFICIENT_BALANCE");
-  });
-
-  it("it should burn staking tokens when they send it to zero address", async () => {
-    const goodCompoundStakingTestFactory = await ethers.getContractFactory(
-      "GoodCompoundStakingTest"
-    );
-    const simpleStaking = await goodCompoundStakingTestFactory.deploy(
-      bat.address,
-      cBat.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good BaT",
-      "gBAT",
-      "50",
-      batUsdOracle.address,
-      "100000"
-    );
-    await bat["mint(address,uint256)"](
-      founder.address,
-      ethers.utils.parseEther("10")
-    );
-    await bat.approve(simpleStaking.address, ethers.utils.parseEther("10"));
-    await simpleStaking.stake(ethers.utils.parseEther("10"), 0, false);
-    await simpleStaking.transfer(NULL_ADDRESS, ethers.utils.parseEther("10"));
-    const stakingTokenTotalSupply = await simpleStaking.totalSupply();
-    expect(stakingTokenTotalSupply.toString()).to.be.equal("0");
+    expect(tx.message).to.have.string("ERC20: transfer amount exceeds balance");
   });
 
   async function addLiquidity(
@@ -1216,7 +1321,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const lastActiveContractBeforeAdd = await goodFundManager.activeContracts(
       activeContractsCount.sub(1)
     );
-   
+
     const simpleStaking = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
