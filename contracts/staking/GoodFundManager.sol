@@ -166,7 +166,6 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 
 		//we dont allow to undo blacklisting as it will mess up rewards accounting.
 		//staking contracts are assumed immutable and thus non fixable
-		require(_blockEnd > _blockStart , "Block end must be larger than block start");
 		require(
 			false ==
 				(_isBlackListed == false &&
