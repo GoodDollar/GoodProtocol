@@ -66,19 +66,23 @@ contract BaseShareField is DAOContract, DSMath {
 		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
 		(uint256 rewardsPerBlock, uint256 blockStart, uint256 blockEnd, ) =
 			fm.rewardsForStakingContract(address(this));
-		if (block.number >= blockStart && lastRewardBlock < blockStart) {
-			lastRewardBlock = blockStart;
-		}
 
-		if (block.number >= blockStart && blockEnd >= block.number) {
-			uint256 multiplier = block.number - lastRewardBlock; // Blocks passed since last reward block
-			uint256 reward = multiplier * (rewardsPerBlock * 1e16); // rewardsPerBlock is in G$ which is only 2 decimals, we turn it into 18 decimals by multiplying 1e16
+		uint256 _lastRewardBlock =
+			lastRewardBlock < blockStart && block.number >= blockStart
+				? blockStart
+				: lastRewardBlock;
+		uint256 curRewardBlock =
+			block.number > blockEnd ? blockEnd : block.number;
+		if (curRewardBlock < blockStart || _lastRewardBlock >= blockEnd) return;
 
-			accAmountPerShare =
-				accAmountPerShare +
-				rdiv(reward, totalProductivity * (10**tokenDecimalDifference)); // Increase totalproductivity decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
-		}
-		lastRewardBlock = block.number;
+		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block
+		uint256 reward = multiplier * (rewardsPerBlock * 1e16); // rewardsPerBlock is in G$ which is only 2 decimals, we turn it into 18 decimals by multiplying 1e16
+
+		accAmountPerShare =
+			accAmountPerShare +
+			rdiv(reward, totalProductivity * (10**tokenDecimalDifference)); // Increase totalproductivity decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
+
+		lastRewardBlock = curRewardBlock;
 	}
 
 	/**
