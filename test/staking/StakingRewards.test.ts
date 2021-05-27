@@ -1088,7 +1088,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const tx = await goodCompoundStaking
       .rewardsMinted(founder.address, "1000", 50, 100)
       .catch(e => e);
-    expect(tx.message).to.have.string("Only FundManager can call this method")
+    expect(tx.message).to.have.string("Only FundManager can call this method");
   });
 
   it("it should not decrease proudctivity when there is no enough amount of stake", async () => {
@@ -1161,33 +1161,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const tx = await simpleStaking
       .transfer(staker.address, "10000")
       .catch(e => e);
-    expect(tx.message).to.have.string("ERC20Token: INSUFFICIENT_BALANCE");
-  });
-
-  it("it should burn staking tokens when they send it to zero address", async () => {
-    const goodCompoundStakingTestFactory = await ethers.getContractFactory(
-      "GoodCompoundStakingTest"
-    );
-    const simpleStaking = await goodCompoundStakingTestFactory.deploy(
-      bat.address,
-      cBat.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good BaT",
-      "gBAT",
-      "50",
-      batUsdOracle.address,
-      "100000"
-    );
-    await bat["mint(address,uint256)"](
-      founder.address,
-      ethers.utils.parseEther("10")
-    );
-    await bat.approve(simpleStaking.address, ethers.utils.parseEther("10"));
-    await simpleStaking.stake(ethers.utils.parseEther("10"), 0, false);
-    await simpleStaking.transfer(NULL_ADDRESS, ethers.utils.parseEther("10"));
-    const stakingTokenTotalSupply = await simpleStaking.totalSupply();
-    expect(stakingTokenTotalSupply.toString()).to.be.equal("0");
+    expect(tx.message).to.have.string("ERC20: transfer amount exceeds balance");
   });
 
   async function addLiquidity(

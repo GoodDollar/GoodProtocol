@@ -9,8 +9,9 @@ import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";
 import "./GoodFundManager.sol";
-import "./StakingToken.sol";
+import "./BaseShareField.sol";
 import "../governance/StakersDistribution.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
 /**
  * @title Staking contract that donates earned interest to the DAO
@@ -18,7 +19,12 @@ import "../governance/StakersDistribution.sol";
  * or withdraw their stake in Tokens
  * the contracts buy intrest tokens and can transfer the daily interest to the  DAO
  */
-contract SimpleStaking is AbstractGoodStaking, StakingToken, DAOContract {
+contract SimpleStaking is
+	AbstractGoodStaking,
+	ERC20Upgradeable,
+	DAOContract,
+	BaseShareField
+{
 	// Token address
 	ERC20 token;
 	// Interest Token address
@@ -61,15 +67,15 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken, DAOContract {
 		string memory _tokenSymbol,
 		uint64 _maxRewardThreshold,
 		uint32 _collectInterestGasCost
-	) StakingToken(_tokenName, _tokenSymbol) {
+	) {
 		setDAO(_ns);
 		token = ERC20(_token);
 		iToken = ERC20(_iToken);
+		__ERC20_init(_tokenName, _tokenSymbol);
 		require(
 			token.decimals() <= 18,
 			"Token decimals should be less than 18 decimals"
 		);
-		decimals = token.decimals(); // Staking token decimals should be same with token's decimals
 		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;
 		blockInterval = _blockInterval;
