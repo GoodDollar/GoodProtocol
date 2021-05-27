@@ -44,7 +44,7 @@ contract SimpleStaking is
 	uint256 public lastUBICollection;
 	// The total staked Token amount in the contract
 	// uint256 public totalStaked = 0;
-
+	uint8 public stakingTokenDecimals;
 	bool public isPaused;
 
 	/**
@@ -76,6 +76,7 @@ contract SimpleStaking is
 			token.decimals() <= 18,
 			"Token decimals should be less than 18 decimals"
 		);
+		stakingTokenDecimals = token.decimals();
 		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;
 		blockInterval = _blockInterval;
@@ -413,7 +414,7 @@ contract SimpleStaking is
 		override
 		returns (uint256, uint256)
 	{
-		_onlyFundManager();
+		_canMintRewards();
 		// otherwise fund manager has to wait for the next interval
 		require(
 			_recipient != address(this),
@@ -486,10 +487,14 @@ contract SimpleStaking is
 		return (uint256(tokenPriceinUSD) * _amount) / (10**token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's decimal at the end to reduce 8 decimals back
 	}
 
-	function _onlyFundManager() internal view override {
+	function _canMintRewards() internal view override {
 		require(
 			msg.sender == nameService.addresses(nameService.FUND_MANAGER()),
 			"Only FundManager can call this method"
 		);
+	}
+
+	function decimals() public view virtual override returns (uint8) {
+		return stakingTokenDecimals;
 	}
 }

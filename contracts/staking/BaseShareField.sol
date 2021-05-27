@@ -31,7 +31,7 @@ contract BaseShareField is DSMath {
 	/**
 	 * @dev Helper function to check if caller is fund manager
 	 */
-	function _onlyFundManager() internal view virtual {}
+	function _canMintRewards() internal view virtual {}
 
 	/**
 	 * @dev Update reward variables of the given pool to be up-to-date.
@@ -254,7 +254,7 @@ contract BaseShareField is DSMath {
 		uint256 blockStart,
 		uint256 blockEnd
 	) public returns (uint256) {
-		_onlyFundManager();
+		_canMintRewards();
 		_update(rewardsPerBlock, blockStart, blockEnd);
 		_audit(user);
 		UserInfo storage userInfo = users[user];
