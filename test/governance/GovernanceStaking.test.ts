@@ -603,4 +603,11 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       gdaoBalanceBeforeGetRewards.add(calculatedReward)
     );
   });
+
+  async function rdiv(x: BigNumber, y: BigNumber) {
+    return x
+      .mul(1e27)
+      .add(y.div(2))
+      .div(y);
+  }
 });
