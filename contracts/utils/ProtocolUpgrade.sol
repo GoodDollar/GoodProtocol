@@ -163,18 +163,31 @@ contract ProtocolUpgrade {
 		require(ok, "calling marketMaker initializeToken failed");
 	}
 
+	/**
+	 * unregister old voting schemes
+	 * register new voting scheme with all DAO permissions
+	 */
 	function upgradeGovernance(
 		address schemeRegistrar,
 		address upgradeScheme,
 		address compoundVotingMachine
 	) internal {
-		controller.unregisterScheme(schemeRegistrar, avatar);
-		controller.unregisterScheme(upgradeScheme, avatar);
-		controller.registerScheme(
-			compoundVotingMachine,
-			bytes32(0x0),
-			bytes4(0x0000001F),
-			avatar
+		require(
+			controller.unregisterScheme(schemeRegistrar, avatar),
+			"unregistering schemeRegistrar failed"
+		);
+		require(
+			controller.unregisterScheme(upgradeScheme, avatar),
+			"unregistering upgradeScheme failed"
+		);
+		require(
+			controller.registerScheme(
+				compoundVotingMachine,
+				bytes32(0x0),
+				bytes4(0x0000001F),
+				avatar
+			),
+			"registering compoundVotingMachine failed"
 		);
 	}
 

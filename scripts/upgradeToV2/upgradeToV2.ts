@@ -78,10 +78,10 @@ const main = async () => {
             avatar,
             dao.Identity,
             dao.GoodDollar,
-            dao.Contribution || ethers.constants.AddressZero,
+            dao.Contribution,
             "0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a", //bancor
-            dao.DAI || ethers.constants.AddressZero,
-            dao.cDAI || ethers.constants.AddressZero
+            dao.DAI,
+            dao.cDAI
           ]
         ]
       },
@@ -92,8 +92,9 @@ const main = async () => {
         args: [
           () => get(release, "NameService", newdao.NameService),
           networkName.includes("mainnet") ? "fuse" : "rootState",
-          protocolSettings.repStateHash || ethers.constants.HashZero,
-          protocolSettings.repTotalSupply || 0
+          protocolSettings.repStateHash ||
+            (networkName === "develop" && ethers.constants.HashZero), //should fail on real deploy if not set
+          protocolSettings.repTotalSupply || (networkName === "develop" && 0) //should fail on real deploy if not set
         ]
       },
       {
@@ -123,7 +124,27 @@ const main = async () => {
           protocolSettings.gdxAirdrop
         ]
       },
-
+      {
+        network: "mainnet",
+        name: "GoodFundManager",
+        args: [() => get(release, "NameService", newdao.NameService)]
+      },
+      {
+        network: "mainnet",
+        name: "StakersDistribution",
+        args: [() => get(release, "NameService", newdao.NameService)]
+      },
+      {
+        network: "fuse",
+        name: "ClaimersDistribution",
+        args: [() => get(release, "NameService", newdao.NameService)]
+      },
+      {
+        network: "fuse",
+        name: "GovernanceStaking",
+        args: [() => get(release, "NameService", newdao.NameService)],
+        isUpgradable: false
+      },
       {
         network: "mainnet",
         name: "ProtocolUpgrade",

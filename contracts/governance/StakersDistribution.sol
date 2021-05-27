@@ -54,7 +54,10 @@ contract StakersDistribution is
 	 */
 	function _updateMonth() internal {
 		uint256 month = block.timestamp / 30 days;
-		if (month != currentMonth) {
+		if (
+			nameService.addresses(nameService.FUND_MANAGER()) != address(0) &&
+			month != currentMonth
+		) {
 			//read active staking contracts set pro rate monthly share
 			GoodFundManager gfm =
 				GoodFundManager(
