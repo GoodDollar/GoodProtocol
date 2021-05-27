@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "../utils/DAOUpgradeableContract.sol";
 
 /**
+ * based on https://github.com/daostack/infra/blob/60a79a1be02942174e21156c3c9655a7f0695dbd/contracts/Reputation.sol
  * @title Reputation system
  * @dev A DAO has Reputation System which allows peers to rate other peers in order to build trust .
  * A reputation is used to assign influence measure to a DAO'S peers.
