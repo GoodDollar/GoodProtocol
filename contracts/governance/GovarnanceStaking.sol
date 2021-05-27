@@ -8,14 +8,14 @@ import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
-import "./BaseGovernanceShareField.sol";
+import "./MultiBaseGovernanceShareField.sol";
 
 /**
  * @title Staking contract that allows citizens to stake G$ to get GDAO rewards
  */
 contract GovernanceStaking is
 	ERC20Upgradeable,
-	BaseGovernanceShareField,
+	MultiBaseGovernanceShareField,
 	DAOUpgradeableContract
 {
 	uint256 public constant FUSE_MONTHLY_BLOCKS = 12 * 60 * 24 * 30;
@@ -55,7 +55,7 @@ contract GovernanceStaking is
 		setDAO(_ns);
 		token = ERC20(nameService.addresses(nameService.GOODDOLLAR()));
 		__ERC20_init("GDAO Staking", "sGDAO");
-		rewardsPerBlock = (2 ether * 1e6) / FUSE_MONTHLY_BLOCKS; // (2M monthly GDAO as specified in specs, divided by blocks in month )
+		rewardsPerBlock[address(this)] = (2 ether * 1e6) / FUSE_MONTHLY_BLOCKS; // (2M monthly GDAO as specified in specs, divided by blocks in month )
 	}
 
 	/**
@@ -77,7 +77,13 @@ contract GovernanceStaking is
 			token.transferFrom(_msgSender(), address(this), _amount),
 			"transferFrom failed, make sure you approved token transfer"
 		);
-		_increaseProductivity(_msgSender(), _amount);
+		_increaseProductivity(
+			address(this),
+			_msgSender(),
+			_amount,
+			0,
+			block.number
+		);
 		_mint(_msgSender(), _amount); // mint Staking token for staker
 		_mintRewards(_msgSender());
 		emit Staked(_msgSender(), address(token), _amount);
@@ -87,14 +93,21 @@ contract GovernanceStaking is
 	 * @dev Withdraws the sender staked Token.
 	 */
 	function withdrawStake(uint256 _amount) external {
-		(uint256 userProductivity, ) = getProductivity(_msgSender());
+		(uint256 userProductivity, ) =
+			getProductivity(address(this), _msgSender());
 		if (_amount == 0) _amount = userProductivity;
 		require(_amount > 0, "Should withdraw positive amount");
 		require(userProductivity >= _amount, "Not enough token staked");
 		uint256 tokenWithdraw = _amount;
 
 		_burn(_msgSender(), _amount); // burn their staking tokens
-		_decreaseProductivity(_msgSender(), _amount);
+		_decreaseProductivity(
+			address(this),
+			_msgSender(),
+			_amount,
+			0,
+			block.number
+		);
 		_mintRewards(_msgSender());
 
 		require(
@@ -123,7 +136,8 @@ contract GovernanceStaking is
 	 */
 
 	function _mintRewards(address user) internal returns (uint256) {
-		uint256 amount = _issueEarnedRewards(user);
+		uint256 amount =
+			_issueEarnedRewards(address(this), user, 0, block.number);
 		if (amount > 0) {
 			ERC20(nameService.addresses(nameService.REPUTATION())).mint(
 				user,
@@ -146,8 +160,8 @@ contract GovernanceStaking is
 		address to,
 		uint256 value
 	) internal override {
-		_decreaseProductivity(from, value);
-		_increaseProductivity(to, value);
+		_decreaseProductivity(address(this), from, value, 0, block.number);
+		_increaseProductivity(address(this), to, value, 0, block.number);
 		_mintRewards(from);
 		_mintRewards(to);
 		super._transfer(from, to, value);
@@ -159,6 +173,34 @@ contract GovernanceStaking is
 	 */
 	function setMonthlyRewards(uint256 _monthlyAmount) public {
 		_onlyAvatar();
-		_setMonthlyRewards(_monthlyAmount);
+		_setMonthlyRewards(address(this), _monthlyAmount);
+	}
+
+	/// @dev helper function for multibase
+	function getRewardsPerBlock() public view returns (uint256) {
+		return rewardsPerBlock[address(this)];
+	}
+
+	/// @dev helper function for multibase
+	function getProductivity(address _user)
+		public
+		view
+		returns (uint256, uint256)
+	{
+		return getProductivity(address(this), _user);
+	}
+
+	/// @dev helper function for multibase
+	function getUserPendingReward(address _user) public view returns (uint256) {
+		return getUserPendingReward(address(this), 0, block.number, _user);
+	}
+
+	/// @dev helper function for multibase
+	function users(address _user) public view returns (UserInfo memory) {
+		return contractToUsers[address(this)][_user];
+	}
+
+	function totalRewardsPerShare() public view returns (uint256) {
+		return totalRewardsPerShare(address(this));
 	}
 }

@@ -2,15 +2,16 @@
 
 pragma solidity >=0.8.0;
 
-import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../Interfaces.sol";
 
 import "./AbstractGoodStaking.sol";
 import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";
-import "./StakingToken.sol";
+import "./GoodFundManager.sol";
+import "./BaseShareField.sol";
 import "../governance/StakersDistribution.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
 /**
  * @title Staking contract that donates earned interest to the DAO
@@ -18,9 +19,12 @@ import "../governance/StakersDistribution.sol";
  * or withdraw their stake in Tokens
  * the contracts buy intrest tokens and can transfer the daily interest to the  DAO
  */
-contract SimpleStaking is AbstractGoodStaking, StakingToken {
-	using SafeMath for uint256;
-
+contract SimpleStaking is
+	AbstractGoodStaking,
+	ERC20Upgradeable,
+	DAOContract,
+	BaseShareField
+{
 	// Token address
 	ERC20 token;
 	// Interest Token address
@@ -40,7 +44,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	uint256 public lastUBICollection;
 	// The total staked Token amount in the contract
 	// uint256 public totalStaked = 0;
-
+	uint8 public stakingTokenDecimals;
 	bool public isPaused;
 
 	/**
@@ -63,21 +67,22 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		string memory _tokenSymbol,
 		uint64 _maxRewardThreshold,
 		uint32 _collectInterestGasCost
-	) StakingToken(_tokenName, _tokenSymbol) {
+	) {
 		setDAO(_ns);
 		token = ERC20(_token);
 		iToken = ERC20(_iToken);
+		__ERC20_init(_tokenName, _tokenSymbol);
 		require(
 			token.decimals() <= 18,
 			"Token decimals should be less than 18 decimals"
 		);
-		decimals = token.decimals(); // Staking token decimals should be same with token's decimals
+		stakingTokenDecimals = token.decimals();
 		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;
 		blockInterval = _blockInterval;
-		lastUBICollection = block.number.div(blockInterval);
+		lastUBICollection = block.number / blockInterval;
 		collectInterestGasCost = _collectInterestGasCost; // Should be adjusted according to this contract's gas cost
-		
+
 		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
 	}
 
@@ -110,11 +115,15 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		);
 		require(_amount > 0, "You need to stake a positive token amount");
 		require(
-				(_inInterestToken ? iToken : token).transferFrom(msg.sender, address(this), _amount),
-				"transferFrom failed, make sure you approved token transfer"
-			);
-		_amount =_inInterestToken ? iTokenWorthinToken(_amount) : _amount;
-		if (_inInterestToken == false){
+			(_inInterestToken ? iToken : token).transferFrom(
+				msg.sender,
+				address(this),
+				_amount
+			),
+			"transferFrom failed, make sure you approved token transfer"
+		);
+		_amount = _inInterestToken ? iTokenWorthinToken(_amount) : _amount;
+		if (_inInterestToken == false) {
 			mintInterestToken(_amount); //mint iToken
 		}
 
@@ -122,7 +131,16 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		userInfo.donationPer = uint8(_donationPer);
 
 		_mint(msg.sender, _amount); // mint Staking token for staker
-		_increaseProductivity(msg.sender, _amount);
+		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
+			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()))
+				.rewardsForStakingContract(address(this));
+		_increaseProductivity(
+			msg.sender,
+			_amount,
+			rewardsPerBlock,
+			blockStart,
+			blockEnd
+		);
 
 		//notify GDAO distrbution for stakers
 		StakersDistribution sd =
@@ -130,7 +148,10 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 				nameService.addresses(nameService.GDAO_STAKERS())
 			);
 		if (address(sd) != address(0)) {
-			uint stakeAmountInEighteenDecimals = token.decimals() == 18 ? _amount : _amount * 10 ** (18 - token.decimals());
+			uint256 stakeAmountInEighteenDecimals =
+				token.decimals() == 18
+					? _amount
+					: _amount * 10**(18 - token.decimals());
 			sd.userStaked(msg.sender, stakeAmountInEighteenDecimals);
 		}
 
@@ -172,9 +193,18 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			);
 		}
 
-		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
+		GoodFundManager fm =
+			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()));
 		_burn(msg.sender, _amount); // burn their staking tokens
-		_decreaseProductivity(msg.sender, _amount);
+		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
+			fm.rewardsForStakingContract(address(this));
+		_decreaseProductivity(
+			msg.sender,
+			_amount,
+			rewardsPerBlock,
+			blockStart,
+			blockEnd
+		);
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
 
 		//notify GDAO distrbution for stakers
@@ -183,7 +213,10 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 				nameService.addresses(nameService.GDAO_STAKERS())
 			);
 		if (address(sd) != address(0)) {
-			uint withdrawAmountInEighteenDecimals = token.decimals() == 18 ? _amount : _amount * 10 ** (18 - token.decimals());
+			uint256 withdrawAmountInEighteenDecimals =
+				token.decimals() == 18
+					? _amount
+					: _amount * 10**(18 - token.decimals());
 			sd.userWithdraw(msg.sender, withdrawAmountInEighteenDecimals);
 		}
 
@@ -200,7 +233,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 * withdrawing rewards resets the multiplier! so if user just want GDAO he should use claimReputation()
 	 */
 	function withdrawRewards() public {
-		FundManager fm = FundManager(nameService.getAddress("FUND_MANAGER"));
+		GoodFundManager fm =
+			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
 		claimReputation();
 	}
@@ -235,6 +269,17 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			StakersDistribution(
 				nameService.addresses(nameService.GDAO_STAKERS())
 			);
+		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
+			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()))
+				.rewardsForStakingContract(address(this));
+		_decreaseProductivity(
+			from,
+			value,
+			rewardsPerBlock,
+			blockStart,
+			blockEnd
+		);
+		_increaseProductivity(to, value, rewardsPerBlock, blockStart, blockEnd);
 		if (address(sd) != address(0)) {
 			address[] memory contracts;
 			contracts[0] = (address(this));
@@ -261,8 +306,8 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
 		uint256 tokenWorth =
 			caseType == true
-				? (_amount * (10 ** decimalDifference) * er) / 10 ** mantissa
-				: ((_amount / (10 ** decimalDifference)) * er) / 10 ** mantissa; // calculation based on https://compound.finance/docs#protocol-math
+				? (_amount * (10**decimalDifference) * er) / 10**mantissa
+				: ((_amount / (10**decimalDifference)) * er) / 10**mantissa; // calculation based on https://compound.finance/docs#protocol-math
 		return tokenWorth;
 	}
 
@@ -300,9 +345,9 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		uint256 decimalDifference;
 		// Need to find easy way to do it.
 		if (tokenDecimal > iTokenDecimal) {
-			decimalDifference = tokenDecimal.sub(iTokenDecimal);
+			decimalDifference = tokenDecimal - iTokenDecimal;
 		} else {
-			decimalDifference = iTokenDecimal.sub(tokenDecimal);
+			decimalDifference = iTokenDecimal - tokenDecimal;
 		}
 		return (decimalDifference, tokenDecimal > iTokenDecimal);
 	}
@@ -340,7 +385,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		if (tokenWorth <= totalProductivity) {
 			return (0, 0);
 		}
-		uint256 tokenGains = tokenWorth.sub(totalProductivity);
+		uint256 tokenGains = tokenWorth - totalProductivity;
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		//mul by `10^decimalDifference` to equalize precision otherwise since exchangerate is very big, dividing by it would result in 0.
 		uint256 iTokenGains;
@@ -367,16 +412,16 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	function collectUBIInterest(address _recipient)
 		public
 		override
-		onlyFundManager
 		returns (uint256, uint256)
 	{
+		_canMintRewards();
 		// otherwise fund manager has to wait for the next interval
 		require(
 			_recipient != address(this),
 			"Recipient cannot be the staking contract"
 		);
 		(uint256 iTokenGains, uint256 tokenGains) = currentUBIInterest();
-		lastUBICollection = block.number.div(blockInterval);
+		lastUBICollection = block.number / blockInterval;
 		(address redeemedToken, uint256 redeemedAmount) =
 			redeemUnderlyingToDAI(iTokenGains);
 		if (redeemedAmount > 0)
@@ -440,5 +485,16 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 			AggregatorV3Interface(getTokenUsdOracle());
 		(, int256 tokenPriceinUSD, , , ) = tokenPriceOracle.latestRoundData();
 		return (uint256(tokenPriceinUSD) * _amount) / (10**token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's decimal at the end to reduce 8 decimals back
+	}
+
+	function _canMintRewards() internal view override {
+		require(
+			msg.sender == nameService.addresses(nameService.FUND_MANAGER()),
+			"Only FundManager can call this method"
+		);
+	}
+
+	function decimals() public view virtual override returns (uint8) {
+		return stakingTokenDecimals;
 	}
 }
