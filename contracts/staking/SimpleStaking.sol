@@ -5,7 +5,6 @@ pragma solidity >=0.8.0;
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "../Interfaces.sol";
 
-import "./AbstractGoodStaking.sol";
 import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";
@@ -18,7 +17,7 @@ import "../governance/StakersDistribution.sol";
  * or withdraw their stake in Tokens
  * the contracts buy intrest tokens and can transfer the daily interest to the  DAO
  */
-contract SimpleStaking is AbstractGoodStaking, StakingToken {
+contract SimpleStaking is StakingToken {
 	using SafeMath for uint256;
 
 	// Token address
@@ -42,6 +41,33 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	// uint256 public totalStaked = 0;
 
 	bool public isPaused;
+	/**
+	 * @dev Emitted when `staker` stake `value` tokens of `token`
+	 */
+	event Staked(address indexed staker, address token, uint256 value);
+
+	/**
+	 * @dev Emitted when `staker` withdraws their stake `value` tokens and contracts balance will
+	 * be reduced to`remainingBalance`.
+	 */
+	event StakeWithdraw(
+		address indexed staker,
+		address token,
+		uint256 value,
+		uint256 remainingBalance
+	);
+
+	/**
+	 * @dev Emitted when fundmanager transfers intrest collected from defi protrocol.
+	 * `recipient` will receive `intrestTokenValue` as intrest.
+	 */
+	event InterestCollected(
+		address recipient,
+		address token,
+		address intrestToken,
+		uint256 intrestTokenValue,
+		uint256 tokenValue
+	);
 
 	/**
 	 * @dev Constructor
@@ -77,7 +103,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		blockInterval = _blockInterval;
 		lastUBICollection = block.number.div(blockInterval);
 		collectInterestGasCost = _collectInterestGasCost; // Should be adjusted according to this contract's gas cost
-		
+
 		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
 	}
 
@@ -91,6 +117,83 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	}
 
 	/**
+	 * @dev Calculates worth of given amount of iToken in Token
+	 * @param _amount Amount of iToken to calculate worth in Token
+	 * @return Worth of given amount of iToken in Token
+	 */
+	function iTokenWorthinToken(uint256 _amount)
+		public
+		view
+		virtual
+		returns (uint256)
+	{}
+
+	/**
+	 * @dev Get gas cost for interest transfer so can be used in the calculation of collectable interest for particular gas amount
+	 * @return returns hardcoded gas cost
+	 */
+	function getGasCostForInterestTransfer()
+		external
+		view
+		virtual
+		returns (uint32)
+	{}
+
+	/**
+	 * @dev Returns decimal value for token.
+	 */
+	function tokenDecimal() internal view virtual returns (uint256) {}
+
+	/**
+	 * @dev Returns decimal value for intrest token.
+	 */
+	function iTokenDecimal() internal view virtual returns (uint256) {}
+
+	/**
+	 * @dev Redeem invested tokens from defi protocol.
+	 * @param amount tokens to be redeemed.
+	 */
+	function redeem(uint256 amount) internal virtual {}
+
+	/**
+	 * @dev Redeem invested underlying tokens from defi protocol
+	 * @dev amount tokens to be redeemed
+	 * @return token which redeemed from protocol and redeemed amount
+	 */
+	function redeemUnderlyingToDAI(uint256 _amount)
+		internal
+		virtual
+		returns (address, uint256)
+	{}
+
+	/**
+	 * @dev Function to get TOKEN/USD oracle address
+	 * @return TOKEN/USD oracle address
+	 */
+	function getTokenUsdOracle() internal view virtual returns (address) {}
+
+	/**
+	 * @dev Invests staked tokens to defi protocol.
+	 * @param amount tokens staked.
+	 */
+	function mintInterestToken(uint256 amount) internal virtual {}
+
+	/**
+	 * @dev Function that calculates current interest gains of this staking contract
+	 * @return return gains in itoken,Token and worth of total locked Tokens
+	 */
+	function currentGains()
+		public
+		view
+		virtual
+		returns (
+			uint256,
+			uint256,
+			uint256
+		)
+	{}
+
+	/**
 	 * @dev Allows a staker to deposit Tokens. Notice that `approve` is
 	 * needed to be executed before the execution of this method.
 	 * Can be executed only when the contract is not paused.
@@ -102,7 +205,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		uint256 _amount,
 		uint256 _donationPer,
 		bool _inInterestToken
-	) external override {
+	) external virtual {
 		require(isPaused == false, "Staking is paused");
 		require(
 			_donationPer == 0 || _donationPer == 100,
@@ -110,11 +213,15 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		);
 		require(_amount > 0, "You need to stake a positive token amount");
 		require(
-				(_inInterestToken ? iToken : token).transferFrom(msg.sender, address(this), _amount),
-				"transferFrom failed, make sure you approved token transfer"
-			);
-		_amount =_inInterestToken ? iTokenWorthinToken(_amount) : _amount;
-		if (_inInterestToken == false){
+			(_inInterestToken ? iToken : token).transferFrom(
+				msg.sender,
+				address(this),
+				_amount
+			),
+			"transferFrom failed, make sure you approved token transfer"
+		);
+		_amount = _inInterestToken ? iTokenWorthinToken(_amount) : _amount;
+		if (_inInterestToken == false) {
 			mintInterestToken(_amount); //mint iToken
 		}
 
@@ -130,7 +237,10 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 				nameService.addresses(nameService.GDAO_STAKERS())
 			);
 		if (address(sd) != address(0)) {
-			uint stakeAmountInEighteenDecimals = token.decimals() == 18 ? _amount : _amount * 10 ** (18 - token.decimals());
+			uint256 stakeAmountInEighteenDecimals =
+				token.decimals() == 18
+					? _amount
+					: _amount * 10**(18 - token.decimals());
 			sd.userStaked(msg.sender, stakeAmountInEighteenDecimals);
 		}
 
@@ -144,7 +254,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 */
 	function withdrawStake(uint256 _amount, bool _inInterestToken)
 		external
-		override
+		virtual
 	{
 		//InterestDistribution.Staker storage staker = interestData.stakers[msg.sender];
 		uint256 tokenWithdraw;
@@ -183,7 +293,10 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 				nameService.addresses(nameService.GDAO_STAKERS())
 			);
 		if (address(sd) != address(0)) {
-			uint withdrawAmountInEighteenDecimals = token.decimals() == 18 ? _amount : _amount * 10 ** (18 - token.decimals());
+			uint256 withdrawAmountInEighteenDecimals =
+				token.decimals() == 18
+					? _amount
+					: _amount * 10**(18 - token.decimals());
 			sd.userWithdraw(msg.sender, withdrawAmountInEighteenDecimals);
 		}
 
@@ -245,52 +358,6 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 		}
 	}
 
-	/**
-	 * @dev Calculates worth of given amount of iToken in Token
-	 * @param _amount Amount of token to calculate worth in Token
-	 * @return Worth of given amount of token in Token
-	 */
-	function iTokenWorthinToken(uint256 _amount)
-		public
-		view
-		override
-		returns (uint256)
-	{
-		uint256 er = exchangeRate();
-		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
-		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
-		uint256 tokenWorth =
-			caseType == true
-				? (_amount * (10 ** decimalDifference) * er) / 10 ** mantissa
-				: ((_amount / (10 ** decimalDifference)) * er) / 10 ** mantissa; // calculation based on https://compound.finance/docs#protocol-math
-		return tokenWorth;
-	}
-
-	/**
-	 * @dev Calculates the worth of the staked iToken tokens in Token.
-	 * @return (uint256) The worth in Token
-	 */
-	function currentTokenWorth() public view override returns (uint256) {
-		uint256 er = exchangeRate();
-
-		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
-		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
-		uint256 tokenBalance;
-		if (caseType) {
-			tokenBalance =
-				(iToken.balanceOf(address(this)) *
-					(10**decimalDifference) *
-					er) /
-				10**mantissa; // based on https://compound.finance/docs#protocol-math
-		} else {
-			tokenBalance =
-				((iToken.balanceOf(address(this)) / (10**decimalDifference)) *
-					er) /
-				10**mantissa; // based on https://compound.finance/docs#protocol-math
-		}
-		return tokenBalance;
-	}
-
 	// @dev To find difference in token's decimal and iToken's decimal
 	// @return difference in decimals.
 	// @return true if token's decimal is more than iToken's
@@ -332,28 +399,10 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	function currentUBIInterest()
 		public
 		view
-		override
+		virtual
 		returns (uint256, uint256)
 	{
-		uint256 er = exchangeRate();
-		uint256 tokenWorth = currentTokenWorth();
-		if (tokenWorth <= totalProductivity) {
-			return (0, 0);
-		}
-		uint256 tokenGains = tokenWorth.sub(totalProductivity);
-		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
-		//mul by `10^decimalDifference` to equalize precision otherwise since exchangerate is very big, dividing by it would result in 0.
-		uint256 iTokenGains;
-		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal(); // based on https://compound.finance/docs#protocol-math
-		if (caseType) {
-			iTokenGains =
-				((tokenGains / 10**decimalDifference) * 10**mantissa) /
-				er; // based on https://compound.finance/docs#protocol-math
-		} else {
-			iTokenGains =
-				((tokenGains * 10**decimalDifference) * 10**mantissa) /
-				er; // based on https://compound.finance/docs#protocol-math
-		}
+		(uint256 iTokenGains, uint256 tokenGains, ) = currentGains();
 		tokenGains = getTokenValueInUSD(tokenGains);
 		return (iTokenGains, tokenGains);
 	}
@@ -366,7 +415,7 @@ contract SimpleStaking is AbstractGoodStaking, StakingToken {
 	 */
 	function collectUBIInterest(address _recipient)
 		public
-		override
+		virtual
 		onlyFundManager
 		returns (uint256, uint256)
 	{

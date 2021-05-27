@@ -3,6 +3,7 @@
 pragma solidity >=0.8.0;
 import "./SimpleStaking.sol";
 import "../Interfaces.sol";
+
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Token
@@ -81,9 +82,8 @@ contract GoodCompoundStaking is SimpleStaking {
 		override
 		returns (address, uint256)
 	{
-		
 		if (address(iToken) == nameService.getAddress("CDAI")) {
-			return (address(iToken), _amount); // If iToken is cDAI then just return cDAI 
+			return (address(iToken), _amount); // If iToken is cDAI then just return cDAI
 		}
 		cERC20 cToken = cERC20(address(iToken));
 		require(cToken.redeem(_amount) == 0, "Failed to redeem cToken");
@@ -110,14 +110,6 @@ contract GoodCompoundStaking is SimpleStaking {
 	}
 
 	/**
-	 * @dev returns token to iToken Exchange rate.
-	 */
-	function exchangeRate() internal view override returns (uint256) {
-		cERC20 cToken = cERC20(address(iToken));
-		return cToken.exchangeRateStored();
-	}
-
-	/**
 	 * @dev returns decimals of token.
 	 */
 	function tokenDecimal() internal view override returns (uint256) {
@@ -141,6 +133,51 @@ contract GoodCompoundStaking is SimpleStaking {
 		return tokenUsdOracle;
 	}
 
+	function currentGains()
+		public
+		view
+		override
+		returns (
+			uint256,
+			uint256,
+			uint256
+		)
+	{
+		cERC20 cToken = cERC20(address(iToken));
+		uint256 er = cToken.exchangeRateStored();
+		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
+		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
+		uint256 tokenBalance;
+		if (caseType) {
+			tokenBalance =
+				(iToken.balanceOf(address(this)) *
+					(10**decimalDifference) *
+					er) /
+				10**mantissa; // based on https://compound.finance/docs#protocol-math
+		} else {
+			tokenBalance =
+				((iToken.balanceOf(address(this)) / (10**decimalDifference)) *
+					er) /
+				10**mantissa; // based on https://compound.finance/docs#protocol-math
+		}
+		if (tokenBalance <= totalProductivity) {
+			return (0, 0, tokenBalance);
+		}
+		uint256 tokenGains = tokenBalance - (totalProductivity);
+		uint256 iTokenGains;
+		if (caseType) {
+			iTokenGains =
+				((tokenGains / 10**decimalDifference) * 10**mantissa) /
+				er; // based on https://compound.finance/docs#protocol-math
+		} else {
+			iTokenGains =
+				((tokenGains * 10**decimalDifference) * 10**mantissa) /
+				er; // based on https://compound.finance/docs#protocol-math
+		}
+
+		return (iTokenGains, tokenGains, tokenBalance);
+	}
+
 	function getGasCostForInterestTransfer()
 		external
 		view
@@ -148,5 +185,27 @@ contract GoodCompoundStaking is SimpleStaking {
 		returns (uint32)
 	{
 		return collectInterestGasCost;
+	}
+
+	/**
+	 * @dev Calculates worth of given amount of iToken in Token
+	 * @param _amount Amount of token to calculate worth in Token
+	 * @return Worth of given amount of token in Token
+	 */
+	function iTokenWorthinToken(uint256 _amount)
+		public
+		view
+		override
+		returns (uint256)
+	{
+		cERC20 cToken = cERC20(address(iToken));
+		uint256 er = cToken.exchangeRateStored();
+		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
+		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
+		uint256 tokenWorth =
+			caseType == true
+				? (_amount * (10**decimalDifference) * er) / 10**mantissa
+				: ((_amount / (10**decimalDifference)) * er) / 10**mantissa; // calculation based on https://compound.finance/docs#protocol-math
+		return tokenWorth;
 	}
 }
