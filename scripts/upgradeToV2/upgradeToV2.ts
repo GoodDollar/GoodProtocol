@@ -15,7 +15,8 @@ import {
   GReputation,
   SchemeRegistrar,
   CompoundVotingMachine,
-  ProtocolUpgrade
+  ProtocolUpgrade,
+  NameService
 } from "../../types";
 import { getFounders } from "../getFounders";
 import { fetchOrDeployProxyFactory } from "../fetchOrDeployProxyFactory";
@@ -37,7 +38,8 @@ const main = async () => {
     ...ProtocolSettings["default"],
     ...ProtocolSettings[networkName]
   };
-  const dao = ProtocolAddresses[networkName];
+  const dao = ProtocolAddresses["olddao"];
+  const newdao = ProtocolAddresses[networkName] || {};
 
   let [root] = await ethers.getSigners();
 
@@ -51,13 +53,14 @@ const main = async () => {
   const founders = await getFounders(networkName);
 
   const deployContracts = async () => {
-    console.log({ dao, protocolSettings });
+    console.log({ dao, newdao, protocolSettings });
     let release = {};
 
     const toDeployUpgradable = [
       {
         network: "both",
         name: "NameService",
+        //TODO: arguments based on network
         args: [
           controller,
           [
@@ -75,10 +78,10 @@ const main = async () => {
             avatar,
             dao.Identity,
             dao.GoodDollar,
-            dao.Contribution || ethers.constants.AddressZero,
+            dao.Contribution,
             "0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a", //bancor
-            dao.DAI || ethers.constants.AddressZero,
-            dao.cDAI || ethers.constants.AddressZero
+            dao.DAI,
+            dao.cDAI
           ]
         ]
       },
@@ -87,53 +90,95 @@ const main = async () => {
         name: "GReputation",
         initializer: "initialize(address, string, bytes32, uint256)",
         args: [
-          () => get(release, "NameService", dao.NameService),
+          () => get(release, "NameService", newdao.NameService),
           networkName.includes("mainnet") ? "fuse" : "rootState",
-          protocolSettings.repStateHash || ethers.constants.HashZero,
-          protocolSettings.repTotalSupply || 0
+          protocolSettings.repStateHash ||
+            (networkName === "develop" && ethers.constants.HashZero), //should fail on real deploy if not set
+          protocolSettings.repTotalSupply || (networkName === "develop" && 0) //should fail on real deploy if not set
         ]
       },
       {
         network: "both",
         name: "CompoundVotingMachine",
         args: [
-          () => get(release, "NameService", dao.NameService),
+          () => get(release, "NameService", newdao.NameService),
+          //TODO: make sure this changes by network
           protocolSettings.governance.proposalVotingPeriod
         ]
       },
       {
-        network: "both",
+        network: "mainnet",
+        name: "GoodMarketMaker",
+        args: [
+          () => get(release, "NameService", newdao.NameService),
+          protocolSettings.expansionRatio.nom,
+          protocolSettings.expansionRatio.denom
+        ]
+      },
+      {
+        network: "mainnet",
+        name: "GoodReserveCDai",
+        initializer: "initialize(address, bytes32)",
+        args: [
+          () => get(release, "NameService", newdao.NameService),
+          protocolSettings.gdxAirdrop
+        ]
+      },
+      {
+        network: "mainnet",
+        name: "GoodFundManager",
+        args: [() => get(release, "NameService", newdao.NameService)]
+      },
+      {
+        network: "mainnet",
+        name: "StakersDistribution",
+        args: [() => get(release, "NameService", newdao.NameService)]
+      },
+      {
+        network: "fuse",
+        name: "ClaimersDistribution",
+        args: [() => get(release, "NameService", newdao.NameService)]
+      },
+      {
+        network: "fuse",
+        name: "GovernanceStaking",
+        args: [() => get(release, "NameService", newdao.NameService)],
+        isUpgradable: false
+      },
+      {
+        network: "mainnet",
         name: "ProtocolUpgrade",
-        args: [dao.Controller],
+        args: [dao.Controller, dao.COMP],
         isUpgradable: false
       }
     ];
+    ethers.constants;
 
     for (let contract of toDeployUpgradable) {
-      if (
-        contract.network !== "both" &&
-        (contract.network === "mainnet") !== isMainnet
-      ) {
-        console.log(
-          contract,
-          " Skipping non mainnet/sidechain contract:",
-          contract.network,
-          contract.name
-        );
-        continue;
+      if (networkName !== "develop") {
+        if (
+          contract.network !== "both" &&
+          (contract.network === "mainnet") !== isMainnet
+        ) {
+          console.log(
+            contract,
+            " Skipping non mainnet/sidechain contract:",
+            contract.network,
+            contract.name
+          );
+          continue;
+        }
+        if (newdao[contract.name]) {
+          console.log(
+            contract.name,
+            " Skipping deployed contract at:",
+            newdao[contract.name],
+            "upgrading:",
+            !!process.env.UPGRADE
+          );
+          continue;
+        }
       }
-      if (networkName !== "develop" && dao[contract.name]) {
-        console.log(
-          contract.name,
-          " Skipping deployed contract at:",
-          dao[contract.name],
-          "upgrading:",
-          !!process.env.UPGRADE
-        );
-        continue;
-      }
-      const Contract = await ethers.getContractFactory(contract.name);
-      //   const ProxyFactory = await fetchOrDeployProxyFactory();
       const args = contract.args.map(_ => (isFunction(_) ? _() : _));
 
       console.log(`deploying contract ${contract.name}`, {
@@ -141,19 +186,23 @@ const main = async () => {
         release
         // pf: ProxyFactory.factory.address
       });
+
+      const Contract = await ethers.getContractFactory(contract.name);
+      //   const ProxyFactory = await fetchOrDeployProxyFactory();
+
       let deployed;
       if (contract.isUpgradable !== false)
         deployed = await upgrades.deployProxy(Contract, args, {
-          unsafeAllowCustomTypes: true,
           // proxyFactory: ProxyFactory,
-          initializer: contract.initializer
+          initializer: contract.initializer,
+          kind: "uups"
         });
       else deployed = await Contract.deploy(...args);
 
       console.log(`${contract.name} deployed to: ${deployed.address}`);
       release[contract.name] = deployed.address;
     }
-    let res = Object.assign({}, release);
+    let res = Object.assign(newdao, release);
     await releaser(release, networkName);
     return res;
   };
@@ -210,34 +259,38 @@ const main = async () => {
     console.log("performing protocol v2 upgrade...", { release });
     await upgrade.upgrade(
       release.NameService,
+      //old contracts
       [
         dao.Reserve,
         dao.DAIStaking || ethers.constants.AddressZero,
         dao.SchemeRegistrar,
-        dao.UpgradeScheme
+        dao.UpgradeScheme,
+        dao.MarketMaker
       ],
+      //new gov
       release.CompoundVotingMachine,
       //TODO: replace with new contracts to be added to nameservice
       [
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("0x01")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("0x02"))
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("RESERVE")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MARKET_MAKER"))
       ],
-      [release.SchemeRegistrar, release.UpgradeScheme],
+      [release.GoodReserveCDai, ethers.constants.AddressZero],
       //TODO: replace with default staking contracts
       [],
       []
     );
   };
 
+  //give Avatar permissions to the upgrade process contract
   const voteProtocolUpgrade = async release => {
     console.log(
       "approve upgrade scheme in dao...",
       release.ProtocolUpgrade,
-      release.SchemeRegistrar
+      dao.SchemeRegistrar
     );
     const schemeRegistrar: SchemeRegistrar = (await ethers.getContractAt(
       "SchemeRegistrar",
-      release.SchemeRegistrar
+      dao.SchemeRegistrar
     )) as SchemeRegistrar;
 
     const proposal = await (
@@ -260,11 +313,11 @@ const main = async () => {
 
     const absoluteVote = await ethers.getContractAt(
       ["function vote(bytes32,uint,uint,address) returns (bool)"],
-      release.AbsoluteVote
+      dao.AbsoluteVote
     );
 
     console.log("voteUpgradeScheme", {
-      absoluteVote: release.AbsoluteVote,
+      absoluteVote: dao.AbsoluteVote,
       founders
     });
     await Promise.all(

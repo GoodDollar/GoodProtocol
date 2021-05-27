@@ -378,24 +378,6 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		}
 	}
 
-	/**
-	 * @dev Making the contract inactive after it has transferred funds to `_avatar`.
-	 * Only the avatar can destroy the contract.
-	 */
-	/**  function end() public onlyAvatar {
-        // Transfers the remaining amount of cDai and GD to the avatar
-        uint256 remainingCDaiReserve = cDai.balanceOf(address(this));
-        if (remainingCDaiReserve > 0) {
-            require(cDai.transfer(address(avatar), remainingCDaiReserve),"cdai transfer failed");
-        }
-        IGoodDollar token = IGoodDollar(address(avatar.nativeToken()));
-        uint256 remainingGDReserve = token.balanceOf(address(this));
-        if (remainingGDReserve > 0) {
-            require(token.transfer(address(avatar), remainingGDReserve),"gd transfer failed");
-        }
-        super.internalEnd(avatar);
-    }*/
-
 	function quick(uint256[] memory data, address[] memory addresses)
 		internal
 		pure

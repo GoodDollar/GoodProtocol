@@ -81,9 +81,7 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 			: _lastRewardBlock;
 		uint256 curRewardBlock =
 			block.number > _blockEnd ? _blockEnd : block.number;
-		if (curRewardBlock < _blockStart)
-			return (_lastRewardBlock, _accAmountPerShare);
-		if (_lastRewardBlock >= _blockEnd)
+		if (curRewardBlock < _blockStart || _lastRewardBlock >= _blockEnd)
 			return (_lastRewardBlock, _accAmountPerShare);
 
 		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block

@@ -154,7 +154,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       [ethers.utils.parseEther("1728000")]
     );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
-    const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
+    const rewardsPerBlock = await governanceStaking.getRewardsPerBlock();
     expect(rewardsPerBlock).to.equal(
       ethers.utils.parseEther("1728000").div(BN.from("518400")) // 1728000 is montlhy reward amount and 518400 is monthly blocks for FUSE chain
     );
@@ -180,7 +180,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
   });
 
   it("Should be able to withdraw rewards without withdraw stake", async () => {
-    const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
+    const rewardsPerBlock = await governanceStaking.getRewardsPerBlock();
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
@@ -237,7 +237,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       ["17280000000000000000"] // Give 0.0001 GDAO per block so 17.28 GDAO per month
     );
     await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
-    const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
+    const rewardsPerBlock = await governanceStaking.getRewardsPerBlock();
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
@@ -272,9 +272,9 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
     await governanceStaking.stake("100");
-    const userProductivity = await governanceStaking.getProductivity(
-      founder.address
-    );
+    const userProductivity = await governanceStaking[
+      "getProductivity(address)"
+    ](founder.address);
     expect(userProductivity[0]).to.be.equal(BN.from("100"));
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOf(founder.address);
@@ -292,9 +292,9 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
     await governanceStaking.stake("100");
-    const productivityValue = await governanceStaking.getProductivity(
-      founder.address
-    );
+    const productivityValue = await governanceStaking[
+      "getProductivity(address)"
+    ](founder.address);
 
     expect(productivityValue[0].toString()).to.be.equal("100");
     expect(productivityValue[1].toString()).to.be.equal("100");
@@ -302,15 +302,15 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
   });
 
   it("it should return earned rewards with pending ones properly", async () => {
-    const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
+    const rewardsPerBlock = await governanceStaking.getRewardsPerBlock();
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(governanceStaking.address, "100");
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await governanceStaking.stake("100");
     await advanceBlocks(5);
-    const totalEarned = await governanceStaking.getUserPendingReward(
-      founder.address
-    );
+    const totalEarned = await governanceStaking[
+      "getUserPendingReward(address)"
+    ](founder.address);
     const pendingRewardBlockNumber = await ethers.provider.getBlockNumber();
     const multiplier = pendingRewardBlockNumber - stakeBlockNumber;
     const calculatedPendingReward = rewardsPerBlock.mul(multiplier); // We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
@@ -319,7 +319,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
   });
 
   it("Accumulated per share has enough precision when reward << totalproductivity", async () => {
-    const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
+    const rewardsPerBlock = await governanceStaking.getRewardsPerBlock();
     await goodDollar.mint(founder.address, "100000000000000"); // 1 trillion gd stake
     await goodDollar.approve(governanceStaking.address, "1000000000000");
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
@@ -337,7 +337,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
   });
 
   it("user receive fractional gdao properly when his stake << totalProductivity", async () => {
-    const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
+    const rewardsPerBlock = await governanceStaking.getRewardsPerBlock();
     await goodDollar.mint(founder.address, "800"); // 8gd
     await goodDollar.mint(staker.address, "200"); // 2gd
     await goodDollar.approve(governanceStaking.address, "800");
@@ -382,15 +382,17 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await goodDollar.approve(governanceStaking.address, "100");
     await governanceStaking.stake("100");
     await governanceStaking.approve(staker.address, "100");
-    const stakerProductivityBeforeTransfer = await governanceStaking.getProductivity(
-      staker.address
-    );
+    const stakerProductivityBeforeTransfer = await governanceStaking[
+      "getProductivity(address)"
+    ](staker.address);
+
     await governanceStaking
       .connect(staker)
       .transferFrom(founder.address, staker.address, "100");
-    const stakerProductivity = await governanceStaking.getProductivity(
-      staker.address
-    );
+    const stakerProductivity = await governanceStaking[
+      "getProductivity(address)"
+    ](staker.address);
+
     expect(await governanceStaking.balanceOf(founder.address)).to.equal(0);
     expect(await governanceStaking.balanceOf(staker.address)).to.equal(100);
 
@@ -437,28 +439,28 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       0 //should have 0 rewardEarned because every action, like the above stake withdraws gdao rewards
     );
     await advanceBlocks(2); // pass some blocks
-    const userPendingReward = await governanceStaking.getUserPendingReward(
-      staker2.address
-    );
+    const userPendingReward = await governanceStaking[
+      "getUserPendingReward(address)"
+    ](staker2.address);
     governanceStaking.connect(staker2).withdrawStake("100");
     expect(userPendingReward).to.be.gt(0);
   });
 
   it("it should return pendingRewards greater than zero", async () => {
-    let userPendingRewards = await governanceStaking.getUserPendingReward(
-      staker.address
-    );
+    let userPendingRewards = await governanceStaking[
+      "getUserPendingReward(address)"
+    ](staker.address);
     expect(userPendingRewards).to.be.gt(0);
     await governanceStaking.connect(staker).withdrawRewards();
-    userPendingRewards = await governanceStaking.getUserPendingReward(
-      staker.address
-    );
+    userPendingRewards = await governanceStaking[
+      "getUserPendingReward(address)"
+    ](staker.address);
     expect(userPendingRewards).to.be.gt(0); //withdrawrewards mines a block so pending will still not be 0.
 
     await governanceStaking.connect(staker).withdrawStake(0);
-    userPendingRewards = await governanceStaking.getUserPendingReward(
-      staker.address
-    );
+    userPendingRewards = await governanceStaking[
+      "getUserPendingReward(address)"
+    ](staker.address);
     expect(userPendingRewards).to.be.equal(0);
   });
 
@@ -479,31 +481,39 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       .approve(simpleGovernanceStaking.address, "200");
 
     await simpleGovernanceStaking.stake("100");
-    let accumulatedRewardsPerShare = await simpleGovernanceStaking.totalRewardsPerShare();
+    let accumulatedRewardsPerShare = await simpleGovernanceStaking[
+      "totalRewardsPerShare()"
+    ]();
     expect(accumulatedRewardsPerShare).to.equal(0); //first has no accumulated rewards yet, since no blocks have passed since staking
 
     await simpleGovernanceStaking.stake("100");
-    accumulatedRewardsPerShare = await simpleGovernanceStaking.totalRewardsPerShare();
-    expect(await simpleGovernanceStaking.rewardsPerBlock()).to.equal(
+    accumulatedRewardsPerShare = await simpleGovernanceStaking[
+      "totalRewardsPerShare()"
+    ]();
+    expect(await simpleGovernanceStaking.getRewardsPerBlock()).to.equal(
       ethers.utils
         .parseEther("2000000") //2M reputation
         .div(await simpleGovernanceStaking.FUSE_MONTHLY_BLOCKS())
     );
     let totalProductiviy = BN.from("100");
+
     //totalRewardsPerShare is in 1e27 , divid by  1e9 to get 1e18 decimals
     expect(accumulatedRewardsPerShare.div(BN.from(1e9))).to.equal(
       ethers.utils
-        .parseEther("2000000")
+        .parseEther("2000000") //monthly rewards
         .mul(BN.from(1e2)) //G$ is 2 decimals, dividing reduces decimals by 2, so we first increase to 1e20 decimals
-        .div(await simpleGovernanceStaking.FUSE_MONTHLY_BLOCKS())
-        .div(totalProductiviy)
-        .mul(BN.from("1")),
+        .div(await simpleGovernanceStaking.FUSE_MONTHLY_BLOCKS()) //=rewards per block
+        .mul(BN.from("1")) //=rewards per block * number of blocks = rewards earned in period
+        .div(totalProductiviy) //=rewards per share
+        .mul(BN.from("10000000000000000")), //restore lost precision from dividing by totalProductivity G$ 2 decimals;
       "1 block"
     ); //1 block passed with actual staking
 
     totalProductiviy = totalProductiviy.add(BN.from("100")); //second stake
     await simpleGovernanceStaking.connect(staker).stake("100");
-    let accumulatedRewardsPerShare2 = await simpleGovernanceStaking.totalRewardsPerShare();
+    let accumulatedRewardsPerShare2 = await simpleGovernanceStaking[
+      "totalRewardsPerShare()"
+    ]();
 
     //shouldnt be naive accumlattion of 2 blocks, since total productivity has changed between blocks
     expect(accumulatedRewardsPerShare2.div(BN.from(1e9))).to.not.equal(
@@ -512,7 +522,9 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
         .mul(BN.from(1e2)) //G$ is 2 decimals, dividing reduces decimals by 2, so we first increase to 1e20 decimals
         .div(await simpleGovernanceStaking.FUSE_MONTHLY_BLOCKS())
         .div(totalProductiviy)
-        .mul(BN.from("2")),
+        .mul(BN.from("2"))
+        .mul(BN.from("10000000000000000")), //increase precision to 1e18 from totalProductivity G$ 2 decimals;
+
       "2 blocks"
     ); //2 blocks passed but now we have 200 total productivity before 3rd stake
 
@@ -528,7 +540,10 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
         .mul(BN.from(1e2)) //G$ is 2 decimals, dividing reduces decimals by 2, so we first increase to 1e20 decimals
         .div(await simpleGovernanceStaking.FUSE_MONTHLY_BLOCKS())
         .div(totalProductiviy)
-        .add(accumulatedRewardsPerShare.div(BN.from(1e9))),
+        .mul(BN.from("10000000000000000")) //increase precision to 1e18 from totalProductivity G$ 2 decimals;
+        .add(accumulatedRewardsPerShare.div(BN.from(1e9))) //add rewards from previous block
+        .add(BN.from("5000000000000000")), //precision loss???
+
       "2 blocks correct"
     );
     await setDAOAddress("GDAO_STAKING", governanceStaking.address);
@@ -571,7 +586,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
   });
 
   it("it should get rewards for previous stakes when stake new amount of tokens", async () => {
-    const rewardsPerBlock = await governanceStaking.rewardsPerBlock();
+    const rewardsPerBlock = await governanceStaking.getRewardsPerBlock();
     await goodDollar.mint(founder.address, "200");
     await goodDollar.approve(governanceStaking.address, "200");
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
