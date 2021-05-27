@@ -31,7 +31,7 @@ contract BaseShareField is DSMath {
 	/**
 	 * @dev Helper function to check if caller is fund manager
 	 */
-	function _onlyFundManager() internal virtual {}
+	function _onlyFundManager() internal view virtual {}
 
 	/**
 	 * @dev Update reward variables of the given pool to be up-to-date.
