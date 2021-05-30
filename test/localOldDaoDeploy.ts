@@ -5,7 +5,7 @@
  * then to test upgrade process locally run:
  * npx hardhat run scripts/upgradeToV2/upgradeToV2.ts  --network develop
  */
-import { ethers } from "hardhat";
+import { network, ethers } from "hardhat";
 import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollar.json";
 import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
@@ -23,6 +23,7 @@ import SimpleDAIStaking from "@gooddollar/goodcontracts/stakingModel/build/contr
 
 import { Controller, GoodMarketMaker, CompoundVotingMachine } from "../types";
 import releaser from "../scripts/releaser";
+import { increaseTime } from "../test/helpers";
 ethers.constants.HashZero;
 const deploy = async () => {
   console.log("dao deploying...");
@@ -48,6 +49,8 @@ const deploy = async () => {
     Contribution: dao.contribution,
     DAIStaking: dao.simpleStaking,
     MarketMaker: dao.marketMaker.address,
+    UBIScheme: ubi.ubiScheme.address,
+    FirstClaimPool: ubi.firstClaim.address,
     network: "develop",
     networkId: 4447
   };
@@ -338,23 +341,9 @@ export const deployUBI = async deployedDAO => {
   await setSchemes([firstClaim.address, ubiScheme.address]);
   await firstClaim.start();
   await ubiScheme.start();
+
+  increaseTime(1100); //make sure period end of ubischeme has reached
   return { firstClaim, ubiScheme };
-};
-
-export async function increaseTime(seconds) {
-  await ethers.provider.send("evm_increaseTime", [seconds]);
-  await advanceBlocks(1);
-}
-
-export const advanceBlocks = async (blocks: number) => {
-  let ps = [];
-  for (let i = 0; i < blocks; i++) {
-    ps.push(ethers.provider.send("evm_mine", []));
-    if (i % 5000 === 0) {
-      await Promise.all(ps);
-      ps = [];
-    }
-  }
 };
 
 export const deployOldVoting = async dao => {

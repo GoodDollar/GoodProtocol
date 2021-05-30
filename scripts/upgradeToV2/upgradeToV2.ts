@@ -16,6 +16,7 @@ import {
   SchemeRegistrar,
   CompoundVotingMachine,
   ProtocolUpgrade,
+  ProtocolUpgradeFuse,
   NameService
 } from "../../types";
 import { getFounders } from "../getFounders";
@@ -33,20 +34,21 @@ networkNames[1] = networkName;
 networkNames[122] = networkName;
 networkNames[3] = networkName;
 
+const isDevelop = networkName.startsWith("develop");
+const isMainnet = networkName.includes("mainnet");
 const main = async () => {
   let protocolSettings = {
     ...ProtocolSettings["default"],
     ...ProtocolSettings[networkName]
   };
-  const dao = ProtocolAddresses["olddao"];
+  const dao = ProtocolAddresses["olddao"]; //TODO: fuse vs mainnet
   const newdao = ProtocolAddresses[networkName] || {};
 
   let [root] = await ethers.getSigners();
 
   let avatar = dao.Avatar;
   let controller = dao.Controller;
-  const isMainnet = networkName.includes("mainnet");
-  let repStateId = networkName.includes("mainnet") ? "fuse" : "rootState";
+  let repStateId = isMainnet ? "fuse" : "rootState";
   let oldVotingMachine = dao.SchemeRegistrar;
 
   let grep: GReputation, vm: CompoundVotingMachine;
@@ -91,10 +93,10 @@ const main = async () => {
         initializer: "initialize(address, string, bytes32, uint256)",
         args: [
           () => get(release, "NameService", newdao.NameService),
-          networkName.includes("mainnet") ? "fuse" : "rootState",
+          repStateId,
           protocolSettings.repStateHash ||
-            (networkName === "develop" && ethers.constants.HashZero), //should fail on real deploy if not set
-          protocolSettings.repTotalSupply || (networkName === "develop" && 0) //should fail on real deploy if not set
+            (isDevelop && ethers.constants.HashZero), //should fail on real deploy if not set
+          protocolSettings.repTotalSupply || (isDevelop && 0) //should fail on real deploy if not set
         ]
       },
       {
@@ -146,42 +148,57 @@ const main = async () => {
         isUpgradable: false
       },
       {
+        network: "fuse",
+        name: "UBIScheme",
+        initializer: "initialize(address, address, uint256)",
+        args: [
+          () => get(release, "NameService", newdao.NameService),
+          dao.FirstClaimPool,
+          14
+        ]
+      },
+      {
         network: "mainnet",
         name: "ProtocolUpgrade",
         args: [dao.Controller, dao.COMP],
+        isUpgradable: false
+      },
+      {
+        network: "fuse",
+        name: "ProtocolUpgradeFuse",
+        args: [dao.Controller],
         isUpgradable: false
       }
     ];
     ethers.constants;
 
     for (let contract of toDeployUpgradable) {
-      if (networkName !== "develop") {
-        if (
-          contract.network !== "both" &&
-          (contract.network === "mainnet") !== isMainnet
-        ) {
-          console.log(
-            contract,
-            " Skipping non mainnet/sidechain contract:",
-            contract.network,
-            contract.name
-          );
-          continue;
-        }
-        if (newdao[contract.name]) {
-          console.log(
-            contract.name,
-            " Skipping deployed contract at:",
-            newdao[contract.name],
-            "upgrading:",
-            !!process.env.UPGRADE
-          );
-          continue;
-        }
+      if (
+        contract.network !== "both" &&
+        (contract.network === "mainnet") !== isMainnet
+      ) {
+        console.log(
+          contract,
+          " Skipping non mainnet/sidechain contract:",
+          contract.network,
+          contract.name
+        );
+        continue;
       }
+      if (isDevelop === false && newdao[contract.name]) {
+        console.log(
+          contract.name,
+          " Skipping deployed contract at:",
+          newdao[contract.name],
+          "upgrading:",
+          !!process.env.UPGRADE
+        );
+        continue;
+      }
+
       const args = contract.args.map(_ => (isFunction(_) ? _() : _));
 
-      console.log(`deploying contract ${contract.name}`, {
+      console.log(`deploying contract upgrade ${contract.name}`, {
         args,
         release
         // pf: ProxyFactory.factory.address
@@ -256,7 +273,10 @@ const main = async () => {
       release.ProtocolUpgrade
     )) as ProtocolUpgrade;
 
-    console.log("performing protocol v2 upgrade...", { release });
+    console.log("performing protocol v2 upgrade on Mainnet...", {
+      release,
+      dao
+    });
     await upgrade.upgrade(
       release.NameService,
       //old contracts
@@ -281,11 +301,41 @@ const main = async () => {
     );
   };
 
+  const performUpgradeFuse = async release => {
+    const upgrade: ProtocolUpgradeFuse = (await ethers.getContractAt(
+      "ProtocolUpgradeFuse",
+      release.ProtocolUpgradeFuse
+    )) as ProtocolUpgradeFuse;
+
+    console.log("performing protocol v2 upgrade on Fuse...", { release, dao });
+    await upgrade.upgrade(
+      release.NameService,
+      //old contracts
+      [
+        dao.SchemeRegistrar,
+        dao.UpgradeScheme,
+        dao.UBIScheme,
+        dao.FirstClaimPool
+      ],
+      //new gov
+      release.CompoundVotingMachine,
+      release.UBIScheme,
+      //TODO: replace with new contracts to be added to nameservice
+      [
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("RESERVE")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MARKET_MAKER"))
+      ],
+      [ethers.constants.AddressZero, ethers.constants.AddressZero]
+    );
+  };
+
   //give Avatar permissions to the upgrade process contract
   const voteProtocolUpgrade = async release => {
+    const Upgrade = release.ProtocolUpgrade || release.ProtocolUpgradeFuse;
+
     console.log(
       "approve upgrade scheme in dao...",
-      release.ProtocolUpgrade,
+      Upgrade,
       dao.SchemeRegistrar
     );
     const schemeRegistrar: SchemeRegistrar = (await ethers.getContractAt(
@@ -296,7 +346,7 @@ const main = async () => {
     const proposal = await (
       await schemeRegistrar.proposeScheme(
         avatar,
-        release.ProtocolUpgrade,
+        Upgrade,
         ethers.constants.HashZero,
         "0x0000001F",
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("ProtocolUpgrade"))
@@ -307,7 +357,7 @@ const main = async () => {
     let proposalId = proposal.events.find(_ => _.event === "NewSchemeProposal")
       .args._proposalId;
 
-    console.log("proposal", { scheme: release.ProtocolUpgrade, proposalId });
+    console.log("proposal", { scheme: Upgrade, proposalId });
 
     console.log("voting...");
 
@@ -333,7 +383,9 @@ const main = async () => {
 
   const release: any = await deployContracts();
   await voteProtocolUpgrade(release);
-  await performUpgrade(release);
+
+  isMainnet && (await performUpgrade(release));
+  !isMainnet && (await performUpgradeFuse(release));
   // await proveNewRep();
   // await proposeRemoveOldSchemes();
   // await voteToRevoke();
