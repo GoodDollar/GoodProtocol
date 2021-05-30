@@ -542,8 +542,6 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     //accumulated so far plus block accumulation
     expect(accumulatedRewardsPerShare2).to.equal(
       calculatedAccRewards.add(accumulatedRewardsPerShare), //add rewards from previous block
-      // .add(BN.from("5000000000000000")), //precision loss???
-
       "2 blocks correct"
     );
     await setDAOAddress("GDAO_STAKING", governanceStaking.address);

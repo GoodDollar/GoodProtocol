@@ -7,6 +7,7 @@ import "../DAOStackInterfaces.sol";
 import "../utils/DAOUpgradeableContract.sol";
 
 /**
+ * based on https://github.com/compound-finance/compound-protocol/blob/b9b14038612d846b83f8a009a82c38974ff2dcfe/contracts/Governance/GovernorAlpha.sol
  * CompoundVotingMachine based on Compound's governance with a few differences
  * 1. no timelock. once vote has passed it stays open for 'queuePeriod' (2 days by default).
  * if vote decision has changed, execution will be delayed so at least 24 hours are left to vote.
