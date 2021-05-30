@@ -18,7 +18,11 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
  * or withdraw their stake in Tokens
  * the contracts buy intrest tokens and can transfer the daily interest to the  DAO
  */
-contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
+abstract contract SimpleStaking is
+	ERC20Upgradeable,
+	DAOContract,
+	BaseShareField
+{
 	// Token address
 	ERC20 token;
 	// Interest Token address
@@ -119,8 +123,7 @@ contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
 		public
 		view
 		virtual
-		returns (uint256)
-	{}
+		returns (uint256);
 
 	/**
 	 * @dev Get gas cost for interest transfer so can be used in the calculation of collectable interest for particular gas amount
@@ -130,24 +133,23 @@ contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
 		external
 		view
 		virtual
-		returns (uint32)
-	{}
+		returns (uint32);
 
 	/**
 	 * @dev Returns decimal value for token.
 	 */
-	function tokenDecimal() internal view virtual returns (uint256) {}
+	function tokenDecimal() internal view virtual returns (uint256);
 
 	/**
 	 * @dev Returns decimal value for intrest token.
 	 */
-	function iTokenDecimal() internal view virtual returns (uint256) {}
+	function iTokenDecimal() internal view virtual returns (uint256);
 
 	/**
 	 * @dev Redeem invested tokens from defi protocol.
 	 * @param amount tokens to be redeemed.
 	 */
-	function redeem(uint256 amount) internal virtual {}
+	function redeem(uint256 amount) internal virtual;
 
 	/**
 	 * @dev Redeem invested underlying tokens from defi protocol
@@ -157,20 +159,19 @@ contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
 	function redeemUnderlyingToDAI(uint256 _amount)
 		internal
 		virtual
-		returns (address, uint256)
-	{}
+		returns (address, uint256);
 
 	/**
 	 * @dev Function to get TOKEN/USD oracle address
 	 * @return TOKEN/USD oracle address
 	 */
-	function getTokenUsdOracle() internal view virtual returns (address) {}
+	function getTokenUsdOracle() internal view virtual returns (address);
 
 	/**
 	 * @dev Invests staked tokens to defi protocol.
 	 * @param amount tokens staked.
 	 */
-	function mintInterestToken(uint256 amount) internal virtual {}
+	function mintInterestToken(uint256 amount) internal virtual;
 
 	/**
 	 * @dev Function that calculates current interest gains of this staking contract
@@ -184,8 +185,7 @@ contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
 			uint256,
 			uint256,
 			uint256
-		)
-	{}
+		);
 
 	/**
 	 * @dev Allows a staker to deposit Tokens. Notice that `approve` is
