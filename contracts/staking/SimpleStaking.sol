@@ -49,12 +49,7 @@ contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
 	 * @dev Emitted when `staker` withdraws their stake `value` tokens and contracts balance will
 	 * be reduced to`remainingBalance`.
 	 */
-	event StakeWithdraw(
-		address indexed staker,
-		address token,
-		uint256 value,
-		uint256 remainingBalance
-	);
+	event StakeWithdraw(address indexed staker, address token, uint256 value);
 
 	/**
 	 * @dev Emitted when fundmanager transfers intrest collected from defi protrocol.
@@ -62,10 +57,9 @@ contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
 	 */
 	event InterestCollected(
 		address recipient,
-		address token,
-		address intrestToken,
-		uint256 intrestTokenValue,
-		uint256 tokenValue
+		uint256 iTokenAmount,
+		uint256 tokenAmount,
+		uint256 usdValue
 	);
 
 	/**
@@ -121,7 +115,7 @@ contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
 	 * @param _amount Amount of iToken to calculate worth in Token
 	 * @return Worth of given amount of iToken in Token
 	 */
-	function iTokenWorthinToken(uint256 _amount)
+	function iTokenWorthInToken(uint256 _amount)
 		public
 		view
 		virtual
@@ -220,7 +214,7 @@ contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
 			),
 			"transferFrom failed, make sure you approved token transfer"
 		);
-		_amount = _inInterestToken ? iTokenWorthinToken(_amount) : _amount;
+		_amount = _inInterestToken ? iTokenWorthInToken(_amount) : _amount;
 		if (_inInterestToken == false) {
 			mintInterestToken(_amount); //mint iToken
 		}
@@ -270,7 +264,7 @@ contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
 		require(_amount > 0, "Should withdraw positive amount");
 		(uint256 userProductivity, ) = getProductivity(msg.sender);
 		if (_inInterestToken) {
-			uint256 tokenWorth = iTokenWorthinToken(_amount);
+			uint256 tokenWorth = iTokenWorthInToken(_amount);
 			require(userProductivity >= tokenWorth, "Not enough token staked");
 			require(
 				iToken.transfer(msg.sender, _amount),
@@ -321,8 +315,7 @@ contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
 		emit StakeWithdraw(
 			msg.sender,
 			address(token),
-			_inInterestToken == false ? tokenWithdraw : _amount,
-			token.balanceOf(address(this))
+			_inInterestToken == false ? tokenWithdraw : _amount
 		);
 	}
 
@@ -424,17 +417,21 @@ contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
 
 	/**
 	 * @dev Calculates the current interest that was gained.
-	 * @return (uint256, uint256, uint256) The interest in iToken, the interest in USD
+	 * @return (uint256, uint256, uint256) The interest in iToken, the interest in Token and the interest in USD
 	 */
 	function currentUBIInterest()
 		public
 		view
 		virtual
-		returns (uint256, uint256)
+		returns (
+			uint256,
+			uint256,
+			uint256
+		)
 	{
 		(uint256 iTokenGains, uint256 tokenGains, ) = currentGains();
-		tokenGains = getTokenValueInUSD(tokenGains);
-		return (iTokenGains, tokenGains);
+		uint256 usdGains = getTokenValueInUSD(tokenGains);
+		return (iTokenGains, tokenGains, usdGains);
 	}
 
 	/**
@@ -446,7 +443,11 @@ contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
 	function collectUBIInterest(address _recipient)
 		public
 		virtual
-		returns (uint256, uint256)
+		returns (
+			uint256,
+			uint256,
+			uint256
+		)
 	{
 		_canMintRewards();
 		// otherwise fund manager has to wait for the next interval
@@ -454,7 +455,8 @@ contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
 			_recipient != address(this),
 			"Recipient cannot be the staking contract"
 		);
-		(uint256 iTokenGains, uint256 tokenGains) = currentUBIInterest();
+		(uint256 iTokenGains, uint256 tokenGains, uint256 usdGains) =
+			currentUBIInterest();
 		lastUBICollection = block.number / blockInterval;
 		(address redeemedToken, uint256 redeemedAmount) =
 			redeemUnderlyingToDAI(iTokenGains);
@@ -464,14 +466,8 @@ contract SimpleStaking is ERC20Upgradeable, DAOContract, BaseShareField {
 				"collect transfer failed"
 			);
 
-		emit InterestCollected(
-			_recipient,
-			address(token),
-			address(iToken),
-			iTokenGains,
-			tokenGains
-		);
-		return (iTokenGains, tokenGains);
+		emit InterestCollected(_recipient, iTokenGains, tokenGains, usdGains);
+		return (iTokenGains, tokenGains, usdGains);
 	}
 
 	function pause(bool _isPaused) public {

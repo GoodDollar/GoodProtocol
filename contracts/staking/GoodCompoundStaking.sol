@@ -147,23 +147,12 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 er = cToken.exchangeRateStored();
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
-		uint256 tokenBalance;
-		if (caseType) {
-			tokenBalance =
-				(iToken.balanceOf(address(this)) *
-					(10**decimalDifference) *
-					er) /
-				10**mantissa; // based on https://compound.finance/docs#protocol-math
-		} else {
-			tokenBalance =
-				((iToken.balanceOf(address(this)) / (10**decimalDifference)) *
-					er) /
-				10**mantissa; // based on https://compound.finance/docs#protocol-math
-		}
+		uint256 tokenBalance =
+			iTokenWorthInToken(iToken.balanceOf(address(this)));
 		if (tokenBalance <= totalProductivity) {
 			return (0, 0, tokenBalance);
 		}
-		uint256 tokenGains = tokenBalance - (totalProductivity);
+		uint256 tokenGains = tokenBalance - totalProductivity;
 		uint256 iTokenGains;
 		if (caseType) {
 			iTokenGains =
@@ -192,7 +181,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @param _amount Amount of token to calculate worth in Token
 	 * @return Worth of given amount of token in Token
 	 */
-	function iTokenWorthinToken(uint256 _amount)
+	function iTokenWorthInToken(uint256 _amount)
 		public
 		view
 		override
