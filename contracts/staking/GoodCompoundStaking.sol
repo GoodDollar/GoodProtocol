@@ -55,9 +55,10 @@ contract GoodCompoundStaking is SimpleStaking {
 	 */
 	function mintInterestToken(uint256 _amount) internal override {
 		cERC20 cToken = cERC20(address(iToken));
-		uint256 res = cToken.mint(_amount);
-
-		require(res == 0, "Minting cToken failed, funds returned");
+		require(
+			cToken.mint(_amount) == 0,
+			"Minting cToken failed, funds returned"
+		);
 	}
 
 	/**
