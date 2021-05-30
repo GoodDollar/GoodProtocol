@@ -1562,4 +1562,91 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
   });
+  it("it should get staking reward even reward amount is too low", async () => {
+    const goodCompoundStakingTestFactory = await ethers.getContractFactory(
+      "GoodCompoundStakingTest"
+    );
+    const simpleStaking1 = (await goodCompoundStakingTestFactory.deploy(
+      bat.address,
+      cBat.address,
+      BLOCK_INTERVAL,
+      nameService.address,
+      "Good BaT",
+      "gBAT",
+      "50",
+      batUsdOracle.address,
+      "100000"
+    )) as GoodCompoundStaking;
+    const currentBlock = await ethers.provider.getBlockNumber();
+    const rewardsPerBlock = BN.from("100");
+    let encodedData = goodFundManager.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        rewardsPerBlock,
+        simpleStaking1.address,
+        currentBlock - 10,
+        currentBlock + 1000,
+        false
+      ] // set 1 gd per block
+    );
+    await genericCall(goodFundManager.address, encodedData, avatar, 0);
+    const stakingAmount = ethers.utils.parseEther("100");
+    await bat["mint(address,uint256)"](founder.address, stakingAmount);
+    await bat["mint(address,uint256)"](staker.address, stakingAmount);
+    await bat["approve(address,uint256)"](
+      simpleStaking1.address,
+      stakingAmount
+    );
+    await bat
+      .connect(staker)
+      ["approve(address,uint256)"](simpleStaking1.address, stakingAmount);
+    await simpleStaking1["stake(uint256,uint256,bool)"](
+      stakingAmount,
+      "0",
+      false
+    );
+    const founderGdBalanceAfterStake = await goodDollar.balanceOf(
+      founder.address
+    );
+    const stakerStakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
+    await simpleStaking1
+      .connect(staker)
+      ["stake(uint256,uint256,bool)"](stakingAmount.div(20), "0", false); // should get ~0.009 gd each block
+    const stakerGdBalanceAfterStake = await goodDollar.balanceOf(
+      staker.address
+    );
+    await advanceBlocks(100);
+    await simpleStaking1
+      .connect(staker)
+      ["withdrawStake(uint256,bool)"](stakingAmount.div(20), false);
+    const stakerWithdrawBlockNumber = await ethers.provider.getBlockNumber();
+    const stakerGdBalanceAfterWithdraw = await goodDollar.balanceOf(
+      staker.address
+    );
+    await simpleStaking1["withdrawStake(uint256,bool)"](stakingAmount, false);
+    const founderWithdrawBlockNumber = await ethers.provider.getBlockNumber();
+    const founderGdBalanceAfterWithdraw = await goodDollar.balanceOf(
+      founder.address
+    );
+    const stakerCalculatedRewards = rewardsPerBlock
+      .mul(5)
+      .mul(stakerWithdrawBlockNumber - stakerStakeBlockNumber)
+      .div(105)
+      .div(2);
+    const founderCalculatedRewards = rewardsPerBlock
+      .mul(BN.from("2"))
+      .add(
+        rewardsPerBlock
+          .mul(100)
+          .mul(stakerWithdrawBlockNumber - stakerStakeBlockNumber)
+          .div(105)
+      )
+      .div(BN.from("2"));
+    expect(stakerGdBalanceAfterWithdraw).to.be.equal(
+      stakerGdBalanceAfterStake.add(stakerCalculatedRewards)
+    );
+    expect(founderGdBalanceAfterWithdraw).to.be.equal(
+      founderGdBalanceAfterStake.add(founderCalculatedRewards)
+    );
+  });
 });
