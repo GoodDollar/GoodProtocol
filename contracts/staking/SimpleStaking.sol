@@ -470,18 +470,14 @@ abstract contract SimpleStaking is
 		return (iTokenGains, tokenGains, usdGains);
 	}
 
-	function pause(bool _isPaused) public {
-		_onlyAvatar();
-		isPaused = _isPaused;
-	}
-
 	/**
 	 * @dev making the contract inactive
 	 * NOTICE: this could theoretically result in future interest earned in cdai to remain locked
 	 * but we dont expect any other stakers but us in SimpleDAIStaking
 	 */
-	function end() public {
-		pause(true);
+	function pause(bool _isPaused) public {
+		_onlyAvatar();
+		isPaused = _isPaused;
 	}
 
 	/**
