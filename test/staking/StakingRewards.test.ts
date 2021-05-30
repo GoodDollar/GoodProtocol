@@ -1456,11 +1456,17 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await simpleStaking1
       .connect(signers[0])
       ["stake(uint256,uint256,bool)"](stakingAmount.div(4), "0", false);
+    const stakerThreeGdBalanceAfterStake = await goodDollar.balanceOf(
+      signers[0].address
+    );
     const stakerFourStakeBlockNumber =
       (await ethers.provider.getBlockNumber()) + 1;
     await simpleStaking1
       .connect(signers[1])
       ["stake(uint256,uint256,bool)"](stakingAmount.div(10), "0", false);
+    const stakerFourGdBalanceAfterStake = await goodDollar.balanceOf(
+      signers[1].address
+    );
     await advanceBlocks(10);
     await simpleStaking1["withdrawStake(uint256,bool)"](stakingAmount, false);
     const stakerOneWithdrawBlockNumber = await ethers.provider.getBlockNumber();
@@ -1477,11 +1483,16 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await simpleStaking1
       .connect(signers[0])
       ["withdrawStake(uint256,bool)"](stakingAmount.div(4), false);
-    const stakerThreeWithdrawBlockNumber = await ethers.provider.getBlockNumber();
+
+    const stakerThreeGdBalanceAfterWithdraw = await goodDollar.balanceOf(
+      signers[0].address
+    );
     await simpleStaking1
       .connect(signers[1])
       ["withdrawStake(uint256,bool)"](stakingAmount.div(10), false);
-    const stakerFourWithdrawBlockNumber = await ethers.provider.getBlockNumber();
+    const stakerFourGdBalanceAfterWithdraw = await goodDollar.balanceOf(
+      signers[1].address
+    );
     const stakerOneCalculatedReward = rewardsPerBlock
       .add(rewardsPerBlock.mul(100).div(120)) // there is new staker so total stake units are 120 if call full stakingamount is 100
       .add(rewardsPerBlock.mul(100).div(145)) // there is new staker so total stake units are 145
@@ -1498,12 +1509,57 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .add(
         rewardsPerBlock
           .mul(20)
-          .mul(stakerTwoWithdrawBlockNumber - stakerFourStakeBlockNumber)
+          .mul(stakerOneWithdrawBlockNumber - stakerFourStakeBlockNumber)
           .div(155)
       )
+      .add(rewardsPerBlock.mul(20).div(55))
+      .div(BN.from("2"))
+      .add("1");
+    const stakerThreeCalculatedReward = BN.from("0")
+      .add(rewardsPerBlock.mul(25).div(145))
+      .add(
+        rewardsPerBlock
+          .mul(25)
+          .mul(stakerOneWithdrawBlockNumber - stakerFourStakeBlockNumber)
+          .div(155)
+      )
+      .add(rewardsPerBlock.mul(25).div(55))
+      .add(rewardsPerBlock.mul(25).div(35))
       .div(BN.from("2"));
+    const stakerFourCalculatedReward = BN.from("0")
+      .add(
+        rewardsPerBlock
+          .mul(10)
+          .mul(stakerOneWithdrawBlockNumber - stakerFourStakeBlockNumber)
+          .div(155)
+      )
+      .add(rewardsPerBlock.mul(10).div(55))
+      .add(rewardsPerBlock.mul(10).div(35))
+      .add(rewardsPerBlock)
+      .div(BN.from("2"))
+      .add("1");
     expect(stakerOneGdBalanceAfterWithdraw).to.be.equal(
       stakerOneGdBalanceAfterStake.add(stakerOneCalculatedReward)
     );
+    expect(stakerTwoGdBalanceAfterWithdraw).to.be.equal(
+      stakerTwoGdBalanceAfterStake.add(stakerTwoCalculatedReward)
+    );
+    expect(stakerThreeGdBalanceAfterWithdraw).to.be.equal(
+      stakerThreeGdBalanceAfterStake.add(stakerThreeCalculatedReward)
+    );
+    expect(stakerFourGdBalanceAfterWithdraw).to.be.equal(
+      stakerFourGdBalanceAfterStake.add(stakerFourCalculatedReward)
+    );
+    encodedData = goodFundManager.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        rewardsPerBlock,
+        simpleStaking1.address,
+        currentBlock - 10,
+        currentBlock + 1000,
+        true
+      ] // set 10 gd per block
+    );
+    await genericCall(goodFundManager.address, encodedData, avatar, 0);
   });
 });
