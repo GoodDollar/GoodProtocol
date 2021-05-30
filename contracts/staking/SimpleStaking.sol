@@ -387,13 +387,10 @@ abstract contract SimpleStaking is
 	function tokenDecimalPrecision() internal view returns (uint256, bool) {
 		uint256 tokenDecimal = tokenDecimal();
 		uint256 iTokenDecimal = iTokenDecimal();
-		uint256 decimalDifference;
-		// Need to find easy way to do it.
-		if (tokenDecimal > iTokenDecimal) {
-			decimalDifference = tokenDecimal - iTokenDecimal;
-		} else {
-			decimalDifference = iTokenDecimal - tokenDecimal;
-		}
+		uint256 decimalDifference =
+			tokenDecimal > iTokenDecimal
+				? tokenDecimal - iTokenDecimal
+				: iTokenDecimal - tokenDecimal;
 		return (decimalDifference, tokenDecimal > iTokenDecimal);
 	}
 
