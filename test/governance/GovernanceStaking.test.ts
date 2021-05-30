@@ -533,17 +533,15 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       accumulatedRewardsPerShare.toString()
     );
 
-    //accumulated so far plus block accumulation
-    expect(accumulatedRewardsPerShare2.div(BN.from(1e9))).to.equal(
+    const calculatedAccRewards = rdiv(
       ethers.utils
         .parseEther("2000000")
-        .mul(BN.from(1e2)) //G$ is 2 decimals, dividing reduces decimals by 2, so we first increase to 1e20 decimals
-        .div(await simpleGovernanceStaking.FUSE_MONTHLY_BLOCKS())
-        .div(totalProductiviy)
-        .mul(BN.from("10000000000000000")) //increase precision to 1e18 from totalProductivity G$ 2 decimals;
-        .add(accumulatedRewardsPerShare.div(BN.from(1e9))) //add rewards from previous block
-        .add(BN.from("5000000000000000")), //precision loss???
-
+        .div(await simpleGovernanceStaking.FUSE_MONTHLY_BLOCKS()),
+      totalProductiviy
+    );
+    //accumulated so far plus block accumulation
+    expect(accumulatedRewardsPerShare2).to.equal(
+      calculatedAccRewards.add(accumulatedRewardsPerShare), //add rewards from previous block
       "2 blocks correct"
     );
     await setDAOAddress("GDAO_STAKING", governanceStaking.address);
@@ -603,4 +601,11 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       gdaoBalanceBeforeGetRewards.add(calculatedReward)
     );
   });
+
+  function rdiv(x: BigNumber, y: BigNumber) {
+    return x
+      .mul(BN.from("10").pow(27))
+      .add(y.div(2))
+      .div(y);
+  }
 });
