@@ -436,9 +436,9 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			AggregatorV3Interface(nameService.getAddress("DAI_ETH_ORACLE"));
 		int256 daiInETH = daiETHOracle.latestAnswer(); // returns DAI price in ETH
 
-		uint256 result = ((uint256(gasPrice) * 1e27) / uint256(daiInETH)); // Gasprice in 9 decimals and daiInETH is 18 decimals so we multiply gasprice with 1e27 in order to get result in 18 decimals
+		uint256 result = ((uint256(gasPrice) * 1e18) / uint256(daiInETH)); // Gasprice in GWEI and daiInETH is 18 decimals so we multiply gasprice with 1e18 in order to get result in 18 decimals
 		result =
-			(((result / 1e10) * 1e18) /
+			(((result / 1e10) * 1e28) /
 				cERC20(nameService.getAddress("CDAI")).exchangeRateStored()) *
 			_gasAmount; // based on https://compound.finance/docs#protocol-math
 		return result;

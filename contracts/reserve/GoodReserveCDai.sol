@@ -546,7 +546,7 @@ contract GoodReserveCDai is
 	function currentPriceDAI() public view returns (uint256) {
 		cERC20 cDai = cERC20(cDaiAddress);
 
-		return (((currentPrice() * 1e10) * 1e18) / cDai.exchangeRateStored()); // based on https://compound.finance/docs#protocol-math
+		return (((currentPrice() * 1e10) * 1e28) / cDai.exchangeRateStored()); // based on https://compound.finance/docs#protocol-math
 	}
 
 	function mintByPrice(
