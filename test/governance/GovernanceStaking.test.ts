@@ -603,4 +603,118 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       gdaoBalanceBeforeGetRewards.add(calculatedReward)
     );
   });
+  it("it should distribute rewards properly when there is multiple stakers", async () => {
+    const rewardsPerBlock = await governanceStaking.getRewardsPerBlock();
+    const stakingAmount = BN.from("100");
+    await goodDollar.mint(founder.address, stakingAmount);
+    await goodDollar.mint(staker.address, stakingAmount);
+    await goodDollar.mint(signers[0].address, stakingAmount);
+    await goodDollar.mint(signers[1].address, stakingAmount);
+
+    await goodDollar.approve(governanceStaking.address, stakingAmount);
+    await goodDollar
+      .connect(staker)
+      .approve(governanceStaking.address, stakingAmount);
+    await goodDollar
+      .connect(signers[0])
+      .approve(governanceStaking.address, stakingAmount);
+    await goodDollar
+      .connect(signers[1])
+      .approve(governanceStaking.address, stakingAmount);
+    await governanceStaking.stake(stakingAmount);
+    const stakerOneGDAOBalanceAfterStake = await grep.balanceOf(
+      founder.address
+    );
+    await governanceStaking.connect(staker).stake(stakingAmount.div(10));
+    const stakerTwoGDAOBalanceAfterStake = await grep.balanceOf(staker.address);
+    await governanceStaking.connect(signers[0]).stake(stakingAmount.div(4));
+    const stakerThreeGDAOBalanceAfterStake = await grep.balanceOf(
+      signers[0].address
+    );
+    const stakerFourStakeBlockNumber =
+      (await ethers.provider.getBlockNumber()) + 1;
+    await governanceStaking.connect(signers[1]).stake(stakingAmount.div(5));
+    const stakerFourGDAOBalanceAfterStake = await grep.balanceOf(
+      signers[1].address
+    );
+    await advanceBlocks(10);
+    await governanceStaking.withdrawStake(stakingAmount);
+    const stakerOneWithdrawBlockNumber = await ethers.provider.getBlockNumber();
+    const stakerOneGDAOBalanceAfterWithdraw = await grep.balanceOf(
+      founder.address
+    );
+    await governanceStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount.div(10));
+    const stakerTwoGDAOBalanceAfterWithdraw = await grep.balanceOf(
+      staker.address
+    );
+    await governanceStaking
+      .connect(signers[0])
+      .withdrawStake(stakingAmount.div(4));
+    const stakerThreeGDAOBalanceAfterWithdraw = await grep.balanceOf(
+      signers[0].address
+    );
+    await governanceStaking
+      .connect(signers[1])
+      .withdrawStake(stakingAmount.div(5));
+    const stakerFourGDAOBalanceAfterWithdraw = await grep.balanceOf(
+      signers[1].address
+    );
+    const stakerOneRewardsCalculated = rewardsPerBlock
+      .add(rewardsPerBlock.mul(100).div(110))
+      .add(rewardsPerBlock.mul(100).div(135))
+      .add(
+        rewardsPerBlock
+          .mul(100)
+          .mul(stakerOneWithdrawBlockNumber - stakerFourStakeBlockNumber)
+          .div(155)
+      )
+      .add(BN.from("2"));
+    const stakerTwoRewardsCalculated = rewardsPerBlock
+      .mul(10)
+      .div(110)
+      .add(rewardsPerBlock.mul(10).div(135))
+      .add(
+        rewardsPerBlock
+          .mul(10)
+          .mul(stakerOneWithdrawBlockNumber - stakerFourStakeBlockNumber)
+          .div(155)
+      )
+      .add(rewardsPerBlock.mul(10).div(55))
+      .add(BN.from("1"));
+    const stakerThreeRewardsCalculated = rewardsPerBlock
+      .mul(25)
+      .div(135)
+      .add(
+        rewardsPerBlock
+          .mul(25)
+          .mul(stakerOneWithdrawBlockNumber - stakerFourStakeBlockNumber)
+          .div(155)
+      )
+      .add(rewardsPerBlock.mul(25).div(55))
+      .add(rewardsPerBlock.mul(25).div(45))
+      .add(BN.from("1"));
+    const stakerFourRewardsCalculated = rewardsPerBlock
+      .mul(20)
+      .mul(stakerOneWithdrawBlockNumber - stakerFourStakeBlockNumber)
+      .div(155)
+
+      .add(rewardsPerBlock.mul(20).div(55))
+      .add(rewardsPerBlock.mul(20).div(45))
+      .add(rewardsPerBlock)
+      .add(BN.from("2"));
+    expect(stakerOneGDAOBalanceAfterWithdraw).to.be.equal(
+      stakerOneGDAOBalanceAfterStake.add(stakerOneRewardsCalculated)
+    );
+    expect(stakerTwoGDAOBalanceAfterWithdraw).to.be.equal(
+      stakerTwoGDAOBalanceAfterStake.add(stakerTwoRewardsCalculated)
+    );
+    expect(stakerThreeGDAOBalanceAfterWithdraw).to.be.equal(
+      stakerThreeGDAOBalanceAfterStake.add(stakerThreeRewardsCalculated)
+    );
+    expect(stakerFourGDAOBalanceAfterWithdraw).to.be.equal(
+      stakerFourGDAOBalanceAfterStake.add(stakerFourRewardsCalculated)
+    );
+  });
 });
