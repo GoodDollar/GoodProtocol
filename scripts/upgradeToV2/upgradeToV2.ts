@@ -34,7 +34,8 @@ networkNames[1] = networkName;
 networkNames[122] = networkName;
 networkNames[3] = networkName;
 
-const isDevelop = networkName.startsWith("develop");
+const isProduction = networkName.startsWith("production");
+const isDevelop = !isProduction;
 const isMainnet = networkName.includes("mainnet");
 const main = async () => {
   let protocolSettings = {
@@ -60,7 +61,7 @@ const main = async () => {
 
     const toDeployUpgradable = [
       {
-        network: "both",
+        network: "mainnet",
         name: "NameService",
         //TODO: arguments based on network
         args: [
@@ -73,7 +74,8 @@ const main = async () => {
             "CONTRIBUTION_CALCULATION",
             "BANCOR_FORMULA",
             "DAI",
-            "CDAI"
+            "CDAI",
+            "BRIDGE_CONTRACT"
           ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
           [
             controller,
@@ -81,10 +83,27 @@ const main = async () => {
             dao.Identity,
             dao.GoodDollar,
             dao.Contribution,
-            "0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a", //bancor
+            protocolSettings.bancor || dao.bancor,
             dao.DAI,
-            dao.cDAI
+            dao.cDAI,
+            dao.Bridge
           ]
+        ]
+      },
+      {
+        network: "fuse",
+        name: "NameService",
+        //TODO: arguments based on network
+        args: [
+          controller,
+          [
+            "CONTROLLER",
+            "AVATAR",
+            "IDENTITY",
+            "GOODDOLLAR",
+            "BRIDGE_CONTRACT"
+          ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
+          [controller, avatar, dao.Identity, dao.GoodDollar, dao.Bridge]
         ]
       },
       {
@@ -292,7 +311,12 @@ const main = async () => {
       //TODO: replace with new contracts to be added to nameservice
       [
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("RESERVE")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MARKET_MAKER"))
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MARKET_MAKER")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("FUND_MANAGER")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKERS")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBI_RECIPIENT"))
       ],
       [release.GoodReserveCDai, ethers.constants.AddressZero],
       //TODO: replace with default staking contracts
@@ -322,8 +346,11 @@ const main = async () => {
       release.UBIScheme,
       //TODO: replace with new contracts to be added to nameservice
       [
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("RESERVE")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MARKET_MAKER"))
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBISCHEME")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKING")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_CLAIMERS"))
       ],
       [ethers.constants.AddressZero, ethers.constants.AddressZero]
     );

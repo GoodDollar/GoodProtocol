@@ -20,6 +20,7 @@ import GoodReserveCDai from "@gooddollar/goodcontracts/stakingModel/build/contra
 import MarketMaker from "@gooddollar/goodcontracts/stakingModel/build/contracts/GoodMarketMaker.json";
 import FundManager from "@gooddollar/goodcontracts/stakingModel/build/contracts/GoodFundManager.json";
 import SimpleDAIStaking from "@gooddollar/goodcontracts/stakingModel/build/contracts/SimpleDAIStaking.json";
+import BridgeMock from "@gooddollar/goodcontracts/stakingModel/build/contracts/BridgeMock.json";
 
 import { Controller, GoodMarketMaker, CompoundVotingMachine } from "../types";
 import releaser from "../scripts/releaser";
@@ -51,6 +52,8 @@ const deploy = async () => {
     MarketMaker: dao.marketMaker.address,
     UBIScheme: ubi.ubiScheme.address,
     FirstClaimPool: ubi.firstClaim.address,
+    Bridge: dao.bridge,
+    BancorFormula: dao.bancorFormula,
     network: "develop",
     networkId: 4447
   };
@@ -91,9 +94,18 @@ export const createOldDAO = async () => {
     root
   );
 
+  const BridgeFactory = new ethers.ContractFactory(
+    BridgeMock.abi,
+    BridgeMock.bytecode,
+    root
+  );
+
   const BancorFormula = await (
     await ethers.getContractFactory("BancorFormula")
   ).deploy();
+
+  const Bridge = await BridgeFactory.deploy();
+
   const AddFounders = await AddFoundersFactory.deploy();
   const Identity = await IdentityFactory.deploy();
   const daoCreator = await DAOCreatorFactory.deploy(AddFounders.address);
@@ -284,7 +296,9 @@ export const createOldDAO = async () => {
     cdaiAddress: cDAI.address,
     COMP: COMP.address,
     contribution: contribution.address,
-    simpleStaking: simpleStaking.address
+    simpleStaking: simpleStaking.address,
+    bancorFormula: BancorFormula.address,
+    bridge: Bridge.address
   };
 };
 

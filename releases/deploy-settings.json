@@ -18,6 +18,7 @@
   "production-mainnet": {
     "governance": {
       "proposalVotingPeriod": 80640
-    }
+    },
+    "bancor": "0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a"
   }
 }
