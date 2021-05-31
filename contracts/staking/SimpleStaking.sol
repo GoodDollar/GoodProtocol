@@ -39,9 +39,6 @@ contract SimpleStaking is
 	uint256 public blockInterval;
 	// Gas cost to collect interest from this staking contract
 	uint32 public collectInterestGasCost;
-	// The last block number which
-	// `collectUBIInterest` has been executed in
-	uint256 public lastUBICollection;
 	// The total staked Token amount in the contract
 	// uint256 public totalStaked = 0;
 	uint8 public stakingTokenDecimals;
@@ -80,7 +77,6 @@ contract SimpleStaking is
 		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;
 		blockInterval = _blockInterval;
-		lastUBICollection = block.number / blockInterval;
 		collectInterestGasCost = _collectInterestGasCost; // Should be adjusted according to this contract's gas cost
 
 		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
@@ -415,13 +411,7 @@ contract SimpleStaking is
 		returns (uint256, uint256)
 	{
 		_canMintRewards();
-		// otherwise fund manager has to wait for the next interval
-		require(
-			_recipient != address(this),
-			"Recipient cannot be the staking contract"
-		);
 		(uint256 iTokenGains, uint256 tokenGains) = currentUBIInterest();
-		lastUBICollection = block.number / blockInterval;
 		(address redeemedToken, uint256 redeemedAmount) =
 			redeemUnderlyingToDAI(iTokenGains);
 		if (redeemedAmount > 0)
