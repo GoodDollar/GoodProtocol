@@ -12,10 +12,10 @@ contract GasPriceMockOracle {
 			uint80 answeredInRound
 		)
 	{
-		return (0, 25, 0, 0, 0);
+		return (0, 25000000000, 0, 0, 0);
 	}
 
 	function latestAnswer() public view returns (int256) {
-		return 25;
+		return 25000000000;
 	}
 }

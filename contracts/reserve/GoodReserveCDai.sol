@@ -545,11 +545,8 @@ contract GoodReserveCDai is
 
 	function currentPriceDAI() public view returns (uint256) {
 		cERC20 cDai = cERC20(cDaiAddress);
-		return
-			rmul(
-				currentPrice() * 1e10, //bring cdai 8 decimals to Dai precision
-				cDai.exchangeRateStored().div(10) //exchange rate is 1e28 reduce to 1e27
-			);
+
+		return (((currentPrice() * 1e10) * 1e18) / cDai.exchangeRateStored()); // based on https://compound.finance/docs#protocol-math
 	}
 
 	function mintByPrice(

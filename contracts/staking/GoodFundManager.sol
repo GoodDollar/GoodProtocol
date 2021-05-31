@@ -341,7 +341,6 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				break; // if addresses are null after this element then break because we initialize array in size activecontracts but if their interest balance is zero then we dont put it in this array
 			}
 		}
-
 		while (i > -1) {
 			addresses[uint256(i)] = address(0x0);
 			i -= 1;
@@ -437,13 +436,11 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			AggregatorV3Interface(nameService.getAddress("DAI_ETH_ORACLE"));
 		int256 daiInETH = daiETHOracle.latestAnswer(); // returns DAI price in ETH
 
-		uint256 result = rdiv(uint256(gasPrice) * 1e9, uint256(daiInETH)) / 1e9; // 1 gas amount in DAI gas price in gwei but with 0 decimal so we should multiply it by 1e9 to get value in 18 decimals and after rdiv we should divide 1e9 to obtain value in 18 decimals
+		uint256 result = ((uint256(gasPrice) * 1e27) / uint256(daiInETH)); // Gasprice in 9 decimals and daiInETH is 18 decimals so we multiply gasprice with 1e27 in order to get result in 18 decimals
 		result =
-			(rdiv(
-				result * 1e10,
-				cERC20(nameService.getAddress("CDAI")).exchangeRateStored()
-			) / 1e19) *
-			_gasAmount; // since cDAI token returns exchange rate scaled by 18 so we increase resolution of DAI result as well then divide to each other then multiply by _gasAmount
+			(((result / 1e10) * 1e18) /
+				cERC20(nameService.getAddress("CDAI")).exchangeRateStored()) *
+			_gasAmount; // based on https://compound.finance/docs#protocol-math
 		return result;
 	}
 
@@ -458,8 +455,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		AggregatorV3Interface ethUsdOracle =
 			AggregatorV3Interface(nameService.getAddress("ETH_USD_ORACLE"));
 		int256 ethInUsd = ethUsdOracle.latestAnswer(); // returns eth price in USD
-		return
-			(_gasAmount * (uint256(gasPrice) * 1e9) * uint256(ethInUsd)) / 1e18; // gasPrice is gwei but in 0 decimals so we multiply it by 1e9 to bring eth decimals(18 decimals) then multiply by ethInUsd which is 8 decimals then divide it to 1e18 in order to get 8 decimals
+		return (_gasAmount * uint256(gasPrice) * uint256(ethInUsd)) / 1e18; // gasPrice is 18 decimals and ethInUSD is in 8 decimals since we wanted to get result in 8 decimals we divide to 1e18 at the end
 	}
 
 	function getGasPriceInGD(uint256 _gasAmount) public view returns (uint256) {
