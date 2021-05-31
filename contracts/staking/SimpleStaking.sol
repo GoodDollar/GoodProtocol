@@ -483,7 +483,7 @@ contract SimpleStaking is
 	function getTokenValueInUSD(uint256 _amount) public view returns (uint256) {
 		AggregatorV3Interface tokenPriceOracle =
 			AggregatorV3Interface(getTokenUsdOracle());
-		(, int256 tokenPriceinUSD, , , ) = tokenPriceOracle.latestRoundData();
+		int256 tokenPriceinUSD = tokenPriceOracle.latestAnswer();
 		return (uint256(tokenPriceinUSD) * _amount) / (10**token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's decimal at the end to reduce 8 decimals back
 	}
 
