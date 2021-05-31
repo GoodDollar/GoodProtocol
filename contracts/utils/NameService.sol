@@ -15,6 +15,8 @@ contract NameService is Initializable, UUPSUpgradeable {
 	bytes32 public constant FUND_MANAGER = keccak256("FUND_MANAGER");
 	bytes32 public constant RESERVE = keccak256("RESERVE");
 	bytes32 public constant MARKET_MAKER = keccak256("MARKET_MAKER");
+	bytes32 public constant CONTRIBUTION_CALCULATION =
+		keccak256("CONTRIBUTION_CALCULATION");
 	bytes32 public constant CONTROLLER = keccak256("CONTROLLER");
 	bytes32 public constant AVATAR = keccak256("AVATAR");
 	bytes32 public constant IDENTITY = keccak256("IDENTITY");

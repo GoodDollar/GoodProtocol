@@ -13,7 +13,8 @@
     "daoUpgrade": "hardhat run scripts/upgradeToV2/upgradeToV2.ts",
     "deployOldDAO": "hardhat run test/localOldDaoDeploy.ts",
     "runNode": "hardhat node &",
-    "testDAOUpgrade": "yarn runNode && yarn compile && yarn deployOldDAO --network develop && yarn daoUpgrade --network develop"
+    "testDAOUpgrade": "yarn runNode && yarn compile && yarn deployOldDAO --network develop-mainnet && yarn daoUpgrade --network develop-mainnet",
+    "testDAOUpgradeFuse": "yarn runNode && yarn compile && yarn deployOldDAO --network develop && yarn daoUpgrade --network develop"
   },
   "files": [
     "build",

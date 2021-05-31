@@ -9,11 +9,58 @@
     }
   },
   "develop": {
-    "gdxAirdrop": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    "gdaoAirdrop": "0x0000000000000000000000000000000000000000000000000000000000000001"
+  },
+  "develop-mainnet": {
+    "gdxAirdrop": "0x0000000000000000000000000000000000000000000000000000000000000002",
+    "gdaoAirdrop": "0x0000000000000000000000000000000000000000000000000000000000000003",
+    "chainlink": {
+      "gasPrice": "0xF8161973a556bf5fEbb3BaCe573262FCd3b33973",
+      "dai_eth": "0x24959556020AE5D39e5bAEC2bd6Bf12420C25aB5",
+      "eth_usd": "0x30B5068156688f818cEa0874B580206dFe081a03"
+    },
+    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+  },
+  "fuse-mainnet": {
+    "governance": {
+      "proposalVotingPeriod": 80640
+    },
+    "bancor": "0x57b2c85934Ef1A891eC9b9945f3fdbcf1104c302",
+    "dai": "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
+    "cdai": "0x6ce27497a64fffb5517aa4aee908b1e7eb63b9ff",
+    "chainlink": {
+      "gasPrice": "0xF8161973a556bf5fEbb3BaCe573262FCd3b33973",
+      "dai_eth": "0x24959556020AE5D39e5bAEC2bd6Bf12420C25aB5",
+      "eth_usd": "0x30B5068156688f818cEa0874B580206dFe081a03"
+    },
+    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+  },
+  "staging-mainnet": {
+    "governance": {
+      "proposalVotingPeriod": 80640
+    },
+    "bancor": "0x57b2c85934Ef1A891eC9b9945f3fdbcf1104c302",
+    "dai": "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
+    "cdai": "0x6ce27497a64fffb5517aa4aee908b1e7eb63b9ff",
+    "chainlink": {
+      "gasPrice": "0xF8161973a556bf5fEbb3BaCe573262FCd3b33973",
+      "dai_eth": "0x24959556020AE5D39e5bAEC2bd6Bf12420C25aB5",
+      "eth_usd": "0x30B5068156688f818cEa0874B580206dFe081a03"
+    },
+    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
   },
   "production-mainnet": {
     "governance": {
       "proposalVotingPeriod": 80640
-    }
+    },
+    "bancor": "0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a",
+    "cdai": "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
+    "dai": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+    "chainlink": {
+      "gasPrice": "0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C",
+      "dai_eth": "0x773616E4d11A78F511299002da57A0a94577F1f4",
+      "eth_usd": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"
+    },
+    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
   }
 }

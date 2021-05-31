@@ -5,6 +5,7 @@ import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../governance/ClaimersDistribution.sol";
+
 /* @title Dynamic amount-per-day UBI scheme allowing claim once a day
  */
 contract UBIScheme is DAOUpgradeableContract {
@@ -137,6 +138,8 @@ contract UBIScheme is DAOUpgradeableContract {
 		shouldWithdrawFromDAO = false;
 		cycleLength = 90; //90 days
 		iterationGasLimit = 150000;
+		periodStart = (block.timestamp / (1 days)) * 1 days + 12 hours; //set start time to GMT noon
+		startOfCycle = periodStart;
 	}
 
 	/* @dev function that gets the amount of people who claimed on the given day
@@ -168,7 +171,10 @@ contract UBIScheme is DAOUpgradeableContract {
 	}
 
 	modifier requireStarted() {
-		require( periodStart > 0 && block.timestamp >= periodStart, "not in periodStarted");
+		require(
+			periodStart > 0 && block.timestamp >= periodStart,
+			"not in periodStarted"
+		);
 		_;
 	}
 
@@ -491,60 +497,11 @@ contract UBIScheme is DAOUpgradeableContract {
 	}
 
 	/**
-	 * @dev Start function. Adds this contract to identity as a feeless scheme and
-	 * adds permissions to IFirstClaimPool
-	 * Can only be called if scheme is registered
-	 */
-	function start() public {
-		require(periodStart == 0, "UBIScheme: already started"); //can be called only once
-		periodStart = (block.timestamp / (1 days)) * 1 days + 12 hours; //set start time to GMT noon
-		startOfCycle = periodStart;
-		dao.genericCall(
-			address(firstClaimPool),
-			abi.encodeWithSignature("setUBIScheme(address)", address(this)),
-			address(avatar),
-			0
-		);
-	}
-
-	/**
 	 * @dev Sets whether to also withdraw GD from avatar for UBI
 	 * @param _shouldWithdraw boolean if to withdraw
 	 */
 	function setShouldWithdrawFromDAO(bool _shouldWithdraw) public {
 		_onlyAvatar();
 		shouldWithdrawFromDAO = _shouldWithdraw;
-	}
-
-	function upgrade(address prevUBIScheme) public {
-		start();
-
-		if (prevUBIScheme != address(0)) {
-			IGoodDollar gd = nativeToken();
-
-			uint256 ubiBalance = gd.balanceOf(prevUBIScheme);
-
-			// transfer funds from old scheme here
-			dao.genericCall(
-				prevUBIScheme,
-				abi.encodeWithSignature("end()"),
-				address(avatar),
-				0
-			);
-			dao.genericCall(
-				address(firstClaimPool),
-				abi.encodeWithSignature("setClaimAmount(uint256)", 1000),
-				address(avatar),
-				0
-			);
-			if (ubiBalance > 0) {
-				dao.externalTokenTransfer(
-					address(gd),
-					address(this),
-					ubiBalance,
-					address(avatar)
-				);
-			}
-		}
 	}
 }

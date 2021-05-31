@@ -68,7 +68,8 @@ contract ClaimersDistribution is DAOUpgradeableContract {
 	 * @param _claimer the user to update
 	 */
 	function updateClaim(address _claimer) external {
-		IUBIScheme ubi = IUBIScheme(nameService.getAddress("UBISCHEME"));
+		IUBIScheme ubi =
+			IUBIScheme(nameService.addresses(nameService.UBISCHEME()));
 		require(
 			ubi.hasClaimed(_claimer),
 			"ClaimersDistribution: didn't claim today"

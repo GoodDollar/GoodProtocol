@@ -431,11 +431,11 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	{
 		AggregatorV3Interface gasPriceOracle =
 			AggregatorV3Interface(nameService.getAddress("GAS_PRICE_ORACLE"));
-		(, int256 gasPrice, , , ) = gasPriceOracle.latestRoundData(); // returns gas price in 0 decimal as GWEI so 1eth / 1e9 eth
+		int256 gasPrice = gasPriceOracle.latestAnswer(); // returns gas price in 0 decimal as GWEI so 1eth / 1e9 eth
 
 		AggregatorV3Interface daiETHOracle =
 			AggregatorV3Interface(nameService.getAddress("DAI_ETH_ORACLE"));
-		(, int256 daiInETH, , , ) = daiETHOracle.latestRoundData(); // returns DAI price in ETH
+		int256 daiInETH = daiETHOracle.latestAnswer(); // returns DAI price in ETH
 
 		uint256 result = rdiv(uint256(gasPrice) * 1e9, uint256(daiInETH)) / 1e9; // 1 gas amount in DAI gas price in gwei but with 0 decimal so we should multiply it by 1e9 to get value in 18 decimals and after rdiv we should divide 1e9 to obtain value in 18 decimals
 		result =
@@ -454,10 +454,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	{
 		AggregatorV3Interface gasPriceOracle =
 			AggregatorV3Interface(nameService.getAddress("GAS_PRICE_ORACLE"));
-		(, int256 gasPrice, , , ) = gasPriceOracle.latestRoundData(); // returns gas price in 0 decimal as GWEI so 1eth / 1e9 eth
+		int256 gasPrice = gasPriceOracle.latestAnswer(); // returns gas price in 0 decimal as GWEI so 1eth / 1e9 eth
 		AggregatorV3Interface ethUsdOracle =
 			AggregatorV3Interface(nameService.getAddress("ETH_USD_ORACLE"));
-		(, int256 ethInUsd, , , ) = ethUsdOracle.latestRoundData(); // returns eth price in USD
+		int256 ethInUsd = ethUsdOracle.latestAnswer(); // returns eth price in USD
 		return
 			(_gasAmount * (uint256(gasPrice) * 1e9) * uint256(ethInUsd)) / 1e18; // gasPrice is gwei but in 0 decimals so we multiply it by 1e9 to bring eth decimals(18 decimals) then multiply by ethInUsd which is 8 decimals then divide it to 1e18 in order to get 8 decimals
 	}
