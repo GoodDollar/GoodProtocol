@@ -21,6 +21,7 @@ import {
 } from "../../types";
 import { getFounders } from "../getFounders";
 import { fetchOrDeployProxyFactory } from "../fetchOrDeployProxyFactory";
+import OldDAO from "../../releases/olddao.json";
 import ProtocolAddresses from "../../releases/deployment.json";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 
@@ -42,7 +43,8 @@ const main = async () => {
     ...ProtocolSettings["default"],
     ...ProtocolSettings[networkName]
   };
-  const dao = ProtocolAddresses["olddao"]; //TODO: fuse vs mainnet
+  const dao = OldDAO[networkName];
+  const newfusedao = ProtocolAddresses[networkName.replace(/\-mainnet/, "")];
   const newdao = ProtocolAddresses[networkName] || {};
 
   let [root] = await ethers.getSigners();
@@ -75,7 +77,11 @@ const main = async () => {
             "BANCOR_FORMULA",
             "DAI",
             "CDAI",
-            "BRIDGE_CONTRACT"
+            "BRIDGE_CONTRACT",
+            "UNISWAP_ROUTER",
+            "GAS_PRICE_ORACLE",
+            "DAI_ETH_ORACLE",
+            "ETH_USD_ORACLE"
           ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
           [
             controller,
@@ -83,10 +89,14 @@ const main = async () => {
             dao.Identity,
             dao.GoodDollar,
             dao.Contribution,
-            protocolSettings.bancor || dao.bancor,
-            dao.DAI,
-            dao.cDAI,
-            dao.Bridge
+            protocolSettings.bancor || dao.BancorFormula,
+            protocolSettings.dai || dao.DAI,
+            protocolSettings.cdai || dao.cDAI,
+            dao.Bridge,
+            protocolSettings.uniswapRouter,
+            !isMainnet || protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
+            !isMainnet || protocolSettings.chainlink.dai_eth,
+            !isMainnet || protocolSettings.chainlink.eth_usd
           ]
         ]
       },
@@ -318,7 +328,15 @@ const main = async () => {
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBI_RECIPIENT"))
       ],
-      [release.GoodReserveCDai, ethers.constants.AddressZero],
+      [
+        release.GoodReserveCDai,
+        release.GoodMarketMaker,
+        release.GoodFundManager,
+        release.GReputation,
+        release.StakersDistribution,
+        dao.Bridge,
+        newfusedao.UBIScheme
+      ],
       //TODO: replace with default staking contracts
       [],
       []
@@ -352,7 +370,13 @@ const main = async () => {
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKING")),
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_CLAIMERS"))
       ],
-      [ethers.constants.AddressZero, ethers.constants.AddressZero]
+      [
+        release.GReputation,
+        dao.Bridge,
+        release.UBIScheme,
+        release.GovernanceStaking,
+        release.ClaimersDistribution
+      ]
     );
   };
 

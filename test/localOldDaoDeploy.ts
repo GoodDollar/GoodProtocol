@@ -57,7 +57,7 @@ const deploy = async () => {
     network: "develop",
     networkId: 4447
   };
-  releaser(release, "olddao");
+  releaser(release, network.name, "olddao");
 };
 
 export const createOldDAO = async () => {
@@ -325,6 +325,7 @@ export const deployUBI = async deployedDAO => {
 
   console.log("deploying ubischeme and starting...");
 
+  const now = await ethers.provider.getBlock("latest");
   let ubiScheme = await new ethers.ContractFactory(
     UBIScheme.abi,
     UBIScheme.bytecode,
@@ -333,8 +334,8 @@ export const deployUBI = async deployedDAO => {
     avatar,
     identity,
     firstClaim.address,
-    (Date.now() / 1000).toFixed(0),
-    (Date.now() / 1000 + 1000).toFixed(0),
+    now.timestamp,
+    now.timestamp + 1000,
     14,
     7
   );
@@ -353,10 +354,10 @@ export const deployUBI = async deployedDAO => {
 
   console.log("set firstclaim,ubischeme as scheme and starting...");
   await setSchemes([firstClaim.address, ubiScheme.address]);
-  await firstClaim.start();
+  const tx = await firstClaim.start();
   await ubiScheme.start();
 
-  increaseTime(1100); //make sure period end of ubischeme has reached
+  await increaseTime(1000); //make sure period end of ubischeme has reached
   return { firstClaim, ubiScheme };
 };
 
