@@ -30,7 +30,7 @@ contract DAOContract {
 	}
 
 	function updateAvatar() public {
-		dao = Controller(nameService.getAddress("CONTROLLER"));
+		dao = Controller(nameService.addresses(nameService.CONTROLLER()));
 		avatar = dao.avatar();
 	}
 

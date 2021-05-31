@@ -234,7 +234,7 @@ contract SimpleStaking is
 	 */
 	function withdrawRewards() public {
 		GoodFundManager fm =
-			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
+			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()));
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
 		claimReputation();
 	}

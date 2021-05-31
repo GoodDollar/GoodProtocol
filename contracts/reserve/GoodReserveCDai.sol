@@ -157,7 +157,7 @@ contract GoodReserveCDai is
 	 * @dev get current FundManager from name service
 	 */
 	function getFundManager() public view returns (address) {
-		return nameService.getAddress("FUND_MANAGER");
+		return nameService.addresses(nameService.FUND_MANAGER());
 	}
 
 	//
@@ -483,7 +483,9 @@ contract GoodReserveCDai is
 			discount >= _gdAmount
 				? 0
 				: ContributionCalc(
-					nameService.getAddress("CONTRIBUTION_CALCULATION")
+					nameService.addresses(
+						nameService.CONTRIBUTION_CALCULATION()
+					)
 				)
 					.calculateContribution(
 					getMarketMaker(),

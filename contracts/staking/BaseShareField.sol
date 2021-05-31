@@ -208,7 +208,7 @@ contract BaseShareField is DSMath {
 	) public view returns (uint256) {
 		UserInfo memory userInfo = users[user];
 		uint256 _accAmountPerShare = accAmountPerShare;
-		// uint256 lpSupply = totalProductivity;
+
 		uint256 pending = 0;
 		if (
 			totalProductivity != 0 &&
