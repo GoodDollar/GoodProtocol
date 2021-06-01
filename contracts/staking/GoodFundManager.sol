@@ -448,20 +448,6 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		return result;
 	}
 
-	//function getGasPriceInUsd(uint256 _gasAmount)
-	//	public
-	//	view
-	//	returns (uint256)
-	//{
-	//	AggregatorV3Interface gasPriceOracle =
-	//		AggregatorV3Interface(nameService.getAddress("GAS_PRICE_ORACLE"));
-	//	int256 gasPrice = gasPriceOracle.latestAnswer(); // returns gas price in 0 decimal as GWEI so 1eth / 1e9 eth
-	//	AggregatorV3Interface ethUsdOracle =
-	//		AggregatorV3Interface(nameService.getAddress("ETH_USD_ORACLE"));
-	//	int256 ethInUsd = ethUsdOracle.latestAnswer(); // returns eth price in USD
-	//	return (_gasAmount * uint256(gasPrice) * uint256(ethInUsd)) / 1e18; // gasPrice is 18 decimals and ethInUSD is in 8 decimals since we wanted to get result in 8 decimals we divide to 1e18 at the end
-	//}
-
 	function getGasPriceInGD(uint256 _gasAmount) public view returns (uint256) {
 		uint256 priceInCdai = getGasPriceIncDAIorDAI(_gasAmount, false);
 		uint256 gdPriceIncDAI =
