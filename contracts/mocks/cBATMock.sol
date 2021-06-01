@@ -62,8 +62,8 @@ contract cBATMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	function decimals() public pure override returns (uint8) {
 		return 8;
 	}
+
 	function increasePriceWithMultiplier(uint256 multiplier) public {
 		exchangeRate += multiplier * uint256(1e28).div(100);
-		
 	}
 }
