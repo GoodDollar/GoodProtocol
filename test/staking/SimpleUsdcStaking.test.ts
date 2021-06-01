@@ -349,7 +349,8 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
     await cUsdc.increasePriceWithMultiplier("3500"); // increase interest by calling exchangeRateCurrent
 
     const currentUBIInterestBeforeWithdraw = await goodCompoundStaking.currentGains(
-      false
+      false,
+      true
     );
     await goodCompoundStaking
       .connect(staker)
@@ -367,7 +368,8 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
       staker.address
     );
     const currentUBIInterestAfterWithdraw = await goodCompoundStaking.currentGains(
-      false
+      false,
+      true
     );
     expect(currentUBIInterestBeforeWithdraw[0].toString()).to.not.be.equal("0");
     expect(currentUBIInterestAfterWithdraw[0].toString()).to.be.equal("0");
@@ -644,7 +646,8 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
     await cUsdc.increasePriceWithMultiplier("200"); // increase interest by calling increasePriceWithMultiplier
 
     const simpleStakingCurrentInterestBeforeCollect = await simpleStaking.currentGains(
-      false
+      false,
+      true
     );
     const contractsToBeCollected = await goodFundManager.calcSortedContracts(
       "1100000"
@@ -653,10 +656,12 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
       gasLimit: 1100000
     });
     const simpleStakingCurrentInterest = await simpleStaking.currentGains(
-      false
+      false,
+      true
     );
     const goodCompoundStakingCurrentInterest = await goodCompoundStaking.currentGains(
-      false
+      false,
+      true
     );
 
     await goodCompoundStaking

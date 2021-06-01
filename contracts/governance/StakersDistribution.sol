@@ -76,8 +76,11 @@ contract StakersDistribution is
 				(, uint64 blockStart, uint64 blockEnd, ) =
 					gfm.rewardsForStakingContract(activeStakingList[i]);
 				if (blockStart <= block.number && blockEnd > block.number) {
-					(, , , uint256 lockedValueInUSD) =
-						SimpleStaking(activeStakingList[i]).currentGains(true);
+					(, , , uint256 lockedValueInUSD, ) =
+						SimpleStaking(activeStakingList[i]).currentGains(
+							true,
+							false
+						);
 					contractLockedValue[i] = lockedValueInUSD;
 					totalLockedValue += contractLockedValue[i];
 				}

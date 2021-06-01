@@ -354,7 +354,8 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
     await cEDT.increasePriceWithMultiplier("3500"); // increase interest by calling exchangeRateCurrent
 
     const currentUBIInterestBeforeWithdraw = await goodCompoundStaking.currentGains(
-      false
+      false,
+      true
     );
     await goodCompoundStaking
       .connect(staker)
@@ -372,7 +373,8 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
       staker.address
     );
     const currentUBIInterestAfterWithdraw = await goodCompoundStaking.currentGains(
-      false
+      false,
+      true
     );
     expect(currentUBIInterestBeforeWithdraw[0].toString()).to.not.be.equal("0");
     expect(currentUBIInterestAfterWithdraw[0].toString()).to.be.equal("0");
@@ -682,7 +684,8 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
     await cEDT.increasePriceWithMultiplier("200"); // increase interest by calling increasePriceWithMultiplier
 
     const simpleStakingCurrentInterestBeforeCollect = await simpleStaking.currentGains(
-      false
+      false,
+      true
     );
     const contractsToBeCollected = await goodFundManager.calcSortedContracts(
       "1100000"
@@ -691,10 +694,12 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
       gasLimit: 1100000
     });
     const simpleStakingCurrentInterest = await simpleStaking.currentGains(
-      false
+      false,
+      true
     );
     const goodCompoundStakingCurrentInterest = await goodCompoundStaking.currentGains(
-      false
+      false,
+      true
     );
 
     await goodCompoundStaking
