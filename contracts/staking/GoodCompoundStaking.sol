@@ -134,11 +134,12 @@ contract GoodCompoundStaking is SimpleStaking {
 		return tokenUsdOracle;
 	}
 
-	function currentGains()
+	function currentGains(bool _returnTokenBalanceInUSD)
 		public
 		view
 		override
 		returns (
+			uint256,
 			uint256,
 			uint256,
 			uint256
@@ -151,7 +152,9 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 tokenBalance =
 			iTokenWorthInToken(iToken.balanceOf(address(this)));
 		if (tokenBalance <= totalProductivity) {
-			return (0, 0, tokenBalance);
+			uint256 balanceInUSD =
+				_returnTokenBalanceInUSD ? getTokenValueInUSD(tokenBalance) : 0;
+			return (0, 0, tokenBalance, balanceInUSD);
 		}
 		uint256 tokenGains = tokenBalance - totalProductivity;
 		uint256 iTokenGains;
@@ -164,8 +167,21 @@ contract GoodCompoundStaking is SimpleStaking {
 				((tokenGains * 10**decimalDifference) * 10**mantissa) /
 				er; // based on https://compound.finance/docs#protocol-math
 		}
-
-		return (iTokenGains, tokenGains, tokenBalance);
+		if (_returnTokenBalanceInUSD) {
+			return (
+				iTokenGains,
+				tokenGains,
+				tokenBalance,
+				getTokenValueInUSD(tokenBalance)
+			);
+		} else {
+			return (
+				iTokenGains,
+				tokenGains,
+				tokenBalance,
+				getTokenValueInUSD(tokenGains)
+			);
+		}
 	}
 
 	function getGasCostForInterestTransfer()

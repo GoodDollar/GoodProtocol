@@ -361,7 +361,9 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       .transfer(cSDT.address, ethers.utils.parseUnits("1000000", 16)); // We should put extra SDT to mock cSDT contract in order to provide interest
     await cSDT.increasePriceWithMultiplier("3500"); // increase interest by calling exchangeRateCurrent
 
-    const currentUBIInterestBeforeWithdraw = await goodCompoundStaking.currentUBIInterest();
+    const currentUBIInterestBeforeWithdraw = await goodCompoundStaking.currentGains(
+      false
+    );
     await goodCompoundStaking
       .connect(staker)
       .withdrawStake(stakingAmount, false);
@@ -377,7 +379,9 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     const gdBalanceAfterCollectInterest = await goodDollar.balanceOf(
       staker.address
     );
-    const currentUBIInterestAfterWithdraw = await goodCompoundStaking.currentUBIInterest();
+    const currentUBIInterestAfterWithdraw = await goodCompoundStaking.currentGains(
+      false
+    );
     expect(currentUBIInterestBeforeWithdraw[0].toString()).to.not.be.equal("0");
     expect(currentUBIInterestAfterWithdraw[0].toString()).to.be.equal("0");
     expect(gdBalanceAfterCollectInterest.gt(gdBalanceBeforeCollectInterest));
@@ -417,7 +421,9 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
 
     await advanceBlocks(4);
-    const stakingContractVals = await goodFundManager.rewardsForStakingContract(goodCompoundStaking.address)
+    const stakingContractVals = await goodFundManager.rewardsForStakingContract(
+      goodCompoundStaking.address
+    );
     let rewardsEarned = await goodCompoundStaking.getUserPendingReward(
       staker.address,
       stakingContractVals[0],
@@ -683,15 +689,21 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
 
     await cSDT.increasePriceWithMultiplier("200"); // increase interest by calling increasePriceWithMultiplier
 
-    const simpleStakingCurrentInterestBeforeCollect = await simpleStaking.currentUBIInterest();
+    const simpleStakingCurrentInterestBeforeCollect = await simpleStaking.currentGains(
+      false
+    );
     const contractsToBeCollected = await goodFundManager.calcSortedContracts(
       "1100000"
     );
     await goodFundManager.collectInterest(contractsToBeCollected, {
       gasLimit: 1100000
     });
-    const simpleStakingCurrentInterest = await simpleStaking.currentUBIInterest();
-    const goodCompoundStakingCurrentInterest = await goodCompoundStaking.currentUBIInterest();
+    const simpleStakingCurrentInterest = await simpleStaking.currentGains(
+      false
+    );
+    const goodCompoundStakingCurrentInterest = await goodCompoundStaking.currentGains(
+      false
+    );
 
     await goodCompoundStaking
       .connect(staker)

@@ -175,13 +175,15 @@ abstract contract SimpleStaking is
 
 	/**
 	 * @dev Function that calculates current interest gains of this staking contract
+	 * @param _returnTokenBalanceInUSD determine return either token balance in USD or tokenGains in USD
 	 * @return return gains in itoken,Token and worth of total locked Tokens
 	 */
-	function currentGains()
+	function currentGains(bool _returnTokenBalanceInUSD)
 		public
 		view
 		virtual
 		returns (
+			uint256,
 			uint256,
 			uint256,
 			uint256
@@ -413,25 +415,6 @@ abstract contract SimpleStaking is
 	}
 
 	/**
-	 * @dev Calculates the current interest that was gained.
-	 * @return (uint256, uint256, uint256) The interest in iToken, the interest in Token and the interest in USD
-	 */
-	function currentUBIInterest()
-		public
-		view
-		virtual
-		returns (
-			uint256,
-			uint256,
-			uint256
-		)
-	{
-		(uint256 iTokenGains, uint256 tokenGains, ) = currentGains();
-		uint256 usdGains = getTokenValueInUSD(tokenGains);
-		return (iTokenGains, tokenGains, usdGains);
-	}
-
-	/**
 	 * @dev Collects gained interest by fundmanager. Can be collected only once
 	 * in an interval which is defined above.
 	 * @param _recipient The recipient of cDAI gains
@@ -452,8 +435,8 @@ abstract contract SimpleStaking is
 			_recipient != address(this),
 			"Recipient cannot be the staking contract"
 		);
-		(uint256 iTokenGains, uint256 tokenGains, uint256 usdGains) =
-			currentUBIInterest();
+		(uint256 iTokenGains, uint256 tokenGains, , uint256 usdGains) =
+			currentGains(false);
 		lastUBICollection = block.number / blockInterval;
 		(address redeemedToken, uint256 redeemedAmount) =
 			redeemUnderlyingToDAI(iTokenGains);
