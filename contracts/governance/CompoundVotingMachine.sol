@@ -198,7 +198,7 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 	) public initializer {
 		foundationGuardianRelease = 1672531200; //01/01/2023
 		setDAO(ns_);
-		rep = ReputationInterface(ns_.addresses(ns_.REPUTATION()));
+		rep = ReputationInterface(ns_.getAddress("REPUTATION"));
 		votingPeriodBlocks = votingPeriodBlocks_;
 		guardian = _msgSender();
 	}

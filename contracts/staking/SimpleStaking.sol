@@ -222,7 +222,7 @@ abstract contract SimpleStaking is
 
 		_mint(msg.sender, _amount); // mint Staking token for staker
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
-			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()))
+			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
 				.rewardsForStakingContract(address(this));
 		_increaseProductivity(
 			msg.sender,
@@ -234,9 +234,7 @@ abstract contract SimpleStaking is
 
 		//notify GDAO distrbution for stakers
 		StakersDistribution sd =
-			StakersDistribution(
-				nameService.addresses(nameService.GDAO_STAKERS())
-			);
+			StakersDistribution(nameService.getAddress("GDAO_STAKERS"));
 		if (address(sd) != address(0)) {
 			uint256 stakeAmountInEighteenDecimals =
 				token.decimals() == 18
@@ -284,7 +282,7 @@ abstract contract SimpleStaking is
 		}
 
 		GoodFundManager fm =
-			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()));
+			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
 		_burn(msg.sender, _amount); // burn their staking tokens
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
 			fm.rewardsForStakingContract(address(this));
@@ -299,9 +297,7 @@ abstract contract SimpleStaking is
 
 		//notify GDAO distrbution for stakers
 		StakersDistribution sd =
-			StakersDistribution(
-				nameService.addresses(nameService.GDAO_STAKERS())
-			);
+			StakersDistribution(nameService.getAddress("GDAO_STAKERS"));
 		if (address(sd) != address(0)) {
 			uint256 withdrawAmountInEighteenDecimals =
 				token.decimals() == 18
@@ -323,7 +319,7 @@ abstract contract SimpleStaking is
 	 */
 	function withdrawRewards() public {
 		GoodFundManager fm =
-			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()));
+			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
 		claimReputation();
 	}
@@ -334,9 +330,7 @@ abstract contract SimpleStaking is
 	function claimReputation() public {
 		//claim reputation rewards
 		StakersDistribution sd =
-			StakersDistribution(
-				nameService.addresses(nameService.GDAO_STAKERS())
-			);
+			StakersDistribution(nameService.getAddress("GDAO_STAKERS"));
 		if (address(sd) != address(0)) {
 			address[] memory contracts = new address[](1);
 			contracts[0] = (address(this));
@@ -355,11 +349,9 @@ abstract contract SimpleStaking is
 		super._transfer(from, to, value);
 
 		StakersDistribution sd =
-			StakersDistribution(
-				nameService.addresses(nameService.GDAO_STAKERS())
-			);
+			StakersDistribution(nameService.getAddress("GDAO_STAKERS"));
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
-			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()))
+			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
 				.rewardsForStakingContract(address(this));
 		_decreaseProductivity(
 			from,
@@ -491,7 +483,7 @@ abstract contract SimpleStaking is
 
 	function _canMintRewards() internal view override {
 		require(
-			msg.sender == nameService.addresses(nameService.FUND_MANAGER()),
+			msg.sender == nameService.getAddress("FUND_MANAGER"),
 			"Only FundManager can call this method"
 		);
 	}

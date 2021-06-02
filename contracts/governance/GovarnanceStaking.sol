@@ -53,7 +53,7 @@ contract GovernanceStaking is
 	 */
 	constructor(NameService _ns) {
 		setDAO(_ns);
-		token = ERC20(nameService.addresses(nameService.GOODDOLLAR()));
+		token = ERC20(nameService.getAddress("GOODDOLLAR"));
 		__ERC20_init("GDAO Staking", "sGDAO");
 		rewardsPerBlock[address(this)] = (2 ether * 1e6) / FUSE_MONTHLY_BLOCKS; // (2M monthly GDAO as specified in specs, divided by blocks in month )
 	}
@@ -139,10 +139,7 @@ contract GovernanceStaking is
 		uint256 amount =
 			_issueEarnedRewards(address(this), user, 0, block.number);
 		if (amount > 0) {
-			ERC20(nameService.addresses(nameService.REPUTATION())).mint(
-				user,
-				amount
-			);
+			ERC20(nameService.getAddress("REPUTATION")).mint(user, amount);
 			emit RewardsWithdraw(_msgSender(), amount);
 		}
 		return amount;

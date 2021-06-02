@@ -32,7 +32,7 @@ contract GoodCompoundStakingTest is GoodCompoundStaking {
 
 	function decreaseProductivityTest(address user, uint256 value) public {
 		GoodFundManager fm =
-			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()));
+			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
 			fm.rewardsForStakingContract(address(this));
 		_decreaseProductivity(
