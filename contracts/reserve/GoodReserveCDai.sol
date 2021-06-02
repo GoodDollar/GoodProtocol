@@ -141,6 +141,7 @@ contract GoodReserveCDai is
 		cap = 22 * 1e14; //22 trillion G$ cents
 
 		gdxAirdrop = _gdxAirdrop;
+		ERC20(nameService.getAddress("DAI")).approve(nameService.getAddress("CDAI"), type(uint256).max);
 	}
 
 	/// @dev GDX decimals
@@ -586,21 +587,23 @@ contract GoodReserveCDai is
 	/**
 	 * @dev only FundManager can call this to trigger minting.
 	 * Reserve sends UBI + interest to FundManager.
+	 * @param _daiToConvert DAI amount to convert cDAI
+	 * @param _startingCDAIBalance Initial cDAI balance before staking collect process start
 	 * @param _interestToken The token that was transfered to the reserve
-	 * @param _transfered How much was transfered to the reserve for UBI in `_interestToken`
-	 * @return gdUBI how much GD UBI was minted
+	 * @return gdUBI,interestInCdai how much GD UBI was minted and how much cDAI collected from staking contracts
 	 */
-	function mintUBI(ERC20 _interestToken, uint256 _transfered)
+	function mintUBI(
+		uint256 _daiToConvert,
+		uint256 _startingCDAIBalance,
+		ERC20 _interestToken
+		)
 		public
-		returns (uint256)
+		returns (uint256,uint256)
 	{
-		//uint256 price = getMarketMaker().currentPrice(ERC20(cDaiAddress));
-		// uint256 price = currentPrice(_interestToken);
+		cERC20(cDaiAddress).mint(_daiToConvert);
+		uint256 interestInCdai = _interestToken.balanceOf(address(this)) - _startingCDAIBalance;
 		uint256 gdInterestToMint =
-			getMarketMaker().mintInterest(_interestToken, _transfered);
-		//IGoodDollar gooddollar = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
-		//uint256 precisionLoss = uint256(27).sub(uint256(gooddollar.decimals()));
-		//uint256 gdInterest = rdiv(_interest, price).div(10**precisionLoss);
+			getMarketMaker().mintInterest(_interestToken, interestInCdai);
 		uint256 gdExpansionToMint =
 			getMarketMaker().mintExpansion(_interestToken);
 		uint256 gdUBI = gdInterestToMint;
@@ -611,12 +614,12 @@ contract GoodReserveCDai is
 		emit UBIMinted(
 			lastMinted,
 			address(_interestToken),
-			_transfered,
+			interestInCdai,
 			gdInterestToMint,
 			gdExpansionToMint,
 			gdUBI
 		);
-		return gdUBI;
+		return (gdUBI,interestInCdai);
 	}
 
 	/**
@@ -672,14 +675,6 @@ contract GoodReserveCDai is
 		);
 	}
 
-	/**
-	 * @dev convert DAI balance of reserve to cDAI
-	 * @param _amount DAI amount to convert cDAI
-	 */
-	function convertDAItoCDAI(uint256 _amount) public {
-		ERC20(daiAddress).approve(cDaiAddress, _amount);
-		cERC20(cDaiAddress).mint(_amount);
-	}
 
 	/**
 	 * @notice prove user balance in a specific blockchain state hash
