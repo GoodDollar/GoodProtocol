@@ -50,7 +50,7 @@ contract NameService is Initializable, UUPSUpgradeable {
 		_onlyAvatar();
 	}
 
-	function _onlyAvatar() internal {
+	function _onlyAvatar() internal view {
 		require(
 			address(dao.avatar()) == msg.sender,
 			"only avatar can call this method"

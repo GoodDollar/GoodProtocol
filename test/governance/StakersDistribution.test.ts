@@ -131,28 +131,35 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     usdc = await usdcFactory.deploy();
     cUsdc = await cUsdcFactory.deploy(usdc.address);
     usdcUsdOracle = await tokenUsdOracleFactory.deploy();
-    simpleUsdcStaking = await simpleStakingFactory.deploy(
-      usdc.address,
-      cUsdc.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good USDC",
-      "gUSDC",
-      "172800",
-      usdcUsdOracle.address,
-      "200000"
-    );
-    simpleStaking = await simpleStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "200",
-      daiUsdOracle.address,
-      "100000"
-    );
+    simpleUsdcStaking = await simpleStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          usdc.address,
+          cUsdc.address,
+          nameService.address,
+          "Good USDC",
+          "gUSDC",
+          "172800",
+          usdcUsdOracle.address,
+          "200000"
+        );
+        return contract;
+      });
+
+    simpleStaking = await simpleStakingFactory.deploy().then(async contract => {
+      await contract.init(
+        dai.address,
+        cDAI.address,
+        nameService.address,
+        "Good DAI",
+        "gDAI",
+        "200",
+        daiUsdOracle.address,
+        "100000"
+      );
+      return contract;
+    });
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
@@ -277,17 +284,21 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const simpleStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const simpleStaking1 = await simpleStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "200",
-      daiUsdOracle.address,
-      "100000"
-    );
+    const simpleStaking1 = await simpleStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "200",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
 
     const ictrl = await ethers.getContractAt(
       "Controller",
@@ -459,17 +470,22 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const simpleStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const simpleStaking1 = await simpleStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "200",
-      daiUsdOracle.address,
-      "100000"
-    );
+    const simpleStaking1 = await simpleStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "200",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
+
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
@@ -505,17 +521,22 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const simpleStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const simpleStaking1 = await simpleStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "200",
-      daiUsdOracle.address,
-      "100000"
-    );
+    const simpleStaking1 = await simpleStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "200",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
+
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
@@ -587,17 +608,21 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const simpleStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const simpleStaking1 = await simpleStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "200",
-      daiUsdOracle.address,
-      "100000"
-    );
+    const simpleStaking1 = await simpleStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "200",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
 
     const ictrl = await ethers.getContractAt(
       "Controller",
@@ -661,17 +686,21 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const simpleStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const simpleStaking1 = await simpleStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "200",
-      daiUsdOracle.address,
-      "100000"
-    );
+    const simpleStaking1 = await simpleStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "200",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,

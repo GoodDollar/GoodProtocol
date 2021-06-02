@@ -11,6 +11,7 @@ import "./GoodFundManager.sol";
 import "./BaseShareField.sol";
 import "../governance/StakersDistribution.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title Staking contract that donates earned interest to the DAO
@@ -31,15 +32,9 @@ abstract contract SimpleStaking is
 	// Interest and staker data
 	//InterestDistribution.InterestData public interestData;
 
-	// The block interval defines the number of
-	// blocks that shall be passed before the
-	// next execution of `collectUBIInterest`
-	uint256 public blockInterval;
 	// Gas cost to collect interest from this staking contract
 	uint32 public collectInterestGasCost;
-	// The last block number which
-	// `collectUBIInterest` has been executed in
-	uint256 public lastUBICollection;
+
 	// The total staked Token amount in the contract
 	// uint256 public totalStaked = 0;
 	uint8 public stakingTokenDecimals;
@@ -70,23 +65,21 @@ abstract contract SimpleStaking is
 	 * @dev Constructor
 	 * @param _token The address of Token
 	 * @param _iToken The address of Interest Token
-	 * @param _blockInterval How many blocks should be passed before the next execution of `collectUBIInterest`
 	 * @param _ns The address of the NameService contract
 	 * @param _tokenName The name of the staking token
 	 * @param _tokenSymbol The symbol of the staking token
 	 * @param _maxRewardThreshold the blocks that should pass to get 1x reward multiplier
 	 * @param _collectInterestGasCost Gas cost for the collect interest of this staking contract
 	 */
-	constructor(
+	function initialize(
 		address _token,
 		address _iToken,
-		uint256 _blockInterval,
 		NameService _ns,
 		string memory _tokenName,
 		string memory _tokenSymbol,
 		uint64 _maxRewardThreshold,
 		uint32 _collectInterestGasCost
-	) {
+	) public virtual initializer {
 		setDAO(_ns);
 		token = ERC20(_token);
 		iToken = ERC20(_iToken);
@@ -98,8 +91,6 @@ abstract contract SimpleStaking is
 		stakingTokenDecimals = token.decimals();
 		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;
-		blockInterval = _blockInterval;
-		lastUBICollection = block.number / blockInterval;
 		collectInterestGasCost = _collectInterestGasCost; // Should be adjusted according to this contract's gas cost
 
 		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
@@ -442,7 +433,7 @@ abstract contract SimpleStaking is
 		);
 		(uint256 iTokenGains, uint256 tokenGains, , , uint256 usdGains) =
 			currentGains(false, true);
-		lastUBICollection = block.number / blockInterval;
+
 		(address redeemedToken, uint256 redeemedAmount) =
 			redeemUnderlyingToDAI(iTokenGains);
 		if (redeemedAmount > 0)

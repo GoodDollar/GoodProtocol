@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity >=0.8.0;
-import "./SimpleStaking.sol";
-import "../Interfaces.sol";
+import "../SimpleStaking.sol";
+import "../../Interfaces.sol";
 
 /**
  * @title Staking contract that donates earned interest to the DAO
@@ -21,28 +21,26 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @param _tokenUsdOracle address of the TOKEN/USD oracle
 	 * @param _collectInterestGasCost Gas cost for the collect interest of this staking contract
 	 */
-	constructor(
+	function init(
 		address _token,
 		address _iToken,
-		uint256 _blockInterval,
 		NameService _ns,
 		string memory _tokenName,
 		string memory _tokenSymbol,
 		uint64 _maxRewardThreshold,
 		address _tokenUsdOracle,
 		uint32 _collectInterestGasCost
-	)
-		SimpleStaking(
+	) public {
+		initialize(
 			_token,
 			_iToken,
-			_blockInterval,
 			_ns,
 			_tokenName,
 			_tokenSymbol,
 			_maxRewardThreshold,
 			_collectInterestGasCost
-		)
-	{
+		);
+		//above  initialize going  to revert on second call, so this is safe
 		tokenUsdOracle = _tokenUsdOracle;
 	}
 

@@ -96,17 +96,22 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
     //give reserve generic call permission
-    goodCompoundStaking = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    goodCompoundStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        console.log(contract);
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     console.log("initializing marketmaker...");
 
@@ -167,6 +172,21 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
+  });
+
+  it("should not be initializable twice", async () => {
+    await expect(
+      goodCompoundStaking.init(
+        dai.address,
+        cDAI.address,
+        nameService.address,
+        "Good DAI",
+        "gDAI",
+        "172800",
+        daiUsdOracle.address,
+        "100000"
+      )
+    ).to.revertedWith("Initializable: contract is already initialized");
   });
 
   it("should mock cdai exchange rate 1e28 precision", async () => {
@@ -285,17 +305,21 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "GoodCompoundStaking"
     );
 
-    let simpleStaking1 = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI1.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    let simpleStaking1 = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI1.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
@@ -400,17 +424,21 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "GoodCompoundStaking"
     );
 
-    let simpleStaking1 = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI1.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    let simpleStaking1 = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI1.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
     const weiAmount = ethers.utils.parseEther("1000");
     const ictrl = await ethers.getContractAt(
       "Controller",
@@ -618,17 +646,21 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    let simpleStaking1 = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI2.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    let simpleStaking1 = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI2.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
@@ -679,17 +711,21 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "GoodCompoundStaking"
     );
 
-    let simpleStaking1 = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI1.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    let simpleStaking1 = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI1.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
 
     const weiAmount = ethers.utils.parseEther("1000");
     await dai["mint(address,uint256)"](staker.address, weiAmount);
@@ -743,17 +779,21 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "GoodCompoundStaking"
     );
 
-    let fakeSimpleStaking = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      fakecDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    let fakeSimpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          fakecDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
     await dai["mint(address,uint256)"](
       staker.address,
       ethers.utils.parseEther("100")
@@ -786,17 +826,21 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "GoodCompoundStaking"
     );
 
-    let fakeSimpleStaking = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      fakecDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    let fakeSimpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          fakecDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
     await dai["mint(address,uint256)"](
       staker.address,
       ethers.utils.parseEther("100")
@@ -833,17 +877,21 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "GoodCompoundStaking"
     );
 
-    let fakeSimpleStaking = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      fakecDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    let fakeSimpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          fakecDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
     await dai["mint(address,uint256)"](
       staker.address,
       ethers.utils.parseEther("100")
@@ -996,17 +1044,21 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "GoodCompoundStaking"
     );
 
-    let simpleStaking1 = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI3.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    let simpleStaking1 = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI3.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
 
     const weiAmount = ethers.utils.parseUnits("1000", "ether");
     await dai["mint(address,uint256)"](staker.address, weiAmount);
@@ -1383,17 +1435,21 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "GoodCompoundStaking"
     );
 
-    let simpleStaking1 = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    let simpleStaking1 = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
     const weiAmount = ethers.utils.parseEther("100");
 
     // staking dai
@@ -1438,17 +1494,21 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "GoodCompoundStaking"
     );
 
-    let simpleStaking1 = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    let simpleStaking1 = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
     let avatarBalanceBefore = await cDAI.balanceOf(avatar);
     let encodedCall = goodCompoundStakingFactory.interface.encodeFunctionData(
       "recover",
@@ -1518,17 +1578,21 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       "GoodCompoundStaking"
     );
 
-    let simpleStaking1 = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cdai1.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    let simpleStaking1 = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cdai1.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
     await dai["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseEther("100")
@@ -1563,17 +1627,21 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
 
     let simpleStaking = await goodCompoundStakingFactory
-      .deploy(
-        twentyDecimalsToken.address,
-        cDAI.address,
-        BLOCK_INTERVAL,
-        nameService.address,
-        "Good DAI",
-        "gDAI",
-        "172800",
-        daiUsdOracle.address,
-        "100000"
-      )
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          twentyDecimalsToken.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      })
+
       .catch(e => e);
     expect(simpleStaking.message).to.have.string(
       "Token decimals should be less than 18 decimals"
