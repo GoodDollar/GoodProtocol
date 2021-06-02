@@ -215,7 +215,7 @@ abstract contract SimpleStaking is
 		require(_amount > 0, "You need to stake a positive token amount");
 		require(
 			(_inInterestToken ? iToken : token).transferFrom(
-				msg.sender,
+				_msgSender(),
 				address(this),
 				_amount
 			),
@@ -226,15 +226,15 @@ abstract contract SimpleStaking is
 			mintInterestToken(_amount); //mint iToken
 		}
 
-		UserInfo storage userInfo = users[msg.sender];
+		UserInfo storage userInfo = users[_msgSender()];
 		userInfo.donationPer = uint8(_donationPer);
 
-		_mint(msg.sender, _amount); // mint Staking token for staker
+		_mint(_msgSender(), _amount); // mint Staking token for staker
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
 				.rewardsForStakingContract(address(this));
 		_increaseProductivity(
-			msg.sender,
+			_msgSender(),
 			_amount,
 			rewardsPerBlock,
 			blockStart,
@@ -249,10 +249,10 @@ abstract contract SimpleStaking is
 				token.decimals() == 18
 					? _amount
 					: _amount * 10**(18 - token.decimals());
-			sd.userStaked(msg.sender, stakeAmountInEighteenDecimals);
+			sd.userStaked(_msgSender(), stakeAmountInEighteenDecimals);
 		}
 
-		emit Staked(msg.sender, address(token), _amount);
+		emit Staked(_msgSender(), address(token), _amount);
 	}
 
 	/**
@@ -264,15 +264,15 @@ abstract contract SimpleStaking is
 		external
 		virtual
 	{
-		//InterestDistribution.Staker storage staker = interestData.stakers[msg.sender];
+		//InterestDistribution.Staker storage staker = interestData.stakers[_msgSender()];
 		uint256 tokenWithdraw;
 		require(_amount > 0, "Should withdraw positive amount");
-		(uint256 userProductivity, ) = getProductivity(msg.sender);
+		(uint256 userProductivity, ) = getProductivity(_msgSender());
 		if (_inInterestToken) {
 			uint256 tokenWorth = iTokenWorthInToken(_amount);
 			require(userProductivity >= tokenWorth, "Not enough token staked");
 			require(
-				iToken.transfer(msg.sender, _amount),
+				iToken.transfer(_msgSender(), _amount),
 				"withdraw transfer failed"
 			);
 			_amount = tokenWorth;
@@ -285,24 +285,24 @@ abstract contract SimpleStaking is
 				tokenWithdraw = tokenActual;
 			}
 			require(
-				token.transfer(msg.sender, tokenWithdraw),
+				token.transfer(_msgSender(), tokenWithdraw),
 				"withdraw transfer failed"
 			);
 		}
 
 		GoodFundManager fm =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
-		_burn(msg.sender, _amount); // burn their staking tokens
+		_burn(_msgSender(), _amount); // burn their staking tokens
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
 			fm.rewardsForStakingContract(address(this));
 		_decreaseProductivity(
-			msg.sender,
+			_msgSender(),
 			_amount,
 			rewardsPerBlock,
 			blockStart,
 			blockEnd
 		);
-		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
+		fm.mintReward(nameService.getAddress("CDAI"), _msgSender()); // send rewards to user and use cDAI address since reserve in cDAI
 
 		//notify GDAO distrbution for stakers
 		StakersDistribution sd =
@@ -312,11 +312,11 @@ abstract contract SimpleStaking is
 				token.decimals() == 18
 					? _amount
 					: _amount * 10**(18 - token.decimals());
-			sd.userWithdraw(msg.sender, withdrawAmountInEighteenDecimals);
+			sd.userWithdraw(_msgSender(), withdrawAmountInEighteenDecimals);
 		}
 
 		emit StakeWithdraw(
-			msg.sender,
+			_msgSender(),
 			address(token),
 			_inInterestToken == false ? tokenWithdraw : _amount
 		);
@@ -329,7 +329,7 @@ abstract contract SimpleStaking is
 	function withdrawRewards() public {
 		GoodFundManager fm =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
-		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
+		fm.mintReward(nameService.getAddress("CDAI"), _msgSender()); // send rewards to user and use cDAI address since reserve in cDAI
 		claimReputation();
 	}
 
@@ -343,7 +343,7 @@ abstract contract SimpleStaking is
 		if (address(sd) != address(0)) {
 			address[] memory contracts = new address[](1);
 			contracts[0] = (address(this));
-			sd.claimReputation(msg.sender, contracts);
+			sd.claimReputation(_msgSender(), contracts);
 		}
 	}
 
@@ -492,7 +492,7 @@ abstract contract SimpleStaking is
 
 	function _canMintRewards() internal view override {
 		require(
-			msg.sender == nameService.getAddress("FUND_MANAGER"),
+			_msgSender() == nameService.getAddress("FUND_MANAGER"),
 			"Only FundManager can call this method"
 		);
 	}
