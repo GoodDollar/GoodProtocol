@@ -1,7 +1,11 @@
 import { default as hre, ethers, upgrades } from "hardhat";
 import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
-import { CompoundStakingFactory, CERC20 } from "../../types";
+import {
+  CompoundStakingFactory,
+  CERC20,
+  GoodCompoundStaking
+} from "../../types";
 import { createDAO } from "../helpers";
 
 const BN = ethers.BigNumber;
@@ -12,36 +16,12 @@ let cdai: CERC20;
 describe("CompoundStakingFactory", () => {
   let founder, signers, cdai, dai, dao, stakingFactory: CompoundStakingFactory;
 
-  const deployDAIMock = async () => {
-    let [signer] = await ethers.getSigners();
-    let cdai = await hre.artifacts.readArtifact("cERC20");
-    let dai = ((await deployMockContract(
-      signer,
-      cdai.abi
-    )) as unknown) as CERC20;
-    dai.mock.decimals.returns(18);
-
-    return dai.address;
-  };
-
-  const deploycDAIMock = async () => {
-    let [signer] = await ethers.getSigners();
-    let cdai = await hre.artifacts.readArtifact("cERC20");
-    let dai = await deployMockContract(signer, cdai.abi);
-    dai.mock.decimals.returns(8);
-    dai.mock.underlying.returns(dai.address);
-    dai.mock.name.returns("Compound DAI");
-    dai.mock.symbol.returns("cDAI");
-    return dai.address;
-  };
-
   before(async () => {
     [founder, ...signers] = await ethers.getSigners();
-
     dao = await createDAO();
-    dai = await deployDAIMock();
-    cdai = await deploycDAIMock();
 
+    dai = dao.daiAddress;
+    cdai = dao.cdaiAddress;
     stakingFactory = (await ethers
       .getContractFactory("CompoundStakingFactory")
       .then(_ => _.deploy())) as CompoundStakingFactory;
@@ -58,7 +38,7 @@ describe("CompoundStakingFactory", () => {
     );
     expect(log).to.not.empty;
     expect(log.args.proxy).to.equal(detAddress);
-    expect(log.args.cToken).to.equal(cdai.address);
+    expect(log.args.cToken).to.equal(cdai);
   });
 
   it("should create and initialize clone", async () => {
@@ -84,6 +64,16 @@ describe("CompoundStakingFactory", () => {
     );
     expect(log).to.not.empty;
     expect(log.args.proxy).to.equal(detAddress);
-    expect(log.args.cToken).to.equal(cdai.address);
+    expect(log.args.cToken).to.equal(cdai);
+
+    //check initialization
+    const staking: GoodCompoundStaking = (await ethers.getContractAt(
+      "GoodCompoundStaking",
+      detAddress
+    )) as GoodCompoundStaking;
+    expect(await staking.iToken()).to.equal(cdai);
+    expect(await staking.token()).to.equal(dai);
+    expect(await staking.name()).to.equal("GoodCompoundStaking Compound DAI");
+    expect(await staking.symbol()).to.equal("gcDAI");
   });
 });

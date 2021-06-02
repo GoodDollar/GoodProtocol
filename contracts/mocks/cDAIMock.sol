@@ -19,6 +19,10 @@ contract cDAIMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 		dai = _dai;
 	}
 
+	function underlying() public view returns (address) {
+		return address(dai);
+	}
+
 	function mint(uint256 daiAmount) public returns (uint256) {
 		dai.transferFrom(msg.sender, address(this), daiAmount);
 		//mul by 1e10 to match to precision of 1e28 of the exchange rate
@@ -62,8 +66,8 @@ contract cDAIMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	function decimals() public pure override returns (uint8) {
 		return 8;
 	}
+
 	function increasePriceWithMultiplier(uint256 multiplier) public {
 		exchangeRate += multiplier * uint256(1e28).div(100);
-		
 	}
 }

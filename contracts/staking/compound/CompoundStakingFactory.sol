@@ -23,7 +23,7 @@ contract CompoundStakingFactory {
 		returns (GoodCompoundStaking)
 	{
 		address deployed =
-			address(cToken).cloneDeterministic(
+			address(impl).cloneDeterministic(
 				keccak256(abi.encodePacked(address(cToken), paramsHash))
 			);
 		emit Deployed(deployed, address(cToken));
@@ -66,6 +66,9 @@ contract CompoundStakingFactory {
 		view
 		returns (address)
 	{
-		return address(cToken).predictDeterministicAddress(paramsHash);
+		return
+			address(impl).predictDeterministicAddress(
+				keccak256(abi.encodePacked(address(cToken), paramsHash))
+			);
 	}
 }

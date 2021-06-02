@@ -25,7 +25,7 @@ abstract contract SimpleStaking is
 	BaseShareField
 {
 	// Token address
-	ERC20 token;
+	ERC20 public token;
 	// Interest Token address
 	ERC20 public iToken;
 
