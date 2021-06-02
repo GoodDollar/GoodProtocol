@@ -1421,7 +1421,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const gasPriceInDAI = gasPrice.mul(BN.from("10").pow(18)).div(daiToEthRate); // gasPrice in ETH so 18 decimals and DAI/ETH rate is in also 18 decimals so in order to 18 decimals we multiply with 1e18
     const gasPriceInCdai = gasPriceInDAI
       .div(BN.from("10").pow(10)) // we divide DAI amount with 1e10 so it reduces to CDAI decimals which is 8
-      .mul(BN.from("10").pow(28)) // we multiply it with mantissa which is 18 + tokenDecimals - iTokenDecimals
+      .mul(BN.from("10").pow(28)) // we multiply it with mantissa which is 18 + tokenDecimals - cTokenDecimals so token is in 18 decimals and cToken is in 8 decimals therefore difference is 10 for more detail https://compound.finance/docs#protocol-math
       .div(await cDAI.exchangeRateStored()); // then we divide it exchange rate in order to get result
     const calculatedResult = gasPriceInCdai.mul(gasAmount);
     const onChainResult = await goodFundManager.getGasPriceIncDAIorDAI(
