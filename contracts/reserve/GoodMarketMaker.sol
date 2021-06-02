@@ -126,8 +126,8 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 
 	function _onlyReserveOrAvatar() internal view {
 		require(
-			nameService.addresses(nameService.RESERVE()) == msg.sender ||
-				nameService.addresses(nameService.AVATAR()) == msg.sender,
+			nameService.getAddress("RESERVE") == msg.sender ||
+				nameService.getAddress("AVATAR") == msg.sender,
 			"GoodMarketMaker: not Reserve or Avatar"
 		);
 	}

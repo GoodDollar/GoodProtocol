@@ -108,7 +108,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 
 	function _reserveHasInitialized() internal view {
 		require(
-			nameService.addresses(nameService.RESERVE()) != address(0x0),
+			nameService.getAddress("RESERVE") != address(0x0),
 			"reserve has not initialized"
 		);
 	}
@@ -232,7 +232,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		_reserveHasInitialized();
 		cERC20 iToken = cERC20(nameService.getAddress("CDAI"));
 		ERC20 daiToken = ERC20(nameService.getAddress("DAI"));
-		address reserveAddress = nameService.addresses(nameService.RESERVE());
+		address reserveAddress = nameService.getAddress("RESERVE");
 		// DAI balance of the reserve contract
 		uint256 currentBalance = daiToken.balanceOf(reserveAddress);
 		uint256 cDAIBalance = iToken.balanceOf(reserveAddress);
@@ -258,17 +258,14 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				iToken,
 				interestInCdai // interest
 			);
-		IGoodDollar token =
-			IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
+		IGoodDollar token = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
 		if (gdUBI > 0) {
 			//transfer ubi to avatar on sidechain via bridge
 			require(
 				token.transferAndCall(
-					nameService.addresses(nameService.BRIDGE_CONTRACT()),
+					nameService.getAddress("BRIDGE_CONTRACT"),
 					gdUBI,
-					abi.encodePacked(
-						nameService.addresses(nameService.UBI_RECIPIENT())
-					)
+					abi.encodePacked(nameService.getAddress("UBI_RECIPIENT"))
 				),
 				"ubi bridge transfer failed"
 			);
@@ -391,8 +388,11 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				staking.blockEnd
 			);
 		if (amount > 0 && staking.isBlackListed == false) {
-			GoodReserveCDai(nameService.addresses(nameService.RESERVE()))
-				.mintRewardFromRR(_token, _user, amount);
+			GoodReserveCDai(nameService.getAddress("RESERVE")).mintRewardFromRR(
+				_token,
+				_user,
+				amount
+			);
 		}
 	}
 
@@ -483,8 +483,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	function getGasPriceInGD(uint256 _gasAmount) public view returns (uint256) {
 		uint256 priceInCdai = getGasPriceInCDAI(_gasAmount);
 		uint256 gdPriceIncDAI =
-			GoodReserveCDai(nameService.addresses(nameService.RESERVE()))
-				.currentPrice();
+			GoodReserveCDai(nameService.getAddress("RESERVE")).currentPrice();
 		return rdiv(priceInCdai, gdPriceIncDAI) / 1e25; // rdiv returns result in 27 decimals since GD$ in 2 decimals then divide 1e25
 	}
 

@@ -33,12 +33,20 @@ contract GoodCompoundStakingTest is GoodCompoundStaking {
 	}
 
 	function decreaseProductivityTest(address user, uint256 value) public {
-		GoodFundManager fm = GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()));
+		GoodFundManager fm =
+			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
 			fm.rewardsForStakingContract(address(this));
-		_decreaseProductivity(user, value, rewardsPerBlock,  blockStart,  blockEnd);
+		_decreaseProductivity(
+			user,
+			value,
+			rewardsPerBlock,
+			blockStart,
+			blockEnd
+		);
 	}
-	function mintToken(address user,uint256 value) public{
+
+	function mintToken(address user, uint256 value) public {
 		_mint(user, value);
 	}
 }

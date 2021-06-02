@@ -80,10 +80,10 @@ contract ProtocolUpgrade {
 	function setReserveSoleMinter(NameService ns) internal {
 		bool ok;
 		(ok, ) = controller.genericCall(
-			ns.addresses(ns.GOODDOLLAR()),
+			ns.getAddress("GOODDOLLAR"),
 			abi.encodeWithSignature(
 				"addMinter(address)",
-				ns.addresses(ns.RESERVE())
+				ns.getAddress("RESERVE")
 			),
 			avatar,
 			0
@@ -91,7 +91,7 @@ contract ProtocolUpgrade {
 		require(ok, "Calling addMinter failed");
 
 		(ok, ) = controller.genericCall(
-			address(ns.addresses(ns.GOODDOLLAR())),
+			address(ns.getAddress("GOODDOLLAR")),
 			abi.encodeWithSignature("renounceMinter()"),
 			avatar,
 			0
@@ -99,7 +99,7 @@ contract ProtocolUpgrade {
 		require(ok, "Calling renounceMinter failed");
 
 		ok = controller.addGlobalConstraint(
-			ns.addresses(ns.RESERVE()),
+			ns.getAddress("RESERVE"),
 			bytes32(0x0),
 			avatar
 		);
@@ -140,7 +140,7 @@ contract ProtocolUpgrade {
 
 		ok = controller.externalTokenTransfer(
 			cdai,
-			ns.addresses(ns.RESERVE()),
+			ns.getAddress("RESERVE"),
 			rToken.reserveSupply,
 			avatar
 		);
@@ -148,7 +148,7 @@ contract ProtocolUpgrade {
 		require(ok, "transfer cdai to new reserve failed");
 
 		(ok, ) = controller.genericCall(
-			ns.addresses(ns.MARKET_MAKER()),
+			ns.getAddress("MARKET_MAKER"),
 			abi.encodeWithSignature(
 				"initializeToken(address,uint256,uint256,uint32)",
 				cdai,
@@ -221,7 +221,7 @@ contract ProtocolUpgrade {
 		for (uint256 i = 0; i < contracts.length; i++) {
 			(bool ok, ) =
 				controller.genericCall(
-					ns.addresses(ns.FUND_MANAGER()),
+					ns.getAddress("FUND_MANAGER"),
 					abi.encodeWithSignature(
 						"setStakingRewards(uint32,address,uint32,uint32,bool)",
 						rewards[i],
