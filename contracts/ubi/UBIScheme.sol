@@ -426,13 +426,13 @@ contract UBIScheme is DAOUpgradeableContract {
 	 */
 	function claim() public requireStarted returns (bool) {
 		require(
-			IIdentity(nameService.addresses(nameService.IDENTITY()))
-				.isWhitelisted(msg.sender),
+			IIdentity(nameService.getAddress("IDENTITY")).isWhitelisted(
+				msg.sender
+			),
 			"UBIScheme: not whitelisted"
 		);
 		bool didClaim = _claim(msg.sender);
-		address claimerDistribution =
-			nameService.addresses(nameService.GDAO_CLAIMERS());
+		address claimerDistribution = nameService.getAddress("GDAO_CLAIMERS");
 		if (didClaim && claimerDistribution != address(0)) {
 			ClaimersDistribution(claimerDistribution).updateClaim(msg.sender);
 		}

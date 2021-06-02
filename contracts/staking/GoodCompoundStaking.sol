@@ -55,9 +55,10 @@ contract GoodCompoundStaking is SimpleStaking {
 	 */
 	function mintInterestToken(uint256 _amount) internal override {
 		cERC20 cToken = cERC20(address(iToken));
-		uint256 res = cToken.mint(_amount);
-
-		require(res == 0, "Minting cToken failed, funds returned");
+		require(
+			cToken.mint(_amount) == 0,
+			"Minting cToken failed, funds returned"
+		);
 	}
 
 	/**
@@ -110,14 +111,6 @@ contract GoodCompoundStaking is SimpleStaking {
 	}
 
 	/**
-	 * @dev returns token to iToken Exchange rate.
-	 */
-	function exchangeRate() internal view override returns (uint256) {
-		cERC20 cToken = cERC20(address(iToken));
-		return cToken.exchangeRateStored();
-	}
-
-	/**
 	 * @dev returns decimals of token.
 	 */
 	function tokenDecimal() internal view override returns (uint256) {
@@ -141,6 +134,54 @@ contract GoodCompoundStaking is SimpleStaking {
 		return tokenUsdOracle;
 	}
 
+	function currentGains(
+		bool _returnTokenBalanceInUSD,
+		bool _returnTokenGainsInUSD
+	)
+		public
+		view
+		override
+		returns (
+			uint256,
+			uint256,
+			uint256,
+			uint256,
+			uint256
+		)
+	{
+		cERC20 cToken = cERC20(address(iToken));
+		uint256 er = cToken.exchangeRateStored();
+		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
+		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
+		uint256 tokenBalance =
+			iTokenWorthInToken(iToken.balanceOf(address(this)));
+		uint256 balanceInUSD =
+			_returnTokenBalanceInUSD ? getTokenValueInUSD(tokenBalance) : 0;
+		if (tokenBalance <= totalProductivity) {
+			return (0, 0, tokenBalance, balanceInUSD, 0);
+		}
+		uint256 tokenGains = tokenBalance - totalProductivity;
+		uint256 iTokenGains;
+		if (caseType) {
+			iTokenGains =
+				((tokenGains / 10**decimalDifference) * 10**mantissa) /
+				er; // based on https://compound.finance/docs#protocol-math
+		} else {
+			iTokenGains =
+				((tokenGains * 10**decimalDifference) * 10**mantissa) /
+				er; // based on https://compound.finance/docs#protocol-math
+		}
+		uint256 tokenGainsInUSD =
+			_returnTokenGainsInUSD ? getTokenValueInUSD(tokenGains) : 0;
+		return (
+			iTokenGains,
+			tokenGains,
+			tokenBalance,
+			balanceInUSD,
+			tokenGainsInUSD
+		);
+	}
+
 	function getGasCostForInterestTransfer()
 		external
 		view
@@ -148,5 +189,27 @@ contract GoodCompoundStaking is SimpleStaking {
 		returns (uint32)
 	{
 		return collectInterestGasCost;
+	}
+
+	/**
+	 * @dev Calculates worth of given amount of iToken in Token
+	 * @param _amount Amount of token to calculate worth in Token
+	 * @return Worth of given amount of token in Token
+	 */
+	function iTokenWorthInToken(uint256 _amount)
+		public
+		view
+		override
+		returns (uint256)
+	{
+		cERC20 cToken = cERC20(address(iToken));
+		uint256 er = cToken.exchangeRateStored();
+		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
+		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
+		uint256 tokenWorth =
+			caseType == true
+				? (_amount * (10**decimalDifference) * er) / 10**mantissa
+				: ((_amount / (10**decimalDifference)) * er) / 10**mantissa; // calculation based on https://compound.finance/docs#protocol-math
+		return tokenWorth;
 	}
 }

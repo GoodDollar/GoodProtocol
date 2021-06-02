@@ -154,22 +154,13 @@ contract GoodReserveCDai is
 	}
 
 	/**
-	 * @dev get current FundManager from name service
-	 */
-	function getFundManager() public view returns (address) {
-		return nameService.addresses(nameService.FUND_MANAGER());
-	}
-
-	//
-	/**
 	 * @dev get current MarketMaker from name service
 	 * The address of the market maker contract
 	 * which makes the calculations and holds
 	 * the token and accounts info (should be owned by the reserve)
 	 */
 	function getMarketMaker() public view returns (GoodMarketMaker) {
-		return
-			GoodMarketMaker(nameService.addresses(nameService.MARKET_MAKER()));
+		return GoodMarketMaker(nameService.getAddress("MARKET_MAKER"));
 	}
 
 	/**
@@ -468,7 +459,7 @@ contract GoodReserveCDai is
 		returns (uint256, uint256)
 	{
 		GoodMarketMaker mm = getMarketMaker();
-		IGoodDollar(nameService.addresses(nameService.GOODDOLLAR())).burnFrom(
+		IGoodDollar(nameService.getAddress("GOODDOLLAR")).burnFrom(
 			msg.sender,
 			_gdAmount
 		);
@@ -483,7 +474,7 @@ contract GoodReserveCDai is
 		uint256 contributionAmount = 0;
 		if (discount < _gdAmount)
 			contributionAmount = ContributionCalc(
-				nameService.addresses(nameService.CONTRIBUTION_CALCULATION())
+				nameService.getAddress("CONTRIBUTION_CALCULATION")
 			)
 				.calculateContribution(
 				mm,
@@ -568,24 +559,19 @@ contract GoodReserveCDai is
 		//enforce minting rules
 		require(
 			_internalCall ||
-				_msgSender() ==
-				nameService.addresses(nameService.FUND_MANAGER()) ||
+				_msgSender() == nameService.getAddress("FUND_MANAGER") ||
 				hasRole(RESERVE_MINTER_ROLE, _msgSender()),
 			"GoodReserve: not a minter"
 		);
 
 		require(
-			IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()))
-				.totalSupply() +
+			IGoodDollar(nameService.getAddress("GOODDOLLAR")).totalSupply() +
 				_gdToMint <=
 				cap,
 			"GoodReserve: cap enforced"
 		);
 
-		IGoodDollar(nameService.addresses(nameService.GOODDOLLAR())).mint(
-			_to,
-			_gdToMint
-		);
+		IGoodDollar(nameService.getAddress("GOODDOLLAR")).mint(_to, _gdToMint);
 	}
 
 	function _mintGDX(address _to, uint256 _gdx) internal {
@@ -615,7 +601,7 @@ contract GoodReserveCDai is
 		uint256 gdUBI = gdInterestToMint;
 		gdUBI = gdUBI.add(gdExpansionToMint);
 		uint256 toMint = gdUBI;
-		_mintGoodDollars(getFundManager(), toMint, false);
+		_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), toMint, false);
 		lastMinted = block.number;
 		emit UBIMinted(
 			lastMinted,
@@ -662,13 +648,11 @@ contract GoodReserveCDai is
 		}
 
 		//restore minting to avatar, so he can re-delegate it
-		IGoodDollar gd =
-			IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
+		IGoodDollar gd = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
 		if (gd.isMinter(address(avatar)) == false)
 			gd.addMinter(address(avatar));
 
-		IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()))
-			.renounceMinter();
+		IGoodDollar(nameService.getAddress("GOODDOLLAR")).renounceMinter();
 	}
 
 	/**
@@ -728,21 +712,6 @@ contract GoodReserveCDai is
 		_hash;
 		_method;
 		if (_method == "mintTokens") return false;
-
-		return true;
-	}
-
-	/**
-	 * @dev enforce cap on DAOStack Controller mintTokens using GlobalConstraintInterface
-	 */
-	function post(
-		address _scheme,
-		bytes32 _hash,
-		bytes32 _method
-	) public pure override returns (bool) {
-		_hash;
-		_scheme;
-		_method;
 
 		return true;
 	}

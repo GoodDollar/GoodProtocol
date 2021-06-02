@@ -30,12 +30,12 @@ contract DAOContract {
 	}
 
 	function updateAvatar() public {
-		dao = Controller(nameService.addresses(nameService.CONTROLLER()));
+		dao = Controller(nameService.getAddress("CONTROLLER"));
 		avatar = dao.avatar();
 	}
 
 	function nativeToken() public view returns (IGoodDollar) {
-		return IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
+		return IGoodDollar(nameService.getAddress("GOODDOLLAR"));
 	}
 
 	uint256[50] private gap;

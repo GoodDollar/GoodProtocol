@@ -10,11 +10,27 @@ import "../utils/DAOUpgradeableContract.sol";
 interface StakingContract {
 	function collectUBIInterest(address recipient)
 		external
-		returns (uint256, uint256);
+		returns (
+			uint256,
+			uint256,
+			uint256
+		);
 
 	function iToken() external view returns (address);
 
-	function currentUBIInterest() external view returns (uint256, uint256);
+	function currentGains(
+		bool _returnTokenBalanceInUSD,
+		bool _returnTokenGainsInUSD
+	)
+		external
+		view
+		returns (
+			uint256,
+			uint256,
+			uint256,
+			uint256,
+			uint256
+		);
 
 	function getRewardEarned(address user) external view returns (uint256);
 
@@ -92,7 +108,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 
 	function _reserveHasInitialized() internal view {
 		require(
-			nameService.addresses(nameService.RESERVE()) != address(0x0),
+			nameService.getAddress("RESERVE") != address(0x0),
 			"reserve has not initialized"
 		);
 	}
@@ -216,7 +232,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		_reserveHasInitialized();
 		cERC20 iToken = cERC20(nameService.getAddress("CDAI"));
 		ERC20 daiToken = ERC20(nameService.getAddress("DAI"));
-		address reserveAddress = nameService.addresses(nameService.RESERVE());
+		address reserveAddress = nameService.getAddress("RESERVE");
 		// DAI balance of the reserve contract
 		uint256 currentBalance = daiToken.balanceOf(reserveAddress);
 		uint256 cDAIBalance = iToken.balanceOf(reserveAddress);
@@ -242,17 +258,14 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				iToken,
 				interestInCdai // interest
 			);
-		IGoodDollar token =
-			IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
+		IGoodDollar token = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
 		if (gdUBI > 0) {
 			//transfer ubi to avatar on sidechain via bridge
 			require(
 				token.transferAndCall(
-					nameService.addresses(nameService.BRIDGE_CONTRACT()),
+					nameService.getAddress("BRIDGE_CONTRACT"),
 					gdUBI,
-					abi.encodePacked(
-						nameService.addresses(nameService.UBI_RECIPIENT())
-					)
+					abi.encodePacked(nameService.getAddress("UBI_RECIPIENT"))
 				),
 				"ubi bridge transfer failed"
 			);
@@ -310,8 +323,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		uint256 totalInterest;
 		int256 i;
 		for (i = 0; i < int256(activeContractsLength); i++) {
-			(, tempInterest) = StakingContract(activeContracts[uint256(i)])
-				.currentUBIInterest();
+			(, , , , tempInterest) = StakingContract(
+				activeContracts[uint256(i)]
+			)
+				.currentGains(false, true);
 			totalInterest += tempInterest;
 			if (tempInterest != 0) {
 				addresses[uint256(i)] = activeContracts[uint256(i)];
@@ -374,8 +389,11 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				staking.blockEnd
 			);
 		if (amount > 0 && staking.isBlackListed == false) {
-			GoodReserveCDai(nameService.addresses(nameService.RESERVE()))
-				.mintRewardFromRR(_token, _user, amount);
+			GoodReserveCDai(nameService.getAddress("RESERVE")).mintRewardFromRR(
+				_token,
+				_user,
+				amount
+			);
 		}
 	}
 
@@ -451,8 +469,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	function getGasPriceInGD(uint256 _gasAmount) public view returns (uint256) {
 		uint256 priceInCdai = getGasPriceIncDAIorDAI(_gasAmount, false);
 		uint256 gdPriceIncDAI =
-			GoodReserveCDai(nameService.addresses(nameService.RESERVE()))
-				.currentPrice();
+			GoodReserveCDai(nameService.getAddress("RESERVE")).currentPrice();
 		return rdiv(priceInCdai, gdPriceIncDAI) / 1e25; // rdiv returns result in 27 decimals since GD$ in 2 decimals then divide 1e25
 	}
 

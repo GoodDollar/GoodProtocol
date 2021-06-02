@@ -68,8 +68,7 @@ contract ClaimersDistribution is DAOUpgradeableContract {
 	 * @param _claimer the user to update
 	 */
 	function updateClaim(address _claimer) external {
-		IUBIScheme ubi =
-			IUBIScheme(nameService.addresses(nameService.UBISCHEME()));
+		IUBIScheme ubi = IUBIScheme(nameService.getAddress("UBISCHEME"));
 		require(
 			ubi.hasClaimed(_claimer),
 			"ClaimersDistribution: didn't claim today"
@@ -116,9 +115,7 @@ contract ClaimersDistribution is DAOUpgradeableContract {
 					months[prevMonth].totalClaims;
 			if (userShare > 0) {
 				GReputation grep =
-					GReputation(
-						nameService.addresses(nameService.REPUTATION())
-					);
+					GReputation(nameService.getAddress("REPUTATION"));
 				grep.mint(_claimer, userShare);
 			}
 		}
