@@ -10,11 +10,27 @@ import "../utils/DAOUpgradeableContract.sol";
 interface StakingContract {
 	function collectUBIInterest(address recipient)
 		external
-		returns (uint256, uint256);
+		returns (
+			uint256,
+			uint256,
+			uint256
+		);
 
 	function iToken() external view returns (address);
 
-	function currentUBIInterest() external view returns (uint256, uint256);
+	function currentGains(
+		bool _returnTokenBalanceInUSD,
+		bool _returnTokenGainsInUSD
+	)
+		external
+		view
+		returns (
+			uint256,
+			uint256,
+			uint256,
+			uint256,
+			uint256
+		);
 
 	function getRewardEarned(address user) external view returns (uint256);
 
@@ -309,8 +325,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		uint256 totalInterest;
 		int256 i;
 		for (i = 0; i < int256(activeContractsLength); i++) {
-			(, tempInterest) = StakingContract(activeContracts[uint256(i)])
-				.currentUBIInterest();
+			(, , , , tempInterest) = StakingContract(
+				activeContracts[uint256(i)]
+			)
+				.currentGains(false, true);
 			totalInterest += tempInterest;
 			if (tempInterest != 0) {
 				addresses[uint256(i)] = activeContracts[uint256(i)];
