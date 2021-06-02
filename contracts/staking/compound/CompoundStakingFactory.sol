@@ -16,12 +16,15 @@ contract CompoundStakingFactory {
 
 	address impl = address(new GoodCompoundStaking());
 
-	event Deployed(address deployed, address cToken);
+	event Deployed(address proxy, address cToken);
 
-	function clone(cERC20 cToken) public returns (GoodCompoundStaking) {
+	function clone(cERC20 cToken, bytes32 paramsHash)
+		public
+		returns (GoodCompoundStaking)
+	{
 		address deployed =
 			address(cToken).cloneDeterministic(
-				keccak256(abi.encodePacked(cToken.name(), cToken.symbol()))
+				keccak256(abi.encodePacked(address(cToken), paramsHash))
 			);
 		emit Deployed(deployed, address(cToken));
 		return GoodCompoundStaking(deployed);
@@ -34,7 +37,18 @@ contract CompoundStakingFactory {
 		address _tokenUsdOracle,
 		uint32 _collectInterestGasCost
 	) public {
-		GoodCompoundStaking deployed = clone(cToken);
+		GoodCompoundStaking deployed =
+			clone(
+				cToken,
+				keccak256(
+					abi.encodePacked(
+						address(_ns),
+						_maxRewardThreshold,
+						_tokenUsdOracle,
+						_collectInterestGasCost
+					)
+				)
+			);
 		deployed.init(
 			cToken.underlying(),
 			address(cToken),
@@ -45,5 +59,13 @@ contract CompoundStakingFactory {
 			_tokenUsdOracle,
 			_collectInterestGasCost
 		);
+	}
+
+	function predictAddress(cERC20 cToken, bytes32 paramsHash)
+		public
+		view
+		returns (address)
+	{
+		return address(cToken).predictDeterministicAddress(paramsHash);
 	}
 }
