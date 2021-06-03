@@ -186,8 +186,7 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
           "Good USDC",
           "gUSDC",
           "172800",
-          usdcUsdOracle.address,
-          "200000"
+          usdcUsdOracle.address
         );
         return contract;
       });

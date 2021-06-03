@@ -51,6 +51,7 @@ describe("UBIScheme - network e2e tests", () => {
     founder,
     signers,
     schemeMock,
+    comp,
     marketMaker: GoodMarketMaker;
   let avatar,
     registrar,
@@ -118,8 +119,7 @@ describe("UBIScheme - network e2e tests", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address,
-          "100000"
+          daiUsdOracle.address
         );
         return contract;
       });
@@ -174,7 +174,11 @@ describe("UBIScheme - network e2e tests", () => {
       "EthUSDMockOracle"
     );
     ethUsdOracle = await ethUsdOracleFactory.deploy();
+
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    const daiFactory = await ethers.getContractFactory("DAIMock");
+    comp = await daiFactory.deploy();
+    await setDAOAddress("COMP", comp.address);
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);

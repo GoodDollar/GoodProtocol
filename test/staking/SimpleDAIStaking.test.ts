@@ -186,8 +186,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
         "Good DAI",
         "gDAI",
         "172800",
-        daiUsdOracle.address,
-        "100000"
+        daiUsdOracle.address
       )
     ).to.revertedWith("Initializable: contract is already initialized");
   });
