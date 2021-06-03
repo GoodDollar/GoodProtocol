@@ -141,7 +141,10 @@ contract GoodReserveCDai is
 		cap = 22 * 1e14; //22 trillion G$ cents
 
 		gdxAirdrop = _gdxAirdrop;
-		ERC20(nameService.getAddress("DAI")).approve(nameService.getAddress("CDAI"), type(uint256).max);
+		ERC20(nameService.getAddress("DAI")).approve(
+			nameService.getAddress("CDAI"),
+			type(uint256).max
+		);
 	}
 
 	/// @dev GDX decimals
@@ -538,7 +541,7 @@ contract GoodReserveCDai is
 	function currentPriceDAI() public view returns (uint256) {
 		cERC20 cDai = cERC20(cDaiAddress);
 
-		return (((currentPrice() * 1e10) * 1e28) / cDai.exchangeRateStored()); // based on https://compound.finance/docs#protocol-math
+		return (((currentPrice() * 1e10) * cDai.exchangeRateStored()) / 1e28); // based on https://compound.finance/docs#protocol-math
 	}
 
 	function mintByPrice(
@@ -592,12 +595,10 @@ contract GoodReserveCDai is
 		uint256 _daiToConvert,
 		uint256 _startingCDAIBalance,
 		ERC20 _interestToken
-		)
-		public
-		returns (uint256,uint256)
-	{
+	) public returns (uint256, uint256) {
 		cERC20(cDaiAddress).mint(_daiToConvert);
-		uint256 interestInCdai = _interestToken.balanceOf(address(this)) - _startingCDAIBalance;
+		uint256 interestInCdai =
+			_interestToken.balanceOf(address(this)) - _startingCDAIBalance;
 		uint256 gdInterestToMint =
 			getMarketMaker().mintInterest(_interestToken, interestInCdai);
 		uint256 gdExpansionToMint =
@@ -615,7 +616,7 @@ contract GoodReserveCDai is
 			gdExpansionToMint,
 			gdUBI
 		);
-		return (gdUBI,interestInCdai);
+		return (gdUBI, interestInCdai);
 	}
 
 	/**
@@ -670,7 +671,6 @@ contract GoodReserveCDai is
 			"recover transfer failed"
 		);
 	}
-
 
 	/**
 	 * @notice prove user balance in a specific blockchain state hash
