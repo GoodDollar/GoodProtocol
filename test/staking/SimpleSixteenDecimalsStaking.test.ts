@@ -44,7 +44,8 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     signers,
     nameService,
     initializeToken,
-    setDAOAddress;
+    setDAOAddress,
+    genericCall;
 
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
@@ -85,6 +86,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       setDAOAddress: sda,
       setSchemes,
       marketMaker: mm,
+      genericCall: gc,
       daiAddress,
       cdaiAddress,
       reserve,
@@ -96,6 +98,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     controller = ctrl;
     setDAOAddress = sda;
     nameService = ns;
+    genericCall = gc;
     initializeToken = setReserveToken;
     goodReserve = reserve as GoodReserveCDai;
     console.log("deployed dao", {
@@ -184,9 +187,13 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       "Good SDT",
       "gSDT",
       "172800",
-      sixteenDecimalsUsdOracle.address,
-      "200000"
+      sixteenDecimalsUsdOracle.address
     );
+    const encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
+      "setcollectInterestGasCost",
+      ["200000"]
+    );
+    await genericCall(goodCompoundStaking.address, encodedData);
     await dai["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseEther("2000000")
@@ -458,8 +465,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       "Good SDT",
       "gSDT",
       "50",
-      sixteenDecimalsUsdOracle.address,
-      "100000"
+      sixteenDecimalsUsdOracle.address
     );
     const currentBlockNumber = await ethers.provider.getBlockNumber();
     let encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
@@ -639,9 +645,13 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       "Good SDT",
       "gSDT",
       "50",
-      sixteenDecimalsUsdOracle.address,
-      "200000"
+      sixteenDecimalsUsdOracle.address
     );
+    let encodedData = goodCompoundStaking.interface.encodeFunctionData(
+      "setcollectInterestGasCost",
+      ["200000"]
+    );
+    await genericCall(simpleStaking.address, encodedData);
     const simpleStaking1 = await goodCompoundStakingFactory.deploy(
       sixteenDecimalsToken.address,
       cSDT.address,
@@ -650,27 +660,26 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       "Good SDT",
       "gSDT",
       "50",
-      sixteenDecimalsUsdOracle.address,
-      "200000"
+      sixteenDecimalsUsdOracle.address
     );
+    encodedData = goodCompoundStaking.interface.encodeFunctionData(
+      "setcollectInterestGasCost",
+      ["200000"]
+    );
+    await genericCall(goodCompoundStaking.address, encodedData);
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const ictrl = await ethers.getContractAt(
-      "Controller",
-      controller,
-      schemeMock
-    );
-    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["100", simpleStaking.address, 0, 10, false]
     );
-    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    await genericCall(goodFundManager.address, encodedData);
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["100", simpleStaking1.address, 0, 10, false]
     );
-    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    await genericCall(goodFundManager.address, encodedData);
 
     await sixteenDecimalsToken["mint(address,uint256)"](
       staker.address,
@@ -717,12 +726,12 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       "setStakingReward",
       ["100", simpleStaking.address, 0, 10, true]
     );
-    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    await genericCall(goodFundManager.address, encodedData);
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["100", simpleStaking1.address, 0, 10, true]
     );
-    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    await genericCall(goodFundManager.address, encodedData);
     expect(goodCompoundStakingCurrentInterest[0].toString()).to.be.equal("0"); // Goodcompound staking's interest should be collected so currentinterest should be 0
     expect(simpleStakingCurrentInterestBeforeCollect[0]).to.be.equal(
       simpleStakingCurrentInterest[0]

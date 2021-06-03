@@ -170,11 +170,14 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     const gdPriceBefore = await goodReserve["currentPrice()"]();
 
     await increaseTime(24 * 60 * 60); //required for reserve ratio advance
+    const er = await cDAI.exchangeRateStored();
+    const daiAmount = BN.from("100000000")
+      .mul(BN.from("10").pow(10))
+      .mul(BN.from("10").pow(28))
+      .div(er);
+    await dai["mint(address,uint256)"](goodReserve.address, daiAmount);
     const tx = await (
-      await goodReserve.mintUBI(
-        cDAI.address,
-        ethers.utils.parseEther("0.1")
-      )
+      await goodReserve.mintUBI(daiAmount, "0", cDAI.address)
     ).wait();
     const gdBalanceFund = await goodDollar.balanceOf(founder.address);
     const gdPriceAfter = await goodReserve["currentPrice()"]();
@@ -275,7 +278,11 @@ describe("GoodReserve - staking with cDAI mocks", () => {
   it("should not mint UBI if the caller is not the fund manager", async () => {
     let tx = goodReserve
       .connect(staker)
-      .mintUBI(cDAI.address, ethers.utils.parseEther("1"));
+      .mintUBI(
+        ethers.utils.parseEther("1"),
+        ethers.utils.parseEther("1"),
+        cDAI.address
+      );
     await expect(tx).to.be.revertedWith("revert GoodReserve: not a minter");
   });
 

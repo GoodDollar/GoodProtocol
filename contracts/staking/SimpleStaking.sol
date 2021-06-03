@@ -35,8 +35,6 @@ abstract contract SimpleStaking is
 	// blocks that shall be passed before the
 	// next execution of `collectUBIInterest`
 	uint256 public blockInterval;
-	// Gas cost to collect interest from this staking contract
-	uint32 public collectInterestGasCost;
 	// The last block number which
 	// `collectUBIInterest` has been executed in
 	uint256 public lastUBICollection;
@@ -75,7 +73,7 @@ abstract contract SimpleStaking is
 	 * @param _tokenName The name of the staking token
 	 * @param _tokenSymbol The symbol of the staking token
 	 * @param _maxRewardThreshold the blocks that should pass to get 1x reward multiplier
-	 * @param _collectInterestGasCost Gas cost for the collect interest of this staking contract
+
 	 */
 	constructor(
 		address _token,
@@ -84,8 +82,7 @@ abstract contract SimpleStaking is
 		NameService _ns,
 		string memory _tokenName,
 		string memory _tokenSymbol,
-		uint64 _maxRewardThreshold,
-		uint32 _collectInterestGasCost
+		uint64 _maxRewardThreshold
 	) {
 		setDAO(_ns);
 		token = ERC20(_token);
@@ -100,18 +97,7 @@ abstract contract SimpleStaking is
 		maxMultiplierThreshold = _maxRewardThreshold;
 		blockInterval = _blockInterval;
 		lastUBICollection = block.number / blockInterval;
-		collectInterestGasCost = _collectInterestGasCost; // Should be adjusted according to this contract's gas cost
-
 		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
-	}
-
-	/**
-	 * @dev Set Gas cost to interest collection for this contract
-	 * @param _amount Gas cost to collect interest
-	 */
-	function setcollectInterestGasCost(uint32 _amount) external {
-		_onlyAvatar();
-		collectInterestGasCost = _amount;
 	}
 
 	/**

@@ -19,7 +19,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @param _tokenSymbol Symbol of the staking token which will be provided to staker for their staking share
 	 * @param _tokenSymbol Determines blocks to pass for 1x Multiplier
 	 * @param _tokenUsdOracle address of the TOKEN/USD oracle
-	 * @param _collectInterestGasCost Gas cost for the collect interest of this staking contract
+
 	 */
 	constructor(
 		address _token,
@@ -29,8 +29,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		string memory _tokenName,
 		string memory _tokenSymbol,
 		uint64 _maxRewardThreshold,
-		address _tokenUsdOracle,
-		uint32 _collectInterestGasCost
+		address _tokenUsdOracle
 	)
 		SimpleStaking(
 			_token,
@@ -39,8 +38,7 @@ contract GoodCompoundStaking is SimpleStaking {
 			_ns,
 			_tokenName,
 			_tokenSymbol,
-			_maxRewardThreshold,
-			_collectInterestGasCost
+			_maxRewardThreshold
 		)
 	{
 		tokenUsdOracle = _tokenUsdOracle;
@@ -48,6 +46,9 @@ contract GoodCompoundStaking is SimpleStaking {
 
 	// Address of the TOKEN/USD oracle from chainlink
 	address public tokenUsdOracle;
+
+	// Gas cost to collect interest from this staking contract
+	uint32 public collectInterestGasCost = 100000;
 
 	/**
 	 * @dev stake some Token
@@ -211,5 +212,14 @@ contract GoodCompoundStaking is SimpleStaking {
 				? (_amount * (10**decimalDifference) * er) / 10**mantissa
 				: ((_amount / (10**decimalDifference)) * er) / 10**mantissa; // calculation based on https://compound.finance/docs#protocol-math
 		return tokenWorth;
+	}
+
+	/**
+	 * @dev Set Gas cost to interest collection for this contract
+	 * @param _amount Gas cost to collect interest
+	 */
+	function setcollectInterestGasCost(uint32 _amount) external {
+		_onlyAvatar();
+		collectInterestGasCost = _amount;
 	}
 }
