@@ -11,6 +11,12 @@ import "../../Interfaces.sol";
  * the contracts buy cToken and can transfer the daily interest to the  DAO
  */
 contract GoodCompoundStaking is SimpleStaking {
+	// Address of the TOKEN/USD oracle from chainlink
+	address public tokenUsdOracle;
+
+	// Address of COMP usd oracle
+	address public compUsdOracle;
+
 	/**
 	 * @param _token Token to swap DEFI token
 	 * @param _iToken DEFI token address
@@ -42,10 +48,8 @@ contract GoodCompoundStaking is SimpleStaking {
 		);
 		//above  initialize going  to revert on second call, so this is safe
 		tokenUsdOracle = _tokenUsdOracle;
+		compUsdOracle = address(0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5);
 	}
-
-	// Address of the TOKEN/USD oracle from chainlink
-	address public tokenUsdOracle;
 
 	/**
 	 * @dev stake some Token
@@ -124,14 +128,6 @@ contract GoodCompoundStaking is SimpleStaking {
 		return uint256(cToken.decimals());
 	}
 
-	/**
-	 * @dev Function to get TOKEN/USD oracle address
-	 * @return address of the TOKEN/USD oracle
-	 */
-	function getTokenUsdOracle() internal view override returns (address) {
-		return tokenUsdOracle;
-	}
-
 	function currentGains(
 		bool _returnTokenBalanceInUSD,
 		bool _returnTokenGainsInUSD
@@ -154,7 +150,9 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 tokenBalance =
 			iTokenWorthInToken(iToken.balanceOf(address(this)));
 		uint256 balanceInUSD =
-			_returnTokenBalanceInUSD ? getTokenValueInUSD(tokenBalance) : 0;
+			_returnTokenBalanceInUSD
+				? getTokenValueInUSD(tokenUsdOracle, tokenBalance)
+				: 0;
 		if (tokenBalance <= totalProductivity) {
 			return (0, 0, tokenBalance, balanceInUSD, 0);
 		}
@@ -170,7 +168,9 @@ contract GoodCompoundStaking is SimpleStaking {
 				er; // based on https://compound.finance/docs#protocol-math
 		}
 		uint256 tokenGainsInUSD =
-			_returnTokenGainsInUSD ? getTokenValueInUSD(tokenGains) : 0;
+			_returnTokenGainsInUSD
+				? getTokenValueInUSD(tokenUsdOracle, tokenGains)
+				: 0;
 		return (
 			iTokenGains,
 			tokenGains,

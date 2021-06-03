@@ -273,11 +273,23 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		uint256 totalUsedGas =
 			((initialGas - gasleft() + gdMintGasCost) * 110) / 100; // We will return as reward 1.1x of used gas in GD
 		uint256 gdRewardToMint = getGasPriceInGD(totalUsedGas);
+
 		GoodReserveCDai(reserveAddress).mintRewardFromRR(
 			nameService.getAddress("CDAI"),
 			msg.sender,
 			gdRewardToMint
 		);
+
+		emit FundsTransferred(
+			msg.sender,
+			reserveAddress,
+			_stakingContracts,
+			interestInCdai,
+			gdUBI,
+			gdRewardToMint
+		);
+		lastCollectedInterest = block.timestamp;
+
 		uint256 gasPriceIncDAI = getGasPriceInCDAI(initialGas - gasleft());
 		if (
 			block.timestamp >=
@@ -293,15 +305,6 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				"Collected interest value should be interestMultiplier x gas costs"
 			);
 		}
-		emit FundsTransferred(
-			msg.sender,
-			reserveAddress,
-			_stakingContracts,
-			interestInCdai,
-			gdUBI,
-			gdRewardToMint
-		);
-		lastCollectedInterest = block.timestamp;
 	}
 
 	/**
