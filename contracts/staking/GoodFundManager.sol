@@ -235,7 +235,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		address reserveAddress = nameService.getAddress("RESERVE");
 		// DAI balance of the reserve contract
 		uint256 currentBalance = daiToken.balanceOf(reserveAddress);
-		uint256 cDAIBalance = iToken.balanceOf(reserveAddress);
+		uint256 startingCDAIBalance = iToken.balanceOf(reserveAddress);
 		for (uint256 i = _stakingContracts.length - 1; i >= 0; i--) {
 			// elements are sorted by balances from lowest to highest
 
@@ -248,16 +248,16 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			if (i == 0) break; // when active contracts length is 1 then gives error
 		}
 		// Finds the actual transferred DAI
-		uint256 interest = daiToken.balanceOf(reserveAddress) - currentBalance;
-		// Convert DAI to cDAI and continue further transactions with cDAI
-		GoodReserveCDai(reserveAddress).convertDAItoCDAI(interest);
-		uint256 interestInCdai = iToken.balanceOf(reserveAddress) - cDAIBalance;
+		uint256 daiToConvert = daiToken.balanceOf(reserveAddress) - currentBalance;
+		
 		// Mints gd while the interest amount is equal to the transferred amount
-		uint256 gdUBI =
+		(uint256 gdUBI,uint256 interestInCdai) =
 			GoodReserveCDai(reserveAddress).mintUBI(
-				iToken,
-				interestInCdai // interest
+				daiToConvert,
+				startingCDAIBalance,
+				iToken
 			);
+		 
 		IGoodDollar token = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
 		if (gdUBI > 0) {
 			//transfer ubi to avatar on sidechain via bridge
