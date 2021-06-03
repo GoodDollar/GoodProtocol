@@ -289,7 +289,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			gdUBI,
 			gdRewardToMint
 		);
-		lastCollectedInterest = block.timestamp;
+		
 
 		uint256 gasPriceIncDAI =
 			getGasPriceIncDAIorDAI(initialGas - gasleft(), false);
@@ -308,6 +308,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				"Collected interest value should be interestMultiplier x gas costs"
 			);
 		}
+		lastCollectedInterest = block.timestamp;
 	}
 
 	/**

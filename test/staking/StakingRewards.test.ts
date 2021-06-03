@@ -1042,11 +1042,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "GoodFundManagerTest"
     );
     const goodFundManagerTest = await goodFundManagerTestFactory.deploy(
-      nameService.address,
-      cDAI.address,
-      founder.address,
-      founder.address,
-      "30"
+      nameService.address
     );
     const addresses = [
       founder.address,
@@ -1102,7 +1098,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const currentBlock = await ethers.provider.getBlock(currentBlockNumber);
 
     await ethers.provider.send("evm_setNextBlockTimestamp", [
-      currentBlock.timestamp + 5184020
+      currentBlock.timestamp + 5185020
     ]);
     await ethers.provider.send("evm_mine", []);
     const collectableContracts = await goodFundManager
@@ -1467,7 +1463,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const simpleStaking = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
-      BLOCK_INTERVAL,
       nameService.address,
       "Good BaT",
       "gBAT",
