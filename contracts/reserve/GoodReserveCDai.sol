@@ -458,7 +458,7 @@ contract GoodReserveCDai is
 		internal
 		returns (uint256, uint256)
 	{
-		ERC20 sellTo = ERC20(cDaiAddress);
+		GoodMarketMaker mm = getMarketMaker();
 		IGoodDollar(nameService.getAddress("GOODDOLLAR")).burnFrom(
 			msg.sender,
 			_gdAmount
@@ -471,23 +471,22 @@ contract GoodReserveCDai is
 		//burn gdx used for discount
 		burn(discount);
 
-		uint256 contributionAmount =
-			discount >= _gdAmount
-				? 0
-				: ContributionCalc(
-					nameService.getAddress("CONTRIBUTION_CALCULATION")
-				)
-					.calculateContribution(
-					getMarketMaker(),
-					this,
-					msg.sender,
-					sellTo,
-					_gdAmount.sub(discount)
-				);
+		uint256 contributionAmount = 0;
+		if (discount < _gdAmount)
+			contributionAmount = ContributionCalc(
+				nameService.getAddress("CONTRIBUTION_CALCULATION")
+			)
+				.calculateContribution(
+				mm,
+				this,
+				msg.sender,
+				ERC20(cDaiAddress),
+				_gdAmount.sub(discount)
+			);
 
 		uint256 tokenReturn =
-			getMarketMaker().sellWithContribution(
-				sellTo,
+			mm.sellWithContribution(
+				ERC20(cDaiAddress),
 				_gdAmount,
 				contributionAmount
 			);
@@ -537,11 +536,8 @@ contract GoodReserveCDai is
 
 	function currentPriceDAI() public view returns (uint256) {
 		cERC20 cDai = cERC20(cDaiAddress);
-		return
-			rmul(
-				currentPrice() * 1e10, //bring cdai 8 decimals to Dai precision
-				cDai.exchangeRateStored().div(10) //exchange rate is 1e28 reduce to 1e27
-			);
+
+		return (((currentPrice() * 1e10) * 1e28) / cDai.exchangeRateStored()); // based on https://compound.finance/docs#protocol-math
 	}
 
 	function mintByPrice(
@@ -594,15 +590,14 @@ contract GoodReserveCDai is
 		public
 		returns (uint256)
 	{
+		GoodMarketMaker mm = getMarketMaker();
 		//uint256 price = getMarketMaker().currentPrice(ERC20(cDaiAddress));
 		// uint256 price = currentPrice(_interestToken);
-		uint256 gdInterestToMint =
-			getMarketMaker().mintInterest(_interestToken, _transfered);
-		//IGoodDollar gooddollar = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
+		uint256 gdInterestToMint = mm.mintInterest(_interestToken, _transfered);
+		//IGoodDollar gooddollar = IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
 		//uint256 precisionLoss = uint256(27).sub(uint256(gooddollar.decimals()));
 		//uint256 gdInterest = rdiv(_interest, price).div(10**precisionLoss);
-		uint256 gdExpansionToMint =
-			getMarketMaker().mintExpansion(_interestToken);
+		uint256 gdExpansionToMint = mm.mintExpansion(_interestToken);
 		uint256 gdUBI = gdInterestToMint;
 		gdUBI = gdUBI.add(gdExpansionToMint);
 		uint256 toMint = gdUBI;
