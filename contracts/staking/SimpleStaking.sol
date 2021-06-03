@@ -11,6 +11,7 @@ import "./GoodFundManager.sol";
 import "./BaseShareField.sol";
 import "../governance/StakersDistribution.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 /**
  * @title Staking contract that donates earned interest to the DAO
@@ -21,7 +22,8 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 abstract contract SimpleStaking is
 	ERC20Upgradeable,
 	DAOContract,
-	BaseShareField
+	BaseShareField,
+	ReentrancyGuardUpgradeable
 {
 	// Token address
 	ERC20 token;
@@ -263,6 +265,7 @@ abstract contract SimpleStaking is
 	function withdrawStake(uint256 _amount, bool _inInterestToken)
 		external
 		virtual
+		nonReentrant
 	{
 		//InterestDistribution.Staker storage staker = interestData.stakers[msg.sender];
 		uint256 tokenWithdraw;
@@ -326,7 +329,7 @@ abstract contract SimpleStaking is
 	 * @dev withdraw staker G$ rewards + GDAO rewards
 	 * withdrawing rewards resets the multiplier! so if user just want GDAO he should use claimReputation()
 	 */
-	function withdrawRewards() public {
+	function withdrawRewards() public nonReentrant {
 		GoodFundManager fm =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI

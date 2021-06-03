@@ -9,6 +9,7 @@ import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
 import "./MultiBaseGovernanceShareField.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 /**
  * @title Staking contract that allows citizens to stake G$ to get GDAO rewards
@@ -16,7 +17,8 @@ import "./MultiBaseGovernanceShareField.sol";
 contract GovernanceStaking is
 	ERC20Upgradeable,
 	MultiBaseGovernanceShareField,
-	DAOUpgradeableContract
+	DAOUpgradeableContract,
+	ReentrancyGuardUpgradeable
 {
 	uint256 public constant FUSE_MONTHLY_BLOCKS = 12 * 60 * 24 * 30;
 
@@ -92,7 +94,7 @@ contract GovernanceStaking is
 	/**
 	 * @dev Withdraws the sender staked Token.
 	 */
-	function withdrawStake(uint256 _amount) external {
+	function withdrawStake(uint256 _amount) external nonReentrant {
 		(uint256 userProductivity, ) =
 			getProductivity(address(this), _msgSender());
 		if (_amount == 0) _amount = userProductivity;
@@ -125,7 +127,7 @@ contract GovernanceStaking is
 	/**
 	 * @dev Staker can withdraw their rewards without withdraw their stake
 	 */
-	function withdrawRewards() public returns (uint256) {
+	function withdrawRewards() public nonReentrant returns (uint256) {
 		return _mintRewards(_msgSender());
 	}
 
