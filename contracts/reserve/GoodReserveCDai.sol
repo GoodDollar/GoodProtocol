@@ -11,6 +11,7 @@ import "../utils/NameService.sol";
 import "../DAOStackInterfaces.sol";
 import "../Interfaces.sol";
 import "./GoodMarketMaker.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 interface ContributionCalc {
 	function calculateContribution(
@@ -31,7 +32,8 @@ contract GoodReserveCDai is
 	DAOUpgradeableContract,
 	ERC20PresetMinterPauserUpgradeable,
 	GlobalConstraintInterface,
-	DSMath
+	DSMath,
+	ReentrancyGuardUpgradeable
 {
 	using SafeMathUpgradeable for uint256;
 
@@ -368,7 +370,7 @@ contract GoodReserveCDai is
 		uint256 _minReturn,
 		uint256 _minTokenReturn,
 		address _targetAddress
-	) public returns (uint256) {
+	) public nonReentrant returns (uint256) {
 		address receiver =
 			_targetAddress == address(0x0) ? msg.sender : _targetAddress;
 
