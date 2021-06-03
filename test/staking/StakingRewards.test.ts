@@ -1425,6 +1425,40 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
     expect(activeContractsCount).to.be.equal(activeContractsCountAfterRemoved);
   });
+
+  it("it should calculate price of spent gas in DAI properly", async () => {
+    const gasAmount = BN.from("1100000"); // 1.1M
+    const gasPrice = await gasFeeOracle.latestAnswer(); // returns 25 gwei
+    const daiToEthRate = await daiEthOracle.latestAnswer(); // returns  0.000341481428801721
+    const calculatedResult = gasPrice
+      .mul(BN.from("10").pow(18)) // we multiply with 1e18 so when we divide it to DAI/ETH rate we would get result in 18 decimals
+      .div(daiToEthRate) // we divide gas price to DAI/ETH rate so we can get gas price in DAI
+      .mul(gasAmount); // Result is in DAI and we accept 1$ = 1DAI
+    const onChainResult = await goodFundManager.getGasPriceIncDAIorDAI(
+      gasAmount,
+      true
+    );
+    expect(calculatedResult).to.be.gt(0);
+    expect(onChainResult).to.be.equal(calculatedResult);
+  });
+  it("it should calculate price of spent gas in cDAI properly", async () => {
+    const gasAmount = BN.from("1100000"); // 1.1M
+    const gasPrice = await gasFeeOracle.latestAnswer(); // returns 25 gwei
+    const daiToEthRate = await daiEthOracle.latestAnswer(); // returns  0.000341481428801721 and we accept 1$ = 1DAI
+    const gasPriceInDAI = gasPrice.mul(BN.from("10").pow(18)).div(daiToEthRate); // gasPrice in ETH so 18 decimals and DAI/ETH rate is in also 18 decimals so in order to 18 decimals we multiply with 1e18
+    const gasPriceInCdai = gasPriceInDAI
+      .div(BN.from("10").pow(10)) // we divide DAI amount with 1e10 so it reduces to CDAI decimals which is 8
+      .mul(BN.from("10").pow(28)) // we multiply it with mantissa which is 18 + tokenDecimals - cTokenDecimals so token is in 18 decimals and cToken is in 8 decimals therefore difference is 10 for more detail https://compound.finance/docs#protocol-math
+      .div(await cDAI.exchangeRateStored()); // then we divide it exchange rate in order to get result
+    const calculatedResult = gasPriceInCdai.mul(gasAmount);
+    const onChainResult = await goodFundManager.getGasPriceIncDAIorDAI(
+      gasAmount,
+      false
+    );
+    expect(calculatedResult).to.be.gt(0);
+    expect(onChainResult).to.be.equal(calculatedResult);
+  });
+
   it("it should return currentgains properly according to function parameters", async () => {
     const goodCompoundStakingTestFactory = await ethers.getContractFactory(
       "GoodCompoundStakingTest"

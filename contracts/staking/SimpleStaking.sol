@@ -468,13 +468,13 @@ abstract contract SimpleStaking is
 	 @dev _amount Amount of Token to calculate worth of it
 	 @return Returns worth of Tokens in USD
 	 */
-	function getTokenValueInUSD(address oracle, uint256 _amount)
+	function getTokenValueInUSD(address _oracle, uint256 _amount)
 		public
 		view
 		returns (uint256)
 	{
-		AggregatorV3Interface tokenPriceOracle = AggregatorV3Interface(oracle);
-		(, int256 tokenPriceinUSD, , , ) = tokenPriceOracle.latestRoundData();
+		AggregatorV3Interface tokenPriceOracle = AggregatorV3Interface(_oracle);
+		int256 tokenPriceinUSD = tokenPriceOracle.latestAnswer();
 		return (uint256(tokenPriceinUSD) * _amount) / (10**token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's decimal at the end to reduce 8 decimals back
 	}
 
