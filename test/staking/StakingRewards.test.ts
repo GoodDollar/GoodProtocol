@@ -138,17 +138,21 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "BatUSDMockOracle"
     );
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
-    goodCompoundStaking = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    goodCompoundStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
 
     console.log("initializing marketmaker...");
 
@@ -297,17 +301,21 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const goodCompoundStaking2 = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    const goodCompoundStaking2 = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
 
     let encodedDataTwo = goodFundManager.interface.encodeFunctionData(
       "setStakingReward",
@@ -517,17 +525,22 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const simpleStaking = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "50",
-      daiUsdOracle.address,
-      "100000"
-    );
+    const simpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "50",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
+
     const currentBlockNumber = await ethers.provider.getBlockNumber();
     let encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
@@ -640,17 +653,22 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const simpleStaking = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "50",
-      daiUsdOracle.address,
-      "100000"
-    );
+    const simpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "50",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
+
     const tx = await simpleStaking.withdrawRewards().catch(e => e);
     expect(tx.message).to.have.string("Staking contract not registered");
   });
@@ -912,28 +930,38 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const simpleStaking = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "50",
-      daiUsdOracle.address,
-      "100000"
-    );
-    const simpleStaking1 = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "50",
-      daiUsdOracle.address,
-      "100000"
-    );
+    const simpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "50",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
+
+    const simpleStaking1 = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "50",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
+
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -1014,11 +1042,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "GoodFundManagerTest"
     );
     const goodFundManagerTest = await goodFundManagerTestFactory.deploy(
-      nameService.address,
-      cDAI.address,
-      founder.address,
-      founder.address,
-      "30"
+      nameService.address
     );
     const addresses = [
       founder.address,
@@ -1074,7 +1098,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const currentBlock = await ethers.provider.getBlock(currentBlockNumber);
 
     await ethers.provider.send("evm_setNextBlockTimestamp", [
-      currentBlock.timestamp + 5184020
+      currentBlock.timestamp + 5185020
     ]);
     await ethers.provider.send("evm_mine", []);
     const collectableContracts = await goodFundManager
@@ -1136,17 +1160,22 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const simpleStaking = await goodCompoundStakingFactory.deploy(
-      bat.address,
-      cBat.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good BaT",
-      "gBAT",
-      "50",
-      batUsdOracle.address,
-      "100000"
-    );
+    const simpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          bat.address,
+          cBat.address,
+          nameService.address,
+          "Good BaT",
+          "gBAT",
+          "50",
+          batUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
+
     let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["100", simpleStaking.address, 10, 10000, false]
@@ -1199,7 +1228,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const simpleStaking = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
-      BLOCK_INTERVAL,
       nameService.address,
       "Good BaT",
       "gBAT",
@@ -1238,7 +1266,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const simpleStaking = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
-      BLOCK_INTERVAL,
       nameService.address,
       "Good BaT",
       "gBAT",
@@ -1259,7 +1286,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const simpleStaking = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
-      BLOCK_INTERVAL,
       nameService.address,
       "Good BaT",
       "gBAT",
@@ -1290,7 +1316,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const simpleStaking = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
-      BLOCK_INTERVAL,
       nameService.address,
       "Good BaT",
       "gBAT",
@@ -1340,7 +1365,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const simpleStaking1 = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
-      BLOCK_INTERVAL,
       nameService.address,
       "Good BaT",
       "gBAT",
@@ -1361,7 +1385,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const simpleStaking = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
-      BLOCK_INTERVAL,
       nameService.address,
       "Good BaT",
       "gBAT",
@@ -1440,7 +1463,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const simpleStaking = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
-      BLOCK_INTERVAL,
       nameService.address,
       "Good BaT",
       "gBAT",
