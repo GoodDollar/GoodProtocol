@@ -87,6 +87,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		if (address(iToken) == nameService.getAddress("CDAI")) {
 			return (address(iToken), _amount); // If iToken is cDAI then just return cDAI
 		}
+
 		cERC20 cToken = cERC20(address(iToken));
 		require(cToken.redeem(_amount) == 0, "Failed to redeem cToken");
 		uint256 redeemedAmount = token.balanceOf(address(this));
@@ -108,7 +109,7 @@ contract GoodCompoundStaking is SimpleStaking {
 
 		uint256 dai = swap[1];
 		require(dai > 0, "token selling failed");
-		return (daiAddress, swap[1]);
+		return (daiAddress, dai);
 	}
 
 	/**
@@ -189,6 +190,10 @@ contract GoodCompoundStaking is SimpleStaking {
 		override
 		returns (uint32)
 	{
+		ERC20 comp = ERC20(nameService.getAddress("COMP"));
+		uint256 compBalance = comp.balanceOf(address(this));
+		if (compBalance > 0) return collectInterestGasCost + 100000;
+
 		return collectInterestGasCost;
 	}
 
