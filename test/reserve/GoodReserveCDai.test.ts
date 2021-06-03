@@ -171,10 +171,12 @@ describe("GoodReserve - staking with cDAI mocks", () => {
 
     await increaseTime(24 * 60 * 60); //required for reserve ratio advance
     const er = await cDAI.exchangeRateStored();
-    const daiAmount = BN.from("100000000")
+    const daiAmount = ethers.utils
+      .parseEther("0.1")
       .mul(BN.from("10").pow(10))
-      .mul(BN.from("10").pow(28))
-      .div(er);
+      .mul(er)
+      .div(BN.from("10").pow(28));
+
     await dai["mint(address,uint256)"](goodReserve.address, daiAmount);
     const tx = await (
       await goodReserve.mintUBI(daiAmount, "0", cDAI.address)
@@ -200,7 +202,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     // expected that the new reserve balance will include
     // the new 1e18 cdai which transferred
     expect(reserveBalanceAfter).to.be.equal(
-      reserveBalanceBefore.add(BN.from("10").pow(17))
+      reserveBalanceBefore.add(BN.from("10").pow(17)).sub(BN.from("1"))
     );
     // the new reserve ratio should be effected from the mintExpansion by:
     // the daily change that was set up in the constructor (999388834642296)
@@ -276,13 +278,13 @@ describe("GoodReserve - staking with cDAI mocks", () => {
   // });
 
   it("should not mint UBI if the caller is not the fund manager", async () => {
+    dai["mint(address,uint256)"](
+      goodReserve.address,
+      ethers.utils.parseEther("1")
+    );
     let tx = goodReserve
       .connect(staker)
-      .mintUBI(
-        ethers.utils.parseEther("1"),
-        ethers.utils.parseEther("1"),
-        cDAI.address
-      );
+      .mintUBI(ethers.utils.parseEther("1"), "0", cDAI.address);
     await expect(tx).to.be.revertedWith("revert GoodReserve: not a minter");
   });
 
