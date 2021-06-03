@@ -22,6 +22,7 @@ export const BLOCK_INTERVAL = 30;
 describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
   let dai: Contract;
   let eightDecimalsToken: Contract;
+  let comp: Contract;
   let pair: Contract, uniswapRouter: Contract;
   let cDAI, cEDT: Contract; // cEDT is for c Eight decimal token
   let gasFeeOracle,
@@ -204,6 +205,9 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
       ethers.utils.parseUnits("2000000", 8),
       ethers.utils.parseEther("2000000")
     );
+    const daiFactory = await ethers.getContractFactory("DAIMock");
+    comp = await daiFactory.deploy();
+    await setDAOAddress("COMP", comp.address);
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);

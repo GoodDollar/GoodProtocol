@@ -50,8 +50,7 @@ describe("CompoundStakingFactory", () => {
         cdai,
         dao.nameService.address,
         5760,
-        stakingFactory.address,
-        160000
+        stakingFactory.address
       )
     ).wait();
     const log = res.events.find(_ => _.event === "Deployed");
@@ -59,7 +58,7 @@ describe("CompoundStakingFactory", () => {
       cdai,
       ethers.utils.solidityKeccak256(
         ["address", "uint64", "address", "uint32"],
-        [dao.nameService.address, 5760, stakingFactory.address, 160000]
+        [dao.nameService.address, 5760, stakingFactory.address]
       )
     );
     expect(log).to.not.empty;

@@ -22,6 +22,7 @@ export const BLOCK_INTERVAL = 30;
 describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
   let dai: Contract;
   let sixteenDecimalsToken: Contract;
+  let comp: Contract;
   let pair: Contract, uniswapRouter: Contract;
   let cDAI, cSDT: Contract; // cSDT is for c Sixteen decimals token
   let gasFeeOracle,
@@ -212,6 +213,9 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       ethers.utils.parseUnits("2000000", 16),
       ethers.utils.parseEther("2000000")
     );
+    const daiFactory = await ethers.getContractFactory("DAIMock");
+    comp = await daiFactory.deploy();
+    await setDAOAddress("COMP", comp.address);
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);

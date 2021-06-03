@@ -18,6 +18,7 @@ export const BLOCK_INTERVAL = 30;
 describe("SimpleDAISTAking - staking with cDAI mocks", () => {
   let dai: Contract;
   let cDAI, cDAI1, cDAI2, cDAI3: Contract;
+  let comp: Contract;
   let gasFeeOracle,
     daiEthOracle: Contract,
     ethUsdOracle: Contract,
@@ -167,6 +168,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
     daiEthOracle = await daiEthPriceMockFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
+    const daiFactory = await ethers.getContractFactory("DAIMock");
+    comp = await daiFactory.deploy();
+    await setDAOAddress("COMP", comp.address);
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);

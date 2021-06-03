@@ -22,6 +22,7 @@ export const BLOCK_INTERVAL = 30;
 describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
   let dai: Contract;
   let usdc: Contract;
+  let comp: Contract;
   let pair: Contract, uniswapRouter: Contract;
   let cDAI, cUsdc: Contract;
   let gasFeeOracle,
@@ -208,6 +209,9 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
       ethers.utils.parseUnits("2000000", 6),
       ethers.utils.parseEther("2000000")
     );
+    const daiFactory = await ethers.getContractFactory("DAIMock");
+    comp = await daiFactory.deploy();
+    await setDAOAddress("COMP", comp.address);
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
@@ -613,7 +617,6 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
       "GoodCompoundStaking"
     );
 
-    l;
     const simpleStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {
