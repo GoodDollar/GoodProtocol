@@ -248,16 +248,17 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			if (i == 0) break; // when active contracts length is 1 then gives error
 		}
 		// Finds the actual transferred DAI
-		uint256 daiToConvert = daiToken.balanceOf(reserveAddress) - currentBalance;
-		
+		uint256 daiToConvert =
+			daiToken.balanceOf(reserveAddress) - currentBalance;
+
 		// Mints gd while the interest amount is equal to the transferred amount
-		(uint256 gdUBI,uint256 interestInCdai) =
+		(uint256 gdUBI, uint256 interestInCdai) =
 			GoodReserveCDai(reserveAddress).mintUBI(
 				daiToConvert,
 				startingCDAIBalance,
 				iToken
 			);
-		 
+
 		IGoodDollar token = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
 		if (gdUBI > 0) {
 			//transfer ubi to avatar on sidechain via bridge
@@ -273,13 +274,26 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		uint256 totalUsedGas =
 			((initialGas - gasleft() + gdMintGasCost) * 110) / 100; // We will return as reward 1.1x of used gas in GD
 		uint256 gdRewardToMint = getGasPriceInGD(totalUsedGas);
+
 		GoodReserveCDai(reserveAddress).mintRewardFromRR(
 			nameService.getAddress("CDAI"),
 			msg.sender,
 			gdRewardToMint
 		);
+
+		emit FundsTransferred(
+			msg.sender,
+			reserveAddress,
+			_stakingContracts,
+			interestInCdai,
+			gdUBI,
+			gdRewardToMint
+		);
+		
+
 		uint256 gasPriceIncDAI =
 			getGasPriceIncDAIorDAI(initialGas - gasleft(), false);
+
 		if (
 			block.timestamp >=
 			lastCollectedInterest + collectInterestTimeThreshold
@@ -294,14 +308,6 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				"Collected interest value should be interestMultiplier x gas costs"
 			);
 		}
-		emit FundsTransferred(
-			msg.sender,
-			reserveAddress,
-			_stakingContracts,
-			interestInCdai,
-			gdUBI,
-			gdRewardToMint
-		);
 		lastCollectedInterest = block.timestamp;
 	}
 

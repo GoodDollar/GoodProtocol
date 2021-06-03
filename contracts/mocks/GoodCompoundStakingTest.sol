@@ -1,30 +1,28 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >0.5.4;
+pragma solidity >=0.8;
 
-import "../staking/GoodCompoundStaking.sol";
+import "../staking/compound/GoodCompoundStaking.sol";
 
 contract GoodCompoundStakingTest is GoodCompoundStaking {
 	constructor(
 		address _token,
 		address _iToken,
-		uint256 _blockInterval,
 		NameService _ns,
 		string memory _tokenName,
 		string memory _tokenSymbol,
 		uint64 _maxRewardThreshold,
 		address _tokenUsdOracle
-	)
-		GoodCompoundStaking(
+	) GoodCompoundStaking() {
+		init(
 			_token,
 			_iToken,
-			_blockInterval,
 			_ns,
 			_tokenName,
 			_tokenSymbol,
 			_maxRewardThreshold,
 			_tokenUsdOracle
-		)
-	{}
+		);
+	}
 
 	function redeemUnderlyingToDAITest(uint256 _amount) public {
 		redeemUnderlyingToDAI(_amount);

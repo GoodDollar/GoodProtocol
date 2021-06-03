@@ -1,8 +1,12 @@
 import { ethers, upgrades } from "hardhat";
 import { expect } from "chai";
-import { UBIScheme,GoodReserveCDai,GoodMarketMaker ,GoodFundManager} from "../../types";
+import {
+  UBIScheme,
+  GoodReserveCDai,
+  GoodMarketMaker,
+  GoodFundManager
+} from "../../types";
 import { createDAO, deployUBI, advanceBlocks, increaseTime } from "../helpers";
-
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -48,10 +52,22 @@ describe("UBIScheme - network e2e tests", () => {
     signers,
     schemeMock,
     marketMaker: GoodMarketMaker;
-  let avatar, registrar, absoluteVote, proposalId, setReserve, addMinter,setDAOAddress,nameService,initializeToken,daiUsdOracle,gasFeeOracle,daiEthOracle,ethUsdOracle;
+  let avatar,
+    registrar,
+    absoluteVote,
+    proposalId,
+    setReserve,
+    addMinter,
+    setDAOAddress,
+    nameService,
+    initializeToken,
+    daiUsdOracle,
+    gasFeeOracle,
+    daiEthOracle,
+    ethUsdOracle;
 
   before(async function() {
-    [founder, claimer,fisherman, ...signers] = await ethers.getSigners();
+    [founder, claimer, fisherman, ...signers] = await ethers.getSigners();
 
     schemeMock = signers.pop();
     const cdaiFactory = await ethers.getContractFactory("cDAIMock");
@@ -92,34 +108,39 @@ describe("UBIScheme - network e2e tests", () => {
       "BatUSDMockOracle"
     );
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
-    simpleStaking = await goodCompoundStakingFactory.deploy(
-      dai.address,
-      cDAI.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good DAI",
-      "gDAI",
-      "172800",
-      daiUsdOracle.address,
-      "100000"
-    );
+    simpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "172800",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
+
     goodFundManager = (await upgrades.deployProxy(
       goodFundManagerFactory,
       [nameService.address],
       {
         kind: "uups"
       }
-    )) as GoodFundManager;;
+    )) as GoodFundManager;
     console.log("Deployed goodfund manager", {
       manager: goodFundManager.address
     });
-  
+
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
 
     const ubiScheme = await deployUBI(deployedDAO);
     ubi = ubiScheme.ubiScheme;
     firstClaimPool = ubiScheme.firstClaim;
-    
+
     setDAOAddress("CDAI", cDAI.address);
     setDAOAddress("DAI", dai.address);
     await goodReserve.setAddresses();
@@ -139,7 +160,7 @@ describe("UBIScheme - network e2e tests", () => {
         false
       ] // set 10 gd per block
     );
-    
+
     const gasFeeMockFactory = await ethers.getContractFactory(
       "GasPriceMockOracle"
     );
@@ -148,7 +169,7 @@ describe("UBIScheme - network e2e tests", () => {
       "DaiEthPriceMockOracle"
     );
     daiEthOracle = await daiEthPriceMockFactory.deploy();
-    
+
     const ethUsdOracleFactory = await ethers.getContractFactory(
       "EthUSDMockOracle"
     );
@@ -160,20 +181,25 @@ describe("UBIScheme - network e2e tests", () => {
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     let amount = 1e8;
-    await dai["mint(address,uint256)"](founder.address,ethers.utils.parseEther("1000"));
+    await dai["mint(address,uint256)"](
+      founder.address,
+      ethers.utils.parseEther("1000")
+    );
     dai.approve(simpleStaking.address, ethers.utils.parseEther("1000"));
-    await simpleStaking.stake(ethers.utils.parseEther("1000"),0,false);
-    await cDAI["mint(address,uint256)"](founder.address,ethers.utils.parseUnits("1000",8));
+    await simpleStaking.stake(ethers.utils.parseEther("1000"), 0, false);
+    await cDAI["mint(address,uint256)"](
+      founder.address,
+      ethers.utils.parseUnits("1000", 8)
+    );
     await cDAI.approve(goodReserve.address, amount);
-    await goodReserve.buy(cDAI.address, amount, 0,0,NULL_ADDRESS);
+    await goodReserve.buy(cDAI.address, amount, 0, 0, NULL_ADDRESS);
     let gdbalance = await goodDollar.balanceOf(founder.address);
     await goodDollar.transfer(firstClaimPool.address, gdbalance.toString());
     // transfers funds to the ubi
-    await cDAI.increasePriceWithMultiplier("10000") // Generate some interests
+    await cDAI.increasePriceWithMultiplier("10000"); // Generate some interests
     await goodFundManager.collectInterest([simpleStaking.address]);
 
     await addWhitelisted(claimer.address, "claimer1");
-
   });
 
   it("should award a new user with the award amount on first time execute claim", async () => {
@@ -182,11 +208,16 @@ describe("UBIScheme - network e2e tests", () => {
     let ce = await ubi.connect(claimer).checkEntitlement();
     await ubi.connect(claimer).claim();
     let claimerBalance2 = await goodDollar.balanceOf(claimer.address);
-    expect(claimerBalance2.sub(claimerBalance1).toNumber()).to.be.equal(ce.toNumber());
+    expect(claimerBalance2.sub(claimerBalance1).toNumber()).to.be.equal(
+      ce.toNumber()
+    );
   });
 
   it("should not be able to fish an active user", async () => {
-    let error = await ubi.connect(fisherman).fish(claimer.address).catch(e => e);
+    let error = await ubi
+      .connect(fisherman)
+      .fish(claimer.address)
+      .catch(e => e);
     await goodDollar.balanceOf(fisherman.address);
     expect(error.message).to.have.string("is not an inactive user");
   });
@@ -199,11 +230,16 @@ describe("UBIScheme - network e2e tests", () => {
     let balance2 = await goodDollar.balanceOf(fisherman.address);
     let dailyUbi = await ubi.dailyUbi();
     expect(isFished).to.be.true;
-    expect(balance2.toNumber() - balance1.toNumber()).to.be.equal(dailyUbi.toNumber());
+    expect(balance2.toNumber() - balance1.toNumber()).to.be.equal(
+      dailyUbi.toNumber()
+    );
   });
 
   it("should not be able to fish the same user twice", async () => {
-    let error = await ubi.connect(fisherman).fish(claimer.address).catch(e => e);
+    let error = await ubi
+      .connect(fisherman)
+      .fish(claimer.address)
+      .catch(e => e);
     expect(error.message).to.have.string("already fished");
   });
 
@@ -216,19 +252,25 @@ describe("UBIScheme - network e2e tests", () => {
     expect(
       activeUsersCountAfter.toNumber() - activeUsersCountBefore.toNumber()
     ).to.be.equal(1);
-    expect(claimerBalanceAfter.toNumber() - claimerBalanceBefore.toNumber()).to.be.equal(
-      1000
-    );
+    expect(
+      claimerBalanceAfter.toNumber() - claimerBalanceBefore.toNumber()
+    ).to.be.equal(1000);
   });
 
   it("should be able to fish by calling fishMulti", async () => {
     await increaseTime(MAX_INACTIVE_DAYS * 86700);
     let amount = 1e8;
-    await dai["mint(address,uint256)"](founder.address,ethers.utils.parseEther("1000"));
+    await dai["mint(address,uint256)"](
+      founder.address,
+      ethers.utils.parseEther("1000")
+    );
     dai.approve(cDAI.address, ethers.utils.parseEther("1000"));
-    await cDAI["mint(address,uint256)"](founder.address,ethers.utils.parseUnits("1000", 8));
+    await cDAI["mint(address,uint256)"](
+      founder.address,
+      ethers.utils.parseUnits("1000", 8)
+    );
     await cDAI.approve(goodReserve.address, amount);
-    await goodReserve.buy(cDAI.address, amount, 0,0,NULL_ADDRESS);
+    await goodReserve.buy(cDAI.address, amount, 0, 0, NULL_ADDRESS);
     let gdbalance = await goodDollar.balanceOf(founder.address);
     await goodDollar.transfer(
       firstClaimPool.address,
