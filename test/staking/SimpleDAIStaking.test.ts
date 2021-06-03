@@ -99,7 +99,6 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     goodCompoundStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {
-        console.log(contract);
         await contract.init(
           dai.address,
           cDAI.address,
