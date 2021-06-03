@@ -459,7 +459,7 @@ contract GoodReserveCDai is
 		internal
 		returns (uint256, uint256)
 	{
-		ERC20 sellTo = ERC20(cDaiAddress);
+		GoodMarketMaker mm = getMarketMaker();
 		IGoodDollar(nameService.getAddress("GOODDOLLAR")).burnFrom(
 			msg.sender,
 			_gdAmount
@@ -472,23 +472,22 @@ contract GoodReserveCDai is
 		//burn gdx used for discount
 		burn(discount);
 
-		uint256 contributionAmount =
-			discount >= _gdAmount
-				? 0
-				: ContributionCalc(
-					nameService.getAddress("CONTRIBUTION_CALCULATION")
-				)
-					.calculateContribution(
-					getMarketMaker(),
-					this,
-					msg.sender,
-					sellTo,
-					_gdAmount.sub(discount)
-				);
+		uint256 contributionAmount = 0;
+		if (discount < _gdAmount)
+			contributionAmount = ContributionCalc(
+				nameService.getAddress("CONTRIBUTION_CALCULATION")
+			)
+				.calculateContribution(
+				mm,
+				this,
+				msg.sender,
+				ERC20(cDaiAddress),
+				_gdAmount.sub(discount)
+			);
 
 		uint256 tokenReturn =
-			getMarketMaker().sellWithContribution(
-				sellTo,
+			mm.sellWithContribution(
+				ERC20(cDaiAddress),
 				_gdAmount,
 				contributionAmount
 			);
@@ -538,11 +537,8 @@ contract GoodReserveCDai is
 
 	function currentPriceDAI() public view returns (uint256) {
 		cERC20 cDai = cERC20(cDaiAddress);
-		return
-			rmul(
-				currentPrice() * 1e10, //bring cdai 8 decimals to Dai precision
-				cDai.exchangeRateStored().div(10) //exchange rate is 1e28 reduce to 1e27
-			);
+
+		return (((currentPrice() * 1e10) * 1e28) / cDai.exchangeRateStored()); // based on https://compound.finance/docs#protocol-math
 	}
 
 	function mintByPrice(

@@ -278,7 +278,8 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			msg.sender,
 			gdRewardToMint
 		);
-		uint256 gasPriceIncDAI = getGasPriceInCDAI(initialGas - gasleft());
+		uint256 gasPriceIncDAI =
+			getGasPriceIncDAIorDAI(initialGas - gasleft(), false);
 		if (
 			block.timestamp >=
 			lastCollectedInterest + collectInterestTimeThreshold
@@ -332,7 +333,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				balances[uint256(i)] = tempInterest;
 			}
 		}
-		uint256 gasCostInUSD = getGasPriceInUsd(_maxGasAmount); // Get gas price in USD so can compare with possible interest amount to get
+		uint256 gasCostInDAI = getGasPriceIncDAIorDAI(_maxGasAmount, true); // Get gas price in DAI so can compare with possible interest amount to get
 		address[] memory emptyArray = new address[](0);
 
 		quick(balances, addresses); // sort the values according to interest balance
@@ -356,7 +357,6 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				break; // if addresses are null after this element then break because we initialize array in size activecontracts but if their interest balance is zero then we dont put it in this array
 			}
 		}
-
 		while (i > -1) {
 			addresses[uint256(i)] = address(0x0);
 			i -= 1;
@@ -365,9 +365,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			block.timestamp >=
 			lastCollectedInterest + collectInterestTimeThreshold
 		) {
-			if (possibleCollected < gasCostInUSD) return emptyArray;
+			if (possibleCollected * 1e10 < gasCostInDAI) return emptyArray; // multiply possiblecollected by 1e10 so it will be on the 18decimals
 		} else {
-			if (possibleCollected < interestMultiplier * gasCostInUSD)
+			// multiply possiblecollected by 1e10 so it will be on the 18decimals
+			if (possibleCollected * 1e10 < interestMultiplier * gasCostInDAI)
 				return emptyArray;
 		}
 		return addresses;
@@ -440,48 +441,33 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	/**
      @dev Helper function to get gasPrice in GWEI then change it to cDAI
      @param _gasAmount gas amount to be calculated worth in cDAI
+	 @param _inDAI indicates if result should return in DAI
      @return Price of the gas which used in cDAI
      */
-	function getGasPriceInCDAI(uint256 _gasAmount)
+	function getGasPriceIncDAIorDAI(uint256 _gasAmount, bool _inDAI)
 		public
 		view
 		returns (uint256)
 	{
 		AggregatorV3Interface gasPriceOracle =
 			AggregatorV3Interface(nameService.getAddress("GAS_PRICE_ORACLE"));
-		(, int256 gasPrice, , , ) = gasPriceOracle.latestRoundData(); // returns gas price in 0 decimal as GWEI so 1eth / 1e9 eth
+		int256 gasPrice = gasPriceOracle.latestAnswer(); // returns gas price in 0 decimal as GWEI so 1eth / 1e9 eth
 
 		AggregatorV3Interface daiETHOracle =
 			AggregatorV3Interface(nameService.getAddress("DAI_ETH_ORACLE"));
-		(, int256 daiInETH, , , ) = daiETHOracle.latestRoundData(); // returns DAI price in ETH
+		int256 daiInETH = daiETHOracle.latestAnswer(); // returns DAI price in ETH
 
-		uint256 result = rdiv(uint256(gasPrice) * 1e9, uint256(daiInETH)) / 1e9; // 1 gas amount in DAI gas price in gwei but with 0 decimal so we should multiply it by 1e9 to get value in 18 decimals and after rdiv we should divide 1e9 to obtain value in 18 decimals
+		uint256 result = ((uint256(gasPrice) * 1e18) / uint256(daiInETH)); // Gasprice in GWEI and daiInETH is 18 decimals so we multiply gasprice with 1e18 in order to get result in 18 decimals
+		if (_inDAI) return result * _gasAmount;
 		result =
-			(rdiv(
-				result * 1e10,
-				cERC20(nameService.getAddress("CDAI")).exchangeRateStored()
-			) / 1e19) *
-			_gasAmount; // since cDAI token returns exchange rate scaled by 18 so we increase resolution of DAI result as well then divide to each other then multiply by _gasAmount
+			(((result / 1e10) * 1e28) /
+				cERC20(nameService.getAddress("CDAI")).exchangeRateStored()) *
+			_gasAmount; // based on https://compound.finance/docs#protocol-math
 		return result;
 	}
 
-	function getGasPriceInUsd(uint256 _gasAmount)
-		public
-		view
-		returns (uint256)
-	{
-		AggregatorV3Interface gasPriceOracle =
-			AggregatorV3Interface(nameService.getAddress("GAS_PRICE_ORACLE"));
-		(, int256 gasPrice, , , ) = gasPriceOracle.latestRoundData(); // returns gas price in 0 decimal as GWEI so 1eth / 1e9 eth
-		AggregatorV3Interface ethUsdOracle =
-			AggregatorV3Interface(nameService.getAddress("ETH_USD_ORACLE"));
-		(, int256 ethInUsd, , , ) = ethUsdOracle.latestRoundData(); // returns eth price in USD
-		return
-			(_gasAmount * (uint256(gasPrice) * 1e9) * uint256(ethInUsd)) / 1e18; // gasPrice is gwei but in 0 decimals so we multiply it by 1e9 to bring eth decimals(18 decimals) then multiply by ethInUsd which is 8 decimals then divide it to 1e18 in order to get 8 decimals
-	}
-
 	function getGasPriceInGD(uint256 _gasAmount) public view returns (uint256) {
-		uint256 priceInCdai = getGasPriceInCDAI(_gasAmount);
+		uint256 priceInCdai = getGasPriceIncDAIorDAI(_gasAmount, false);
 		uint256 gdPriceIncDAI =
 			GoodReserveCDai(nameService.getAddress("RESERVE")).currentPrice();
 		return rdiv(priceInCdai, gdPriceIncDAI) / 1e25; // rdiv returns result in 27 decimals since GD$ in 2 decimals then divide 1e25
