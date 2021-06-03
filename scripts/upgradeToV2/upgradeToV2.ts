@@ -57,6 +57,15 @@ const main = async () => {
   let grep: GReputation, vm: CompoundVotingMachine;
   const founders = await getFounders(networkName);
 
+  const compoundTokens = [
+    {
+      name: "cdai",
+      address: dao.cDAI || "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
+      usdOracle: "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9",
+      conversionGasCost: 200000
+    }
+  ];
+
   const deployContracts = async () => {
     console.log({ dao, newdao, protocolSettings });
     let release = {};
@@ -197,6 +206,12 @@ const main = async () => {
         name: "ProtocolUpgradeFuse",
         args: [dao.Controller],
         isUpgradable: false
+      },
+      {
+        network: "mainnet",
+        name: "CompoundStakingFactory",
+        args: [],
+        isUpgradable: false
       }
     ];
     ethers.constants;
@@ -248,6 +263,11 @@ const main = async () => {
       console.log(`${contract.name} deployed to: ${deployed.address}`);
       release[contract.name] = deployed.address;
     }
+
+    const stakingContracts =
+      isMainnet && (await deployStakingContracts(release));
+    release["StakingContracts"] = stakingContracts;
+    console.log({ stakingContracts });
     let res = Object.assign(newdao, release);
     await releaser(release, networkName);
     return res;
@@ -338,8 +358,10 @@ const main = async () => {
         newfusedao.UBIScheme
       ],
       //TODO: replace with default staking contracts
-      [],
-      []
+      release.StakingContracts,
+      release.StakingContracts.map(
+        _ => protocolSettings.staking.rewardsPerBlock
+      )
     );
   };
 
@@ -430,6 +452,40 @@ const main = async () => {
           .catch(e => console.log("founder vote failed:", f.address, e.message))
       )
     );
+  };
+
+  const deployStakingContracts = async release => {
+    console.log("deployStakingContracts", {
+      factory: release.CompoundStakingFactory,
+      ns: release.NameService
+    });
+    const factory = await ethers.getContractAt(
+      "CompoundStakingFactory",
+      release.CompoundStakingFactory
+    );
+
+    const ps = compoundTokens.map(async token => {
+      console.log("deployStakingContracts", {
+        token,
+        settings: protocolSettings.staking
+      });
+      const tx = await (
+        await factory.cloneAndInit(
+          token.address,
+          release.NameService,
+          protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
+          token.usdOracle,
+          token.conversionGasCost
+        )
+      ).wait();
+
+      const log = tx.events.find(_ => _.event === "Deployed");
+      if (!log.args.proxy)
+        throw new Error(`staking contract deploy failed ${token}`);
+      return log.args.proxy;
+    });
+    const deployed = await Promise.all(ps);
+    return deployed;
   };
 
   const release: any = await deployContracts();

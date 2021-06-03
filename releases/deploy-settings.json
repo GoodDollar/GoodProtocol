@@ -6,6 +6,10 @@
     "expansionRatio": {
       "nom": 999388834642296,
       "denom": 1e15
+    },
+    "staking": {
+      "rewardsPerBlock": 10000,
+      "fullRewardsThreshold": 172800
     }
   },
   "develop": {

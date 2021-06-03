@@ -116,31 +116,16 @@ describe("UBIScheme", () => {
     expect(error.message).to.have.string("only Avatar");
   });
 
-  it("should not be able to execute claiming when start has not been executed yet", async () => {
-    let error = await ubi.claim().catch(e => e);
-    expect(error.message).to.have.string("not in periodStarted");
-  });
-
-  it("should not be able to execute fish when start has not been executed yet", async () => {
-    let error = await ubi.fish(NULL_ADDRESS).catch(e => e);
-    expect(error.message).to.have.string("not in periodStarted");
-  });
-
-  it("should not be able to execute fishMulti when start has not been executed yet", async () => {
-    let error = await ubi.fishMulti([NULL_ADDRESS]).catch(e => e);
-    expect(error.message).to.have.string("not in periodStarted");
-  });
-
   it("should start the ubi", async () => {
     await setSchemes([ubi.address]);
-    await ubi.start();
+    // await ubi.start();
     const block = await ethers.provider.getBlock("latest");
     const startUBI = block.timestamp;
     const newUbi = await firstClaimPool.ubi();
     let periodStart = await ubi.periodStart().then(_ => _.toNumber());
     let startDate = new Date(periodStart * 1000);
     expect(startDate.toISOString()).to.have.string("T12:00:00.000Z"); //contract set itself to start at noon GMT
-    expect(newUbi.toString()).to.be.equal(ubi.address);
+    expect(newUbi).to.be.equal(ethers.constants.AddressZero);
     await increaseTime(ONE_DAY / 2); // increase time half of the day to make sure ubi period started
   });
 

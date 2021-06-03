@@ -28,6 +28,10 @@ interface ERC20 {
 		uint256 amount
 	) external returns (bool);
 
+	function name() external view returns (string memory);
+
+	function symbol() external view returns (string memory);
+
 	event Transfer(address indexed from, address indexed to, uint256 amount);
 }
 
@@ -41,6 +45,8 @@ interface cERC20 is ERC20 {
 	function exchangeRateCurrent() external returns (uint256);
 
 	function exchangeRateStored() external view returns (uint256);
+
+	function underlying() external returns (address);
 }
 
 interface IGoodDollar is ERC20 {
