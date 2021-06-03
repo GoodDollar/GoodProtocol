@@ -106,7 +106,11 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		uint256 gdReward
 	);
 
-	event StakingRewardMinted(address stakingContract, address staker, uint256 gdReward);
+	event StakingRewardMinted(
+		address stakingContract,
+		address staker,
+		uint256 gdReward
+	);
 
 	function _reserveHasInitialized() internal view {
 		require(
@@ -250,16 +254,17 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			if (i == 0) break; // when active contracts length is 1 then gives error
 		}
 		// Finds the actual transferred DAI
-		uint256 daiToConvert = daiToken.balanceOf(reserveAddress) - currentBalance;
-		
+		uint256 daiToConvert =
+			daiToken.balanceOf(reserveAddress) - currentBalance;
+
 		// Mints gd while the interest amount is equal to the transferred amount
-		(uint256 gdUBI,uint256 interestInCdai) =
+		(uint256 gdUBI, uint256 interestInCdai) =
 			GoodReserveCDai(reserveAddress).mintUBI(
 				daiToConvert,
 				startingCDAIBalance,
 				iToken
 			);
-		 
+
 		IGoodDollar token = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
 		if (gdUBI > 0) {
 			//transfer ubi to avatar on sidechain via bridge
@@ -397,7 +402,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				amount
 			);
 
-			emit StakingRewardMinted(msg.sender, _user, amount)
+			emit StakingRewardMinted(msg.sender, _user, amount);
 		}
 	}
 
