@@ -309,10 +309,15 @@ export const deployUBI = async deployedDAO => {
 
   await genericCall(gd, encoded);
 
+  encoded = firstClaim.interface.encodeFunctionData("setUBIScheme", [
+    ubiScheme.address
+  ]);
+
+  await genericCall(firstClaim.address, encoded);
+
   console.log("set firstclaim,ubischeme as scheme and starting...");
   await setSchemes([firstClaim.address, ubiScheme.address]);
   await firstClaim.start();
-  await ubiScheme.start();
   setDAOAddress("UBISCHEME", ubiScheme.address);
   return { firstClaim, ubiScheme };
 };
@@ -371,6 +376,7 @@ export const deployOldUBI = async deployedDAO => {
   console.log("set firstclaim,ubischeme as scheme and starting...");
   await setSchemes([firstClaim.address]);
   await firstClaim.start();
+  await ubiScheme.start();
   return { firstClaim, ubiScheme };
 };
 export async function increaseTime(seconds) {

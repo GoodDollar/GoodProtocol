@@ -171,17 +171,22 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
 
     usdcUsdOracle = await tokenUsdOracleFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
-    goodCompoundStaking = await goodCompoundStakingFactory.deploy(
-      usdc.address,
-      cUsdc.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good USDC",
-      "gUSDC",
-      "172800",
-      usdcUsdOracle.address,
-      "200000"
-    );
+    goodCompoundStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          usdc.address,
+          cUsdc.address,
+          nameService.address,
+          "Good USDC",
+          "gUSDC",
+          "172800",
+          usdcUsdOracle.address,
+          "200000"
+        );
+        return contract;
+      });
+
     await dai["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseEther("2000000")
@@ -434,17 +439,22 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
       controller,
       schemeMock
     );
-    const simpleStaking = await goodCompoundStakingFactory.deploy(
-      usdc.address,
-      cUsdc.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good USDC",
-      "gUSDC",
-      "50",
-      usdcUsdOracle.address,
-      "100000"
-    );
+    const simpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          usdc.address,
+          cUsdc.address,
+          nameService.address,
+          "Good USDC",
+          "gUSDC",
+          "50",
+          usdcUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
+
     const currentBlockNumber = await ethers.provider.getBlockNumber();
     let encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
@@ -595,28 +605,38 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const simpleStaking = await goodCompoundStakingFactory.deploy(
-      usdc.address,
-      cUsdc.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good USDC",
-      "gUSDC",
-      "50",
-      usdcUsdOracle.address,
-      "200000"
-    );
-    const simpleStaking1 = await goodCompoundStakingFactory.deploy(
-      usdc.address,
-      cUsdc.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good USDC",
-      "gUSDC",
-      "50",
-      usdcUsdOracle.address,
-      "200000"
-    );
+    const simpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          usdc.address,
+          cUsdc.address,
+          nameService.address,
+          "Good USDC",
+          "gUSDC",
+          "50",
+          usdcUsdOracle.address,
+          "200000"
+        );
+        return contract;
+      });
+
+    const simpleStaking1 = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          usdc.address,
+          cUsdc.address,
+          nameService.address,
+          "Good USDC",
+          "gUSDC",
+          "50",
+          usdcUsdOracle.address,
+          "200000"
+        );
+        return contract;
+      });
+
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
