@@ -44,16 +44,6 @@ abstract contract SimpleStaking is
 	// uint256 public totalStaked = 0;
 	uint8 public stakingTokenDecimals;
 	bool public isPaused;
-	/**
-	 * @dev Emitted when `staker` stake `value` tokens of `token`
-	 */
-	event Staked(address indexed staker, address token, uint256 value);
-
-	/**
-	 * @dev Emitted when `staker` withdraws their stake `value` tokens and contracts balance will
-	 * be reduced to`remainingBalance`.
-	 */
-	event StakeWithdraw(address indexed staker, address token, uint256 value);
 
 	/**
 	 * @dev Emitted when fundmanager transfers intrest collected from defi protrocol.
@@ -251,22 +241,48 @@ abstract contract SimpleStaking is
 					: _amount * 10**(18 - token.decimals());
 			sd.userStaked(msg.sender, stakeAmountInEighteenDecimals);
 		}
-
-		emit Staked(msg.sender, address(token), _amount);
 	}
 
 	/**
 	 * @dev Withdraws the sender staked Token.
-	 * @dev _amount Amount to withdraw in Token or iToken depends on the _inInterestToken parameter
-	 * @param _inInterestToken specificy if stake in iToken or Token
+	 * @dev _amount Amount to withdraw in Token
+	 * @param _inInterestToken specificy if to receive in iToken or Token
 	 */
 	function withdrawStake(uint256 _amount, bool _inInterestToken)
 		external
 		virtual
 	{
-		//InterestDistribution.Staker storage staker = interestData.stakers[msg.sender];
+		GoodFundManager fm =
+			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
+
+		_burn(msg.sender, _amount); // burn their staking tokens
+		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
+			fm.rewardsForStakingContract(address(this));
+
+		_decreaseProductivity(
+			msg.sender,
+			_amount,
+			rewardsPerBlock,
+			blockStart,
+			blockEnd
+		);
+
+		//notify GDAO distrbution for stakers
+		StakersDistribution sd =
+			StakersDistribution(nameService.getAddress("GDAO_STAKERS"));
+		if (address(sd) != address(0)) {
+			uint256 withdrawAmountInEighteenDecimals =
+				token.decimals() == 18
+					? _amount
+					: _amount * 10**(18 - token.decimals());
+			sd.userWithdraw(msg.sender, withdrawAmountInEighteenDecimals);
+		}
+
+		//mint rewards for staking so far, this will reset the multiplier
+		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
+
 		uint256 tokenWithdraw;
-		require(_amount > 0, "Should withdraw positive amount");
+
 		(uint256 userProductivity, ) = getProductivity(msg.sender);
 		if (_inInterestToken) {
 			uint256 tokenWorth = iTokenWorthInToken(_amount);
@@ -289,44 +305,13 @@ abstract contract SimpleStaking is
 				"withdraw transfer failed"
 			);
 		}
-
-		GoodFundManager fm =
-			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
-		_burn(msg.sender, _amount); // burn their staking tokens
-		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
-			fm.rewardsForStakingContract(address(this));
-		_decreaseProductivity(
-			msg.sender,
-			_amount,
-			rewardsPerBlock,
-			blockStart,
-			blockEnd
-		);
-		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
-
-		//notify GDAO distrbution for stakers
-		StakersDistribution sd =
-			StakersDistribution(nameService.getAddress("GDAO_STAKERS"));
-		if (address(sd) != address(0)) {
-			uint256 withdrawAmountInEighteenDecimals =
-				token.decimals() == 18
-					? _amount
-					: _amount * 10**(18 - token.decimals());
-			sd.userWithdraw(msg.sender, withdrawAmountInEighteenDecimals);
-		}
-
-		emit StakeWithdraw(
-			msg.sender,
-			address(token),
-			_inInterestToken == false ? tokenWithdraw : _amount
-		);
 	}
 
 	/**
 	 * @dev withdraw staker G$ rewards + GDAO rewards
 	 * withdrawing rewards resets the multiplier! so if user just want GDAO he should use claimReputation()
 	 */
-	function withdrawRewards() public {
+	function withdrawRewards() external {
 		GoodFundManager fm =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
@@ -369,6 +354,7 @@ abstract contract SimpleStaking is
 			blockStart,
 			blockEnd
 		);
+
 		_increaseProductivity(to, value, rewardsPerBlock, blockStart, blockEnd);
 		if (address(sd) != address(0)) {
 			address[] memory contracts;
