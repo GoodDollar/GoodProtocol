@@ -2,9 +2,9 @@ import { default as hre, ethers, upgrades } from "hardhat";
 import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
 import {
-  CompoundStakingFactory,
   CERC20,
-  GoodCompoundStaking
+  GoodCompoundStaking,
+  CompoundStakingFactory
 } from "../../types";
 import { createDAO } from "../helpers";
 
