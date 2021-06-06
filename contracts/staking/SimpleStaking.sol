@@ -243,30 +243,29 @@ abstract contract SimpleStaking is
 
 	/**
 	 * @dev Withdraws the sender staked Token.
-	 * @dev _amount Amount to withdraw in Token or iToken depends on the _inInterestToken parameter
-	 * @param _inInterestToken specificy if stake in iToken or Token
+	 * @dev _amount Amount to withdraw in Token or iToken
+	 * @param _inInterestToken if true_amount is in iToken and also returned in iToken other wise use Token
 	 */
 	function withdrawStake(uint256 _amount, bool _inInterestToken)
 		external
 		virtual
 		nonReentrant
 	{
-		//InterestDistribution.Staker storage staker = interestData.stakers[_msgSender()];
 		uint256 tokenWithdraw;
-		require(_amount > 0, "Should withdraw positive amount");
-		(uint256 userProductivity, ) = getProductivity(_msgSender());
+		(uint256 userProductivity, ) = getProductivity(msg.sender);
+
 		if (_inInterestToken) {
 			uint256 tokenWorth = iTokenWorthInToken(_amount);
-			require(userProductivity >= tokenWorth, "Not enough token staked");
 			require(
 				iToken.transfer(_msgSender(), _amount),
 				"withdraw transfer failed"
 			);
-			_amount = tokenWorth;
+			tokenWithdraw = _amount = tokenWorth;
 		} else {
 			tokenWithdraw = _amount;
-			require(userProductivity >= _amount, "Not enough token staked");
 			redeem(tokenWithdraw);
+
+			//this is required for redeem precision loss
 			uint256 tokenActual = token.balanceOf(address(this));
 			if (tokenActual < tokenWithdraw) {
 				tokenWithdraw = tokenActual;
@@ -279,9 +278,13 @@ abstract contract SimpleStaking is
 
 		GoodFundManager fm =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
-		_burn(_msgSender(), _amount); // burn their staking tokens
+
+		//this will revert in case user doesnt have enough productivity to withdraw _amount, as productivity=staking tokens amount
+		_burn(msg.sender, _amount); // burn their staking tokens
+
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
 			fm.rewardsForStakingContract(address(this));
+
 		_decreaseProductivity(
 			_msgSender(),
 			_amount,
@@ -302,18 +305,15 @@ abstract contract SimpleStaking is
 			sd.userWithdraw(_msgSender(), withdrawAmountInEighteenDecimals);
 		}
 
-		emit StakeWithdraw(
-			_msgSender(),
-			address(token),
-			_inInterestToken == false ? tokenWithdraw : _amount
-		);
+		emit StakeWithdraw(msg.sender, address(token), tokenWithdraw);
+
 	}
 
 	/**
 	 * @dev withdraw staker G$ rewards + GDAO rewards
 	 * withdrawing rewards resets the multiplier! so if user just want GDAO he should use claimReputation()
 	 */
-	function withdrawRewards() public nonReentrant {
+	function withdrawRewards() external nonReentrant {
 		GoodFundManager fm =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
 		fm.mintReward(nameService.getAddress("CDAI"), _msgSender()); // send rewards to user and use cDAI address since reserve in cDAI
