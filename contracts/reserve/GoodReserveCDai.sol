@@ -584,7 +584,7 @@ contract GoodReserveCDai is
 
 	//TODO: can we send directly to UBI via bridge here?
 	/**
-	 * @dev only FundManager can call this to trigger minting.
+	 * @dev only FundManager or other with mint G$ permission can call this to trigger minting.
 	 * Reserve sends UBI + interest to FundManager.
 	 * @param _daiToConvert DAI amount to convert cDAI
 	 * @param _startingCDAIBalance Initial cDAI balance before staking collect process start
@@ -606,6 +606,8 @@ contract GoodReserveCDai is
 		uint256 gdUBI = gdInterestToMint;
 		gdUBI = gdUBI.add(gdExpansionToMint);
 		uint256 toMint = gdUBI;
+
+		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
 		_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), toMint, false);
 		lastMinted = block.number;
 		emit UBIMinted(
