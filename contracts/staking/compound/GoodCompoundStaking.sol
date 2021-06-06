@@ -85,19 +85,44 @@ contract GoodCompoundStaking is SimpleStaking {
 		override
 		returns (address, uint256)
 	{
-		if (address(iToken) == nameService.getAddress("CDAI")) {
-			return (address(iToken), _amount); // If iToken is cDAI then just return cDAI
-		}
-
-		cERC20 cToken = cERC20(address(iToken));
-		require(cToken.redeem(_amount) == 0, "Failed to redeem cToken");
-		uint256 redeemedAmount = token.balanceOf(address(this));
+		ERC20 comp = ERC20(nameService.getAddress("COMP"));
+		uint256 compBalance = comp.balanceOf(address(this));
 		address daiAddress = nameService.getAddress("DAI");
-		address[] memory path = new address[](2);
-		path[0] = address(token);
-		path[1] = daiAddress;
 		Uniswap uniswapContract =
 			Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+		uint256 daiFromComp;
+		cERC20 cToken = cERC20(address(iToken));
+		address[] memory path = new address[](2);
+		if (compBalance > 0) {
+			path[0] = address(token);
+			path[1] = daiAddress;
+			token.approve(address(uniswapContract), compBalance);
+			uint256[] memory compSwap =
+				uniswapContract.swapExactTokensForTokens(
+					compBalance,
+					0,
+					path,
+					address(this),
+					block.timestamp
+				);
+			daiFromComp = compSwap[1];
+		}
+		if (address(iToken) == nameService.getAddress("CDAI")) {
+			uint256 cdaiMintAmount;
+			if (daiFromComp > 0) {
+				uint256 cdaiAmountBeforeMint = cToken.balanceOf(address(this));
+				cToken.mint(daiFromComp);
+				cdaiMintAmount =
+					cToken.balanceOf(address(this)) -
+					cdaiAmountBeforeMint;
+			}
+
+			return (address(iToken), _amount + cdaiMintAmount); // If iToken is cDAI then just return cDAI
+		}
+		require(cToken.redeem(_amount) == 0, "Failed to redeem cToken");
+		uint256 redeemedAmount = token.balanceOf(address(this));
+		path[0] = address(token);
+		path[1] = daiAddress;
 		token.approve(address(uniswapContract), redeemedAmount);
 		uint256[] memory swap =
 			uniswapContract.swapExactTokensForTokens(
@@ -110,7 +135,7 @@ contract GoodCompoundStaking is SimpleStaking {
 
 		uint256 dai = swap[1];
 		require(dai > 0, "token selling failed");
-		return (daiAddress, dai);
+		return (daiAddress, dai + daiFromComp);
 	}
 
 	/**
