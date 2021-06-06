@@ -1,4 +1,4 @@
-pragma solidity >0.5.4;
+pragma solidity >=0.8.0;
 
 contract DaiEthPriceMockOracle {
 	function latestRoundData()

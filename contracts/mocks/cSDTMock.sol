@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-
-pragma solidity >0.5.4;
+pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetMinterPauserUpgradeable.sol";
 
@@ -13,7 +12,8 @@ contract cSDTMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	ERC20PresetMinterPauserUpgradeable edt;
 
 	uint256 exchangeRate = 2000000000000000000000000; // initial exchange rate 0.02 from original cToken
-    uint mantissa = 26;
+	uint256 mantissa = 26;
+
 	constructor(ERC20PresetMinterPauserUpgradeable _edt) {
 		__ERC20PresetMinterPauser_init("Compound SDT", "cSDT");
 		edt = _edt;
@@ -24,13 +24,13 @@ contract cSDTMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 		//mul by 1e10 to match to precision of 1e16 of the exchange rate
 		_mint(
 			msg.sender,
-			edtAmount  / 1e8 * (10 ** mantissa) / exchangeRateStored() // based on https://compound.finance/docs#protocol-math
-		); 
+			((edtAmount / 1e8) * (10**mantissa)) / exchangeRateStored() // based on https://compound.finance/docs#protocol-math
+		);
 		return 0;
 	}
 
 	function redeem(uint256 cEdtAmount) public returns (uint256) {
-		uint256 edtAmount = cEdtAmount * 1e8  * exchangeRateStored() / 1e26;// based on https://compound.finance/docs#protocol-math
+		uint256 edtAmount = (cEdtAmount * 1e8 * exchangeRateStored()) / 1e26; // based on https://compound.finance/docs#protocol-math
 
 		_burn(msg.sender, cEdtAmount);
 		edt.transfer(msg.sender, edtAmount);
@@ -38,7 +38,8 @@ contract cSDTMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	}
 
 	function redeemUnderlying(uint256 edtAmount) public returns (uint256) {
-		uint256 cEdtAmount = edtAmount / 1e8 * (10 ** mantissa) / exchangeRateStored();// based on https://compound.finance/docs#protocol-math
+		uint256 cEdtAmount =
+			((edtAmount / 1e8) * (10**mantissa)) / exchangeRateStored(); // based on https://compound.finance/docs#protocol-math
 		_burn(msg.sender, cEdtAmount);
 		edt.transfer(msg.sender, edtAmount);
 		return 0;
