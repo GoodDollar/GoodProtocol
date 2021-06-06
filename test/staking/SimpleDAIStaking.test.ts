@@ -218,7 +218,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     let cdaiBalance = await cDAI.balanceOf(staker.address);
     await cDAI.connect(staker)["redeem(uint256)"](cdaiBalance.toString());
     let balance = await dai.balanceOf(staker.address);
-    expect(balance.toString()).to.be.equal("100000000000000000000");
+    let er = await cDAI.exchangeRateStored();
+    expect(balance).to.be.equal(cdaiBalance.mul(er).div(BN.from(10).pow(18)));
     await dai.connect(staker).transfer(dai.address, balance.toString());
   });
 

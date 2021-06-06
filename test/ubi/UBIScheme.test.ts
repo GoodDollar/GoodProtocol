@@ -99,11 +99,10 @@ describe("UBIScheme", () => {
       [nameService.address, firstClaimPool.address, 14]
     );
     const periodStart = await ubi.periodStart();
-    console.log(periodStart.toString());
     // initializing the ubi
     let encodedCall = ubi.interface.encodeFunctionData("setCycleLength", [1]);
     await genericCall(ubi.address, encodedCall); // we should set cyclelength to one cause this tests was implemented according to it
-    expect(periodStart.lt(startUBI)).to.be.true;
+    expect(periodStart.mod(60 * 60 * 24)).to.equal(60 * 60 * 12);
   });
 
   it("should not be able to set the claim amount if the sender is not the avatar", async () => {

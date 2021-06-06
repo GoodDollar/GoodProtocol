@@ -446,7 +446,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     expect(userPendingReward).to.be.gt(0);
   });
 
-  it("it should return pendingRewards greater than zero", async () => {
+  it("it should return pendingRewards equal zero after withdraw", async () => {
     let userPendingRewards = await governanceStaking[
       "getUserPendingReward(address)"
     ](staker.address);
@@ -455,7 +455,12 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     userPendingRewards = await governanceStaking[
       "getUserPendingReward(address)"
     ](staker.address);
-    expect(userPendingRewards).to.be.gt(0); //withdrawrewards mines a block so pending will still not be 0.
+    expect(userPendingRewards).to.equal(0);
+    await advanceBlocks(1);
+    userPendingRewards = await governanceStaking[
+      "getUserPendingReward(address)"
+    ](staker.address);
+    expect(userPendingRewards).to.gt(0); //one block passed
 
     await governanceStaking.connect(staker).withdrawStake(0);
     userPendingRewards = await governanceStaking[
@@ -573,14 +578,13 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
   });
 
   it("Should use overriden _transfer that handles productivity when using transferFrom which is defined in super erc20 contract", async () => {
-    const tx = await governanceStaking
-      .transferFrom(
+    await expect(
+      governanceStaking.transferFrom(
         founder.address,
         staker.address,
         ethers.utils.parseEther("10000000")
       )
-      .catch(e => e);
-    expect(tx.message).to.have.string("INSUFFICIENT_PRODUCTIVITY");
+    ).to.reverted;
   });
 
   it("it should get rewards for previous stakes when stake new amount of tokens", async () => {
