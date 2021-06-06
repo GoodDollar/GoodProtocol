@@ -11,7 +11,7 @@ import "./GoodFundManager.sol";
 import "./BaseShareField.sol";
 import "../governance/StakersDistribution.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 /**
  * @title Staking contract that donates earned interest to the DAO
@@ -22,7 +22,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 abstract contract SimpleStaking is
 	ERC20Upgradeable,
 	DAOContract,
-	BaseShareField
+	BaseShareField,
+	ReentrancyGuardUpgradeable
 {
 	// Token address
 	ERC20 public token;
@@ -200,7 +201,7 @@ abstract contract SimpleStaking is
 		require(_amount > 0, "You need to stake a positive token amount");
 		require(
 			(_inInterestToken ? iToken : token).transferFrom(
-				msg.sender,
+				_msgSender(),
 				address(this),
 				_amount
 			),
@@ -211,15 +212,15 @@ abstract contract SimpleStaking is
 			mintInterestToken(_amount); //mint iToken
 		}
 
-		UserInfo storage userInfo = users[msg.sender];
+		UserInfo storage userInfo = users[_msgSender()];
 		userInfo.donationPer = uint8(_donationPer);
 
-		_mint(msg.sender, _amount); // mint Staking token for staker
+		_mint(_msgSender(), _amount); // mint Staking token for staker
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
 				.rewardsForStakingContract(address(this));
 		_increaseProductivity(
-			msg.sender,
+			_msgSender(),
 			_amount,
 			rewardsPerBlock,
 			blockStart,
@@ -234,10 +235,10 @@ abstract contract SimpleStaking is
 				token.decimals() == 18
 					? _amount
 					: _amount * 10**(18 - token.decimals());
-			sd.userStaked(msg.sender, stakeAmountInEighteenDecimals);
+			sd.userStaked(_msgSender(), stakeAmountInEighteenDecimals);
 		}
 
-		emit Staked(msg.sender, address(token), _amount);
+		emit Staked(_msgSender(), address(token), _amount);
 	}
 
 	/**
@@ -248,13 +249,15 @@ abstract contract SimpleStaking is
 	function withdrawStake(uint256 _amount, bool _inInterestToken)
 		external
 		virtual
+		nonReentrant
 	{
 		uint256 tokenWithdraw;
 		(uint256 userProductivity, ) = getProductivity(msg.sender);
+
 		if (_inInterestToken) {
 			uint256 tokenWorth = iTokenWorthInToken(_amount);
 			require(
-				iToken.transfer(msg.sender, _amount),
+				iToken.transfer(_msgSender(), _amount),
 				"withdraw transfer failed"
 			);
 			tokenWithdraw = _amount = tokenWorth;
@@ -268,7 +271,7 @@ abstract contract SimpleStaking is
 				tokenWithdraw = tokenActual;
 			}
 			require(
-				token.transfer(msg.sender, tokenWithdraw),
+				token.transfer(_msgSender(), tokenWithdraw),
 				"withdraw transfer failed"
 			);
 		}
@@ -278,17 +281,18 @@ abstract contract SimpleStaking is
 
 		//this will revert in case user doesnt have enough productivity to withdraw _amount, as productivity=staking tokens amount
 		_burn(msg.sender, _amount); // burn their staking tokens
+
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
 			fm.rewardsForStakingContract(address(this));
 
 		_decreaseProductivity(
-			msg.sender,
+			_msgSender(),
 			_amount,
 			rewardsPerBlock,
 			blockStart,
 			blockEnd
 		);
-		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
+		fm.mintReward(nameService.getAddress("CDAI"), _msgSender()); // send rewards to user and use cDAI address since reserve in cDAI
 
 		//notify GDAO distrbution for stakers
 		StakersDistribution sd =
@@ -298,20 +302,21 @@ abstract contract SimpleStaking is
 				token.decimals() == 18
 					? _amount
 					: _amount * 10**(18 - token.decimals());
-			sd.userWithdraw(msg.sender, withdrawAmountInEighteenDecimals);
+			sd.userWithdraw(_msgSender(), withdrawAmountInEighteenDecimals);
 		}
 
 		emit StakeWithdraw(msg.sender, address(token), tokenWithdraw);
+
 	}
 
 	/**
 	 * @dev withdraw staker G$ rewards + GDAO rewards
 	 * withdrawing rewards resets the multiplier! so if user just want GDAO he should use claimReputation()
 	 */
-	function withdrawRewards() external {
+	function withdrawRewards() external nonReentrant {
 		GoodFundManager fm =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
-		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
+		fm.mintReward(nameService.getAddress("CDAI"), _msgSender()); // send rewards to user and use cDAI address since reserve in cDAI
 		claimReputation();
 	}
 
@@ -325,7 +330,7 @@ abstract contract SimpleStaking is
 		if (address(sd) != address(0)) {
 			address[] memory contracts = new address[](1);
 			contracts[0] = (address(this));
-			sd.claimReputation(msg.sender, contracts);
+			sd.claimReputation(_msgSender(), contracts);
 		}
 	}
 
@@ -477,7 +482,7 @@ abstract contract SimpleStaking is
 
 	function _canMintRewards() internal view override {
 		require(
-			msg.sender == nameService.getAddress("FUND_MANAGER"),
+			_msgSender() == nameService.getAddress("FUND_MANAGER"),
 			"Only FundManager can call this method"
 		);
 	}
