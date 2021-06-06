@@ -242,8 +242,8 @@ abstract contract SimpleStaking is
 
 	/**
 	 * @dev Withdraws the sender staked Token.
-	 * @dev _amount Amount to withdraw in Token
-	 * @param _inInterestToken specificy if value is returned in iToken or Token
+	 * @dev _amount Amount to withdraw in Token or iToken
+	 * @param _inInterestToken if true_amount is in iToken and also returned in iToken other wise use Token
 	 */
 	function withdrawStake(uint256 _amount, bool _inInterestToken)
 		external
@@ -257,10 +257,12 @@ abstract contract SimpleStaking is
 				iToken.transfer(msg.sender, _amount),
 				"withdraw transfer failed"
 			);
-			_amount = tokenWorth;
+			tokenWithdraw = _amount = tokenWorth;
 		} else {
 			tokenWithdraw = _amount;
 			redeem(tokenWithdraw);
+
+			//this is required for redeem precision loss
 			uint256 tokenActual = token.balanceOf(address(this));
 			if (tokenActual < tokenWithdraw) {
 				tokenWithdraw = tokenActual;
@@ -299,11 +301,7 @@ abstract contract SimpleStaking is
 			sd.userWithdraw(msg.sender, withdrawAmountInEighteenDecimals);
 		}
 
-		emit StakeWithdraw(
-			msg.sender,
-			address(token),
-			_inInterestToken == false ? tokenWithdraw : _amount
-		);
+		emit StakeWithdraw(msg.sender, address(token), tokenWithdraw);
 	}
 
 	/**
