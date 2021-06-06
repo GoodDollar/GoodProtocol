@@ -216,6 +216,11 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     const daiFactory = await ethers.getContractFactory("DAIMock");
     comp = await daiFactory.deploy();
     await setDAOAddress("COMP", comp.address);
+    const compUsdOracleFactory = await ethers.getContractFactory(
+      "CompUSDMockOracle"
+    );
+    const compUsdOracle = await compUsdOracleFactory.deploy();
+    await setDAOAddress("COMP_USD_ORACLE", compUsdOracle.address);
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);

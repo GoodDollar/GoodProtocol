@@ -22,7 +22,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
   let gasFeeOracle,
     daiEthOracle: Contract,
     ethUsdOracle: Contract,
-    daiUsdOracle: Contract;
+    daiUsdOracle: Contract,
+    compUsdOracle: Contract;
   let goodReserve: GoodReserveCDai;
   let goodCompoundStaking;
   let goodFundManager: Contract;
@@ -100,7 +101,6 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     goodCompoundStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {
-        console.log(contract);
         await contract.init(
           dai.address,
           cDAI.address,
@@ -171,6 +171,12 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const daiFactory = await ethers.getContractFactory("DAIMock");
     comp = await daiFactory.deploy();
     await setDAOAddress("COMP", comp.address);
+
+    const compUsdOracleFactory = await ethers.getContractFactory(
+      "CompUSDMockOracle"
+    );
+    compUsdOracle = await compUsdOracleFactory.deploy();
+    await setDAOAddress("COMP_USD_ORACLE", compUsdOracle.address);
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
@@ -730,7 +736,6 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await dai.connect(staker).approve(simpleStaking1.address, weiAmount);
     await simpleStaking1.connect(staker).stake(weiAmount, 100, false);
     let gains = await simpleStaking1.currentGains(false, true);
-
     expect(gains["0"].toString()).to.be.equal("0"); // cdaiGains
     expect(gains["1"].toString()).to.be.equal("0"); // daiGains
     //should revert cdai address back in nameservice
