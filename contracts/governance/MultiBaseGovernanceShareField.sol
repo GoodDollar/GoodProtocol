@@ -95,7 +95,11 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 	/**
 	 * @dev Audit user's rewards and calculate their earned rewards based on stake_amount * accAmountPerShare
 	 */
-	function _audit(address _contract, address _user) internal virtual {
+	function _audit(
+		address _contract,
+		address _user,
+		uint256 _updatedAmount
+	) internal virtual {
 		UserInfo storage userInfo = contractToUsers[_contract][_user];
 		if (userInfo.amount > 0) {
 			uint256 pending =
@@ -107,6 +111,10 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 				totalRewardsAccumulated[_contract] +
 				pending;
 		}
+		userInfo.amount = _updatedAmount;
+		userInfo.rewardDebt =
+			(_updatedAmount * accAmountPerShare[_contract]) /
+			1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is in 27 decimals and amount is 18 decimals
 	}
 
 	/**
@@ -122,15 +130,14 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 		uint256 _blockStart,
 		uint256 _blockEnd
 	) internal virtual returns (bool) {
-		UserInfo storage userInfo = contractToUsers[_contract][_user];
 		_update(_contract, _blockStart, _blockEnd);
-		_audit(_contract, _user);
+		_audit(
+			_contract,
+			_user,
+			contractToUsers[_contract][_user].amount + _value
+		);
 
 		totalProductivity[_contract] = totalProductivity[_contract] + _value;
-		userInfo.amount = userInfo.amount + _value;
-		userInfo.rewardDebt =
-			(userInfo.amount * accAmountPerShare[_contract]) /
-			1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is in 27 decimals and amount is 18 decimals
 		return true;
 	}
 
@@ -146,19 +153,13 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 		uint256 _blockStart,
 		uint256 _blockEnd
 	) internal virtual returns (bool) {
-		UserInfo storage userInfo = contractToUsers[_contract][_user];
-		require(
-			_value > 0 && userInfo.amount >= _value,
-			"INSUFFICIENT_PRODUCTIVITY"
+		_update(_contract, _blockStart, _blockEnd);
+		_audit(
+			_contract,
+			_user,
+			contractToUsers[_contract][_user].amount - _value
 		);
 
-		_update(_contract, _blockStart, _blockEnd);
-		_audit(_contract, _user);
-
-		userInfo.amount = userInfo.amount - _value;
-		userInfo.rewardDebt =
-			(userInfo.amount * accAmountPerShare[_contract]) /
-			1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is in 27 decimals and amount is 18 decimals
 		totalProductivity[_contract] = totalProductivity[_contract] - _value;
 
 		return true;
@@ -204,7 +205,7 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 		uint256 _blockEnd
 	) internal returns (uint256) {
 		_update(_contract, _blockStart, _blockEnd);
-		_audit(_contract, _user);
+		_audit(_contract, _user, contractToUsers[_contract][_user].amount);
 		UserInfo storage userInfo = contractToUsers[_contract][_user];
 		uint256 amount = userInfo.rewardEarn;
 		userInfo.rewardEarn = 0;
