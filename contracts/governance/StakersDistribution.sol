@@ -25,12 +25,6 @@ contract StakersDistribution is
 	///@notice month number since epoch
 	uint256 public currentMonth;
 
-	event ReputationEarned(
-		address staker,
-		address[] stakingContracts,
-		uint256 reputation
-	);
-
 	function initialize(NameService _ns) public initializer {
 		monthlyReputationDistribution = 2000000 ether; //2M as specified in specs
 		setDAO(_ns);
@@ -194,13 +188,11 @@ contract StakersDistribution is
 					blockEnd
 				);
 		}
-		if (totalRep > 0) {
+		if (totalRep > 0)
 			GReputation(nameService.getAddress("REPUTATION")).mint(
 				_staker,
 				totalRep
 			);
-			emit ReputationEarned(_staker, _stakingContracts, totalRep);
-		}
 	}
 
 	function getUserPendingRewards(address[] calldata _contracts, address _user)

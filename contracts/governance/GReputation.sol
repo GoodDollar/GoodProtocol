@@ -66,10 +66,6 @@ contract GReputation is Reputation {
 		uint256 newBalance
 	);
 
-	event StateHash(string blockchain, bytes32 merkleRoot, uint256 totalSupply);
-
-	event StateHashProof(string blockchain, address user, uint256 repBalance);
-
 	/**
 	 * @dev initialize
 	 */
@@ -188,8 +184,6 @@ contract GReputation is Reputation {
 		state.totalSupply = _totalSupply;
 		state.blockNumber = block.number;
 		blockchainStates[idHash].push(state);
-
-		emit StateHash(_id, _hash, _totalSupply);
 	}
 
 	/// @notice get the number of active votes a user holds after delegation (vs the basic balance of reputation he holds)
@@ -361,8 +355,6 @@ contract GReputation is Reputation {
 
 		//if proof is valid then set balances
 		stateHashBalances[stateHash][_user] = _balance;
-
-		emit StateHashProof(_id, _user, _balance);
 		return true;
 	}
 

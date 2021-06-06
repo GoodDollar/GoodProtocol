@@ -23,10 +23,29 @@ contract GovernanceStaking is
 	// Token address
 	ERC20 token;
 
+	// The total staked Token amount in the contract
+	// uint256 public totalStaked = 0;
+
+	/**
+	 * @dev Emitted when `staker` stake `value` tokens of `token`
+	 */
+	event Staked(address indexed staker, address token, uint256 value);
+
+	/**
+	 * @dev Emitted when `staker` withdraws their stake `value` tokens and contracts balance will
+	 * be reduced to`remainingBalance`.
+	 */
+	event StakeWithdraw(
+		address indexed staker,
+		address token,
+		uint256 value,
+		uint256 remainingBalance
+	);
+
 	/**
 	 * @dev Emitted when `staker` withdraws their rewards `value` tokens
 	 */
-	event ReputationEarned(address indexed staker, uint256 value);
+	event RewardsWithdraw(address indexed staker, uint256 value);
 
 	/**
 	 * @dev Constructor
@@ -67,6 +86,7 @@ contract GovernanceStaking is
 		);
 		_mint(_msgSender(), _amount); // mint Staking token for staker
 		_mintRewards(_msgSender());
+		emit Staked(_msgSender(), address(token), _amount);
 	}
 
 	/**
@@ -94,6 +114,12 @@ contract GovernanceStaking is
 			token.transfer(_msgSender(), tokenWithdraw),
 			"withdraw transfer failed"
 		);
+		emit StakeWithdraw(
+			_msgSender(),
+			address(token),
+			tokenWithdraw,
+			token.balanceOf(address(this))
+		);
 	}
 
 	/**
@@ -114,7 +140,7 @@ contract GovernanceStaking is
 			_issueEarnedRewards(address(this), user, 0, block.number);
 		if (amount > 0) {
 			ERC20(nameService.getAddress("REPUTATION")).mint(user, amount);
-			emit ReputationEarned(_msgSender(), amount);
+			emit RewardsWithdraw(_msgSender(), amount);
 		}
 		return amount;
 	}

@@ -197,7 +197,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     expect(GDAOBalanceAfterWithdraw).to.be.equal(
       GDAOBalanceBeforeWithdraw.add(calculatedReward)
     );
-    expect(transaction.events.find(_ => _.event === "ReputationEarned")).to.be
+    expect(transaction.events.find(_ => _.event === "RewardsWithdraw")).to.be
       .not.empty;
     await governanceStaking.withdrawStake("100");
   });

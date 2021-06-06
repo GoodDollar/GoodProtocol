@@ -99,6 +99,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     goodCompoundStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {
+        console.log(contract);
         await contract.init(
           dai.address,
           cDAI.address,
@@ -225,9 +226,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
   it("should return an error if non avatar account is trying to execute recover", async () => {
     const cdaiFactory = await ethers.getContractFactory("cDAIMock");
     const cdai1 = await cdaiFactory.deploy(dai.address);
-    await expect(goodCompoundStaking.recover(cdai1.address)).to.revertedWith(
-      "only avatar can call this method"
-    );
+    let error = await goodCompoundStaking.recover(cdai1.address).catch(e => e);
+    expect(error.message).not.to.be.empty;
   });
 
   it("should not transfer any funds if trying to execute recover of token without balance", async () => {
@@ -1170,15 +1170,18 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       .connect(staker)
       .withdrawStake(balance[0], false)
       .catch(e => e);
-    await expect(
-      goodCompoundStaking.connect(staker).withdrawStake(stakingAmount, false)
-    ).to.revertedWith("ERC20: burn amount exceeds balance");
+    const error = await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false)
+      .catch(e => e);
+    expect(error.message).to.have.string("Not enough token staked");
   });
 
   it("should not be able to withdraw if not a staker", async () => {
-    await expect(
-      goodCompoundStaking.withdrawStake(ethers.utils.parseEther("100"), false)
-    ).to.revertedWith("ERC20: burn amount exceeds balance");
+    const error = await goodCompoundStaking
+      .withdrawStake(ethers.utils.parseEther("100"), false)
+      .catch(e => e);
+    expect(error.message).to.have.string("Not enough token staked");
   });
 
   it("should not be able to change the reserve cDAI balance in case of an error", async () => {

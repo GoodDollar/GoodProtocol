@@ -355,7 +355,7 @@ export const deployUBI = async deployedDAO => {
   console.log("set firstclaim,ubischeme as scheme and starting...");
   await setSchemes([firstClaim.address, ubiScheme.address]);
   const tx = await firstClaim.start();
-  // await ubiScheme.start();
+  await ubiScheme.start();
 
   await increaseTime(1000); //make sure period end of ubischeme has reached
   return { firstClaim, ubiScheme };

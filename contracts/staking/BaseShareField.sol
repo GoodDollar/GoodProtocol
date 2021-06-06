@@ -22,7 +22,6 @@ contract BaseShareField is DSMath {
 		uint256 amount; // How many tokens the user has provided.
 		uint256 rewardDebt; // Reward debt.
 		uint256 rewardEarn; // Reward earn and not minted
-		uint256 rewardMinted; //total reward minted already
 		uint64 lastRewardTime; // Last time that user got rewards
 		uint64 multiplierResetTime; // Reset time of multiplier
 		uint8 donationPer; // The percentage of donation from their reward
@@ -269,7 +268,6 @@ contract BaseShareField is DSMath {
 		uint256 amount = userInfo.rewardEarn;
 		amount = userInfo.donationPer == 100 ? 0 : amount;
 		userInfo.rewardEarn = 0;
-		userInfo.rewardMinted += amount;
 		userInfo.lastRewardTime = uint64(block.number);
 		userInfo.multiplierResetTime = uint64(block.number);
 		mintedShare = mintedShare + amount;
