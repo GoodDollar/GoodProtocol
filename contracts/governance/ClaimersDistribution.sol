@@ -33,6 +33,8 @@ contract ClaimersDistribution is DAOUpgradeableContract {
 	///@notice tracks timestamp of last time user claimed UBI
 	mapping(address => uint256) public lastUpdated;
 
+	event MonthlyDistributionSet(uint256 reputationAmount);
+
 	function initialize(NameService _ns) public initializer {
 		monthlyReputationDistribution = 4000000 ether; //4M as specified in specs
 		_updateMonth();
@@ -48,6 +50,7 @@ contract ClaimersDistribution is DAOUpgradeableContract {
 	) external {
 		_onlyAvatar();
 		monthlyReputationDistribution = newMonthlyReputationDistribution;
+		emit MonthlyDistributionSet(newMonthlyReputationDistribution);
 	}
 
 	/**
