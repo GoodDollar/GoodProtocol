@@ -233,7 +233,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	{
 		ERC20 comp = ERC20(nameService.getAddress("COMP"));
 		uint256 compBalance = comp.balanceOf(address(this));
-		if (compBalance > 0) return collectInterestGasCost + 100000;
+		if (compBalance > 0) return collectInterestGasCost + 200000; // need to make more check for this value
 
 		return collectInterestGasCost;
 	}

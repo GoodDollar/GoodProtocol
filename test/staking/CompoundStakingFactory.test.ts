@@ -57,7 +57,7 @@ describe("CompoundStakingFactory", () => {
     const detAddress = await stakingFactory.predictAddress(
       cdai,
       ethers.utils.solidityKeccak256(
-        ["address", "uint64", "address", "uint32"],
+        ["address", "uint64", "address"],
         [dao.nameService.address, 5760, stakingFactory.address]
       )
     );

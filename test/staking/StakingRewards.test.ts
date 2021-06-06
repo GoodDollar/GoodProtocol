@@ -1560,7 +1560,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
     await genericCall(goodFundManager.address, encodedData);
   });
-  it("it should collectInterest from interest token along with comp rewards for nonDAI-cDAI staking contract", async () => {
+  it("it should collectInterest from interest token along with comp rewards for nonDAI-cDAI staking contract [ @skip-on-coverage ]", async () => {
     const goodCompoundStakingTestFactory = await ethers.getContractFactory(
       "GoodCompoundStakingTest"
     );
@@ -1660,7 +1660,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
     await genericCall(goodFundManager.address, encodedData);
   });
-  it("it should collectInterest from interest token along with comp rewards for DAI-cDAI staking contract", async () => {
+  it("it should collectInterest from interest token along with comp rewards for DAI-cDAI staking contract [ @skip-on-coverage ]", async () => {
     const goodCompoundStakingTestFactory = await ethers.getContractFactory(
       "GoodCompoundStakingTest"
     );
