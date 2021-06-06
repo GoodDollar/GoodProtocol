@@ -602,6 +602,35 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     );
   });
 
+  it("it should mint rewards properly when withdrawRewards", async () => {
+    const governanceStakingFactory = await ethers.getContractFactory(
+      "GovernanceStaking"
+    );
+    const simpleGovernanceStaking = await governanceStakingFactory.deploy(
+      nameService.address
+    );
+    await setDAOAddress("GDAO_STAKING", simpleGovernanceStaking.address);
+    await goodDollar.mint(founder.address, "100");
+    const rewardsPerBlock = await simpleGovernanceStaking.getRewardsPerBlock();
+    await goodDollar.approve(simpleGovernanceStaking.address, "200");
+
+    const stakeBlockNumber = await ethers.provider.getBlockNumber();
+    await simpleGovernanceStaking.stake("200");
+    const GDAOBalanceAfterStake = await grep.balanceOf(founder.address);
+    await advanceBlocks(100);
+    await simpleGovernanceStaking.withdrawRewards();
+    const withdrawRewardsBlockNumber = await ethers.provider.getBlockNumber();
+    const GDAOBalanceAfterWithdraw = await grep.balanceOf(founder.address);
+
+    expect(GDAOBalanceAfterWithdraw).to.be.equal(
+      GDAOBalanceAfterStake.add(
+        rewardsPerBlock.mul(withdrawRewardsBlockNumber - stakeBlockNumber)
+      )
+    );
+
+    await setDAOAddress("GDAO_STAKING", governanceStaking.address);
+  });
+
   function rdiv(x: BigNumber, y: BigNumber) {
     return x
       .mul(BN.from("10").pow(27))
