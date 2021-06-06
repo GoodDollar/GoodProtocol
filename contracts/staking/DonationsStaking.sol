@@ -51,11 +51,10 @@ contract DonationsStaking is DAOUpgradeableContract {
 
 	receive() external payable {}
 
-	function initialize(
-		NameService _ns,
-		address _stakingContract,
-		address _dai
-	) public initializer {
+	function initialize(NameService _ns, address _stakingContract)
+		public
+		initializer
+	{
 		setDAO(_ns);
 		owner = msg.sender;
 		uniswap = Uniswap(_ns.getAddress("UNISWAP_ROUTER"));
@@ -89,7 +88,7 @@ contract DonationsStaking is DAOUpgradeableContract {
 	 * @return DAI value staked
 	 */
 	function totalStaked() public view returns (uint256) {
-		(uint256 stakingAmount, uint256 totalProductivity) =
+		(uint256 stakingAmount, ) =
 			stakingContract.getProductivity(address(this));
 		return stakingAmount;
 	}
@@ -131,7 +130,8 @@ contract DonationsStaking is DAOUpgradeableContract {
 		uint256 daiBalance = DAI.balanceOf(address(this));
 		uint256 ethBalance = address(this).balance;
 		DAI.transfer(avatar, daiBalance);
-		avatar.transfer(ethBalance);
+		address payable receiver = payable(avatar);
+		receiver.transfer(ethBalance);
 		active = false;
 		return (daiBalance, ethBalance);
 	}
