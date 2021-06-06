@@ -9,7 +9,7 @@ import FirstClaimPool from "@gooddollar/goodcontracts/stakingModel/build/contrac
 import SchemeRegistrar from "@gooddollar/goodcontracts/build/contracts/SchemeRegistrar.json";
 import AbsoluteVote from "@gooddollar/goodcontracts/build/contracts/AbsoluteVote.json";
 import UpgradeScheme from "@gooddollar/goodcontracts/build/contracts/UpgradeScheme.json";
-import UBIScheme from '@gooddollar/goodcontracts/stakingModel/build/contracts/UBIScheme.json';
+import UBIScheme from "@gooddollar/goodcontracts/stakingModel/build/contracts/UBIScheme.json";
 import { Controller, GoodMarketMaker, CompoundVotingMachine } from "../types";
 
 export const createDAO = async () => {
@@ -251,7 +251,7 @@ export const createDAO = async () => {
     avatar: await daoCreator.avatar(),
     gd: await Avatar.nativeToken(),
     identity: Identity.address,
-    identityDeployed:Identity,
+    identityDeployed: Identity,
     nameService,
     setDAOAddress,
     setSchemes,
@@ -276,12 +276,12 @@ export const deployUBI = async deployedDAO => {
   );
 
   console.log("deploying first claim...", {
-    avatar: await nameService.addresses(await nameService.AVATAR()),
-    identity: await nameService.addresses(await nameService.IDENTITY())
+    avatar: await nameService.getAddress("AVATAR"),
+    identity: await nameService.getAddress("IDENTITY")
   });
   const firstClaim = await fcFactory.deploy(
-    await nameService.addresses(await nameService.AVATAR()),
-    await nameService.addresses(await nameService.IDENTITY()),
+    await nameService.getAddress("AVATAR"),
+    await nameService.getAddress("IDENTITY"),
     1000
   );
 
@@ -295,7 +295,7 @@ export const deployUBI = async deployedDAO => {
     { kind: "uups" }
   );
 
-  const gd = await nameService.addresses(await nameService.GOODDOLLAR());
+  const gd = await nameService.getAddress("GOODDOLLAR");
 
   let encoded = (
     await ethers.getContractAt("IGoodDollar", gd)
@@ -309,10 +309,15 @@ export const deployUBI = async deployedDAO => {
 
   await genericCall(gd, encoded);
 
+  encoded = firstClaim.interface.encodeFunctionData("setUBIScheme", [
+    ubiScheme.address
+  ]);
+
+  await genericCall(firstClaim.address, encoded);
+
   console.log("set firstclaim,ubischeme as scheme and starting...");
   await setSchemes([firstClaim.address, ubiScheme.address]);
   await firstClaim.start();
-  await ubiScheme.start();
   setDAOAddress("UBISCHEME", ubiScheme.address);
   return { firstClaim, ubiScheme };
 };
@@ -327,14 +332,14 @@ export const deployOldUBI = async deployedDAO => {
     UBIScheme.abi,
     UBIScheme.bytecode,
     (await ethers.getSigners())[0]
-  )
+  );
   console.log("deploying first claim...", {
-    avatar: await nameService.addresses(await nameService.AVATAR()),
-    identity: await nameService.addresses(await nameService.IDENTITY())
+    avatar: await nameService.getAddress("AVATAR"),
+    identity: await nameService.getAddress("IDENTITY")
   });
   const firstClaim = await fcFactory.deploy(
-    await nameService.addresses(await nameService.AVATAR()),
-    await nameService.addresses(await nameService.IDENTITY()),
+    await nameService.getAddress("AVATAR"),
+    await nameService.getAddress("IDENTITY"),
     100
   );
 
@@ -345,8 +350,8 @@ export const deployOldUBI = async deployedDAO => {
   const startUBI = block.timestamp - 60 * 60 * 24 * 2;
   const endUBI = startUBI + 60 * 60 * 24 * 30;
   let ubiScheme = await ubiSchemeFactory.deploy(
-    await nameService.addresses(await nameService.AVATAR()),
-    await nameService.addresses(await nameService.IDENTITY()),
+    await nameService.getAddress("AVATAR"),
+    await nameService.getAddress("IDENTITY"),
     firstClaim.address,
     startUBI,
     endUBI,
@@ -354,7 +359,7 @@ export const deployOldUBI = async deployedDAO => {
     1
   );
 
-  const gd = await nameService.addresses(await nameService.GOODDOLLAR());
+  const gd = await nameService.getAddress("GOODDOLLAR");
 
   let encoded = (
     await ethers.getContractAt("IGoodDollar", gd)
@@ -371,6 +376,7 @@ export const deployOldUBI = async deployedDAO => {
   console.log("set firstclaim,ubischeme as scheme and starting...");
   await setSchemes([firstClaim.address]);
   await firstClaim.start();
+  await ubiScheme.start();
   return { firstClaim, ubiScheme };
 };
 export async function increaseTime(seconds) {

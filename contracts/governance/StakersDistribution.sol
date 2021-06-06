@@ -25,6 +25,12 @@ contract StakersDistribution is
 	///@notice month number since epoch
 	uint256 public currentMonth;
 
+	event ReputationEarned(
+		address staker,
+		address[] stakingContracts,
+		uint256 reputation
+	);
+
 	function initialize(NameService _ns) public initializer {
 		monthlyReputationDistribution = 2000000 ether; //2M as specified in specs
 		setDAO(_ns);
@@ -55,14 +61,12 @@ contract StakersDistribution is
 	function _updateMonth() internal {
 		uint256 month = block.timestamp / 30 days;
 		if (
-			nameService.addresses(nameService.FUND_MANAGER()) != address(0) &&
+			nameService.getAddress("FUND_MANAGER") != address(0) &&
 			month != currentMonth
 		) {
 			//read active staking contracts set pro rate monthly share
 			GoodFundManager gfm =
-				GoodFundManager(
-					nameService.addresses(nameService.FUND_MANAGER())
-				);
+				GoodFundManager(nameService.getAddress("FUND_MANAGER"));
 
 			uint256 activeContractsCount = gfm.getActiveContractsCount();
 			address payable[] memory activeStakingList =
@@ -76,10 +80,12 @@ contract StakersDistribution is
 				(, uint64 blockStart, uint64 blockEnd, ) =
 					gfm.rewardsForStakingContract(activeStakingList[i]);
 				if (blockStart <= block.number && blockEnd > block.number) {
-					contractLockedValue[i] = SimpleStaking(activeStakingList[i])
-						.getTokenValueInUSD(
-						SimpleStaking(activeStakingList[i]).currentTokenWorth()
-					);
+					(, , , uint256 lockedValueInUSD, ) =
+						SimpleStaking(activeStakingList[i]).currentGains(
+							true,
+							false
+						);
+					contractLockedValue[i] = lockedValueInUSD;
 					totalLockedValue += contractLockedValue[i];
 				}
 			}
@@ -108,7 +114,7 @@ contract StakersDistribution is
 	function userStaked(address _staker, uint256 _value) external {
 		address stakingContract = msg.sender;
 		(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) =
-			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()))
+			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
 				.rewardsForStakingContract(stakingContract);
 
 		if (isBlackListed) return; //dont do anything if staking contract has been blacklisted;
@@ -136,7 +142,7 @@ contract StakersDistribution is
 	function userWithdraw(address _staker, uint256 _value) external {
 		address stakingContract = msg.sender;
 		(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) =
-			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()))
+			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
 				.rewardsForStakingContract(stakingContract);
 
 		if (isBlackListed) return; //dont do anything if staking contract has been blacklisted;
@@ -174,7 +180,7 @@ contract StakersDistribution is
 	) internal {
 		uint256 totalRep;
 		GoodFundManager gfm =
-			GoodFundManager(nameService.addresses(nameService.FUND_MANAGER()));
+			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
 
 		for (uint256 i = 0; i < _stakingContracts.length; i++) {
 			(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) =
@@ -188,11 +194,13 @@ contract StakersDistribution is
 					blockEnd
 				);
 		}
-		if (totalRep > 0)
-			GReputation(nameService.addresses(nameService.REPUTATION())).mint(
+		if (totalRep > 0) {
+			GReputation(nameService.getAddress("REPUTATION")).mint(
 				_staker,
 				totalRep
 			);
+			emit ReputationEarned(_staker, _stakingContracts, totalRep);
+		}
 	}
 
 	function getUserPendingRewards(address[] calldata _contracts, address _user)
@@ -203,9 +211,7 @@ contract StakersDistribution is
 		uint256 pending;
 		for (uint256 i = 0; i < _contracts.length; i++) {
 			(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) =
-				GoodFundManager(
-					nameService.addresses(nameService.FUND_MANAGER())
-				)
+				GoodFundManager(nameService.getAddress("FUND_MANAGER"))
 					.rewardsForStakingContract(_contracts[i]);
 
 			if (isBlackListed == false) {

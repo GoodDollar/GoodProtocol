@@ -55,47 +55,6 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		uint256 denom
 	);
 
-	// Emits when new tokens should be minted
-	// as a result of incoming interest.
-	// That event will be emitted after the
-	// reserve entity has been updated
-	event InterestMinted(
-		// The account who initiated the action
-		address indexed caller,
-		// The address of the reserve token
-		address indexed reserveToken,
-		// How much new reserve tokens been
-		// added to the reserve balance
-		uint256 addInterest,
-		// The GD supply in the reserve entity
-		// before the new minted GD tokens were
-		// added to the supply
-		uint256 oldSupply,
-		// The number of the new minted GD tokens
-		uint256 mint
-	);
-
-	// Emits when new tokens should be minted
-	// as a result of a reserve ratio expansion
-	// change. This change should have occurred
-	// on a regular basis. That event will be
-	// emitted after the reserve entity has been
-	// updated
-	event UBIExpansionMinted(
-		// The account who initiated the action
-		address indexed caller,
-		// The address of the reserve token
-		address indexed reserveToken,
-		// The reserve ratio before the expansion
-		uint256 oldReserveRatio,
-		// The GD supply in the reserve entity
-		// before the new minted GD tokens were
-		// added to the supply
-		uint256 oldSupply,
-		// The number of the new minted GD tokens
-		uint256 mint
-	);
-
 	// Defines the daily change in the reserve ratio in RAY precision.
 	// In the current release, only global ratio expansion is supported.
 	// That will be a part of each reserve token entity in the future.
@@ -126,8 +85,8 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 
 	function _onlyReserveOrAvatar() internal view {
 		require(
-			nameService.addresses(nameService.RESERVE()) == msg.sender ||
-				nameService.addresses(nameService.AVATAR()) == msg.sender,
+			nameService.getAddress("RESERVE") == msg.sender ||
+				nameService.getAddress("AVATAR") == msg.sender,
 			"GoodMarketMaker: not Reserve or Avatar"
 		);
 	}
@@ -420,13 +379,7 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		uint256 reserveBalance = reserveToken.reserveSupply;
 		reserveToken.gdSupply += toMint;
 		reserveToken.reserveSupply += _addTokenSupply;
-		emit InterestMinted(
-			msg.sender,
-			address(_token),
-			_addTokenSupply,
-			gdSupply,
-			toMint
-		);
+
 		return toMint;
 	}
 
@@ -474,13 +427,7 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		uint256 ratio = reserveToken.reserveRatio;
 		reserveToken.gdSupply += toMint;
 		expandReserveRatio(_token);
-		emit UBIExpansionMinted(
-			msg.sender,
-			address(_token),
-			ratio,
-			gdSupply,
-			toMint
-		);
+
 		return toMint;
 	}
 }

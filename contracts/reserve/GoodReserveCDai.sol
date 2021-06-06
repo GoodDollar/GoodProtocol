@@ -11,6 +11,7 @@ import "../utils/NameService.sol";
 import "../DAOStackInterfaces.sol";
 import "../Interfaces.sol";
 import "./GoodMarketMaker.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 interface ContributionCalc {
 	function calculateContribution(
@@ -31,7 +32,8 @@ contract GoodReserveCDai is
 	DAOUpgradeableContract,
 	ERC20PresetMinterPauserUpgradeable,
 	GlobalConstraintInterface,
-	DSMath
+	DSMath,
+	ReentrancyGuardUpgradeable
 {
 	using SafeMathUpgradeable for uint256;
 
@@ -141,6 +143,10 @@ contract GoodReserveCDai is
 		cap = 22 * 1e14; //22 trillion G$ cents
 
 		gdxAirdrop = _gdxAirdrop;
+		ERC20(nameService.getAddress("DAI")).approve(
+			nameService.getAddress("CDAI"),
+			type(uint256).max
+		);
 	}
 
 	/// @dev GDX decimals
@@ -154,26 +160,17 @@ contract GoodReserveCDai is
 	}
 
 	/**
-	 * @dev get current FundManager from name service
-	 */
-	function getFundManager() public view returns (address) {
-		return nameService.addresses(nameService.FUND_MANAGER());
-	}
-
-	//
-	/**
 	 * @dev get current MarketMaker from name service
 	 * The address of the market maker contract
 	 * which makes the calculations and holds
 	 * the token and accounts info (should be owned by the reserve)
 	 */
 	function getMarketMaker() public view returns (GoodMarketMaker) {
-		return
-			GoodMarketMaker(nameService.addresses(nameService.MARKET_MAKER()));
+		return GoodMarketMaker(nameService.getAddress("MARKET_MAKER"));
 	}
 
 	/**
-	@dev Converts any 'buyWith' tokens to cDAI then call buy function to convert it to GD tokens
+	@dev Converts any 'buyWith' tokens to cDAI then call buy function to convert it to GD tokens(no need reentrancy lock since we don't transfer external token's to user)
 	* @param _buyWith The tokens that should be converted to GD tokens
 	* @param _tokenAmount The amount of `buyWith` tokens that should be converted to GD tokens
 	* @param _minReturn The minimum allowed return in GD tokens
@@ -373,7 +370,7 @@ contract GoodReserveCDai is
 		uint256 _minReturn,
 		uint256 _minTokenReturn,
 		address _targetAddress
-	) public returns (uint256) {
+	) public nonReentrant returns (uint256) {
 		address receiver =
 			_targetAddress == address(0x0) ? msg.sender : _targetAddress;
 
@@ -468,7 +465,7 @@ contract GoodReserveCDai is
 		returns (uint256, uint256)
 	{
 		GoodMarketMaker mm = getMarketMaker();
-		IGoodDollar(nameService.addresses(nameService.GOODDOLLAR())).burnFrom(
+		IGoodDollar(nameService.getAddress("GOODDOLLAR")).burnFrom(
 			msg.sender,
 			_gdAmount
 		);
@@ -483,7 +480,7 @@ contract GoodReserveCDai is
 		uint256 contributionAmount = 0;
 		if (discount < _gdAmount)
 			contributionAmount = ContributionCalc(
-				nameService.addresses(nameService.CONTRIBUTION_CALCULATION())
+				nameService.getAddress("CONTRIBUTION_CALCULATION")
 			)
 				.calculateContribution(
 				mm,
@@ -545,11 +542,8 @@ contract GoodReserveCDai is
 
 	function currentPriceDAI() public view returns (uint256) {
 		cERC20 cDai = cERC20(cDaiAddress);
-		return
-			rmul(
-				currentPrice() * 1e10, //bring cdai 8 decimals to Dai precision
-				cDai.exchangeRateStored().div(10) //exchange rate is 1e28 reduce to 1e27
-			);
+
+		return (((currentPrice() * 1e10) * cDai.exchangeRateStored()) / 1e28); // based on https://compound.finance/docs#protocol-math
 	}
 
 	function mintByPrice(
@@ -571,24 +565,19 @@ contract GoodReserveCDai is
 		//enforce minting rules
 		require(
 			_internalCall ||
-				_msgSender() ==
-				nameService.addresses(nameService.FUND_MANAGER()) ||
+				_msgSender() == nameService.getAddress("FUND_MANAGER") ||
 				hasRole(RESERVE_MINTER_ROLE, _msgSender()),
 			"GoodReserve: not a minter"
 		);
 
 		require(
-			IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()))
-				.totalSupply() +
+			IGoodDollar(nameService.getAddress("GOODDOLLAR")).totalSupply() +
 				_gdToMint <=
 				cap,
 			"GoodReserve: cap enforced"
 		);
 
-		IGoodDollar(nameService.addresses(nameService.GOODDOLLAR())).mint(
-			_to,
-			_gdToMint
-		);
+		IGoodDollar(nameService.getAddress("GOODDOLLAR")).mint(_to, _gdToMint);
 	}
 
 	function _mintGDX(address _to, uint256 _gdx) internal {
@@ -597,38 +586,41 @@ contract GoodReserveCDai is
 
 	//TODO: can we send directly to UBI via bridge here?
 	/**
-	 * @dev only FundManager can call this to trigger minting.
+	 * @dev only FundManager or other with mint G$ permission can call this to trigger minting.
 	 * Reserve sends UBI + interest to FundManager.
+	 * @param _daiToConvert DAI amount to convert cDAI
+	 * @param _startingCDAIBalance Initial cDAI balance before staking collect process start
 	 * @param _interestToken The token that was transfered to the reserve
-	 * @param _transfered How much was transfered to the reserve for UBI in `_interestToken`
-	 * @return gdUBI how much GD UBI was minted
+	 * @return gdUBI,interestInCdai how much GD UBI was minted and how much cDAI collected from staking contracts
 	 */
-	function mintUBI(ERC20 _interestToken, uint256 _transfered)
-		public
-		returns (uint256)
-	{
-		GoodMarketMaker mm = getMarketMaker();
-		//uint256 price = getMarketMaker().currentPrice(ERC20(cDaiAddress));
-		// uint256 price = currentPrice(_interestToken);
-		uint256 gdInterestToMint = mm.mintInterest(_interestToken, _transfered);
-		//IGoodDollar gooddollar = IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
-		//uint256 precisionLoss = uint256(27).sub(uint256(gooddollar.decimals()));
-		//uint256 gdInterest = rdiv(_interest, price).div(10**precisionLoss);
-		uint256 gdExpansionToMint = mm.mintExpansion(_interestToken);
+	function mintUBI(
+		uint256 _daiToConvert,
+		uint256 _startingCDAIBalance,
+		ERC20 _interestToken
+	) public returns (uint256, uint256) {
+		cERC20(cDaiAddress).mint(_daiToConvert);
+		uint256 interestInCdai =
+			_interestToken.balanceOf(address(this)) - _startingCDAIBalance;
+		uint256 gdInterestToMint =
+			getMarketMaker().mintInterest(_interestToken, interestInCdai);
+		uint256 gdExpansionToMint =
+			getMarketMaker().mintExpansion(_interestToken);
 		uint256 gdUBI = gdInterestToMint;
 		gdUBI = gdUBI.add(gdExpansionToMint);
 		uint256 toMint = gdUBI;
-		_mintGoodDollars(getFundManager(), toMint, false);
+
+		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
+		_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), toMint, false);
 		lastMinted = block.number;
 		emit UBIMinted(
 			lastMinted,
 			address(_interestToken),
-			_transfered,
+			interestInCdai,
 			gdInterestToMint,
 			gdExpansionToMint,
 			gdUBI
 		);
-		return gdUBI;
+		return (gdUBI, interestInCdai);
 	}
 
 	/**
@@ -665,13 +657,11 @@ contract GoodReserveCDai is
 		}
 
 		//restore minting to avatar, so he can re-delegate it
-		IGoodDollar gd =
-			IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()));
+		IGoodDollar gd = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
 		if (gd.isMinter(address(avatar)) == false)
 			gd.addMinter(address(avatar));
 
-		IGoodDollar(nameService.addresses(nameService.GOODDOLLAR()))
-			.renounceMinter();
+		IGoodDollar(nameService.getAddress("GOODDOLLAR")).renounceMinter();
 	}
 
 	/**
@@ -684,15 +674,6 @@ contract GoodReserveCDai is
 			_token.transfer(address(avatar), _token.balanceOf(address(this))),
 			"recover transfer failed"
 		);
-	}
-
-	/**
-	 * @dev convert DAI balance of reserve to cDAI
-	 * @param _amount DAI amount to convert cDAI
-	 */
-	function convertDAItoCDAI(uint256 _amount) public {
-		ERC20(daiAddress).approve(cDaiAddress, _amount);
-		cERC20(cDaiAddress).mint(_amount);
 	}
 
 	/**
@@ -731,21 +712,6 @@ contract GoodReserveCDai is
 		_hash;
 		_method;
 		if (_method == "mintTokens") return false;
-
-		return true;
-	}
-
-	/**
-	 * @dev enforce cap on DAOStack Controller mintTokens using GlobalConstraintInterface
-	 */
-	function post(
-		address _scheme,
-		bytes32 _hash,
-		bytes32 _method
-	) public pure override returns (bool) {
-		_hash;
-		_scheme;
-		_method;
 
 		return true;
 	}

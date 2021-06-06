@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >0.5.4;
+pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetMinterPauserUpgradeable.sol";
 
@@ -62,8 +62,8 @@ contract cBATMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	function decimals() public pure override returns (uint8) {
 		return 8;
 	}
+
 	function increasePriceWithMultiplier(uint256 multiplier) public {
 		exchangeRate += multiplier * uint256(1e28).div(100);
-		
 	}
 }

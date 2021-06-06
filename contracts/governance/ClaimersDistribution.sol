@@ -33,6 +33,13 @@ contract ClaimersDistribution is DAOUpgradeableContract {
 	///@notice tracks timestamp of last time user claimed UBI
 	mapping(address => uint256) public lastUpdated;
 
+	event ReputationEarned(
+		address claimer,
+		uint256 month,
+		uint256 claims,
+		uint256 reputation
+	);
+
 	function initialize(NameService _ns) public initializer {
 		monthlyReputationDistribution = 4000000 ether; //4M as specified in specs
 		_updateMonth();
@@ -68,8 +75,7 @@ contract ClaimersDistribution is DAOUpgradeableContract {
 	 * @param _claimer the user to update
 	 */
 	function updateClaim(address _claimer) external {
-		IUBIScheme ubi =
-			IUBIScheme(nameService.addresses(nameService.UBISCHEME()));
+		IUBIScheme ubi = IUBIScheme(nameService.getAddress("UBISCHEME"));
 		require(
 			ubi.hasClaimed(_claimer),
 			"ClaimersDistribution: didn't claim today"
@@ -116,10 +122,14 @@ contract ClaimersDistribution is DAOUpgradeableContract {
 					months[prevMonth].totalClaims;
 			if (userShare > 0) {
 				GReputation grep =
-					GReputation(
-						nameService.addresses(nameService.REPUTATION())
-					);
+					GReputation(nameService.getAddress("REPUTATION"));
 				grep.mint(_claimer, userShare);
+				emit ReputationEarned(
+					_claimer,
+					prevMonth,
+					months[prevMonth].claims[_claimer],
+					userShare
+				);
 			}
 		}
 	}

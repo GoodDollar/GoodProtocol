@@ -25,6 +25,7 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 		uint256 amount; // How many tokens the user has staked.
 		uint256 rewardDebt; // Rewards that accounted already so should be substracted while calculating rewards of staker
 		uint256 rewardEarn; // Reward earn and not minted
+		uint256 rewardMinted; // rewards sent to the user
 	}
 
 	mapping(address => mapping(address => UserInfo)) public contractToUsers;
@@ -207,6 +208,7 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 		UserInfo storage userInfo = contractToUsers[_contract][_user];
 		uint256 amount = userInfo.rewardEarn;
 		userInfo.rewardEarn = 0;
+		userInfo.rewardMinted += amount;
 		rewardsMintedSoFar[_contract] = rewardsMintedSoFar[_contract] + amount;
 		return amount;
 	}
