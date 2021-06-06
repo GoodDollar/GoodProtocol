@@ -6,6 +6,7 @@ import "../reserve/GoodReserveCDai.sol";
 import "../Interfaces.sol";
 import "../utils/DSMath.sol";
 import "../utils/DAOUpgradeableContract.sol";
+import "hardhat/console.sol";
 
 interface StakingContract {
 	function collectUBIInterest(address recipient)
@@ -289,7 +290,6 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			gdUBI,
 			gdRewardToMint
 		);
-		
 
 		uint256 gasPriceIncDAI =
 			getGasPriceIncDAIorDAI(initialGas - gasleft(), false);

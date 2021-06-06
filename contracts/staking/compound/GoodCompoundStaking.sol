@@ -14,8 +14,6 @@ contract GoodCompoundStaking is SimpleStaking {
 	// Address of the TOKEN/USD oracle from chainlink
 	address public tokenUsdOracle;
 
-	// Address of COMP usd oracle
-	address public compUsdOracle;
 	// Gas cost to collect interest from this staking contract
 	uint32 public collectInterestGasCost = 100000;
 
@@ -48,7 +46,6 @@ contract GoodCompoundStaking is SimpleStaking {
 		);
 		//above  initialize going  to revert on second call, so this is safe
 		tokenUsdOracle = _tokenUsdOracle;
-		compUsdOracle = address(0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5);
 	}
 
 	/**
@@ -94,9 +91,9 @@ contract GoodCompoundStaking is SimpleStaking {
 		cERC20 cToken = cERC20(address(iToken));
 		address[] memory path = new address[](2);
 		if (compBalance > 0) {
-			path[0] = address(token);
+			path[0] = address(comp);
 			path[1] = daiAddress;
-			token.approve(address(uniswapContract), compBalance);
+			comp.approve(address(uniswapContract), compBalance);
 			uint256[] memory compSwap =
 				uniswapContract.swapExactTokensForTokens(
 					compBalance,
@@ -121,20 +118,22 @@ contract GoodCompoundStaking is SimpleStaking {
 		}
 		require(cToken.redeem(_amount) == 0, "Failed to redeem cToken");
 		uint256 redeemedAmount = token.balanceOf(address(this));
-		path[0] = address(token);
-		path[1] = daiAddress;
-		token.approve(address(uniswapContract), redeemedAmount);
-		uint256[] memory swap =
-			uniswapContract.swapExactTokensForTokens(
-				redeemedAmount,
-				0,
-				path,
-				address(this),
-				block.timestamp
-			);
+		uint256 dai;
+		if (redeemedAmount > 0) {
+			path[0] = address(token);
+			path[1] = daiAddress;
+			token.approve(address(uniswapContract), redeemedAmount);
+			uint256[] memory swap =
+				uniswapContract.swapExactTokensForTokens(
+					redeemedAmount,
+					0,
+					path,
+					address(this),
+					block.timestamp
+				);
+			dai = swap[1];
+		}
 
-		uint256 dai = swap[1];
-		require(dai > 0, "token selling failed");
 		return (daiAddress, dai + daiFromComp);
 	}
 
@@ -173,6 +172,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 er = cToken.exchangeRateStored();
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
+		bool returnTokenGainsInUSDTemp = _returnTokenGainsInUSD; // to prevent stack too deep error
 		uint256 tokenBalance =
 			iTokenWorthInToken(iToken.balanceOf(address(this)));
 		uint256 balanceInUSD =
@@ -180,7 +180,21 @@ contract GoodCompoundStaking is SimpleStaking {
 				? getTokenValueInUSD(tokenUsdOracle, tokenBalance)
 				: 0;
 		if (tokenBalance <= totalProductivity) {
-			return (0, 0, tokenBalance, balanceInUSD, 0);
+			return (
+				0,
+				0,
+				tokenBalance,
+				balanceInUSD,
+				(
+					returnTokenGainsInUSDTemp
+						? getCompValueInUSD(
+							ERC20(nameService.getAddress("COMP")).balanceOf(
+								address(this)
+							)
+						)
+						: 0
+				)
+			);
 		}
 		uint256 tokenGains = tokenBalance - totalProductivity;
 		uint256 iTokenGains;
@@ -194,8 +208,13 @@ contract GoodCompoundStaking is SimpleStaking {
 				er; // based on https://compound.finance/docs#protocol-math
 		}
 		uint256 tokenGainsInUSD =
-			_returnTokenGainsInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenGains)
+			returnTokenGainsInUSDTemp
+				? getTokenValueInUSD(tokenUsdOracle, tokenGains) +
+					getCompValueInUSD(
+						ERC20(nameService.getAddress("COMP")).balanceOf(
+							address(this)
+						)
+					)
 				: 0;
 		return (
 			iTokenGains,
@@ -248,5 +267,12 @@ contract GoodCompoundStaking is SimpleStaking {
 	function setcollectInterestGasCost(uint32 _amount) external {
 		_onlyAvatar();
 		collectInterestGasCost = _amount;
+	}
+
+	function getCompValueInUSD(uint256 _amount) public view returns (uint256) {
+		AggregatorV3Interface tokenPriceOracle =
+			AggregatorV3Interface(nameService.getAddress("COMP_USD_ORACLE"));
+		int256 compPriceinUSD = tokenPriceOracle.latestAnswer();
+		return (uint256(compPriceinUSD) * _amount) / 1e18;
 	}
 }
