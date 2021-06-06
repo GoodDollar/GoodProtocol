@@ -39,6 +39,16 @@ abstract contract SimpleStaking is
 	// uint256 public totalStaked = 0;
 	uint8 public stakingTokenDecimals;
 	bool public isPaused;
+	/**
+	 * @dev Emitted when `staker` stake `value` tokens of `token`
+	 */
+	event Staked(address indexed staker, address token, uint256 value);
+
+	/**
+	 * @dev Emitted when `staker` withdraws their stake `value` tokens and contracts balance will
+	 * be reduced to`remainingBalance`.
+	 */
+	event StakeWithdraw(address indexed staker, address token, uint256 value);
 
 	/**
 	 * @dev Emitted when fundmanager transfers intrest collected from defi protrocol.
@@ -226,20 +236,45 @@ abstract contract SimpleStaking is
 					: _amount * 10**(18 - token.decimals());
 			sd.userStaked(msg.sender, stakeAmountInEighteenDecimals);
 		}
+
+		emit Staked(msg.sender, address(token), _amount);
 	}
 
 	/**
 	 * @dev Withdraws the sender staked Token.
 	 * @dev _amount Amount to withdraw in Token
-	 * @param _inInterestToken specificy if to receive in iToken or Token
+	 * @param _inInterestToken specificy if value is returned in iToken or Token
 	 */
 	function withdrawStake(uint256 _amount, bool _inInterestToken)
 		external
 		virtual
 	{
+		uint256 tokenWithdraw;
+		(uint256 userProductivity, ) = getProductivity(msg.sender);
+		if (_inInterestToken) {
+			uint256 tokenWorth = iTokenWorthInToken(_amount);
+			require(
+				iToken.transfer(msg.sender, _amount),
+				"withdraw transfer failed"
+			);
+			_amount = tokenWorth;
+		} else {
+			tokenWithdraw = _amount;
+			redeem(tokenWithdraw);
+			uint256 tokenActual = token.balanceOf(address(this));
+			if (tokenActual < tokenWithdraw) {
+				tokenWithdraw = tokenActual;
+			}
+			require(
+				token.transfer(msg.sender, tokenWithdraw),
+				"withdraw transfer failed"
+			);
+		}
+
 		GoodFundManager fm =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
 
+		//this will revert in case user doesnt have enough productivity to withdraw _amount, as productivity=staking tokens amount
 		_burn(msg.sender, _amount); // burn their staking tokens
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
 			fm.rewardsForStakingContract(address(this));
@@ -251,6 +286,7 @@ abstract contract SimpleStaking is
 			blockStart,
 			blockEnd
 		);
+		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
 
 		//notify GDAO distrbution for stakers
 		StakersDistribution sd =
@@ -263,33 +299,11 @@ abstract contract SimpleStaking is
 			sd.userWithdraw(msg.sender, withdrawAmountInEighteenDecimals);
 		}
 
-		//mint rewards for staking so far, this will reset the multiplier
-		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
-
-		uint256 tokenWithdraw;
-
-		(uint256 userProductivity, ) = getProductivity(msg.sender);
-		if (_inInterestToken) {
-			uint256 tokenWorth = iTokenWorthInToken(_amount);
-			require(userProductivity >= tokenWorth, "Not enough token staked");
-			require(
-				iToken.transfer(msg.sender, _amount),
-				"withdraw transfer failed"
-			);
-			_amount = tokenWorth;
-		} else {
-			tokenWithdraw = _amount;
-			require(userProductivity >= _amount, "Not enough token staked");
-			redeem(tokenWithdraw);
-			uint256 tokenActual = token.balanceOf(address(this));
-			if (tokenActual < tokenWithdraw) {
-				tokenWithdraw = tokenActual;
-			}
-			require(
-				token.transfer(msg.sender, tokenWithdraw),
-				"withdraw transfer failed"
-			);
-		}
+		emit StakeWithdraw(
+			msg.sender,
+			address(token),
+			_inInterestToken == false ? tokenWithdraw : _amount
+		);
 	}
 
 	/**
@@ -339,7 +353,6 @@ abstract contract SimpleStaking is
 			blockStart,
 			blockEnd
 		);
-
 		_increaseProductivity(to, value, rewardsPerBlock, blockStart, blockEnd);
 		if (address(sd) != address(0)) {
 			address[] memory contracts;
