@@ -1273,10 +1273,12 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       batUsdOracle.address,
       "100000"
     );
-    const tx = await simpleStaking
-      .decreaseProductivityTest(founder.address, ethers.utils.parseEther("100"))
-      .catch(e => e);
-    expect(tx.message).to.have.string("INSUFFICIENT_PRODUCTIVITY");
+    await expect(
+      simpleStaking.decreaseProductivityTest(
+        founder.address,
+        ethers.utils.parseEther("100")
+      )
+    ).reverted;
   });
 
   it("User pending reward should be zero when there is no stake of user", async () => {
