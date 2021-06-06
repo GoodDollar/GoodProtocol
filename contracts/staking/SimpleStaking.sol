@@ -242,20 +242,17 @@ abstract contract SimpleStaking is
 
 	/**
 	 * @dev Withdraws the sender staked Token.
-	 * @dev _amount Amount to withdraw in Token or iToken depends on the _inInterestToken parameter
-	 * @param _inInterestToken specificy if stake in iToken or Token
+	 * @dev _amount Amount to withdraw in Token
+	 * @param _inInterestToken specificy if value is returned in iToken or Token
 	 */
 	function withdrawStake(uint256 _amount, bool _inInterestToken)
 		external
 		virtual
 	{
-		//InterestDistribution.Staker storage staker = interestData.stakers[msg.sender];
 		uint256 tokenWithdraw;
-		require(_amount > 0, "Should withdraw positive amount");
 		(uint256 userProductivity, ) = getProductivity(msg.sender);
 		if (_inInterestToken) {
 			uint256 tokenWorth = iTokenWorthInToken(_amount);
-			require(userProductivity >= tokenWorth, "Not enough token staked");
 			require(
 				iToken.transfer(msg.sender, _amount),
 				"withdraw transfer failed"
@@ -263,7 +260,6 @@ abstract contract SimpleStaking is
 			_amount = tokenWorth;
 		} else {
 			tokenWithdraw = _amount;
-			require(userProductivity >= _amount, "Not enough token staked");
 			redeem(tokenWithdraw);
 			uint256 tokenActual = token.balanceOf(address(this));
 			if (tokenActual < tokenWithdraw) {
@@ -277,9 +273,12 @@ abstract contract SimpleStaking is
 
 		GoodFundManager fm =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
+
+		//this will revert in case user doesnt have enough productivity to withdraw _amount, as productivity=staking tokens amount
 		_burn(msg.sender, _amount); // burn their staking tokens
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
 			fm.rewardsForStakingContract(address(this));
+
 		_decreaseProductivity(
 			msg.sender,
 			_amount,
@@ -311,7 +310,7 @@ abstract contract SimpleStaking is
 	 * @dev withdraw staker G$ rewards + GDAO rewards
 	 * withdrawing rewards resets the multiplier! so if user just want GDAO he should use claimReputation()
 	 */
-	function withdrawRewards() public {
+	function withdrawRewards() external {
 		GoodFundManager fm =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
 		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
