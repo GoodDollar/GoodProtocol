@@ -170,7 +170,7 @@ contract GoodReserveCDai is
 	}
 
 	/**
-	@dev Converts any 'buyWith' tokens to cDAI then call buy function to convert it to GD tokens
+	@dev Converts any 'buyWith' tokens to cDAI then call buy function to convert it to GD tokens(no need reentrancy lock since we don't transfer external token's to user)
 	* @param _buyWith The tokens that should be converted to GD tokens
 	* @param _tokenAmount The amount of `buyWith` tokens that should be converted to GD tokens
 	* @param _minReturn The minimum allowed return in GD tokens
