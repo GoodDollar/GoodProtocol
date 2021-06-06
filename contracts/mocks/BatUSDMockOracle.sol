@@ -14,4 +14,8 @@ contract BatUSDMockOracle {
 	{
 		return (0, 100000000, 0, 0, 0); // returns 1$ according to easy calculation
 	}
+
+	function latestAnswer() public view returns (int256) {
+		return 100000000; // returns 1$ according to easy calculation
+	}
 }

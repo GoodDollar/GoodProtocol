@@ -14,4 +14,8 @@ contract DaiEthPriceMockOracle {
 	{
 		return (0, 341481428801721, 0, 0, 0);
 	}
+
+	function latestAnswer() public view returns (int256) {
+		return 341481428801721;
+	}
 }

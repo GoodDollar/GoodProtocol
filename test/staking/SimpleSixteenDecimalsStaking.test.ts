@@ -176,17 +176,21 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
 
     sixteenDecimalsUsdOracle = await tokenUsdOracleFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
-    goodCompoundStaking = await goodCompoundStakingFactory.deploy(
-      sixteenDecimalsToken.address,
-      cSDT.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good SDT",
-      "gSDT",
-      "172800",
-      sixteenDecimalsUsdOracle.address,
-      "200000"
-    );
+    goodCompoundStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          sixteenDecimalsToken.address,
+          cSDT.address,
+          nameService.address,
+          "Good SDT",
+          "gSDT",
+          "172800",
+          sixteenDecimalsUsdOracle.address,
+          "200000"
+        );
+        return contract;
+      });
     await dai["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseEther("2000000")
@@ -450,17 +454,22 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       controller,
       schemeMock
     );
-    const simpleStaking = await goodCompoundStakingFactory.deploy(
-      sixteenDecimalsToken.address,
-      cSDT.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good SDT",
-      "gSDT",
-      "50",
-      sixteenDecimalsUsdOracle.address,
-      "100000"
-    );
+    const simpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          sixteenDecimalsToken.address,
+          cSDT.address,
+          nameService.address,
+          "Good SDT",
+          "gSDT",
+          "50",
+          sixteenDecimalsUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
+
     const currentBlockNumber = await ethers.provider.getBlockNumber();
     let encodedDataTwo = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
@@ -631,28 +640,38 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const simpleStaking = await goodCompoundStakingFactory.deploy(
-      sixteenDecimalsToken.address,
-      cSDT.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good SDT",
-      "gSDT",
-      "50",
-      sixteenDecimalsUsdOracle.address,
-      "200000"
-    );
-    const simpleStaking1 = await goodCompoundStakingFactory.deploy(
-      sixteenDecimalsToken.address,
-      cSDT.address,
-      BLOCK_INTERVAL,
-      nameService.address,
-      "Good SDT",
-      "gSDT",
-      "50",
-      sixteenDecimalsUsdOracle.address,
-      "200000"
-    );
+    const simpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          sixteenDecimalsToken.address,
+          cSDT.address,
+          nameService.address,
+          "Good SDT",
+          "gSDT",
+          "50",
+          sixteenDecimalsUsdOracle.address,
+          "200000"
+        );
+        return contract;
+      });
+
+    const simpleStaking1 = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          sixteenDecimalsToken.address,
+          cSDT.address,
+          nameService.address,
+          "Good SDT",
+          "gSDT",
+          "50",
+          sixteenDecimalsUsdOracle.address,
+          "200000"
+        );
+        return contract;
+      });
+
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
