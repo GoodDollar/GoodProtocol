@@ -29,7 +29,8 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
     daiEthOracle: Contract,
     daiUsdOracle: Contract,
     eightDecimalsUsdOracle: Contract,
-    ethUsdOracle: Contract;
+    ethUsdOracle: Contract,
+    compUsdOracle: Contract;
   let goodReserve: GoodReserveCDai;
   let goodCompoundStaking;
   let goodFundManager: Contract;
@@ -172,7 +173,13 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
 
     eightDecimalsUsdOracle = await tokenUsdOracleFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
-
+    const daiFactory = await ethers.getContractFactory("DAIMock");
+    comp = await daiFactory.deploy();
+    await setDAOAddress("COMP", comp.address);
+    const compUsdOracleFactory = await ethers.getContractFactory(
+      "CompUSDMockOracle"
+    );
+    compUsdOracle = await compUsdOracleFactory.deploy();
     goodCompoundStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {
@@ -183,7 +190,8 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
           "Good EDT",
           "gEDT",
           "172800",
-          eightDecimalsUsdOracle.address
+          eightDecimalsUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -205,14 +213,6 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
       ethers.utils.parseUnits("2000000", 8),
       ethers.utils.parseEther("2000000")
     );
-    const daiFactory = await ethers.getContractFactory("DAIMock");
-    comp = await daiFactory.deploy();
-    await setDAOAddress("COMP", comp.address);
-    const compUsdOracleFactory = await ethers.getContractFactory(
-      "CompUSDMockOracle"
-    );
-    const compUsdOracle = await compUsdOracleFactory.deploy();
-    await setDAOAddress("COMP_USD_ORACLE", compUsdOracle.address);
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
@@ -473,7 +473,8 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
           "Good EDT",
           "gEDT",
           "50",
-          eightDecimalsUsdOracle.address
+          eightDecimalsUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -659,7 +660,7 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
           "gEDT",
           "50",
           eightDecimalsUsdOracle.address,
-          "200000"
+          compUsdOracle.address
         );
         return contract;
       });
@@ -674,7 +675,7 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
           "gEDT",
           "50",
           eightDecimalsUsdOracle.address,
-          "200000"
+          compUsdOracle.address
         );
         return contract;
       });

@@ -34,7 +34,8 @@ contract CompoundStakingFactory {
 		cERC20 cToken,
 		NameService _ns,
 		uint64 _maxRewardThreshold,
-		address _tokenUsdOracle
+		address _tokenUsdOracle,
+		address _compUsdOracle
 	) public {
 		GoodCompoundStaking deployed =
 			clone(
@@ -54,7 +55,8 @@ contract CompoundStakingFactory {
 			string(abi.encodePacked("GoodCompoundStaking ", cToken.name())),
 			string(abi.encodePacked("g", cToken.symbol())),
 			_maxRewardThreshold,
-			_tokenUsdOracle
+			_tokenUsdOracle,
+			_compUsdOracle
 		);
 	}
 

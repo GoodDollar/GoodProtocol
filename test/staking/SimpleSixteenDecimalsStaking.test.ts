@@ -29,7 +29,8 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     daiEthOracle: Contract,
     daiUsdOracle: Contract,
     sixteenDecimalsUsdOracle: Contract,
-    ethUsdOracle: Contract;
+    ethUsdOracle: Contract,
+    compUsdOracle: Contract;
   let goodReserve: GoodReserveCDai;
   let goodCompoundStaking;
   let goodFundManager: Contract;
@@ -180,7 +181,13 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
 
     sixteenDecimalsUsdOracle = await tokenUsdOracleFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
-
+    const daiFactory = await ethers.getContractFactory("DAIMock");
+    comp = await daiFactory.deploy();
+    await setDAOAddress("COMP", comp.address);
+    const compUsdOracleFactory = await ethers.getContractFactory(
+      "CompUSDMockOracle"
+    );
+    compUsdOracle = await compUsdOracleFactory.deploy();
     goodCompoundStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {
@@ -191,7 +198,8 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
           "Good SDT",
           "gSDT",
           "172800",
-          sixteenDecimalsUsdOracle.address
+          sixteenDecimalsUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -213,14 +221,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       ethers.utils.parseUnits("2000000", 16),
       ethers.utils.parseEther("2000000")
     );
-    const daiFactory = await ethers.getContractFactory("DAIMock");
-    comp = await daiFactory.deploy();
-    await setDAOAddress("COMP", comp.address);
-    const compUsdOracleFactory = await ethers.getContractFactory(
-      "CompUSDMockOracle"
-    );
-    const compUsdOracle = await compUsdOracleFactory.deploy();
-    await setDAOAddress("COMP_USD_ORACLE", compUsdOracle.address);
+
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
@@ -389,6 +390,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     await goodCompoundStaking
       .connect(staker)
       .withdrawStake(stakingAmount, false);
+    console.log("here");
     const gdBalanceBeforeCollectInterest = await goodDollar.balanceOf(
       staker.address
     );
@@ -481,7 +483,8 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
           "Good SDT",
           "gSDT",
           "50",
-          sixteenDecimalsUsdOracle.address
+          sixteenDecimalsUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -668,7 +671,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
           "gSDT",
           "50",
           sixteenDecimalsUsdOracle.address,
-          "200000"
+          compUsdOracle.address
         );
         return contract;
       });
@@ -684,7 +687,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
           "gSDT",
           "50",
           sixteenDecimalsUsdOracle.address,
-          "200000"
+          compUsdOracle.address
         );
         return contract;
       });

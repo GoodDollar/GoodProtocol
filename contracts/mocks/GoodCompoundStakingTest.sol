@@ -11,7 +11,8 @@ contract GoodCompoundStakingTest is GoodCompoundStaking {
 		string memory _tokenName,
 		string memory _tokenSymbol,
 		uint64 _maxRewardThreshold,
-		address _tokenUsdOracle
+		address _tokenUsdOracle,
+		address _compUsdOracle
 	) GoodCompoundStaking() {
 		init(
 			_token,
@@ -20,7 +21,8 @@ contract GoodCompoundStakingTest is GoodCompoundStaking {
 			_tokenName,
 			_tokenSymbol,
 			_maxRewardThreshold,
-			_tokenUsdOracle
+			_tokenUsdOracle,
+			_compUsdOracle
 		);
 	}
 

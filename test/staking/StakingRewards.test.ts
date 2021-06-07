@@ -143,6 +143,10 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     comp = await daiFactory.deploy();
     await setDAOAddress("COMP", comp.address);
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
+    const compUsdOracleFactory = await ethers.getContractFactory(
+      "CompUSDMockOracle"
+    );
+    compUsdOracle = await compUsdOracleFactory.deploy();
     goodCompoundStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {
@@ -153,7 +157,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -249,11 +254,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await dai.transfer(compPair.address, ethers.utils.parseEther("2000000"));
     await comp.transfer(compPair.address, ethers.utils.parseEther("2000"));
     await compPair.mint(founder.address);
-    const compUsdOracleFactory = await ethers.getContractFactory(
-      "CompUSDMockOracle"
-    );
-    compUsdOracle = await compUsdOracleFactory.deploy();
-    await setDAOAddress("COMP_USD_ORACLE", compUsdOracle.address);
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
@@ -339,7 +339,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -561,7 +562,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
           "Good DAI",
           "gDAI",
           "50",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -688,13 +690,14 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
           "Good DAI",
           "gDAI",
           "50",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
 
     const tx = await simpleStaking.withdrawRewards().catch(e => e);
-    expect(tx.message).to.have.string("Staking contract not registered");
+    expect(tx.message).to.not.be.empty;
   });
   it("it should be able to distribute rewards when blockEnd passed but last Reward block was before blockend", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
@@ -964,7 +967,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
           "Good DAI",
           "gDAI",
           "50",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -979,7 +983,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
           "Good DAI",
           "gDAI",
           "50",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -1192,7 +1197,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
           "Good BaT",
           "gBAT",
           "50",
-          batUsdOracle.address
+          batUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -1253,7 +1259,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good BaT",
       "gBAT",
       "50",
-      batUsdOracle.address
+      batUsdOracle.address,
+      compUsdOracle.address
     );
     await bat["mint(address,uint256)"](
       cBat.address,
@@ -1290,7 +1297,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good BaT",
       "gBAT",
       "50",
-      batUsdOracle.address
+      batUsdOracle.address,
+      compUsdOracle.address
     );
     const tx = await simpleStaking
       .decreaseProductivityTest(founder.address, ethers.utils.parseEther("100"))
@@ -1309,7 +1317,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good BaT",
       "gBAT",
       "50",
-      batUsdOracle.address
+      batUsdOracle.address,
+      compUsdOracle.address
     );
     let encodedData = goodCompoundStakingTestFactory.interface.encodeFunctionData(
       "setcollectInterestGasCost",
@@ -1338,7 +1347,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good BaT",
       "gBAT",
       "50",
-      batUsdOracle.address
+      batUsdOracle.address,
+      compUsdOracle.address
     );
     const tx = await simpleStaking
       .transfer(staker.address, "10000")
@@ -1386,7 +1396,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good BaT",
       "gBAT",
       "50",
-      batUsdOracle.address
+      batUsdOracle.address,
+      compUsdOracle.address
     );
     let encodedData = goodFundManager.interface.encodeFunctionData(
       "setStakingReward",
@@ -1405,7 +1416,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good BaT",
       "gBAT",
       "50",
-      batUsdOracle.address
+      batUsdOracle.address,
+      compUsdOracle.address
     );
     encodedData = goodFundManager.interface.encodeFunctionData(
       "setStakingReward",
@@ -1482,7 +1494,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good BaT",
       "gBAT",
       "50",
-      batUsdOracle.address
+      batUsdOracle.address,
+      compUsdOracle.address
     );
     let encodedData = goodFundManager.interface.encodeFunctionData(
       "setStakingReward",
@@ -1526,7 +1539,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good BaT",
       "gBAT",
       "50",
-      batUsdOracle.address
+      batUsdOracle.address,
+      compUsdOracle.address
     );
     let encodedData = goodFundManager.interface.encodeFunctionData(
       "setStakingReward",
@@ -1574,7 +1588,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good BaT",
       "gBAT",
       "50",
-      batUsdOracle.address
+      batUsdOracle.address,
+      compUsdOracle.address
     );
     let encodedData = goodFundManager.interface.encodeFunctionData(
       "setStakingReward",
@@ -1626,7 +1641,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good DAI",
       "gDAI",
       "50",
-      daiUsdOracle.address
+      daiUsdOracle.address,
+      compUsdOracle.address
     );
     let encodedData = goodFundManager.interface.encodeFunctionData(
       "setStakingReward",
@@ -1674,7 +1690,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "Good BaT",
       "gBAT",
       "50",
-      batUsdOracle.address
+      batUsdOracle.address,
+      compUsdOracle.address
     );
     let encodedData = goodFundManager.interface.encodeFunctionData(
       "setStakingReward",

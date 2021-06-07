@@ -13,6 +13,8 @@ import "../../Interfaces.sol";
 contract GoodCompoundStaking is SimpleStaking {
 	// Address of the TOKEN/USD oracle from chainlink
 	address public tokenUsdOracle;
+	//Address of the COMP/USD oracle from chianlink
+	address public compUsdOracle;
 
 	// Gas cost to collect interest from this staking contract
 	uint32 public collectInterestGasCost = 100000;
@@ -25,6 +27,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @param _tokenSymbol Symbol of the staking token which will be provided to staker for their staking share
 	 * @param _tokenSymbol Determines blocks to pass for 1x Multiplier
 	 * @param _tokenUsdOracle address of the TOKEN/USD oracle
+	 * @param _compUsdOracle address of the COMP/USD oracle
 
 	 */
 	function init(
@@ -34,7 +37,8 @@ contract GoodCompoundStaking is SimpleStaking {
 		string memory _tokenName,
 		string memory _tokenSymbol,
 		uint64 _maxRewardThreshold,
-		address _tokenUsdOracle
+		address _tokenUsdOracle,
+		address _compUsdOracle
 	) public {
 		initialize(
 			_token,
@@ -45,6 +49,7 @@ contract GoodCompoundStaking is SimpleStaking {
 			_maxRewardThreshold
 		);
 		//above  initialize going  to revert on second call, so this is safe
+		compUsdOracle = _compUsdOracle;
 		tokenUsdOracle = _tokenUsdOracle;
 		ERC20(nameService.getAddress("COMP")).approve(nameService.getAddress("UNISWAP_ROUTER"),type(uint256).max);
 	}
@@ -262,7 +267,7 @@ contract GoodCompoundStaking is SimpleStaking {
 
 	function getCompValueInUSD(uint256 _amount) public view returns (uint256) {
 		AggregatorV3Interface tokenPriceOracle =
-			AggregatorV3Interface(nameService.getAddress("COMP_USD_ORACLE"));
+			AggregatorV3Interface(compUsdOracle);
 		int256 compPriceinUSD = tokenPriceOracle.latestAnswer();
 		return (uint256(compPriceinUSD) * _amount) / 1e18;
 	}

@@ -101,6 +101,10 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     comp = await daiFactory.deploy();
     await setDAOAddress("COMP", comp.address);
     setDAOAddress("UNISWAP_ROUTER", signers[0].address); // need this address for initialize simplestaking
+    const compUsdOracleFactory = await ethers.getContractFactory(
+      "CompUSDMockOracle"
+    );
+    compUsdOracle = await compUsdOracleFactory.deploy();
     //give reserve generic call permission
     goodCompoundStaking = await goodCompoundStakingFactory
       .deploy()
@@ -112,7 +116,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -173,11 +178,6 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     daiEthOracle = await daiEthPriceMockFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
 
-    const compUsdOracleFactory = await ethers.getContractFactory(
-      "CompUSDMockOracle"
-    );
-    compUsdOracle = await compUsdOracleFactory.deploy();
-    await setDAOAddress("COMP_USD_ORACLE", compUsdOracle.address);
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
@@ -325,7 +325,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -443,7 +444,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -664,7 +666,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -728,7 +731,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -794,7 +798,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -840,7 +845,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -890,7 +896,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -1054,7 +1061,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -1438,7 +1446,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -1496,7 +1505,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -1579,7 +1589,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -1626,7 +1637,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       })
