@@ -46,6 +46,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		);
 		//above  initialize going  to revert on second call, so this is safe
 		tokenUsdOracle = _tokenUsdOracle;
+		ERC20(nameService.getAddress("COMP")).approve(nameService.getAddress("UNISWAP_ROUTER"),type(uint256).max);
 	}
 
 	/**
@@ -93,7 +94,6 @@ contract GoodCompoundStaking is SimpleStaking {
 		if (compBalance > 0) {
 			path[0] = address(comp);
 			path[1] = daiAddress;
-			comp.approve(address(uniswapContract), compBalance);
 			uint256[] memory compSwap =
 				uniswapContract.swapExactTokensForTokens(
 					compBalance,
@@ -121,8 +121,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 dai;
 		if (redeemedAmount > 0) {
 			path[0] = address(token);
-			path[1] = daiAddress;
-			token.approve(address(uniswapContract), redeemedAmount);
+			path[1] = daiAddress;		
 			uint256[] memory swap =
 				uniswapContract.swapExactTokensForTokens(
 					redeemedAmount,
@@ -172,31 +171,31 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 er = cToken.exchangeRateStored();
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
-		bool returnTokenGainsInUSDTemp = _returnTokenGainsInUSD; // to prevent stack too deep error
 		uint256 tokenBalance =
 			iTokenWorthInToken(iToken.balanceOf(address(this)));
 		uint256 balanceInUSD =
 			_returnTokenBalanceInUSD
 				? getTokenValueInUSD(tokenUsdOracle, tokenBalance)
 				: 0;
+		uint256 compValueInUSD = _returnTokenGainsInUSD
+						? getCompValueInUSD(
+							ERC20(nameService.getAddress("COMP")).balanceOf(
+								address(this)
+							)
+						):0;
 		if (tokenBalance <= totalProductivity) {
 			return (
 				0,
 				0,
 				tokenBalance,
 				balanceInUSD,
-				(
-					returnTokenGainsInUSDTemp
-						? getCompValueInUSD(
-							ERC20(nameService.getAddress("COMP")).balanceOf(
-								address(this)
-							)
-						)
-						: 0
-				)
+				compValueInUSD
 			);
 		}
 		uint256 tokenGains = tokenBalance - totalProductivity;
+		uint256 tokenGainsInUSD =
+			_returnTokenGainsInUSD
+				? getTokenValueInUSD(tokenUsdOracle, tokenGains) + compValueInUSD : 0;
 		uint256 iTokenGains;
 		if (caseType) {
 			iTokenGains =
@@ -207,15 +206,7 @@ contract GoodCompoundStaking is SimpleStaking {
 				((tokenGains * 10**decimalDifference) * 10**mantissa) /
 				er; // based on https://compound.finance/docs#protocol-math
 		}
-		uint256 tokenGainsInUSD =
-			returnTokenGainsInUSDTemp
-				? getTokenValueInUSD(tokenUsdOracle, tokenGains) +
-					getCompValueInUSD(
-						ERC20(nameService.getAddress("COMP")).balanceOf(
-							address(this)
-						)
-					)
-				: 0;
+
 		return (
 			iTokenGains,
 			tokenGains,

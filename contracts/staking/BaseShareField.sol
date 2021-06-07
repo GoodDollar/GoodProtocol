@@ -4,7 +4,6 @@ import "../Interfaces.sol";
 import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DSMath.sol";
-
 contract BaseShareField is DSMath {
 	using SafeMath for uint256;
 
