@@ -634,6 +634,57 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
 
     await setDAOAddress("GDAO_STAKING", governanceStaking.address);
   });
+  it("it should not overmint rewards when staker withdraw their rewards", async () => {
+    const governanceStakingFactory = await ethers.getContractFactory(
+      "GovernanceStaking"
+    );
+    const simpleGovernanceStaking = await governanceStakingFactory.deploy(
+      nameService.address
+    );
+    await setDAOAddress("GDAO_STAKING", simpleGovernanceStaking.address);
+    const overmintTesterFactory = await ethers.getContractFactory(
+      "OverMintTester"
+    );
+    const overMintTester = await overmintTesterFactory.deploy(
+      goodDollar.address,
+      simpleGovernanceStaking.address
+    );
+    await goodDollar.mint(overMintTester.address, "100");
+    const rewardsPerBlock = await simpleGovernanceStaking.getRewardsPerBlock();
+    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
+    await overMintTester.stake();
+    const GDAOBalanceAfterStake = await grep.balanceOf(overMintTester.address);
+    await advanceBlocks(100);
+    await overMintTester.overMintTest();
+    const withdrawRewardsBlockNumber = await ethers.provider.getBlockNumber();
+    const GDAOBalanceAfterWithdrawReward = await grep.balanceOf(
+      overMintTester.address
+    );
+    await advanceBlocks(20);
+    await overMintTester.overMintTest();
+    const secondWithdrawRewardsBlockNumber = await ethers.provider.getBlockNumber();
+    const GDAOBalanceAfterSecondWithdrawReward = await grep.balanceOf(
+      overMintTester.address
+    );
+
+    expect(GDAOBalanceAfterWithdrawReward).to.be.gt(GDAOBalanceAfterStake);
+    expect(
+      GDAOBalanceAfterWithdrawReward.sub(
+        rewardsPerBlock.mul(withdrawRewardsBlockNumber - stakeBlockNumber)
+      )
+    );
+    expect(GDAOBalanceAfterSecondWithdrawReward).to.be.gt(
+      GDAOBalanceAfterWithdrawReward
+    );
+    expect(
+      GDAOBalanceAfterSecondWithdrawReward.sub(GDAOBalanceAfterWithdrawReward)
+    ).to.be.equal(
+      rewardsPerBlock.mul(
+        secondWithdrawRewardsBlockNumber - withdrawRewardsBlockNumber
+      )
+    );
+    await setDAOAddress("GDAO_STAKING", governanceStaking.address);
+  });
 
   function rdiv(x: BigNumber, y: BigNumber) {
     return x
