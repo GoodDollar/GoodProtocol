@@ -647,7 +647,8 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     );
     const overMintTester = await overmintTesterFactory.deploy(
       goodDollar.address,
-      simpleGovernanceStaking.address
+      simpleGovernanceStaking.address,
+      grep.address
     );
     await goodDollar.mint(overMintTester.address, "100");
     const rewardsPerBlock = await simpleGovernanceStaking.getRewardsPerBlock();
