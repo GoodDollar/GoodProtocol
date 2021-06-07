@@ -120,7 +120,7 @@ contract DonationsStaking is DAOUpgradeableContract {
 
 	/**
 	 * @dev withdraws all stakes and then transfer all balances to avatar
-	 * this can also be called by owner(Foundation) but it is safe as funds are transfered to avatarMock
+	 * this can also be called by owner(Foundation) but it is safe as funds are transfered to avatar
 	 * and only avatar can upgrade this contract logic
 	 */
 	function end() public ownerOrAvatar returns (uint256, uint256) {
