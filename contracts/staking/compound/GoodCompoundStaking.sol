@@ -76,7 +76,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	}
 
 	/**
-	 * @dev Function to redeem cToken for DAI
+	 * @dev Function to redeem cToken for DAI, so reserve knows how to handle it. (reserve can handle dai or cdai)
 	 * @dev _amount of token in iToken
 	 * @return return address of the DAI and amount of the DAI
 	 */
@@ -86,7 +86,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		returns (address, uint256)
 	{
 		if (address(iToken) == nameService.getAddress("CDAI")) {
-			return (address(iToken), _amount); // If iToken is cDAI then just return cDAI
+			return (address(iToken), _amount); // If iToken is cDAI then just return cDAI, as reserve is in CDAI we save conversion from dai to cdai
 		}
 		cERC20 cToken = cERC20(address(iToken));
 		require(cToken.redeem(_amount) == 0, "Failed to redeem cToken");
