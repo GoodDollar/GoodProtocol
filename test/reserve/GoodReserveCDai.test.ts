@@ -1023,8 +1023,8 @@ describe("GoodReserve - staking with cDAI mocks", () => {
         (1 - amount.toNumber() / parseInt(supply.toString())) **
           (1000000 / reserveToken.reserveRatio));
 
-    expected = Math.ceil((0.8 * expected) / 100) * 100; //deduct 20% contribution, allow 2 points precission mismatch (due to bancor pow estimation?), match solidity no floating point
-
+    // expected = Math.ceil((0.8 * expected) / 100) * 100; //deduct 20% contribution, allow 2 points precission mismatch (due to bancor pow estimation?), match solidity no floating point
+    expected = Math.floor(0.8 * expected);
     expect(cDAIBalanceAfter.sub(cDAIBalanceBefore)).to.be.equal(expected);
     expect(cDAIBalanceReserveBefore.sub(cDAIBalanceReserveAfter)).to.be.equal(
       expected

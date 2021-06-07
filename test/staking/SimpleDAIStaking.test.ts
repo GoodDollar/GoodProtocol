@@ -218,7 +218,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     let cdaiBalance = await cDAI.balanceOf(staker.address);
     await cDAI.connect(staker)["redeem(uint256)"](cdaiBalance.toString());
     let balance = await dai.balanceOf(staker.address);
-    expect(balance.toString()).to.be.equal("100000000000000000000");
+    let er = await cDAI.exchangeRateStored();
+    expect(balance).to.be.equal(cdaiBalance.mul(er).div(BN.from(10).pow(18)));
     await dai.connect(staker).transfer(dai.address, balance.toString());
   });
 
@@ -1161,6 +1162,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
   it("should not be able to double withdraw stake", async () => {
     let stakingAmount = ethers.utils.parseEther("100");
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
+
     await dai
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
@@ -1170,6 +1172,13 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       .connect(staker)
       .withdrawStake(balance[0], false)
       .catch(e => e);
+
+    //make sure staking contract has the required balance to test double withdraw
+    await cDAI["mint(address,uint256)"](
+      goodCompoundStaking.address,
+      stakingAmount.mul(1000)
+    );
+
     await expect(
       goodCompoundStaking.connect(staker).withdrawStake(stakingAmount, false)
     ).to.revertedWith("ERC20: burn amount exceeds balance");
