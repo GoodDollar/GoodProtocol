@@ -618,7 +618,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     const rewardsPerBlock = await simpleGovernanceStaking.getRewardsPerBlock();
     await goodDollar.approve(simpleGovernanceStaking.address, "200");
 
-    const stakeBlockNumber = await ethers.provider.getBlockNumber();
+    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await simpleGovernanceStaking.stake("200");
     const GDAOBalanceAfterStake = await grep.balanceOf(founder.address);
     await advanceBlocks(100);
