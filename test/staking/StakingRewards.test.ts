@@ -1616,12 +1616,10 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
 
     expect(GDBalanceAfterWithdrawReward).to.be.gt(GDBalanceAfterStake);
-    expect(
-      GDBalanceAfterWithdrawReward.sub(
-        rewardsPerBlock
-          .mul(withdrawRewardsBlockNumber - stakeBlockNumber)
-          .div(BN.from("2"))
-      )
+    expect(GDBalanceAfterWithdrawReward.sub(GDBalanceAfterStake)).to.be.equal(
+      rewardsPerBlock
+        .mul(withdrawRewardsBlockNumber - stakeBlockNumber)
+        .div(BN.from("2"))
     );
     expect(GDBalanceAfterSecondWithdrawReward).to.be.gt(
       GDBalanceAfterWithdrawReward

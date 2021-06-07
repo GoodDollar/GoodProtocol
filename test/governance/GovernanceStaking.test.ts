@@ -670,9 +670,9 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
 
     expect(GDAOBalanceAfterWithdrawReward).to.be.gt(GDAOBalanceAfterStake);
     expect(
-      GDAOBalanceAfterWithdrawReward.sub(
-        rewardsPerBlock.mul(withdrawRewardsBlockNumber - stakeBlockNumber)
-      )
+      GDAOBalanceAfterWithdrawReward.sub(GDAOBalanceAfterStake)
+    ).to.be.equal(
+      rewardsPerBlock.mul(withdrawRewardsBlockNumber - stakeBlockNumber)
     );
     expect(GDAOBalanceAfterSecondWithdrawReward).to.be.gt(
       GDAOBalanceAfterWithdrawReward
