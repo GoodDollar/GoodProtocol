@@ -131,7 +131,8 @@ contract DonationsStaking is DAOUpgradeableContract {
 		(uint256 stakingAmount, ) = stakingContract.getProductivity(
 			address(this)
 		);
-		stakingContract.withdrawStake(stakingAmount, false);
+		if (stakingAmount > 0)
+			stakingContract.withdrawStake(stakingAmount, false);
 		uint256 stakingTokenBalance = stakingToken.balanceOf(address(this));
 		uint256 ethBalance = address(this).balance;
 		stakingToken.transfer(avatar, stakingTokenBalance);
