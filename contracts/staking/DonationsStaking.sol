@@ -22,9 +22,9 @@ contract DonationsStaking is DAOUpgradeableContract {
 	mapping(address => uint256) public totalStakingTokensDonated;
 	event DonationStaked(
 		address caller,
-		uint256 stakedDAI,
+		uint256 stakedStakingToken,
 		uint256 ethDonated,
-		uint256 daiDonated
+		uint256 stakingTokenDonated
 	);
 
 	modifier ownerOrAvatar() {
@@ -67,7 +67,7 @@ contract DonationsStaking is DAOUpgradeableContract {
 		isActive
 	{
 		uint256 stakingTokenDonated = stakingToken.balanceOf(address(this));
-		uint256 ethDonated = _buyDAI(_minStakingTokenAmount);
+		uint256 ethDonated = _buyStakingToken(_minStakingTokenAmount);
 
 		uint256 stakingTokenBalance = stakingToken.balanceOf(address(this));
 		require(stakingTokenBalance > 0, "no stakingToken to stake");
@@ -84,8 +84,8 @@ contract DonationsStaking is DAOUpgradeableContract {
 	}
 
 	/**
-	 * @dev total DAI value staked
-	 * @return DAI value staked
+	 * @dev total Staking Token value staked
+	 * @return Staking Token value staked
 	 */
 	function totalStaked() public view returns (uint256) {
 		(uint256 stakingAmount, ) = stakingContract.getProductivity(
@@ -96,10 +96,10 @@ contract DonationsStaking is DAOUpgradeableContract {
 
 	/**
 	 * @dev internal method to buy stakingToken from uniswap
-	 * @param _minStakingTokenAmount enforce expected return from uniswap when converting eth balance to DAI
+	 * @param _minStakingTokenAmount enforce expected return from uniswap when converting eth balance to StakingToken
 	 * @return eth value converted
 	 */
-	function _buyDAI(uint256 _minStakingTokenAmount)
+	function _buyStakingToken(uint256 _minStakingTokenAmount)
 		internal
 		returns (uint256)
 	{
@@ -148,7 +148,7 @@ contract DonationsStaking is DAOUpgradeableContract {
 	/**
 	 * @dev Function to set staking contract and withdraw previous stakings and send it to avatar
 	 */
-	function setStakingContract(address _stakingContract, address _stakingToken)
+	function setStakingContract(address _stakingContract)
 		external
 	{
 		_onlyAvatar();
@@ -163,7 +163,7 @@ contract DonationsStaking is DAOUpgradeableContract {
 		address payable receiver = payable(avatar);
 		receiver.transfer(ethBalance);
 		stakingContract = SimpleStaking(_stakingContract);
-		stakingToken = ERC20(_stakingToken);
+		stakingToken = stakingContract.token();
 		stakingToken.approve(address(stakingContract), type(uint256).max); //we trust the staking contract
 	}
 }

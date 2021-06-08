@@ -8,7 +8,7 @@ import {
   GoodReserveCDai,
   SimpleStaking,
   GoodFundManager,
-  DonationsStaking,
+  DonationsStaking
 } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { createDAO, increaseTime, advanceBlocks } from "../helpers";
@@ -92,7 +92,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       cdaiAddress,
       reserve,
       setReserveToken,
-      genericCall: gc,
+      genericCall: gc
     } = await createDAO();
 
     genericCall = gc;
@@ -109,18 +109,18 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       gd,
       identity,
       controller,
-      avatar,
+      avatar
     });
     goodFundManager = (await upgrades.deployProxy(
       goodFundManagerFactory,
       [nameService.address],
       {
-        kind: "uups",
+        kind: "uups"
       }
     )) as GoodFundManager;
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     console.log("Deployed goodfund manager", {
-      manager: goodFundManager.address,
+      manager: goodFundManager.address
     });
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
     contribution = await ethers.getContractAt(
@@ -133,7 +133,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const factory = await uniswapFactory.deploy(founder.address);
     uniswapRouter = await routerFactory.deploy(factory.address, weth.address);
     console.log("deployed contribution, deploying reserve...", {
-      founder: founder.address,
+      founder: founder.address
     });
     bat = await daiFactory.deploy(); // Another erc20 token for uniswap router test
     cBat = await cBatFactory.deploy(bat.address);
@@ -144,7 +144,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
     goodCompoundStaking = await goodCompoundStakingFactory
       .deploy()
-      .then(async (contract) => {
+      .then(async contract => {
         await contract.init(
           dai.address,
           cDAI.address,
@@ -200,7 +200,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       donationsStakingFactory,
       [nameService.address, goodCompoundStaking.address],
       {
-        kind: "uups",
+        kind: "uups"
       }
     )) as DonationsStaking;
   });
@@ -216,7 +216,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
         goodCompoundStaking.address,
         currentBlockNumber - 10,
         currentBlockNumber + 500,
-        false,
+        false
       ] // set 10 gd per block
     );
     await genericCall(goodFundManager.address, encodedData);
@@ -243,7 +243,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const tx = await donationsStaking
       .connect(staker)
       ["withdraw()"]()
-      .catch((e) => e);
+      .catch(e => e);
     expect(tx.message).to.have.string(
       "Only owner or avatar can perform this action"
     );
@@ -272,7 +272,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const stakingTokenBeforeSet = await donationsStaking.stakingToken();
     const simpleStaking = await goodCompoundStakingFactory
       .deploy()
-      .then(async (contract) => {
+      .then(async contract => {
         await contract.init(
           bat.address,
           cDAI.address,
@@ -287,7 +287,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       });
     let encodedData = donationsStakingFactory.interface.encodeFunctionData(
       "setStakingContract",
-      [simpleStaking.address, bat.address]
+      [simpleStaking.address]
     );
     await genericCall(donationsStaking.address, encodedData);
     const stakingContractAfterSet = await donationsStaking.stakingContract();
@@ -310,7 +310,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       founder.address,
       MaxUint256,
       {
-        value: WETHAmount,
+        value: WETHAmount
       }
     );
   }
