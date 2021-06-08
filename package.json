@@ -44,8 +44,11 @@
   },
   "homepage": "https://gooddollar.org",
   "dependencies": {
+    "@aave/protocol-v2": "^1.0.1",
     "@gooddollar/goodcontracts": "^2.6.1",
     "@openzeppelin/contracts-upgradeable": "^4.1.0",
+    "i": "^0.3.6",
+    "npm": "^7.16.0",
     "openzeppelin-solidity": "^4.0.0"
   },
   "devDependencies": {

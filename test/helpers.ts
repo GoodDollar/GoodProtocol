@@ -11,7 +11,9 @@ import AbsoluteVote from "@gooddollar/goodcontracts/build/contracts/AbsoluteVote
 import UpgradeScheme from "@gooddollar/goodcontracts/build/contracts/UpgradeScheme.json";
 import UBIScheme from "@gooddollar/goodcontracts/stakingModel/build/contracts/UBIScheme.json";
 import { Controller, GoodMarketMaker, CompoundVotingMachine } from "../types";
-
+import LendingPoolAddressesProvider from "@aave/protocol-v2/artifacts/contracts/protocol/configuration/LendingPoolAddressesProvider.sol/LendingPoolAddressesProvider.json";
+import LendingPoolAddressesProviderRegistry from "@aave/protocol-v2/artifacts/contracts/protocol/configuration/LendingPoolAddressesProviderRegistry.sol/LendingPoolAddressesProviderRegistry.json";
+import LendingPool from "@aave/protocol-v2/artifacts/contracts/protocol/lendingpool/LendingPool.sol/LendingPool.json";
 export const createDAO = async () => {
   let [root, ...signers] = await ethers.getSigners();
 
@@ -463,4 +465,33 @@ export const deployOldVoting = async dao => {
   } catch (e) {
     console.log("deployVote failed", e);
   }
+};
+
+export const deployAaveLendingPool = async () => {
+  let [root, ...signers] = await ethers.getSigners();
+  const addressProviderFactory = new ethers.ContractFactory(
+    LendingPoolAddressesProvider.abi,
+    LendingPoolAddressesProvider.bytecode,
+    root
+  );
+  const lendingPoolAddressesProviderRegistryFactory = new ethers.ContractFactory(
+    LendingPoolAddressesProviderRegistry.abi,
+    LendingPoolAddressesProviderRegistry.bytecode,
+    root
+  );
+  const lendingPoolFactory = new ethers.ContractFactory(
+    LendingPool.abi,
+    LendingPool.bytecode,
+    root
+  );
+  const addressesProvider = await addressProviderFactory.deploy(
+    "Aave genesis market"
+  );
+  await addressesProvider.setPoolAdmin(root.address);
+  const addressesProviderRegistry = await lendingPoolAddressesProviderRegistryFactory.deploy();
+  await addressesProviderRegistry.registerAddressesProvider(
+    addressesProvider.address,
+    1
+  );
+  const lendingPool = await lendingPoolFactory.deploy();
 };
