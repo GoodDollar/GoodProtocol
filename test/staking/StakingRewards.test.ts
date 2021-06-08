@@ -277,6 +277,40 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(gdBalancerAfterWithdraw.toString()).to.be.equal("2500");
   });
 
+  it("it should withdraw effective stakes and donated stakes proportionally", async () => {
+    const stakingAmount = ethers.utils.parseEther("100");
+
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount.mul(BN.from("2")));
+
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100, false);
+    const userStakeInfoBeforeWithdraw = await goodCompoundStaking.users(
+      staker.address
+    );
+    expect(userStakeInfoBeforeWithdraw.effectiveStakes).to.be.equal(
+      stakingAmount
+    );
+    expect(userStakeInfoBeforeWithdraw.amount).to.be.equal(
+      stakingAmount.mul(BN.from("2"))
+    );
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false);
+    const userStakeInfoAfterWithdraw = await goodCompoundStaking.users(
+      staker.address
+    );
+    expect(userStakeInfoAfterWithdraw.effectiveStakes).to.be.equal(
+      stakingAmount.div(BN.from("2"))
+    ); // should be half of the stakes that staked initially
+    expect(userStakeInfoAfterWithdraw.amount).to.be.equal(stakingAmount);
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false);
+  });
+
   it("shouldn't be able to earn rewards after rewards blockend passed", async () => {
     let stakingAmount = ethers.utils.parseEther("100");
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
