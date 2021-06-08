@@ -22,9 +22,9 @@ contract DonationsStaking is DAOUpgradeableContract {
 	mapping(address => uint256) public totalStakingTokensDonated;
 	event DonationStaked(
 		address caller,
-		uint256 stakedStakingToken,
+		uint256 totalStaked,
 		uint256 ethDonated,
-		uint256 stakingTokenDonated
+		uint256 tokenDonated
 	);
 
 	modifier ownerOrAvatar() {
