@@ -283,7 +283,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await dai
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100, false);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
 
     let gdBalanceBeforeWithdraw = await goodDollar.balanceOf(staker.address);
     advanceBlocks(5);
@@ -328,7 +328,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await dai
       .connect(staker)
       .approve(goodCompoundStaking2.address, stakingAmount);
-    await goodCompoundStaking2.connect(staker).stake(stakingAmount, 100, false);
+    await goodCompoundStaking2.connect(staker).stake(stakingAmount, 0, false);
 
     let gdBalanceBeforeWithdraw = await goodDollar.balanceOf(staker.address);
     advanceBlocks(5);
@@ -623,7 +623,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
 
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100, false);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
     await advanceBlocks(5);
     const stakingContractVals = await goodFundManager.rewardsForStakingContract(
       goodCompoundStaking.address
