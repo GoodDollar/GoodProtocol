@@ -122,7 +122,7 @@ contract BaseShareField is DSMath {
 			}
 		}
 
-		if (_donationPer == 0) {
+		else if (_donationPer == 0) {
 			userInfo.effectiveStakes += (updatedAmount - _amount);
 			totalEffectiveStakes += (updatedAmount - _amount);
 		}
