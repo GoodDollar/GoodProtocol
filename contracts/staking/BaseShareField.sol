@@ -18,7 +18,7 @@ contract BaseShareField is DSMath {
 	uint8 public tokenDecimalDifference;
 	struct UserInfo {
 		uint256 amount; // How many tokens the user has provided.
-		uint256 effectiveStakes; // How many tokens staked to in order to get rewards
+		uint256 effectiveStakes; // stakes not including stakes that donate their rewards
 		uint256 rewardDebt; // Reward debt.
 		uint256 rewardEarn; // Reward earn and not minted
 		uint256 rewardMinted; //Rewards minted to user so far
