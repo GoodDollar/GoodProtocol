@@ -195,7 +195,7 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 	event GuardianSet(address newGuardian);
 
 	function initialize(
-		NameService ns_, // the DAO avatar
+		INameService ns_, // the DAO avatar
 		uint256 votingPeriodBlocks_ //number of blocks a proposal is open for voting before expiring
 	) public initializer {
 		foundationGuardianRelease = 1672531200; //01/01/2023

@@ -31,7 +31,7 @@ contract StakersDistribution is
 		uint256 reputation
 	);
 
-	function initialize(NameService _ns) public initializer {
+	function initialize(INameService _ns) public initializer {
 		monthlyReputationDistribution = 2000000 ether; //2M as specified in specs
 		setDAO(_ns);
 		_updateMonth();

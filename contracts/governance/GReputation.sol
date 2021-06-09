@@ -74,7 +74,7 @@ contract GReputation is Reputation {
 	 * @dev initialize
 	 */
 	function initialize(
-		NameService _ns,
+		INameService _ns,
 		string calldata stateId,
 		bytes32 stateHash,
 		uint256 totalSupply
