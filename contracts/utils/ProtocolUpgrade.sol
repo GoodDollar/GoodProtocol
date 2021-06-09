@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import "../utils/NameService.sol";
 import "../Interfaces.sol";
+import "../DAOStackInterfaces.sol";
 
 interface OldMarketMaker {
 	struct ReserveToken {
@@ -24,51 +24,124 @@ interface OldMarketMaker {
 }
 
 /**
- a scheme that once approved in old AbsoluteVotingMachine will
- set initial settings and permissions for the new protocol contracts and revoke old permissions
+ a scheme that once approved in old AbsoluteVotingMachine is in charge of upgrading to new contracts
  */
 contract ProtocolUpgrade {
 	Controller controller;
 	address owner;
 	address avatar;
-	address comp = address(0xc00e94Cb662C3520282E6f5717214004A7f26888);
 
-	constructor(Controller _controller, address _comp) {
+	modifier onlyOwner() {
+		require(msg.sender == owner, "only owner");
+		_;
+	}
+
+	constructor(Controller _controller) {
 		controller = _controller;
 		owner = msg.sender;
 		avatar = address(controller.avatar());
-		if (_comp != address(0)) comp = _comp;
 	}
 
-	function upgrade(
-		NameService ns,
-		address[] memory oldContracts, //oldReserve, oldStaking, schemeRegistrar,upgradeScheme, oldMarketMaker
-		address compoundVotingMachine,
+	/**
+	1. set the DAO contracts in registery after they have been deployedDAO
+	2. set the initial staking contracts and their rewards
+	 */
+	function upgradeBasic(
+		INameService ns,
 		bytes32[] calldata nameHash,
 		address[] calldata nameAddress,
 		address[] calldata staking,
 		uint256[] calldata monthlyRewards
-	) external {
-		require(msg.sender == owner, "only owner");
+	) external onlyOwner {
 		require(nameHash.length == nameAddress.length, "length mismatch");
 		require(
 			staking.length == monthlyRewards.length,
 			"staking length mismatch"
 		);
-		require(oldContracts.length == 5, "old contracts size mismatch");
 
-		setNameServiceContracts(ns, nameHash, nameAddress);
+		_setNameServiceContracts(ns, nameHash, nameAddress);
 
-		setStakingRewards(ns, staking, monthlyRewards);
+		_setStakingRewards(ns, staking, monthlyRewards);
+	}
 
-		setReserveSoleMinter(ns);
+	/**
+	3. set new reserve as sole minter
+	4. upgrade to new reserve
+	 */
+	function upgradeReserve(
+		INameService ns,
+		address oldReserve,
+		address oldMarketMaker,
+		address COMP
+	) external onlyOwner {
+		_setReserveSoleMinter(ns);
 
-		upgradeToNewReserve(ns, oldContracts[0], oldContracts[4]);
+		_setNewReserve(ns, oldReserve, oldMarketMaker, COMP);
+	}
 
-		upgradeGovernance(
-			oldContracts[2],
-			oldContracts[3],
-			compoundVotingMachine
+	/**
+	5. upgrade donation staking contract
+	 */
+	function upgradeDonationStaking(
+		INameService ns,
+		address oldDonationStaking,
+		address payable donationStaking
+	) public onlyOwner {
+		bool ok;
+		bytes memory result;
+		(ok, result) = controller.genericCall(
+			oldDonationStaking,
+			abi.encodeWithSignature("end()", 0, 0, false),
+			avatar,
+			0
+		);
+		(uint256 dai, uint256 eth) = abi.decode(result, (uint256, uint256));
+
+		ok = controller.externalTokenTransfer(
+			ns.getAddress("DAI"),
+			donationStaking,
+			dai,
+			avatar
+		);
+
+		require(ok, "Calling DAI externalTokenTransfer failed");
+
+		if (eth > 0) {
+			ok = controller.sendEther(eth, donationStaking, avatar);
+
+			require(ok, "Calling  sendEther failed");
+		}
+
+		IDonationStaking(donationStaking).stakeDonations(0);
+	}
+
+	/**
+	 * 6. upgrade to new DAO and relinquish control
+	 * unregister old voting schemes
+	 * register new voting scheme with all DAO permissions
+	 * NOTICE: call this last to finalize DAO decentralization!!!
+	 */
+	function upgradeGovernance(
+		address schemeRegistrar,
+		address upgradeScheme,
+		address compoundVotingMachine
+	) public onlyOwner {
+		require(
+			controller.unregisterScheme(schemeRegistrar, avatar),
+			"unregistering schemeRegistrar failed"
+		);
+		require(
+			controller.unregisterScheme(upgradeScheme, avatar),
+			"unregistering upgradeScheme failed"
+		);
+		require(
+			controller.registerScheme(
+				compoundVotingMachine,
+				bytes32(0x0),
+				bytes4(0x0000001F),
+				avatar
+			),
+			"registering compoundVotingMachine failed"
 		);
 
 		selfdestruct(payable(owner));
@@ -77,7 +150,7 @@ contract ProtocolUpgrade {
 	//add new reserve as minter
 	//renounace minter from avatar
 	//add reserve as global constraint on controller
-	function setReserveSoleMinter(NameService ns) internal {
+	function _setReserveSoleMinter(INameService ns) internal {
 		bool ok;
 		(ok, ) = controller.genericCall(
 			ns.getAddress("GOODDOLLAR"),
@@ -110,15 +183,16 @@ contract ProtocolUpgrade {
 	//transfer funds(cdai + comp) from old reserve to new reserve/avatar
 	//end old reserve
 	//initialize new marketmaker with current cdai price, rr, reserves
-	function upgradeToNewReserve(
-		NameService ns,
+	function _setNewReserve(
+		INameService ns,
 		address oldReserve,
-		address oldMarketMaker
-	) public {
+		address oldMarketMaker,
+		address COMP
+	) internal {
 		(bool ok, ) =
 			controller.genericCall(
 				oldReserve,
-				abi.encodeWithSignature("recover(address)", comp),
+				abi.encodeWithSignature("recover(address)", COMP),
 				avatar,
 				0
 			);
@@ -163,38 +237,10 @@ contract ProtocolUpgrade {
 		require(ok, "calling marketMaker initializeToken failed");
 	}
 
-	/**
-	 * unregister old voting schemes
-	 * register new voting scheme with all DAO permissions
-	 */
-	function upgradeGovernance(
-		address schemeRegistrar,
-		address upgradeScheme,
-		address compoundVotingMachine
-	) internal {
-		require(
-			controller.unregisterScheme(schemeRegistrar, avatar),
-			"unregistering schemeRegistrar failed"
-		);
-		require(
-			controller.unregisterScheme(upgradeScheme, avatar),
-			"unregistering upgradeScheme failed"
-		);
-		require(
-			controller.registerScheme(
-				compoundVotingMachine,
-				bytes32(0x0),
-				bytes4(0x0000001F),
-				avatar
-			),
-			"registering compoundVotingMachine failed"
-		);
-	}
-
-	//set contracts in nameservice that are deployed after NameService is created
+	//set contracts in nameservice that are deployed after INameService is created
 	//	FUND_MANAGER RESERVE REPUTATION GDAO_STAKING  GDAO_CLAIMERS ...
-	function setNameServiceContracts(
-		NameService ns,
+	function _setNameServiceContracts(
+		INameService ns,
 		bytes32[] memory names,
 		address[] memory addresses
 	) internal {
@@ -213,8 +259,8 @@ contract ProtocolUpgrade {
 	}
 
 	//initialize rewards for v2 starting staking contracts
-	function setStakingRewards(
-		NameService ns,
+	function _setStakingRewards(
+		INameService ns,
 		address[] memory contracts,
 		uint256[] memory rewards
 	) internal {
@@ -223,7 +269,7 @@ contract ProtocolUpgrade {
 				controller.genericCall(
 					ns.getAddress("FUND_MANAGER"),
 					abi.encodeWithSignature(
-						"setStakingRewards(uint32,address,uint32,uint32,bool)",
+						"setStakingReward(uint32,address,uint32,uint32,bool)",
 						rewards[i],
 						contracts[i],
 						0,
@@ -235,33 +281,5 @@ contract ProtocolUpgrade {
 				);
 			require(ok, "Calling setStakingRewards failed");
 		}
-	}
-
-	//stop old staking
-	//recover COMP
-	//TODO: ?? recover left over cDAI if stopped
-	//TODO: withdraw donations and deposit in new staking contract
-	function upgradeToNewStaking(
-		NameService ns,
-		address oldStaking,
-		address donationStaking
-	) internal {
-		bool ok;
-		(ok, ) = controller.genericCall(
-			oldStaking,
-			abi.encodeWithSignature("end()", 0, 0, false),
-			avatar,
-			0
-		);
-		require(ok, "Calling SimpleDAIStaking end failed");
-
-		(ok, ) = controller.genericCall(
-			oldStaking,
-			abi.encodeWithSignature("recover(address)", comp, 0, 0, false),
-			avatar,
-			0
-		);
-
-		require(ok, "Calling SimpleDAIStaking recover(COMP) failed");
 	}
 }
