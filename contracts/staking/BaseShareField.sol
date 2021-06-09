@@ -6,7 +6,7 @@ import "../utils/DSMath.sol";
 
 contract BaseShareField is DSMath {
 	uint256 totalProductivity;
-	uint256 totalEffectiveStakes;
+	uint256 public totalEffectiveStakes;
 	uint256 accAmountPerShare;
 
 	uint256 public mintedShare;
@@ -120,9 +120,7 @@ contract BaseShareField is DSMath {
 				userInfo.effectiveStakes -= withdrawFromEffectiveStake;
 				totalEffectiveStakes -= withdrawFromEffectiveStake;
 			}
-		}
-
-		else if (_donationPer == 0) {
+		} else if (_donationPer == 0) {
 			userInfo.effectiveStakes += (updatedAmount - _amount);
 			totalEffectiveStakes += (updatedAmount - _amount);
 		}
