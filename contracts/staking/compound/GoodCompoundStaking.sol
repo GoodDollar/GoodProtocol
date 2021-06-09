@@ -51,7 +51,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		//above  initialize going  to revert on second call, so this is safe
 		compUsdOracle = _compUsdOracle;
 		tokenUsdOracle = _tokenUsdOracle;
-		ERC20(nameService.getAddress("COMP")).approve(nameService.getAddress("UNISWAP_ROUTER"),type(uint256).max);
+		_approveTokens();
 	}
 
 	/**
@@ -270,5 +270,11 @@ contract GoodCompoundStaking is SimpleStaking {
 			AggregatorV3Interface(compUsdOracle);
 		int256 compPriceinUSD = tokenPriceOracle.latestAnswer();
 		return (uint256(compPriceinUSD) * _amount) / 1e18;
+	}
+	function _approveTokens()internal override{
+		address uniswapRouter = nameService.getAddress("UNISWAP_ROUTER");
+		ERC20(nameService.getAddress("COMP")).approve(uniswapRouter,type(uint256).max);
+		token.approve(uniswapRouter, type(uint256).max);
+		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
 	}
 }

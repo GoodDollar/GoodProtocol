@@ -83,8 +83,7 @@ abstract contract SimpleStaking is
 		stakingTokenDecimals = token.decimals();
 		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;
-		token.approve(nameService.getAddress("UNISWAP_ROUTER"), type(uint256).max);
-		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
+		
 	}
 
 	/**
@@ -160,7 +159,10 @@ abstract contract SimpleStaking is
 			uint256,
 			uint256
 		);
-
+	/**
+	 * @dev Approve infinite tokens to defi protocols in order to save gas 
+	 */
+	function _approveTokens()internal virtual;
 	/**
 	 * @dev Allows a staker to deposit Tokens. Notice that `approve` is
 	 * needed to be executed before the execution of this method.
