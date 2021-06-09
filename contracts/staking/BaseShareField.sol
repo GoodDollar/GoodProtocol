@@ -49,12 +49,13 @@ contract BaseShareField is DSMath {
 			lastRewardBlock = blockStart;
 		}
 
-		uint256 _lastRewardBlock =
-			lastRewardBlock < blockStart && block.number >= blockStart
-				? blockStart
-				: lastRewardBlock;
-		uint256 curRewardBlock =
-			block.number > blockEnd ? blockEnd : block.number;
+		uint256 _lastRewardBlock = lastRewardBlock < blockStart &&
+			block.number >= blockStart
+			? blockStart
+			: lastRewardBlock;
+		uint256 curRewardBlock = block.number > blockEnd
+			? blockEnd
+			: block.number;
 		if (curRewardBlock < blockStart || _lastRewardBlock >= blockEnd) return;
 
 		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block
@@ -89,12 +90,11 @@ contract BaseShareField is DSMath {
 			) = _auditCalcs(userInfo);
 
 			if (blocksToPay != 0) {
-				uint256 pending =
-					(userEffectiveStake *
-						(10**tokenDecimalDifference) *
-						accAmountPerShare) /
-						1e27 -
-						userInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
+				uint256 pending = (userEffectiveStake *
+					(10**tokenDecimalDifference) *
+					accAmountPerShare) /
+					1e27 -
+					userInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
 				uint256 rewardPerBlock = rdiv(pending, blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
 				pending =
 					rmul(
@@ -115,9 +115,8 @@ contract BaseShareField is DSMath {
 		if (updatedAmount <= _amount) {
 			userInfo.multiplierResetTime = uint64(block.number);
 			if (_amount > 0) {
-				uint256 withdrawFromEffectiveStake =
-					((_amount - updatedAmount) * userInfo.effectiveStakes) /
-						_amount;
+				uint256 withdrawFromEffectiveStake = ((_amount -
+					updatedAmount) * userInfo.effectiveStakes) / _amount;
 				userInfo.effectiveStakes -= withdrawFromEffectiveStake;
 				totalEffectiveStakes -= withdrawFromEffectiveStake;
 			}
@@ -148,18 +147,16 @@ contract BaseShareField is DSMath {
 			uint256
 		)
 	{
-		uint256 blocksPaid =
-			_userInfo.lastRewardTime - _userInfo.multiplierResetTime; // lastRewardTime is always >= multiplierResetTime
-		uint256 blocksPassedFirstMonth =
-			Math.min(
-				maxMultiplierThreshold,
-				block.number - _userInfo.multiplierResetTime
-			); // blocks which is after first month
+		uint256 blocksPaid = _userInfo.lastRewardTime -
+			_userInfo.multiplierResetTime; // lastRewardTime is always >= multiplierResetTime
+		uint256 blocksPassedFirstMonth = Math.min(
+			maxMultiplierThreshold,
+			block.number - _userInfo.multiplierResetTime
+		); // blocks which is after first month
 		uint256 blocksToPay = block.number - _userInfo.lastRewardTime; // blocks passed since last payment
-		uint256 firstMonthBlocksToPay =
-			blocksPaid >= maxMultiplierThreshold
-				? 0
-				: blocksPassedFirstMonth - blocksPaid; // block which is in the first month so pays with 0.5x multiplier
+		uint256 firstMonthBlocksToPay = blocksPaid >= maxMultiplierThreshold
+			? 0
+			: blocksPassedFirstMonth - blocksPaid; // block which is in the first month so pays with 0.5x multiplier
 		uint256 fullBlocksToPay = blocksToPay - firstMonthBlocksToPay; // blocks to pay in full amount which means with 1x multiplier
 		return (blocksToPay, firstMonthBlocksToPay, fullBlocksToPay);
 	}
@@ -198,7 +195,7 @@ contract BaseShareField is DSMath {
 		uint256 blockEnd
 	) internal virtual returns (bool) {
 		_update(rewardsPerBlock, blockStart, blockEnd);
-		_audit(user, users[user].amount - value, 1);
+		_audit(user, users[user].amount - value, 1); // rewardPer variable should be something different than zero so called with 1
 		totalProductivity = totalProductivity - value;
 
 		return true;
@@ -272,7 +269,7 @@ contract BaseShareField is DSMath {
 		UserInfo storage userInfo = users[user];
 		_canMintRewards();
 		_update(rewardsPerBlock, blockStart, blockEnd);
-		_audit(user, userInfo.amount, 1);
+		_audit(user, userInfo.amount, 1); // rewardPer variable should be something different than zero so called with 1
 		uint256 amount = userInfo.rewardEarn;
 		userInfo.rewardEarn = 0;
 		userInfo.rewardMinted += amount;
