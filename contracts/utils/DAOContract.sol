@@ -3,7 +3,6 @@
 pragma solidity >=0.8.0;
 
 import "../DAOStackInterfaces.sol";
-import "./NameService.sol";
 import "../Interfaces.sol";
 
 /**
@@ -15,7 +14,7 @@ contract DAOContract {
 
 	address public avatar;
 
-	NameService public nameService;
+	INameService public nameService;
 
 	function _onlyAvatar() internal view {
 		require(
@@ -24,7 +23,7 @@ contract DAOContract {
 		);
 	}
 
-	function setDAO(NameService _ns) internal {
+	function setDAO(INameService _ns) internal {
 		nameService = _ns;
 		updateAvatar();
 	}

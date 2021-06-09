@@ -59,6 +59,12 @@ interface Controller {
 		uint256 _amount,
 		address _avatar
 	) external returns (bool);
+
+	function sendEther(
+		uint256 _amountInWei,
+		address payable _to,
+		address _avatar
+	) external returns (bool);
 }
 
 interface GlobalConstraintInterface {

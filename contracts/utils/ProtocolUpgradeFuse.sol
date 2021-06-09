@@ -20,7 +20,7 @@ contract ProtocolUpgradeFuse {
 	}
 
 	function upgrade(
-		NameService ns,
+		INameService ns,
 		address[] memory oldContracts, //schemeRegistrar,upgradeScheme, old ubi, firstclaim
 		address compoundVotingMachine,
 		address ubiScheme,
@@ -110,10 +110,10 @@ contract ProtocolUpgradeFuse {
 		);
 	}
 
-	//set contracts in nameservice that are deployed after NameService is created
+	//set contracts in nameservice that are deployed after INameService is created
 	//	FUND_MANAGER RESERVE REPUTATION GDAO_STAKING  GDAO_CLAIMERS ...
 	function setNameServiceContracts(
-		NameService ns,
+		INameService ns,
 		bytes32[] memory names,
 		address[] memory addresses
 	) internal {
