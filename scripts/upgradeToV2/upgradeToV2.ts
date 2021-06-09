@@ -198,7 +198,7 @@ const main = async () => {
       {
         network: "mainnet",
         name: "ProtocolUpgrade",
-        args: [dao.Controller, dao.COMP],
+        args: [dao.Controller],
         isUpgradable: false
       },
       {
@@ -326,18 +326,9 @@ const main = async () => {
       release,
       dao
     });
-    await upgrade.upgrade(
+    console.log("upgrading nameservice + staking rewards...");
+    await upgrade.upgradeBasic(
       release.NameService,
-      //old contracts
-      [
-        dao.Reserve,
-        dao.DAIStaking || ethers.constants.AddressZero,
-        dao.SchemeRegistrar,
-        dao.UpgradeScheme,
-        dao.MarketMaker
-      ],
-      //new gov
-      release.CompoundVotingMachine,
       //TODO: replace with new contracts to be added to nameservice
       [
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("RESERVE")),
@@ -363,6 +354,35 @@ const main = async () => {
         _ => protocolSettings.staking.rewardsPerBlock
       )
     );
+
+    console.log("upgrading reserve...");
+    await upgrade.upgradeReserve(
+      release.NameService,
+      dao.Reserve,
+      dao.MarketMaker,
+      dao.COMP
+    );
+
+    console.log("upgrading donationstaking...");
+    await upgrade.upgradeDonationStaking(
+      release.NameService,
+      dao.DAIStaking || ethers.constants.AddressZero,
+      release.DonationStaking
+    );
+
+    if (isProduction) {
+      console.log(
+        "SKIPPING GOVERNANCE UPGRADE FOR PRODUCTION. RUN IT MANUALLY"
+      );
+    } else {
+      console.log("upgrading governance...");
+
+      await upgrade.upgradeGovernance(
+        dao.SchemeRegistrar,
+        dao.UpgradeScheme,
+        release.CompoundVotingMachine
+      );
+    }
   };
 
   const performUpgradeFuse = async release => {
