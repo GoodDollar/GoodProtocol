@@ -195,7 +195,7 @@ contract BaseShareField is DSMath {
 		uint256 blockEnd
 	) internal virtual returns (bool) {
 		_update(rewardsPerBlock, blockStart, blockEnd);
-		_audit(user, users[user].amount - value, 1); // rewardPer variable should be something different than zero so called with 1
+		_audit(user, users[user].amount - value, 1); // donationPer variable should be something different than zero so called with 1
 		totalProductivity = totalProductivity - value;
 
 		return true;
@@ -269,7 +269,7 @@ contract BaseShareField is DSMath {
 		UserInfo storage userInfo = users[user];
 		_canMintRewards();
 		_update(rewardsPerBlock, blockStart, blockEnd);
-		_audit(user, userInfo.amount, 1); // rewardPer variable should be something different than zero so called with 1
+		_audit(user, userInfo.amount, 1); // donationPer variable should be something different than zero so called with 1
 		uint256 amount = userInfo.rewardEarn;
 		userInfo.rewardEarn = 0;
 		userInfo.rewardMinted += amount;
