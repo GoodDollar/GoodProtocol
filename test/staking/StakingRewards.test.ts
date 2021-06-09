@@ -1293,10 +1293,12 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       batUsdOracle.address,
       compUsdOracle.address
     );
-    const tx = await simpleStaking
-      .decreaseProductivityTest(founder.address, ethers.utils.parseEther("100"))
-      .catch((e) => e);
-    expect(tx.message).to.have.string("INSUFFICIENT_PRODUCTIVITY");
+    await expect(
+      simpleStaking.decreaseProductivityTest(
+        founder.address,
+        ethers.utils.parseEther("100")
+      )
+    ).reverted;
   });
 
   it("User pending reward should be zero when there is no stake of user", async () => {
@@ -1630,6 +1632,148 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const encodedData = goodFundManager.interface.encodeFunctionData(
       "setStakingReward",
       ["1000", simpleStaking.address, 10, 1000, true] // set 10 gd per block
+    );
+    await genericCall(goodFundManager.address, encodedData);
+  });
+  it("it should mint rewards properly when withdrawRewards", async () => {
+    const goodCompoundStakingTestFactory = await ethers.getContractFactory(
+      "GoodCompoundStakingTest"
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    const simpleStaking = await goodCompoundStakingTestFactory.deploy(
+      bat.address,
+      cBat.address,
+      nameService.address,
+      "Good BaT",
+      "gBAT",
+      "500",
+      batUsdOracle.address,
+      compUsdOracle.address
+    );
+    let encodedData = goodFundManager.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking.address,
+        currentBlockNumber - 5,
+        currentBlockNumber + 1000,
+        false,
+      ] // set 10 gd per block
+    );
+    await genericCall(goodFundManager.address, encodedData);
+    const rewardsPerBlock = BN.from("1000");
+    const stakingAmount = ethers.utils.parseEther("100");
+    await bat["mint(address,uint256)"](founder.address, stakingAmount);
+    await bat.approve(simpleStaking.address, stakingAmount);
+    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
+    await simpleStaking.stake(stakingAmount, "0", false);
+
+    const GDBalanceAfterStake = await goodDollar.balanceOf(founder.address);
+    await advanceBlocks(100);
+    await simpleStaking.withdrawRewards();
+    const withdrawRewardsBlockNumber = await ethers.provider.getBlockNumber();
+    const GDBalanceAfterWithdraw = await goodDollar.balanceOf(founder.address);
+
+    expect(GDBalanceAfterWithdraw).to.be.equal(
+      GDBalanceAfterStake.add(
+        rewardsPerBlock
+          .mul(withdrawRewardsBlockNumber - stakeBlockNumber)
+          .div(BN.from("2"))
+      )
+    );
+    encodedData = goodFundManager.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking.address,
+        currentBlockNumber - 5,
+        currentBlockNumber + 1000,
+        true,
+      ] // set 10 gd per block
+    );
+    await genericCall(goodFundManager.address, encodedData);
+  });
+  it("it should not overmint rewards when staker withdraw their rewards", async () => {
+    const goodCompoundStakingTestFactory = await ethers.getContractFactory(
+      "GoodCompoundStakingTest"
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    const simpleStaking = await goodCompoundStakingTestFactory.deploy(
+      bat.address,
+      cBat.address,
+      nameService.address,
+      "Good BaT",
+      "gBAT",
+      "500",
+      batUsdOracle.address,
+      compUsdOracle.address
+    );
+    let encodedData = goodFundManager.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking.address,
+        currentBlockNumber - 5,
+        currentBlockNumber + 1000,
+        false,
+      ] // set 10 gd per block
+    );
+    const overMintTestFactory = await ethers.getContractFactory(
+      "OverMintTesterRegularStake"
+    );
+    const overMintTester = await overMintTestFactory.deploy(
+      bat.address,
+      simpleStaking.address,
+      goodDollar.address
+    );
+    await genericCall(goodFundManager.address, encodedData);
+    const stakingAmount = ethers.utils.parseEther("100");
+    await bat["mint(address,uint256)"](overMintTester.address, stakingAmount);
+    const rewardsPerBlock = BN.from("1000");
+    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
+    await overMintTester.stake();
+    const GDBalanceAfterStake = await goodDollar.balanceOf(
+      overMintTester.address
+    );
+    await advanceBlocks(100);
+    await overMintTester.overMintTest();
+    const withdrawRewardsBlockNumber = await ethers.provider.getBlockNumber();
+    const GDBalanceAfterWithdrawReward = await goodDollar.balanceOf(
+      overMintTester.address
+    );
+    await advanceBlocks(20);
+    await overMintTester.overMintTest();
+    const secondWithdrawRewardsBlockNumber =
+      await ethers.provider.getBlockNumber();
+    const GDBalanceAfterSecondWithdrawReward = await goodDollar.balanceOf(
+      overMintTester.address
+    );
+
+    expect(GDBalanceAfterWithdrawReward).to.be.gt(GDBalanceAfterStake);
+    expect(GDBalanceAfterWithdrawReward.sub(GDBalanceAfterStake)).to.be.equal(
+      rewardsPerBlock
+        .mul(withdrawRewardsBlockNumber - stakeBlockNumber)
+        .div(BN.from("2"))
+    );
+    expect(GDBalanceAfterSecondWithdrawReward).to.be.gt(
+      GDBalanceAfterWithdrawReward
+    );
+    expect(
+      GDBalanceAfterSecondWithdrawReward.sub(GDBalanceAfterWithdrawReward)
+    ).to.be.equal(
+      rewardsPerBlock
+        .mul(secondWithdrawRewardsBlockNumber - withdrawRewardsBlockNumber)
+        .div(BN.from("2"))
+    );
+    encodedData = goodFundManager.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking.address,
+        currentBlockNumber - 5,
+        currentBlockNumber + 1000,
+        true,
+      ] // set 10 gd per block
     );
     await genericCall(goodFundManager.address, encodedData);
   });

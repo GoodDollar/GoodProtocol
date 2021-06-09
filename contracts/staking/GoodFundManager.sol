@@ -107,6 +107,12 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		uint256 gdReward
 	);
 
+	event StakingRewardMinted(
+		address stakingContract,
+		address staker,
+		uint256 gdReward
+	);
+
 	function _reserveHasInitialized() internal view {
 		require(
 			nameService.getAddress("RESERVE") != address(0x0),
@@ -400,6 +406,8 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				_user,
 				amount
 			);
+
+			emit StakingRewardMinted(msg.sender, _user, amount);
 		}
 	}
 

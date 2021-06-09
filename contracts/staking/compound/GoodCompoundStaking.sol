@@ -79,7 +79,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	}
 
 	/**
-	 * @dev Function to redeem cToken for DAI
+	 * @dev Function to redeem cToken for DAI, so reserve knows how to handle it. (reserve can handle dai or cdai)
 	 * @dev _amount of token in iToken
 	 * @return return address of the DAI and amount of the DAI
 	 */
@@ -91,22 +91,23 @@ contract GoodCompoundStaking is SimpleStaking {
 		ERC20 comp = ERC20(nameService.getAddress("COMP"));
 		uint256 compBalance = comp.balanceOf(address(this));
 		address daiAddress = nameService.getAddress("DAI");
-		Uniswap uniswapContract =
-			Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+		Uniswap uniswapContract = Uniswap(
+			nameService.getAddress("UNISWAP_ROUTER")
+		);
 		uint256 daiFromComp;
 		cERC20 cToken = cERC20(address(iToken));
 		address[] memory path = new address[](2);
 		if (compBalance > 0) {
 			path[0] = address(comp);
 			path[1] = daiAddress;
-			uint256[] memory compSwap =
-				uniswapContract.swapExactTokensForTokens(
-					compBalance,
-					0,
-					path,
-					address(this),
-					block.timestamp
-				);
+			uint256[] memory compSwap = uniswapContract
+			.swapExactTokensForTokens(
+				compBalance,
+				0,
+				path,
+				address(this),
+				block.timestamp
+			);
 			daiFromComp = compSwap[1];
 		}
 		if (address(iToken) == nameService.getAddress("CDAI")) {
@@ -126,15 +127,14 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 dai;
 		if (redeemedAmount > 0) {
 			path[0] = address(token);
-			path[1] = daiAddress;		
-			uint256[] memory swap =
-				uniswapContract.swapExactTokensForTokens(
-					redeemedAmount,
-					0,
-					path,
-					address(this),
-					block.timestamp
-				);
+			path[1] = daiAddress;
+			uint256[] memory swap = uniswapContract.swapExactTokensForTokens(
+				redeemedAmount,
+				0,
+				path,
+				address(this),
+				block.timestamp
+			);
 			dai = swap[1];
 		}
 
@@ -176,31 +176,24 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 er = cToken.exchangeRateStored();
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
-		uint256 tokenBalance =
-			iTokenWorthInToken(iToken.balanceOf(address(this)));
-		uint256 balanceInUSD =
-			_returnTokenBalanceInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenBalance)
-				: 0;
+		uint256 tokenBalance = iTokenWorthInToken(
+			iToken.balanceOf(address(this))
+		);
+		uint256 balanceInUSD = _returnTokenBalanceInUSD
+			? getTokenValueInUSD(tokenUsdOracle, tokenBalance)
+			: 0;
 		uint256 compValueInUSD = _returnTokenGainsInUSD
-						? getCompValueInUSD(
-							ERC20(nameService.getAddress("COMP")).balanceOf(
-								address(this)
-							)
-						):0;
+			? getCompValueInUSD(
+				ERC20(nameService.getAddress("COMP")).balanceOf(address(this))
+			)
+			: 0;
 		if (tokenBalance <= totalProductivity) {
-			return (
-				0,
-				0,
-				tokenBalance,
-				balanceInUSD,
-				compValueInUSD
-			);
+			return (0, 0, tokenBalance, balanceInUSD, compValueInUSD);
 		}
 		uint256 tokenGains = tokenBalance - totalProductivity;
-		uint256 tokenGainsInUSD =
-			_returnTokenGainsInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenGains) + compValueInUSD : 0;
+		uint256 tokenGainsInUSD = _returnTokenGainsInUSD
+			? getTokenValueInUSD(tokenUsdOracle, tokenGains) + compValueInUSD
+			: 0;
 		uint256 iTokenGains;
 		if (caseType) {
 			iTokenGains =
@@ -249,10 +242,9 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 er = cToken.exchangeRateStored();
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
-		uint256 tokenWorth =
-			caseType == true
-				? (_amount * (10**decimalDifference) * er) / 10**mantissa
-				: ((_amount / (10**decimalDifference)) * er) / 10**mantissa; // calculation based on https://compound.finance/docs#protocol-math
+		uint256 tokenWorth = caseType == true
+			? (_amount * (10**decimalDifference) * er) / 10**mantissa
+			: ((_amount / (10**decimalDifference)) * er) / 10**mantissa; // calculation based on https://compound.finance/docs#protocol-math
 		return tokenWorth;
 	}
 
@@ -266,14 +258,19 @@ contract GoodCompoundStaking is SimpleStaking {
 	}
 
 	function getCompValueInUSD(uint256 _amount) public view returns (uint256) {
-		AggregatorV3Interface tokenPriceOracle =
-			AggregatorV3Interface(compUsdOracle);
+		AggregatorV3Interface tokenPriceOracle = AggregatorV3Interface(
+			compUsdOracle
+		);
 		int256 compPriceinUSD = tokenPriceOracle.latestAnswer();
 		return (uint256(compPriceinUSD) * _amount) / 1e18;
 	}
-	function _approveTokens()internal override{
+
+	function _approveTokens() internal override {
 		address uniswapRouter = nameService.getAddress("UNISWAP_ROUTER");
-		ERC20(nameService.getAddress("COMP")).approve(uniswapRouter,type(uint256).max);
+		ERC20(nameService.getAddress("COMP")).approve(
+			uniswapRouter,
+			type(uint256).max
+		);
 		token.approve(uniswapRouter, type(uint256).max);
 		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
 	}

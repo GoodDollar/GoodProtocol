@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.6.6;
+pragma solidity >=0.8.0;
 import "../Interfaces.sol";
-import "openzeppelin-solidity/contracts/utils/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DSMath.sol";
 contract BaseShareField is DSMath {
-	using SafeMath for uint256;
-
 	uint256 totalProductivity;
 	uint256 accAmountPerShare;
 
@@ -21,6 +18,7 @@ contract BaseShareField is DSMath {
 		uint256 amount; // How many tokens the user has provided.
 		uint256 rewardDebt; // Reward debt.
 		uint256 rewardEarn; // Reward earn and not minted
+		uint256 rewardMinted; //Rewards minted to user so far
 		uint64 lastRewardTime; // Last time that user got rewards
 		uint64 multiplierResetTime; // Reset time of multiplier
 		uint8 donationPer; // The percentage of donation from their reward
@@ -73,9 +71,10 @@ contract BaseShareField is DSMath {
 	 * multiplier therefore they just gets half of the rewards which they earned in the first month
 	 * after first month they get full amount of rewards for the part that they earned after one month
 	 */
-	function _audit(address user) internal virtual {
+	function _audit(address user, uint256 updatedAmount) internal virtual {
 		UserInfo storage userInfo = users[user];
-		if (userInfo.amount > 0) {
+		uint256 _amount = userInfo.amount;
+		if (_amount > 0) {
 			(
 				uint256 blocksToPay,
 				uint256 firstMonthBlocksToPay,
@@ -84,7 +83,7 @@ contract BaseShareField is DSMath {
 
 			if (blocksToPay != 0) {
 				uint256 pending =
-					(userInfo.amount *
+					(_amount *
 						(10**tokenDecimalDifference) *
 						accAmountPerShare) /
 						1e27 -
@@ -104,6 +103,18 @@ contract BaseShareField is DSMath {
 		} else {
 			userInfo.multiplierResetTime = uint64(block.number); // Should set user's multiplierResetTime when they stake for the first time
 		}
+
+		//if withdrawing rewards/stake we reset multiplier, only in case of increasinig productivity we dont reset multiplier
+		if (updatedAmount <= _amount)
+			userInfo.multiplierResetTime = uint64(block.number);
+
+		userInfo.lastRewardTime = uint64(block.number);
+		userInfo.amount = updatedAmount;
+		userInfo.rewardDebt =
+			(userInfo.amount *
+				(10**tokenDecimalDifference) *
+				accAmountPerShare) /
+			1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is 27 decimals
 	}
 
 	/**
@@ -147,18 +158,10 @@ contract BaseShareField is DSMath {
 		uint256 blockStart,
 		uint256 blockEnd
 	) internal virtual returns (bool) {
-		UserInfo storage userInfo = users[user];
 		_update(rewardsPerBlock, blockStart, blockEnd);
-		_audit(user);
+		_audit(user, users[user].amount + value);
 
 		totalProductivity = totalProductivity + value;
-		userInfo.lastRewardTime = uint64(block.number);
-		userInfo.amount = userInfo.amount + value;
-		userInfo.rewardDebt =
-			(userInfo.amount *
-				(10**tokenDecimalDifference) *
-				accAmountPerShare) /
-			1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is 27 decimals
 		return true;
 	}
 
@@ -174,22 +177,8 @@ contract BaseShareField is DSMath {
 		uint256 blockStart,
 		uint256 blockEnd
 	) internal virtual returns (bool) {
-		UserInfo storage userInfo = users[user];
-		require(
-			value > 0 && userInfo.amount >= value,
-			"INSUFFICIENT_PRODUCTIVITY"
-		);
-
 		_update(rewardsPerBlock, blockStart, blockEnd);
-		_audit(user);
-		userInfo.lastRewardTime = uint64(block.number);
-		userInfo.multiplierResetTime = uint64(block.number);
-		userInfo.amount = userInfo.amount - value;
-		userInfo.rewardDebt =
-			(userInfo.amount *
-				(10**tokenDecimalDifference) *
-				accAmountPerShare) /
-			1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is 27 decimals
+		_audit(user, users[user].amount - value);
 		totalProductivity = totalProductivity - value;
 
 		return true;
@@ -260,15 +249,14 @@ contract BaseShareField is DSMath {
 		uint256 blockStart,
 		uint256 blockEnd
 	) public returns (uint256) {
+		UserInfo storage userInfo = users[user];
 		_canMintRewards();
 		_update(rewardsPerBlock, blockStart, blockEnd);
-		_audit(user);
-		UserInfo storage userInfo = users[user];
+		_audit(user, userInfo.amount);
 		uint256 amount = userInfo.rewardEarn;
 		amount = userInfo.donationPer == 100 ? 0 : amount;
 		userInfo.rewardEarn = 0;
-		userInfo.lastRewardTime = uint64(block.number);
-		userInfo.multiplierResetTime = uint64(block.number);
+		userInfo.rewardMinted += amount;
 		mintedShare = mintedShare + amount;
 		amount = amount / 1e16; // change decimal of mint amount to GD decimals
 		return amount;

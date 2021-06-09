@@ -9,6 +9,7 @@ import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
 import "./MultiBaseGovernanceShareField.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 /**
  * @title Staking contract that allows citizens to stake G$ to get GDAO rewards
@@ -16,36 +17,18 @@ import "./MultiBaseGovernanceShareField.sol";
 contract GovernanceStaking is
 	ERC20Upgradeable,
 	MultiBaseGovernanceShareField,
-	DAOUpgradeableContract
+	DAOUpgradeableContract,
+	ReentrancyGuardUpgradeable
 {
 	uint256 public constant FUSE_MONTHLY_BLOCKS = 12 * 60 * 24 * 30;
 
 	// Token address
 	ERC20 token;
 
-	// The total staked Token amount in the contract
-	// uint256 public totalStaked = 0;
-
-	/**
-	 * @dev Emitted when `staker` stake `value` tokens of `token`
-	 */
-	event Staked(address indexed staker, address token, uint256 value);
-
-	/**
-	 * @dev Emitted when `staker` withdraws their stake `value` tokens and contracts balance will
-	 * be reduced to`remainingBalance`.
-	 */
-	event StakeWithdraw(
-		address indexed staker,
-		address token,
-		uint256 value,
-		uint256 remainingBalance
-	);
-
 	/**
 	 * @dev Emitted when `staker` withdraws their rewards `value` tokens
 	 */
-	event RewardsWithdraw(address indexed staker, uint256 value);
+	event ReputationEarned(address indexed staker, uint256 value);
 
 	/**
 	 * @dev Constructor
@@ -86,13 +69,12 @@ contract GovernanceStaking is
 		);
 		_mint(_msgSender(), _amount); // mint Staking token for staker
 		_mintRewards(_msgSender());
-		emit Staked(_msgSender(), address(token), _amount);
 	}
 
 	/**
 	 * @dev Withdraws the sender staked Token.
 	 */
-	function withdrawStake(uint256 _amount) external {
+	function withdrawStake(uint256 _amount) external nonReentrant {
 		(uint256 userProductivity, ) =
 			getProductivity(address(this), _msgSender());
 		if (_amount == 0) _amount = userProductivity;
@@ -114,18 +96,12 @@ contract GovernanceStaking is
 			token.transfer(_msgSender(), tokenWithdraw),
 			"withdraw transfer failed"
 		);
-		emit StakeWithdraw(
-			_msgSender(),
-			address(token),
-			tokenWithdraw,
-			token.balanceOf(address(this))
-		);
 	}
 
 	/**
 	 * @dev Staker can withdraw their rewards without withdraw their stake
 	 */
-	function withdrawRewards() public returns (uint256) {
+	function withdrawRewards() public nonReentrant returns (uint256) {
 		return _mintRewards(_msgSender());
 	}
 
@@ -140,7 +116,7 @@ contract GovernanceStaking is
 			_issueEarnedRewards(address(this), user, 0, block.number);
 		if (amount > 0) {
 			ERC20(nameService.getAddress("REPUTATION")).mint(user, amount);
-			emit RewardsWithdraw(_msgSender(), amount);
+			emit ReputationEarned(_msgSender(), amount);
 		}
 		return amount;
 	}

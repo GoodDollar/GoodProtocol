@@ -11,7 +11,8 @@ import "./GoodFundManager.sol";
 import "./BaseShareField.sol";
 import "../governance/StakersDistribution.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Tokens
@@ -21,7 +22,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 abstract contract SimpleStaking is
 	ERC20Upgradeable,
 	DAOContract,
-	BaseShareField
+	BaseShareField,
+	ReentrancyGuardUpgradeable
 {
 	// Token address
 	ERC20 public token;
@@ -83,7 +85,6 @@ abstract contract SimpleStaking is
 		stakingTokenDecimals = token.decimals();
 		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;
-		
 	}
 
 	/**
@@ -159,10 +160,12 @@ abstract contract SimpleStaking is
 			uint256,
 			uint256
 		);
+
 	/**
-	 * @dev Approve infinite tokens to defi protocols in order to save gas 
+	 * @dev Approve infinite tokens to defi protocols in order to save gas
 	 */
-	function _approveTokens()internal virtual;
+	function _approveTokens() internal virtual;
+
 	/**
 	 * @dev Allows a staker to deposit Tokens. Notice that `approve` is
 	 * needed to be executed before the execution of this method.
@@ -184,7 +187,7 @@ abstract contract SimpleStaking is
 		require(_amount > 0, "You need to stake a positive token amount");
 		require(
 			(_inInterestToken ? iToken : token).transferFrom(
-				msg.sender,
+				_msgSender(),
 				address(this),
 				_amount
 			),
@@ -195,15 +198,19 @@ abstract contract SimpleStaking is
 			mintInterestToken(_amount); //mint iToken
 		}
 
-		UserInfo storage userInfo = users[msg.sender];
+		UserInfo storage userInfo = users[_msgSender()];
 		userInfo.donationPer = uint8(_donationPer);
 
-		_mint(msg.sender, _amount); // mint Staking token for staker
-		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
-			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
-				.rewardsForStakingContract(address(this));
+		_mint(_msgSender(), _amount); // mint Staking token for staker
+		(
+			uint32 rewardsPerBlock,
+			uint64 blockStart,
+			uint64 blockEnd,
+
+		) = GoodFundManager(nameService.getAddress("FUND_MANAGER"))
+		.rewardsForStakingContract(address(this));
 		_increaseProductivity(
-			msg.sender,
+			_msgSender(),
 			_amount,
 			rewardsPerBlock,
 			blockStart,
@@ -211,94 +218,96 @@ abstract contract SimpleStaking is
 		);
 
 		//notify GDAO distrbution for stakers
-		StakersDistribution sd =
-			StakersDistribution(nameService.getAddress("GDAO_STAKERS"));
+		StakersDistribution sd = StakersDistribution(
+			nameService.getAddress("GDAO_STAKERS")
+		);
 		if (address(sd) != address(0)) {
-			uint256 stakeAmountInEighteenDecimals =
-				token.decimals() == 18
-					? _amount
-					: _amount * 10**(18 - token.decimals());
-			sd.userStaked(msg.sender, stakeAmountInEighteenDecimals);
+			uint256 stakeAmountInEighteenDecimals = token.decimals() == 18
+				? _amount
+				: _amount * 10**(18 - token.decimals());
+			sd.userStaked(_msgSender(), stakeAmountInEighteenDecimals);
 		}
 
-		emit Staked(msg.sender, address(token), _amount);
+		emit Staked(_msgSender(), address(token), _amount);
 	}
 
 	/**
 	 * @dev Withdraws the sender staked Token.
-	 * @dev _amount Amount to withdraw in Token or iToken depends on the _inInterestToken parameter
-	 * @param _inInterestToken specificy if stake in iToken or Token
+	 * @dev _amount Amount to withdraw in Token or iToken
+	 * @param _inInterestToken if true_amount is in iToken and also returned in iToken other wise use Token
 	 */
 	function withdrawStake(uint256 _amount, bool _inInterestToken)
 		external
 		virtual
+		nonReentrant
 	{
-		//InterestDistribution.Staker storage staker = interestData.stakers[msg.sender];
 		uint256 tokenWithdraw;
-		require(_amount > 0, "Should withdraw positive amount");
 		(uint256 userProductivity, ) = getProductivity(msg.sender);
+
 		if (_inInterestToken) {
 			uint256 tokenWorth = iTokenWorthInToken(_amount);
-			require(userProductivity >= tokenWorth, "Not enough token staked");
 			require(
-				iToken.transfer(msg.sender, _amount),
+				iToken.transfer(_msgSender(), _amount),
 				"withdraw transfer failed"
 			);
-			_amount = tokenWorth;
+			tokenWithdraw = _amount = tokenWorth;
 		} else {
 			tokenWithdraw = _amount;
-			require(userProductivity >= _amount, "Not enough token staked");
 			redeem(tokenWithdraw);
+
+			//this is required for redeem precision loss
 			uint256 tokenActual = token.balanceOf(address(this));
 			if (tokenActual < tokenWithdraw) {
 				tokenWithdraw = tokenActual;
 			}
 			require(
-				token.transfer(msg.sender, tokenWithdraw),
+				token.transfer(_msgSender(), tokenWithdraw),
 				"withdraw transfer failed"
 			);
 		}
 
-		GoodFundManager fm =
-			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
+		GoodFundManager fm = GoodFundManager(
+			nameService.getAddress("FUND_MANAGER")
+		);
+
+		//this will revert in case user doesnt have enough productivity to withdraw _amount, as productivity=staking tokens amount
 		_burn(msg.sender, _amount); // burn their staking tokens
-		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
-			fm.rewardsForStakingContract(address(this));
+
+		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) = fm
+		.rewardsForStakingContract(address(this));
+
 		_decreaseProductivity(
-			msg.sender,
+			_msgSender(),
 			_amount,
 			rewardsPerBlock,
 			blockStart,
 			blockEnd
 		);
-		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
+		fm.mintReward(nameService.getAddress("CDAI"), _msgSender()); // send rewards to user and use cDAI address since reserve in cDAI
 
 		//notify GDAO distrbution for stakers
-		StakersDistribution sd =
-			StakersDistribution(nameService.getAddress("GDAO_STAKERS"));
+		StakersDistribution sd = StakersDistribution(
+			nameService.getAddress("GDAO_STAKERS")
+		);
 		if (address(sd) != address(0)) {
-			uint256 withdrawAmountInEighteenDecimals =
-				token.decimals() == 18
-					? _amount
-					: _amount * 10**(18 - token.decimals());
-			sd.userWithdraw(msg.sender, withdrawAmountInEighteenDecimals);
+			uint256 withdrawAmountInEighteenDecimals = token.decimals() == 18
+				? _amount
+				: _amount * 10**(18 - token.decimals());
+			sd.userWithdraw(_msgSender(), withdrawAmountInEighteenDecimals);
 		}
 
-		emit StakeWithdraw(
-			msg.sender,
-			address(token),
-			_inInterestToken == false ? tokenWithdraw : _amount
-		);
+		emit StakeWithdraw(msg.sender, address(token), tokenWithdraw);
 	}
 
 	/**
 	 * @dev withdraw staker G$ rewards + GDAO rewards
 	 * withdrawing rewards resets the multiplier! so if user just want GDAO he should use claimReputation()
 	 */
-	function withdrawRewards() public {
-		GoodFundManager fm =
-			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
-		fm.mintReward(nameService.getAddress("CDAI"), msg.sender); // send rewards to user and use cDAI address since reserve in cDAI
+	function withdrawRewards() external nonReentrant {
+		GoodFundManager fm = GoodFundManager(
+			nameService.getAddress("FUND_MANAGER")
+		);
+		fm.mintReward(nameService.getAddress("CDAI"), _msgSender()); // send rewards to user and use cDAI address since reserve in cDAI
 		claimReputation();
 	}
 
@@ -307,12 +316,13 @@ abstract contract SimpleStaking is
 	 */
 	function claimReputation() public {
 		//claim reputation rewards
-		StakersDistribution sd =
-			StakersDistribution(nameService.getAddress("GDAO_STAKERS"));
+		StakersDistribution sd = StakersDistribution(
+			nameService.getAddress("GDAO_STAKERS")
+		);
 		if (address(sd) != address(0)) {
 			address[] memory contracts = new address[](1);
 			contracts[0] = (address(this));
-			sd.claimReputation(msg.sender, contracts);
+			sd.claimReputation(_msgSender(), contracts);
 		}
 	}
 
@@ -326,11 +336,16 @@ abstract contract SimpleStaking is
 	) internal override {
 		super._transfer(from, to, value);
 
-		StakersDistribution sd =
-			StakersDistribution(nameService.getAddress("GDAO_STAKERS"));
-		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
-			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
-				.rewardsForStakingContract(address(this));
+		StakersDistribution sd = StakersDistribution(
+			nameService.getAddress("GDAO_STAKERS")
+		);
+		(
+			uint32 rewardsPerBlock,
+			uint64 blockStart,
+			uint64 blockEnd,
+
+		) = GoodFundManager(nameService.getAddress("FUND_MANAGER"))
+		.rewardsForStakingContract(address(this));
 		_decreaseProductivity(
 			from,
 			value,
@@ -355,10 +370,9 @@ abstract contract SimpleStaking is
 	function tokenDecimalPrecision() internal view returns (uint256, bool) {
 		uint256 tokenDecimal = tokenDecimal();
 		uint256 iTokenDecimal = iTokenDecimal();
-		uint256 decimalDifference =
-			tokenDecimal > iTokenDecimal
-				? tokenDecimal - iTokenDecimal
-				: iTokenDecimal - tokenDecimal;
+		uint256 decimalDifference = tokenDecimal > iTokenDecimal
+			? tokenDecimal - iTokenDecimal
+			: iTokenDecimal - tokenDecimal;
 		return (decimalDifference, tokenDecimal > iTokenDecimal);
 	}
 
@@ -401,11 +415,17 @@ abstract contract SimpleStaking is
 			_recipient != address(this),
 			"Recipient cannot be the staking contract"
 		);
-		(uint256 iTokenGains, uint256 tokenGains, , , uint256 usdGains) =
-			currentGains(false, true);
+		(
+			uint256 iTokenGains,
+			uint256 tokenGains,
+			,
+			,
+			uint256 usdGains
+		) = currentGains(false, true);
 
-		(address redeemedToken, uint256 redeemedAmount) =
-			redeemUnderlyingToDAI(iTokenGains);
+		(address redeemedToken, uint256 redeemedAmount) = redeemUnderlyingToDAI(
+			iTokenGains
+		);
 		if (redeemedAmount > 0)
 			require(
 				ERC20(redeemedToken).transfer(_recipient, redeemedAmount),
@@ -464,7 +484,7 @@ abstract contract SimpleStaking is
 
 	function _canMintRewards() internal view override {
 		require(
-			msg.sender == nameService.getAddress("FUND_MANAGER"),
+			_msgSender() == nameService.getAddress("FUND_MANAGER"),
 			"Only FundManager can call this method"
 		);
 	}
