@@ -13,7 +13,7 @@ import { config } from "dotenv";
 import { airdrop } from "./scripts/governance/airdropCalculation";
 import { airdrop as gdxAirdrop } from "./scripts/gdx/gdxAirdropCalculation";
 import "hardhat-gas-reporter";
-
+import "hardhat-contract-sizer";
 config();
 
 const mnemonic = process.env.MNEMONIC;
@@ -39,6 +39,12 @@ const hhconfig: HardhatUserConfig = {
   etherscan: {
     apiKey: etherscan_key
   },
+  contractSizer: {
+    alphaSort: false,
+    runOnCompile: true,
+    disambiguatePaths: false
+  },
+
   networks: {
     develop: {
       gasPrice: 1000000000, //1 gwei
