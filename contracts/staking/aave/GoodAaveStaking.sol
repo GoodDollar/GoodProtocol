@@ -150,7 +150,7 @@ contract GoodAaveStaking is SimpleStaking {
 				? getTokenValueInUSD(tokenUsdOracle, tokenGains)
 				: 0;
 		return (
-			tokenGains, // since token gains == atoken gains
+			tokenGains, // since token gains = atoken gains
 			tokenGains,
 			tokenBalance,
 			balanceInUSD,

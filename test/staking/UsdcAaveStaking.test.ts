@@ -46,7 +46,8 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     nameService,
     initializeToken,
     lendingPool,
-    setDAOAddress;
+    setDAOAddress,
+    genericCall;
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
@@ -89,6 +90,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       setSchemes,
       marketMaker: mm,
       daiAddress,
+      genericCall: gc,
       cdaiAddress,
       reserve,
       setReserveToken
@@ -99,6 +101,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     controller = ctrl;
     setDAOAddress = sda;
     nameService = ns;
+    genericCall = gc;
     initializeToken = setReserveToken;
     goodReserve = reserve as GoodReserveCDai;
     console.log("deployed dao", {
@@ -221,6 +224,34 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       )
     ).to.revertedWith("Initializable: contract is already initialized");
   });
+  it("should be set rewards per block for particular stacking contract", async () => {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    const encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        goodAaveStaking.address,
+        currentBlockNumber - 5,
+        currentBlockNumber + 500,
+        false
+      ] // set 10 gd per block
+    );
+    await genericCall(goodFundManager.address, encodedData, avatar, 0);
+    let rewardPerBlock = await goodFundManager.rewardsForStakingContract(
+      goodAaveStaking.address
+    );
+    expect(rewardPerBlock[0].toString()).to.be.equal("1000");
+    expect(rewardPerBlock[1].toString()).to.be.equal(
+      (currentBlockNumber - 5).toString()
+    );
+    expect(rewardPerBlock[2].toString()).to.be.equal(
+      (currentBlockNumber + 500).toString()
+    );
+    expect(rewardPerBlock[3]).to.be.equal(false);
+  });
   it("it should stake usdc to lendingPool and withdraw", async () => {
     const stakingAmount = ethers.utils.parseUnits("100", 6);
     await usdc["mint(address,uint256)"](founder.address, stakingAmount);
@@ -236,8 +267,63 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       goodAaveStaking.address
     );
     expect(aTokenBalanceAfterWithdraw).to.be.equal(0);
+    const founderProductivity = await goodAaveStaking.getProductivity(
+      founder.address
+    );
   });
 
+  it("should be able to earn rewards after some block passed", async () => {
+    const stakingAmount = ethers.utils.parseUnits("100", 6);
+    await usdc["mint(address,uint256)"](staker.address, stakingAmount);
+    await usdc.connect(staker).approve(goodAaveStaking.address, stakingAmount);
+    await goodAaveStaking.connect(staker).stake(stakingAmount, 0, false);
+    let gdBalanceBeforeWithdraw = await goodDollar.balanceOf(staker.address);
+    await advanceBlocks(4);
+    await goodAaveStaking.connect(staker).withdrawStake(stakingAmount, false);
+    let gdBalancerAfterWithdraw = await goodDollar.balanceOf(staker.address);
+    expect(gdBalancerAfterWithdraw.toString()).to.be.equal("2500");
+  });
+  it("stake should generate some interest and shoul be used to generate UBI", async () => {
+    const stakingAmount = ethers.utils.parseUnits("100", 6);
+    await usdc["mint(address,uint256)"](staker.address, stakingAmount);
+    await usdc.connect(staker).approve(goodAaveStaking.address, stakingAmount);
+    await goodAaveStaking.connect(staker).stake(stakingAmount, 0, false);
+
+    await usdc["mint(address,uint256)"](
+      staker.address,
+      ethers.utils.parseEther("100000000")
+    );
+    await usdc
+      .connect(staker)
+      .transfer(lendingPool.address, ethers.utils.parseEther("100000000")); // We should put extra USDC to LendingPool/Atoken contract in order to provide interest
+    await lendingPool.giveInterestToUser("1500", goodAaveStaking.address); // increase interest by calling giveInterestToUser
+
+    const currentUBIInterestBeforeWithdraw = await goodAaveStaking.currentGains(
+      false,
+      true
+    );
+    await goodAaveStaking.connect(staker).withdrawStake(stakingAmount, false);
+    const gdBalanceBeforeCollectInterest = await goodDollar.balanceOf(
+      staker.address
+    );
+    const contractAddressesToBeCollected = await goodFundManager.calcSortedContracts(
+      "1100000"
+    );
+    console.log(contractAddressesToBeCollected.toString());
+    await goodFundManager
+      .connect(staker)
+      .collectInterest(contractAddressesToBeCollected);
+    const gdBalanceAfterCollectInterest = await goodDollar.balanceOf(
+      staker.address
+    );
+    const currentUBIInterestAfterWithdraw = await goodAaveStaking.currentGains(
+      false,
+      true
+    );
+    expect(currentUBIInterestBeforeWithdraw[0].toString()).to.not.be.equal("0");
+    expect(currentUBIInterestAfterWithdraw[0].toString()).to.be.equal("0");
+    expect(gdBalanceAfterCollectInterest.gt(gdBalanceBeforeCollectInterest));
+  });
   async function addLiquidity(
     token0Amount: BigNumber,
     token1Amount: BigNumber

@@ -7,7 +7,7 @@ pragma solidity >=0.8.0;
  * @title LendingPoolMock that demonstrates behaviour of LendingPool for only single asset with aToken implemented in lendingPool
  */
 contract LendingPoolMock is ERC20PresetMinterPauserUpgradeable {
-    uint256 public interestCoefficient = 1e27; // keep it in 27 decimals
+
     address public underlyingAsset;
 
     constructor(address _asset){
@@ -30,10 +30,8 @@ contract LendingPoolMock is ERC20PresetMinterPauserUpgradeable {
     address to
   ) external returns (uint256){
       require(asset == underlyingAsset,'asset should be same with set underlying asset');
-      if (amount > super.balanceOf(msg.sender))
-      {_burn(msg.sender,super.balanceOf(msg.sender));}else{
-          _burn(msg.sender,amount);
-      }
+      _burn(msg.sender, amount);
+
       ERC20Upgradeable(asset).transfer(to,amount);
   }
 
@@ -41,18 +39,6 @@ contract LendingPoolMock is ERC20PresetMinterPauserUpgradeable {
 		return 6;
 	}
 
-    function balanceOf(address user)
-    public
-    view
-    override
-    returns (uint256)
-  {
-      return super.balanceOf(user) * interestCoefficient / 1e27;
-  }
-
-  function setInterestCoefficent(uint256 _interestAddition) external{
-      interestCoefficient = _interestAddition;
-  }
    function getReserveData(address asset)
     external
     view
@@ -61,6 +47,11 @@ contract LendingPoolMock is ERC20PresetMinterPauserUpgradeable {
     DataTypes.ReserveData memory reserve;
     reserve.aTokenAddress = address(this);
     return reserve;
+  }
+
+  function giveInterestToUser(uint256 _amount,address _recipient) external{
+    _mint(_recipient,(balanceOf(_recipient) * (100 + _amount)) / 100);
+
   }
   
 }
