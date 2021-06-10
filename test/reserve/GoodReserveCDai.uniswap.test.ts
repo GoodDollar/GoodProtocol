@@ -460,7 +460,14 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     await addETHLiquidity(mintAmount, ETHAmount);
     const gdBalanceBeforeSwap = await goodDollar.balanceOf(founder.address);
     let transaction = await (
-      await goodReserve.buyWithETH(0, 0, founder.address, { value: buyAmount })
+      await goodReserve.buy(
+        ethers.constants.AddressZero,
+        buyAmount,
+        0,
+        0,
+        founder.address,
+        { value: buyAmount }
+      )
     ).wait();
     const gdBalanceAfterSwap = await goodDollar.balanceOf(founder.address);
     expect(gdBalanceAfterSwap.gt(gdBalanceBeforeSwap)).to.be.true; // Gd balance after swap should greater than before swap
