@@ -10,6 +10,7 @@
 import { network, ethers, upgrades } from "hardhat";
 import { networkNames } from "@openzeppelin/upgrades-core";
 import { isFunction, get } from "lodash";
+import { CompoundStakingFactory } from "../../types";
 import releaser from "../releaser";
 import {
   GReputation,
@@ -61,7 +62,8 @@ const main = async () => {
     {
       name: "cdai",
       address: dao.cDAI || "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
-      usdOracle: "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9",
+      usdOracle:
+        dao.DAIUsdOracle || "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9",
       conversionGasCost: 200000
     }
   ];
@@ -102,7 +104,7 @@ const main = async () => {
             protocolSettings.dai || dao.DAI,
             protocolSettings.cdai || dao.cDAI,
             dao.Bridge,
-            protocolSettings.uniswapRouter,
+            protocolSettings.uniswapRouter || dao.UniswapRouter,
             !isMainnet || protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
             !isMainnet || protocolSettings.chainlink.dai_eth,
             !isMainnet || protocolSettings.chainlink.eth_usd
@@ -240,7 +242,9 @@ const main = async () => {
         continue;
       }
 
-      const args = contract.args.map(_ => (isFunction(_) ? _() : _));
+      const args = await Promise.all(
+        contract.args.map(async _ => await (isFunction(_) ? _() : _))
+      );
 
       console.log(`deploying contract upgrade ${contract.name}`, {
         args,
@@ -264,10 +268,13 @@ const main = async () => {
       release[contract.name] = deployed.address;
     }
 
-    const stakingContracts =
+    const { DonationsStaking, StakingContracts } =
       isMainnet && (await deployStakingContracts(release));
-    release["StakingContracts"] = stakingContracts;
-    console.log({ stakingContracts });
+
+    release["StakingContracts"] = StakingContracts;
+    release["DonationsStaking"] = DonationsStaking;
+
+    console.log({ StakingContracts, DonationsStaking });
     let res = Object.assign(newdao, release);
     await releaser(release, networkName);
     return res;
@@ -366,8 +373,8 @@ const main = async () => {
     console.log("upgrading donationstaking...");
     await upgrade.upgradeDonationStaking(
       release.NameService,
-      dao.DAIStaking || ethers.constants.AddressZero,
-      release.DonationStaking
+      dao.DonationsStaking, //old
+      release.DonationsStaking //new
     );
 
     if (isProduction) {
@@ -504,8 +511,25 @@ const main = async () => {
         throw new Error(`staking contract deploy failed ${token}`);
       return log.args.proxy;
     });
+
     const deployed = await Promise.all(ps);
-    return deployed;
+
+    const deployedDonationsStaking = await upgrades.deployProxy(
+      await ethers.getContractFactory("DonationsStaking"),
+      [release.NameService, deployed[0]],
+      {
+        kind: "uups"
+      }
+    );
+
+    console.log(
+      `DonationsStaking deployed to: ${deployedDonationsStaking.address}`
+    );
+
+    return {
+      DonationsStaking: deployedDonationsStaking.address,
+      StakingContracts: deployed
+    };
   };
 
   const release: any = await deployContracts();
@@ -514,9 +538,6 @@ const main = async () => {
   isMainnet && (await performUpgrade(release));
   !isMainnet && (await performUpgradeFuse(release));
   // await proveNewRep();
-  // await proposeRemoveOldSchemes();
-  // await voteToRevoke();
-  //   voteNewGovernance(vm.address, "0x07FFf2171d99792f3eE692B6EA04F674888BA496");
 };
 
 main().catch(console.log);

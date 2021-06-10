@@ -95,6 +95,9 @@ contract ProtocolUpgrade {
 			avatar,
 			0
 		);
+
+		require(ok, "Calling oldDonationStaking end failed");
+
 		(uint256 dai, uint256 eth) = abi.decode(result, (uint256, uint256));
 
 		ok = controller.externalTokenTransfer(
