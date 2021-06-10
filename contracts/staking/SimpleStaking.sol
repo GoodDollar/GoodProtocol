@@ -211,10 +211,6 @@ abstract contract SimpleStaking is
 		if (_inInterestToken == false) {
 			mintInterestToken(_amount); //mint iToken
 		}
-
-		UserInfo storage userInfo = users[_msgSender()];
-		userInfo.donationPer = uint8(_donationPer);
-
 		_mint(_msgSender(), _amount); // mint Staking token for staker
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
@@ -224,7 +220,8 @@ abstract contract SimpleStaking is
 			_amount,
 			rewardsPerBlock,
 			blockStart,
-			blockEnd
+			blockEnd,
+			_donationPer
 		);
 
 		//notify GDAO distrbution for stakers
@@ -356,7 +353,7 @@ abstract contract SimpleStaking is
 			blockStart,
 			blockEnd
 		);
-		_increaseProductivity(to, value, rewardsPerBlock, blockStart, blockEnd);
+		_increaseProductivity(to, value, rewardsPerBlock, blockStart, blockEnd,0);
 		if (address(sd) != address(0)) {
 			address[] memory contracts;
 			contracts[0] = (address(this));
