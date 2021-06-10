@@ -25,7 +25,7 @@ import DonationsStaking from "@gooddollar/goodcontracts/upgradables/build/contra
 
 import releaser from "../scripts/releaser";
 import { increaseTime, deployUniswap } from "../test/helpers";
-ethers.constants.HashZero;
+
 const deploy = async () => {
   console.log("dao deploying...");
   //TODO: modify to deploy old DAO contracts version ie Reserve to truly simulate old DAO
@@ -35,7 +35,7 @@ const deploy = async () => {
   console.log("ubi deployed");
   const gov = await deployOldVoting(dao);
   console.log("old vote deployed");
-  const uniswap = await deployUniswap();
+  const { uniswap, daiUsdOracle } = await deploy3rdParty(dao);
 
   const release = {
     Reserve: dao.reserve.address,
@@ -58,12 +58,40 @@ const deploy = async () => {
     BancorFormula: dao.bancorFormula,
     DonationsStaking: dao.donationsStaking,
     UniswapRouter: uniswap.router.address,
+    DAIUsdOracle: daiUsdOracle.address,
     network: "develop",
     networkId: 4447
   };
   releaser(release, network.name, "olddao");
 };
 
+const deploy3rdParty = async dao => {
+  const uniswap = await deployUniswap();
+  //create et/dai pair
+  let mintAmount = ethers.utils.parseEther("1000");
+  const ETHAmount = ethers.utils.parseEther("50");
+  const dai = await ethers.getContractAt("cERC20", dao.daiAddress);
+  await dai["mint(uint256)"](mintAmount);
+
+  await dai.approve(uniswap.router.address, mintAmount);
+  await uniswap.router.addLiquidityETH(
+    dao.daiAddress,
+    mintAmount,
+    mintAmount,
+    ETHAmount,
+    (await ethers.getSigners())[0].address,
+    ethers.constants.MaxUint256,
+    {
+      value: ETHAmount
+    }
+  );
+
+  const tokenUsdOracleFactory = await ethers.getContractFactory(
+    "BatUSDMockOracle"
+  );
+  const daiUsdOracle = await tokenUsdOracleFactory.deploy();
+  return { uniswap, daiUsdOracle };
+};
 export const createOldDAO = async () => {
   let [root, ...signers] = await ethers.getSigners();
 
