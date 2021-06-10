@@ -253,13 +253,127 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(gdBalancerAfterWithdraw.toString()).to.be.equal("2500");
   });
 
+  it("it should withdraw effective stakes and donated stakes proportionally", async () => {
+    const stakingAmount = ethers.utils.parseEther("100");
+
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount.mul(BN.from("2")));
+
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100, false);
+    const userStakeInfoBeforeWithdraw = await goodCompoundStaking.users(
+      staker.address
+    );
+    expect(userStakeInfoBeforeWithdraw.effectiveStakes).to.be.equal(
+      stakingAmount
+    );
+    expect(userStakeInfoBeforeWithdraw.amount).to.be.equal(
+      stakingAmount.mul(BN.from("2"))
+    );
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false);
+    const userStakeInfoAfterWithdraw = await goodCompoundStaking.users(
+      staker.address
+    );
+    expect(userStakeInfoAfterWithdraw.effectiveStakes).to.be.equal(
+      stakingAmount.div(BN.from("2"))
+    ); // should be half of the stakes that staked initially
+    expect(userStakeInfoAfterWithdraw.amount).to.be.equal(stakingAmount);
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false);
+  });
+  it("it should not increase totalEffectiveStakes when staked amount's rewards are donated", async () => {
+    const stakingAmount = ethers.utils.parseEther("100");
+
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    const totalEffectiveStakesBeforeStake = await goodCompoundStaking.totalEffectiveStakes();
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100, false);
+    const totalEffectiveStakesAfterStake = await goodCompoundStaking.totalEffectiveStakes();
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false);
+    expect(totalEffectiveStakesAfterStake).to.be.equal(
+      totalEffectiveStakesBeforeStake
+    );
+  });
+  it("it should increase totalEffectiveStakes when staked without donation", async () => {
+    const stakingAmount = ethers.utils.parseEther("100");
+
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    const totalEffectiveStakesBeforeStake = await goodCompoundStaking.totalEffectiveStakes();
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
+    const totalEffectiveStakesAfterStake = await goodCompoundStaking.totalEffectiveStakes();
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false);
+    expect(totalEffectiveStakesAfterStake).to.be.gt(
+      totalEffectiveStakesBeforeStake
+    );
+  });
+  it("it should withdraw effective and stakes according to ratio", async () => {
+    const stakingAmount = ethers.utils.parseEther("100");
+
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+
+    await goodCompoundStaking
+      .connect(staker)
+      .stake(stakingAmount.mul(80).div(100), 0, false);
+    await goodCompoundStaking
+      .connect(staker)
+      .stake(stakingAmount.mul(20).div(100), 100, false);
+    const userStakeInfoBeforeWithdraw = await goodCompoundStaking.users(
+      staker.address
+    );
+    const withdrawAmount = stakingAmount.mul(20).div(100);
+    const withdrawFromEffectiveStake = withdrawAmount
+      .mul(userStakeInfoBeforeWithdraw.effectiveStakes)
+      .div(userStakeInfoBeforeWithdraw.amount);
+    const withdrawFromDonation = withdrawAmount.sub(withdrawFromEffectiveStake);
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(withdrawAmount, false);
+    const userStakeInfoAfterWithdraw = await goodCompoundStaking.users(
+      staker.address
+    );
+    expect(userStakeInfoBeforeWithdraw.effectiveStakes).to.be.gt(0);
+    expect(userStakeInfoAfterWithdraw.effectiveStakes).to.be.equal(
+      userStakeInfoBeforeWithdraw.effectiveStakes.sub(
+        withdrawFromEffectiveStake
+      )
+    );
+    expect(
+      userStakeInfoAfterWithdraw.amount.sub(
+        userStakeInfoAfterWithdraw.effectiveStakes
+      )
+    ).to.be.equal(
+      userStakeInfoBeforeWithdraw.amount
+        .sub(userStakeInfoBeforeWithdraw.effectiveStakes)
+        .sub(withdrawFromDonation)
+    );
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount.sub(withdrawAmount), false); // withdraw left amount
+  });
   it("shouldn't be able to earn rewards after rewards blockend passed", async () => {
     let stakingAmount = ethers.utils.parseEther("100");
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
     await dai
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100, false);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
 
     let gdBalanceBeforeWithdraw = await goodDollar.balanceOf(staker.address);
     advanceBlocks(5);
@@ -304,7 +418,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await dai
       .connect(staker)
       .approve(goodCompoundStaking2.address, stakingAmount);
-    await goodCompoundStaking2.connect(staker).stake(stakingAmount, 100, false);
+    await goodCompoundStaking2.connect(staker).stake(stakingAmount, 0, false);
 
     let gdBalanceBeforeWithdraw = await goodDollar.balanceOf(staker.address);
     advanceBlocks(5);
@@ -599,7 +713,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
 
-    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100, false);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
     await advanceBlocks(5);
     const stakingContractVals = await goodFundManager.rewardsForStakingContract(
       goodCompoundStaking.address
