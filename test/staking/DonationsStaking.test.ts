@@ -226,21 +226,21 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       stakeAmount
     );
   });
-  it("withdraw should reverted if caller not avatar or owner", async () => {
+  it("withdraw should reverted if caller not avatar", async () => {
     const tx = await donationsStaking
       .connect(staker)
       ["withdraw()"]()
       .catch(e => e);
-    expect(tx.message).to.have.string(
-      "Only owner or avatar can perform this action"
-    );
+    expect(tx.message).to.have.string("only avatar can call this method");
   });
-  it("it should withdraw donationStaking when caller is owner and return funds to avatar", async () => {
+  it("it should withdraw donationStaking when caller is avatar and return funds to avatar", async () => {
     const totalStakedBeforeEnd = await donationsStaking.totalStaked();
     const avatarDaiBalanceBeforeEnd = await dai.balanceOf(avatar);
     let isActive = await donationsStaking.active();
     expect(isActive).to.be.equal(true);
-    await donationsStaking["withdraw()"]();
+    const encoded = donationsStaking.interface.encodeFunctionData("withdraw");
+    await genericCall(donationsStaking.address, encoded);
+
     isActive = await donationsStaking.active();
     const totalStakedAfterEnd = await donationsStaking.totalStaked();
     const avatarDaiBalanceAfterEnd = await dai.balanceOf(avatar);
