@@ -4,6 +4,7 @@ pragma solidity >=0.8.0;
 import "../SimpleStaking.sol";
 import "../../Interfaces.sol";
 import "../../utils/DataTypes.sol";
+
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Token
@@ -17,7 +18,6 @@ contract GoodAaveStaking is SimpleStaking {
 	//LendingPool of aave
     ILendingPool public lendingPool;
 
-    bool public initialized = false;
 	/**
 	 * @param _token Token to swap DEFI token
 	 * @param _lendingPool LendingPool address
@@ -38,7 +38,6 @@ contract GoodAaveStaking is SimpleStaking {
 		address _tokenUsdOracle,
 		uint32 _collectInterestGasCost
 	) public {
-		require(initialized == false , 'Already initialized');
         lendingPool = ILendingPool(_lendingPool);
         DataTypes.ReserveData memory reserve = lendingPool.getReserveData(_token);
         initialize(
@@ -52,7 +51,6 @@ contract GoodAaveStaking is SimpleStaking {
 		);
 		//above  initialize going  to revert on second call, so this is safe
 		tokenUsdOracle = _tokenUsdOracle;
-		initialized = true;
 	}
 
     /**
@@ -136,11 +134,8 @@ contract GoodAaveStaking is SimpleStaking {
 			uint256
 		)
 	{
-		IAToken aToken = IAToken(address(iToken));
-        DataTypes.ReserveData memory reserve = lendingPool.getReserveData(address(token));
-		uint256 scaledBalance = aToken.scaledBalanceOf(address(this));
-        
-		uint256 tokenBalance = (scaledBalance * reserve.liquidityIndex) / 1e27; // divide it 1e27 since liquidityIndex in RAY(27 decimals)
+		ERC20 aToken = ERC20(address(iToken));
+		uint256 tokenBalance = aToken.balanceOf(address(this));
 		uint256 balanceInUSD =
 			_returnTokenBalanceInUSD
 				? getTokenValueInUSD(tokenUsdOracle, tokenBalance)

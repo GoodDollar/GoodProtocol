@@ -14,6 +14,7 @@ import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { createDAO, increaseTime, advanceBlocks } from "../helpers";
+import { experimentalAddHardhatNetworkMessageTraceHook } from "hardhat/config";
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
@@ -30,7 +31,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     usdcUsdOracle: Contract,
     ethUsdOracle: Contract;
   let goodReserve: GoodReserveCDai;
-  let goodCompoundStaking;
+  let goodAaveStaking: Contract;
   let goodFundManager: Contract;
   let avatar,
     goodDollar,
@@ -44,6 +45,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     signers,
     nameService,
     initializeToken,
+    lendingPool,
     setDAOAddress;
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
@@ -53,13 +55,16 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const goodCompoundStakingFactory = await ethers.getContractFactory(
-      "GoodCompoundStaking"
+    const goodAaveStakingFactory = await ethers.getContractFactory(
+      "GoodAaveStaking"
     );
     const routerFactory = new ethers.ContractFactory(
       UniswapV2Router02.abi,
       UniswapV2Router02.bytecode,
       founder
+    );
+    const lendingPoolFactory = await ethers.getContractFactory(
+      "LendingPoolMock"
     );
     const uniswapFactory = new ethers.ContractFactory(
       UniswapV2Factory.abi,
@@ -86,7 +91,6 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       daiAddress,
       cdaiAddress,
       reserve,
-
       setReserveToken
     } = await createDAO();
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -168,22 +172,22 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
 
     usdcUsdOracle = await tokenUsdOracleFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
-    goodCompoundStaking = await goodCompoundStakingFactory
+    lendingPool = await lendingPoolFactory.deploy(usdc.address);
+    goodAaveStaking = await goodAaveStakingFactory
       .deploy()
       .then(async contract => {
         await contract.init(
           usdc.address,
-          cUsdc.address,
+          lendingPool.address,
           nameService.address,
-          "Good USDC",
-          "gUSDC",
+          "Good DAI",
+          "gDAI",
           "172800",
-          usdcUsdOracle.address,
-          "200000"
+          daiUsdOracle.address,
+          "100000"
         );
         return contract;
       });
-
     await dai["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseEther("2000000")
@@ -201,6 +205,37 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
+  });
+
+  it("should not be initializable twice", async () => {
+    await expect(
+      goodAaveStaking.init(
+        dai.address,
+        lendingPool.address,
+        nameService.address,
+        "Good DAI",
+        "gDAI",
+        "172800",
+        daiUsdOracle.address,
+        "100000"
+      )
+    ).to.revertedWith("Initializable: contract is already initialized");
+  });
+  it("it should stake usdc to lendingPool and withdraw", async () => {
+    const stakingAmount = ethers.utils.parseUnits("100", 6);
+    await usdc["mint(address,uint256)"](founder.address, stakingAmount);
+    await usdc.approve(goodAaveStaking.address, stakingAmount);
+    await goodAaveStaking.stake(stakingAmount, 0, false);
+    const aTokenBalanceAfterStake = await lendingPool.balanceOf(
+      goodAaveStaking.address
+    );
+    expect(aTokenBalanceAfterStake).to.be.gt(0);
+    expect(aTokenBalanceAfterStake).to.be.equal(stakingAmount);
+    await goodAaveStaking.withdrawStake(stakingAmount, false);
+    const aTokenBalanceAfterWithdraw = await lendingPool.balanceOf(
+      goodAaveStaking.address
+    );
+    expect(aTokenBalanceAfterWithdraw).to.be.equal(0);
   });
 
   async function addLiquidity(
