@@ -92,12 +92,13 @@ contract StakersDistribution is
 
 			//set each contract relative monthly rewards
 			for (uint256 i = 0; i < activeContractsCount; i++) {
-				if (contractLockedValue[i] > 0) {
-					_setMonthlyRewards(
-						activeStakingList[i],
-						(monthlyReputationDistribution *
+				uint256 contractShare =
+					totalLockedValue > 0
+						? (monthlyReputationDistribution *
 							contractLockedValue[i]) / totalLockedValue
-					);
+						: monthlyReputationDistribution / activeContractsCount;
+				if (contractLockedValue[i] > 0) {
+					_setMonthlyRewards(activeStakingList[i], contractShare);
 				}
 			}
 
@@ -129,6 +130,7 @@ contract StakersDistribution is
 
 		address[] memory contracts = new address[](1);
 		contracts[0] = stakingContract;
+
 		_claimReputation(_staker, contracts);
 
 		_updateMonth(); //previous calls will use previous month reputation
