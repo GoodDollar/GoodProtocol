@@ -32,7 +32,7 @@ contract CompoundStakingFactory {
 
 	function cloneAndInit(
 		cERC20 cToken,
-		NameService _ns,
+		INameService _ns,
 		uint64 _maxRewardThreshold,
 		address _tokenUsdOracle,
 		uint32 _collectInterestGasCost

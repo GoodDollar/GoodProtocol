@@ -114,7 +114,7 @@ contract GoodReserveCDai is
 		uint256 gdUbiTransferred
 	);
 
-	function initialize(NameService _ns, bytes32 _gdxAirdrop)
+	function initialize(INameService _ns, bytes32 _gdxAirdrop)
 		public
 		virtual
 		initializer

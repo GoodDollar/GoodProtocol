@@ -10,6 +10,9 @@ import SchemeRegistrar from "@gooddollar/goodcontracts/build/contracts/SchemeReg
 import AbsoluteVote from "@gooddollar/goodcontracts/build/contracts/AbsoluteVote.json";
 import UpgradeScheme from "@gooddollar/goodcontracts/build/contracts/UpgradeScheme.json";
 import UBIScheme from "@gooddollar/goodcontracts/stakingModel/build/contracts/UBIScheme.json";
+import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
+import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
+import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
 import { Controller, GoodMarketMaker, CompoundVotingMachine } from "../types";
 
 export const createDAO = async () => {
@@ -463,4 +466,29 @@ export const deployOldVoting = async dao => {
   } catch (e) {
     console.log("deployVote failed", e);
   }
+};
+
+export const deployUniswap = async () => {
+  const routerFactory = new ethers.ContractFactory(
+    UniswapV2Router02.abi,
+    UniswapV2Router02.bytecode,
+    (await ethers.getSigners())[0]
+  );
+  const uniswapFactory = new ethers.ContractFactory(
+    UniswapV2Factory.abi,
+    UniswapV2Factory.bytecode,
+    (await ethers.getSigners())[0]
+  );
+  const wethFactory = new ethers.ContractFactory(
+    WETH9.abi,
+    WETH9.bytecode,
+    (await ethers.getSigners())[0]
+  );
+
+  const weth = await wethFactory.deploy();
+  const factory = await uniswapFactory.deploy(
+    (await ethers.getSigners())[0].address
+  );
+  const router = await routerFactory.deploy(factory.address, weth.address);
+  return { router, factory, weth };
 };

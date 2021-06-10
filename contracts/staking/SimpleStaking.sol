@@ -66,7 +66,7 @@ abstract contract SimpleStaking is
 	 * @dev Constructor
 	 * @param _token The address of Token
 	 * @param _iToken The address of Interest Token
-	 * @param _ns The address of the NameService contract
+	 * @param _ns The address of the INameService contract
 	 * @param _tokenName The name of the staking token
 	 * @param _tokenSymbol The symbol of the staking token
 	 * @param _maxRewardThreshold the blocks that should pass to get 1x reward multiplier
@@ -75,7 +75,7 @@ abstract contract SimpleStaking is
 	function initialize(
 		address _token,
 		address _iToken,
-		NameService _ns,
+		INameService _ns,
 		string memory _tokenName,
 		string memory _tokenSymbol,
 		uint64 _maxRewardThreshold,
@@ -249,7 +249,6 @@ abstract contract SimpleStaking is
 		nonReentrant
 	{
 		uint256 tokenWithdraw;
-		(uint256 userProductivity, ) = getProductivity(msg.sender);
 
 		if (_inInterestToken) {
 			uint256 tokenWorth = iTokenWorthInToken(_amount);
@@ -303,7 +302,6 @@ abstract contract SimpleStaking is
 		}
 
 		emit StakeWithdraw(msg.sender, address(token), tokenWithdraw);
-
 	}
 
 	/**
@@ -346,6 +344,7 @@ abstract contract SimpleStaking is
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
 				.rewardsForStakingContract(address(this));
+
 		_decreaseProductivity(
 			from,
 			value,
@@ -353,7 +352,16 @@ abstract contract SimpleStaking is
 			blockStart,
 			blockEnd
 		);
-		_increaseProductivity(to, value, rewardsPerBlock, blockStart, blockEnd,0);
+
+		_increaseProductivity(
+			to,
+			value,
+			rewardsPerBlock,
+			blockStart,
+			blockEnd,
+			0
+		);
+
 		if (address(sd) != address(0)) {
 			address[] memory contracts;
 			contracts[0] = (address(this));
@@ -368,13 +376,13 @@ abstract contract SimpleStaking is
 	// @return difference in decimals.
 	// @return true if token's decimal is more than iToken's
 	function tokenDecimalPrecision() internal view returns (uint256, bool) {
-		uint256 tokenDecimal = tokenDecimal();
-		uint256 iTokenDecimal = iTokenDecimal();
+		uint256 _tokenDecimal = tokenDecimal();
+		uint256 _iTokenDecimal = iTokenDecimal();
 		uint256 decimalDifference =
-			tokenDecimal > iTokenDecimal
-				? tokenDecimal - iTokenDecimal
-				: iTokenDecimal - tokenDecimal;
-		return (decimalDifference, tokenDecimal > iTokenDecimal);
+			_tokenDecimal > _iTokenDecimal
+				? _tokenDecimal - _iTokenDecimal
+				: _iTokenDecimal - _tokenDecimal;
+		return (decimalDifference, _tokenDecimal > _iTokenDecimal);
 	}
 
 	function getStakerData(address _staker)
@@ -434,7 +442,6 @@ abstract contract SimpleStaking is
 	/**
 	 * @dev making the contract inactive
 	 * NOTICE: this could theoretically result in future interest earned in cdai to remain locked
-	 * but we dont expect any other stakers but us in SimpleDAIStaking
 	 */
 	function pause(bool _isPaused) public {
 		_onlyAvatar();

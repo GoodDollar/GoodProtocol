@@ -127,7 +127,7 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * @param _maxInactiveDays Days of grace without claiming request
 	 */
 	function initialize(
-		NameService _ns,
+		INameService _ns,
 		IFirstClaimPool _firstClaimPool,
 		uint256 _maxInactiveDays
 	) public initializer {

@@ -1,20 +1,11 @@
-import { default as hre, ethers, upgrades } from "hardhat";
-import { BigNumber, Contract, Signer } from "ethers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
+import { ethers, upgrades } from "hardhat";
+import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
-import {
-  GoodMarketMaker,
-  CERC20,
-  GoodReserveCDai,
-  SimpleStaking
-} from "../../types";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { createDAO, increaseTime, advanceBlocks } from "../helpers";
+import { GoodMarketMaker, GoodReserveCDai } from "../../types";
+import { createDAO, deployUniswap, advanceBlocks } from "../helpers";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
-import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
-import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
-import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
+
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 30;
@@ -57,21 +48,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const routerFactory = new ethers.ContractFactory(
-      UniswapV2Router02.abi,
-      UniswapV2Router02.bytecode,
-      founder
-    );
-    const uniswapFactory = new ethers.ContractFactory(
-      UniswapV2Factory.abi,
-      UniswapV2Factory.bytecode,
-      founder
-    );
-    const wethFactory = new ethers.ContractFactory(
-      WETH9.abi,
-      WETH9.bytecode,
-      founder
-    );
+
     const sdtFactory = await ethers.getContractFactory(
       "SixteenDecimalsTokenMock"
     );
@@ -90,6 +67,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       reserve,
       setReserveToken
     } = await createDAO();
+
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
     avatar = av;
@@ -121,9 +99,11 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     );
 
     marketMaker = mm;
-    const weth = await wethFactory.deploy();
-    const factory = await uniswapFactory.deploy(founder.address);
-    uniswapRouter = await routerFactory.deploy(factory.address, weth.address);
+
+    const uniswap = await deployUniswap();
+    uniswapRouter = uniswap.router;
+    const { factory, weth } = uniswap;
+
     console.log("deployed contribution, deploying reserve...", {
       founder: founder.address
     });

@@ -11,7 +11,7 @@ import {
   DonationsStaking
 } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { createDAO, increaseTime, advanceBlocks } from "../helpers";
+import { createDAO, deployUniswap } from "../helpers";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
 import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
@@ -62,21 +62,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const routerFactory = new ethers.ContractFactory(
-      UniswapV2Router02.abi,
-      UniswapV2Router02.bytecode,
-      founder
-    );
-    const uniswapFactory = new ethers.ContractFactory(
-      UniswapV2Factory.abi,
-      UniswapV2Factory.bytecode,
-      founder
-    );
-    const wethFactory = new ethers.ContractFactory(
-      WETH9.abi,
-      WETH9.bytecode,
-      founder
-    );
+
     const daiFactory = await ethers.getContractFactory("DAIMock");
     let {
       controller: ctrl,
@@ -94,6 +80,9 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       setReserveToken,
       genericCall: gc
     } = await createDAO();
+
+    const uniswap = await deployUniswap();
+    uniswapRouter = uniswap.router;
 
     genericCall = gc;
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -129,9 +118,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     );
 
     marketMaker = mm;
-    const weth = await wethFactory.deploy();
-    const factory = await uniswapFactory.deploy(founder.address);
-    uniswapRouter = await routerFactory.deploy(factory.address, weth.address);
+
     console.log("deployed contribution, deploying reserve...", {
       founder: founder.address
     });
@@ -239,21 +226,21 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       stakeAmount
     );
   });
-  it("withdraw should reverted if caller not avatar or owner", async () => {
+  it("withdraw should reverted if caller not avatar", async () => {
     const tx = await donationsStaking
       .connect(staker)
       ["withdraw()"]()
       .catch(e => e);
-    expect(tx.message).to.have.string(
-      "Only owner or avatar can perform this action"
-    );
+    expect(tx.message).to.have.string("only avatar can call this method");
   });
-  it("it should withdraw donationStaking when caller is owner and return funds to avatar", async () => {
+  it("it should withdraw donationStaking when caller is avatar and return funds to avatar", async () => {
     const totalStakedBeforeEnd = await donationsStaking.totalStaked();
     const avatarDaiBalanceBeforeEnd = await dai.balanceOf(avatar);
     let isActive = await donationsStaking.active();
     expect(isActive).to.be.equal(true);
-    await donationsStaking["withdraw()"]();
+    const encoded = donationsStaking.interface.encodeFunctionData("withdraw");
+    await genericCall(donationsStaking.address, encoded);
+
     isActive = await donationsStaking.active();
     const totalStakedAfterEnd = await donationsStaking.totalStaked();
     const avatarDaiBalanceAfterEnd = await dai.balanceOf(avatar);
