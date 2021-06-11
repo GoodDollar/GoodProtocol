@@ -324,6 +324,95 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     expect(currentUBIInterestAfterWithdraw[0].toString()).to.be.equal("0");
     expect(gdBalanceAfterCollectInterest.gt(gdBalanceBeforeCollectInterest));
   });
+  it("should be able to sort staking contracts and collect interests from highest to lowest and only one staking contract's interest should be collected due to gas amount [ @skip-on-coverage ]", async () => {
+    const stakingAmount = ethers.utils.parseUnits("100", 6);
+    await usdc["mint(address,uint256)"](staker.address, stakingAmount);
+    await usdc.connect(staker).approve(goodAaveStaking.address, stakingAmount);
+    await goodAaveStaking.connect(staker).stake(stakingAmount, 0, false);
+
+    await lendingPool.giveInterestToUser("6000", goodAaveStaking.address); // increase interest by calling giveInterestToUser
+
+    const goodCompoundStakingFactory = await ethers.getContractFactory(
+      "GoodCompoundStaking"
+    );
+    const simpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "50",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
+
+    const simpleStaking1 = await goodCompoundStakingFactory
+      .deploy()
+      .then(async contract => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
+          "50",
+          daiUsdOracle.address,
+          "100000"
+        );
+        return contract;
+      });
+
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["100", simpleStaking.address, 0, 10, false]
+    );
+    await genericCall(goodFundManager.address, encodedData, avatar, 0);
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai.connect(staker).approve(simpleStaking.address, stakingAmount);
+    await simpleStaking.connect(staker).stake(stakingAmount, 100, false);
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
+    await simpleStaking1.connect(staker).stake(stakingAmount, 100, false);
+
+    await cDAI.increasePriceWithMultiplier("200"); // increase interest by calling increasePriceWithMultiplier
+    const simpleStakingCurrentInterestBeforeCollect = await simpleStaking.currentGains(
+      false,
+      true
+    );
+    const contractsToBeCollected = await goodFundManager.calcSortedContracts(
+      "960000"
+    );
+    await goodFundManager.collectInterest(contractsToBeCollected, {
+      gasLimit: 960000
+    });
+    const simpleStakingCurrentInterest = await simpleStaking.currentGains(
+      false,
+      true
+    );
+    const goodAaveStakingCurrentInterest = await goodAaveStaking.currentGains(
+      false,
+      true
+    );
+
+    await goodAaveStaking.connect(staker).withdrawStake(stakingAmount, false);
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["100", simpleStaking.address, 0, 10, true]
+    );
+    await genericCall(goodFundManager.address, encodedData, avatar, 0);
+    expect(goodAaveStakingCurrentInterest[0].toString()).to.be.equal("0"); // Goodcompound staking's interest should be collected so currentinterest should be 0
+    expect(simpleStakingCurrentInterestBeforeCollect[0]).to.be.equal(
+      simpleStakingCurrentInterest[0]
+    ); // simple staking's interest shouldn't be collected so currentinterest should be equal to before collectinterest
+  });
   async function addLiquidity(
     token0Amount: BigNumber,
     token1Amount: BigNumber

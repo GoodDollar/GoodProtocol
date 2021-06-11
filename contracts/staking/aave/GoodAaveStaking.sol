@@ -16,7 +16,7 @@ contract GoodAaveStaking is SimpleStaking {
 	address public tokenUsdOracle;
 
 	//LendingPool of aave
-    ILendingPool public lendingPool;
+	ILendingPool public lendingPool;
 
 	/**
 	 * @param _token Token to swap DEFI token
@@ -38,9 +38,11 @@ contract GoodAaveStaking is SimpleStaking {
 		address _tokenUsdOracle,
 		uint32 _collectInterestGasCost
 	) public {
-        lendingPool = ILendingPool(_lendingPool);
-        DataTypes.ReserveData memory reserve = lendingPool.getReserveData(_token);
-        initialize(
+		lendingPool = ILendingPool(_lendingPool);
+		DataTypes.ReserveData memory reserve = lendingPool.getReserveData(
+			_token
+		);
+		initialize(
 			_token,
 			reserve.aTokenAddress,
 			_ns,
@@ -53,16 +55,15 @@ contract GoodAaveStaking is SimpleStaking {
 		tokenUsdOracle = _tokenUsdOracle;
 	}
 
-    /**
+	/**
 	 * @dev stake some Token
 	 * @param _amount of Token to stake
 	 */
 	function mintInterestToken(uint256 _amount) internal override {
 		lendingPool.deposit(address(token), _amount, address(this), 0);
-
 	}
 
-    /**
+	/**
 	 * @dev redeem Token from aave
 	 * @param _amount of token to redeem in Token
 	 */
@@ -70,7 +71,7 @@ contract GoodAaveStaking is SimpleStaking {
 		lendingPool.withdraw(address(token), _amount, address(this));
 	}
 
-    /**
+	/**
 	 * @dev Function to redeem aToken for DAI, so reserve knows how to handle it. (reserve can handle dai or cdai)
 	 * @dev _amount of token in iToken
 	 * @return return address of the DAI and amount of the DAI
@@ -80,31 +81,30 @@ contract GoodAaveStaking is SimpleStaking {
 		override
 		returns (address, uint256)
 	{
-		
 		lendingPool.withdraw(address(token), _amount, address(this));
 		uint256 redeemedAmount = token.balanceOf(address(this));
 		address daiAddress = nameService.getAddress("DAI");
 		address[] memory path = new address[](2);
 		path[0] = address(token);
 		path[1] = daiAddress;
-		Uniswap uniswapContract =
-			Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+		Uniswap uniswapContract = Uniswap(
+			nameService.getAddress("UNISWAP_ROUTER")
+		);
 		token.approve(address(uniswapContract), redeemedAmount);
-		uint256[] memory swap =
-			uniswapContract.swapExactTokensForTokens(
-				redeemedAmount,
-				0,
-				path,
-				address(this),
-				block.timestamp
-			);
+		uint256[] memory swap = uniswapContract.swapExactTokensForTokens(
+			redeemedAmount,
+			0,
+			path,
+			address(this),
+			block.timestamp
+		);
 
 		uint256 dai = swap[1];
 		require(dai > 0, "token selling failed");
 		return (daiAddress, swap[1]);
 	}
 
-    /**
+	/**
 	 * @dev returns decimals of token.
 	 */
 	function tokenDecimal() internal view override returns (uint256) {
@@ -119,7 +119,8 @@ contract GoodAaveStaking is SimpleStaking {
 		ERC20 aToken = ERC20(address(iToken));
 		return uint256(aToken.decimals());
 	}
-    function currentGains(
+
+	function currentGains(
 		bool _returnTokenBalanceInUSD,
 		bool _returnTokenGainsInUSD
 	)
@@ -136,19 +137,17 @@ contract GoodAaveStaking is SimpleStaking {
 	{
 		ERC20 aToken = ERC20(address(iToken));
 		uint256 tokenBalance = aToken.balanceOf(address(this));
-		uint256 balanceInUSD =
-			_returnTokenBalanceInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenBalance)
-				: 0;
+		uint256 balanceInUSD = _returnTokenBalanceInUSD
+			? getTokenValueInUSD(tokenUsdOracle, tokenBalance)
+			: 0;
 		if (tokenBalance <= totalProductivity) {
 			return (0, 0, tokenBalance, balanceInUSD, 0);
 		}
 		uint256 tokenGains = tokenBalance - totalProductivity;
-		
-		uint256 tokenGainsInUSD =
-			_returnTokenGainsInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenGains)
-				: 0;
+
+		uint256 tokenGainsInUSD = _returnTokenGainsInUSD
+			? getTokenValueInUSD(tokenUsdOracle, tokenGains)
+			: 0;
 		return (
 			tokenGains, // since token gains = atoken gains
 			tokenGains,
@@ -158,7 +157,7 @@ contract GoodAaveStaking is SimpleStaking {
 		);
 	}
 
-    function getGasCostForInterestTransfer()
+	function getGasCostForInterestTransfer()
 		external
 		view
 		override
@@ -167,7 +166,7 @@ contract GoodAaveStaking is SimpleStaking {
 		return collectInterestGasCost;
 	}
 
-    /**
+	/**
 	 * @dev Calculates worth of given amount of iToken in Token
 	 * @param _amount Amount of token to calculate worth in Token
 	 * @return Worth of given amount of token in Token
@@ -178,8 +177,6 @@ contract GoodAaveStaking is SimpleStaking {
 		override
 		returns (uint256)
 	{
-		
 		return _amount; // since aToken is peg to Token 1:1 return exact amount
 	}
-	
 }

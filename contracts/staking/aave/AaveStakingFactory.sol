@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity >=0.8.0;
+import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
+import "./GoodAaveStaking.sol";
+import "../../Interfaces.sol";
+
+/**
+ * @title Staking contract that donates earned interest to the DAO
+ * allowing stakers to deposit Token
+ * or withdraw their stake in Token
+ * the contracts buy cToken and can transfer the daily interest to the  DAO
+ */
+contract AaveStakingFactory {
+	using ClonesUpgradeable for address;
+
+	address impl = address(new GoodAaveStaking());
+
+	event Deployed(address proxy, address token);
+
+	function clone(ERC20 token, bytes32 paramsHash)
+		public
+		returns (GoodAaveStaking)
+	{
+		address deployed = address(impl).cloneDeterministic(
+			keccak256(abi.encodePacked(address(token), paramsHash))
+		);
+		emit Deployed(deployed, address(token));
+		return GoodAaveStaking(deployed);
+	}
+
+	function cloneAndInit(
+		ERC20 token,
+		address _lendingPool,
+		NameService _ns,
+		uint64 _maxRewardThreshold,
+		address _tokenUsdOracle,
+		uint32 _collectInterestGasCost
+	) public {
+		GoodAaveStaking deployed = clone(
+			token,
+			keccak256(
+				abi.encodePacked(
+					address(_lendingPool),
+					address(_ns),
+					_maxRewardThreshold,
+					_tokenUsdOracle,
+					_collectInterestGasCost
+				)
+			)
+		);
+
+		deployed.init(
+			address(token),
+			address(_lendingPool),
+			_ns,
+			string(abi.encodePacked("GoodAaveStaking ", token.name())),
+			string(abi.encodePacked("g", token.symbol())),
+			_maxRewardThreshold,
+			_tokenUsdOracle,
+			_collectInterestGasCost
+		);
+	}
+
+	function predictAddress(ERC20 token, bytes32 paramsHash)
+		public
+		view
+		returns (address)
+	{
+		return
+			address(impl).predictDeterministicAddress(
+				keccak256(abi.encodePacked(address(token), paramsHash))
+			);
+	}
+}
