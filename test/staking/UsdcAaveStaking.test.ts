@@ -432,7 +432,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     ); // simple staking's interest shouldn't be collected so currentinterest should be equal to before collectinterest
   });
 
-  it("it should collectInterest when there is aave rewards but there is no interest from aToken", async () => {
+  it("it should collectRewards while collecting interest from aToken if there some earned reward as stkAAVE", async () => {
     const stakingAmount = ethers.utils.parseUnits("100", 6);
     await usdc["mint(address,uint256)"](founder.address, stakingAmount);
     await usdc.approve(goodAaveStaking.address, stakingAmount);
@@ -445,46 +445,17 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       ethers.utils.parseEther("10")
     );
     currentGains = await goodAaveStaking.currentGains(false, true);
-    const aavePriceInDollar = await aaveUsdOracle.latestAnswer();
-    expect(currentGains[4]).to.be.equal(
-      BigNumber.from("10").mul(aavePriceInDollar)
-    );
-    const contractAddressesToBeCollected = await goodFundManager
-      .connect(staker)
-      .calcSortedContracts("1100000");
-    console.log(
-      `contractAddressesToBeCollected ${contractAddressesToBeCollected}`
-    );
-    await goodFundManager.collectInterest(contractAddressesToBeCollected, {
-      gasLimit: 1100000,
-    });
-    currentGains = await goodAaveStaking.currentGains(false, true);
-    expect(currentGains[4]).to.be.equal("0");
-    await goodAaveStaking.withdrawStake(stakingAmount, false);
-  });
-  it("it should collectInterest when there is aave rewards also interest from aToken", async () => {
-    const stakingAmount = ethers.utils.parseUnits("100", 6);
-    await usdc["mint(address,uint256)"](founder.address, stakingAmount);
-    await usdc.approve(goodAaveStaking.address, stakingAmount);
-    await goodAaveStaking.stake(stakingAmount, "0", false);
-    let currentGains = await goodAaveStaking.currentGains(false, true);
-    expect(currentGains[4]).to.be.equal("0");
 
-    await incentiveController.increaseRewardsBalance(
-      goodAaveStaking.address,
-      ethers.utils.parseEther("10")
-    );
-    currentGains = await goodAaveStaking.currentGains(false, true);
-    const aavePriceInDollar = await aaveUsdOracle.latestAnswer();
-    expect(currentGains[4]).to.be.equal(
-      BigNumber.from("10").mul(aavePriceInDollar)
-    );
-    await lendingPool.giveInterestToUser(20, goodAaveStaking.address);
+    expect(currentGains[4]).to.be.equal(0); // stkAAVE rewards shouldnt count as gain
+    await lendingPool.giveInterestToUser(2000, goodAaveStaking.address);
     const currentGainsAfterGetInterest = await goodAaveStaking.currentGains(
       false,
       true
     );
     expect(currentGainsAfterGetInterest[4]).to.be.gt(currentGains[4]);
+    console.log(
+      `currentGainsAfterGetInterest ${currentGainsAfterGetInterest[4]}`
+    );
     const contractAddressesToBeCollected = await goodFundManager
       .connect(staker)
       .calcSortedContracts("1100000");

@@ -86,9 +86,10 @@ contract GoodAaveStaking is SimpleStaking {
 	/**
 	 * @dev Function to redeem aToken for DAI, so reserve knows how to handle it. (reserve can handle dai or cdai)
 	 * @dev _amount of token in iToken
+	 * @dev _recipient recipient of the DAI
 	 * @return return address of the DAI and amount of the DAI
 	 */
-	function redeemUnderlyingToDAI(uint256 _amount)
+	function redeemUnderlyingToDAI(uint256 _amount, address _recipient)
 		internal
 		override
 		returns (address, uint256)
@@ -98,46 +99,34 @@ contract GoodAaveStaking is SimpleStaking {
 		address[] memory tokenAddress = new address[](1);
 		tokenAddress[0] = address(token);
 		address daiAddress = nameService.getAddress("DAI");
-		uint256 aaveBalance = incentiveController.getRewardsBalance(
-						tokenAddress,
-						address(this));
+		uint256 stkAaaveBalance =
+			incentiveController.getRewardsBalance(tokenAddress, address(this));
 		Uniswap uniswapContract =
 			Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
-		address reserveAddress = nameService.getAddress("RESERVE");
-		address[] memory path = new address[](2);
-		path[1] = daiAddress;
 		uint256[] memory swap;
-		uint256 daiFromAave;
-		if(aaveBalance > 0){
-			incentiveController.claimRewards(tokenAddress, aaveBalance, address(this));
-			path[0] = nameService.getAddress("AAVE");
-			swap =
-			uniswapContract.swapExactTokensForTokens(
-				aaveBalance,
-				0,
-				path,
-				reserveAddress,
-				block.timestamp
+		if (stkAaaveBalance > 0) {
+			incentiveController.claimRewards(
+				tokenAddress,
+				stkAaaveBalance,
+				_recipient
 			);
-			daiFromAave = swap[1];
 		}
-		uint256 daiFromToken;	
-		if(redeemedAmount > 0){
-			path[0] = address(token);		
-		swap =
-			uniswapContract.swapExactTokensForTokens(
+		uint256 daiFromToken;
+		if (redeemedAmount > 0) {
+			address[] memory path = new address[](2);
+			path[0] = address(token);
+			path[1] = daiAddress;
+			swap = uniswapContract.swapExactTokensForTokens(
 				redeemedAmount,
 				0,
 				path,
-				reserveAddress,
+				_recipient,
 				block.timestamp
 			);
-		daiFromToken = swap[1];
+			daiFromToken = swap[1];
 		}
-		
-		
 
-		return (daiAddress, daiFromAave + daiFromToken);
+		return (daiAddress, daiFromToken);
 	}
 
 	/**
@@ -179,24 +168,14 @@ contract GoodAaveStaking is SimpleStaking {
 				: 0;
 		address[] memory tokenAddress = new address[](1);
 		tokenAddress[0] = address(token);
-		uint256 aaveValueInUSD =
-			_returnTokenGainsInUSD
-				? getAaveValueInUSD(
-					incentiveController.getRewardsBalance(
-						tokenAddress,
-						address(this)
-					)
-				)
-				: 0;
 		if (tokenBalance <= totalProductivity) {
-			return (0, 0, tokenBalance, balanceInUSD, aaveValueInUSD);
+			return (0, 0, tokenBalance, balanceInUSD, 0);
 		}
 		uint256 tokenGains = tokenBalance - totalProductivity;
 
 		uint256 tokenGainsInUSD =
 			_returnTokenGainsInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenGains) +
-					aaveValueInUSD
+				? getTokenValueInUSD(tokenUsdOracle, tokenGains)
 				: 0;
 		return (
 			tokenGains, // since token gains = atoken gains
@@ -229,20 +208,8 @@ contract GoodAaveStaking is SimpleStaking {
 	{
 		return _amount; // since aToken is peg to Token 1:1 return exact amount
 	}
-
-	function getAaveValueInUSD(uint256 _amount) public view returns (uint256) {
-		AggregatorV3Interface tokenPriceOracle =
-			AggregatorV3Interface(aaveUSDOracle);
-		int256 aavePriceinUSD = tokenPriceOracle.latestAnswer();
-		return (uint256(aavePriceinUSD) * _amount) / 1e18;
-	}
-
 	function _approveTokens() internal override {
 		address uniswapRouter = nameService.getAddress("UNISWAP_ROUTER");
-		ERC20(nameService.getAddress("AAVE")).approve(
-			uniswapRouter,
-			type(uint256).max
-		);
 		token.approve(uniswapRouter, type(uint256).max);
 		token.approve(address(lendingPool), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
 	}
