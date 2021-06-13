@@ -40,7 +40,9 @@ contract ClaimersDistribution is DAOUpgradeableContract {
 		uint256 reputation
 	);
 
-	function initialize(NameService _ns) public initializer {
+	event MonthlyDistributionSet(uint256 reputationAmount);
+
+	function initialize(INameService _ns) public initializer {
 		monthlyReputationDistribution = 4000000 ether; //4M as specified in specs
 		_updateMonth();
 		setDAO(_ns);
@@ -55,6 +57,7 @@ contract ClaimersDistribution is DAOUpgradeableContract {
 	) external {
 		_onlyAvatar();
 		monthlyReputationDistribution = newMonthlyReputationDistribution;
+		emit MonthlyDistributionSet(newMonthlyReputationDistribution);
 	}
 
 	/**

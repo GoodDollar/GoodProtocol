@@ -32,9 +32,9 @@ contract GovernanceStaking is
 
 	/**
 	 * @dev Constructor
-	 * @param _ns The address of the NameService contract
+	 * @param _ns The address of the INameService contract
 	 */
-	constructor(NameService _ns) {
+	constructor(INameService _ns) {
 		setDAO(_ns);
 		token = ERC20(nameService.getAddress("GOODDOLLAR"));
 		__ERC20_init("GDAO Staking", "sGDAO");

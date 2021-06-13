@@ -22,8 +22,7 @@
       "gasPrice": "0xF8161973a556bf5fEbb3BaCe573262FCd3b33973",
       "dai_eth": "0x24959556020AE5D39e5bAEC2bd6Bf12420C25aB5",
       "eth_usd": "0x30B5068156688f818cEa0874B580206dFe081a03"
-    },
-    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+    }
   },
   "fuse-mainnet": {
     "governance": {

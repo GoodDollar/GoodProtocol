@@ -69,7 +69,7 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 	 * @param _denom The denominator to calculate the global `reserveRatioDailyExpansion` from
 	 */
 	function initialize(
-		NameService _ns,
+		INameService _ns,
 		uint256 _nom,
 		uint256 _denom
 	) public virtual initializer {
@@ -375,8 +375,6 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		}
 		uint256 toMint = calculateMintInterest(_token, _addTokenSupply);
 		ReserveToken storage reserveToken = reserveTokens[address(_token)];
-		uint256 gdSupply = reserveToken.gdSupply;
-		uint256 reserveBalance = reserveToken.reserveSupply;
 		reserveToken.gdSupply += toMint;
 		reserveToken.reserveSupply += _addTokenSupply;
 
@@ -422,10 +420,7 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		_onlyReserveOrAvatar();
 		_onlyActiveToken(_token);
 		uint256 toMint = calculateMintExpansion(_token);
-		ReserveToken storage reserveToken = reserveTokens[address(_token)];
-		uint256 gdSupply = reserveToken.gdSupply;
-		uint256 ratio = reserveToken.reserveRatio;
-		reserveToken.gdSupply += toMint;
+		reserveTokens[address(_token)].gdSupply += toMint;
 		expandReserveRatio(_token);
 
 		return toMint;

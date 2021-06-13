@@ -3,9 +3,9 @@ pragma solidity >=0.8.0;
 import "../Interfaces.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DSMath.sol";
-
 contract BaseShareField is DSMath {
 	uint256 totalProductivity;
+	uint256 public totalEffectiveStakes;
 	uint256 accAmountPerShare;
 
 	uint256 public mintedShare;
@@ -17,12 +17,12 @@ contract BaseShareField is DSMath {
 	uint8 public tokenDecimalDifference;
 	struct UserInfo {
 		uint256 amount; // How many tokens the user has provided.
+		uint256 effectiveStakes; // stakes not including stakes that donate their rewards
 		uint256 rewardDebt; // Reward debt.
 		uint256 rewardEarn; // Reward earn and not minted
-		uint256 rewardMinted; //total reward minted already
+		uint256 rewardMinted; //Rewards minted to user so far
 		uint64 lastRewardTime; // Last time that user got rewards
 		uint64 multiplierResetTime; // Reset time of multiplier
-		uint8 donationPer; // The percentage of donation from their reward
 	}
 	mapping(address => UserInfo) public users;
 
@@ -40,7 +40,7 @@ contract BaseShareField is DSMath {
 		uint256 blockStart,
 		uint256 blockEnd
 	) internal virtual {
-		if (totalProductivity == 0) {
+		if (totalEffectiveStakes == 0) {
 			lastRewardBlock = block.number;
 			return;
 		}
@@ -48,12 +48,13 @@ contract BaseShareField is DSMath {
 			lastRewardBlock = blockStart;
 		}
 
-		uint256 _lastRewardBlock =
-			lastRewardBlock < blockStart && block.number >= blockStart
-				? blockStart
-				: lastRewardBlock;
-		uint256 curRewardBlock =
-			block.number > blockEnd ? blockEnd : block.number;
+		uint256 _lastRewardBlock = lastRewardBlock < blockStart &&
+			block.number >= blockStart
+			? blockStart
+			: lastRewardBlock;
+		uint256 curRewardBlock = block.number > blockEnd
+			? blockEnd
+			: block.number;
 		if (curRewardBlock < blockStart || _lastRewardBlock >= blockEnd) return;
 
 		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block
@@ -61,7 +62,7 @@ contract BaseShareField is DSMath {
 
 		accAmountPerShare =
 			accAmountPerShare +
-			rdiv(reward, totalProductivity * (10**tokenDecimalDifference)); // Increase totalproductivity decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
+			rdiv(reward, totalEffectiveStakes * (10**tokenDecimalDifference)); // Increase totalEffectiveStakes decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
 
 		lastRewardBlock = curRewardBlock;
 	}
@@ -72,9 +73,15 @@ contract BaseShareField is DSMath {
 	 * multiplier therefore they just gets half of the rewards which they earned in the first month
 	 * after first month they get full amount of rewards for the part that they earned after one month
 	 */
-	function _audit(address user) internal virtual {
+	function _audit(
+		address user,
+		uint256 updatedAmount,
+		uint256 _donationPer
+	) internal virtual {
 		UserInfo storage userInfo = users[user];
-		if (userInfo.amount > 0) {
+		uint256 _amount = userInfo.amount;
+		uint256 userEffectiveStake = userInfo.effectiveStakes;
+		if (userEffectiveStake > 0) {
 			(
 				uint256 blocksToPay,
 				uint256 firstMonthBlocksToPay,
@@ -82,12 +89,11 @@ contract BaseShareField is DSMath {
 			) = _auditCalcs(userInfo);
 
 			if (blocksToPay != 0) {
-				uint256 pending =
-					(userInfo.amount *
-						(10**tokenDecimalDifference) *
-						accAmountPerShare) /
-						1e27 -
-						userInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
+				uint256 pending = (userEffectiveStake *
+					(10**tokenDecimalDifference) *
+					accAmountPerShare) /
+					1e27 -
+					userInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
 				uint256 rewardPerBlock = rdiv(pending, blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
 				pending =
 					rmul(
@@ -103,6 +109,27 @@ contract BaseShareField is DSMath {
 		} else {
 			userInfo.multiplierResetTime = uint64(block.number); // Should set user's multiplierResetTime when they stake for the first time
 		}
+
+		//if withdrawing rewards/stake we reset multiplier, only in case of increasinig productivity we dont reset multiplier
+		if (updatedAmount <= _amount) {
+			userInfo.multiplierResetTime = uint64(block.number);
+			if (_amount > 0) {
+				uint256 withdrawFromEffectiveStake = ((_amount -
+					updatedAmount) * userInfo.effectiveStakes) / _amount;
+				userInfo.effectiveStakes -= withdrawFromEffectiveStake;
+				totalEffectiveStakes -= withdrawFromEffectiveStake;
+			}
+		} else if (_donationPer == 0) {
+			userInfo.effectiveStakes += (updatedAmount - _amount);
+			totalEffectiveStakes += (updatedAmount - _amount);
+		}
+		userInfo.lastRewardTime = uint64(block.number);
+		userInfo.amount = updatedAmount;
+		userInfo.rewardDebt =
+			(userInfo.effectiveStakes *
+				(10**tokenDecimalDifference) *
+				accAmountPerShare) /
+			1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is 27 decimals
 	}
 
 	/**
@@ -117,18 +144,16 @@ contract BaseShareField is DSMath {
 			uint256
 		)
 	{
-		uint256 blocksPaid =
-			_userInfo.lastRewardTime - _userInfo.multiplierResetTime; // lastRewardTime is always >= multiplierResetTime
-		uint256 blocksPassedFirstMonth =
-			Math.min(
-				maxMultiplierThreshold,
-				block.number - _userInfo.multiplierResetTime
-			); // blocks which is after first month
+		uint256 blocksPaid = _userInfo.lastRewardTime -
+			_userInfo.multiplierResetTime; // lastRewardTime is always >= multiplierResetTime
+		uint256 blocksPassedFirstMonth = Math.min(
+			maxMultiplierThreshold,
+			block.number - _userInfo.multiplierResetTime
+		); // blocks which is after first month
 		uint256 blocksToPay = block.number - _userInfo.lastRewardTime; // blocks passed since last payment
-		uint256 firstMonthBlocksToPay =
-			blocksPaid >= maxMultiplierThreshold
-				? 0
-				: blocksPassedFirstMonth - blocksPaid; // block which is in the first month so pays with 0.5x multiplier
+		uint256 firstMonthBlocksToPay = blocksPaid >= maxMultiplierThreshold
+			? 0
+			: blocksPassedFirstMonth - blocksPaid; // block which is in the first month so pays with 0.5x multiplier
 		uint256 fullBlocksToPay = blocksToPay - firstMonthBlocksToPay; // blocks to pay in full amount which means with 1x multiplier
 		return (blocksToPay, firstMonthBlocksToPay, fullBlocksToPay);
 	}
@@ -144,20 +169,13 @@ contract BaseShareField is DSMath {
 		uint256 value,
 		uint256 rewardsPerBlock,
 		uint256 blockStart,
-		uint256 blockEnd
+		uint256 blockEnd,
+		uint256 _donationPer
 	) internal virtual returns (bool) {
-		UserInfo storage userInfo = users[user];
 		_update(rewardsPerBlock, blockStart, blockEnd);
-		_audit(user);
+		_audit(user, users[user].amount + value, _donationPer);
 
 		totalProductivity = totalProductivity + value;
-		userInfo.lastRewardTime = uint64(block.number);
-		userInfo.amount = userInfo.amount + value;
-		userInfo.rewardDebt =
-			(userInfo.amount *
-				(10**tokenDecimalDifference) *
-				accAmountPerShare) /
-			1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is 27 decimals
 		return true;
 	}
 
@@ -173,22 +191,8 @@ contract BaseShareField is DSMath {
 		uint256 blockStart,
 		uint256 blockEnd
 	) internal virtual returns (bool) {
-		UserInfo storage userInfo = users[user];
-		require(
-			value > 0 && userInfo.amount >= value,
-			"INSUFFICIENT_PRODUCTIVITY"
-		);
-
 		_update(rewardsPerBlock, blockStart, blockEnd);
-		_audit(user);
-		userInfo.lastRewardTime = uint64(block.number);
-		userInfo.multiplierResetTime = uint64(block.number);
-		userInfo.amount = userInfo.amount - value;
-		userInfo.rewardDebt =
-			(userInfo.amount *
-				(10**tokenDecimalDifference) *
-				accAmountPerShare) /
-			1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is 27 decimals
+		_audit(user, users[user].amount - value, 1); // donationPer variable should be something different than zero so called with 1
 		totalProductivity = totalProductivity - value;
 
 		return true;
@@ -209,7 +213,7 @@ contract BaseShareField is DSMath {
 
 		uint256 pending = 0;
 		if (
-			totalProductivity != 0 &&
+			totalEffectiveStakes != 0 &&
 			block.number >= blockStart &&
 			blockEnd >= block.number
 		) {
@@ -223,11 +227,11 @@ contract BaseShareField is DSMath {
 
 			_accAmountPerShare =
 				_accAmountPerShare +
-				rdiv(reward, totalProductivity * 10**tokenDecimalDifference); // Increase totalproductivity decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
+				rdiv(reward, totalEffectiveStakes * 10**tokenDecimalDifference); // Increase totalEffectiveStakes decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
 			UserInfo memory tempUserInfo = userInfo; // to prevent stack too deep error any other recommendation?
 			if (blocksToPay != 0) {
 				pending =
-					(tempUserInfo.amount *
+					(tempUserInfo.effectiveStakes *
 						(10**tokenDecimalDifference) *
 						_accAmountPerShare) /
 					1e27 -
@@ -259,16 +263,13 @@ contract BaseShareField is DSMath {
 		uint256 blockStart,
 		uint256 blockEnd
 	) public returns (uint256) {
+		UserInfo storage userInfo = users[user];
 		_canMintRewards();
 		_update(rewardsPerBlock, blockStart, blockEnd);
-		_audit(user);
-		UserInfo storage userInfo = users[user];
+		_audit(user, userInfo.amount, 1); // donationPer variable should be something different than zero so called with 1
 		uint256 amount = userInfo.rewardEarn;
-		amount = userInfo.donationPer == 100 ? 0 : amount;
 		userInfo.rewardEarn = 0;
 		userInfo.rewardMinted += amount;
-		userInfo.lastRewardTime = uint64(block.number);
-		userInfo.multiplierResetTime = uint64(block.number);
 		mintedShare = mintedShare + amount;
 		amount = amount / 1e16; // change decimal of mint amount to GD decimals
 		return amount;

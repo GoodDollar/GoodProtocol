@@ -192,8 +192,10 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		bytes result
 	);
 
+	event GuardianSet(address newGuardian);
+
 	function initialize(
-		NameService ns_, // the DAO avatar
+		INameService ns_, // the DAO avatar
 		uint256 votingPeriodBlocks_ //number of blocks a proposal is open for voting before expiring
 	) public initializer {
 		foundationGuardianRelease = 1672531200; //01/01/2023
@@ -324,15 +326,19 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 			"CompoundVotingMachine::execute: proposal can only be executed if it is succeeded"
 		);
 
-		Proposal storage proposal = proposals[proposalId];
-		proposal.executed = true;
-		for (uint256 i = 0; i < proposal.targets.length; i++) {
+		proposals[proposalId].executed = true;
+		address[] memory _targets = proposals[proposalId].targets;
+		uint256[] memory _values = proposals[proposalId].values;
+		string[] memory _signatures = proposals[proposalId].signatures;
+		bytes[] memory _calldatas = proposals[proposalId].calldatas;
+
+		for (uint256 i = 0; i < _targets.length; i++) {
 			(bool ok, bytes memory result) =
 				_executeTransaction(
-					proposal.targets[i],
-					proposal.values[i],
-					proposal.signatures[i],
-					proposal.calldatas[i]
+					_targets[i],
+					_values[i],
+					_signatures[i],
+					_calldatas[i]
 				);
 			emit ProposalExecutionResult(proposalId, i, ok, result);
 		}
@@ -659,6 +665,7 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		);
 		guardian = address(0);
 		foundationGuardianRelease = 0;
+		emit GuardianSet(guardian);
 	}
 
 	function setGuardian(address _guardian) public {
@@ -674,5 +681,6 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		);
 
 		guardian = _guardian;
+		emit GuardianSet(guardian);
 	}
 }

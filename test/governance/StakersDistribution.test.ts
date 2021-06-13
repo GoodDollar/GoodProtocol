@@ -141,12 +141,15 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
           "Good USDC",
           "gUSDC",
           "172800",
-          usdcUsdOracle.address,
-          "200000"
+          usdcUsdOracle.address
         );
         return contract;
       });
-
+    let encodedData = simpleStakingFactory.interface.encodeFunctionData(
+      "setcollectInterestGasCost",
+      ["2000000"]
+    );
+    await genericCall(simpleUsdcStaking.address, encodedData);
     simpleStaking = await simpleStakingFactory.deploy().then(async contract => {
       await contract.init(
         dai.address,
@@ -155,8 +158,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         "Good DAI",
         "gDAI",
         "200",
-        daiUsdOracle.address,
-        "100000"
+        daiUsdOracle.address
       );
       return contract;
     });
@@ -166,7 +168,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       schemeMock
     );
     const currentBlockNumber = await ethers.provider.getBlockNumber();
-    const encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       [
         "1000",
@@ -294,8 +296,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
           "Good DAI",
           "gDAI",
           "200",
-          daiUsdOracle.address,
-          "100000"
+          daiUsdOracle.address
         );
         return contract;
       });
@@ -480,8 +481,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
           "Good DAI",
           "gDAI",
           "200",
-          daiUsdOracle.address,
-          "100000"
+          daiUsdOracle.address
         );
         return contract;
       });
@@ -531,8 +531,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
           "Good DAI",
           "gDAI",
           "200",
-          daiUsdOracle.address,
-          "100000"
+          daiUsdOracle.address
         );
         return contract;
       });
@@ -618,8 +617,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
           "Good DAI",
           "gDAI",
           "200",
-          daiUsdOracle.address,
-          "100000"
+          daiUsdOracle.address
         );
         return contract;
       });
@@ -696,8 +694,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
           "Good DAI",
           "gDAI",
           "200",
-          daiUsdOracle.address,
-          "100000"
+          daiUsdOracle.address
         );
         return contract;
       });

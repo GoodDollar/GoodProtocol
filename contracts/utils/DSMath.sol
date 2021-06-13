@@ -19,10 +19,10 @@ pragma solidity >=0.8.0;
 
 contract DSMath {
 	function rmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = (x * y + (10**27 / 2)) / 10**27;
+		z = (x * y) / 10**27;
 	}
 
 	function rdiv(uint256 x, uint256 y) internal pure returns (uint256 z) {
-		z = (x * (10**27) + (y / 2)) / y;
+		z = (x * (10**27)) / y;
 	}
 }
