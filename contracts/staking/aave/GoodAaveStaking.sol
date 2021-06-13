@@ -4,7 +4,7 @@ pragma solidity >=0.8.0;
 import "../SimpleStaking.sol";
 import "../../Interfaces.sol";
 import "../../utils/DataTypes.sol";
-import "hardhat/console.sol";
+
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Token
@@ -95,7 +95,6 @@ contract GoodAaveStaking is SimpleStaking {
 	{
 		lendingPool.withdraw(address(token), _amount, address(this));
 		uint256 redeemedAmount = token.balanceOf(address(this));
-		console.log("redeemedAmount %s",redeemedAmount);
 		address[] memory tokenAddress = new address[](1);
 		tokenAddress[0] = address(token);
 		address daiAddress = nameService.getAddress("DAI");
