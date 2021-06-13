@@ -8,10 +8,8 @@ import {
   GoodReserveCDai,
   SimpleStaking,
 } from "../../types";
-import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
-import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
+
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
-import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import {
   createDAO,
@@ -144,6 +142,25 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       JSON.stringify(IUniswapV2Pair.abi),
       staker
     ).connect(founder);
+    aave = await (await ethers.getContractFactory("AaveMock")).deploy();
+    await factory.createPair(aave.address, dai.address);
+    const aavePairAddress = factory.getPair(aave.address, dai.address);
+    const aavePair = new Contract(
+      aavePairAddress,
+      JSON.stringify(IUniswapV2Pair.abi),
+      staker
+    ).connect(founder);
+    await dai["mint(address,uint256)"](
+      founder.address,
+      ethers.utils.parseEther("20000000")
+    );
+    await aave["mint(address,uint256)"](
+      founder.address,
+      ethers.utils.parseEther("20000")
+    );
+    await dai.transfer(aavePair.address, ethers.utils.parseEther("2000000"));
+    await aave.transfer(aavePair.address, ethers.utils.parseEther("2000"));
+    await aavePair.mint(founder.address);
     setDAOAddress("CDAI", cDAI.address);
     setDAOAddress("DAI", dai.address);
     comp = await daiFactory.deploy();
@@ -172,7 +189,6 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     usdcUsdOracle = await tokenUsdOracleFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
     lendingPool = await lendingPoolFactory.deploy(usdc.address);
-    aave = await (await ethers.getContractFactory("AaveMock")).deploy();
     incentiveController = await (
       await ethers.getContractFactory("IncentiveControllerMock")
     ).deploy(aave.address);
@@ -187,8 +203,8 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
           usdc.address,
           lendingPool.address,
           nameService.address,
-          "Good DAI",
-          "gDAI",
+          "Good USDC",
+          "gUSDC",
           "172800",
           daiUsdOracle.address,
           incentiveController.address,
@@ -414,6 +430,38 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     expect(simpleStakingCurrentInterestBeforeCollect[0]).to.be.equal(
       simpleStakingCurrentInterest[0]
     ); // simple staking's interest shouldn't be collected so currentinterest should be equal to before collectinterest
+  });
+
+  it("it should collectInterest when there is aave rewards but there is no interest from aToken", async () => {
+    const stakingAmount = ethers.utils.parseUnits("100", 6);
+    await usdc["mint(address,uint256)"](founder.address, stakingAmount);
+    await usdc.approve(goodAaveStaking.address, stakingAmount);
+    await goodAaveStaking.stake(stakingAmount, "0", false);
+    console.log("after stake");
+    let currentGains = await goodAaveStaking.currentGains(false, true);
+    expect(currentGains[4]).to.be.equal("0");
+
+    await incentiveController.increaseRewardsBalance(
+      goodAaveStaking.address,
+      ethers.utils.parseEther("10")
+    );
+    currentGains = await goodAaveStaking.currentGains(false, true);
+    const aavePriceInDollar = await aaveUsdOracle.latestAnswer();
+    expect(currentGains[4]).to.be.equal(
+      BigNumber.from("10").mul(aavePriceInDollar)
+    );
+    const contractAddressesToBeCollected = await goodFundManager
+      .connect(staker)
+      .calcSortedContracts("1100000");
+    console.log(
+      `contractAddressesToBeCollected ${contractAddressesToBeCollected}`
+    );
+    await goodFundManager.collectInterest(contractAddressesToBeCollected, {
+      gasLimit: 1100000,
+    });
+    currentGains = await goodAaveStaking.currentGains(false, true);
+    expect(currentGains[4]).to.be.equal("0");
+    await goodAaveStaking.withdrawStake(stakingAmount, false);
   });
   async function addLiquidity(
     token0Amount: BigNumber,
