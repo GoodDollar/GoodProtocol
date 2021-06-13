@@ -91,23 +91,22 @@ contract GoodCompoundStaking is SimpleStaking {
 		ERC20 comp = ERC20(nameService.getAddress("COMP"));
 		uint256 compBalance = comp.balanceOf(address(this));
 		address daiAddress = nameService.getAddress("DAI");
-		Uniswap uniswapContract = Uniswap(
-			nameService.getAddress("UNISWAP_ROUTER")
-		);
+		Uniswap uniswapContract =
+			Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 		uint256 daiFromComp;
 		cERC20 cToken = cERC20(address(iToken));
 		address[] memory path = new address[](2);
 		if (compBalance > 0) {
 			path[0] = address(comp);
 			path[1] = daiAddress;
-			uint256[] memory compSwap = uniswapContract
-			.swapExactTokensForTokens(
-				compBalance,
-				0,
-				path,
-				address(this),
-				block.timestamp
-			);
+			uint256[] memory compSwap =
+				uniswapContract.swapExactTokensForTokens(
+					compBalance,
+					0,
+					path,
+					address(this),
+					block.timestamp
+				);
 			daiFromComp = compSwap[1];
 		}
 		if (address(iToken) == nameService.getAddress("CDAI")) {
@@ -128,13 +127,14 @@ contract GoodCompoundStaking is SimpleStaking {
 		if (redeemedAmount > 0) {
 			path[0] = address(token);
 			path[1] = daiAddress;
-			uint256[] memory swap = uniswapContract.swapExactTokensForTokens(
-				redeemedAmount,
-				0,
-				path,
-				address(this),
-				block.timestamp
-			);
+			uint256[] memory swap =
+				uniswapContract.swapExactTokensForTokens(
+					redeemedAmount,
+					0,
+					path,
+					address(this),
+					block.timestamp
+				);
 			dai = swap[1];
 		}
 
@@ -176,24 +176,30 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 er = cToken.exchangeRateStored();
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
-		uint256 tokenBalance = iTokenWorthInToken(
-			iToken.balanceOf(address(this))
-		);
-		uint256 balanceInUSD = _returnTokenBalanceInUSD
-			? getTokenValueInUSD(tokenUsdOracle, tokenBalance)
-			: 0;
-		uint256 compValueInUSD = _returnTokenGainsInUSD
-			? getCompValueInUSD(
-				ERC20(nameService.getAddress("COMP")).balanceOf(address(this))
-			)
-			: 0;
+		uint256 tokenBalance =
+			iTokenWorthInToken(iToken.balanceOf(address(this)));
+		uint256 balanceInUSD =
+			_returnTokenBalanceInUSD
+				? getTokenValueInUSD(tokenUsdOracle, tokenBalance)
+				: 0;
+		uint256 compValueInUSD =
+			_returnTokenGainsInUSD
+				? getTokenValueInUSD(
+					compUsdOracle,
+					ERC20(nameService.getAddress("COMP")).balanceOf(
+						address(this)
+					)
+				)
+				: 0;
 		if (tokenBalance <= totalProductivity) {
 			return (0, 0, tokenBalance, balanceInUSD, compValueInUSD);
 		}
 		uint256 tokenGains = tokenBalance - totalProductivity;
-		uint256 tokenGainsInUSD = _returnTokenGainsInUSD
-			? getTokenValueInUSD(tokenUsdOracle, tokenGains) + compValueInUSD
-			: 0;
+		uint256 tokenGainsInUSD =
+			_returnTokenGainsInUSD
+				? getTokenValueInUSD(tokenUsdOracle, tokenGains) +
+					compValueInUSD
+				: 0;
 		uint256 iTokenGains;
 		if (caseType) {
 			iTokenGains =
@@ -242,9 +248,10 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 er = cToken.exchangeRateStored();
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
-		uint256 tokenWorth = caseType == true
-			? (_amount * (10**decimalDifference) * er) / 10**mantissa
-			: ((_amount / (10**decimalDifference)) * er) / 10**mantissa; // calculation based on https://compound.finance/docs#protocol-math
+		uint256 tokenWorth =
+			caseType == true
+				? (_amount * (10**decimalDifference) * er) / 10**mantissa
+				: ((_amount / (10**decimalDifference)) * er) / 10**mantissa; // calculation based on https://compound.finance/docs#protocol-math
 		return tokenWorth;
 	}
 
@@ -255,14 +262,6 @@ contract GoodCompoundStaking is SimpleStaking {
 	function setcollectInterestGasCost(uint32 _amount) external {
 		_onlyAvatar();
 		collectInterestGasCost = _amount;
-	}
-
-	function getCompValueInUSD(uint256 _amount) public view returns (uint256) {
-		AggregatorV3Interface tokenPriceOracle = AggregatorV3Interface(
-			compUsdOracle
-		);
-		int256 compPriceinUSD = tokenPriceOracle.latestAnswer();
-		return (uint256(compPriceinUSD) * _amount) / 1e18;
 	}
 
 	function _approveTokens() internal override {
