@@ -2,7 +2,7 @@ import { default as hre, ethers, upgrades } from "hardhat";
 import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
 import { CERC20, GoodAaveStaking, AaveStakingFactory } from "../../types";
-import { createDAO } from "../helpers";
+import { createDAO, deployUniswap } from "../helpers";
 import { Contract } from "ethers";
 
 const BN = ethers.BigNumber;
@@ -31,6 +31,9 @@ describe("AaveStakingFactory", () => {
     lendingPool = await lendingPoolFactory.deploy(usdc.address);
     dai = dao.daiAddress;
     cdai = dao.cdaiAddress;
+    const uniswap = await deployUniswap();
+    const router = uniswap.router;
+    await dao.setDAOAddress("UNISWAP_ROUTER", router.address);
     stakingFactory = (await ethers
       .getContractFactory("AaveStakingFactory")
       .then((_) => _.deploy())) as AaveStakingFactory;

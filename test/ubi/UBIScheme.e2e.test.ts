@@ -4,9 +4,15 @@ import {
   UBIScheme,
   GoodReserveCDai,
   GoodMarketMaker,
-  GoodFundManager
+  GoodFundManager,
 } from "../../types";
-import { createDAO, deployUBI, advanceBlocks, increaseTime } from "../helpers";
+import {
+  createDAO,
+  deployUBI,
+  advanceBlocks,
+  increaseTime,
+  deployUniswap,
+} from "../helpers";
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -32,7 +38,7 @@ async function proposeAndRegister(
   );
   proposalId = transaction.logs[0].args._proposalId;
   const voteResult = await absoluteVote.vote(proposalId, 1, 0, fnd);
-  return voteResult.logs.some(e => e.event === "ExecuteProposal");
+  return voteResult.logs.some((e) => e.event === "ExecuteProposal");
 }
 
 describe("UBIScheme - network e2e tests", () => {
@@ -67,7 +73,7 @@ describe("UBIScheme - network e2e tests", () => {
     daiEthOracle,
     ethUsdOracle;
 
-  before(async function() {
+  before(async function () {
     [founder, claimer, fisherman, ...signers] = await ethers.getSigners();
 
     schemeMock = signers.pop();
@@ -94,7 +100,7 @@ describe("UBIScheme - network e2e tests", () => {
       cdaiAddress,
       reserve,
       setReserveToken,
-      addWhitelisted
+      addWhitelisted,
     } = deployedDAO;
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
@@ -109,9 +115,19 @@ describe("UBIScheme - network e2e tests", () => {
       "BatUSDMockOracle"
     );
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
+    const compUsdOracleFactory = await ethers.getContractFactory(
+      "CompUSDMockOracle"
+    );
+    const daiFactory = await ethers.getContractFactory("DAIMock");
+    comp = await daiFactory.deploy();
+    await setDAOAddress("COMP", comp.address);
+    const compUsdOracle = await compUsdOracleFactory.deploy();
+    const uniswap = await deployUniswap();
+    const router = uniswap.router;
+    await setDAOAddress("UNISWAP_ROUTER", router.address);
     simpleStaking = await goodCompoundStakingFactory
       .deploy()
-      .then(async contract => {
+      .then(async (contract) => {
         await contract.init(
           dai.address,
           cDAI.address,
@@ -119,7 +135,8 @@ describe("UBIScheme - network e2e tests", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -128,11 +145,11 @@ describe("UBIScheme - network e2e tests", () => {
       goodFundManagerFactory,
       [nameService.address],
       {
-        kind: "uups"
+        kind: "uups",
       }
     )) as GoodFundManager;
     console.log("Deployed goodfund manager", {
-      manager: goodFundManager.address
+      manager: goodFundManager.address,
     });
 
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
@@ -157,7 +174,7 @@ describe("UBIScheme - network e2e tests", () => {
         simpleStaking.address,
         currentBlockNumber - 5,
         currentBlockNumber + 1000,
-        false
+        false,
       ] // set 10 gd per block
     );
 
@@ -176,14 +193,7 @@ describe("UBIScheme - network e2e tests", () => {
     ethUsdOracle = await ethUsdOracleFactory.deploy();
 
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
-    const daiFactory = await ethers.getContractFactory("DAIMock");
-    comp = await daiFactory.deploy();
-    await setDAOAddress("COMP", comp.address);
-    const compUsdOracleFactory = await ethers.getContractFactory(
-      "CompUSDMockOracle"
-    );
-    const compUsdOracle = await compUsdOracleFactory.deploy();
-    await setDAOAddress("COMP_USD_ORACLE", compUsdOracle.address);
+
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
@@ -226,7 +236,7 @@ describe("UBIScheme - network e2e tests", () => {
     let error = await ubi
       .connect(fisherman)
       .fish(claimer.address)
-      .catch(e => e);
+      .catch((e) => e);
     await goodDollar.balanceOf(fisherman.address);
     expect(error.message).to.have.string("is not an inactive user");
   });
@@ -248,7 +258,7 @@ describe("UBIScheme - network e2e tests", () => {
     let error = await ubi
       .connect(fisherman)
       .fish(claimer.address)
-      .catch(e => e);
+      .catch((e) => e);
     expect(error.message).to.have.string("already fished");
   });
 
