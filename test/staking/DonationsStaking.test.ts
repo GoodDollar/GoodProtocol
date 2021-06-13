@@ -82,6 +82,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     } = await createDAO();
 
     const uniswap = await deployUniswap();
+    sda("UNISWAP_ROUTER", uniswap.router.address);
     uniswapRouter = uniswap.router;
 
     genericCall = gc;
@@ -128,6 +129,10 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const tokenUsdOracleFactory = await ethers.getContractFactory(
       "BatUSDMockOracle"
     );
+    const compUsdOracle = await (
+      await ethers.getContractFactory("CompUSDMockOracle")
+    ).deploy();
+
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
     goodCompoundStaking = await goodCompoundStakingFactory
       .deploy()
@@ -140,7 +145,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
           "gDAI",
           "172800",
           daiUsdOracle.address,
-          "100000"
+          compUsdOracle.address
         );
         return contract;
       });
