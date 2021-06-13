@@ -64,7 +64,8 @@ const main = async () => {
       address: dao.cDAI || "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
       usdOracle:
         dao.DAIUsdOracle || "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9",
-      conversionGasCost: 200000
+      compUsdOracle:
+        dao.COMPUsdOracle || "0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5"
     }
   ];
 
@@ -502,7 +503,7 @@ const main = async () => {
           release.NameService,
           protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
           token.usdOracle,
-          token.conversionGasCost
+          token.compUsdOracle
         )
       ).wait();
 
