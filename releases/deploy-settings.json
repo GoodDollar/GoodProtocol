@@ -15,6 +15,10 @@
       "CompCollectGasCost": 150000,
       "CollectInterestGasCostForNonDAI": 250000,
       "CollectInterestGasCostForDai": 150000
+    },
+    "GoodAaveStaking": {
+      "stkAaveClaimCost": 50000,
+      "CollectInterestGasCost": 250000
     }
   },
   "develop": {
