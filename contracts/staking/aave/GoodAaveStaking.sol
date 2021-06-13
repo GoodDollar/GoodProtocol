@@ -94,7 +94,7 @@ contract GoodAaveStaking is SimpleStaking {
 			redeemedAmount,
 			0,
 			path,
-			address(this),
+			nameService.getAddress("RESERVE"),
 			block.timestamp
 		);
 

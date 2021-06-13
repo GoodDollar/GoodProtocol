@@ -97,6 +97,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 daiFromComp;
 		cERC20 cToken = cERC20(address(iToken));
 		address[] memory path = new address[](2);
+		address reserveAddress = nameService.getAddress("RESERVE");
 		if (compBalance > 0) {
 			path[0] = address(comp);
 			path[1] = daiAddress;
@@ -105,7 +106,7 @@ contract GoodCompoundStaking is SimpleStaking {
 				compBalance,
 				0,
 				path,
-				address(this),
+				address(iToken) == nameService.getAddress("CDAI") ? address(this) : reserveAddress,
 				block.timestamp
 			);
 			daiFromComp = compSwap[1];
@@ -132,13 +133,13 @@ contract GoodCompoundStaking is SimpleStaking {
 				redeemedAmount,
 				0,
 				path,
-				address(this),
+				reserveAddress,
 				block.timestamp
 			);
 			dai = swap[1];
 		}
 
-		return (daiAddress, dai + daiFromComp);
+		return (daiAddress, dai + daiFromComp); 
 	}
 
 	/**

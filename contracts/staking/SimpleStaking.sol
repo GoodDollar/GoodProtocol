@@ -428,7 +428,7 @@ _decreaseProductivity(
 		(address redeemedToken, uint256 redeemedAmount) = redeemUnderlyingToDAI(
 			iTokenGains
 		);
-		if (redeemedAmount > 0)
+		if (redeemedToken == nameService.getAddress("CDAI") && redeemedAmount > 0)
 			require(
 				ERC20(redeemedToken).transfer(_recipient, redeemedAmount),
 				"collect transfer failed"
