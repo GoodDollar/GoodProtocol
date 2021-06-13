@@ -127,6 +127,10 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const tokenUsdOracleFactory = await ethers.getContractFactory(
       "BatUSDMockOracle"
     );
+    const compUsdOracle = await (
+      await ethers.getContractFactory("CompUSDMockOracle")
+    ).deploy();
+
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
     usdc = await usdcFactory.deploy();
     cUsdc = await cUsdcFactory.deploy(usdc.address);
@@ -141,7 +145,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
           "Good USDC",
           "gUSDC",
           "172800",
-          usdcUsdOracle.address
+          usdcUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });

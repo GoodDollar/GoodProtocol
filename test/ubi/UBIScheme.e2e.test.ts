@@ -6,7 +6,7 @@ import {
   GoodMarketMaker,
   GoodFundManager
 } from "../../types";
-import { createDAO, deployUBI, advanceBlocks, increaseTime } from "../helpers";
+import { createDAO, deployUBI, deployUniswap, increaseTime } from "../helpers";
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -96,6 +96,9 @@ describe("UBIScheme - network e2e tests", () => {
       setReserveToken,
       addWhitelisted
     } = deployedDAO;
+
+    const uniswap = await deployUniswap();
+    await sda("UNISWAP_ROUTER", uniswap.router.address);
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
     avatar = av;
@@ -108,6 +111,10 @@ describe("UBIScheme - network e2e tests", () => {
     const tokenUsdOracleFactory = await ethers.getContractFactory(
       "BatUSDMockOracle"
     );
+    const compUsdOracleFactory = await ethers.getContractFactory(
+      "CompUSDMockOracle"
+    );
+    const compUsdOracle = await compUsdOracleFactory.deploy();
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
     simpleStaking = await goodCompoundStakingFactory
       .deploy()
@@ -119,7 +126,8 @@ describe("UBIScheme - network e2e tests", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          compUsdOracle.address
         );
         return contract;
       });
@@ -178,10 +186,6 @@ describe("UBIScheme - network e2e tests", () => {
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
     const daiFactory = await ethers.getContractFactory("DAIMock");
 
-    const compUsdOracleFactory = await ethers.getContractFactory(
-      "CompUSDMockOracle"
-    );
-    const compUsdOracle = await compUsdOracleFactory.deploy();
     await setDAOAddress("COMP_USD_ORACLE", compUsdOracle.address);
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);

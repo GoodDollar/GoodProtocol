@@ -270,6 +270,7 @@ export const createDAO = async () => {
     feeFormula: FeeFormula,
     daiAddress: dai.address,
     cdaiAddress: cDAI.address,
+    COMP,
     reputation: reputation.address,
     votingMachine
   };

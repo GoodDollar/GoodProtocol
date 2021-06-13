@@ -69,12 +69,14 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       cdaiAddress,
       reserve,
       setReserveToken,
-      genericCall: gc
+      genericCall: gc,
+      COMP
     } = await createDAO();
 
     genericCall = gc;
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
+    comp = COMP;
     avatar = av;
     controller = ctrl;
     setDAOAddress = sda;
