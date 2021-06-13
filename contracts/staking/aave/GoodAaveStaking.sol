@@ -192,9 +192,22 @@ contract GoodAaveStaking is SimpleStaking {
 		override
 		returns (uint32)
 	{
+		address[] memory tokenAddress = new address[](1);
+		tokenAddress[0] = address(token);
+		uint256 stkAaaveBalance =
+			incentiveController.getRewardsBalance(tokenAddress, address(this));
+		if(stkAaaveBalance > 0 ) return collectInterestGasCost + 50000;
+		
 		return collectInterestGasCost;
 	}
-
+	/**
+	 * @dev Set Gas cost to interest collection for this contract
+	 * @param _amount Gas cost to collect interest
+	 */
+	function setcollectInterestGasCost(uint32 _amount) external {
+		_onlyAvatar();
+		collectInterestGasCost = _amount;
+	}
 	/**
 	 * @dev Calculates worth of given amount of iToken in Token
 	 * @param _amount Amount of token to calculate worth in Token
