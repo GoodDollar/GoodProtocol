@@ -52,6 +52,7 @@ contract GoodAaveStaking is SimpleStaking {
 		);
 		//above  initialize going  to revert on second call, so this is safe
 		tokenUsdOracle = _tokenUsdOracle;
+		_approveTokens();
 	}
 
 	/**
