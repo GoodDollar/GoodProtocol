@@ -116,8 +116,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "BatUSDMockOracle"
     );
     setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
-    comp = await daiFactory.deploy();
-    await setDAOAddress("COMP", comp.address);
+
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
     const compUsdOracleFactory = await ethers.getContractFactory(
       "CompUSDMockOracle"
@@ -789,7 +788,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
     const tx = await simpleStaking.withdrawRewards().catch(e => e);
     expect(tx.message).to.not.be.empty;
-
   });
   it("it should be able to distribute rewards when blockEnd passed but last Reward block was before blockend", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(

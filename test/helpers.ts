@@ -24,6 +24,7 @@ export const createDAO = async () => {
   const daiFactory = await ethers.getContractFactory("DAIMock");
 
   let dai = await daiFactory.deploy();
+  let COMP = await daiFactory.deploy();
 
   let cDAI = await cdaiFactory.deploy(dai.address);
 
@@ -112,6 +113,7 @@ export const createDAO = async () => {
         "BANCOR_FORMULA",
         "DAI",
         "CDAI",
+        "COMP",
         "UBISCHEME",
         "BRIDGE_CONTRACT",
         "UBI_RECIPIENT"
@@ -125,6 +127,7 @@ export const createDAO = async () => {
         BancorFormula.address,
         dai.address,
         cDAI.address,
+        COMP.address,
         root.address,
         root.address,
         root.address

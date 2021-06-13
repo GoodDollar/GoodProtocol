@@ -177,8 +177,7 @@ describe("UBIScheme - network e2e tests", () => {
 
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
     const daiFactory = await ethers.getContractFactory("DAIMock");
-    comp = await daiFactory.deploy();
-    await setDAOAddress("COMP", comp.address);
+
     const compUsdOracleFactory = await ethers.getContractFactory(
       "CompUSDMockOracle"
     );

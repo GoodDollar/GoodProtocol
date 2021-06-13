@@ -35,7 +35,7 @@ const deploy = async () => {
   console.log("ubi deployed");
   const gov = await deployOldVoting(dao);
   console.log("old vote deployed");
-  const { uniswap, daiUsdOracle } = await deploy3rdParty(dao);
+  const { uniswap, daiUsdOracle, compUsdOracle } = await deploy3rdParty(dao);
 
   const release = {
     Reserve: dao.reserve.address,
@@ -59,6 +59,7 @@ const deploy = async () => {
     DonationsStaking: dao.donationsStaking,
     UniswapRouter: uniswap.router.address,
     DAIUsdOracle: daiUsdOracle.address,
+    COMPUsdOracle: compUsdOracle.address,
     network: "develop",
     networkId: 4447
   };
@@ -90,7 +91,10 @@ const deploy3rdParty = async dao => {
     "BatUSDMockOracle"
   );
   const daiUsdOracle = await tokenUsdOracleFactory.deploy();
-  return { uniswap, daiUsdOracle };
+  const compUsdOracle = await (
+    await ethers.getContractFactory("CompUSDMockOracle")
+  ).deploy();
+  return { uniswap, daiUsdOracle, compUsdOracle };
 };
 export const createOldDAO = async () => {
   let [root, ...signers] = await ethers.getSigners();

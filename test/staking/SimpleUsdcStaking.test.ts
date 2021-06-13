@@ -155,8 +155,7 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
     usdcUsdOracle = await tokenUsdOracleFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
     const daiFactory = await ethers.getContractFactory("DAIMock");
-    comp = await daiFactory.deploy();
-    await setDAOAddress("COMP", comp.address);
+
     const compUsdOracleFactory = await ethers.getContractFactory(
       "CompUSDMockOracle"
     );
