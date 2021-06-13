@@ -34,7 +34,9 @@ contract AaveStakingFactory {
 		address _lendingPool,
 		INameService _ns,
 		uint64 _maxRewardThreshold,
-		address _tokenUsdOracle
+		address _tokenUsdOracle,
+		IAaveIncentivesController _incentiveController,
+		address _aaveUSDOracle
 	) public {
 		GoodAaveStaking deployed = clone(
 			token,
@@ -43,7 +45,9 @@ contract AaveStakingFactory {
 					address(_lendingPool),
 					address(_ns),
 					_maxRewardThreshold,
-					_tokenUsdOracle
+					_tokenUsdOracle,
+					address(_incentiveController),
+					_aaveUSDOracle
 				)
 			)
 		);
@@ -55,7 +59,9 @@ contract AaveStakingFactory {
 			string(abi.encodePacked("GoodAaveStaking ", token.name())),
 			string(abi.encodePacked("g", token.symbol())),
 			_maxRewardThreshold,
-			_tokenUsdOracle
+			_tokenUsdOracle,
+			_incentiveController,
+			_aaveUSDOracle
 		);
 	}
 

@@ -29,13 +29,14 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
   let dai: Contract;
   let usdc: Contract;
   let pair: Contract, uniswapRouter: Contract;
-  let cDAI, cUsdc: Contract, comp: Contract;
+  let cDAI, cUsdc: Contract, comp: Contract, aave: Contract;
   let gasFeeOracle,
     daiEthOracle: Contract,
     daiUsdOracle: Contract,
     usdcUsdOracle: Contract,
     ethUsdOracle: Contract,
-    compUsdOracle: Contract;
+    compUsdOracle: Contract,
+    aaveUsdOracle: Contract;
   let goodReserve: GoodReserveCDai;
   let goodAaveStaking: Contract;
   let goodFundManager: Contract;
@@ -51,6 +52,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     signers,
     nameService,
     initializeToken,
+    incentiveController,
     lendingPool,
     setDAOAddress,
     genericCall;
@@ -170,6 +172,14 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     usdcUsdOracle = await tokenUsdOracleFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
     lendingPool = await lendingPoolFactory.deploy(usdc.address);
+    aave = await (await ethers.getContractFactory("AaveMock")).deploy();
+    incentiveController = await (
+      await ethers.getContractFactory("IncentiveControllerMock")
+    ).deploy(aave.address);
+    aaveUsdOracle = await (
+      await ethers.getContractFactory("AaveUSDMockOracle")
+    ).deploy();
+    await setDAOAddress("AAVE", aave.address);
     goodAaveStaking = await goodAaveStakingFactory
       .deploy()
       .then(async (contract) => {
@@ -180,7 +190,9 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
           "Good DAI",
           "gDAI",
           "172800",
-          daiUsdOracle.address
+          daiUsdOracle.address,
+          incentiveController.address,
+          aaveUsdOracle.address
         );
         return contract;
       });
@@ -212,7 +224,9 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
         "Good DAI",
         "gDAI",
         "172800",
-        daiUsdOracle.address
+        daiUsdOracle.address,
+        incentiveController.address,
+        aaveUsdOracle.address
       )
     ).to.revertedWith("Initializable: contract is already initialized");
   });

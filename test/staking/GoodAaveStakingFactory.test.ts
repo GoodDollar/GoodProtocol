@@ -15,6 +15,9 @@ describe("AaveStakingFactory", () => {
     signers,
     cdai,
     usdc,
+    aave,
+    incentiveController,
+    aaveUsdOracle: Contract,
     dai,
     dao,
     stakingFactory: AaveStakingFactory,
@@ -27,13 +30,21 @@ describe("AaveStakingFactory", () => {
     const lendingPoolFactory = await ethers.getContractFactory(
       "LendingPoolMock"
     );
+    aave = await (await ethers.getContractFactory("AaveMock")).deploy();
+    incentiveController = await (
+      await ethers.getContractFactory("IncentiveControllerMock")
+    ).deploy(aave.address);
     usdc = await usdcFactory.deploy();
     lendingPool = await lendingPoolFactory.deploy(usdc.address);
+    aaveUsdOracle = await (
+      await ethers.getContractFactory("AaveUSDMockOracle")
+    ).deploy();
     dai = dao.daiAddress;
     cdai = dao.cdaiAddress;
     const uniswap = await deployUniswap();
     const router = uniswap.router;
     await dao.setDAOAddress("UNISWAP_ROUTER", router.address);
+    await dao.setDAOAddress("AAVE", aave.address);
     stakingFactory = (await ethers
       .getContractFactory("AaveStakingFactory")
       .then((_) => _.deploy())) as AaveStakingFactory;
@@ -48,6 +59,7 @@ describe("AaveStakingFactory", () => {
       usdc.address,
       ethers.constants.HashZero
     );
+
     expect(log).to.not.empty;
     expect(log.args.proxy).to.equal(detAddress);
     expect(log.args.token).to.equal(usdc.address);
@@ -63,19 +75,23 @@ describe("AaveStakingFactory", () => {
         lendingPool.address,
         dao.nameService.address,
         5760,
-        stakingFactory.address
+        stakingFactory.address,
+        incentiveController.address,
+        aaveUsdOracle.address
       )
     ).wait();
     const log = res.events.find((_) => _.event === "Deployed");
     const detAddress = await stakingFactory.predictAddress(
       usdc.address,
       ethers.utils.solidityKeccak256(
-        ["address", "address", "uint64", "address"],
+        ["address", "address", "uint64", "address", "address", "address"],
         [
           lendingPool.address,
           dao.nameService.address,
           5760,
           stakingFactory.address,
+          incentiveController.address,
+          aaveUsdOracle.address,
         ]
       )
     );
