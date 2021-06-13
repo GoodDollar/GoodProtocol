@@ -12,13 +12,15 @@ export const BLOCK_INTERVAL = 30;
 describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
   let dai: Contract;
   let eightDecimalsToken: Contract;
+  let comp: Contract;
   let pair: Contract, uniswapRouter: Contract;
   let cDAI, cEDT: Contract; // cEDT is for c Eight decimal token
   let gasFeeOracle,
     daiEthOracle: Contract,
     daiUsdOracle: Contract,
     eightDecimalsUsdOracle: Contract,
-    ethUsdOracle: Contract;
+    ethUsdOracle: Contract,
+    compUsdOracle: Contract;
   let goodReserve: GoodReserveCDai;
   let goodCompoundStaking;
   let goodFundManager: Contract;
@@ -34,7 +36,8 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
     signers,
     nameService,
     initializeToken,
-    setDAOAddress;
+    setDAOAddress,
+    genericCall;
 
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
@@ -62,6 +65,7 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
       daiAddress,
       cdaiAddress,
       reserve,
+      genericCall: gc,
       setReserveToken
     } = await createDAO();
 
@@ -73,6 +77,7 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
     avatar = av;
     controller = ctrl;
+    genericCall = gc;
     setDAOAddress = sda;
     nameService = ns;
     initializeToken = setReserveToken;
@@ -147,6 +152,13 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
 
     eightDecimalsUsdOracle = await tokenUsdOracleFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
+    const daiFactory = await ethers.getContractFactory("DAIMock");
+    comp = await daiFactory.deploy();
+    await setDAOAddress("COMP", comp.address);
+    const compUsdOracleFactory = await ethers.getContractFactory(
+      "CompUSDMockOracle"
+    );
+    compUsdOracle = await compUsdOracleFactory.deploy();
     goodCompoundStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {
@@ -158,11 +170,15 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
           "gEDT",
           "172800",
           eightDecimalsUsdOracle.address,
-          "200000"
+          compUsdOracle.address
         );
         return contract;
       });
-
+    const encodedData = goodCompoundStaking.interface.encodeFunctionData(
+      "setcollectInterestGasCost",
+      ["200000"]
+    );
+    await genericCall(goodCompoundStaking.address, encodedData);
     await dai["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseEther("2000000")
@@ -437,7 +453,7 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
           "gEDT",
           "50",
           eightDecimalsUsdOracle.address,
-          "100000"
+          compUsdOracle.address
         );
         return contract;
       });
@@ -611,6 +627,7 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
+
     const simpleStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {
@@ -622,7 +639,7 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
           "gEDT",
           "50",
           eightDecimalsUsdOracle.address,
-          "200000"
+          compUsdOracle.address
         );
         return contract;
       });
@@ -637,10 +654,21 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
           "gEDT",
           "50",
           eightDecimalsUsdOracle.address,
-          "200000"
+          compUsdOracle.address
         );
         return contract;
       });
+    let encodedData = goodCompoundStaking.interface.encodeFunctionData(
+      "setcollectInterestGasCost",
+      ["200000"]
+    );
+    await genericCall(simpleStaking.address, encodedData);
+
+    encodedData = goodCompoundStaking.interface.encodeFunctionData(
+      "setcollectInterestGasCost",
+      ["200000"]
+    );
+    await genericCall(simpleStaking1.address, encodedData);
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -649,7 +677,7 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
       controller,
       schemeMock
     );
-    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["100", simpleStaking.address, 0, 10, false]
     );

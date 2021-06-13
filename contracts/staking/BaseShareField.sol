@@ -3,7 +3,6 @@ pragma solidity >=0.8.0;
 import "../Interfaces.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DSMath.sol";
-
 contract BaseShareField is DSMath {
 	uint256 totalProductivity;
 	uint256 public totalEffectiveStakes;

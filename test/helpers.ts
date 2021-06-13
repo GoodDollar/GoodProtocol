@@ -1,5 +1,5 @@
 import { ethers, upgrades } from "hardhat";
-
+import { expect } from "chai";
 import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollar.json";
 import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
@@ -14,6 +14,8 @@ import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
 import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
 import { Controller, GoodMarketMaker, CompoundVotingMachine } from "../types";
+import { Contract } from "@ethersproject/contracts";
+import { BigNumber } from "@ethersproject/bignumber";
 
 export const createDAO = async () => {
   let [root, ...signers] = await ethers.getSigners();
