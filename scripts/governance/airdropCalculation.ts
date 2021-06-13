@@ -118,6 +118,20 @@ export const airdrop = (ethers: typeof Ethers, ethplorer_key) => {
     ["event UBIClaimed(address indexed from, uint amount)"],
     ethers.provider
   );
+  const ubinew = new ethers.Contract(
+    "0xD7aC544F8A570C4d8764c3AAbCF6870CBD960D0D",
+    ["event UBIClaimed(address indexed from, uint amount)"],
+    ethers.provider
+  );
+  const usdcgdYieldFarming = new ethers.Contract(
+    "0x04Ee5DE43332aF99eeC2D40de19962AA1cC583EC",
+    [
+      "event Staked(address indexed staker, uint256 value, uint256 _globalYieldPerToken)",
+      "function interestData() view returns(uint256,uint256,uint256)",
+      "function getStakerData(address) public view returns(uint256, uint256)"
+    ],
+    ethers.provider
+  );
 
   const getActiveAddresses = async (
     startBlock,
@@ -363,7 +377,7 @@ export const airdrop = (ethers: typeof Ethers, ethplorer_key) => {
     );
     const gdHoldings = liquidityPositions.map(async pos => {
       const share = pos.liquidityTokenBalance / pos.pair.totalSupply;
-      const gdShare = parseInt((pos.pair.reserve * share * 100).toFixed(0)); //to G$ cents
+      const gdShare = parseInt((pos.pair.reserve0 * share * 100).toFixed(0)); //to G$ cents
       const uAddress = pos.user.id.toLowerCase();
       const isNotContract = get(
         addresses,
@@ -371,7 +385,7 @@ export const airdrop = (ethers: typeof Ethers, ethplorer_key) => {
         (await gdMainnet.provider.getCode(uAddress).catch(e => "0x")) === "0x"
       );
       const newBalance = get(addresses, `${uAddress}.balance`, 0) + gdShare;
-
+      console.log({ pos, newBalance, uAddress });
       addresses[uAddress] = updateBalance(addresses[uAddress], {
         balance: newBalance,
         isNotContract
@@ -453,6 +467,46 @@ export const airdrop = (ethers: typeof Ethers, ethplorer_key) => {
       return _calcHoldings(pair, addresses);
     });
 
+    //get liquidity miners for 0x04Ee5DE43332aF99eeC2D40de19962AA1cC583EC, fuse G$ liquidity farmin rewards
+    const staked = await usdcgdYieldFarming.queryFilter(
+      usdcgdYieldFarming.filters.Staked(),
+      9000000
+    );
+    const [totalStaked, ,] = await usdcgdYieldFarming.interestData();
+
+    const farmers = {};
+    const yieldFarmingRep =
+      addresses[usdcgdYieldFarming.address.toLowerCase()].balance;
+    await Promise.all(
+      staked.map(async e => {
+        const [balance] = await usdcgdYieldFarming.getStakerData(e.args.staker);
+
+        if (balance > 0) {
+          const share = balance / totalStaked;
+          const uAddress = e.args.staker;
+          farmers[uAddress] = [share, share * yieldFarmingRep];
+          const newBalance =
+            get(addresses, `${uAddress}.balance`, 0) + share * yieldFarmingRep;
+
+          addresses[uAddress] = updateBalance(addresses[uAddress], {
+            balance: newBalance
+          });
+        }
+      })
+    );
+    console.log("got fuseswap yield farmers:", {
+      contract: usdcgdYieldFarming.address.toLowerCase(),
+      yieldFarmingRep,
+      totalStaked: totalStaked.toString(),
+      farmers: Object.values(farmers).length,
+      totalShares: Object.values(farmers)
+        .map(_ => _[0])
+        .reduceRight((x: number, y: number) => x + y)
+    });
+
+    //dont send rep to the yield farming contract
+    delete addresses[usdcgdYieldFarming.address.toLowerCase()];
+
     return addresses;
   };
 
@@ -521,20 +575,22 @@ export const airdrop = (ethers: typeof Ethers, ethplorer_key) => {
     return addresses;
   };
 
-  const getClaimsPerAddress = async (balances: Balances = {}) => {
-    const latestBlock = await ubi.provider.getBlockNumber();
-    const blocks = range(6200000, latestBlock, step);
-    const filter = ubi.filters.UBIClaimed();
-
+  const getClaimsPerAddress = async (
+    balances: Balances = {},
+    ubiContract = ubi
+  ) => {
+    const latestBlock = await ubiContract.provider.getBlockNumber();
+    const blocks = range(6400000, latestBlock, step);
+    const filter = ubiContract.filters.UBIClaimed();
     for (let blockChunk of chunk(blocks, 10)) {
       // Get the filter (the second null could be omitted)
       const ps = blockChunk.map(async bc => {
         // Query the filter (the latest could be omitted)
-        const logs = await ubi
+        const logs = await ubiContract
           .queryFilter(filter, bc, Math.min(bc + step - 1, latestBlock))
           .catch(e => {
             console.log("block ubiclaimed logs failed retrying...", bc);
-            return ubi.queryFilter(
+            return ubiContract.queryFilter(
               filter,
               bc,
               Math.min(bc + step - 1, latestBlock)
@@ -584,9 +640,9 @@ export const airdrop = (ethers: typeof Ethers, ethplorer_key) => {
     ps[1] = getUniswapBalances().then(r =>
       fs.writeFileSync("uniswapBalances.json", JSON.stringify(r))
     );
-    ps[2] = getClaimsPerAddress().then(r =>
-      fs.writeFileSync("claimBalances.json", JSON.stringify(r))
-    );
+    ps[2] = getClaimsPerAddress()
+      .then(r => getClaimsPerAddress(r, ubinew))
+      .then(r => fs.writeFileSync("claimBalances.json", JSON.stringify(r)));
     ps[3] = getEthPlorerHolders().then(r =>
       fs.writeFileSync("ethBalances.json", JSON.stringify(r))
     );
@@ -658,6 +714,7 @@ export const airdrop = (ethers: typeof Ethers, ethplorer_key) => {
     });
 
     const sorted = toTree.map(_ => _[1]);
+    fs.writeFileSync("reptree.json", JSON.stringify(toTree));
     console.log("Reputation Distribution\nFoundation: 33%");
     [0.001, 0.01, 0.1, 0.5].forEach(q =>
       console.log({

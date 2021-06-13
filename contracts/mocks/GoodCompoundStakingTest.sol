@@ -7,12 +7,12 @@ contract GoodCompoundStakingTest is GoodCompoundStaking {
 	constructor(
 		address _token,
 		address _iToken,
-		NameService _ns,
+		INameService _ns,
 		string memory _tokenName,
 		string memory _tokenSymbol,
 		uint64 _maxRewardThreshold,
 		address _tokenUsdOracle,
-		uint32 _collectInterestGasCost
+		address _compUsdOracle
 	) GoodCompoundStaking() {
 		init(
 			_token,
@@ -22,7 +22,7 @@ contract GoodCompoundStakingTest is GoodCompoundStaking {
 			_tokenSymbol,
 			_maxRewardThreshold,
 			_tokenUsdOracle,
-			_collectInterestGasCost
+			_compUsdOracle
 		);
 	}
 

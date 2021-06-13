@@ -60,21 +60,19 @@ describe("AaveStakingFactory", () => {
         lendingPool.address,
         dao.nameService.address,
         5760,
-        stakingFactory.address,
-        160000
+        stakingFactory.address
       )
     ).wait();
     const log = res.events.find((_) => _.event === "Deployed");
     const detAddress = await stakingFactory.predictAddress(
       usdc.address,
       ethers.utils.solidityKeccak256(
-        ["address", "address", "uint64", "address", "uint32"],
+        ["address", "address", "uint64", "address"],
         [
           lendingPool.address,
           dao.nameService.address,
           5760,
           stakingFactory.address,
-          160000,
         ]
       )
     );

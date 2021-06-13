@@ -14,12 +14,21 @@ export const NULL_ADDRESS = ethers.constants.AddressZero;
 let cdai: CERC20;
 
 describe("CompoundStakingFactory", () => {
-  let founder, signers, cdai, dai, dao, stakingFactory: CompoundStakingFactory;
+  let founder,
+    signers,
+    cdai,
+    dai,
+    dao,
+    stakingFactory: CompoundStakingFactory,
+    compUsdOracle;
 
   before(async () => {
     [founder, ...signers] = await ethers.getSigners();
     dao = await createDAO();
-
+    const compUsdOracleFactory = await ethers.getContractFactory(
+      "CompUSDMockOracle"
+    );
+    compUsdOracle = await compUsdOracleFactory.deploy();
     dai = dao.daiAddress;
     cdai = dao.cdaiAddress;
     stakingFactory = (await ethers
@@ -51,15 +60,15 @@ describe("CompoundStakingFactory", () => {
         dao.nameService.address,
         5760,
         stakingFactory.address,
-        160000
+        compUsdOracle.address
       )
     ).wait();
     const log = res.events.find(_ => _.event === "Deployed");
     const detAddress = await stakingFactory.predictAddress(
       cdai,
       ethers.utils.solidityKeccak256(
-        ["address", "uint64", "address", "uint32"],
-        [dao.nameService.address, 5760, stakingFactory.address, 160000]
+        ["address", "uint64", "address"],
+        [dao.nameService.address, 5760, stakingFactory.address]
       )
     );
     expect(log).to.not.empty;

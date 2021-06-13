@@ -66,12 +66,9 @@ contract GoodReserveCDai is
 		// The convertible token address
 		// which the GD tokens were
 		// purchased with
-		address indexed reserveToken,
+		address indexed inputToken,
 		// Reserve tokens amount
-		uint256 reserveAmount,
-		// Minimal GD return that was
-		// permitted by the caller
-		uint256 minReturn,
+		uint256 inputAmount,
 		// Actual return after the
 		// conversion
 		uint256 actualReturn
@@ -84,16 +81,13 @@ contract GoodReserveCDai is
 		// The convertible token address
 		// which the GD tokens were
 		// sold to
-		address indexed reserveToken,
+		address indexed outputToken,
 		// GD tokens amount
 		uint256 gdAmount,
 		// The amount of GD tokens that
 		// was contributed during the
 		// conversion
 		uint256 contributionAmount,
-		// Minimal reserve tokens return
-		// that was permitted by the caller
-		uint256 minReturn,
 		// Actual return after the
 		// conversion
 		uint256 actualReturn
@@ -120,7 +114,7 @@ contract GoodReserveCDai is
 		uint256 gdUbiTransferred
 	);
 
-	function initialize(NameService _ns, bytes32 _gdxAirdrop)
+	function initialize(INameService _ns, bytes32 _gdxAirdrop)
 		public
 		virtual
 		initializer
@@ -184,16 +178,32 @@ contract GoodReserveCDai is
 		uint256 _minReturn,
 		uint256 _minDAIAmount,
 		address _targetAddress
-	) public returns (uint256) {
-		require(
-			_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
-			"You need to approve input token transfer first"
-		);
-		require(
-			_buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
-				true,
-			"transferFrom failed, make sure you approved input token transfer"
-		);
+	) public payable returns (uint256) {
+		bool withETH = false;
+		Uniswap uniswapContract =
+			Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+		if (address(_buyWith) == address(0)) {
+			require(
+				msg.value > 0 && _tokenAmount == msg.value,
+				"you need to pay with ETH"
+			);
+			_tokenAmount = msg.value;
+			_buyWith = ERC20(uniswapContract.WETH());
+			withETH = true;
+		} else {
+			require(
+				_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
+				"You need to approve input token transfer first"
+			);
+			require(
+				_buyWith.transferFrom(
+					msg.sender,
+					address(this),
+					_tokenAmount
+				) == true,
+				"transferFrom failed, make sure you approved input token transfer"
+			);
+		}
 
 		uint256 result;
 		if (address(_buyWith) == cDaiAddress) {
@@ -202,20 +212,24 @@ contract GoodReserveCDai is
 			result = _cdaiMintAndBuy(_tokenAmount, _minReturn, _targetAddress);
 		} else {
 			address[] memory path = new address[](2);
+
 			path[0] = address(_buyWith);
 			path[1] = daiAddress;
-			Uniswap uniswapContract =
-				Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
-			_buyWith.approve(address(uniswapContract), _tokenAmount);
-			uint256[] memory swap =
-				uniswapContract.swapExactTokensForTokens(
+			uint256[] memory swap;
+			if (withETH) {
+				swap = uniswapContract.swapExactETHForTokens{
+					value: msg.value
+				}(_minDAIAmount, path, address(this), block.timestamp);
+			} else {
+				_buyWith.approve(address(uniswapContract), _tokenAmount);
+				swap = uniswapContract.swapExactTokensForTokens(
 					_tokenAmount,
 					_minDAIAmount,
 					path,
 					address(this),
 					block.timestamp
 				);
-
+			}
 			uint256 dai = swap[1];
 			require(dai > 0, "token selling failed");
 
@@ -226,47 +240,6 @@ contract GoodReserveCDai is
 			msg.sender,
 			address(_buyWith),
 			_tokenAmount,
-			_minReturn,
-			result
-		);
-
-		return result;
-	}
-
-	/**
-	 * @dev Converts ETH to cDAI then buy GD with this cDAI
-	 * @param _minReturn The minimum allowed return in GD tokens
-	 * @param _minDAIAmount The mininmum dai out amount from Exchange swap function
-	 * @param _targetAddress address of g$ and gdx recipient if different than msg.sender
-	 * @return (gdReturn) How much GD tokens were transferred
-
-	 */
-	function buyWithETH(
-		uint256 _minReturn,
-		uint256 _minDAIAmount,
-		address _targetAddress
-	) public payable returns (uint256) {
-		Uniswap uniswapContract =
-			Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
-		address[] memory path = new address[](2);
-		path[0] = uniswapContract.WETH();
-		path[1] = daiAddress;
-		uint256[] memory swap =
-			uniswapContract.swapExactETHForTokens{ value: msg.value }(
-				_minDAIAmount,
-				path,
-				address(this),
-				block.timestamp
-			);
-		uint256 dai = swap[1];
-		require(dai > 0, "token selling failed");
-
-		uint256 result = _cdaiMintAndBuy(dai, _minReturn, _targetAddress);
-		emit TokenPurchased(
-			msg.sender,
-			uniswapContract.WETH(),
-			msg.value,
-			_minReturn,
 			result
 		);
 
@@ -424,7 +397,6 @@ contract GoodReserveCDai is
 			address(_sellTo),
 			_gdAmount,
 			contributionAmount,
-			_minReturn,
 			result
 		);
 		return result;

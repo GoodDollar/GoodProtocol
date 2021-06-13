@@ -42,7 +42,7 @@ contract ClaimersDistribution is DAOUpgradeableContract {
 
 	event MonthlyDistributionSet(uint256 reputationAmount);
 
-	function initialize(NameService _ns) public initializer {
+	function initialize(INameService _ns) public initializer {
 		monthlyReputationDistribution = 4000000 ether; //4M as specified in specs
 		_updateMonth();
 		setDAO(_ns);

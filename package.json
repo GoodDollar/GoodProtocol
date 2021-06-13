@@ -44,7 +44,6 @@
   },
   "homepage": "https://gooddollar.org",
   "dependencies": {
-    "@aave/protocol-v2": "^1.0.1",
     "@gooddollar/goodcontracts": "^2.6.1",
     "@openzeppelin/contracts-upgradeable": "^4.1.0",
     "openzeppelin-solidity": "^4.0.0"
@@ -75,6 +74,7 @@
     "graphql": "^15.5.0",
     "graphql-request": "^3.4.0",
     "hardhat": "*",
+    "hardhat-contract-sizer": "^2.0.3",
     "hardhat-gas-reporter": "^1.0.4",
     "hardhat-typechain": "*",
     "lodash": "^4.17.21",

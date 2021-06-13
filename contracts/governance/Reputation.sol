@@ -45,11 +45,11 @@ contract Reputation is DAOUpgradeableContract, AccessControlUpgradeable {
 	/**
 	 * @dev initialize
 	 */
-	function initialize(NameService _ns) public initializer {
+	function initialize(INameService _ns) public initializer {
 		__Reputation_init(_ns);
 	}
 
-	function __Reputation_init(NameService _ns) internal {
+	function __Reputation_init(INameService _ns) internal {
 		decimals = 18;
 		name = "GoodDAO";
 		symbol = "GDAO";

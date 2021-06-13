@@ -32,10 +32,9 @@ contract AaveStakingFactory {
 	function cloneAndInit(
 		ERC20 token,
 		address _lendingPool,
-		NameService _ns,
+		INameService _ns,
 		uint64 _maxRewardThreshold,
-		address _tokenUsdOracle,
-		uint32 _collectInterestGasCost
+		address _tokenUsdOracle
 	) public {
 		GoodAaveStaking deployed = clone(
 			token,
@@ -44,8 +43,7 @@ contract AaveStakingFactory {
 					address(_lendingPool),
 					address(_ns),
 					_maxRewardThreshold,
-					_tokenUsdOracle,
-					_collectInterestGasCost
+					_tokenUsdOracle
 				)
 			)
 		);
@@ -57,8 +55,7 @@ contract AaveStakingFactory {
 			string(abi.encodePacked("GoodAaveStaking ", token.name())),
 			string(abi.encodePacked("g", token.symbol())),
 			_maxRewardThreshold,
-			_tokenUsdOracle,
-			_collectInterestGasCost
+			_tokenUsdOracle
 		);
 	}
 

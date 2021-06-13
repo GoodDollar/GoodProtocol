@@ -6,6 +6,7 @@ import "../reserve/GoodReserveCDai.sol";
 import "../Interfaces.sol";
 import "../utils/DSMath.sol";
 import "../utils/DAOUpgradeableContract.sol";
+import "hardhat/console.sol";
 
 interface StakingContract {
 	function collectUBIInterest(address recipient)
@@ -123,7 +124,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	 * @dev Constructor
 	 * @param _ns The address of the name Service
 	 */
-	function initialize(NameService _ns) public virtual initializer {
+	function initialize(INameService _ns) public virtual initializer {
 		setDAO(_ns);
 		gdMintGasCost = 250000; // While testing highest amount was 240k so put 250k to be safe
 		collectInterestTimeThreshold = 5184000; // 5184000 is 2 months in seconds
@@ -295,7 +296,6 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			gdUBI,
 			gdRewardToMint
 		);
-		
 
 		uint256 gasPriceIncDAI =
 			getGasPriceIncDAIorDAI(initialGas - gasleft(), false);

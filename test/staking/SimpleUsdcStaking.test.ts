@@ -1,20 +1,10 @@
-import { default as hre, ethers, upgrades } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { BigNumber, Contract, Signer } from "ethers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
-import {
-  GoodMarketMaker,
-  CERC20,
-  GoodReserveCDai,
-  SimpleStaking
-} from "../../types";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { createDAO, increaseTime, advanceBlocks } from "../helpers";
+import { GoodMarketMaker, GoodReserveCDai } from "../../types";
+import { createDAO, deployUniswap, advanceBlocks } from "../helpers";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
-import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
-import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
-import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 30;
@@ -22,13 +12,15 @@ export const BLOCK_INTERVAL = 30;
 describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
   let dai: Contract;
   let usdc: Contract;
+  let comp: Contract;
   let pair: Contract, uniswapRouter: Contract;
   let cDAI, cUsdc: Contract;
   let gasFeeOracle,
     daiEthOracle: Contract,
     daiUsdOracle: Contract,
     usdcUsdOracle: Contract,
-    ethUsdOracle: Contract;
+    ethUsdOracle: Contract,
+    compUsdOracle: Contract;
   let goodReserve: GoodReserveCDai;
   let goodCompoundStaking;
   let goodFundManager: Contract;
@@ -44,7 +36,8 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
     signers,
     nameService,
     initializeToken,
-    setDAOAddress;
+    setDAOAddress,
+    genericCall;
 
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
@@ -57,21 +50,11 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
-    const routerFactory = new ethers.ContractFactory(
-      UniswapV2Router02.abi,
-      UniswapV2Router02.bytecode,
-      founder
-    );
-    const uniswapFactory = new ethers.ContractFactory(
-      UniswapV2Factory.abi,
-      UniswapV2Factory.bytecode,
-      founder
-    );
-    const wethFactory = new ethers.ContractFactory(
-      WETH9.abi,
-      WETH9.bytecode,
-      founder
-    );
+
+    const uniswap = await deployUniswap();
+    uniswapRouter = uniswap.router;
+    const { factory, weth } = uniswap;
+
     const usdcFactory = await ethers.getContractFactory("USDCMock");
     let {
       controller: ctrl,
@@ -86,11 +69,13 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
       daiAddress,
       cdaiAddress,
       reserve,
+      genericCall: gc,
       setReserveToken
     } = await createDAO();
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
     avatar = av;
+    genericCall = gc;
     controller = ctrl;
     setDAOAddress = sda;
     nameService = ns;
@@ -119,9 +104,7 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
     );
 
     marketMaker = mm;
-    const weth = await wethFactory.deploy();
-    const factory = await uniswapFactory.deploy(founder.address);
-    uniswapRouter = await routerFactory.deploy(factory.address, weth.address);
+
     console.log("deployed contribution, deploying reserve...", {
       founder: founder.address
     });
@@ -171,6 +154,13 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
 
     usdcUsdOracle = await tokenUsdOracleFactory.deploy();
     ethUsdOracle = await ethUsdOracleFactory.deploy();
+    const daiFactory = await ethers.getContractFactory("DAIMock");
+    comp = await daiFactory.deploy();
+    await setDAOAddress("COMP", comp.address);
+    const compUsdOracleFactory = await ethers.getContractFactory(
+      "CompUSDMockOracle"
+    );
+    compUsdOracle = await compUsdOracleFactory.deploy();
     goodCompoundStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {
@@ -182,11 +172,15 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
           "gUSDC",
           "172800",
           usdcUsdOracle.address,
-          "200000"
+          compUsdOracle.address
         );
         return contract;
       });
-
+    const encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
+      "setcollectInterestGasCost",
+      ["200000"]
+    );
+    await genericCall(goodCompoundStaking.address, encodedData);
     await dai["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseEther("2000000")
@@ -200,6 +194,7 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
       ethers.utils.parseUnits("2000000", 6),
       ethers.utils.parseEther("2000000")
     );
+
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
@@ -450,7 +445,7 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
           "gUSDC",
           "50",
           usdcUsdOracle.address,
-          "100000"
+          compUsdOracle.address
         );
         return contract;
       });
@@ -605,6 +600,7 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
+
     const simpleStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {
@@ -616,7 +612,7 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
           "gUSDC",
           "50",
           usdcUsdOracle.address,
-          "200000"
+          compUsdOracle.address
         );
         return contract;
       });
@@ -632,29 +628,34 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
           "gUSDC",
           "50",
           usdcUsdOracle.address,
-          "200000"
+          compUsdOracle.address
         );
         return contract;
       });
+    let encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
+      "setcollectInterestGasCost",
+      ["200000"]
+    );
+    await genericCall(simpleStaking.address, encodedData);
 
+    encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
+      "setcollectInterestGasCost",
+      ["200000"]
+    );
+    await genericCall(simpleStaking1.address, encodedData);
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const ictrl = await ethers.getContractAt(
-      "Controller",
-      controller,
-      schemeMock
-    );
-    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["100", simpleStaking.address, 0, 10, false]
     );
-    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    await genericCall(goodFundManager.address, encodedData);
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["100", simpleStaking1.address, 0, 10, false]
     );
-    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    await genericCall(goodFundManager.address, encodedData);
 
     await usdc["mint(address,uint256)"](staker.address, stakingAmount);
     await usdc.connect(staker).approve(simpleStaking.address, stakingAmount);
@@ -691,12 +692,12 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
       "setStakingReward",
       ["100", simpleStaking.address, 0, 10, true]
     );
-    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    await genericCall(goodFundManager.address, encodedData);
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["100", simpleStaking1.address, 0, 10, true]
     );
-    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    await genericCall(goodFundManager.address, encodedData);
     expect(goodCompoundStakingCurrentInterest[0].toString()).to.be.equal("0"); // Goodcompound staking's interest should be collected so currentinterest should be 0
     expect(simpleStakingCurrentInterestBeforeCollect[0]).to.be.equal(
       simpleStakingCurrentInterest[0]

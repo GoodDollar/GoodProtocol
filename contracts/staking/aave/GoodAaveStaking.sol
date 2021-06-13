@@ -18,6 +18,8 @@ contract GoodAaveStaking is SimpleStaking {
 	//LendingPool of aave
 	ILendingPool public lendingPool;
 
+	// Gas cost to collect interest from this staking contract
+	uint32 public collectInterestGasCost = 250000;
 	/**
 	 * @param _token Token to swap DEFI token
 	 * @param _lendingPool LendingPool address
@@ -26,17 +28,15 @@ contract GoodAaveStaking is SimpleStaking {
 	 * @param _tokenSymbol Symbol of the staking token which will be provided to staker for their staking share
 	 * @param _tokenSymbol Determines blocks to pass for 1x Multiplier
 	 * @param _tokenUsdOracle address of the TOKEN/USD oracle
-	 * @param _collectInterestGasCost Gas cost for the collect interest of this staking contract
 	 */
 	function init(
 		address _token,
 		address _lendingPool,
-		NameService _ns,
+		INameService _ns,
 		string memory _tokenName,
 		string memory _tokenSymbol,
 		uint64 _maxRewardThreshold,
-		address _tokenUsdOracle,
-		uint32 _collectInterestGasCost
+		address _tokenUsdOracle
 	) public {
 		lendingPool = ILendingPool(_lendingPool);
 		DataTypes.ReserveData memory reserve = lendingPool.getReserveData(
@@ -48,8 +48,7 @@ contract GoodAaveStaking is SimpleStaking {
 			_ns,
 			_tokenName,
 			_tokenSymbol,
-			_maxRewardThreshold,
-			_collectInterestGasCost
+			_maxRewardThreshold
 		);
 		//above  initialize going  to revert on second call, so this is safe
 		tokenUsdOracle = _tokenUsdOracle;
@@ -90,7 +89,6 @@ contract GoodAaveStaking is SimpleStaking {
 		Uniswap uniswapContract = Uniswap(
 			nameService.getAddress("UNISWAP_ROUTER")
 		);
-		token.approve(address(uniswapContract), redeemedAmount);
 		uint256[] memory swap = uniswapContract.swapExactTokensForTokens(
 			redeemedAmount,
 			0,
@@ -178,5 +176,10 @@ contract GoodAaveStaking is SimpleStaking {
 		returns (uint256)
 	{
 		return _amount; // since aToken is peg to Token 1:1 return exact amount
+	}
+	function _approveTokens() internal override {
+		address uniswapRouter = nameService.getAddress("UNISWAP_ROUTER");
+		token.approve(uniswapRouter, type(uint256).max);
+		token.approve(address(lendingPool), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
 	}
 }

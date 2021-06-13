@@ -30,12 +30,6 @@ abstract contract SimpleStaking is
 	// Interest Token address
 	ERC20 public iToken;
 
-	// Interest and staker data
-	//InterestDistribution.InterestData public interestData;
-
-	// Gas cost to collect interest from this staking contract
-	uint32 public collectInterestGasCost;
-
 	// The total staked Token amount in the contract
 	// uint256 public totalStaked = 0;
 	uint8 public stakingTokenDecimals;
@@ -66,20 +60,19 @@ abstract contract SimpleStaking is
 	 * @dev Constructor
 	 * @param _token The address of Token
 	 * @param _iToken The address of Interest Token
-	 * @param _ns The address of the NameService contract
+	 * @param _ns The address of the INameService contract
 	 * @param _tokenName The name of the staking token
 	 * @param _tokenSymbol The symbol of the staking token
 	 * @param _maxRewardThreshold the blocks that should pass to get 1x reward multiplier
-	 * @param _collectInterestGasCost Gas cost for the collect interest of this staking contract
+
 	 */
 	function initialize(
 		address _token,
 		address _iToken,
-		NameService _ns,
+		INameService _ns,
 		string memory _tokenName,
 		string memory _tokenSymbol,
-		uint64 _maxRewardThreshold,
-		uint32 _collectInterestGasCost
+		uint64 _maxRewardThreshold
 	) public virtual initializer {
 		setDAO(_ns);
 		token = ERC20(_token);
@@ -92,18 +85,6 @@ abstract contract SimpleStaking is
 		stakingTokenDecimals = token.decimals();
 		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;
-		collectInterestGasCost = _collectInterestGasCost; // Should be adjusted according to this contract's gas cost
-
-		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
-	}
-
-	/**
-	 * @dev Set Gas cost to interest collection for this contract
-	 * @param _amount Gas cost to collect interest
-	 */
-	function setcollectInterestGasCost(uint32 _amount) external {
-		_onlyAvatar();
-		collectInterestGasCost = _amount;
 	}
 
 	/**
@@ -181,6 +162,11 @@ abstract contract SimpleStaking is
 		);
 
 	/**
+	 * @dev Approve infinite tokens to defi protocols in order to save gas
+	 */
+	function _approveTokens() internal virtual;
+
+	/**
 	 * @dev Allows a staker to deposit Tokens. Notice that `approve` is
 	 * needed to be executed before the execution of this method.
 	 * Can be executed only when the contract is not paused.
@@ -211,30 +197,31 @@ abstract contract SimpleStaking is
 		if (_inInterestToken == false) {
 			mintInterestToken(_amount); //mint iToken
 		}
-
-		UserInfo storage userInfo = users[_msgSender()];
-		userInfo.donationPer = uint8(_donationPer);
-
 		_mint(_msgSender(), _amount); // mint Staking token for staker
-		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
-			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
-				.rewardsForStakingContract(address(this));
+		(
+			uint32 rewardsPerBlock,
+			uint64 blockStart,
+			uint64 blockEnd,
+
+		) = GoodFundManager(nameService.getAddress("FUND_MANAGER"))
+		.rewardsForStakingContract(address(this));
 		_increaseProductivity(
 			_msgSender(),
 			_amount,
 			rewardsPerBlock,
 			blockStart,
-			blockEnd
+			blockEnd,
+			_donationPer
 		);
 
 		//notify GDAO distrbution for stakers
-		StakersDistribution sd =
-			StakersDistribution(nameService.getAddress("GDAO_STAKERS"));
+		StakersDistribution sd = StakersDistribution(
+			nameService.getAddress("GDAO_STAKERS")
+		);
 		if (address(sd) != address(0)) {
-			uint256 stakeAmountInEighteenDecimals =
-				token.decimals() == 18
-					? _amount
-					: _amount * 10**(18 - token.decimals());
+			uint256 stakeAmountInEighteenDecimals = token.decimals() == 18
+				? _amount
+				: _amount * 10**(18 - token.decimals());
 			sd.userStaked(_msgSender(), stakeAmountInEighteenDecimals);
 		}
 
@@ -252,7 +239,6 @@ abstract contract SimpleStaking is
 		nonReentrant
 	{
 		uint256 tokenWithdraw;
-		(uint256 userProductivity, ) = getProductivity(msg.sender);
 
 		if (_inInterestToken) {
 			uint256 tokenWorth = iTokenWorthInToken(_amount);
@@ -276,14 +262,15 @@ abstract contract SimpleStaking is
 			);
 		}
 
-		GoodFundManager fm =
-			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
+		GoodFundManager fm = GoodFundManager(
+			nameService.getAddress("FUND_MANAGER")
+		);
 
 		//this will revert in case user doesnt have enough productivity to withdraw _amount, as productivity=staking tokens amount
 		_burn(msg.sender, _amount); // burn their staking tokens
 
-		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
-			fm.rewardsForStakingContract(address(this));
+		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) = fm
+		.rewardsForStakingContract(address(this));
 
 		_decreaseProductivity(
 			_msgSender(),
@@ -295,18 +282,17 @@ abstract contract SimpleStaking is
 		fm.mintReward(nameService.getAddress("CDAI"), _msgSender()); // send rewards to user and use cDAI address since reserve in cDAI
 
 		//notify GDAO distrbution for stakers
-		StakersDistribution sd =
-			StakersDistribution(nameService.getAddress("GDAO_STAKERS"));
+		StakersDistribution sd = StakersDistribution(
+			nameService.getAddress("GDAO_STAKERS")
+		);
 		if (address(sd) != address(0)) {
-			uint256 withdrawAmountInEighteenDecimals =
-				token.decimals() == 18
-					? _amount
-					: _amount * 10**(18 - token.decimals());
+			uint256 withdrawAmountInEighteenDecimals = token.decimals() == 18
+				? _amount
+				: _amount * 10**(18 - token.decimals());
 			sd.userWithdraw(_msgSender(), withdrawAmountInEighteenDecimals);
 		}
 
 		emit StakeWithdraw(msg.sender, address(token), tokenWithdraw);
-
 	}
 
 	/**
@@ -314,8 +300,9 @@ abstract contract SimpleStaking is
 	 * withdrawing rewards resets the multiplier! so if user just want GDAO he should use claimReputation()
 	 */
 	function withdrawRewards() external nonReentrant {
-		GoodFundManager fm =
-			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
+		GoodFundManager fm = GoodFundManager(
+			nameService.getAddress("FUND_MANAGER")
+		);
 		fm.mintReward(nameService.getAddress("CDAI"), _msgSender()); // send rewards to user and use cDAI address since reserve in cDAI
 		claimReputation();
 	}
@@ -325,8 +312,9 @@ abstract contract SimpleStaking is
 	 */
 	function claimReputation() public {
 		//claim reputation rewards
-		StakersDistribution sd =
-			StakersDistribution(nameService.getAddress("GDAO_STAKERS"));
+		StakersDistribution sd = StakersDistribution(
+			nameService.getAddress("GDAO_STAKERS")
+		);
 		if (address(sd) != address(0)) {
 			address[] memory contracts = new address[](1);
 			contracts[0] = (address(this));
@@ -349,14 +337,24 @@ abstract contract SimpleStaking is
 		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
 			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
 				.rewardsForStakingContract(address(this));
-		_decreaseProductivity(
+
+_decreaseProductivity(
 			from,
 			value,
 			rewardsPerBlock,
 			blockStart,
 			blockEnd
 		);
-		_increaseProductivity(to, value, rewardsPerBlock, blockStart, blockEnd);
+
+		_increaseProductivity(
+			to,
+			value,
+			rewardsPerBlock,
+			blockStart,
+			blockEnd,
+			0
+		);
+
 		if (address(sd) != address(0)) {
 			address[] memory contracts;
 			contracts[0] = (address(this));
@@ -373,11 +371,11 @@ abstract contract SimpleStaking is
 	function tokenDecimalPrecision() internal view returns (uint256, bool) {
 		uint256 tokenDecimal = tokenDecimal();
 		uint256 iTokenDecimal = iTokenDecimal();
-		uint256 decimalDifference =
-			tokenDecimal > iTokenDecimal
-				? tokenDecimal - iTokenDecimal
-				: iTokenDecimal - tokenDecimal;
+		uint256 decimalDifference = tokenDecimal > iTokenDecimal
+			? tokenDecimal - iTokenDecimal
+			: iTokenDecimal - tokenDecimal;
 		return (decimalDifference, tokenDecimal > iTokenDecimal);
+
 	}
 
 	function getStakerData(address _staker)
@@ -419,11 +417,17 @@ abstract contract SimpleStaking is
 			_recipient != address(this),
 			"Recipient cannot be the staking contract"
 		);
-		(uint256 iTokenGains, uint256 tokenGains, , , uint256 usdGains) =
-			currentGains(false, true);
+		(
+			uint256 iTokenGains,
+			uint256 tokenGains,
+			,
+			,
+			uint256 usdGains
+		) = currentGains(false, true);
 
-		(address redeemedToken, uint256 redeemedAmount) =
-			redeemUnderlyingToDAI(iTokenGains);
+		(address redeemedToken, uint256 redeemedAmount) = redeemUnderlyingToDAI(
+			iTokenGains
+		);
 		if (redeemedAmount > 0)
 			require(
 				ERC20(redeemedToken).transfer(_recipient, redeemedAmount),
@@ -437,7 +441,6 @@ abstract contract SimpleStaking is
 	/**
 	 * @dev making the contract inactive
 	 * NOTICE: this could theoretically result in future interest earned in cdai to remain locked
-	 * but we dont expect any other stakers but us in SimpleDAIStaking
 	 */
 	function pause(bool _isPaused) public {
 		_onlyAvatar();
