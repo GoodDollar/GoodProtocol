@@ -479,7 +479,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			_gasAmount; // based on https://compound.finance/docs#protocol-math
 		return result;
 	}
-
+	/**
+	 * @dev Helper function to get worth of particular gas amount in GoodDollar
+	 * @param _gasAmount Amount of gas to be calculated worth in GD
+	 */
 	function getGasPriceInGD(uint256 _gasAmount) public view returns (uint256) {
 		uint256 priceInCdai = getGasPriceIncDAIorDAI(_gasAmount, false);
 		uint256 gdPriceIncDAI =
