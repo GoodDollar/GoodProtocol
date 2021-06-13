@@ -30,6 +30,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
   let gasFeeOracle,
     daiEthOracle: Contract,
     daiUsdOracle: Contract,
+    compUsdOracle,
     batUsdOracle: Contract,
     ethUsdOracle: Contract;
   let goodReserve: GoodReserveCDai;
@@ -129,7 +130,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const tokenUsdOracleFactory = await ethers.getContractFactory(
       "BatUSDMockOracle"
     );
-    const compUsdOracle = await (
+    compUsdOracle = await (
       await ethers.getContractFactory("CompUSDMockOracle")
     ).deploy();
 
@@ -273,7 +274,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
           "gBAT",
           "172800",
           daiUsdOracle.address,
-          "100000"
+          compUsdOracle.address
         );
         return contract;
       });
