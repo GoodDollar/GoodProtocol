@@ -292,3 +292,11 @@ interface AggregatorV3Interface {
 
 	function latestAnswer() external view returns (int256);
 }
+
+interface IDonationStaking {
+	function stakeDonations(uint256 _minDAIAmount) external payable;
+}
+
+interface INameService {
+	function getAddress(string memory _name) external view returns (address);
+}

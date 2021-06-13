@@ -5,7 +5,7 @@
  * then to test upgrade process locally run:
  * npx hardhat run scripts/upgradeToV2/upgradeToV2.ts  --network develop
  */
-import { network, ethers } from "hardhat";
+import { network, ethers, upgrades } from "hardhat";
 import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollar.json";
 import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
@@ -21,11 +21,11 @@ import MarketMaker from "@gooddollar/goodcontracts/stakingModel/build/contracts/
 import FundManager from "@gooddollar/goodcontracts/stakingModel/build/contracts/GoodFundManager.json";
 import SimpleDAIStaking from "@gooddollar/goodcontracts/stakingModel/build/contracts/SimpleDAIStaking.json";
 import BridgeMock from "@gooddollar/goodcontracts/stakingModel/build/contracts/BridgeMock.json";
+import DonationsStaking from "@gooddollar/goodcontracts/upgradables/build/contracts/DonationsStaking.json";
 
-import { Controller, GoodMarketMaker, CompoundVotingMachine } from "../types";
 import releaser from "../scripts/releaser";
-import { increaseTime } from "../test/helpers";
-ethers.constants.HashZero;
+import { increaseTime, deployUniswap } from "../test/helpers";
+
 const deploy = async () => {
   console.log("dao deploying...");
   //TODO: modify to deploy old DAO contracts version ie Reserve to truly simulate old DAO
@@ -35,6 +35,8 @@ const deploy = async () => {
   console.log("ubi deployed");
   const gov = await deployOldVoting(dao);
   console.log("old vote deployed");
+  const { uniswap, daiUsdOracle } = await deploy3rdParty(dao);
+
   const release = {
     Reserve: dao.reserve.address,
     GoodDollar: dao.gd,
@@ -54,12 +56,42 @@ const deploy = async () => {
     FirstClaimPool: ubi.firstClaim.address,
     Bridge: dao.bridge,
     BancorFormula: dao.bancorFormula,
+    DonationsStaking: dao.donationsStaking,
+    UniswapRouter: uniswap.router.address,
+    DAIUsdOracle: daiUsdOracle.address,
     network: "develop",
     networkId: 4447
   };
   releaser(release, network.name, "olddao");
 };
 
+const deploy3rdParty = async dao => {
+  const uniswap = await deployUniswap();
+  //create et/dai pair
+  let mintAmount = ethers.utils.parseEther("1000");
+  const ETHAmount = ethers.utils.parseEther("50");
+  const dai = await ethers.getContractAt("cERC20", dao.daiAddress);
+  await dai["mint(uint256)"](mintAmount);
+
+  await dai.approve(uniswap.router.address, mintAmount);
+  await uniswap.router.addLiquidityETH(
+    dao.daiAddress,
+    mintAmount,
+    mintAmount,
+    ETHAmount,
+    (await ethers.getSigners())[0].address,
+    ethers.constants.MaxUint256,
+    {
+      value: ETHAmount
+    }
+  );
+
+  const tokenUsdOracleFactory = await ethers.getContractFactory(
+    "BatUSDMockOracle"
+  );
+  const daiUsdOracle = await tokenUsdOracleFactory.deploy();
+  return { uniswap, daiUsdOracle };
+};
 export const createOldDAO = async () => {
   let [root, ...signers] = await ethers.getSigners();
 
@@ -201,6 +233,32 @@ export const createOldDAO = async () => {
     Identity.address
   );
 
+  const DonationsStakingF = new ethers.ContractFactory(
+    DonationsStaking.abi,
+    DonationsStaking.bytecode,
+    root
+  );
+  const donationsStaking = await DonationsStakingF.deploy();
+  await donationsStaking.initialize(
+    Avatar.address,
+    simpleStaking.address,
+    dai.address
+  );
+  //fake donation staking for testing upgrade
+  await dai["mint(uint256)"](ethers.constants.WeiPerEther);
+  await dai.transfer(donationsStaking.address, ethers.constants.WeiPerEther);
+  await donationsStaking.stakeDonations(0);
+  root.sendTransaction({
+    to: donationsStaking.address,
+    value: ethers.constants.WeiPerEther
+  });
+  console.log("rergular deploy");
+  // const donationsStaking = await upgrades.deployProxy(DonationsStakingF, [
+  //   Avatar.address,
+  //   simpleStaking.address,
+  //   dai.address
+  // ]);
+
   console.log("Done deploying DAO, setting schemes permissions");
   //generic call permissions
   let schemeMock = signers[signers.length - 1];
@@ -298,7 +356,8 @@ export const createOldDAO = async () => {
     contribution: contribution.address,
     simpleStaking: simpleStaking.address,
     bancorFormula: BancorFormula.address,
-    bridge: Bridge.address
+    bridge: Bridge.address,
+    donationsStaking: donationsStaking.address
   };
 };
 

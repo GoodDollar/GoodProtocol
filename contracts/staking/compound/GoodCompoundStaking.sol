@@ -33,7 +33,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	function init(
 		address _token,
 		address _iToken,
-		NameService _ns,
+		INameService _ns,
 		string memory _tokenName,
 		string memory _tokenSymbol,
 		uint64 _maxRewardThreshold,

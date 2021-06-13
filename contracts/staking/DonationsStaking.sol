@@ -15,7 +15,6 @@ import "../utils/DAOUpgradeableContract.sol";
 contract DonationsStaking is DAOUpgradeableContract {
 	SimpleStaking public stakingContract;
 	ERC20 public stakingToken;
-	address public owner;
 	Uniswap public uniswap;
 	bool public active;
 	uint256 public totalETHDonated;
@@ -27,14 +26,6 @@ contract DonationsStaking is DAOUpgradeableContract {
 		uint256 tokenDonated
 	);
 
-	modifier ownerOrAvatar() {
-		require(
-			msg.sender == owner || msg.sender == avatar,
-			"Only owner or avatar can perform this action"
-		);
-		_;
-	}
-
 	modifier isActive() {
 		require(active);
 		_;
@@ -42,12 +33,11 @@ contract DonationsStaking is DAOUpgradeableContract {
 
 	receive() external payable {}
 
-	function initialize(NameService _ns, address _stakingContract)
+	function initialize(INameService _ns, address _stakingContract)
 		public
 		initializer
 	{
 		setDAO(_ns);
-		owner = msg.sender;
 		uniswap = Uniswap(_ns.getAddress("UNISWAP_ROUTER"));
 		stakingContract = SimpleStaking(_stakingContract);
 		stakingToken = stakingContract.token();
@@ -88,9 +78,8 @@ contract DonationsStaking is DAOUpgradeableContract {
 	 * @return Staking Token value staked
 	 */
 	function totalStaked() public view returns (uint256) {
-		(uint256 stakingAmount, ) = stakingContract.getProductivity(
-			address(this)
-		);
+		(uint256 stakingAmount, ) =
+			stakingContract.getProductivity(address(this));
 		return stakingAmount;
 	}
 
@@ -118,7 +107,8 @@ contract DonationsStaking is DAOUpgradeableContract {
 		return ethBalance;
 	}
 
-	function setActive(bool _active) public ownerOrAvatar {
+	function setActive(bool _active) public {
+		_onlyAvatar();
 		active = _active;
 	}
 
@@ -127,10 +117,10 @@ contract DonationsStaking is DAOUpgradeableContract {
 	 * this can also be called by owner(Foundation) but it is safe as funds are transfered to avatar
 	 * and only avatar can upgrade this contract logic
 	 */
-	function withdraw() public ownerOrAvatar returns (uint256, uint256) {
-		(uint256 stakingAmount, ) = stakingContract.getProductivity(
-			address(this)
-		);
+	function withdraw() public returns (uint256, uint256) {
+		_onlyAvatar();
+		(uint256 stakingAmount, ) =
+			stakingContract.getProductivity(address(this));
 		if (stakingAmount > 0)
 			stakingContract.withdrawStake(stakingAmount, false);
 		uint256 stakingTokenBalance = stakingToken.balanceOf(address(this));
@@ -142,19 +132,16 @@ contract DonationsStaking is DAOUpgradeableContract {
 	}
 
 	function getVersion() public pure returns (string memory) {
-		return "1.1.0";
+		return "2.0.0";
 	}
 
 	/**
 	 * @dev Function to set staking contract and withdraw previous stakings and send it to avatar
 	 */
-	function setStakingContract(address _stakingContract)
-		external
-	{
+	function setStakingContract(address _stakingContract) external {
 		_onlyAvatar();
-		(uint256 stakingAmount, ) = stakingContract.getProductivity(
-			address(this)
-		);
+		(uint256 stakingAmount, ) =
+			stakingContract.getProductivity(address(this));
 		if (stakingAmount > 0)
 			stakingContract.withdrawStake(stakingAmount, false);
 		uint256 stakingTokenBalance = stakingToken.balanceOf(address(this));
