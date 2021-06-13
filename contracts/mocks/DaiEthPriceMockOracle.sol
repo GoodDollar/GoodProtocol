@@ -1,9 +1,11 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity >=0.8.0;
 
 contract DaiEthPriceMockOracle {
 	function latestRoundData()
 		public
-		view
+		pure
 		returns (
 			uint80 roundId,
 			int256 answer,
@@ -15,7 +17,7 @@ contract DaiEthPriceMockOracle {
 		return (0, 341481428801721, 0, 0, 0);
 	}
 
-	function latestAnswer() public view returns (int256) {
+	function latestAnswer() public pure returns (int256) {
 		return 341481428801721;
 	}
 }

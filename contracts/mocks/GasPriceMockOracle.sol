@@ -1,9 +1,11 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity >=0.8.0;
 
 contract GasPriceMockOracle {
 	function latestRoundData()
 		public
-		view
+		pure
 		returns (
 			uint80 roundId,
 			int256 answer,
@@ -15,7 +17,7 @@ contract GasPriceMockOracle {
 		return (0, 25000000000, 0, 0, 0);
 	}
 
-	function latestAnswer() public view returns (int256) {
+	function latestAnswer() public pure returns (int256) {
 		return 25000000000;
 	}
 }

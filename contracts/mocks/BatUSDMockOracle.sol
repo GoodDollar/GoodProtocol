@@ -1,9 +1,10 @@
+// SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
 contract BatUSDMockOracle {
 	function latestRoundData()
 		public
-		view
+		pure
 		returns (
 			uint80 roundId,
 			int256 answer,
@@ -15,7 +16,7 @@ contract BatUSDMockOracle {
 		return (0, 100000000, 0, 0, 0); // returns 1$ according to easy calculation
 	}
 
-	function latestAnswer() public view returns (int256) {
+	function latestAnswer() public pure returns (int256) {
 		return 100000000; // returns 1$ according to easy calculation
 	}
 }
