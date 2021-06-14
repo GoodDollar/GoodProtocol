@@ -105,24 +105,13 @@ contract GoodCompoundStaking is SimpleStaking {
 					compBalance,
 					0,
 					path,
-					address(iToken) == nameService.getAddress("CDAI")
-						? address(this)
-						: _recipient,
+					 _recipient,
 					block.timestamp
 				);
 			daiFromComp = compSwap[1];
 		}
 		if (address(iToken) == nameService.getAddress("CDAI")) {
-			uint256 cdaiMintAmount;
-			if (daiFromComp > 0) {
-				uint256 cdaiAmountBeforeMint = cToken.balanceOf(address(this));
-				cToken.mint(daiFromComp);
-				cdaiMintAmount =
-					cToken.balanceOf(address(this)) -
-					cdaiAmountBeforeMint;
-			}
-
-			return (address(iToken), _amount + cdaiMintAmount); // If iToken is cDAI then just return cDAI
+			return (address(iToken), _amount); // If iToken is cDAI then just return cDAI
 		}
 		require(cToken.redeem(_amount) == 0, "Failed to redeem cToken");
 		uint256 redeemedAmount = token.balanceOf(address(this));
@@ -189,7 +178,7 @@ contract GoodCompoundStaking is SimpleStaking {
 			iTokenWorthInToken(iToken.balanceOf(address(this)));
 		uint256 balanceInUSD =
 			_returnTokenBalanceInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenBalance)
+				? getTokenValueInUSD(tokenUsdOracle, tokenBalance,token.decimals())
 				: 0;
 		uint256 compValueInUSD =
 			_returnTokenGainsInUSD
@@ -197,7 +186,7 @@ contract GoodCompoundStaking is SimpleStaking {
 					compUsdOracle,
 					ERC20(nameService.getAddress("COMP")).balanceOf(
 						address(this)
-					)
+					),18 // COMP is in 18 decimal
 				)
 				: 0;
 		if (tokenBalance <= totalProductivity) {
@@ -206,7 +195,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 tokenGains = tokenBalance - totalProductivity;
 		uint256 tokenGainsInUSD =
 			_returnTokenGainsInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenGains) +
+				? getTokenValueInUSD(tokenUsdOracle, tokenGains,token.decimals()) +
 					compValueInUSD
 				: 0;
 		uint256 iTokenGains;

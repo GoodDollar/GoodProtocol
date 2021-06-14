@@ -169,7 +169,7 @@ contract GoodAaveStaking is SimpleStaking {
 		uint256 tokenBalance = aToken.balanceOf(address(this));
 		uint256 balanceInUSD =
 			_returnTokenBalanceInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenBalance)
+				? getTokenValueInUSD(tokenUsdOracle, tokenBalance, token.decimals())
 				: 0;
 		address[] memory tokenAddress = new address[](1);
 		tokenAddress[0] = address(token);
@@ -180,7 +180,7 @@ contract GoodAaveStaking is SimpleStaking {
 
 		uint256 tokenGainsInUSD =
 			_returnTokenGainsInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenGains)
+				? getTokenValueInUSD(tokenUsdOracle, tokenGains, token.decimals())
 				: 0;
 		return (
 			tokenGains, // since token gains = atoken gains

@@ -6,7 +6,7 @@ import {
   GoodMarketMaker,
   CERC20,
   GoodReserveCDai,
-  SimpleStaking,
+  SimpleStaking
 } from "../../types";
 
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
@@ -15,7 +15,7 @@ import {
   createDAO,
   increaseTime,
   advanceBlocks,
-  deployUniswap,
+  deployUniswap
 } from "../helpers";
 import { experimentalAddHardhatNetworkMessageTraceHook } from "hardhat/config";
 
@@ -87,7 +87,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       genericCall: gc,
       cdaiAddress,
       reserve,
-      setReserveToken,
+      setReserveToken
     } = await createDAO();
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
@@ -103,7 +103,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       gd,
       identity,
       controller,
-      avatar,
+      avatar
     });
     goodFundManager = await upgrades.deployProxy(
       goodFundManagerFactory,
@@ -112,13 +112,13 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     );
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     console.log("Deployed goodfund manager", {
-      manager: goodFundManager.address,
+      manager: goodFundManager.address
     });
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
 
     marketMaker = mm;
     console.log("deployed contribution, deploying reserve...", {
-      founder: founder.address,
+      founder: founder.address
     });
     compUsdOracle = await (
       await ethers.getContractFactory("CompUSDMockOracle")
@@ -198,7 +198,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     await setDAOAddress("AAVE", aave.address);
     goodAaveStaking = await goodAaveStakingFactory
       .deploy()
-      .then(async (contract) => {
+      .then(async contract => {
         await contract.init(
           usdc.address,
           lendingPool.address,
@@ -258,7 +258,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
         goodAaveStaking.address,
         currentBlockNumber - 5,
         currentBlockNumber + 500,
-        false,
+        false
       ] // set 10 gd per block
     );
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -328,8 +328,9 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     const gdBalanceBeforeCollectInterest = await goodDollar.balanceOf(
       staker.address
     );
-    const contractAddressesToBeCollected =
-      await goodFundManager.calcSortedContracts("1100000");
+    const contractAddressesToBeCollected = await goodFundManager.calcSortedContracts(
+      "1100000"
+    );
     console.log(contractAddressesToBeCollected.toString());
     await goodFundManager
       .connect(staker)
@@ -358,7 +359,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     );
     const simpleStaking = await goodCompoundStakingFactory
       .deploy()
-      .then(async (contract) => {
+      .then(async contract => {
         await contract.init(
           dai.address,
           cDAI.address,
@@ -374,7 +375,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
 
     const simpleStaking1 = await goodCompoundStakingFactory
       .deploy()
-      .then(async (contract) => {
+      .then(async contract => {
         await contract.init(
           dai.address,
           cDAI.address,
@@ -403,13 +404,15 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
     await simpleStaking1.connect(staker).stake(stakingAmount, 100, false);
 
-    const simpleStakingCurrentInterestBeforeCollect =
-      await simpleStaking.currentGains(false, true);
+    const simpleStakingCurrentInterestBeforeCollect = await simpleStaking.currentGains(
+      false,
+      true
+    );
     const contractsToBeCollected = await goodFundManager.calcSortedContracts(
       "1100000"
     );
     await goodFundManager.collectInterest(contractsToBeCollected, {
-      gasLimit: 1100000,
+      gasLimit: 1100000
     });
     const simpleStakingCurrentInterest = await simpleStaking.currentGains(
       false,
@@ -458,12 +461,12 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     );
     const contractAddressesToBeCollected = await goodFundManager
       .connect(staker)
-      .calcSortedContracts("1100000");
+      .calcSortedContracts("1200000");
     console.log(
       `contractAddressesToBeCollected ${contractAddressesToBeCollected}`
     );
     await goodFundManager.collectInterest(contractAddressesToBeCollected, {
-      gasLimit: 1100000,
+      gasLimit: 1200000
     });
     currentGains = await goodAaveStaking.currentGains(false, true);
     expect(currentGains[4]).to.be.equal("0");
