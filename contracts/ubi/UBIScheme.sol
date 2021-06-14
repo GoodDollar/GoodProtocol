@@ -15,12 +15,16 @@ contract UBIScheme is DAOUpgradeableContract {
 		uint256 claimAmount;
 	}
 
+	//daily statistics
 	mapping(uint256 => Day) public claimDay;
 
+	//last ubi claim of user
 	mapping(address => uint256) public lastClaimed;
 
+	//current day since start of contract
 	uint256 public currentDay;
 
+	//starting date of contract, used to determine the hour where daily ubi cycle starts
 	uint256 public periodStart;
 
 	// Result of distribution formula
@@ -111,6 +115,7 @@ contract UBIScheme is DAOUpgradeableContract {
 	// Emits when daily ubi is calculated
 	event UBICalculated(uint256 day, uint256 dailyUbi, uint256 blockNumber);
 
+	//Emits whenever a new multi day cycle starts
 	event UBICycleCalculated(
 		uint256 day,
 		uint256 pool,
@@ -142,7 +147,8 @@ contract UBIScheme is DAOUpgradeableContract {
 		startOfCycle = periodStart;
 	}
 
-	/* @dev function that gets the amount of people who claimed on the given day
+	/**
+	 * @dev function that gets the amount of people who claimed on the given day
 	 * @param day the day to get claimer count from, with 0 being the starting day
 	 * @return an integer indicating the amount of people who claimed that day
 	 */
@@ -150,7 +156,8 @@ contract UBIScheme is DAOUpgradeableContract {
 		return claimDay[day].amountOfClaimers;
 	}
 
-	/* @dev function that gets the amount that was claimed on the given day
+	/**
+	 * @dev function that gets the amount that was claimed on the given day
 	 * @param day the day to get claimer count from, with 0 being the starting day
 	 * @return an integer indicating the amount that has been claimed on the given day
 	 */
@@ -158,7 +165,8 @@ contract UBIScheme is DAOUpgradeableContract {
 		return claimDay[day].claimAmount;
 	}
 
-	/* @dev function that gets count of claimers and amount claimed for the current day
+	/**
+	 * @dev function that gets count of claimers and amount claimed for the current day
 	 * @return the amount of claimers and the amount claimed.
 	 */
 	function getDailyStats()
@@ -223,8 +231,9 @@ contract UBIScheme is DAOUpgradeableContract {
 	}
 
 	/**
-	 * @dev The claim calculation formula. Divided the daily balance with
+	 * @dev The claim calculation formula. Divide the daily pool with
 	 * the sum of the active users.
+	 * the daily balance is determined by dividing current pool by the cycle length
 	 * @return The amount of GoodDollar the user can claim
 	 */
 	function distributionFormula() internal returns (uint256) {

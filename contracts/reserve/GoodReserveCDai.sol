@@ -4,6 +4,7 @@ pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetMinterPauserUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 import "../utils/DSMath.sol";
 import "../utils/DAOUpgradeableContract.sol";
@@ -11,7 +12,6 @@ import "../utils/NameService.sol";
 import "../DAOStackInterfaces.sol";
 import "../Interfaces.sol";
 import "./GoodMarketMaker.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 interface ContributionCalc {
 	function calculateContribution(
@@ -26,8 +26,6 @@ interface ContributionCalc {
 /**
 @title Reserve based on cDAI and dynamic reserve ratio market maker
 */
-
-//TODO: feeless scheme, active period
 contract GoodReserveCDai is
 	DAOUpgradeableContract,
 	ERC20PresetMinterPauserUpgradeable,
@@ -40,23 +38,20 @@ contract GoodReserveCDai is
 	bytes32 public constant RESERVE_MINTER_ROLE =
 		keccak256("RESERVE_MINTER_ROLE");
 
+	/// @dev G$ minting cap;
 	uint256 public cap;
 
 	// The last block number which
-	// `mintInterestAndUBI` has been executed in
+	// `mintUBI` has been executed in
 	uint256 public lastMinted;
-
-	// The contribution contract is responsible
-	// for calculates the contribution amount
-	// when selling GD
-	// ContributionCalc public contribution;
 
 	address public daiAddress;
 	address public cDaiAddress;
 
-	/// @dev merkleroot
+	/// @dev merkleroot for GDX airdrop
 	bytes32 public gdxAirdrop;
 
+	/// @dev mark if user claimed his GDX
 	mapping(address => bool) public isClaimedGDX;
 
 	// Emits when GD tokens are purchased
@@ -137,10 +132,6 @@ contract GoodReserveCDai is
 		cap = 22 * 1e14; //22 trillion G$ cents
 
 		gdxAirdrop = _gdxAirdrop;
-		ERC20(nameService.getAddress("DAI")).approve(
-			nameService.getAddress("CDAI"),
-			type(uint256).max
-		);
 	}
 
 	/// @dev GDX decimals
@@ -151,6 +142,8 @@ contract GoodReserveCDai is
 	function setAddresses() public {
 		daiAddress = nameService.getAddress("DAI");
 		cDaiAddress = nameService.getAddress("CDAI");
+		// Approve transfer to cDAI contract
+		ERC20(daiAddress).approve(cDaiAddress, type(uint256).max);
 	}
 
 	/**
@@ -259,8 +252,6 @@ contract GoodReserveCDai is
 		address _targetAddress
 	) internal returns (uint256) {
 		cERC20 cDai = cERC20(cDaiAddress);
-		// Approve transfer to cDAI contract
-		ERC20(daiAddress).approve(address(cDai), _amount);
 
 		uint256 currCDaiBalance = cDai.balanceOf(address(this));
 
@@ -309,6 +300,7 @@ contract GoodReserveCDai is
 
 	/**
 	 * @dev Mint rewards for staking contracts in G$ and update RR
+	 * requires minting permissions which is enforced by _mintGoodDollars
 	 * @param _to Receipent address for rewards
 	 * @param _amount G$ amount to mint for rewards
 	 */
@@ -326,9 +318,8 @@ contract GoodReserveCDai is
 	/**
 	 * @dev Converts GD tokens to `sellTo` tokens and update the bonding curve params.
 	 * `sell` occurs only if the token return is above the given minimum. Notice that
-	 * there is a contribution amount from the given GD that remains in the reserve.
-	 * It is only possible to sell to cDAI and only when the contract is set to
-	 * active. MUST be called to G$ `approve` prior to this action to allow this
+	 * there is a contribution amount from the given GD that remains in the reserve relative to user amount of GDX credits.
+	 * MUST call G$ `approve` prior to this action to allow this
 	 * contract to accomplish the conversion.
 	 * @param _sellTo The tokens that will be received after the conversion if address equals 0x0 then sell to ETH
 	 * @param _gdAmount The amount of GD tokens that should be converted to `_sellTo` tokens
@@ -403,8 +394,9 @@ contract GoodReserveCDai is
 	}
 
 	/**
-	 * @dev Redeem DAI for cDAI
+	 * @dev Redeem cDAI to DAI
 	 * @param _amount Amount of cDAI to redeem for DAI
+	 * @return the amount of DAI received
 	 */
 	function _redeemDAI(uint256 _amount) internal returns (uint256) {
 		cERC20 cDai = cERC20(cDaiAddress);
@@ -422,15 +414,12 @@ contract GoodReserveCDai is
 	}
 
 	/**
-	 * @dev Converts GD tokens to `sellTo` tokens and update the bonding curve params.
+	 * @dev sell helper function burns GD tokens and update the bonding curve params.
 	 * `sell` occurs only if the token return is above the given minimum. Notice that
 	 * there is a contribution amount from the given GD that remains in the reserve.
-	 * It is only possible to sell to cDAI and only when the contract is set to
-	 * active. MUST be called to G$ `approve` prior to this action to allow this
-	 * contract to accomplish the conversion.
 	 * @param _gdAmount The amount of GD tokens that should be converted to `_sellTo` tokens
 	 * @param _minReturn The minimum allowed `sellTo` tokens return
-	 * @return (tokenReturn) How much `sellTo` tokens were transferred
+	 * @return (tokenReturn, contribution) (cDAI received, G$ exit contribution)
 	 */
 	function _sell(uint256 _gdAmount, uint256 _minReturn)
 		internal
@@ -476,38 +465,6 @@ contract GoodReserveCDai is
 		return (tokenReturn, contributionAmount);
 	}
 
-	// /**
-	//  * @dev Current price of GD in `token`. currently only cDAI is supported.
-	//  * @param _token The desired reserve token to have
-	//  * @return price of GD
-	//  */
-	// function currentPrice(ERC20 _token) public view returns (uint256) {
-	// 	uint256 priceInCDai = getMarketMaker().currentPrice(ERC20(cDaiAddress));
-	// 	if (address(_token) == cDaiAddress) return priceInCDai;
-	// 	cERC20 cDai = cERC20(cDaiAddress);
-	// 	uint256 priceInDai =
-	// 		rmul(
-	// 			priceInCDai * 1e10, //bring cdai 8 decimals to Dai precision
-	// 			cDai.exchangeRateStored().div(10) //exchange rate is 1e28 reduce to 1e27
-	// 		);
-	// 	if (address(_token) == daiAddress) {
-	// 		return priceInDai;
-	// 	} else {
-	// 		address[] memory path = new address[](2);
-	// 		path[0] = daiAddress;
-	// 		path[1] = address(_token);
-	// 		Uniswap uniswapContract =
-	// 			Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
-	// 		uint256[] memory priceInXToken =
-	// 			uniswapContract.getAmountsOut(priceInDai, path);
-	// 		require(
-	// 			priceInXToken[priceInXToken.length - 1] > 0,
-	// 			"No valid price data for pair"
-	// 		);
-	// 		return priceInXToken[priceInXToken.length - 1];
-	// 	}
-	// }
-
 	function currentPrice() public view returns (uint256) {
 		return getMarketMaker().currentPrice(ERC20(cDaiAddress));
 	}
@@ -518,17 +475,12 @@ contract GoodReserveCDai is
 		return (((currentPrice() * 1e10) * cDai.exchangeRateStored()) / 1e28); // based on https://compound.finance/docs#protocol-math
 	}
 
-	function mintByPrice(
-		ERC20 _interestToken,
-		address _to,
-		uint256 _transfered
-	) public {
-		uint256 gdToMint =
-			getMarketMaker().mintInterest(_interestToken, _transfered);
-
-		_mintGoodDollars(_to, gdToMint, false);
-	}
-
+	/**
+	 * @dev helper to mint G$s
+	 * @param _to the recipient of newly minted G$s
+	 * @param _gdToMint how much G$ to mint
+	 * @param _internalCall skip minting role validation for internal calls, used when "buying G$" to "allow" buyer to mint G$ in exchange for his cDAI
+	 */
 	function _mintGoodDollars(
 		address _to,
 		uint256 _gdToMint,
@@ -552,11 +504,11 @@ contract GoodReserveCDai is
 		IGoodDollar(nameService.getAddress("GOODDOLLAR")).mint(_to, _gdToMint);
 	}
 
+	/// @dev helper to mint GDX to make _mint more verbose
 	function _mintGDX(address _to, uint256 _gdx) internal {
 		_mint(_to, _gdx);
 	}
 
-	//TODO: can we send directly to UBI via bridge here?
 	/**
 	 * @dev only FundManager or other with mint G$ permission can call this to trigger minting.
 	 * Reserve sends UBI + interest to FundManager.
@@ -611,22 +563,13 @@ contract GoodReserveCDai is
 	}
 
 	/**
-	 * @dev Making the contract inactive after it has transferred the cDAI funds to `_avatar`
-	 * and has transferred the market maker ownership to `_avatar`. Inactive means that
-	 * buy / sell / mintInterestAndUBI actions will no longer be active. Only the Avatar can
-	 * executes this method
+	 * @dev Remove minting rights after it has transferred the cDAI funds to `_avatar`
+	 * Only the Avatar can execute this method
 	 */
 	function end() public {
 		_onlyAvatar();
 		// remaining cDAI tokens in the current reserve contract
-		cERC20 cDai = cERC20(cDaiAddress);
-		uint256 remainingReserve = cDai.balanceOf(address(this));
-		if (remainingReserve > 0) {
-			require(
-				cDai.transfer(address(avatar), remainingReserve),
-				"cdai transfer failed"
-			);
-		}
+		recover(ERC20(cDaiAddress));
 
 		//restore minting to avatar, so he can re-delegate it
 		IGoodDollar gd = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
