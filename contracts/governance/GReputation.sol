@@ -112,8 +112,10 @@ contract GReputation is Reputation {
 		super._mint(repTarget, _amount);
 
 		//set self as initial delegator
-		if (delegates[repTarget] == address(0)) {
+		address delegator = delegates[repTarget];
+		if (delegator == address(0)) {
 			delegates[repTarget] = repTarget;
+			delegator = repTarget;
 		}
 		uint256 previousVotes = getVotes(delegator);
 
