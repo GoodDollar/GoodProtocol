@@ -17,7 +17,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	address public compUsdOracle;
 
 	// Gas cost to collect interest from this staking contract
-	uint32 public collectInterestGasCost = 100000;
+	uint32 public collectInterestGasCost = 150000;
 
 	/**
 	 * @param _token Token to swap DEFI token
