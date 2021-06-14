@@ -6,44 +6,6 @@ import "../reserve/GoodReserveCDai.sol";
 import "../Interfaces.sol";
 import "../utils/DSMath.sol";
 import "../utils/DAOUpgradeableContract.sol";
-import "hardhat/console.sol";
-
-interface StakingContract {
-	function collectUBIInterest(address recipient)
-		external
-		returns (
-			uint256,
-			uint256,
-			uint256
-		);
-
-	function iToken() external view returns (address);
-
-	function currentGains(
-		bool _returnTokenBalanceInUSD,
-		bool _returnTokenGainsInUSD
-	)
-		external
-		view
-		returns (
-			uint256,
-			uint256,
-			uint256,
-			uint256,
-			uint256
-		);
-
-	function getRewardEarned(address user) external view returns (uint256);
-
-	function getGasCostForInterestTransfer() external view returns (uint256);
-
-	function rewardsMinted(
-		address user,
-		uint256 rewardsPerBlock,
-		uint256 blockStart,
-		uint256 blockEnd
-	) external returns (uint256);
-}
 
 /**
  * @title GoodFundManager contract that transfer interest from the staking contract
@@ -59,13 +21,13 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	// has been executed in
 	uint256 public lastTransferred;
 	// Gas cost for mint ubi+bridge ubi+mint rewards
-	uint256 gasCostExceptInterestCollect;
+	uint256 public gasCostExceptInterestCollect;
 	// Gas cost for minting GD for keeper
-	uint256 gdMintGasCost;
+	uint256 public gdMintGasCost;
 	// how much time since last collectInterest should pass in order to cancel gas cost multiplier requirement for next collectInterest
-	uint256 collectInterestTimeThreshold;
+	uint256 public collectInterestTimeThreshold;
 	// to allow keeper to collect interest, total interest collected should be interestMultiplier*gas costs
-	uint8 interestMultiplier;
+	uint8 public interestMultiplier;
 	//address of the active staking contracts
 	address[] public activeContracts;
 
@@ -87,9 +49,9 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		// The staking contract address
 		//address indexed staking,
 		// The reserve contract address
-		address indexed reserve,
+		address reserve,
 		//addresses of the staking contracts
-		address[] indexed stakings,
+		address[] stakings,
 		// Amount of cDai that was transferred
 		// from the staking contract to the
 		// reserve contract
@@ -113,13 +75,6 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		uint256 gdReward
 	);
 
-	function _reserveHasInitialized() internal view {
-		require(
-			nameService.getAddress("RESERVE") != address(0x0),
-			"reserve has not initialized"
-		);
-	}
-
 	/**
 	 * @dev Constructor
 	 * @param _ns The address of the name Service
@@ -133,16 +88,8 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	}
 
 	/**
-	 * @dev Start function. Adds this contract to identity as a feeless scheme.
-	 * Can only be called if scheme is registered
-	 */
-	// function start() public onlyRegistered {
-	// addRights();
-	//   super.start();
-	// }
-	/**
 	 * @dev Set gas cost to mint GD rewards for keeper
-	 * @param _gasAmount amount of gas to spend for minting gd reward
+	 * @param _gasAmount amount of gas it costs for minting gd reward
 	 */
 	function setGasCost(uint256 _gasAmount) public {
 		_onlyAvatar();
@@ -150,7 +97,8 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	}
 
 	/**
-	 * @dev Set collectInterestTimeThreshold to determine how much time should pass after collectInterest called to cancel out multiplier for collected interest
+	 * @dev Set collectInterestTimeThreshold to determine how much time should pass after collectInterest called
+	 * after which we ignore the interest>=multiplier*gas costs limit
 	 * @param _timeThreshold new threshold in seconds
 	 */
 	function setCollectInterestTimeThreshold(uint256 _timeThreshold) public {
@@ -159,7 +107,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	}
 
 	/**
-	 * @dev Set multiplier to determine how much times larger should be collected interest than spent gas when threshold did not pass
+	 * @dev Set multiplier to determine how much times larger should be collected interest than spent gas when collectInterestTimeThreshold did not pass
 	 */
 	function setInterestMultiplier(uint8 _newMultiplier) public {
 		_onlyAvatar();
@@ -167,8 +115,9 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	}
 
 	/**
-	 * @dev Set Gas cost for needed further transactions after collect interests in collectInterest function
-	 * @dev _gasAmount The gas amount that needed for further transactions
+	 * @dev Set Gas cost for required transactions after collecting interest in collectInterest function
+	 * we need this to know if caller has enough gas left to keep collecting interest
+	 * @dev _gasAmount The gas amount that needed for transactions
 	 */
 	function setGasCostExceptInterestCollect(uint256 _gasAmount) public {
 		_onlyAvatar();
@@ -233,10 +182,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	 * received from the reserve contract back to the staking contract and to the
 	 * bridge, which locks the funds and then the GD tokens are been minted to the
 	 * given address on the sidechain
+	 * @param _stakingContracts from which contracts to collect interest
 	 */
 	function collectInterest(address[] memory _stakingContracts) public {
 		uint256 initialGas = gasleft();
-		_reserveHasInitialized();
 		cERC20 iToken = cERC20(nameService.getAddress("CDAI"));
 		ERC20 daiToken = ERC20(nameService.getAddress("DAI"));
 		address reserveAddress = nameService.getAddress("RESERVE");
@@ -247,7 +196,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			// elements are sorted by balances from lowest to highest
 
 			if (_stakingContracts[i] != address(0x0)) {
-				StakingContract(_stakingContracts[i]).collectUBIInterest(
+				IGoodStaking(_stakingContracts[i]).collectUBIInterest(
 					reserveAddress
 				);
 			}
@@ -318,8 +267,8 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	}
 
 	/**
-	 * @dev  Function that get addresses of staking contracts which interests
-	 * can be collected with the gas amount that provided as parameter
+	 * @dev  Function that get addresses of staking contracts that we can collect interest from with a specific gas limit
+	 * but that also pass the interest>=gascosts*multiplier
 	 * @param _maxGasAmount The maximum amount of the gas that keeper willing to spend collect interests
 	 * @return addresses of the staking contracts to the collect interests
 	 */
@@ -335,9 +284,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		uint256 totalInterest;
 		int256 i;
 		for (i = 0; i < int256(activeContractsLength); i++) {
-			(, , , , tempInterest) = StakingContract(
-				activeContracts[uint256(i)]
-			)
+			(, , , , tempInterest) = IGoodStaking(activeContracts[uint256(i)])
 				.currentGains(false, true);
 			totalInterest += tempInterest;
 			if (tempInterest != 0) {
@@ -355,7 +302,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			// elements are sorted by balances from lowest to highest
 
 			if (addresses[uint256(i)] != address(0x0)) {
-				gasCost = StakingContract(addresses[uint256(i)])
+				gasCost = IGoodStaking(addresses[uint256(i)])
 					.getGasCostForInterestTransfer();
 				if (_maxGasAmount - gasCost >= gasCostExceptInterestCollect) {
 					// collects the interest from the staking contract and transfer it directly to the reserve contract
@@ -388,13 +335,14 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 
 	/**
 	 * @dev Mint to users reward tokens which they earned by staking contract
-	 * @dev _user user to get rewards
+	 * @param _token reserve token (currently can be just cDAI)
+	 * @param _user user to get rewards
 	 */
 	function mintReward(address _token, address _user) public {
 		Reward memory staking = rewardsForStakingContract[address(msg.sender)];
 		require(staking.blockStart > 0, "Staking contract not registered");
 		uint256 amount =
-			StakingContract(address(msg.sender)).rewardsMinted(
+			IGoodStaking(address(msg.sender)).rewardsMinted(
 				_user,
 				staking.blockReward,
 				staking.blockStart,
@@ -411,6 +359,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		}
 	}
 
+	/// quick sort
 	function quick(uint256[] memory data, address[] memory addresses)
 		internal
 		pure
@@ -453,10 +402,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	}
 
 	/**
-     @dev Helper function to get gasPrice in GWEI then change it to cDAI
-     @param _gasAmount gas amount to be calculated worth in cDAI
+     @dev Helper function to get gasPrice in GWEI then change it to cDAI/DAI
+     @param _gasAmount gas amount to get its value
 	 @param _inDAI indicates if result should return in DAI
-     @return Price of the gas which used in cDAI
+     @return Price of the gas in DAI/cDAI
      */
 	function getGasPriceIncDAIorDAI(uint256 _gasAmount, bool _inDAI)
 		public
@@ -480,6 +429,11 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		return result;
 	}
 
+	/**
+     @dev Helper function to get gasPrice in G$, used to calculate the rewards for collectInterest KEEPER
+     @param _gasAmount gas amount to get its value
+     @return Price of the gas in G$
+     */
 	function getGasPriceInGD(uint256 _gasAmount) public view returns (uint256) {
 		uint256 priceInCdai = getGasPriceIncDAIorDAI(_gasAmount, false);
 		uint256 gdPriceIncDAI =
