@@ -12,7 +12,7 @@ import "./BaseShareField.sol";
 import "../governance/StakersDistribution.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "hardhat/console.sol";
+
 /**
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Tokens
@@ -404,7 +404,6 @@ abstract contract SimpleStaking is
 			uint256
 		)
 	{
-		uint gas = gasleft();
 		_canMintRewards();
 		// otherwise fund manager has to wait for the next interval
 		require(
@@ -426,7 +425,7 @@ abstract contract SimpleStaking is
 			);
 
 		emit InterestCollected(_recipient, iTokenGains, tokenGains, usdGains);
-		console.log("collect interest gas %s",gas - gasleft());
+
 		return (iTokenGains, tokenGains, usdGains);
 	}
 
