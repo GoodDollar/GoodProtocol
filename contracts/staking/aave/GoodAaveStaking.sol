@@ -144,7 +144,12 @@ contract GoodAaveStaking is SimpleStaking {
 		ERC20 aToken = ERC20(address(iToken));
 		return uint256(aToken.decimals());
 	}
-
+	/**
+	 * @dev Function that calculates current interest gains of this staking contract
+	 * @param _returnTokenBalanceInUSD determine return token balance of staking contract in USD
+	 * @param _returnTokenGainsInUSD determine return token gains of staking contract in USD
+	 * @return return gains in itoken,Token and worth of total locked Tokens,token balance in USD,token Gains in USD
+	 */
 	function currentGains(
 		bool _returnTokenBalanceInUSD,
 		bool _returnTokenGainsInUSD
@@ -185,7 +190,9 @@ contract GoodAaveStaking is SimpleStaking {
 			tokenGainsInUSD
 		);
 	}
-
+	/** 
+	* @dev Function to get interest transfer cost for this particular staking contract
+	 */
 	function getGasCostForInterestTransfer()
 		external
 		view

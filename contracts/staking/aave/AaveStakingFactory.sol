@@ -28,7 +28,16 @@ contract AaveStakingFactory {
 		emit Deployed(deployed, address(token));
 		return GoodAaveStaking(deployed);
 	}
-
+	/**
+	@dev Function to clone Staking contract and initialize new one with new token
+	@param token Staking token to use in staking contract
+	@param _lendingPool address of the lending Pool of AAVE Protocol
+	@param _ns NameService that holds whole necessary addresses
+	@param _maxRewardThreshold Block numbers that need to pass in order to user would get their rewards with 1x multiplier instead of 0.5x
+	@param _tokenUsdOracle address of the TOKEN/USD oracle
+	@param _incentiveController Incentive Controller of AAVE protocol in order to claim rewards from AAVE
+	@param _aaveUSDOracle address of the AAVE/USD oracle
+	 */
 	function cloneAndInit(
 		ERC20 token,
 		address _lendingPool,
