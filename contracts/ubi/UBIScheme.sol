@@ -167,12 +167,12 @@ contract UBIScheme is DAOUpgradeableContract {
 
 	/**
 	 * @dev function that gets count of claimers and amount claimed for the current day
-	 * @return the amount of claimers and the amount claimed.
+	 * @return the count of claimers and the amount claimed.
 	 */
 	function getDailyStats()
 		public
 		view
-		returns (uint256 count, uint256 amount)
+		returns (uint256, uint256)
 	{
 		uint256 today = (block.timestamp - periodStart) / 1 days;
 		return (getClaimerCount(today), getClaimAmount(today));

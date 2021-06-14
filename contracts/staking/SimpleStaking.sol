@@ -128,14 +128,8 @@ abstract contract SimpleStaking is
 	function redeem(uint256 _amount) internal virtual;
 
 	/**
-<<<<<<< HEAD
-	 * @dev Redeem invested underlying tokens from defi protocol
-	 * @dev amount tokens to be redeemed
-
-=======
 	 * @dev Redeem invested underlying tokens from defi protocol and exchange into DAI
 	 * @param _amount tokens to be redeemed
->>>>>>> master
 	 * @return token which redeemed from protocol and redeemed amount
 	 */
 	function redeemUnderlyingToDAI(uint256 _amount, address _recipient)
@@ -341,13 +335,8 @@ abstract contract SimpleStaking is
 				.rewardsForStakingContract(address(this));
 
 		_decreaseProductivity(
-<<<<<<< HEAD
-			from,
-			value,
-=======
 			_from,
 			_value,
->>>>>>> master
 			rewardsPerBlock,
 			blockStart,
 			blockEnd
@@ -425,16 +414,11 @@ abstract contract SimpleStaking is
 			currentGains(false, true);
 
 		(address redeemedToken, uint256 redeemedAmount) =
-<<<<<<< HEAD
 			redeemUnderlyingToDAI(iTokenGains, _recipient);
 		if (
 			redeemedToken == nameService.getAddress("CDAI") &&
 			redeemedAmount > 0
 		)
-=======
-			redeemUnderlyingToDAI(iTokenGains);
-		if (redeemedAmount > 0)
->>>>>>> master
 			require(
 				ERC20(redeemedToken).transfer(_recipient, redeemedAmount),
 				"collect transfer failed"
