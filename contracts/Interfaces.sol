@@ -373,3 +373,40 @@ interface IAaveIncentivesController{
     view
     returns (uint256);
 }
+
+interface IGoodStaking {
+	function collectUBIInterest(address recipient)
+		external
+		returns (
+			uint256,
+			uint256,
+			uint256
+		);
+
+	function iToken() external view returns (address);
+
+	function currentGains(
+		bool _returnTokenBalanceInUSD,
+		bool _returnTokenGainsInUSD
+	)
+		external
+		view
+		returns (
+			uint256,
+			uint256,
+			uint256,
+			uint256,
+			uint256
+		);
+
+	function getRewardEarned(address user) external view returns (uint256);
+
+	function getGasCostForInterestTransfer() external view returns (uint256);
+
+	function rewardsMinted(
+		address user,
+		uint256 rewardsPerBlock,
+		uint256 blockStart,
+		uint256 blockEnd
+	) external returns (uint256);
+}

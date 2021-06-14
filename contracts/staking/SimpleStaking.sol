@@ -17,7 +17,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
  * @title Staking contract that donates earned interest to the DAO
  * allowing stakers to deposit Tokens
  * or withdraw their stake in Tokens
- * the contracts buy intrest tokens and can transfer the daily interest to the  DAO
+ * the FundManager can request to receive the interest
  */
 abstract contract SimpleStaking is
 	ERC20Upgradeable,
@@ -33,7 +33,10 @@ abstract contract SimpleStaking is
 	// The total staked Token amount in the contract
 	// uint256 public totalStaked = 0;
 	uint8 public stakingTokenDecimals;
+
+	// emergency pause
 	bool public isPaused;
+
 	/**
 	 * @dev Emitted when `staker` stake `value` tokens of `token`
 	 */
@@ -120,14 +123,19 @@ abstract contract SimpleStaking is
 
 	/**
 	 * @dev Redeem invested tokens from defi protocol.
-	 * @param amount tokens to be redeemed.
+	 * @param _amount tokens to be redeemed.
 	 */
-	function redeem(uint256 amount) internal virtual;
+	function redeem(uint256 _amount) internal virtual;
 
 	/**
+<<<<<<< HEAD
 	 * @dev Redeem invested underlying tokens from defi protocol
 	 * @dev amount tokens to be redeemed
 
+=======
+	 * @dev Redeem invested underlying tokens from defi protocol and exchange into DAI
+	 * @param _amount tokens to be redeemed
+>>>>>>> master
 	 * @return token which redeemed from protocol and redeemed amount
 	 */
 	function redeemUnderlyingToDAI(uint256 _amount, address _recipient)
@@ -137,9 +145,9 @@ abstract contract SimpleStaking is
 
 	/**
 	 * @dev Invests staked tokens to defi protocol.
-	 * @param amount tokens staked.
+	 * @param _amount tokens staked.
 	 */
-	function mintInterestToken(uint256 amount) internal virtual;
+	function mintInterestToken(uint256 _amount) internal virtual;
 
 	/**
 	 * @dev Function that calculates current interest gains of this staking contract
@@ -227,7 +235,7 @@ abstract contract SimpleStaking is
 
 	/**
 	 * @dev Withdraws the sender staked Token.
-	 * @dev _amount Amount to withdraw in Token or iToken
+	 * @param _amount Amount to withdraw in Token or iToken
 	 * @param _inInterestToken if true_amount is in iToken and also returned in iToken other wise use Token
 	 */
 	function withdrawStake(uint256 _amount, bool _inInterestToken)
@@ -320,11 +328,11 @@ abstract contract SimpleStaking is
 	 * @dev notify stakersdistribution when user performs transfer operation
 	 */
 	function _transfer(
-		address from,
-		address to,
-		uint256 value
+		address _from,
+		address _to,
+		uint256 _value
 	) internal override {
-		super._transfer(from, to, value);
+		super._transfer(_from, _to, _value);
 
 		StakersDistribution sd =
 			StakersDistribution(nameService.getAddress("GDAO_STAKERS"));
@@ -333,16 +341,21 @@ abstract contract SimpleStaking is
 				.rewardsForStakingContract(address(this));
 
 		_decreaseProductivity(
+<<<<<<< HEAD
 			from,
 			value,
+=======
+			_from,
+			_value,
+>>>>>>> master
 			rewardsPerBlock,
 			blockStart,
 			blockEnd
 		);
 
 		_increaseProductivity(
-			to,
-			value,
+			_to,
+			_value,
 			rewardsPerBlock,
 			blockStart,
 			blockEnd,
@@ -352,10 +365,8 @@ abstract contract SimpleStaking is
 		if (address(sd) != address(0)) {
 			address[] memory contracts;
 			contracts[0] = (address(this));
-			sd.userWithdraw(from, value);
-			sd.userStaked(to, value);
-			sd.claimReputation(to, contracts);
-			sd.claimReputation(from, contracts);
+			sd.userWithdraw(_from, _value);
+			sd.userStaked(_to, _value);
 		}
 	}
 
@@ -391,8 +402,7 @@ abstract contract SimpleStaking is
 	}
 
 	/**
-	 * @dev Collects gained interest by fundmanager. Can be collected only once
-	 * in an interval which is defined above.
+	 * @dev Collects gained interest by fundmanager.
 	 * @param _recipient The recipient of cDAI gains
 	 * @return (uint256, uint256) The interest in iToken, the interest in Token
 	 */
@@ -415,11 +425,16 @@ abstract contract SimpleStaking is
 			currentGains(false, true);
 
 		(address redeemedToken, uint256 redeemedAmount) =
+<<<<<<< HEAD
 			redeemUnderlyingToDAI(iTokenGains, _recipient);
 		if (
 			redeemedToken == nameService.getAddress("CDAI") &&
 			redeemedAmount > 0
 		)
+=======
+			redeemUnderlyingToDAI(iTokenGains);
+		if (redeemedAmount > 0)
+>>>>>>> master
 			require(
 				ERC20(redeemedToken).transfer(_recipient, redeemedAmount),
 				"collect transfer failed"
@@ -461,9 +476,9 @@ abstract contract SimpleStaking is
 
 	/**
 	 @dev function calculate Token price in USD 
-	 @param _oracle oracle address for the particular TOKEN/USD
+ 	 @param _oracle chainlink oracle usd/token oralce
 	 @param _amount Amount of Token to calculate worth of it
-	 @param _decimals token decimals that we wanna get worth in USD
+	 @param _decimals decimals of Token 
 	 @return Returns worth of Tokens in USD
 	 */
 	function getTokenValueInUSD(address _oracle, uint256 _amount,uint256 _decimals)
