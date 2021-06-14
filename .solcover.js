@@ -27,6 +27,10 @@ module.exports = {
     "mocks/OverMintTester.sol",
     "mocks/cDAIMock.sol",
     "mocks/cBATMock.sol",
+    "mocks/UsdcMock.sol",
+    "mocks/EightDecimalsTokenMock.sol",
+    "mocks/TwentyDecimalsTokenMock.sol",
+    "mocks/EthUSDMockOracle.sol",
     "utils/ReputationTestHelper.sol",
     "utils/BancorFormula.sol",
     "utils/DSMath.sol"

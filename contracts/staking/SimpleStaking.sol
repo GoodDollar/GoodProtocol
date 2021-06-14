@@ -132,7 +132,7 @@ abstract contract SimpleStaking is
 	 * @param _amount tokens to be redeemed
 	 * @return token which redeemed from protocol and redeemed amount
 	 */
-	function redeemUnderlyingToDAI(uint256 _amount)
+	function redeemUnderlyingToDAI(uint256 _amount, address _recipient)
 		internal
 		virtual
 		returns (address, uint256);
@@ -414,8 +414,11 @@ abstract contract SimpleStaking is
 			currentGains(false, true);
 
 		(address redeemedToken, uint256 redeemedAmount) =
-			redeemUnderlyingToDAI(iTokenGains);
-		if (redeemedAmount > 0)
+			redeemUnderlyingToDAI(iTokenGains, _recipient);
+		if (
+			redeemedToken == nameService.getAddress("CDAI") &&
+			redeemedAmount > 0
+		)
 			require(
 				ERC20(redeemedToken).transfer(_recipient, redeemedAmount),
 				"collect transfer failed"
@@ -459,16 +462,17 @@ abstract contract SimpleStaking is
 	 @dev function calculate Token price in USD 
  	 @param _oracle chainlink oracle usd/token oralce
 	 @param _amount Amount of Token to calculate worth of it
+	 @param _decimals decimals of Token 
 	 @return Returns worth of Tokens in USD
 	 */
-	function getTokenValueInUSD(address _oracle, uint256 _amount)
+	function getTokenValueInUSD(address _oracle, uint256 _amount,uint256 _decimals)
 		public
 		view
 		returns (uint256)
 	{
 		AggregatorV3Interface tokenPriceOracle = AggregatorV3Interface(_oracle);
 		int256 tokenPriceinUSD = tokenPriceOracle.latestAnswer();
-		return (uint256(tokenPriceinUSD) * _amount) / (10**token.decimals()); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's decimal at the end to reduce 8 decimals back
+		return (uint256(tokenPriceinUSD) * _amount) / (10**_decimals); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's decimal at the end to reduce 8 decimals back
 	}
 
 	function _canMintRewards() internal view override {

@@ -1349,6 +1349,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const goodCompoundStakingTestFactory = await ethers.getContractFactory(
       "GoodCompoundStakingTest"
     );
+
     const simpleStaking = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
@@ -1359,6 +1360,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       batUsdOracle.address,
       compUsdOracle.address
     );
+    await setDAOAddress("RESERVE", simpleStaking.address);
     await bat["mint(address,uint256)"](
       cBat.address,
       ethers.utils.parseEther("1000")
@@ -1371,6 +1373,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await simpleStaking.redeemUnderlyingToDAITest(
       ethers.utils.parseUnits("10", 8)
     );
+    await setDAOAddress("RESERVE", goodReserve.address);
     const balanceAfterRedeem = await dai.balanceOf(simpleStaking.address);
     const accAmountPerShare = await simpleStaking.interestsPerBlock();
     expect(accAmountPerShare.toString()).to.be.equal("0");

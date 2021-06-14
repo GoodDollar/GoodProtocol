@@ -1,8 +1,9 @@
 pragma solidity >=0.8.0;
 
-contract GasPriceMockOracle {
-	
+contract AaveUSDMockOracle {
+
+
 	function latestAnswer() public view returns (int256) {
-		return 25000000000;
+		return 27980000000;
 	}
 }
