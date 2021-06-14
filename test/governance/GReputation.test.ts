@@ -55,6 +55,7 @@ let signers: SignerWithAddress[],
   rep1,
   rep2,
   rep3,
+  repTarget,
   delegator,
   setDAOAddress,
   avatar;
@@ -82,7 +83,9 @@ describe("GReputation", () => {
     )) as GReputation;
 
     signers = await ethers.getSigners();
-    [founder, repOwner, rep1, rep2, rep3] = signers.map(_ => _.address);
+    [founder, repOwner, rep1, rep2, rep3, repTarget] = signers.map(
+      _ => _.address
+    );
     delegator = ethers.Wallet.createRandom().connect(ethers.provider);
 
     grepWithOwner = await grep.connect(ethers.provider.getSigner(repOwner));
@@ -169,17 +172,25 @@ describe("GReputation", () => {
       expect(newVotes.toNumber()).to.be.equal(1);
       expect(await grep.totalSupply()).to.equal(1);
     });
-    it("should not set rootState again",async()=>{
+    it("should not set rootState again", async () => {
       await setDAOAddress("GDAO_CLAIMERS", repOwner);
-      await grepWithOwner["mint(address,uint256)"](founder,ethers.utils.parseEther("1"))
+      await grepWithOwner["mint(address,uint256)"](
+        founder,
+        ethers.utils.parseEther("1")
+      );
       let encodedCall = grep.interface.encodeFunctionData(
         "setBlockchainStateHash",
         ["rootState", "0x" + merkleRoot.toString("hex"), 100]
       );
-      
-      const tx = await (await avatarGenericCall(grep.address, encodedCall)).wait()
-      await grepWithOwner["burn(address,uint256)"](founder,ethers.utils.parseEther("1"))
-    })
+
+      const tx = await (
+        await avatarGenericCall(grep.address, encodedCall)
+      ).wait();
+      await grepWithOwner["burn(address,uint256)"](
+        founder,
+        ethers.utils.parseEther("1")
+      );
+    });
     it("should reject invalid merkle proof", async () => {
       const e = await grep
         .proveBalanceOfAtBlockchain("rootState", rep3, 10, proof)
@@ -544,28 +555,26 @@ describe("GReputation", () => {
         expect(newRep2.toNumber()).to.be.equal(0);
       });
 
-      it("should return previous state when state.blockNumber > _blockNumber",async()=>{
-        const blockNumber = await ethers.provider.getBlockNumber()
+      it("should return previous state when state.blockNumber > _blockNumber", async () => {
+        const blockNumber = await ethers.provider.getBlockNumber();
         const newRep2 = await grep.getVotesAtBlockchain(
           fuseHash,
           rep2,
           blockNumber - 4
         );
-       
-        
+
         expect(newRep2.toNumber()).to.be.equal(200); // returns previous state
-      })
-      it("should return another state's total supply when states[uint256(i)].blockNumber > _blockNumber in totalSupplyAtBlockchain",async()=>{
-        const blockNumber = await ethers.provider.getBlockNumber()
+      });
+      it("should return another state's total supply when states[uint256(i)].blockNumber > _blockNumber in totalSupplyAtBlockchain", async () => {
+        const blockNumber = await ethers.provider.getBlockNumber();
         const newRep2 = await grep.totalSupplyAtBlockchain(
           fuseHash,
           blockNumber - 4
         );
-       
-      })
+      });
     });
   });
-  
+
   describe("real example of airdrop", async () => {
     it("should set a new state hash", async () => {
       let encodedCall = grep.interface.encodeFunctionData(
@@ -709,6 +718,28 @@ describe("GReputation", () => {
         )
         .catch(e => e);
       expect(tx.message).to.have.string("no state found for given _id");
+    });
+  });
+
+  describe("reputation recipient", () => {
+    it("user should be able to set recipient", async () => {
+      await grep.connect(signers[4]).setReputationRecipient(repTarget);
+      expect(await grep.reputationRecipients(rep3)).to.equal(repTarget);
+      await grepWithOwner.mint(rep3, 111);
+      expect(await grep.balanceOf(repTarget)).to.equal(111);
+    });
+
+    it("user should be able to unset recipient", async () => {
+      const startBalance = await grep.balanceOf(rep3);
+      await grep
+        .connect(signers[4])
+        .setReputationRecipient(ethers.constants.AddressZero);
+      expect(await grep.reputationRecipients(rep3)).to.equal(
+        ethers.constants.AddressZero
+      );
+      await grepWithOwner.mint(rep3, 111);
+      expect(await grep.balanceOf(repTarget)).to.equal(111);
+      expect(await grep.balanceOf(rep3)).to.equal(startBalance.add(111));
     });
   });
 });
