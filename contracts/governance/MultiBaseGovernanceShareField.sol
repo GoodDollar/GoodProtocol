@@ -65,6 +65,12 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 		lastRewardBlock[_contract] = _lastRewardBlock;
 	}
 
+	/**
+	 * @dev helper to calculate global rewards accumulated per block so far
+	 * @param _contract the contract to calcualte the rewards for
+	 * @param _blockStart the block from which the contract is eligble for rewards
+	 * @param _blockEnd the block from which the contract is no longer eligble for rewards
+	 */
 	function _calcUpdate(
 		address _contract,
 		uint256 _blockStart,
@@ -167,6 +173,10 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 
 	/**
 	 * @dev Query user's pending reward with updated variables
+	 * @param _contract the contract to calcualte the rewards for
+	 * @param _blockStart the block from which the contract is eligble for rewards
+	 * @param _blockEnd the block from which the contract is no longer eligble for rewards
+	 * @param _user the user to calculate rewards for
 	 * @return returns  amount of user's earned but not minted rewards
 	 */
 	function getUserPendingReward(
@@ -195,6 +205,8 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
     @dev Calculate earned rewards of the user and update their reward info
 	* @param _contract address of the contract for accounting
     * @param _user address of the user that will be accounted
+	* @param _blockStart the block from which the contract is eligble for rewards
+	* @param _blockEnd the block from which the contract is no longer eligble for rewards
     * @return returns minted amount
     */
 
@@ -215,7 +227,7 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 	}
 
 	/**
-	 * @return Returns how many productivity a user has and global has.
+	 * @return Returns how much productivity a user has and total productivity.
 	 */
 
 	function getProductivity(address _contract, address _user)
@@ -242,5 +254,6 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 		return accAmountPerShare[_contract];
 	}
 
+	// for upgrades
 	uint256[50] private _gap;
 }

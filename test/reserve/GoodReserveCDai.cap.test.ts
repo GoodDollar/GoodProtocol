@@ -64,20 +64,8 @@ describe("GoodReserve - Enforce token cap", () => {
 
   it("should not be able to mint if not minter", async () => {
     await expect(
-      goodReserve.mintByPrice(cDai, granted.address, 10)
-    ).to.be.revertedWith("GoodReserve: not a minter");
-
-    await expect(
       goodReserve.mintRewardFromRR(cDai, founder.address, 10)
     ).to.be.revertedWith("GoodReserve: not a minter");
-
-    // await expect(
-    //   goodReserve["mintInterestAndUBI(address,uint256,uint256)"](
-    //     cDai,
-    //     founder.address,
-    //     10
-    //   )
-    // ).to.be.revertedWith("GoodReserve: not a minter");
   });
 
   it("should be able to mint if fund_manager contract and Reserve is minter", async () => {
@@ -90,13 +78,15 @@ describe("GoodReserve - Enforce token cap", () => {
 
     await setDAOAddress("FUND_MANAGER", founder.address);
 
-    await goodReserve.connect(founder).mintByPrice(cDai, founder.address, 1000); //10000 cdai wei is 1G$
-    expect(await goodDollar.balanceOf(founder.address)).to.equal(10);
+    await goodReserve
+      .connect(founder)
+      .mintRewardFromRR(cDai, founder.address, 1000); //10000 cdai wei is 1G$
+    expect(await goodDollar.balanceOf(founder.address)).to.equal(1000);
 
     await goodReserve
       .connect(founder)
       .mintRewardFromRR(cDai, founder.address, 10);
-    expect(await goodDollar.balanceOf(founder.address)).to.equal(20);
+    expect(await goodDollar.balanceOf(founder.address)).to.equal(1010);
     currentPrice = await goodReserve["currentPrice()"]();
     expect(currentPrice).to.be.gt(0, "should have cDai price");
   });
@@ -120,7 +110,7 @@ describe("GoodReserve - Enforce token cap", () => {
     await goodReserve
       .connect(founder)
       .mintRewardFromRR(cDai, founder.address, 10);
-    expect(await goodDollar.balanceOf(founder.address)).to.equal(30);
+    expect(await goodDollar.balanceOf(founder.address)).to.equal(1020);
   });
 
   it("should not be able to mint if not core contract and GoodReserve is minter", async () => {
@@ -175,7 +165,7 @@ describe("GoodReserve - Enforce token cap", () => {
     await goodReserve
       .connect(granted)
       .mintRewardFromRR(cDai, founder.address, 10);
-    expect(await goodDollar.balanceOf(founder.address)).to.equal(40);
+    expect(await goodDollar.balanceOf(founder.address)).to.equal(1030);
   });
 
   it("should enforce cap", async () => {
@@ -250,7 +240,7 @@ describe("GoodReserve - Enforce token cap", () => {
 
     expect(await goodDollar.isMinter(goodReserve.address)).to.be.false;
 
-    await expect(goodReserve.mintByPrice(cDai, founder.address, 10)).to.be
+    await expect(goodReserve.mintRewardFromRR(cDai, founder.address, 10)).to.be
       .reverted;
   });
 });

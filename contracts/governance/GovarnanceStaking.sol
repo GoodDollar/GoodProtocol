@@ -128,6 +128,9 @@ contract GovernanceStaking is
 		return 2;
 	}
 
+	/**
+	 * @dev override _transfer to handle rewards calculations when transfer the stake
+	 */
 	function _transfer(
 		address from,
 		address to,

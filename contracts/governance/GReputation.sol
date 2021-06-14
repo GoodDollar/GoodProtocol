@@ -11,8 +11,8 @@ import "../Interfaces.sol";
  * @dev NOTICE: this breaks DAOStack nativeReputation usage, since it is not possiible to upgrade
  * the original nativeReputation token. it means you can no longer rely on avatar.nativeReputation() or controller.nativeReputation()
  * to return the current reputation token.
- *  The DAO avatar will be the owner of this reputation token and not the Controller.
- *  Minting by the DAO will be done using controller.genericCall and not via controller.mintReputation
+ * The DAO avatar will be the owner of this reputation token and not the Controller.
+ * Minting by the DAO will be done using controller.genericCall and not via controller.mintReputation
  */
 contract GReputation is Reputation {
 	bytes32 public constant ROOT_STATE = keccak256("rootState");
@@ -57,6 +57,9 @@ contract GReputation is Reputation {
 
 	/// @notice map of user non delegated + delegated votes to user. this is used for actual voting
 	mapping(address => uint256[]) public activeVotes;
+
+	/// @notice keep map of address -> reputation recipient, an address can set that its earned rep will go to another address
+	mapping(address => address) public reputationRecipients;
 
 	/// @notice An event thats emitted when a delegate account's vote balance changes
 	event DelegateVotesChanged(
@@ -103,15 +106,22 @@ contract GReputation is Reputation {
 		override
 		returns (uint256)
 	{
-		super._mint(_user, _amount);
-		address delegator = delegates[_user];
-		delegator = delegator != address(0) ? delegator : _user;
-		delegates[_user] = delegator;
+		address repTarget = reputationRecipients[_user];
+		repTarget = repTarget != address(0) ? repTarget : _user;
+
+		super._mint(repTarget, _amount);
+
+		//set self as initial delegator
+		address delegator = delegates[repTarget];
+		if (delegator == address(0)) {
+			delegates[repTarget] = repTarget;
+			delegator = repTarget;
+		}
 		uint256 previousVotes = getVotes(delegator);
 
 		_updateDelegateVotes(
 			delegator,
-			_user,
+			repTarget,
 			previousVotes,
 			previousVotes + _amount
 		);
@@ -507,5 +517,9 @@ contract GReputation is Reputation {
 			chainId := chainid()
 		}
 		return chainId;
+	}
+
+	function setReputationRecipient(address _target) public {
+		reputationRecipients[msg.sender] = _target;
 	}
 }

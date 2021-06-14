@@ -3,17 +3,23 @@ pragma solidity >=0.8.0;
 import "../Interfaces.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DSMath.sol";
+
 contract BaseShareField is DSMath {
+	// total staked for shares calculation
 	uint256 totalProductivity;
+	// total staked that earns rewards (some stakers can donate their rewards)
 	uint256 public totalEffectiveStakes;
+	// accumulated rewards per share
 	uint256 accAmountPerShare;
-
-	uint256 public mintedShare;
-	uint256 public mintCumulation;
+	// rewards claimed by users
+	uint256 public mintedRewards;
+	// rewards accumulated for distribution
+	uint256 public accumulatedRewards;
+	// number of blocks before reaching the max rewards multiplier (starting at 0.5 reaching 1 after maxMultiplierThreshold)
 	uint64 public maxMultiplierThreshold;
-
+	// block of last rewards accumulation
 	uint256 public lastRewardBlock;
-	// Staking contracts accepts Token's most with 18 decimals so this variable to hold decimal difference between 18 and Token's decimal in order to make calculations
+	// Staking contracts accepts Tokens with max 18 decimals so this variable holds decimal difference between 18 and Token's decimal in order to make calculations
 	uint8 public tokenDecimalDifference;
 	struct UserInfo {
 		uint256 amount; // How many tokens the user has provided.
@@ -34,6 +40,9 @@ contract BaseShareField is DSMath {
 	/**
 	 * @dev Update reward variables of the given pool to be up-to-date.
 	 * Calculates passed blocks and adding to the reward pool
+	 * @param rewardsPerBlock how much rewards does this contract earns per block
+	 * @param blockStart block from which contract starts earning rewards
+	 * @param blockEnd block from which contract stops earning rewards
 	 */
 	function _update(
 		uint256 rewardsPerBlock,
@@ -48,13 +57,12 @@ contract BaseShareField is DSMath {
 			lastRewardBlock = blockStart;
 		}
 
-		uint256 _lastRewardBlock = lastRewardBlock < blockStart &&
-			block.number >= blockStart
-			? blockStart
-			: lastRewardBlock;
-		uint256 curRewardBlock = block.number > blockEnd
-			? blockEnd
-			: block.number;
+		uint256 _lastRewardBlock =
+			lastRewardBlock < blockStart && block.number >= blockStart
+				? blockStart
+				: lastRewardBlock;
+		uint256 curRewardBlock =
+			block.number > blockEnd ? blockEnd : block.number;
 		if (curRewardBlock < blockStart || _lastRewardBlock >= blockEnd) return;
 
 		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block
@@ -68,15 +76,18 @@ contract BaseShareField is DSMath {
 	}
 
 	/**
-	 * @dev Audit user's rewards and calculate their earned rewards based on
+	 * @dev Audit user's rewards and calculate their earned rewards
 	 * For the first month rewards calculated with 0.5x
 	 * multiplier therefore they just gets half of the rewards which they earned in the first month
 	 * after first month they get full amount of rewards for the part that they earned after one month
+	 * @param user the user to audit
+	 * @param updatedAmount the new stake of the user after deposit/withdraw
+	 * @param donationPer percentage user is donating from his rewards. (currently just 0 or 100 in SimpleStaking)
 	 */
 	function _audit(
 		address user,
 		uint256 updatedAmount,
-		uint256 _donationPer
+		uint256 donationPer
 	) internal virtual {
 		UserInfo storage userInfo = users[user];
 		uint256 _amount = userInfo.amount;
@@ -89,11 +100,12 @@ contract BaseShareField is DSMath {
 			) = _auditCalcs(userInfo);
 
 			if (blocksToPay != 0) {
-				uint256 pending = (userEffectiveStake *
-					(10**tokenDecimalDifference) *
-					accAmountPerShare) /
-					1e27 -
-					userInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
+				uint256 pending =
+					(userEffectiveStake *
+						(10**tokenDecimalDifference) *
+						accAmountPerShare) /
+						1e27 -
+						userInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
 				uint256 rewardPerBlock = rdiv(pending, blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
 				pending =
 					rmul(
@@ -104,7 +116,7 @@ contract BaseShareField is DSMath {
 					) /
 					1e9; // Pending in 18 decimals so we divide 1e9 to bring it down to 18 decimals
 				userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
-				mintCumulation = mintCumulation + pending;
+				accumulatedRewards = accumulatedRewards + pending;
 			}
 		} else {
 			userInfo.multiplierResetTime = uint64(block.number); // Should set user's multiplierResetTime when they stake for the first time
@@ -114,12 +126,13 @@ contract BaseShareField is DSMath {
 		if (updatedAmount <= _amount) {
 			userInfo.multiplierResetTime = uint64(block.number);
 			if (_amount > 0) {
-				uint256 withdrawFromEffectiveStake = ((_amount -
-					updatedAmount) * userInfo.effectiveStakes) / _amount;
+				uint256 withdrawFromEffectiveStake =
+					((_amount - updatedAmount) * userInfo.effectiveStakes) /
+						_amount;
 				userInfo.effectiveStakes -= withdrawFromEffectiveStake;
 				totalEffectiveStakes -= withdrawFromEffectiveStake;
 			}
-		} else if (_donationPer == 0) {
+		} else if (donationPer == 0) {
 			userInfo.effectiveStakes += (updatedAmount - _amount);
 			totalEffectiveStakes += (updatedAmount - _amount);
 		}
@@ -144,16 +157,18 @@ contract BaseShareField is DSMath {
 			uint256
 		)
 	{
-		uint256 blocksPaid = _userInfo.lastRewardTime -
-			_userInfo.multiplierResetTime; // lastRewardTime is always >= multiplierResetTime
-		uint256 blocksPassedFirstMonth = Math.min(
-			maxMultiplierThreshold,
-			block.number - _userInfo.multiplierResetTime
-		); // blocks which is after first month
+		uint256 blocksPaid =
+			_userInfo.lastRewardTime - _userInfo.multiplierResetTime; // lastRewardTime is always >= multiplierResetTime
+		uint256 blocksPassedFirstMonth =
+			Math.min(
+				maxMultiplierThreshold,
+				block.number - _userInfo.multiplierResetTime
+			); // blocks which is after first month
 		uint256 blocksToPay = block.number - _userInfo.lastRewardTime; // blocks passed since last payment
-		uint256 firstMonthBlocksToPay = blocksPaid >= maxMultiplierThreshold
-			? 0
-			: blocksPassedFirstMonth - blocksPaid; // block which is in the first month so pays with 0.5x multiplier
+		uint256 firstMonthBlocksToPay =
+			blocksPaid >= maxMultiplierThreshold
+				? 0
+				: blocksPassedFirstMonth - blocksPaid; // block which is in the first month so pays with 0.5x multiplier
 		uint256 fullBlocksToPay = blocksToPay - firstMonthBlocksToPay; // blocks to pay in full amount which means with 1x multiplier
 		return (blocksToPay, firstMonthBlocksToPay, fullBlocksToPay);
 	}
@@ -163,6 +178,12 @@ contract BaseShareField is DSMath {
 	 * This function increase user's productivity and updates the global productivity.
 	 * the users' actual share percentage will calculated by:
 	 * Formula:     user_productivity / global_productivity
+	 * @param user the user to update
+	 * @param value the increase in user stake
+	 * @param rewardsPerBlock how much rewards does this contract earns per block
+	 * @param blockStart block from which contract starts earning rewards
+	 * @param blockEnd block from which contract stops earning rewards
+	 * @param donationPer percentage user is donating from his rewards. (currently just 0 or 100 in SimpleStaking)
 	 */
 	function _increaseProductivity(
 		address user,
@@ -170,10 +191,10 @@ contract BaseShareField is DSMath {
 		uint256 rewardsPerBlock,
 		uint256 blockStart,
 		uint256 blockEnd,
-		uint256 _donationPer
+		uint256 donationPer
 	) internal virtual returns (bool) {
 		_update(rewardsPerBlock, blockStart, blockEnd);
-		_audit(user, users[user].amount + value, _donationPer);
+		_audit(user, users[user].amount + value, donationPer);
 
 		totalProductivity = totalProductivity + value;
 		return true;
@@ -182,6 +203,11 @@ contract BaseShareField is DSMath {
 	/**
 	 * @dev This function will decreases user's productivity by value, and updates the global productivity
 	 * it will record which block this is happenning and accumulates the area of (productivity * time)
+	 * @param user the user to update
+	 * @param value the increase in user stake
+	 * @param rewardsPerBlock how much rewards does this contract earns per block
+	 * @param blockStart block from which contract starts earning rewards
+	 * @param blockEnd block from which contract stops earning rewards
 	 */
 
 	function _decreaseProductivity(
@@ -200,6 +226,10 @@ contract BaseShareField is DSMath {
 
 	/**
 	 * @dev Query user's pending reward with updated variables
+	 * @param user the user to update
+	 * @param rewardsPerBlock how much rewards does this contract earns per block
+	 * @param blockStart block from which contract starts earning rewards
+	 * @param blockEnd block from which contract stops earning rewards
 	 * @return returns  amount of user's earned but not minted rewards
 	 */
 	function getUserPendingReward(
@@ -253,7 +283,10 @@ contract BaseShareField is DSMath {
 	/**
 	 * @dev When the fundmanager calls this function it will updates the user records
 	 * get the user rewards which they earned but not minted and mark it as minted
-	 * @param user address of the user that will be accounted
+	 * @param user the user to update
+	 * @param rewardsPerBlock how much rewards does this contract earns per block
+	 * @param blockStart block from which contract starts earning rewards
+	 * @param blockEnd block from which contract stops earning rewards
 	 * @return returns amount to mint as reward to the user
 	 */
 
@@ -270,7 +303,7 @@ contract BaseShareField is DSMath {
 		uint256 amount = userInfo.rewardEarn;
 		userInfo.rewardEarn = 0;
 		userInfo.rewardMinted += amount;
-		mintedShare = mintedShare + amount;
+		mintedRewards = mintedRewards + amount;
 		amount = amount / 1e16; // change decimal of mint amount to GD decimals
 		return amount;
 	}

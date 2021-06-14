@@ -205,6 +205,12 @@ contract StakersDistribution is
 		}
 	}
 
+	/**
+	 * @dev get user reputation rewards accrued in goodstaking contracts
+	 * @param _contracts list of contracts to check for rewards
+	 * @param _user the user to check rewards for
+	 * @return reputation rewards pending for user
+	 */
 	function getUserPendingRewards(address[] calldata _contracts, address _user)
 		external
 		view

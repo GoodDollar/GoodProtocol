@@ -6,7 +6,13 @@ import {
   GoodMarketMaker,
   GoodFundManager
 } from "../../types";
-import { createDAO, deployUBI, deployUniswap, increaseTime } from "../helpers";
+import {
+  createDAO,
+  deployUBI,
+  advanceBlocks,
+  increaseTime,
+  deployUniswap
+} from "../helpers";
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -116,6 +122,16 @@ describe("UBIScheme - network e2e tests", () => {
     );
     const compUsdOracle = await compUsdOracleFactory.deploy();
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
+    const compUsdOracleFactory = await ethers.getContractFactory(
+      "CompUSDMockOracle"
+    );
+    const daiFactory = await ethers.getContractFactory("DAIMock");
+    comp = await daiFactory.deploy();
+    await setDAOAddress("COMP", comp.address);
+    const compUsdOracle = await compUsdOracleFactory.deploy();
+    const uniswap = await deployUniswap();
+    const router = uniswap.router;
+    await setDAOAddress("UNISWAP_ROUTER", router.address);
     simpleStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {
@@ -184,9 +200,6 @@ describe("UBIScheme - network e2e tests", () => {
     ethUsdOracle = await ethUsdOracleFactory.deploy();
 
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
-    const daiFactory = await ethers.getContractFactory("DAIMock");
-
-    await setDAOAddress("COMP_USD_ORACLE", compUsdOracle.address);
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);

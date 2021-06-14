@@ -27,7 +27,7 @@ contract GoodCompoundStakingTest is GoodCompoundStaking {
 	}
 
 	function redeemUnderlyingToDAITest(uint256 _amount) public {
-		redeemUnderlyingToDAI(_amount);
+		redeemUnderlyingToDAI(_amount,address(this));
 	}
 
 	function decreaseProductivityTest(address user, uint256 value) public {

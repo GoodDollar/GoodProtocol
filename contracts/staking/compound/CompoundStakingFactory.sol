@@ -29,7 +29,14 @@ contract CompoundStakingFactory {
 		emit Deployed(deployed, address(cToken));
 		return GoodCompoundStaking(deployed);
 	}
-
+	/**
+	@dev Function to clone Staking contract and initialize new one with new ctoken
+	@param cToken Staking cToken to use in staking contract
+	@param _ns NameService that holds whole necessary addresses
+	@param _maxRewardThreshold Block numbers that need to pass in order to user would get their rewards with 1x multiplier instead of 0.5x
+	@param _tokenUsdOracle address of the TOKEN/USD oracle
+	@param _compUsdOracle address of the AAVE/USD oracle
+	 */
 	function cloneAndInit(
 		cERC20 cToken,
 		INameService _ns,

@@ -81,9 +81,10 @@ contract GoodCompoundStaking is SimpleStaking {
 	/**
 	 * @dev Function to redeem cToken for DAI, so reserve knows how to handle it. (reserve can handle dai or cdai)
 	 * @dev _amount of token in iToken
+	 * @dev _recipient recipient of the DAI
 	 * @return return address of the DAI and amount of the DAI
 	 */
-	function redeemUnderlyingToDAI(uint256 _amount)
+	function redeemUnderlyingToDAI(uint256 _amount, address _recipient)
 		internal
 		override
 		returns (address, uint256)
@@ -104,26 +105,18 @@ contract GoodCompoundStaking is SimpleStaking {
 					compBalance,
 					0,
 					path,
-					address(this),
+					 _recipient,
 					block.timestamp
 				);
 			daiFromComp = compSwap[1];
 		}
 		if (address(iToken) == nameService.getAddress("CDAI")) {
-			uint256 cdaiMintAmount;
-			if (daiFromComp > 0) {
-				uint256 cdaiAmountBeforeMint = cToken.balanceOf(address(this));
-				cToken.mint(daiFromComp);
-				cdaiMintAmount =
-					cToken.balanceOf(address(this)) -
-					cdaiAmountBeforeMint;
-			}
-
-			return (address(iToken), _amount + cdaiMintAmount); // If iToken is cDAI then just return cDAI
+			return (address(iToken), _amount); // If iToken is cDAI then just return cDAI
 		}
 		require(cToken.redeem(_amount) == 0, "Failed to redeem cToken");
 		uint256 redeemedAmount = token.balanceOf(address(this));
 		uint256 dai;
+		address recipientTemp = _recipient;
 		if (redeemedAmount > 0) {
 			path[0] = address(token);
 			path[1] = daiAddress;
@@ -132,7 +125,7 @@ contract GoodCompoundStaking is SimpleStaking {
 					redeemedAmount,
 					0,
 					path,
-					address(this),
+					recipientTemp,
 					block.timestamp
 				);
 			dai = swap[1];
@@ -156,7 +149,12 @@ contract GoodCompoundStaking is SimpleStaking {
 		ERC20 cToken = ERC20(address(iToken));
 		return uint256(cToken.decimals());
 	}
-
+	/**
+	 * @dev Function that calculates current interest gains of this staking contract
+	 * @param _returnTokenBalanceInUSD determine return token balance of staking contract in USD
+	 * @param _returnTokenGainsInUSD determine return token gains of staking contract in USD
+	 * @return return gains in itoken,Token and worth of total locked Tokens,token balance in USD,token Gains in USD
+	 */
 	function currentGains(
 		bool _returnTokenBalanceInUSD,
 		bool _returnTokenGainsInUSD
@@ -180,7 +178,7 @@ contract GoodCompoundStaking is SimpleStaking {
 			iTokenWorthInToken(iToken.balanceOf(address(this)));
 		uint256 balanceInUSD =
 			_returnTokenBalanceInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenBalance)
+				? getTokenValueInUSD(tokenUsdOracle, tokenBalance,token.decimals())
 				: 0;
 		uint256 compValueInUSD =
 			_returnTokenGainsInUSD
@@ -188,7 +186,7 @@ contract GoodCompoundStaking is SimpleStaking {
 					compUsdOracle,
 					ERC20(nameService.getAddress("COMP")).balanceOf(
 						address(this)
-					)
+					),18 // COMP is in 18 decimal
 				)
 				: 0;
 		if (tokenBalance <= totalProductivity) {
@@ -197,7 +195,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 tokenGains = tokenBalance - totalProductivity;
 		uint256 tokenGainsInUSD =
 			_returnTokenGainsInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenGains) +
+				? getTokenValueInUSD(tokenUsdOracle, tokenGains,token.decimals()) +
 					compValueInUSD
 				: 0;
 		uint256 iTokenGains;
@@ -219,7 +217,9 @@ contract GoodCompoundStaking is SimpleStaking {
 			tokenGainsInUSD
 		);
 	}
-
+	/** 
+	* @dev Function to get interest transfer cost for this particular staking contract
+	 */
 	function getGasCostForInterestTransfer()
 		external
 		view
@@ -263,7 +263,6 @@ contract GoodCompoundStaking is SimpleStaking {
 		_onlyAvatar();
 		collectInterestGasCost = _amount;
 	}
-
 	function _approveTokens() internal override {
 		address uniswapRouter = nameService.getAddress("UNISWAP_ROUTER");
 		ERC20(nameService.getAddress("COMP")).approve(

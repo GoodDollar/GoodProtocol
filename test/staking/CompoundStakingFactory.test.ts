@@ -7,6 +7,7 @@ import {
   CompoundStakingFactory
 } from "../../types";
 import { createDAO, deployUniswap } from "../helpers";
+import { Contract } from "ethers";
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
@@ -20,18 +21,22 @@ describe("CompoundStakingFactory", () => {
     dai,
     dao,
     stakingFactory: CompoundStakingFactory,
+    comp: Contract,
     compUsdOracle;
 
   before(async () => {
     [founder, ...signers] = await ethers.getSigners();
     dao = await createDAO();
-    const uniswap = await deployUniswap();
-    dao.setDAOAddress("UNISWAP_ROUTER", uniswap.router.address);
 
     const compUsdOracleFactory = await ethers.getContractFactory(
       "CompUSDMockOracle"
     );
     compUsdOracle = await compUsdOracleFactory.deploy();
+    comp = await (await ethers.getContractFactory("DAIMock")).deploy();
+    const uniswap = await deployUniswap();
+    const router = uniswap.router;
+    await dao.setDAOAddress("UNISWAP_ROUTER", router.address);
+    await dao.setDAOAddress("COMP", comp.address);
     dai = dao.daiAddress;
     cdai = dao.cdaiAddress;
     stakingFactory = (await ethers
