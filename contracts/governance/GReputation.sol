@@ -11,8 +11,8 @@ import "../Interfaces.sol";
  * @dev NOTICE: this breaks DAOStack nativeReputation usage, since it is not possiible to upgrade
  * the original nativeReputation token. it means you can no longer rely on avatar.nativeReputation() or controller.nativeReputation()
  * to return the current reputation token.
- *  The DAO avatar will be the owner of this reputation token and not the Controller.
- *  Minting by the DAO will be done using controller.genericCall and not via controller.mintReputation
+ * The DAO avatar will be the owner of this reputation token and not the Controller.
+ * Minting by the DAO will be done using controller.genericCall and not via controller.mintReputation
  */
 contract GReputation is Reputation {
 	bytes32 public constant ROOT_STATE = keccak256("rootState");
