@@ -25,7 +25,8 @@ contract GoodAaveStaking is SimpleStaking {
 	address public aaveUSDOracle;
 	// Gas cost to collect interest from this staking contract
 	uint32 public collectInterestGasCost = 250000;
-
+	// Gas cost to claim stkAave rewards
+	uint32 stkAaveClaimGasCost = 50000;
 	/**
 	 * @param _token Token to swap DEFI token
 	 * @param _lendingPool LendingPool address
@@ -203,17 +204,19 @@ contract GoodAaveStaking is SimpleStaking {
 		tokenAddress[0] = address(token);
 		uint256 stkAaaveBalance =
 			incentiveController.getRewardsBalance(tokenAddress, address(this));
-		if(stkAaaveBalance > 0 ) return collectInterestGasCost + 50000;
+		if(stkAaaveBalance > 0 ) return collectInterestGasCost + stkAaveClaimGasCost;
 		
 		return collectInterestGasCost;
 	}
 	/**
 	 * @dev Set Gas cost to interest collection for this contract
-	 * @param _amount Gas cost to collect interest
+	 * @param _collectInterestGasCost Gas cost to collect interest
+	 * @param _rewardTokenCollectCost gas cost to collect reward tokens
 	 */
-	function setcollectInterestGasCost(uint32 _amount) external {
+	function setcollectInterestGasCostParams(uint32 _collectInterestGasCost, uint32 _rewardTokenCollectCost) external {
 		_onlyAvatar();
-		collectInterestGasCost = _amount;
+		collectInterestGasCost = _collectInterestGasCost;
+		stkAaveClaimGasCost = _rewardTokenCollectCost;
 	}
 	/**
 	 * @dev Calculates worth of given amount of iToken in Token

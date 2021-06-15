@@ -425,6 +425,7 @@ abstract contract SimpleStaking is
 			);
 
 		emit InterestCollected(_recipient, iTokenGains, tokenGains, usdGains);
+
 		return (iTokenGains, tokenGains, usdGains);
 	}
 

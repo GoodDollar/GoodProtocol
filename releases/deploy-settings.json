@@ -10,6 +10,14 @@
     "staking": {
       "rewardsPerBlock": 10000,
       "fullRewardsThreshold": 172800
+    },
+    "GoodCompoundStaking": {
+      "CompCollectGasCost": 150000,
+      "CollectInterestGasCost": 250000
+    },
+    "GoodAaveStaking": {
+      "stkAaveClaimCost": 50000,
+      "CollectInterestGasCost": 250000
     }
   },
   "develop": {
