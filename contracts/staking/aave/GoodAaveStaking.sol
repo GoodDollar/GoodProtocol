@@ -217,6 +217,14 @@ contract GoodAaveStaking is SimpleStaking {
 		collectInterestGasCost = _amount;
 	}
 	/**
+	 * @dev Set gas cost for claim stkAave rewards
+	 * @param _amount Gas cost to claim rewards
+	 */
+	 function setStkAaveClaimGasCost(uint32 _amount)external{
+		 _onlyAvatar();
+		 stkAaveClaimGasCost = _amount;
+	 }
+	/**
 	 * @dev Calculates worth of given amount of iToken in Token
 	 * @param _amount Amount of token to calculate worth in Token
 	 * @return Worth of given amount of token in Token

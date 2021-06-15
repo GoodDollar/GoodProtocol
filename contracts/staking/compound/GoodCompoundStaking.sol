@@ -264,6 +264,14 @@ contract GoodCompoundStaking is SimpleStaking {
 		_onlyAvatar();
 		collectInterestGasCost = _amount;
 	}
+	/**
+	 * @dev Set gas cost for collect COMP rewards
+	 * @param _amount Gas cost to collect rewards
+	 */
+	 function setCompCollectGasCost(uint32 _amount)external{
+		 _onlyAvatar();
+		 compCollectGasCost = _amount;
+	 }
 	function _approveTokens() internal override {
 		address uniswapRouter = nameService.getAddress("UNISWAP_ROUTER");
 		ERC20(nameService.getAddress("COMP")).approve(
