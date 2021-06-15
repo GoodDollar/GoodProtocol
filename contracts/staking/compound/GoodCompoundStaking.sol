@@ -18,7 +18,8 @@ contract GoodCompoundStaking is SimpleStaking {
 
 	// Gas cost to collect interest from this staking contract
 	uint32 public collectInterestGasCost = 150000;
-
+	// Gas cost to collect COMP rewards
+	uint32 public compCollectGasCost = 150000;
 	/**
 	 * @param _token Token to swap DEFI token
 	 * @param _iToken DEFI token address
