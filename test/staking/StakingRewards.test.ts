@@ -1315,8 +1315,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
     encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
-      "setcollectInterestGasCost",
-      ["300000"]
+      "setcollectInterestGasCostParams",
+      ["250000", "150000"]
     );
     await genericCall(simpleStaking.address, encodedData, avatar, 0);
     await bat["mint(address,uint256)"](
@@ -1432,8 +1432,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       compUsdOracle.address
     );
     let encodedData = goodCompoundStakingTestFactory.interface.encodeFunctionData(
-      "setcollectInterestGasCost",
-      ["100000"]
+      "setcollectInterestGasCostParams",
+      ["250000", "150000"]
     );
     await genericCall(simpleStaking.address, encodedData, avatar, 0);
     const stakingContractVals = await goodFundManager.rewardsForStakingContract(

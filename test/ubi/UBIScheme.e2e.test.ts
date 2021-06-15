@@ -122,16 +122,9 @@ describe("UBIScheme - network e2e tests", () => {
     );
     const compUsdOracle = await compUsdOracleFactory.deploy();
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
-    const compUsdOracleFactory = await ethers.getContractFactory(
-      "CompUSDMockOracle"
-    );
     const daiFactory = await ethers.getContractFactory("DAIMock");
     comp = await daiFactory.deploy();
     await setDAOAddress("COMP", comp.address);
-    const compUsdOracle = await compUsdOracleFactory.deploy();
-    const uniswap = await deployUniswap();
-    const router = uniswap.router;
-    await setDAOAddress("UNISWAP_ROUTER", router.address);
     simpleStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {

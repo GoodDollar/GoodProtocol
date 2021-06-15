@@ -176,8 +176,8 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
         return contract;
       });
     const encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
-      "setcollectInterestGasCost",
-      ["200000"]
+      "setcollectInterestGasCostParams",
+      ["250000", "150000"]
     );
     await genericCall(goodCompoundStaking.address, encodedData);
     await dai["mint(address,uint256)"](
@@ -632,14 +632,14 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
         return contract;
       });
     let encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
-      "setcollectInterestGasCost",
-      ["200000"]
+      "setcollectInterestGasCostParams",
+      ["250000", "150000"]
     );
     await genericCall(simpleStaking.address, encodedData);
 
     encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
       "setcollectInterestGasCost",
-      ["200000"]
+      ["250000", "150000"]
     );
     await genericCall(simpleStaking1.address, encodedData);
     const goodFundManagerFactory = await ethers.getContractFactory(
