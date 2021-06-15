@@ -6,7 +6,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetMinte
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-import "../utils/DSMath.sol";
+
 import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "../DAOStackInterfaces.sol";
@@ -30,7 +30,6 @@ contract GoodReserveCDai is
 	DAOUpgradeableContract,
 	ERC20PresetMinterPauserUpgradeable,
 	GlobalConstraintInterface,
-	DSMath,
 	ReentrancyGuardUpgradeable
 {
 
