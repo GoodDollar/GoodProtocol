@@ -259,6 +259,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	/**
 	 * @dev Set Gas cost to interest collection for this contract
 	 * @param _amount Gas cost to collect interest
+	 * @param _rewardTokenCollectCost gas cost to collect reward tokens
 	 */
 	function setcollectInterestGasCostParams(uint32 _amount, uint32 _rewardTokenCollectCost) external {
 		_onlyAvatar();
