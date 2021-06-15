@@ -33,7 +33,6 @@ contract GoodReserveCDai is
 	DSMath,
 	ReentrancyGuardUpgradeable
 {
-	using SafeMathUpgradeable for uint256;
 
 	bytes32 public constant RESERVE_MINTER_ROLE =
 		keccak256("RESERVE_MINTER_ROLE");
@@ -260,7 +259,7 @@ contract GoodReserveCDai is
 		require(cDaiResult == 0, "Minting cDai failed");
 
 		uint256 cDaiInput =
-			(cDai.balanceOf(address(this))).sub(currCDaiBalance);
+			cDai.balanceOf(address(this)) - currCDaiBalance;
 		return _buy(cDaiInput, _minReturn, _targetAddress);
 	}
 
@@ -408,7 +407,7 @@ contract GoodReserveCDai is
 		require(daiResult == 0, "cDai redeem failed");
 
 		uint256 daiReturnAmount =
-			(dai.balanceOf(address(this))).sub(currDaiBalance);
+			dai.balanceOf(address(this)) - currDaiBalance;
 
 		return daiReturnAmount;
 	}
@@ -448,7 +447,7 @@ contract GoodReserveCDai is
 				this,
 				msg.sender,
 				ERC20(cDaiAddress),
-				_gdAmount.sub(discount)
+				_gdAmount - discount
 			);
 
 		uint256 tokenReturn =
@@ -530,7 +529,7 @@ contract GoodReserveCDai is
 		uint256 gdExpansionToMint =
 			getMarketMaker().mintExpansion(_interestToken);
 		uint256 gdUBI = gdInterestToMint;
-		gdUBI = gdUBI.add(gdExpansionToMint);
+		gdUBI = gdUBI + gdExpansionToMint;
 		uint256 toMint = gdUBI;
 
 		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
