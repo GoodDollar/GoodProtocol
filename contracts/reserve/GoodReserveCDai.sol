@@ -6,7 +6,6 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetMinte
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-
 import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "../DAOStackInterfaces.sol";
@@ -29,10 +28,8 @@ interface ContributionCalc {
 contract GoodReserveCDai is
 	DAOUpgradeableContract,
 	ERC20PresetMinterPauserUpgradeable,
-	GlobalConstraintInterface,
-	ReentrancyGuardUpgradeable
+	GlobalConstraintInterface
 {
-
 	bytes32 public constant RESERVE_MINTER_ROLE =
 		keccak256("RESERVE_MINTER_ROLE");
 
@@ -52,39 +49,12 @@ contract GoodReserveCDai is
 	/// @dev mark if user claimed his GDX
 	mapping(address => bool) public isClaimedGDX;
 
-	// Emits when GD tokens are purchased
-	event TokenPurchased(
-		// The initiate of the action
-		address indexed caller,
-		// The convertible token address
-		// which the GD tokens were
-		// purchased with
-		address indexed inputToken,
-		// Reserve tokens amount
-		uint256 inputAmount,
-		// Actual return after the
-		// conversion
-		uint256 actualReturn
-	);
-
-	// Emits when GD tokens are sold
-	event TokenSold(
-		// The initiate of the action
-		address indexed caller,
-		// The convertible token address
-		// which the GD tokens were
-		// sold to
-		address indexed outputToken,
-		// GD tokens amount
-		uint256 gdAmount,
-		// The amount of GD tokens that
-		// was contributed during the
-		// conversion
-		uint256 contributionAmount,
-		// Actual return after the
-		// conversion
-		uint256 actualReturn
-	);
+	function _onlyGoodBuySell() internal view {
+		require(
+			msg.sender == nameService.getAddress("GOOD_BUY_SELL"),
+			"Only GoodBuySell can call this method"
+		);
+	}
 
 	// Emits when new GD tokens minted
 	event UBIMinted(
@@ -155,114 +125,6 @@ contract GoodReserveCDai is
 	}
 
 	/**
-	@dev Converts any 'buyWith' tokens to cDAI then call buy function to convert it to GD tokens(no need reentrancy lock since we don't transfer external token's to user)
-	* @param _buyWith The tokens that should be converted to GD tokens
-	* @param _tokenAmount The amount of `buyWith` tokens that should be converted to GD tokens
-	* @param _minReturn The minimum allowed return in GD tokens
-	* @param _minDAIAmount The mininmum dai out amount from Exchange swap function
-	* @param _targetAddress address of g$ and gdx recipient if different than msg.sender
-	* @return (gdReturn) How much GD tokens were transferred
-	 */
-	function buy(
-		ERC20 _buyWith,
-		uint256 _tokenAmount,
-		uint256 _minReturn,
-		uint256 _minDAIAmount,
-		address _targetAddress
-	) public payable returns (uint256) {
-		bool withETH = false;
-		Uniswap uniswapContract =
-			Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
-		if (address(_buyWith) == address(0)) {
-			require(
-				msg.value > 0 && _tokenAmount == msg.value,
-				"you need to pay with ETH"
-			);
-			_tokenAmount = msg.value;
-			_buyWith = ERC20(uniswapContract.WETH());
-			withETH = true;
-		} else {
-			require(
-				_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
-				"You need to approve input token transfer first"
-			);
-			require(
-				_buyWith.transferFrom(
-					msg.sender,
-					address(this),
-					_tokenAmount
-				) == true,
-				"transferFrom failed, make sure you approved input token transfer"
-			);
-		}
-
-		uint256 result;
-		if (address(_buyWith) == cDaiAddress) {
-			result = _buy(_tokenAmount, _minReturn, _targetAddress);
-		} else if (address(_buyWith) == daiAddress) {
-			result = _cdaiMintAndBuy(_tokenAmount, _minReturn, _targetAddress);
-		} else {
-			address[] memory path = new address[](2);
-
-			path[0] = address(_buyWith);
-			path[1] = daiAddress;
-			uint256[] memory swap;
-			if (withETH) {
-				swap = uniswapContract.swapExactETHForTokens{
-					value: msg.value
-				}(_minDAIAmount, path, address(this), block.timestamp);
-			} else {
-				_buyWith.approve(address(uniswapContract), _tokenAmount);
-				swap = uniswapContract.swapExactTokensForTokens(
-					_tokenAmount,
-					_minDAIAmount,
-					path,
-					address(this),
-					block.timestamp
-				);
-			}
-			uint256 dai = swap[1];
-			require(dai > 0, "token selling failed");
-
-			result = _cdaiMintAndBuy(dai, _minReturn, _targetAddress);
-		}
-
-		emit TokenPurchased(
-			msg.sender,
-			address(_buyWith),
-			_tokenAmount,
-			result
-		);
-
-		return result;
-	}
-
-	/**
-	 * @dev Convert Dai to CDAI and buy
-	 * @param _amount DAI amount to convert
-	 * @param _minReturn The minimum allowed return in GD tokens
-	 * @param _targetAddress address of g$ and gdx recipient if different than msg.sender
-	 * @return (gdReturn) How much GD tokens were transferred
-	 */
-	function _cdaiMintAndBuy(
-		uint256 _amount,
-		uint256 _minReturn,
-		address _targetAddress
-	) internal returns (uint256) {
-		cERC20 cDai = cERC20(cDaiAddress);
-
-		uint256 currCDaiBalance = cDai.balanceOf(address(this));
-
-		//Mint cDAIs
-		uint256 cDaiResult = cDai.mint(_amount);
-		require(cDaiResult == 0, "Minting cDai failed");
-
-		uint256 cDaiInput =
-			cDai.balanceOf(address(this)) - currCDaiBalance;
-		return _buy(cDaiInput, _minReturn, _targetAddress);
-	}
-
-	/**
 	 * @dev Converts `buyWith` tokens to GD tokens and updates the bonding curve params.
 	 * `buy` occurs only if the GD return is above the given minimum. It is possible
 	 * to buy only with cDAI and when the contract is set to active. MUST call to
@@ -273,25 +135,21 @@ contract GoodReserveCDai is
 	 * @param _targetAddress address of g$ and gdx recipient if different than msg.sender
 	 * @return (gdReturn) How much GD tokens were transferred
 	 */
-	function _buy(
+	function buy(
 		uint256 _tokenAmount,
 		uint256 _minReturn,
 		address _targetAddress
-	) internal returns (uint256) {
+	) external returns (uint256) {
+		_onlyGoodBuySell();
 		ERC20 buyWith = ERC20(cDaiAddress);
 		uint256 gdReturn = getMarketMaker().buy(buyWith, _tokenAmount);
 		require(
 			gdReturn >= _minReturn,
 			"GD return must be above the minReturn"
 		);
-
-		address receiver =
-			_targetAddress == address(0x0) ? msg.sender : _targetAddress;
-
-		_mintGoodDollars(receiver, gdReturn, true);
-
+		_mintGoodDollars(_targetAddress, gdReturn, true);
 		//mint GDX
-		_mintGDX(receiver, gdReturn);
+		_mintGDX(_targetAddress, gdReturn);
 
 		return gdReturn;
 	}
@@ -314,104 +172,6 @@ contract GoodReserveCDai is
 	}
 
 	/**
-	 * @dev Converts GD tokens to `sellTo` tokens and update the bonding curve params.
-	 * `sell` occurs only if the token return is above the given minimum. Notice that
-	 * there is a contribution amount from the given GD that remains in the reserve relative to user amount of GDX credits.
-	 * MUST call G$ `approve` prior to this action to allow this
-	 * contract to accomplish the conversion.
-	 * @param _sellTo The tokens that will be received after the conversion if address equals 0x0 then sell to ETH
-	 * @param _gdAmount The amount of GD tokens that should be converted to `_sellTo` tokens
-	 * @param _minReturn The minimum allowed `sellTo` tokens return
-	 * @param _minTokenReturn The mininmum dai out amount from Exchange swap function
-	 * @param _targetAddress address of _sellTo token recipient if different than msg.sender
-	 * @return (tokenReturn) How much `sellTo` tokens were transferred
-	 */
-	function sell(
-		ERC20 _sellTo,
-		uint256 _gdAmount,
-		uint256 _minReturn,
-		uint256 _minTokenReturn,
-		address _targetAddress
-	) public nonReentrant returns (uint256) {
-		address receiver =
-			_targetAddress == address(0x0) ? msg.sender : _targetAddress;
-
-		uint256 result;
-		uint256 contributionAmount;
-
-		(result, contributionAmount) = _sell(_gdAmount, _minReturn);
-		if (address(_sellTo) == cDaiAddress || address(_sellTo) == daiAddress) {
-			if (address(_sellTo) == daiAddress) result = _redeemDAI(result);
-
-			require(
-				_sellTo.transfer(receiver, result) == true,
-				"Transfer failed"
-			);
-		} else {
-			result = _redeemDAI(result);
-			address[] memory path = new address[](2);
-
-			Uniswap uniswapContract =
-				Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
-			ERC20(daiAddress).approve(address(uniswapContract), result);
-			uint256[] memory swap;
-			if (address(_sellTo) == address(0x0)) {
-				path[0] = daiAddress;
-				path[1] = uniswapContract.WETH();
-				swap = uniswapContract.swapExactTokensForETH(
-					result,
-					_minTokenReturn,
-					path,
-					receiver,
-					block.timestamp
-				);
-			} else {
-				path[0] = daiAddress;
-				path[1] = address(_sellTo);
-				swap = uniswapContract.swapExactTokensForTokens(
-					result,
-					_minTokenReturn,
-					path,
-					receiver,
-					block.timestamp
-				);
-			}
-
-			result = swap[1];
-			require(result > 0, "token selling failed");
-		}
-
-		emit TokenSold(
-			receiver,
-			address(_sellTo),
-			_gdAmount,
-			contributionAmount,
-			result
-		);
-		return result;
-	}
-
-	/**
-	 * @dev Redeem cDAI to DAI
-	 * @param _amount Amount of cDAI to redeem for DAI
-	 * @return the amount of DAI received
-	 */
-	function _redeemDAI(uint256 _amount) internal returns (uint256) {
-		cERC20 cDai = cERC20(cDaiAddress);
-		ERC20 dai = ERC20(daiAddress);
-
-		uint256 currDaiBalance = dai.balanceOf(address(this));
-
-		uint256 daiResult = cDai.redeem(_amount);
-		require(daiResult == 0, "cDai redeem failed");
-
-		uint256 daiReturnAmount =
-			dai.balanceOf(address(this)) - currDaiBalance;
-
-		return daiReturnAmount;
-	}
-
-	/**
 	 * @dev sell helper function burns GD tokens and update the bonding curve params.
 	 * `sell` occurs only if the token return is above the given minimum. Notice that
 	 * there is a contribution amount from the given GD that remains in the reserve.
@@ -419,47 +179,46 @@ contract GoodReserveCDai is
 	 * @param _minReturn The minimum allowed `sellTo` tokens return
 	 * @return (tokenReturn, contribution) (cDAI received, G$ exit contribution)
 	 */
-	function _sell(uint256 _gdAmount, uint256 _minReturn)
-		internal
-		returns (uint256, uint256)
-	{
+	function sell(
+		uint256 _gdAmount,
+		uint256 _minReturn,
+		address user
+	) external returns (uint256, uint256) {
+		_onlyGoodBuySell();
 		GoodMarketMaker mm = getMarketMaker();
-		IGoodDollar(nameService.getAddress("GOODDOLLAR")).burnFrom(
-			msg.sender,
-			_gdAmount
-		);
 
 		//discount on exit contribution based on gdx
-		uint256 gdx = balanceOf(msg.sender);
+		uint256 gdx = balanceOf(user);
 		uint256 discount = gdx <= _gdAmount ? gdx : _gdAmount;
 
 		//burn gdx used for discount
-		burn(discount);
+		_burn(user, discount);
 
 		uint256 contributionAmount = 0;
 		if (discount < _gdAmount)
 			contributionAmount = ContributionCalc(
 				nameService.getAddress("CONTRIBUTION_CALCULATION")
-			)
-				.calculateContribution(
+			).calculateContribution(
 				mm,
 				this,
-				msg.sender,
+				user,
 				ERC20(cDaiAddress),
 				_gdAmount - discount
 			);
 
-		uint256 tokenReturn =
-			mm.sellWithContribution(
-				ERC20(cDaiAddress),
-				_gdAmount,
-				contributionAmount
-			);
+		uint256 tokenReturn = mm.sellWithContribution(
+			ERC20(cDaiAddress),
+			_gdAmount,
+			contributionAmount
+		);
 		require(
 			tokenReturn >= _minReturn,
 			"Token return must be above the minReturn"
 		);
-
+		cERC20(cDaiAddress).transfer(
+			nameService.getAddress("GOOD_BUY_SELL"),
+			tokenReturn
+		);
 		return (tokenReturn, contributionAmount);
 	}
 
@@ -521,12 +280,15 @@ contract GoodReserveCDai is
 		ERC20 _interestToken
 	) public returns (uint256, uint256) {
 		cERC20(cDaiAddress).mint(_daiToConvert);
-		uint256 interestInCdai =
-			_interestToken.balanceOf(address(this)) - _startingCDAIBalance;
-		uint256 gdInterestToMint =
-			getMarketMaker().mintInterest(_interestToken, interestInCdai);
-		uint256 gdExpansionToMint =
-			getMarketMaker().mintExpansion(_interestToken);
+		uint256 interestInCdai = _interestToken.balanceOf(address(this)) -
+			_startingCDAIBalance;
+		uint256 gdInterestToMint = getMarketMaker().mintInterest(
+			_interestToken,
+			interestInCdai
+		);
+		uint256 gdExpansionToMint = getMarketMaker().mintExpansion(
+			_interestToken
+		);
 		uint256 gdUBI = gdInterestToMint;
 		gdUBI = gdUBI + gdExpansionToMint;
 		uint256 toMint = gdUBI;
@@ -604,8 +366,11 @@ contract GoodReserveCDai is
 	) public returns (bool) {
 		require(isClaimedGDX[_user] == false, "already claimed gdx");
 		bytes32 leafHash = keccak256(abi.encode(_user, _gdx));
-		bool isProofValid =
-			MerkleProofUpgradeable.verify(_proof, gdxAirdrop, leafHash);
+		bool isProofValid = MerkleProofUpgradeable.verify(
+			_proof,
+			gdxAirdrop,
+			leafHash
+		);
 
 		require(isProofValid, "invalid merkle proof");
 

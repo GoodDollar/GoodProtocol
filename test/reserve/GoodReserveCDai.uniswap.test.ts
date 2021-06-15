@@ -26,6 +26,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     avatar,
     identity,
     marketMaker: GoodMarketMaker,
+    goodBuySell: Contract,
     contribution,
     controller,
     founder,
@@ -79,7 +80,8 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
       daiAddress,
       cdaiAddress,
       reserve,
-      setReserveToken
+      setReserveToken,
+      goodBuySell: gbs
     } = await createDAO();
 
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -90,6 +92,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     setDAOAddress = sda;
     nameService = ns;
     initializeToken = setReserveToken;
+    goodBuySell = gbs;
 
     console.log("deployed dao", {
       founder: founder.address,
@@ -180,12 +183,12 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     const tokenABalanceBefore = await tokenA.balanceOf(founder.address);
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     const priceBefore = await goodReserve["currentPrice()"]();
-    await tokenA.approve(goodReserve.address, buyAmount);
+    await tokenA.approve(goodBuySell.address, buyAmount);
     // let gdPriceInTokenABefore = await goodReserve["currentPrice(address)"](
     //   tokenA.address
     // );
     let transaction = await (
-      await goodReserve.buy(tokenA.address, buyAmount, 0, 0, NULL_ADDRESS)
+      await goodBuySell.buy(tokenA.address, buyAmount, 0, 0, NULL_ADDRESS)
     ).wait();
     // let gdPriceInTokenAAfter = await goodReserve["currentPrice(address)"](
     //   tokenA.address
@@ -237,12 +240,12 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     const tokenABalanceBefore = await tokenA.balanceOf(founder.address);
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     const priceBefore = await goodReserve["currentPrice()"]();
-    await goodDollar.approve(goodReserve.address, sellAmount);
+    await goodDollar.approve(goodBuySell.address, sellAmount);
     // let gdPriceInTokenABefore = await goodReserve["currentPrice(address)"](
     //   tokenA.address
     // );
     let transaction = await (
-      await goodReserve.sell(tokenA.address, sellAmount, 0, 0, NULL_ADDRESS)
+      await goodBuySell.sell(tokenA.address, sellAmount, 0, 0, NULL_ADDRESS)
     ).wait();
     // let gdPriceInTokenAAfter = await goodReserve["currentPrice(address)"](
     //   tokenA.address
@@ -296,9 +299,9 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     const tokenABalanceBefore = await tokenA.balanceOf(founder.address);
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     const priceBefore = await goodReserve["currentPrice()"]();
-    await tokenA.approve(goodReserve.address, buyAmount);
+    await tokenA.approve(goodBuySell.address, buyAmount);
     let transaction = await (
-      await goodReserve.buy(tokenA.address, buyAmount, 0, 0, staker.address)
+      await goodBuySell.buy(tokenA.address, buyAmount, 0, 0, staker.address)
     ).wait();
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
@@ -346,9 +349,9 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     const tokenABalanceBefore = await tokenA.balanceOf(staker.address);
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     const priceBefore = await goodReserve["currentPrice()"]();
-    await goodDollar.approve(goodReserve.address, sellAmount);
+    await goodDollar.approve(goodBuySell.address, sellAmount);
     let transaction = await (
-      await goodReserve.sell(tokenA.address, sellAmount, 0, 0, staker.address)
+      await goodBuySell.sell(tokenA.address, sellAmount, 0, 0, staker.address)
     ).wait();
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
@@ -378,17 +381,17 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
 
   it("shouldn't be able to buy gd with tokenA through UNISWAP without approve", async () => {
     let depositAmount = ethers.utils.parseEther("5");
-    tokenA.approve(goodReserve.address, "0");
+    tokenA.approve(goodBuySell.address, "0");
     await expect(
-      goodReserve.buy(tokenA.address, depositAmount, 0, 0, NULL_ADDRESS)
+      goodBuySell.buy(tokenA.address, depositAmount, 0, 0, NULL_ADDRESS)
     ).to.be.revertedWith("You need to approve input token transfer first");
   });
 
   it("shouldn't be able to sell gd to tokenA through UNISWAP without approve", async () => {
     let sellAmount = BN.from("5");
-    goodDollar.approve(goodReserve.address, "0");
+    goodDollar.approve(goodBuySell.address, "0");
     await expect(
-      goodReserve.sell(tokenA.address, sellAmount, 0, 0, NULL_ADDRESS)
+      goodBuySell.sell(tokenA.address, sellAmount, 0, 0, NULL_ADDRESS)
     ).to.be.reverted;
   });
 
@@ -407,8 +410,8 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     await dai["mint(uint256)"](buyAmount);
     let gdPriceBefore = await goodReserve["currentPrice()"]();
 
-    dai.approve(goodReserve.address, buyAmount);
-    await goodReserve["buy(address,uint256,uint256,uint256,address)"](
+    dai.approve(goodBuySell.address, buyAmount);
+    await goodBuySell["buy(address,uint256,uint256,uint256,address)"](
       dai.address,
       buyAmount,
       0,
@@ -429,8 +432,8 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     let sellAmount = BN.from("5000000"); // Sell 50k GD
     let gdPriceBefore = await goodReserve["currentPrice()"]();
     let daiBalanceBefore = await dai.balanceOf(founder.address);
-    goodDollar.approve(goodReserve.address, sellAmount);
-    await goodReserve["sell(address,uint256,uint256,uint256,address)"](
+    goodDollar.approve(goodBuySell.address, sellAmount);
+    await goodBuySell["sell(address,uint256,uint256,uint256,address)"](
       dai.address,
       sellAmount,
       0,
@@ -455,7 +458,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     await addETHLiquidity(mintAmount, ETHAmount);
     const gdBalanceBeforeSwap = await goodDollar.balanceOf(founder.address);
     let transaction = await (
-      await goodReserve.buy(
+      await goodBuySell.buy(
         ethers.constants.AddressZero,
         buyAmount,
         0,
@@ -473,9 +476,9 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     const ethBalanceBeforeSwap = await ethers.provider.getBalance(
       founder.address
     );
-    await goodDollar.approve(goodReserve.address, sellAmount);
+    await goodDollar.approve(goodBuySell.address, sellAmount);
     let transaction = await (
-      await goodReserve.sell(NULL_ADDRESS, sellAmount, 0, 0, founder.address)
+      await goodBuySell.sell(NULL_ADDRESS, sellAmount, 0, 0, founder.address)
     ).wait();
     const ethBalanceAfterSwap = await ethers.provider.getBalance(
       founder.address
