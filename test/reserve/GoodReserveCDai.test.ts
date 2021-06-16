@@ -975,7 +975,41 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     );
     expect(reserveBalanceAfter.sub(reserveBalanceBefore)).to.be.equal(amount);
   });
-
+  it("should be able to buy gd with cDAI directly through reserve", async () => {
+    let amount = 1e8;
+    await dai["mint(uint256)"](ethers.utils.parseEther("100"));
+    await dai.approve(cDAI.address, ethers.utils.parseEther("100"));
+    await cDAI["mint(uint256)"](ethers.utils.parseEther("100"));
+    await cDAI.approve(goodReserve.address, ethers.utils.parseEther("10"));
+    const founderBalanceBeforeBuy = await goodDollar.balanceOf(founder.address);
+    await goodReserve.buy(amount, 0, founder.address);
+    const founderBalanceAfterBuy = await goodDollar.balanceOf(founder.address);
+    expect(founderBalanceAfterBuy).to.be.gt(founderBalanceBeforeBuy);
+  });
+  it("should not be able to buy gd through reserve when there is no enough allowance", async () => {
+    let amount = 1e8;
+    await cDAI.approve(goodReserve.address, 0);
+    const tx = await goodReserve
+      .buy(amount, 0, founder.address)
+      .catch((e) => e);
+    expect(tx.message).to.have.string(
+      "ERC20: transfer amount exceeds allowance"
+    );
+  });
+  it("should be able to sell gd directly through reserve", async () => {
+    const cdaiBalanceBeforeSell = await cDAI.balanceOf(founder.address);
+    await goodDollar.approve(goodReserve.address, "100");
+    await goodReserve.sell("100", 0, founder.address, staker.address);
+    const cdaiBalanceAfterSell = await cDAI.balanceOf(founder.address);
+    expect(cdaiBalanceAfterSell).to.be.gt(cdaiBalanceBeforeSell);
+  });
+  it("should not be able to sell gd through reserve when there is no enough allowance", async () => {
+    await goodDollar.approve(goodReserve.address, "0");
+    const tx = await goodReserve
+      .sell("100", 0, founder.address, staker.address)
+      .catch((e) => e);
+    expect(tx.message).to.be.not.empty;
+  });
   it("should be able to buy gd with cDAI and the total gd should be increased", async () => {
     let amount = 1e8;
     await dai["mint(uint256)"](ethers.utils.parseEther("100"));
