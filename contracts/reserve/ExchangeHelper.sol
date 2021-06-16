@@ -73,6 +73,10 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		cDaiAddress = nameService.getAddress("CDAI");
 		// Approve transfer to cDAI contract
 		ERC20(daiAddress).approve(cDaiAddress, type(uint256).max);
+		ERC20(daiAddress).approve(
+			nameService.getAddress("UNISWAP_ROUTER"),
+			type(uint256).max
+		);
 	}
 
 	/**
@@ -110,10 +114,6 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			_buyWith = ERC20(uniswapContract.WETH());
 			withETH = true;
 		} else if (address(_buyWith) != cDaiAddress) {
-			require(
-				_buyWith.allowance(msg.sender, address(this)) >= _tokenAmount,
-				"You need to approve input token transfer first"
-			);
 			require(
 				_buyWith.transferFrom(
 					msg.sender,
@@ -206,27 +206,31 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			msg.sender,
 			_gdAmount
 		);
+		_targetAddress = _targetAddress == address(0x0)
+			? msg.sender
+			: _targetAddress;
 		(result, contributionAmount) = reserve.sell(
 			_gdAmount,
 			_minReturn,
-			address(this),
+			address(_sellTo) == cDaiAddress ? _targetAddress : address(this),
 			msg.sender
 		);
-		if (address(_sellTo) == cDaiAddress || address(_sellTo) == daiAddress) {
-			if (address(_sellTo) == daiAddress) result = _redeemDAI(result);
+		if (address(_sellTo) == daiAddress) {
+			result = _redeemDAI(result);
 
 			require(
 				_sellTo.transfer(receiver, result) == true,
 				"Transfer failed"
 			);
-		} else {
+		} else if (
+			address(_sellTo) != daiAddress && address(_sellTo) != cDaiAddress
+		) {
 			result = _redeemDAI(result);
 			address[] memory path = new address[](2);
 
 			Uniswap uniswapContract = Uniswap(
 				nameService.getAddress("UNISWAP_ROUTER")
 			);
-			ERC20(daiAddress).approve(address(uniswapContract), result);
 			uint256[] memory swap;
 			if (address(_sellTo) == address(0x0)) {
 				path[0] = daiAddress;

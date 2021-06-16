@@ -135,6 +135,9 @@ contract GoodReserveCDai is
 	) external returns (uint256) {
 		ERC20 buyWith = ERC20(cDaiAddress);
 		uint256 gdReturn = getMarketMaker().buy(buyWith, _tokenAmount);
+		_targetAddress = _targetAddress == address(0x0)
+			? msg.sender
+			: _targetAddress;
 		if (msg.sender != nameService.getAddress("EXCHANGE_HELPER"))
 			require(
 				buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
@@ -175,6 +178,8 @@ contract GoodReserveCDai is
 	 * there is a contribution amount from the given GD that remains in the reserve.
 	 * @param _gdAmount The amount of GD tokens that should be converted to `_sellTo` tokens
 	 * @param _minReturn The minimum allowed `sellTo` tokens return
+	 * @param _target address of the receiver of cDAI when sell G$
+	 * @param _seller address of the seller when using helper contract
 	 * @return (tokenReturn, contribution) (cDAI received, G$ exit contribution)
 	 */
 	function sell(
@@ -184,13 +189,14 @@ contract GoodReserveCDai is
 		address _seller
 	) external returns (uint256, uint256) {
 		GoodMarketMaker mm = getMarketMaker();
-		address exchangeHelper = nameService.getAddress("EXCHANGE_HELPER");
-		if (msg.sender != exchangeHelper)
+		if (msg.sender != nameService.getAddress("EXCHANGE_HELPER")) {
 			IGoodDollar(nameService.getAddress("GOODDOLLAR")).burnFrom(
 				msg.sender,
 				_gdAmount
 			);
-		_seller = msg.sender == exchangeHelper ? _seller : msg.sender;
+			_seller = msg.sender;
+		}
+		_target = _target == address(0x0) ? msg.sender : _target;
 		//discount on exit contribution based on gdx
 		uint256 gdx = balanceOf(_seller);
 		uint256 discount = gdx <= _gdAmount ? gdx : _gdAmount;
@@ -291,12 +297,9 @@ contract GoodReserveCDai is
 		uint256 gdExpansionToMint = getMarketMaker().mintExpansion(
 			_interestToken
 		);
-		uint256 gdUBI = gdInterestToMint;
-		gdUBI = gdUBI + gdExpansionToMint;
-		uint256 toMint = gdUBI;
-
+		uint256 gdUBI = gdInterestToMint + gdExpansionToMint;
 		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
-		_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), toMint, false);
+		_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), gdUBI, false);
 		lastMinted = block.number;
 		emit UBIMinted(
 			lastMinted,

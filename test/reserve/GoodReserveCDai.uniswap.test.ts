@@ -1,4 +1,4 @@
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
 import { GoodMarketMaker, GoodReserveCDai } from "../../types";
@@ -26,7 +26,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     avatar,
     identity,
     marketMaker: GoodMarketMaker,
-    goodBuySell: Contract,
+    exchangeHelper: Contract,
     contribution,
     controller,
     founder,
@@ -81,7 +81,6 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
       cdaiAddress,
       reserve,
       setReserveToken,
-      exchangeHelper: gbs,
     } = await createDAO();
 
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -92,7 +91,6 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     setDAOAddress = sda;
     nameService = ns;
     initializeToken = setReserveToken;
-    goodBuySell = gbs;
 
     console.log("deployed dao", {
       founder: founder.address,
@@ -116,7 +114,16 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     goodReserve = reserve as GoodReserveCDai;
 
     setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
-
+    const exchangeHelperFactory = await ethers.getContractFactory(
+      "ExchangeHelper"
+    );
+    exchangeHelper = await upgrades.deployProxy(
+      exchangeHelperFactory,
+      [nameService.address],
+      { kind: "uups" }
+    );
+    await exchangeHelper.setAddresses();
+    await setDAOAddress("EXCHANGE_HELPER", exchangeHelper.address);
     await uniswap.factory.createPair(tokenA.address, dai.address); // Create tokenA and dai pair
     const pairAddress = uniswap.factory.getPair(tokenA.address, dai.address);
     pair = new Contract(
@@ -183,12 +190,12 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     const tokenABalanceBefore = await tokenA.balanceOf(founder.address);
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     const priceBefore = await goodReserve["currentPrice()"]();
-    await tokenA.approve(goodBuySell.address, buyAmount);
+    await tokenA.approve(exchangeHelper.address, buyAmount);
     // let gdPriceInTokenABefore = await goodReserve["currentPrice(address)"](
     //   tokenA.address
     // );
     let transaction = await (
-      await goodBuySell.buy(tokenA.address, buyAmount, 0, 0, NULL_ADDRESS)
+      await exchangeHelper.buy(tokenA.address, buyAmount, 0, 0, NULL_ADDRESS)
     ).wait();
     // let gdPriceInTokenAAfter = await goodReserve["currentPrice(address)"](
     //   tokenA.address
@@ -240,12 +247,12 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     const tokenABalanceBefore = await tokenA.balanceOf(founder.address);
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     const priceBefore = await goodReserve["currentPrice()"]();
-    await goodDollar.approve(goodBuySell.address, sellAmount);
+    await goodDollar.approve(exchangeHelper.address, sellAmount);
     // let gdPriceInTokenABefore = await goodReserve["currentPrice(address)"](
     //   tokenA.address
     // );
     let transaction = await (
-      await goodBuySell.sell(tokenA.address, sellAmount, 0, 0, NULL_ADDRESS)
+      await exchangeHelper.sell(tokenA.address, sellAmount, 0, 0, NULL_ADDRESS)
     ).wait();
     // let gdPriceInTokenAAfter = await goodReserve["currentPrice(address)"](
     //   tokenA.address
@@ -299,9 +306,9 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     const tokenABalanceBefore = await tokenA.balanceOf(founder.address);
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     const priceBefore = await goodReserve["currentPrice()"]();
-    await tokenA.approve(goodBuySell.address, buyAmount);
+    await tokenA.approve(exchangeHelper.address, buyAmount);
     let transaction = await (
-      await goodBuySell.buy(tokenA.address, buyAmount, 0, 0, staker.address)
+      await exchangeHelper.buy(tokenA.address, buyAmount, 0, 0, staker.address)
     ).wait();
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
@@ -349,9 +356,15 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     const tokenABalanceBefore = await tokenA.balanceOf(staker.address);
     const cDAIBalanceReserveBefore = await cDAI.balanceOf(goodReserve.address);
     const priceBefore = await goodReserve["currentPrice()"]();
-    await goodDollar.approve(goodBuySell.address, sellAmount);
+    await goodDollar.approve(exchangeHelper.address, sellAmount);
     let transaction = await (
-      await goodBuySell.sell(tokenA.address, sellAmount, 0, 0, staker.address)
+      await exchangeHelper.sell(
+        tokenA.address,
+        sellAmount,
+        0,
+        0,
+        staker.address
+      )
     ).wait();
     reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceAfter = reserveToken.reserveSupply;
@@ -381,17 +394,17 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
 
   it("shouldn't be able to buy gd with tokenA through UNISWAP without approve", async () => {
     let depositAmount = ethers.utils.parseEther("5");
-    tokenA.approve(goodBuySell.address, "0");
+    tokenA.approve(exchangeHelper.address, "0");
     await expect(
-      goodBuySell.buy(tokenA.address, depositAmount, 0, 0, NULL_ADDRESS)
+      exchangeHelper.buy(tokenA.address, depositAmount, 0, 0, NULL_ADDRESS)
     ).to.be.revertedWith("You need to approve input token transfer first");
   });
 
   it("shouldn't be able to sell gd to tokenA through UNISWAP without approve", async () => {
     let sellAmount = BN.from("5");
-    goodDollar.approve(goodBuySell.address, "0");
+    goodDollar.approve(exchangeHelper.address, "0");
     await expect(
-      goodBuySell.sell(tokenA.address, sellAmount, 0, 0, NULL_ADDRESS)
+      exchangeHelper.sell(tokenA.address, sellAmount, 0, 0, NULL_ADDRESS)
     ).to.be.reverted;
   });
 
@@ -410,8 +423,8 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     await dai["mint(uint256)"](buyAmount);
     let gdPriceBefore = await goodReserve["currentPrice()"]();
 
-    dai.approve(goodBuySell.address, buyAmount);
-    await goodBuySell["buy(address,uint256,uint256,uint256,address)"](
+    dai.approve(exchangeHelper.address, buyAmount);
+    await exchangeHelper["buy(address,uint256,uint256,uint256,address)"](
       dai.address,
       buyAmount,
       0,
@@ -432,8 +445,8 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     let sellAmount = BN.from("5000000"); // Sell 50k GD
     let gdPriceBefore = await goodReserve["currentPrice()"]();
     let daiBalanceBefore = await dai.balanceOf(founder.address);
-    goodDollar.approve(goodBuySell.address, sellAmount);
-    await goodBuySell["sell(address,uint256,uint256,uint256,address)"](
+    goodDollar.approve(exchangeHelper.address, sellAmount);
+    await exchangeHelper["sell(address,uint256,uint256,uint256,address)"](
       dai.address,
       sellAmount,
       0,
@@ -458,7 +471,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     await addETHLiquidity(mintAmount, ETHAmount);
     const gdBalanceBeforeSwap = await goodDollar.balanceOf(founder.address);
     let transaction = await (
-      await goodBuySell.buy(
+      await exchangeHelper.buy(
         ethers.constants.AddressZero,
         buyAmount,
         0,
@@ -476,9 +489,9 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     const ethBalanceBeforeSwap = await ethers.provider.getBalance(
       founder.address
     );
-    await goodDollar.approve(goodBuySell.address, sellAmount);
+    await goodDollar.approve(exchangeHelper.address, sellAmount);
     let transaction = await (
-      await goodBuySell.sell(NULL_ADDRESS, sellAmount, 0, 0, founder.address)
+      await exchangeHelper.sell(NULL_ADDRESS, sellAmount, 0, 0, founder.address)
     ).wait();
     const ethBalanceAfterSwap = await ethers.provider.getBalance(
       founder.address

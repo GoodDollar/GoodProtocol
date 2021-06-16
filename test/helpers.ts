@@ -231,16 +231,7 @@ export const createDAO = async () => {
   ).interface.encodeFunctionData("addMinter", [goodReserve.address]);
 
   await ictrl.genericCall(gd, encoded, Avatar.address, 0);
-  const exchangeHelperFactory = await ethers.getContractFactory(
-    "ExchangeHelper"
-  );
-  const exchangeHelper = await upgrades.deployProxy(
-    exchangeHelperFactory,
-    [nameService.address],
-    { kind: "uups" }
-  );
-  await exchangeHelper.setAddresses();
-  await setDAOAddress("EXCHANGE_HELPER", exchangeHelper.address);
+
   await setDAOAddress("RESERVE", goodReserve.address);
   await setDAOAddress("MARKET_MAKER", marketMaker.address);
   await setDAOAddress("REPUTATION", reputation.address);
@@ -277,7 +268,7 @@ export const createDAO = async () => {
     daiAddress: dai.address,
     cdaiAddress: cDAI.address,
     reputation: reputation.address,
-    exchangeHelper,
+
     votingMachine,
   };
 };
