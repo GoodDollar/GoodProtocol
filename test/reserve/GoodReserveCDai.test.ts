@@ -1010,6 +1010,15 @@ describe("GoodReserve - staking with cDAI mocks", () => {
       .catch((e) => e);
     expect(tx.message).to.be.not.empty;
   });
+  it("seller parameter should not matter if caller is not exchange helper", async () => {
+    const stakerGDBalanceBeforeSell = await goodDollar.balanceOf(
+      staker.address
+    );
+    await goodDollar.approve(goodReserve.address, "100");
+    await goodReserve.sell("100", 0, founder.address, staker.address);
+    const stakerGDBalanceAfterSell = await goodDollar.balanceOf(staker.address);
+    expect(stakerGDBalanceAfterSell).to.be.equal(stakerGDBalanceBeforeSell);
+  });
   it("should be able to buy gd with cDAI and the total gd should be increased", async () => {
     let amount = 1e8;
     await dai["mint(uint256)"](ethers.utils.parseEther("100"));
