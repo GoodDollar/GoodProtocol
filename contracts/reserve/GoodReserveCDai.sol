@@ -49,13 +49,6 @@ contract GoodReserveCDai is
 	/// @dev mark if user claimed his GDX
 	mapping(address => bool) public isClaimedGDX;
 
-	function _onlyGoodBuySell() internal view {
-		require(
-			msg.sender == nameService.getAddress("GOOD_BUY_SELL"),
-			"Only GoodBuySell can call this method"
-		);
-	}
-
 	// Emits when new GD tokens minted
 	event UBIMinted(
 		//epoch of UBI
@@ -140,9 +133,14 @@ contract GoodReserveCDai is
 		uint256 _minReturn,
 		address _targetAddress
 	) external returns (uint256) {
-		_onlyGoodBuySell();
 		ERC20 buyWith = ERC20(cDaiAddress);
 		uint256 gdReturn = getMarketMaker().buy(buyWith, _tokenAmount);
+		if (msg.sender != nameService.getAddress("EXCHANGE_HELPER"))
+			require(
+				buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
+					true,
+				"transferFrom failed, make sure you approved input token transfer"
+			);
 		require(
 			gdReturn >= _minReturn,
 			"GD return must be above the minReturn"
@@ -182,43 +180,47 @@ contract GoodReserveCDai is
 	function sell(
 		uint256 _gdAmount,
 		uint256 _minReturn,
-		address user
+		address _target,
+		address _seller
 	) external returns (uint256, uint256) {
-		_onlyGoodBuySell();
 		GoodMarketMaker mm = getMarketMaker();
-
+		address exchangeHelper = nameService.getAddress("EXCHANGE_HELPER");
+		if (msg.sender != exchangeHelper)
+			IGoodDollar(nameService.getAddress("GOODDOLLAR")).burnFrom(
+				msg.sender,
+				_gdAmount
+			);
+		_seller = msg.sender == exchangeHelper ? _seller : msg.sender;
 		//discount on exit contribution based on gdx
-		uint256 gdx = balanceOf(user);
+		uint256 gdx = balanceOf(_seller);
 		uint256 discount = gdx <= _gdAmount ? gdx : _gdAmount;
 
 		//burn gdx used for discount
-		_burn(user, discount);
+		_burn(_seller, discount);
 
 		uint256 contributionAmount = 0;
-		if (discount < _gdAmount)
+		uint256 gdAmountTemp = _gdAmount; // to prevent stack too deep errors
+		if (discount < gdAmountTemp)
 			contributionAmount = ContributionCalc(
 				nameService.getAddress("CONTRIBUTION_CALCULATION")
 			).calculateContribution(
 				mm,
 				this,
-				user,
+				_seller,
 				ERC20(cDaiAddress),
-				_gdAmount - discount
+				gdAmountTemp - discount
 			);
 
 		uint256 tokenReturn = mm.sellWithContribution(
 			ERC20(cDaiAddress),
-			_gdAmount,
+			gdAmountTemp,
 			contributionAmount
 		);
 		require(
 			tokenReturn >= _minReturn,
 			"Token return must be above the minReturn"
 		);
-		cERC20(cDaiAddress).transfer(
-			nameService.getAddress("GOOD_BUY_SELL"),
-			tokenReturn
-		);
+		cERC20(cDaiAddress).transfer(_target, tokenReturn);
 		return (tokenReturn, contributionAmount);
 	}
 

@@ -5,7 +5,7 @@ import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "./GoodReserveCDai.sol";
 
-contract GoodBuySell is DAOUpgradeableContract {
+contract ExchangeHelper is DAOUpgradeableContract {
 	uint256 private _status;
 
 	function initialize(INameService _ns) public virtual initializer {
@@ -209,6 +209,7 @@ contract GoodBuySell is DAOUpgradeableContract {
 		(result, contributionAmount) = reserve.sell(
 			_gdAmount,
 			_minReturn,
+			address(this),
 			msg.sender
 		);
 		if (address(_sellTo) == cDaiAddress || address(_sellTo) == daiAddress) {
