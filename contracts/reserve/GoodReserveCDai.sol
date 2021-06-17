@@ -151,12 +151,12 @@ contract GoodReserveCDai is
 	}
 
 	/**
-	 * @dev Converts `buyWith` tokens to GD tokens and updates the bonding curve params.
+	 * @dev Converts cDai tokens to GD tokens and updates the bonding curve params.
 	 * `buy` occurs only if the GD return is above the given minimum. It is possible
 	 * to buy only with cDAI and when the contract is set to active. MUST call to
-	 * `buyWith` `approve` prior this action to allow this contract to accomplish the
+	 * cDAI `approve` prior this action to allow this contract to accomplish the
 	 * conversion.
-	 * @param _tokenAmount The amount of `buyWith` tokens that should be converted to GD tokens
+	 * @param _tokenAmount The amount of cDAI tokens that should be converted to GD tokens
 	 * @param _minReturn The minimum allowed return in GD tokens
 	 * @param _targetAddress address of g$ and gdx recipient if different than msg.sender
 	 * @return (gdReturn) How much GD tokens were transferred
@@ -216,7 +216,7 @@ contract GoodReserveCDai is
 	 * @dev sell helper function burns GD tokens and update the bonding curve params.
 	 * `sell` occurs only if the token return is above the given minimum. Notice that
 	 * there is a contribution amount from the given GD that remains in the reserve.
-	 * @param _gdAmount The amount of GD tokens that should be converted to `_sellTo` tokens
+	 * @param _gdAmount The amount of GD tokens that should be converted to cDAI tokens
 	 * @param _minReturn The minimum allowed `sellTo` tokens return
 	 * @param _target address of the receiver of cDAI when sell G$
 	 * @param _seller address of the seller when using helper contract
