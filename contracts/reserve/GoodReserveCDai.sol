@@ -82,7 +82,9 @@ contract GoodReserveCDai is
 		uint256 inputAmount,
 		// Actual return after the
 		// conversion
-		uint256 actualReturn
+		uint256 actualReturn,
+		// Address of the receiver of tokens
+		address indexed receiverAddress
 	);
 	// Emits when GD tokens are sold
 	event TokenSold(
@@ -100,7 +102,9 @@ contract GoodReserveCDai is
 		uint256 contributionAmount,
 		// Actual return after the
 		// conversion
-		uint256 actualReturn
+		uint256 actualReturn,
+		// Address of the receiver of tokens
+		address indexed receiverAddress
 	);
 
 	function initialize(INameService _ns, bytes32 _gdxAirdrop)
@@ -190,7 +194,8 @@ contract GoodReserveCDai is
 				msg.sender,
 				cDaiAddress,
 				_tokenAmount,
-				gdReturn
+				gdReturn,
+				_targetAddress
 			);
 		return gdReturn;
 	}
@@ -273,7 +278,8 @@ contract GoodReserveCDai is
 				cDaiAddress,
 				_gdAmount,
 				contributionAmount,
-				tokenReturn
+				tokenReturn,
+				_target
 			);
 		return (tokenReturn, contributionAmount);
 	}

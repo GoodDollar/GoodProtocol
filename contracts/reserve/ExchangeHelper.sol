@@ -25,7 +25,9 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		uint256 inputAmount,
 		// Actual return after the
 		// conversion
-		uint256 actualReturn
+		uint256 actualReturn,
+		// Address of the receiver of tokens
+		address indexed receiverAddress
 	);
 	// Emits when GD tokens are sold
 	event TokenSold(
@@ -43,7 +45,9 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		uint256 contributionAmount,
 		// Actual return after the
 		// conversion
-		uint256 actualReturn
+		uint256 actualReturn,
+		// Address of the receiver of tokens
+		address indexed receiverAddress
 	);
 	address public daiAddress;
 	address public cDaiAddress;
@@ -167,7 +171,8 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			msg.sender,
 			address(_buyWith),
 			_tokenAmount,
-			result
+			result,
+			receiver
 		);
 
 		return result;
@@ -206,13 +211,10 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			msg.sender,
 			_gdAmount
 		);
-		_targetAddress = _targetAddress == address(0x0)
-			? msg.sender
-			: _targetAddress;
 		(result, contributionAmount) = reserve.sell(
 			_gdAmount,
 			_minReturn,
-			address(_sellTo) == cDaiAddress ? _targetAddress : address(this),
+			address(_sellTo) == cDaiAddress ? receiver : address(this), // if the tokens that will received is cDai then return it directly to receiver
 			msg.sender
 		);
 		if (address(_sellTo) == daiAddress) {
@@ -263,7 +265,8 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			address(_sellTo),
 			_gdAmount,
 			contributionAmount,
-			result
+			result,
+			receiver
 		);
 		return result;
 	}
