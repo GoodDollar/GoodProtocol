@@ -70,6 +70,39 @@ contract GoodReserveCDai is
 		uint256 gdUbiTransferred
 	);
 
+	// Emits when GD tokens are purchased
+	event TokenPurchased(
+		// The initiate of the action
+		address indexed caller,
+		// The convertible token address
+		// which the GD tokens were
+		// purchased with
+		address indexed inputToken,
+		// Reserve tokens amount
+		uint256 inputAmount,
+		// Actual return after the
+		// conversion
+		uint256 actualReturn
+	);
+	// Emits when GD tokens are sold
+	event TokenSold(
+		// The initiate of the action
+		address indexed caller,
+		// The convertible token address
+		// which the GD tokens were
+		// sold to
+		address indexed outputToken,
+		// GD tokens amount
+		uint256 gdAmount,
+		// The amount of GD tokens that
+		// was contributed during the
+		// conversion
+		uint256 contributionAmount,
+		// Actual return after the
+		// conversion
+		uint256 actualReturn
+	);
+
 	function initialize(INameService _ns, bytes32 _gdxAirdrop)
 		public
 		virtual
@@ -138,7 +171,8 @@ contract GoodReserveCDai is
 		_targetAddress = _targetAddress == address(0x0)
 			? msg.sender
 			: _targetAddress;
-		if (msg.sender != nameService.getAddress("EXCHANGE_HELPER"))
+		address exchangeHelper = nameService.getAddress("EXCHANGE_HELPER");
+		if (msg.sender != exchangeHelper)
 			require(
 				buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
 					true,
@@ -151,7 +185,13 @@ contract GoodReserveCDai is
 		_mintGoodDollars(_targetAddress, gdReturn, true);
 		//mint GDX
 		_mintGDX(_targetAddress, gdReturn);
-
+		if (msg.sender != exchangeHelper)
+			emit TokenPurchased(
+				msg.sender,
+				cDaiAddress,
+				_tokenAmount,
+				gdReturn
+			);
 		return gdReturn;
 	}
 
@@ -227,6 +267,14 @@ contract GoodReserveCDai is
 			"Token return must be above the minReturn"
 		);
 		cERC20(cDaiAddress).transfer(_target, tokenReturn);
+		if (_seller == msg.sender)
+			emit TokenSold(
+				msg.sender,
+				cDaiAddress,
+				_gdAmount,
+				contributionAmount,
+				tokenReturn
+			);
 		return (tokenReturn, contributionAmount);
 	}
 
