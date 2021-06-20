@@ -107,6 +107,7 @@ const main = async () => {
             "BANCOR_FORMULA",
             "DAI",
             "CDAI",
+            "COMP",
             "BRIDGE_CONTRACT",
             "UNISWAP_ROUTER",
             "GAS_PRICE_ORACLE",
@@ -120,8 +121,10 @@ const main = async () => {
             dao.GoodDollar,
             dao.Contribution,
             protocolSettings.bancor || dao.BancorFormula,
-            protocolSettings.dai || dao.DAI,
-            protocolSettings.cdai || dao.cDAI,
+            get(protocolSettings, "compound.dai", dao.DAI),
+            get(protocolSettings, "compound.cdai", dao.cDAI),
+            get(protocolSettings, "compound.comp", dao.COMP),
+
             dao.Bridge,
             protocolSettings.uniswapRouter || dao.UniswapRouter,
             !isMainnet || protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
@@ -379,7 +382,7 @@ const main = async () => {
         dao.Bridge,
         newfusedao.UBIScheme
       ],
-      release.StakersContracts.map((_: any) => _[0]),
+      release.StakingContracts.map((_: any) => _[0]),
       release.StakingContracts.map((_: any) => _[1])
     );
     await countTotalGas(tx);
@@ -399,7 +402,10 @@ const main = async () => {
       release.DonationsStaking //new
     );
     await countTotalGas(tx);
+
+    //extract just the addresses without the rewards
     release.StakingContracts = release.StakingContracts.map(_ => _[0]);
+
     if (isProduction) {
       console.log(
         "SKIPPING GOVERNANCE UPGRADE FOR PRODUCTION. RUN IT MANUALLY"
@@ -553,12 +559,16 @@ const main = async () => {
       const tx = await (
         await aavefactory.cloneAndInit(
           token.address,
-          dao.AaveLendingPool || "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
+          get(protocolSettings, "aave.lendingPool", dao.AaveLendingPool),
           release.NameService,
           protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
           token.usdOracle,
-          dao.AaaveIncentiveController ||
-            "0xd784927Ff2f95ba542BfC824c8a8a98F3495f6b5",
+
+          get(
+            protocolSettings,
+            "aave.incentiveController",
+            dao.AaveIncentiveController
+          ),
           token.aaveUsdOracle
         )
       ).wait();
