@@ -23,7 +23,7 @@ import {
 import { getFounders } from "../getFounders";
 import { fetchOrDeployProxyFactory } from "../fetchOrDeployProxyFactory";
 import OldDAO from "../../releases/olddao.json";
-import ProtocolAddresses from "../../releases/deployment.json";
+
 import ProtocolSettings from "../../releases/deploy-settings.json";
 
 console.log({
@@ -31,21 +31,23 @@ console.log({
   network: network.name,
   upgrade: process.env.UPGRADE
 });
-const { name: networkName } = network;
-networkNames[1] = networkName;
-networkNames[122] = networkName;
-networkNames[3] = networkName;
+const { name } = network;
 
-const isProduction = networkName.startsWith("production");
-const isDevelop = !isProduction;
-const isMainnet = networkName.includes("mainnet");
-const main = async () => {
+export const main = async (networkName = name) => {
+  networkNames[1] = networkName;
+  networkNames[122] = networkName;
+  networkNames[3] = networkName;
+  const isProduction = networkName.startsWith("production");
+  const isDevelop = !isProduction;
+  const isMainnet = networkName.includes("mainnet");
   let protocolSettings = {
     ...ProtocolSettings["default"],
     ...ProtocolSettings[networkName]
   };
   const dao = OldDAO[networkName];
+  const ProtocolAddresses = await require("../../releases/deployment.json");
   const newfusedao = ProtocolAddresses[networkName.replace(/\-mainnet/, "")];
+  console.log(`newfusedao ${newfusedao}`);
   const newdao = ProtocolAddresses[networkName] || {};
 
   let [root] = await ethers.getSigners();
@@ -89,6 +91,7 @@ const main = async () => {
             "BANCOR_FORMULA",
             "DAI",
             "CDAI",
+            "COMP",
             "BRIDGE_CONTRACT",
             "UNISWAP_ROUTER",
             "GAS_PRICE_ORACLE",
@@ -104,6 +107,7 @@ const main = async () => {
             protocolSettings.bancor || dao.BancorFormula,
             protocolSettings.dai || dao.DAI,
             protocolSettings.cdai || dao.cDAI,
+            protocolSettings.comp || dao.COMP,
             dao.Bridge,
             protocolSettings.uniswapRouter || dao.UniswapRouter,
             !isMainnet || protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
@@ -541,4 +545,4 @@ const main = async () => {
   // await proveNewRep();
 };
 
-main().catch(console.log);
+//main().catch(console.log);

@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import "../DAOStackInterfaces.sol";
+import "hardhat/console.sol";
 
 /**
 @title Simple name to address resolver
@@ -48,7 +49,9 @@ contract NameService is Initializable, UUPSUpgradeable {
 	function setAddresses(bytes32[] calldata hash, address[] calldata addrs)
 		external
 	{
+		console.log("before avatar check");
 		_onlyAvatar();
+		console.log("setting name...");
 		for (uint256 i = 0; i < hash.length; i++) {
 			addresses[hash[i]] = addrs[i];
 		}

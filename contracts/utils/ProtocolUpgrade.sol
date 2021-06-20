@@ -3,7 +3,7 @@ pragma solidity >=0.8.0;
 
 import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
-
+import 'hardhat/console.sol';
 interface OldMarketMaker {
 	struct ReserveToken {
 		// Determines the reserve token balance
@@ -214,7 +214,7 @@ contract ProtocolUpgrade {
 		address cdai = ns.getAddress("CDAI");
 		OldMarketMaker.ReserveToken memory rToken =
 			OldMarketMaker(oldMarketMaker).reserveTokens(cdai);
-
+			console.log("rToken.reserveSupply %s",rToken.reserveSupply);
 		ok = controller.externalTokenTransfer(
 			cdai,
 			ns.getAddress("RESERVE"),
