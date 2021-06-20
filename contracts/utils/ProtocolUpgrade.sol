@@ -3,7 +3,6 @@ pragma solidity >=0.8.0;
 
 import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
-import 'hardhat/console.sol';
 interface OldMarketMaker {
 	struct ReserveToken {
 		// Determines the reserve token balance
@@ -201,7 +200,8 @@ contract ProtocolUpgrade {
 			);
 
 		require(ok, "calling Reserve comp recover failed");
-
+		address cdai = ns.getAddress("CDAI");
+		uint256 oldReserveCdaiBalance = ERC20(cdai).balanceOf(oldReserve);
 		(ok, ) = controller.genericCall(
 			oldReserve,
 			abi.encodeWithSignature("end()"),
@@ -211,14 +211,13 @@ contract ProtocolUpgrade {
 
 		require(ok, "calling Reserve end failed");
 
-		address cdai = ns.getAddress("CDAI");
+		
 		OldMarketMaker.ReserveToken memory rToken =
 			OldMarketMaker(oldMarketMaker).reserveTokens(cdai);
-			console.log("rToken.reserveSupply %s",rToken.reserveSupply);
 		ok = controller.externalTokenTransfer(
 			cdai,
 			ns.getAddress("RESERVE"),
-			rToken.reserveSupply,
+			oldReserveCdaiBalance,
 			avatar
 		);
 

@@ -6,6 +6,8 @@ import { networkNames } from "@openzeppelin/upgrades-core";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { deploy } from "../localOldDaoDeploy";
 import GoodReserveCDai from "@gooddollar/goodcontracts/stakingModel/build/contracts/GoodReserveCDai.json";
+import MarketMaker from "@gooddollar/goodcontracts/stakingModel/build/contracts/GoodMarketMaker.json";
+import { GoodMarketMaker } from "../../types";
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 1;
@@ -55,16 +57,23 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       GoodReserveCDai.abi,
       oldRes
     );
+    const oldMmContract = await ethers.getContractAt(MarketMaker.abi, oldMm);
     await cDAI["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseUnits("1000", 8)
     );
     await cDAI.approve(oldRes, ethers.utils.parseUnits("1000", 8));
+    let reserveToken = await oldMmContract.reserveTokens(cDAI.address);
+    let reserveSupplyBeforeBuy = reserveToken.reserveSupply;
     await oldResContract.buy(
       cDAI.address,
       ethers.utils.parseUnits("1000", 8),
       0
     );
+    reserveToken = await oldMmContract.reserveTokens(cDAI.address);
+    let reserveSupplyAfter = reserveToken.reserveSupply;
+    console.log(`reserveSupplyBeforeBuy ${reserveSupplyBeforeBuy}`);
+    console.log(`reserveSupplyAfter ${reserveSupplyAfter}`);
     let cDaiBalanceOfOldReserve = await cDAI.balanceOf(oldReserve);
     console.log(`cDaiBalanceOfOldReserve ${cDaiBalanceOfOldReserve}`);
     expect(cDaiBalanceOfOldReserve).to.be.gt(0);
