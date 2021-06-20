@@ -65,7 +65,6 @@ flatten(
   .filter(x => typeof x === "string" && x.startsWith("0x"))
   .map(addr => (systemContracts[addr.toLowerCase()] = true));
 
-const twoWeeks = 12 * 60 * 24 * 30;
 const step = 500;
 
 const isSystemContract = addr => systemContracts[addr.toLowerCase()] === true;
@@ -132,63 +131,6 @@ export const airdrop = (ethers: typeof Ethers, ethplorer_key) => {
     ],
     ethers.provider
   );
-
-  const getActiveAddresses = async (
-    startBlock,
-    endBlock,
-    addresses: Balances = {}
-  ) => {
-    const latestBlock = await gd.provider.getBlockNumber();
-    // const blocks = range(startBlock, endBlock, step);
-    const blocks = range(latestBlock - twoWeeks, latestBlock, step);
-    const filter = gd.filters.Transfer();
-
-    for (let blockChunk of chunk(blocks, 10)) {
-      // Get the filter (the second null could be omitted)
-      const ps = blockChunk.map(async bc => {
-        // Query the filter (the latest could be omitted)
-        const logs = await gd
-          .queryFilter(filter, bc, Math.min(bc + step - 1, latestBlock))
-          .catch(e => {
-            console.log("block transfer logs failed retrying...", bc);
-            return gd.queryFilter(
-              filter,
-              bc,
-              Math.min(bc + step - 1, latestBlock)
-            );
-          });
-
-        console.log("found transfer logs in block:", { bc }, logs.length);
-        // Print out all the values:
-        const ps = logs.map(async log => {
-          if (
-            addresses[log.args.to] === undefined &&
-            systemContracts[log.args.to] === undefined
-          )
-            addresses[log.args.to] = {
-              ...DefaultBalance,
-              isNotContract:
-                (await gd.provider.getCode(log.args.to).catch(e => "0x")) ===
-                "0x"
-            };
-          if (
-            addresses[log.args.from] === undefined &&
-            systemContracts[log.args.from] === undefined
-          )
-            addresses[log.args.from] = {
-              ...DefaultBalance,
-              isNotContract:
-                (await gd.provider.getCode(log.args.to).catch(e => "0x")) ===
-                "0x"
-            };
-        });
-        await Promise.all(ps);
-      });
-      await Promise.all(ps);
-    }
-
-    return addresses;
-  };
 
   const getStakersBalance = async (): Promise<Balances> => {
     const staking = new ethers.Contract(
