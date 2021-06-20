@@ -113,15 +113,15 @@ const deploy3rdParty = async dao => {
   const aaveUsdOracle = await (
     await ethers.getContractFactory("AaveUSDMockOracle")
   ).deploy();
-
+  const aave = await (await ethers.getContractFactory("AaveMock")).deploy();
   const usdc = await (await ethers.getContractFactory("USDCMock")).deploy();
   const lendingPool = await (
     await ethers.getContractFactory("LendingPoolMock")
-  ).deploy();
+  ).deploy(usdc.address);
 
   const incentiveController = await (
     await ethers.getContractFactory("IncentiveControllerMock")
-  ).deploy();
+  ).deploy(aave.address);
 
   return {
     uniswap,

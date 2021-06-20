@@ -37,8 +37,11 @@
       "proposalVotingPeriod": 80640
     },
     "bancor": "0x57b2c85934Ef1A891eC9b9945f3fdbcf1104c302",
-    "dai": "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
-    "cdai": "0x6ce27497a64fffb5517aa4aee908b1e7eb63b9ff",
+    "compound": {
+      "dai": "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
+      "cdai": "0x6ce27497a64fffb5517aa4aee908b1e7eb63b9ff",
+      "comp": "0xf76d4a441e4ba86a923ce32b89aff89dbccaa075"
+    },
     "chainlink": {
       "gasPrice": "0xF8161973a556bf5fEbb3BaCe573262FCd3b33973",
       "dai_eth": "0x24959556020AE5D39e5bAEC2bd6Bf12420C25aB5",
@@ -51,8 +54,11 @@
       "proposalVotingPeriod": 80640
     },
     "bancor": "0x57b2c85934Ef1A891eC9b9945f3fdbcf1104c302",
-    "dai": "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
-    "cdai": "0x6ce27497a64fffb5517aa4aee908b1e7eb63b9ff",
+    "compound": {
+      "dai": "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
+      "cdai": "0x6ce27497a64fffb5517aa4aee908b1e7eb63b9ff",
+      "comp": "0xf76d4a441e4ba86a923ce32b89aff89dbccaa075"
+    },
     "chainlink": {
       "gasPrice": "0xF8161973a556bf5fEbb3BaCe573262FCd3b33973",
       "dai_eth": "0x24959556020AE5D39e5bAEC2bd6Bf12420C25aB5",
@@ -65,8 +71,15 @@
       "proposalVotingPeriod": 80640
     },
     "bancor": "0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a",
-    "cdai": "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
-    "dai": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+    "compound": {
+      "cdai": "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
+      "dai": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "comp": "0xc00e94cb662c3520282e6f5717214004a7f26888"
+    },
+    "aave": {
+      "lendingPool": "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
+      "incentiveController": "0xd784927Ff2f95ba542BfC824c8a8a98F3495f6b5"
+    },
     "chainlink": {
       "gasPrice": "0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C",
       "dai_eth": "0x773616E4d11A78F511299002da57A0a94577F1f4",
