@@ -8,7 +8,7 @@
       "denom": 1e15
     },
     "staking": {
-      "rewardsPerBlock": 10000,
+      "rewardsPerBlock": 13888,
       "fullRewardsThreshold": 172800
     },
     "GoodCompoundStaking": {
