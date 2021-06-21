@@ -27,6 +27,7 @@ contract GoodAaveStaking is SimpleStaking {
 	uint32 public collectInterestGasCost = 250000;
 	// Gas cost to claim stkAave rewards
 	uint32 stkAaveClaimGasCost = 50000;
+
 	/**
 	 * @param _token Token to swap DEFI token
 	 * @param _lendingPool LendingPool address
@@ -145,6 +146,7 @@ contract GoodAaveStaking is SimpleStaking {
 		ERC20 aToken = ERC20(address(iToken));
 		return uint256(aToken.decimals());
 	}
+
 	/**
 	 * @dev Function that calculates current interest gains of this staking contract
 	 * @param _returnTokenBalanceInUSD determine return token balance of staking contract in USD
@@ -170,7 +172,11 @@ contract GoodAaveStaking is SimpleStaking {
 		uint256 tokenBalance = aToken.balanceOf(address(this));
 		uint256 balanceInUSD =
 			_returnTokenBalanceInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenBalance, token.decimals())
+				? getTokenValueInUSD(
+					tokenUsdOracle,
+					tokenBalance,
+					token.decimals()
+				)
 				: 0;
 		address[] memory tokenAddress = new address[](1);
 		tokenAddress[0] = address(token);
@@ -181,7 +187,11 @@ contract GoodAaveStaking is SimpleStaking {
 
 		uint256 tokenGainsInUSD =
 			_returnTokenGainsInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenGains, token.decimals())
+				? getTokenValueInUSD(
+					tokenUsdOracle,
+					tokenGains,
+					token.decimals()
+				)
 				: 0;
 		return (
 			tokenGains, // since token gains = atoken gains
@@ -191,8 +201,9 @@ contract GoodAaveStaking is SimpleStaking {
 			tokenGainsInUSD
 		);
 	}
-	/** 
-	* @dev Function to get interest transfer cost for this particular staking contract
+
+	/**
+	 * @dev Function to get interest transfer cost for this particular staking contract
 	 */
 	function getGasCostForInterestTransfer()
 		external
@@ -204,20 +215,26 @@ contract GoodAaveStaking is SimpleStaking {
 		tokenAddress[0] = address(token);
 		uint256 stkAaaveBalance =
 			incentiveController.getRewardsBalance(tokenAddress, address(this));
-		if(stkAaaveBalance > 0 ) return collectInterestGasCost + stkAaveClaimGasCost;
-		
+		if (stkAaaveBalance > 0)
+			return collectInterestGasCost + stkAaveClaimGasCost;
+
 		return collectInterestGasCost;
 	}
+
 	/**
 	 * @dev Set Gas cost to interest collection for this contract
 	 * @param _collectInterestGasCost Gas cost to collect interest
 	 * @param _rewardTokenCollectCost gas cost to collect reward tokens
 	 */
-	function setcollectInterestGasCostParams(uint32 _collectInterestGasCost, uint32 _rewardTokenCollectCost) external {
+	function setcollectInterestGasCostParams(
+		uint32 _collectInterestGasCost,
+		uint32 _rewardTokenCollectCost
+	) external {
 		_onlyAvatar();
 		collectInterestGasCost = _collectInterestGasCost;
 		stkAaveClaimGasCost = _rewardTokenCollectCost;
 	}
+
 	/**
 	 * @dev Calculates worth of given amount of iToken in Token
 	 * @param _amount Amount of token to calculate worth in Token
@@ -231,6 +248,7 @@ contract GoodAaveStaking is SimpleStaking {
 	{
 		return _amount; // since aToken is peg to Token 1:1 return exact amount
 	}
+
 	function _approveTokens() internal override {
 		address uniswapRouter = nameService.getAddress("UNISWAP_ROUTER");
 		token.approve(uniswapRouter, type(uint256).max);

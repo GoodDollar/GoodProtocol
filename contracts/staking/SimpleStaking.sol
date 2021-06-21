@@ -230,7 +230,7 @@ abstract contract SimpleStaking is
 	/**
 	 * @dev Withdraws the sender staked Token.
 	 * @param _amount Amount to withdraw in Token or iToken
-	 * @param _inInterestToken if true_amount is in iToken and also returned in iToken other wise use Token
+	 * @param _inInterestToken if true _amount is in iToken and also returned in iToken other wise use Token
 	 */
 	function withdrawStake(uint256 _amount, bool _inInterestToken)
 		external
@@ -363,13 +363,13 @@ abstract contract SimpleStaking is
 	// @return difference in decimals.
 	// @return true if token's decimal is more than iToken's
 	function tokenDecimalPrecision() internal view returns (uint256, bool) {
-		uint256 tokenDecimal = tokenDecimal();
-		uint256 iTokenDecimal = iTokenDecimal();
+		uint256 _tokenDecimal = tokenDecimal();
+		uint256 _iTokenDecimal = iTokenDecimal();
 		uint256 decimalDifference =
-			tokenDecimal > iTokenDecimal
-				? tokenDecimal - iTokenDecimal
-				: iTokenDecimal - tokenDecimal;
-		return (decimalDifference, tokenDecimal > iTokenDecimal);
+			_tokenDecimal > _iTokenDecimal
+				? _tokenDecimal - _iTokenDecimal
+				: _iTokenDecimal - _tokenDecimal;
+		return (decimalDifference, _tokenDecimal > _iTokenDecimal);
 	}
 
 	function getStakerData(address _staker)
@@ -466,11 +466,11 @@ abstract contract SimpleStaking is
 	 @param _decimals decimals of Token 
 	 @return Returns worth of Tokens in USD
 	 */
-	function getTokenValueInUSD(address _oracle, uint256 _amount,uint256 _decimals)
-		public
-		view
-		returns (uint256)
-	{
+	function getTokenValueInUSD(
+		address _oracle,
+		uint256 _amount,
+		uint256 _decimals
+	) public view returns (uint256) {
 		AggregatorV3Interface tokenPriceOracle = AggregatorV3Interface(_oracle);
 		int256 tokenPriceinUSD = tokenPriceOracle.latestAnswer();
 		return (uint256(tokenPriceinUSD) * _amount) / (10**_decimals); // tokenPriceinUSD in 8 decimals and _amount is in Token's decimals so we divide it to Token's decimal at the end to reduce 8 decimals back
@@ -485,5 +485,24 @@ abstract contract SimpleStaking is
 
 	function decimals() public view virtual override returns (uint8) {
 		return stakingTokenDecimals;
+	}
+
+	function getUserMintedAndPending(address _staker)
+		external
+		view
+		returns (uint256, uint256)
+	{
+		(uint32 rewardsPerBlock, uint64 blockStart, uint64 blockEnd, ) =
+			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
+				.rewardsForStakingContract(address(this));
+
+		uint256 pending =
+			getUserPendingReward(
+				_staker,
+				rewardsPerBlock,
+				blockStart,
+				blockEnd
+			);
+		return (users[_staker].rewardMinted, pending);
 	}
 }

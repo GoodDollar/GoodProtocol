@@ -211,8 +211,8 @@ contract StakersDistribution is
 	 * @param _user the user to check rewards for
 	 * @return reputation rewards pending for user
 	 */
-	function getUserPendingRewards(address[] calldata _contracts, address _user)
-		external
+	function getUserPendingRewards(address[] memory _contracts, address _user)
+		public
 		view
 		returns (uint256)
 	{
@@ -233,5 +233,18 @@ contract StakersDistribution is
 		}
 
 		return pending;
+	}
+
+	function getUserMintedAndPending(address[] memory _contracts, address _user)
+		public
+		view
+		returns (uint256, uint256)
+	{
+		uint256 pending = getUserPendingRewards(_contracts, _user);
+		uint256 minted;
+		for (uint256 i = 0; i < _contracts.length; i++) {
+			minted += contractToUsers[_contracts[i]][_user].rewardMinted;
+		}
+		return (minted, pending);
 	}
 }
