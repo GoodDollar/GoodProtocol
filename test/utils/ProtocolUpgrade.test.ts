@@ -27,6 +27,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     cDaiBalanceOfOldReserveAfterUpgrade,
     stakingAmountOfOldDonationsStakingBeforeUpgrade,
     stakingAmountOfOldDonationsStakingAfterUpgrade,
+    stakingAmountOfNewDonationStaking,
     cdaiBalanceOfNewReserve,
     oldDaiStaking,
     schemeMock,
@@ -86,11 +87,18 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     stakingAmountOfOldDonationsStakingAfterUpgrade = await oldDaiStaking.stakers(
       oldDonations
     );
+
     const deployment = require("../../releases/deployment.json");
     cdaiBalanceOfNewReserve = await cDAI.balanceOf(
       deployment["develop-mainnet"].GoodReserveCDai
     );
-    //daiBalanceOfNewDonationsStaking = await dai.balanceOf(deployment["develop-mainnet"].GoodReserveCDai)
+    const newStakingContract = await ethers.getContractAt(
+      "GoodCompoundStaking",
+      deployment["develop-mainnet"].StakingContracts[0]
+    );
+    stakingAmountOfNewDonationStaking = await newStakingContract.getProductivity(
+      deployment["develop-mainnet"].DonationsStaking
+    );
   });
   it("it should update reserve and transfer old funds ", async () => {
     expect(cDaiBalanceOfOldReserveBeforeUpgrade).to.be.gt(0);
@@ -99,8 +107,9 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       ethers.utils.parseUnits("1000", 8)
     );
   });
-  it("it should upgrade donationStaking from old one to new one properly", async () => {
+  it("it should upgrade donationStaking from old one to new one properly and transfer funds", async () => {
     expect(stakingAmountOfOldDonationsStakingBeforeUpgrade[0]).to.be.gt(0);
     expect(stakingAmountOfOldDonationsStakingAfterUpgrade[0]).to.be.equal(0);
+    expect(stakingAmountOfNewDonationStaking[0]).to.be.gt(0);
   });
 });
