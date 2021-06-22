@@ -35,7 +35,16 @@ export const deploy = async (networkName = network.name) => {
   console.log("ubi deployed");
   const gov = await deployOldVoting(dao);
   console.log("old vote deployed");
-  const { uniswap, daiUsdOracle, compUsdOracle } = await deploy3rdParty(dao);
+  const {
+    uniswap,
+    daiUsdOracle,
+    compUsdOracle,
+    usdcUsdOracle,
+    aaveUsdOracle,
+    usdc,
+    lendingPool,
+    incentiveController
+  } = await deploy3rdParty(dao);
 
   const release = {
     Reserve: dao.reserve.address,
@@ -49,6 +58,7 @@ export const deploy = async (networkName = network.name) => {
     DAI: dao.daiAddress,
     cDAI: dao.cdaiAddress,
     COMP: dao.COMP,
+    USDC: usdc.address,
     Contribution: dao.contribution,
     DAIStaking: dao.simpleStaking,
     MarketMaker: dao.marketMaker.address,
@@ -60,6 +70,10 @@ export const deploy = async (networkName = network.name) => {
     UniswapRouter: uniswap.router.address,
     DAIUsdOracle: daiUsdOracle.address,
     COMPUsdOracle: compUsdOracle.address,
+    USDCUsdOracle: usdcUsdOracle.address,
+    AAVEUsdOracle: aaveUsdOracle.address,
+    AaveLendingPool: lendingPool.address,
+    AaveIncentiveController: incentiveController.address,
     network: "develop",
     networkId: 4447
   };
@@ -92,10 +106,34 @@ const deploy3rdParty = async dao => {
     "BatUSDMockOracle"
   );
   const daiUsdOracle = await tokenUsdOracleFactory.deploy();
+  const usdcUsdOracle = await tokenUsdOracleFactory.deploy();
+
   const compUsdOracle = await (
     await ethers.getContractFactory("CompUSDMockOracle")
   ).deploy();
-  return { uniswap, daiUsdOracle, compUsdOracle };
+  const aaveUsdOracle = await (
+    await ethers.getContractFactory("AaveUSDMockOracle")
+  ).deploy();
+  const aave = await (await ethers.getContractFactory("AaveMock")).deploy();
+  const usdc = await (await ethers.getContractFactory("USDCMock")).deploy();
+  const lendingPool = await (
+    await ethers.getContractFactory("LendingPoolMock")
+  ).deploy(usdc.address);
+
+  const incentiveController = await (
+    await ethers.getContractFactory("IncentiveControllerMock")
+  ).deploy(aave.address);
+
+  return {
+    uniswap,
+    daiUsdOracle,
+    compUsdOracle,
+    aaveUsdOracle,
+    usdcUsdOracle,
+    usdc,
+    lendingPool,
+    incentiveController
+  };
 };
 export const createOldDAO = async () => {
   let [root, ...signers] = await ethers.getSigners();

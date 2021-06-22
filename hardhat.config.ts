@@ -61,6 +61,13 @@ const hhconfig: HardhatUserConfig = {
       gasPrice: 25000000000,
       chainId: 3
     },
+    kovan: {
+      accounts: { mnemonic },
+      url: "https://kovan.infura.io/v3/" + infura_api,
+      gas: 3000000,
+      gasPrice: 25000000000,
+      chainId: 42
+    },
     fuse: {
       accounts: { mnemonic },
       url: "https://rpc.fuse.io/",
