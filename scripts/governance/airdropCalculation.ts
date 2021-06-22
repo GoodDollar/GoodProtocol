@@ -598,6 +598,9 @@ export const airdrop = (ethers: typeof Ethers, ethplorer_key) => {
   };
 
   const buildMerkleTree = () => {
+    // const files = ["test/testnetBalances.json"].map(f =>
+    //   JSON.parse(fs.readFileSync(f).toString())
+    // );
     const files = [
       "claimBalances.json",
       "ethBalances.json",
@@ -695,7 +698,7 @@ export const airdrop = (ethers: typeof Ethers, ethplorer_key) => {
     const merkleRoot = merkleTree.getRoot().toString("hex");
     // generate merkle proof
     // returns array of 32 byte buffers
-    const proof = merkleTree.getProof(elements[50]).map(_ => _.toString("hex"));
+    const proof = merkleTree.getProof(elements[0]).map(_ => _.toString("hex"));
     console.log({ merkleRoot, proof, sampleProofFor: toTree[50] });
     fs.writeFileSync("airdrop.json", JSON.stringify({ treeData, merkleRoot }));
   };

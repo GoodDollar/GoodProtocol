@@ -61,30 +61,29 @@ const main = async () => {
   const compoundTokens = [
     {
       name: "cdai",
-      address: dao.cDAI || "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
-      usdOracle:
-        dao.DAIUsdOracle || "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9",
+      address: dao.cDAI || protocolSettings.compound.cdai,
+      usdOracle: dao.DAIUsdOracle || protocolSettings.compound.daiUsdOracle,
       compUsdOracle:
-        dao.COMPUsdOracle || "0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5"
+        dao.COMPUsdOracle || protocolSettings.compound.compUsdOracle
     }
   ];
 
   const aaveTokens = [
     {
       name: "usdc",
-      address: dao.USDC || "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-      usdOracle:
-        dao.USDCUsdOracle || "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
-      aaveUsdOracle:
-        dao.AAVEUsdOracle || "0x547a514d5e3769680ce22b2361c10ea13619e8a9"
+      address: dao.USDC || protocolSettings.aave.usdc,
+      usdOracle: dao.USDCUsdOracle || protocolSettings.aave.usdcUsdOracle,
+      aaveUsdOracle: dao.AAVEUsdOracle || protocolSettings.aave.aaveUsdOracle
     }
   ];
 
   let totalGas = 0;
   const countTotalGas = async tx => {
     let res = tx;
+    if (tx.deployTransaction) tx = tx.deployTransaction;
     if (tx.wait) res = await tx.wait();
-    totalGas += res.gasUsed;
+    if (res.gasUsed) totalGas += parseInt(res.gasUsed);
+    else console.log("no gas data", { res, tx });
   };
 
   const deployContracts = async () => {
@@ -156,9 +155,8 @@ const main = async () => {
         args: [
           () => get(release, "NameService", newdao.NameService),
           repStateId,
-          protocolSettings.repStateHash ||
-            (isDevelop && ethers.constants.HashZero), //should fail on real deploy if not set
-          protocolSettings.repTotalSupply || (isDevelop && 0) //should fail on real deploy if not set
+          protocolSettings.governance.gdaoAirdrop, //should fail on real deploy if not set
+          protocolSettings.governance.gdaoTotalSupply //should fail on real deploy if not set
         ]
       },
       {

@@ -21,26 +21,45 @@
     }
   },
   "develop": {
-    "gdaoAirdrop": "0x0000000000000000000000000000000000000000000000000000000000000001"
+    "governance": {
+      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoTotalSupply": "24000000000000000000000000",
+      "proposalVotingPeriod": 241920
+    }
   },
   "develop-mainnet": {
     "gdxAirdrop": "0x0000000000000000000000000000000000000000000000000000000000000002",
-    "gdaoAirdrop": "0x0000000000000000000000000000000000000000000000000000000000000003",
+    "governance": {
+      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoTotalSupply": "24000000000000000000000000",
+      "proposalVotingPeriod": 86040
+    },
     "chainlink": {
       "gasPrice": "0xF8161973a556bf5fEbb3BaCe573262FCd3b33973",
       "dai_eth": "0x24959556020AE5D39e5bAEC2bd6Bf12420C25aB5",
       "eth_usd": "0x30B5068156688f818cEa0874B580206dFe081a03"
     }
   },
+  "fuse": {
+    "governance": {
+      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoTotalSupply": "24000000000000000000000000",
+      "proposalVotingPeriod": 241920
+    }
+  },
   "fuse-mainnet": {
     "governance": {
-      "proposalVotingPeriod": 80640
+      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoTotalSupply": "24000000000000000000000000",
+      "proposalVotingPeriod": 241920
     },
     "bancor": "0x57b2c85934Ef1A891eC9b9945f3fdbcf1104c302",
     "compound": {
       "dai": "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
       "cdai": "0x6ce27497a64fffb5517aa4aee908b1e7eb63b9ff",
-      "comp": "0xf76d4a441e4ba86a923ce32b89aff89dbccaa075"
+      "comp": "0xf76d4a441e4ba86a923ce32b89aff89dbccaa075",
+      "daiUsdOracle": "0xaF540Ca83c7da3181778e3D1E11A6137e7e0085B",
+      "compUsdOracle": "0xE331E3C01c8D85fE107b13ad2888a61a4885199f"
     },
     "chainlink": {
       "gasPrice": "0xF8161973a556bf5fEbb3BaCe573262FCd3b33973",
@@ -49,20 +68,60 @@
     },
     "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
   },
+  "staging": {
+    "governance": {
+      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoTotalSupply": "24000000000000000000000000",
+      "proposalVotingPeriod": 241920
+    }
+  },
   "staging-mainnet": {
     "governance": {
+      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 80640
     },
     "bancor": "0x57b2c85934Ef1A891eC9b9945f3fdbcf1104c302",
     "compound": {
       "dai": "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
       "cdai": "0x6ce27497a64fffb5517aa4aee908b1e7eb63b9ff",
-      "comp": "0xf76d4a441e4ba86a923ce32b89aff89dbccaa075"
+      "comp": "0xf76d4a441e4ba86a923ce32b89aff89dbccaa075",
+      "daiUsdOracle": "0xaF540Ca83c7da3181778e3D1E11A6137e7e0085B",
+      "compUsdOracle": "0xE331E3C01c8D85fE107b13ad2888a61a4885199f"
     },
     "chainlink": {
       "gasPrice": "0xF8161973a556bf5fEbb3BaCe573262FCd3b33973",
       "dai_eth": "0x24959556020AE5D39e5bAEC2bd6Bf12420C25aB5",
       "eth_usd": "0x30B5068156688f818cEa0874B580206dFe081a03"
+    },
+    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+  },
+  "kovan-mainnet": {
+    "governance": {
+      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoTotalSupply": "24000000000000000000000000",
+      "proposalVotingPeriod": 80640
+    },
+    "bancor": "0x8c1255c46B3a04686eA0FfD3B71d7cB391091a58",
+    "compound": {
+      "cdai": "0x5d3a536e4d6dbd6114cc1ead35777bab948e3643",
+      "dai": "0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa ",
+      "comp": "0x61460874a7196d6a22d1ee4922473664b3e95270",
+      "daiUsdOracle": "0xb27bc5473c9c18e9860f520e6a554e23bb675eba",
+      "compUsdOracle": "0xECF93D14d25E02bA2C13698eeDca9aA98348EFb6"
+    },
+    "aave": {
+      "aave": "0x310d1D1043080668412E91502d7aa6Fbef0C346a",
+      "lendingPool": "0xE0fBa4Fc209b4948668006B2bE61711b7f465bAe",
+      "incentiveController": "0x54502350fb61b7752fFFA36690ecA43c6562fd5C",
+      "usdc": "0xe22da380ee6B445bb8273C81944ADEB6E8450422",
+      "usdcUsdOracle": "0xd9f98271d60345737fd3fb7cd015aa0474dfd458",
+      "aaveUsdOracle": "0xDE1af8A8442290e13C0451fb7Fd60bD2725e6Afc"
+    },
+    "chainlink": {
+      "dai_eth": "0x22B58f1EbEDfCA50feF632bD73368b2FdA96D541",
+      "eth_usd": "0xc9ee68cc1815641c4bf8bfdfa1e1636644cdf114",
+      "gasPrice": "0x04B8300639D66185F24Ee506aa083da94Ca41c6d"
     },
     "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
   },
@@ -74,11 +133,16 @@
     "compound": {
       "cdai": "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
       "dai": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-      "comp": "0xc00e94cb662c3520282e6f5717214004a7f26888"
+      "comp": "0xc00e94cb662c3520282e6f5717214004a7f26888",
+      "daiUsdOracle": "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9",
+      "compUsdOracle": "0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5"
     },
     "aave": {
       "lendingPool": "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
-      "incentiveController": "0xd784927Ff2f95ba542BfC824c8a8a98F3495f6b5"
+      "incentiveController": "0xd784927Ff2f95ba542BfC824c8a8a98F3495f6b5",
+      "usdc": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "usdcUsdOracle": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6",
+      "aaveUsdOracle": "0x547a514d5e3769680ce22b2361c10ea13619e8a9"
     },
     "chainlink": {
       "gasPrice": "0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C",
