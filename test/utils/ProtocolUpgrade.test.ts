@@ -29,6 +29,8 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     stakingAmountOfOldDonationsStakingBeforeUpgrade,
     stakingAmountOfOldDonationsStakingAfterUpgrade,
     stakingAmountOfNewDonationStaking,
+    oldReserveSupply,
+    newReserveSupply,
     cdaiBalanceOfNewReserve,
     oldDaiStaking,
     newFundManager,
@@ -52,12 +54,12 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       DAI: daiAddress,
       COMP: compAddress,
       DAIStaking: oldStaking,
-      DonationsStaking: oldDonations
+      DonationsStaking: oldDonations,
     } = await deploy("develop-mainnet"); // deploy old dao locally
     await deploy("develop"); //deploy sidechain old dao localally
 
     const {
-      main: performUpgrade
+      main: performUpgrade,
     } = require("../../scripts/upgradeToV2/upgradeToV2");
     oldMarketMaker = oldMm;
     oldDonationsStaking = oldDonations;
@@ -82,11 +84,12 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     cDaiBalanceOfOldReserveBeforeUpgrade = await cDAI.balanceOf(
       oldReserve.address
     );
+    let oldReserveToken = await oldMmContract.reserveTokens(cDAI.address);
+    oldReserveSupply = oldReserveToken.reserveSupply;
 
     //this will be non zero since it is initialized in localOldDaoDeploy.ts
-    stakingAmountOfOldDonationsStakingBeforeUpgrade = await oldDaiStaking.stakers(
-      oldDonations
-    );
+    stakingAmountOfOldDonationsStakingBeforeUpgrade =
+      await oldDaiStaking.stakers(oldDonations);
 
     await performUpgrade("develop");
     await performUpgrade("develop-mainnet");
@@ -94,9 +97,8 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     cDaiBalanceOfOldReserveAfterUpgrade = await cDAI.balanceOf(
       oldReserve.address
     );
-    stakingAmountOfOldDonationsStakingAfterUpgrade = await oldDaiStaking.stakers(
-      oldDonations
-    );
+    stakingAmountOfOldDonationsStakingAfterUpgrade =
+      await oldDaiStaking.stakers(oldDonations);
 
     const deployment = require("../../releases/deployment.json");
     cdaiBalanceOfNewReserve = await cDAI.balanceOf(
@@ -106,13 +108,20 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       "GoodCompoundStaking",
       deployment["develop-mainnet"].StakingContracts[0]
     );
-    stakingAmountOfNewDonationStaking = await newStakingContract.getProductivity(
-      deployment["develop-mainnet"].DonationsStaking
-    );
-    newFundManager = newStakingContract = await ethers.getContractAt(
+    stakingAmountOfNewDonationStaking =
+      await newStakingContract.getProductivity(
+        deployment["develop-mainnet"].DonationsStaking
+      );
+    newFundManager = await ethers.getContractAt(
       "GoodFundManager",
       deployment["develop-mainnet"].GoodFundManager
     );
+    const newMM = await ethers.getContractAt(
+      "GoodMarketMaker",
+      deployment["develop-mainnet"].GoodMarketMaker
+    );
+    const newReserveToken = await newMM.reserveTokens(cDAI.address);
+    newReserveSupply = newReserveToken.reserveSupply;
   });
   it("it should update reserve and transfer old funds ", async () => {
     expect(cDaiBalanceOfOldReserveBeforeUpgrade).to.be.gt(0);
@@ -120,6 +129,8 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     expect(cdaiBalanceOfNewReserve).to.be.equal(
       ethers.utils.parseUnits("1000", 8)
     );
+    expect(oldReserveSupply).to.be.gt(0);
+    expect(newReserveSupply).to.be.equal(oldReserveSupply);
   });
   it("it should upgrade donationStaking from old one to new one properly and transfer funds", async () => {
     expect(stakingAmountOfOldDonationsStakingBeforeUpgrade[0]).to.be.gt(0);
