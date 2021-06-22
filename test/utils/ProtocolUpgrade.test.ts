@@ -5,6 +5,7 @@ import { expect } from "chai";
 import { networkNames } from "@openzeppelin/upgrades-core";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { deploy } from "../localOldDaoDeploy";
+import deploySettings from "../../releases/deploy-settings.json";
 import GoodReserveCDai from "@gooddollar/goodcontracts/stakingModel/build/contracts/GoodReserveCDai.json";
 import MarketMaker from "@gooddollar/goodcontracts/stakingModel/build/contracts/GoodMarketMaker.json";
 import SimpleDAIStaking from "@gooddollar/goodcontracts/stakingModel/build/contracts/SimpleDAIStaking.json";
@@ -30,10 +31,12 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     stakingAmountOfNewDonationStaking,
     cdaiBalanceOfNewReserve,
     oldDaiStaking,
+    newFundManager,
     schemeMock,
     comp,
     founder,
     bancorFormula,
+    newStakingContract,
     goodReserve;
   const { name: networkName } = network;
   networkNames[1] = networkName;
@@ -99,12 +102,16 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     cdaiBalanceOfNewReserve = await cDAI.balanceOf(
       deployment["develop-mainnet"].GoodReserveCDai
     );
-    const newStakingContract = await ethers.getContractAt(
+    newStakingContract = await ethers.getContractAt(
       "GoodCompoundStaking",
       deployment["develop-mainnet"].StakingContracts[0]
     );
     stakingAmountOfNewDonationStaking = await newStakingContract.getProductivity(
       deployment["develop-mainnet"].DonationsStaking
+    );
+    newFundManager = newStakingContract = await ethers.getContractAt(
+      "GoodFundManager",
+      deployment["develop-mainnet"].GoodFundManager
     );
   });
   it("it should update reserve and transfer old funds ", async () => {
@@ -118,5 +125,14 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     expect(stakingAmountOfOldDonationsStakingBeforeUpgrade[0]).to.be.gt(0);
     expect(stakingAmountOfOldDonationsStakingAfterUpgrade[0]).to.be.equal(0);
     expect(stakingAmountOfNewDonationStaking[0]).to.be.gt(0);
+  });
+  it("it should set staking rewards per block properly for staking contract", async () => {
+    const rewardsPerBlock = await newFundManager.rewardsForStakingContract(
+      newStakingContract.address
+    );
+    console.log(`rewardsPerBlock ${rewardsPerBlock}`);
+    expect(rewardsPerBlock[0]).to.be.equal(
+      deploySettings.default.staking.rewardsPerBlock
+    );
   });
 });
