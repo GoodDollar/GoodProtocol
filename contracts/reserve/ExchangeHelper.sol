@@ -142,23 +142,24 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		} else if (address(_buyWith) == daiAddress) {
 			result = _cdaiMintAndBuy(_tokenAmount, _minReturn, receiver);
 		} else {
-			address[] memory path = new address[](2);
-
-			path[0] = address(_buyWith);
-			path[1] = daiAddress;
 			uint256[] memory swap;
 			if (withETH) {
+				address[] memory path = new address[](2);
+				path[0] = uniswapContract.WETH();
+				path[1] = daiAddress;
 				swap = uniswapContract.swapExactETHForTokens{
 					value: msg.value
 				}(_minDAIAmount, path, address(this), block.timestamp);
 			} else {
 				_buyWith.approve(address(uniswapContract), _tokenAmount);
-				swap = uniswapContract.swapExactTokensForTokens(
+				swap = _uniswapSwap(
+					uniswapContract,
+					_buyWith,
 					_tokenAmount,
+					true,
+					0,
 					_minDAIAmount,
-					path,
-					address(this),
-					block.timestamp
+					address(this)
 				);
 			}
 			uint256 dai = swap[1];
@@ -211,6 +212,9 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			msg.sender,
 			_gdAmount
 		);
+		Uniswap uniswapContract = Uniswap(
+			nameService.getAddress("UNISWAP_ROUTER")
+		);
 		(result, contributionAmount) = reserve.sell(
 			_gdAmount,
 			_minReturn,
@@ -228,31 +232,27 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			address(_sellTo) != daiAddress && address(_sellTo) != cDaiAddress
 		) {
 			result = _redeemDAI(result);
-			address[] memory path = new address[](2);
 
-			Uniswap uniswapContract = Uniswap(
-				nameService.getAddress("UNISWAP_ROUTER")
-			);
 			uint256[] memory swap;
 			if (address(_sellTo) == address(0x0)) {
-				path[0] = daiAddress;
-				path[1] = uniswapContract.WETH();
-				swap = uniswapContract.swapExactTokensForETH(
+				swap = _uniswapSwap(
+					uniswapContract,
+					_sellTo,
 					result,
+					false,
+					0,
 					_minTokenReturn,
-					path,
-					receiver,
-					block.timestamp
+					receiver
 				);
 			} else {
-				path[0] = daiAddress;
-				path[1] = address(_sellTo);
-				swap = uniswapContract.swapExactTokensForTokens(
+				swap = _uniswapSwap(
+					uniswapContract,
+					_sellTo,
 					result,
+					false,
+					0,
 					_minTokenReturn,
-					path,
-					receiver,
-					block.timestamp
+					receiver
 				);
 			}
 
@@ -316,5 +316,52 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		uint256 cDaiInput = cDai.balanceOf(address(this)) - currCDaiBalance;
 		cDai.transfer(address(reserve), cDaiInput);
 		return reserve.buy(cDaiInput, _minReturn, _targetAddress);
+	}
+
+	/**
+	@dev Helper to swap tokens in the Uniswap
+	*@param _uniswapContract Uniswap Router Contract
+	*@param _token token to buy or sell for
+	*@param _tokenAmount token amount to sell or buy
+	*@param _isBuy if swap transaction to buy DAI or sell DAI
+	*@param _minDAIAmount minimum DAI amount to get in swap transaction if transaction is buy
+	*@param _minTokenReturn minimum token amount to get in swap transaction if transaction is sell
+	*@param _receiver receiver of tokens after swap transaction
+	 */
+	function _uniswapSwap(
+		Uniswap _uniswapContract,
+		ERC20 _token,
+		uint256 _tokenAmount,
+		bool _isBuy,
+		uint256 _minDAIAmount,
+		uint256 _minTokenReturn,
+		address _receiver
+	) internal returns (uint256[] memory) {
+		address[] memory path = new address[](2);
+
+		uint256[] memory swap;
+		if (address(_token) == address(0x0)) {
+			path[0] = daiAddress;
+			path[1] = _uniswapContract.WETH();
+			swap = _uniswapContract.swapExactTokensForETH(
+				_tokenAmount,
+				_minTokenReturn,
+				path,
+				_receiver,
+				block.timestamp
+			);
+			return swap;
+		} else {
+			path[0] = _isBuy ? address(_token) : daiAddress;
+			path[1] = _isBuy ? daiAddress : address(_token);
+			swap = _uniswapContract.swapExactTokensForTokens(
+				_tokenAmount,
+				_isBuy ? _minDAIAmount : _minTokenReturn,
+				path,
+				_receiver,
+				block.timestamp
+			);
+			return swap;
+		}
 	}
 }

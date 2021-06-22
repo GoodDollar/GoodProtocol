@@ -397,7 +397,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     tokenA.approve(exchangeHelper.address, "0");
     await expect(
       exchangeHelper.buy(tokenA.address, depositAmount, 0, 0, NULL_ADDRESS)
-    ).to.be.revertedWith("You need to approve input token transfer first");
+    ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
   });
 
   it("shouldn't be able to sell gd to tokenA through UNISWAP without approve", async () => {
