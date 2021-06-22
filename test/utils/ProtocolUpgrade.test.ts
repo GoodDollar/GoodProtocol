@@ -31,9 +31,16 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     stakingAmountOfNewDonationStaking,
     oldReserveSupply,
     newReserveSupply,
+    gdBalanceOfOldUBISchemeBeforeUpgrade,
+    gdBalanceOfOldUBISchemeAfterUpgrade,
+    goodDollar,
+    fuseGoodDollar,
+    newReserve,
     cdaiBalanceOfNewReserve,
     oldDaiStaking,
     newFundManager,
+    oldUBIScheme,
+    newUBIScheme,
     schemeMock,
     comp,
     founder,
@@ -55,8 +62,9 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       COMP: compAddress,
       DAIStaking: oldStaking,
       DonationsStaking: oldDonations,
+      GoodDollar: gd,
     } = await deploy("develop-mainnet"); // deploy old dao locally
-    await deploy("develop"); //deploy sidechain old dao localally
+    let { UBIScheme: oldUBISc, GoodDollar: fuseGd } = await deploy("develop"); //deploy sidechain old dao localally
 
     const {
       main: performUpgrade,
@@ -86,14 +94,20 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     );
     let oldReserveToken = await oldMmContract.reserveTokens(cDAI.address);
     oldReserveSupply = oldReserveToken.reserveSupply;
-
+    fuseGoodDollar = await ethers.getContractAt("IGoodDollar", fuseGd);
+    goodDollar = await ethers.getContractAt("IGoodDollar", gd);
     //this will be non zero since it is initialized in localOldDaoDeploy.ts
     stakingAmountOfOldDonationsStakingBeforeUpgrade =
       await oldDaiStaking.stakers(oldDonations);
-
+    oldUBIScheme = oldUBISc;
+    gdBalanceOfOldUBISchemeBeforeUpgrade = await fuseGoodDollar.balanceOf(
+      oldUBIScheme
+    );
     await performUpgrade("develop");
     await performUpgrade("develop-mainnet");
-
+    gdBalanceOfOldUBISchemeAfterUpgrade = await fuseGoodDollar.balanceOf(
+      oldUBIScheme
+    );
     cDaiBalanceOfOldReserveAfterUpgrade = await cDAI.balanceOf(
       oldReserve.address
     );
@@ -102,6 +116,10 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
 
     const deployment = require("../../releases/deployment.json");
     cdaiBalanceOfNewReserve = await cDAI.balanceOf(
+      deployment["develop-mainnet"].GoodReserveCDai
+    );
+    newReserve = await ethers.getContractAt(
+      "GoodReserveCDai",
       deployment["develop-mainnet"].GoodReserveCDai
     );
     newStakingContract = await ethers.getContractAt(
@@ -120,6 +138,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       "GoodMarketMaker",
       deployment["develop-mainnet"].GoodMarketMaker
     );
+    newUBIScheme = deployment["develop"].UBIScheme;
     const newReserveToken = await newMM.reserveTokens(cDAI.address);
     newReserveSupply = newReserveToken.reserveSupply;
   });
@@ -144,6 +163,37 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     console.log(`rewardsPerBlock ${rewardsPerBlock}`);
     expect(rewardsPerBlock[0]).to.be.equal(
       deploySettings.default.staking.rewardsPerBlock
+    );
+  });
+  it("new reserve should have G$ minting permission", async () => {
+    await cDAI["mint(address,uint256)"](
+      founder.address,
+      ethers.utils.parseUnits("100", 8)
+    );
+    await cDAI.approve(newReserve.address, ethers.utils.parseUnits("100", 8));
+    const founderGdBalanceBeforeBuy = await goodDollar.balanceOf(
+      founder.address
+    );
+    await newReserve.buy(
+      cDAI.address,
+      ethers.utils.parseUnits("100", 8),
+      0,
+      0,
+      founder.address
+    );
+    const founderGdBalanceAfterBuy = await goodDollar.balanceOf(
+      founder.address
+    );
+    expect(founderGdBalanceAfterBuy).to.be.gt(founderGdBalanceBeforeBuy);
+  });
+  it("it should end old UBIScheme and transfer leftover UBIs to new UBIScheme", async () => {
+    expect(gdBalanceOfOldUBISchemeBeforeUpgrade).to.be.gt(0);
+    expect(gdBalanceOfOldUBISchemeAfterUpgrade).to.be.equal(0);
+    const gdBalanceOfNewUBIScheme = await fuseGoodDollar.balanceOf(
+      newUBIScheme
+    );
+    expect(gdBalanceOfNewUBIScheme).to.be.equal(
+      gdBalanceOfOldUBISchemeBeforeUpgrade
     );
   });
 });
