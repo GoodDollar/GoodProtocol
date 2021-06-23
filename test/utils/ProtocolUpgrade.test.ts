@@ -268,7 +268,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     expect(bridgeContractAddress).to.be.equal(oldDao["develop-mainnet"].Bridge);
     expect(ubiRecipientAddress).to.be.equal(deployment["develop"].UBIScheme);
   });
-  it("it should delete schemes after protocolupgrade", async () => {
+  it("it should delete schemes after protocolupgrade and register new compoundvotingmachine", async () => {
     expect(isSchemeRegistrarRegistered).to.be.equal(true);
     expect(isUpgradeSchemeRegistered).to.be.equal(true);
     expect(isSchemeRegistrarRegisteredAfterUpgrade).to.be.equal(false);
