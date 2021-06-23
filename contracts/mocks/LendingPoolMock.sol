@@ -41,6 +41,7 @@ contract LendingPoolMock is ERC20PresetMinterPauserUpgradeable {
 		_burn(msg.sender, amount);
 
 		ERC20Upgradeable(asset).transfer(to, amount);
+		return 0;
 	}
 
 	function decimals() public pure override returns (uint8) {
