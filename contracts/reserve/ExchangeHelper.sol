@@ -132,9 +132,9 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			result = _cdaiMintAndBuy(_tokenAmount, _minReturn, receiver);
 		} else {
 			uint256[] memory swap = _uniswapSwap(
-				_buyWith,
+				address(_buyWith),
+				daiAddress,
 				_tokenAmount,
-				true,
 				0,
 				_minDAIAmount,
 				address(this)
@@ -210,9 +210,9 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			result = _redeemDAI(result);
 
 			uint256[] memory swap = _uniswapSwap(
-				_sellTo,
+				daiAddress,
+				address(_sellTo),
 				result,
-				false,
 				0,
 				_minTokenReturn,
 				receiver
@@ -282,17 +282,17 @@ contract ExchangeHelper is DAOUpgradeableContract {
 
 	/**
 	@dev Helper to swap tokens in the Uniswap
-	*@param _token token to buy or sell for
+	*@param _inputToken token to used for buy
+	*@param _outputToken token to get in sell transaction
 	*@param _tokenAmount token amount to sell or buy
-	*@param _isBuy if swap transaction to buy DAI or sell DAI
 	*@param _minDAIAmount minimum DAI amount to get in swap transaction if transaction is buy
 	*@param _minTokenReturn minimum token amount to get in swap transaction if transaction is sell
 	*@param _receiver receiver of tokens after swap transaction
 	 */
 	function _uniswapSwap(
-		ERC20 _token,
+		address _inputToken,
+		address _outputToken,
 		uint256 _tokenAmount,
-		bool _isBuy,
 		uint256 _minDAIAmount,
 		uint256 _minTokenReturn,
 		address _receiver
@@ -301,35 +301,37 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			nameService.getAddress("UNISWAP_ROUTER")
 		);
 		address[] memory path = new address[](2);
-
+		address wETH = uniswapContract.WETH();
 		uint256[] memory swap;
-		if (address(_token) == address(0x0)) {
-			if (_isBuy) {
-				path[0] = uniswapContract.WETH();
-				path[1] = daiAddress;
-				swap = uniswapContract.swapExactETHForTokens{
-					value: _tokenAmount
-				}(_minDAIAmount, path, address(this), block.timestamp);
-				return swap;
-			} else {
-				path[0] = daiAddress;
-				path[1] = uniswapContract.WETH();
-				swap = uniswapContract.swapExactTokensForETH(
-					_tokenAmount,
-					_minTokenReturn,
-					path,
-					_receiver,
-					block.timestamp
-				);
-				return swap;
-			}
+		path[0] = _inputToken == address(0x0) ? wETH : _inputToken;
+		path[1] = _outputToken == address(0x0) ? wETH : _outputToken;
+
+		if (path[0] == wETH) {
+			swap = uniswapContract.swapExactETHForTokens{ value: _tokenAmount }(
+				_minDAIAmount,
+				path,
+				address(this),
+				block.timestamp
+			);
+			return swap;
+		} else if (path[1] == wETH) {
+			swap = uniswapContract.swapExactTokensForETH(
+				_tokenAmount,
+				_minTokenReturn,
+				path,
+				_receiver,
+				block.timestamp
+			);
+			return swap;
 		} else {
-			if (_isBuy) _token.approve(address(uniswapContract), _tokenAmount);
-			path[0] = _isBuy ? address(_token) : daiAddress;
-			path[1] = _isBuy ? daiAddress : address(_token);
+			if (path[1] == daiAddress)
+				ERC20(_inputToken).approve(
+					address(uniswapContract),
+					_tokenAmount
+				);
 			swap = uniswapContract.swapExactTokensForTokens(
 				_tokenAmount,
-				_isBuy ? _minDAIAmount : _minTokenReturn,
+				path[1] == daiAddress ? _minDAIAmount : _minTokenReturn,
 				path,
 				_receiver,
 				block.timestamp
