@@ -33,11 +33,16 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     newReserveSupply,
     gdBalanceOfOldUBISchemeBeforeUpgrade,
     gdBalanceOfOldUBISchemeAfterUpgrade,
+    isSchemeRegistrarRegistered,
+    isUpgradeSchemeRegistered,
     goodDollar,
     fuseGoodDollar,
     newReserve,
     cdaiBalanceOfNewReserve,
     oldDaiStaking,
+    isSchemeRegistrarRegisteredAfterUpgrade,
+    isUpgradeSchemeRegisteredAfterUpgrade,
+    isCompoundVotingMachineRegistered,
     newFundManager,
     oldUBIScheme,
     newUBIScheme,
@@ -46,6 +51,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     founder,
     bancorFormula,
     newStakingContract,
+    controller,
     goodReserve;
   const { name: networkName } = network;
   networkNames[1] = networkName;
@@ -63,6 +69,10 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       DAIStaking: oldStaking,
       DonationsStaking: oldDonations,
       GoodDollar: gd,
+      Controller: ctrl,
+      SchemeRegistrar: schemeRegistrarAddress,
+      UpgradeScheme: upgradeSchemeAddress,
+      Avatar: avatar,
     } = await deploy("develop-mainnet"); // deploy old dao locally
     let { UBIScheme: oldUBISc, GoodDollar: fuseGd } = await deploy("develop"); //deploy sidechain old dao localally
 
@@ -78,7 +88,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       oldStaking
     );
     comp = await ethers.getContractAt("DAIMock", compAddress);
-
+    controller = await ethers.getContractAt("Controller", ctrl);
     //add some funds to reserve so we can test upgrade transfer
     oldReserve = await ethers.getContractAt(GoodReserveCDai.abi, oldRes);
     const oldMmContract = await ethers.getContractAt(MarketMaker.abi, oldMm);
@@ -102,6 +112,14 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     oldUBIScheme = oldUBISc;
     gdBalanceOfOldUBISchemeBeforeUpgrade = await fuseGoodDollar.balanceOf(
       oldUBIScheme
+    );
+    isSchemeRegistrarRegistered = await controller.isSchemeRegistered(
+      schemeRegistrarAddress,
+      avatar
+    );
+    isUpgradeSchemeRegistered = await controller.isSchemeRegistered(
+      upgradeSchemeAddress,
+      avatar
     );
     await performUpgrade("develop");
     await performUpgrade("develop-mainnet");
@@ -141,6 +159,16 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     newUBIScheme = deployment["develop"].UBIScheme;
     const newReserveToken = await newMM.reserveTokens(cDAI.address);
     newReserveSupply = newReserveToken.reserveSupply;
+    isSchemeRegistrarRegisteredAfterUpgrade =
+      await controller.isSchemeRegistered(schemeRegistrarAddress, avatar);
+    isUpgradeSchemeRegisteredAfterUpgrade = await controller.isSchemeRegistered(
+      upgradeSchemeAddress,
+      avatar
+    );
+    isCompoundVotingMachineRegistered = await controller.isSchemeRegistered(
+      deployment["develop-mainnet"].CompoundVotingMachine,
+      avatar
+    );
   });
   it("it should update reserve and transfer old funds ", async () => {
     expect(cDaiBalanceOfOldReserveBeforeUpgrade).to.be.gt(0);
@@ -239,5 +267,12 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     );
     expect(bridgeContractAddress).to.be.equal(oldDao["develop-mainnet"].Bridge);
     expect(ubiRecipientAddress).to.be.equal(deployment["develop"].UBIScheme);
+  });
+  it("it should delete schemes after protocolupgrade", async () => {
+    expect(isSchemeRegistrarRegistered).to.be.equal(true);
+    expect(isUpgradeSchemeRegistered).to.be.equal(true);
+    expect(isSchemeRegistrarRegisteredAfterUpgrade).to.be.equal(false);
+    expect(isUpgradeSchemeRegisteredAfterUpgrade).to.be.equal(false);
+    expect(isCompoundVotingMachineRegistered).to.be.equal(true);
   });
 });
