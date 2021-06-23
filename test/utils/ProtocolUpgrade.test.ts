@@ -196,4 +196,48 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       gdBalanceOfOldUBISchemeBeforeUpgrade
     );
   });
+  it("it should set nameservice variables properly", async () => {
+    const deployment = require("../../releases/deployment.json");
+    const oldDao = require("../../releases/oldDao.json");
+    const nameServiceContract = await ethers.getContractAt(
+      "NameService",
+      deployment["develop-mainnet"].NameService
+    );
+    const reserveAddress = await nameServiceContract.getAddress("RESERVE");
+    const marketMakerAddress = await nameServiceContract.getAddress(
+      "MARKET_MAKER"
+    );
+    const fundManagerAddress = await nameServiceContract.getAddress(
+      "FUND_MANAGER"
+    );
+    const reputationAddress = await nameServiceContract.getAddress(
+      "REPUTATION"
+    );
+    const stakersDistributionAddress = await nameServiceContract.getAddress(
+      "GDAO_STAKERS"
+    );
+    const bridgeContractAddress = await nameServiceContract.getAddress(
+      "BRIDGE_CONTRACT"
+    );
+    const ubiRecipientAddress = await nameServiceContract.getAddress(
+      "UBI_RECIPIENT"
+    );
+    expect(reserveAddress).to.be.equal(
+      deployment["develop-mainnet"].GoodReserveCDai
+    );
+    expect(marketMakerAddress).to.be.equal(
+      deployment["develop-mainnet"].GoodMarketMaker
+    );
+    expect(fundManagerAddress).to.be.equal(
+      deployment["develop-mainnet"].GoodFundManager
+    );
+    expect(reputationAddress).to.be.equal(
+      deployment["develop-mainnet"].GReputation
+    );
+    expect(stakersDistributionAddress).to.be.equal(
+      deployment["develop-mainnet"].StakersDistribution
+    );
+    expect(bridgeContractAddress).to.be.equal(oldDao["develop-mainnet"].Bridge);
+    expect(ubiRecipientAddress).to.be.equal(deployment["develop"].UBIScheme);
+  });
 });
