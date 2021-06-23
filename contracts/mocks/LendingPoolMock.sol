@@ -20,6 +20,7 @@ contract LendingPoolMock is ERC20PresetMinterPauserUpgradeable {
 		address onBehalfOf,
 		uint16 referralCode
 	) external {
+		referralCode;
 		require(
 			asset == underlyingAsset,
 			"asset should be same with set underlying asset"
@@ -51,6 +52,7 @@ contract LendingPoolMock is ERC20PresetMinterPauserUpgradeable {
 		view
 		returns (DataTypes.ReserveData memory)
 	{
+		asset;
 		DataTypes.ReserveData memory reserve;
 		reserve.aTokenAddress = address(this);
 		return reserve;
