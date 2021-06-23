@@ -8,7 +8,7 @@ import {
   GoodReserveCDai,
   SimpleStaking,
   GoodFundManager,
-  DonationsStaking
+  DonationsStaking,
 } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { createDAO, deployUniswap } from "../helpers";
@@ -79,7 +79,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       cdaiAddress,
       reserve,
       setReserveToken,
-      genericCall: gc
+      genericCall: gc,
     } = await createDAO();
 
     const uniswap = await deployUniswap();
@@ -100,18 +100,18 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       gd,
       identity,
       controller,
-      avatar
+      avatar,
     });
     goodFundManager = (await upgrades.deployProxy(
       goodFundManagerFactory,
       [nameService.address],
       {
-        kind: "uups"
+        kind: "uups",
       }
     )) as GoodFundManager;
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     console.log("Deployed goodfund manager", {
-      manager: goodFundManager.address
+      manager: goodFundManager.address,
     });
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
     contribution = await ethers.getContractAt(
@@ -122,7 +122,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     marketMaker = mm;
 
     console.log("deployed contribution, deploying reserve...", {
-      founder: founder.address
+      founder: founder.address,
     });
     bat = await daiFactory.deploy(); // Another erc20 token for uniswap router test
     cBat = await cBatFactory.deploy(bat.address);
@@ -143,7 +143,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     await setDAOAddress("COMP", comp.address);
     goodCompoundStaking = await goodCompoundStakingFactory
       .deploy()
-      .then(async contract => {
+      .then(async (contract) => {
         await contract.init(
           dai.address,
           cDAI.address,
@@ -197,7 +197,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       donationsStakingFactory,
       [nameService.address, goodCompoundStaking.address],
       {
-        kind: "uups"
+        kind: "uups",
       }
     )) as DonationsStaking;
   });
@@ -213,7 +213,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
         goodCompoundStaking.address,
         currentBlockNumber - 10,
         currentBlockNumber + 500,
-        false
+        false,
       ] // set 10 gd per block
     );
     await genericCall(goodFundManager.address, encodedData);
@@ -240,7 +240,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const tx = await donationsStaking
       .connect(staker)
       ["withdraw()"]()
-      .catch(e => e);
+      .catch((e) => e);
     expect(tx.message).to.have.string("only avatar can call this method");
   });
   it("it should withdraw donationStaking when caller is avatar and return funds to avatar", async () => {
@@ -265,17 +265,77 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const goodCompoundStakingFactory = await ethers.getContractFactory(
       "GoodCompoundStaking"
     );
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
     const stakingContractBeforeSet = await donationsStaking.stakingContract();
     const stakingTokenBeforeSet = await donationsStaking.stakingToken();
     const simpleStaking = await goodCompoundStakingFactory
       .deploy()
-      .then(async contract => {
+      .then(async (contract) => {
         await contract.init(
           bat.address,
-          cDAI.address,
+          cBat.address,
           nameService.address,
           "Good BAT",
           "gBAT",
+          "172800",
+          daiUsdOracle.address,
+          compUsdOracle.address
+        );
+        return contract;
+      });
+    const currentBlock = await ethers.provider.getBlockNumber();
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleStaking.address,
+        currentBlock - 5,
+        currentBlock + 1000,
+        false,
+      ] // set 10 gd per block
+    );
+    await genericCall(goodFundManager.address, encodedData);
+    encodedData = donationsStakingFactory.interface.encodeFunctionData(
+      "setStakingContract",
+      [simpleStaking.address]
+    );
+    await genericCall(donationsStaking.address, encodedData);
+    const stakingContractAfterSet = await donationsStaking.stakingContract();
+    const stakingTokenAfterSet = await donationsStaking.stakingToken();
+    expect(stakingContractBeforeSet).to.be.equal(goodCompoundStaking.address);
+    expect(stakingTokenBeforeSet).to.be.equal(dai.address);
+    expect(stakingContractAfterSet).to.be.equal(simpleStaking.address);
+    expect(stakingTokenAfterSet).to.be.equal(bat.address);
+  });
+  it("it should reverted when there is no token to stake", async () => {
+    await expect(donationsStaking.stakeDonations(0)).to.be.revertedWith(
+      "no stakingToken to stake"
+    );
+  });
+  it("when it changes stakingContract of donationsStaking it should transfer old funds to avatar", async () => {
+    const donationsStakingFactory = await ethers.getContractFactory(
+      "DonationsStaking"
+    );
+    const goodCompoundStakingFactory = await ethers.getContractFactory(
+      "GoodCompoundStaking"
+    );
+    let stakeAmount = ethers.utils.parseEther("100");
+    await bat["mint(address,uint256)"](donationsStaking.address, stakeAmount);
+    await donationsStaking.stakeDonations(0);
+    const avatarBatBalanceBeforeChangeStakingContract = await bat.balanceOf(
+      avatar
+    );
+    const simpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async (contract) => {
+        await contract.init(
+          dai.address,
+          cDAI.address,
+          nameService.address,
+          "Good DAI",
+          "gDAI",
           "172800",
           daiUsdOracle.address,
           compUsdOracle.address
@@ -287,12 +347,16 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       [simpleStaking.address]
     );
     await genericCall(donationsStaking.address, encodedData);
-    const stakingContractAfterSet = await donationsStaking.stakingContract();
-    const stakingTokenAfterSet = await donationsStaking.stakingToken();
-    expect(stakingContractBeforeSet).to.be.equal(goodCompoundStaking.address);
-    expect(stakingTokenBeforeSet).to.be.equal(dai.address);
-    expect(stakingContractAfterSet).to.be.equal(simpleStaking.address);
-    expect(stakingTokenAfterSet).to.be.equal(bat.address);
+    const avatarBatBalanceAfterChangeStakingContract = await bat.balanceOf(
+      avatar
+    );
+    expect(avatarBatBalanceAfterChangeStakingContract).to.be.gt(
+      avatarBatBalanceBeforeChangeStakingContract
+    );
+  });
+  it("it should return version of DonationsStaking properly", async () => {
+    const version = await donationsStaking.getVersion();
+    expect(version).to.be.equal("2.0.0");
   });
   async function addETHLiquidity(
     token0Amount: BigNumber,
@@ -307,7 +371,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       founder.address,
       MaxUint256,
       {
-        value: WETHAmount
+        value: WETHAmount,
       }
     );
   }
