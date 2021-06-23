@@ -117,11 +117,13 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			_tokenAmount = msg.value;
 			_buyWith = ERC20(uniswapContract.WETH());
 			withETH = true;
-		} else if (address(_buyWith) != cDaiAddress) {
+		} else {
 			require(
 				_buyWith.transferFrom(
 					msg.sender,
-					address(this),
+					address(_buyWith) == cDaiAddress
+						? address(reserve)
+						: address(this),
 					_tokenAmount
 				) == true,
 				"transferFrom failed, make sure you approved input token transfer"
@@ -130,14 +132,6 @@ contract ExchangeHelper is DAOUpgradeableContract {
 
 		uint256 result;
 		if (address(_buyWith) == cDaiAddress) {
-			require(
-				_buyWith.transferFrom(
-					msg.sender,
-					address(reserve),
-					_tokenAmount
-				) == true,
-				"transferFrom failed, make sure you approved input token transfer"
-			);
 			result = reserve.buy(_tokenAmount, _minReturn, receiver);
 		} else if (address(_buyWith) == daiAddress) {
 			result = _cdaiMintAndBuy(_tokenAmount, _minReturn, receiver);
@@ -234,27 +228,16 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			result = _redeemDAI(result);
 
 			uint256[] memory swap;
-			if (address(_sellTo) == address(0x0)) {
-				swap = _uniswapSwap(
-					uniswapContract,
-					_sellTo,
-					result,
-					false,
-					0,
-					_minTokenReturn,
-					receiver
-				);
-			} else {
-				swap = _uniswapSwap(
-					uniswapContract,
-					_sellTo,
-					result,
-					false,
-					0,
-					_minTokenReturn,
-					receiver
-				);
-			}
+
+			swap = _uniswapSwap(
+				uniswapContract,
+				_sellTo,
+				result,
+				false,
+				0,
+				_minTokenReturn,
+				receiver
+			);
 
 			result = swap[1];
 			require(result > 0, "token selling failed");
