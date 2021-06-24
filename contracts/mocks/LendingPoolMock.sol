@@ -33,7 +33,7 @@ contract LendingPoolMock is ERC20PresetMinterPauserUpgradeable {
 		address asset,
 		uint256 amount,
 		address to
-	) external {
+	) external returns (uint256) {
 		require(
 			asset == underlyingAsset,
 			"asset should be same with set underlying asset"
@@ -41,6 +41,7 @@ contract LendingPoolMock is ERC20PresetMinterPauserUpgradeable {
 		_burn(msg.sender, amount);
 
 		ERC20Upgradeable(asset).transfer(to, amount);
+		return 0;
 	}
 
 	function decimals() public pure override returns (uint8) {
