@@ -84,7 +84,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 	}
 
 	/**
-	@dev Converts any 'buyWith' tokens to cDAI then call buy function to convert it to GD tokens(no need reentrancy lock since we don't transfer external token's to user)
+	@dev Converts any 'buyWith' tokens to DAI then call reserve's buy function to convert it to GD tokens(no need reentrancy lock since we don't transfer external token's to user)
 	* @param _buyWith The tokens that should be converted to GD tokens
 	* @param _tokenAmount The amount of `buyWith` tokens that should be converted to GD tokens
 	* @param _minReturn The minimum allowed return in GD tokens
@@ -158,11 +158,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 	}
 
 	/**
-	 * @dev Converts GD tokens to `sellTo` tokens and update the bonding curve params.
-	 * `sell` occurs only if the token return is above the given minimum. Notice that
-	 * there is a contribution amount from the given GD that remains in the reserve relative to user amount of GDX credits.
-	 * MUST call G$ `approve` prior to this action to allow this
-	 * contract to accomplish the conversion.
+	 * @dev Converts GD tokens to cDAI through reserve then make further transactions according to desired _sellTo token(either send cDAI or DAI directly or desired token through uniswap)
 	 * @param _sellTo The tokens that will be received after the conversion if address equals 0x0 then sell to ETH
 	 * @param _gdAmount The amount of GD tokens that should be converted to `_sellTo` tokens
 	 * @param _minReturn The minimum allowed `sellTo` tokens return
@@ -303,10 +299,10 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		address[] memory path = new address[](2);
 		address wETH = uniswapContract.WETH();
 		uint256[] memory swap;
-		path[0] = _inputToken == address(0x0) ? wETH : _inputToken;
+		path[0] = _inputToken== address(0x0) ? wETH :_inputToken;
 		path[1] = _outputToken == address(0x0) ? wETH : _outputToken;
-
-		if (path[0] == wETH) {
+		bool isBuy = path[1] == daiAddress; // if outputToken is dai then transaction is buy with any ERC20 token
+		if (_inputToken == address(0x0)) {
 			swap = uniswapContract.swapExactETHForTokens{ value: _tokenAmount }(
 				_minDAIAmount,
 				path,
@@ -324,14 +320,14 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			);
 			return swap;
 		} else {
-			if (path[1] == daiAddress)
+			if (isBuy)
 				ERC20(_inputToken).approve(
 					address(uniswapContract),
 					_tokenAmount
 				);
 			swap = uniswapContract.swapExactTokensForTokens(
 				_tokenAmount,
-				path[1] == daiAddress ? _minDAIAmount : _minTokenReturn,
+				isBuy ? _minDAIAmount : _minTokenReturn,
 				path,
 				_receiver,
 				block.timestamp
