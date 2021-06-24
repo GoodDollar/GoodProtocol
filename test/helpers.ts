@@ -272,6 +272,7 @@ export const createDAO = async () => {
     cdaiAddress: cDAI.address,
     COMP,
     reputation: reputation.address,
+
     votingMachine,
   };
 };
