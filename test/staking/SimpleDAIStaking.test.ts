@@ -1106,6 +1106,13 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await goodCompoundStaking
       .connect(staker)
       .withdrawStake(stakingAmount, false);
+    await dai["mint(address,uint256)"](
+      staker.address,
+      ethers.utils.parseEther("1000000")
+    );
+    await dai
+      .connect(staker)
+      .transfer(cDAI.address, ethers.utils.parseEther("1000000")); // We should put extra DAI to mock cDAI contract in order to provide interest
   });
 
   it("should withdraw interest to owner [ @skip-on-coverage ]", async () => {
@@ -1118,24 +1125,18 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       .connect(staker)
       .stake(stakingAmount, 100, false)
       .catch((e) => e);
-    await dai["mint(address,uint256)"](
-      staker.address,
-      ethers.utils.parseEther("1000000")
-    );
-    await dai
-      .connect(staker)
-      .transfer(cDAI.address, ethers.utils.parseEther("1000000")); // We should put extra DAI to mock cDAI contract in order to provide interest
+
     await cDAI.increasePriceWithMultiplier("1500"); // increase interest by calling exchangeRateCurrent
 
     const gains = await goodCompoundStaking.currentGains(false, true);
     const cdaiGains = gains["0"];
     const fundBalance0 = await cDAI.balanceOf(goodReserve.address);
     const contractAddressesToBeCollected =
-      await goodFundManager.calcSortedContracts("1000000");
+      await goodFundManager.calcSortedContracts("1100000");
     const res = await goodFundManager.collectInterest(
       contractAddressesToBeCollected,
       {
-        gasLimit: 1000000,
+        gasLimit: 1100000,
       }
     );
     const fundBalance1 = await cDAI.balanceOf(goodReserve.address);
