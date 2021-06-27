@@ -43,7 +43,7 @@ describe("GDX Token", () => {
       setSchemes,
       marketMaker: mm,
       daiAddress,
-      cdaiAddress
+      cdaiAddress,
     } = await createDAO();
 
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -60,7 +60,7 @@ describe("GDX Token", () => {
       identity,
       controller,
       avatar,
-      goodReserve: goodReserve.address
+      goodReserve: goodReserve.address,
     });
 
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
@@ -74,7 +74,7 @@ describe("GDX Token", () => {
     const reserveFactory = await ethers.getContractFactory("GoodReserveCDai");
 
     console.log("deployed contribution, deploying reserve...", {
-      founder: founder.address
+      founder: founder.address,
     });
 
     console.log("setting permissions...");
@@ -163,7 +163,7 @@ describe("GDX Token", () => {
     await cDAI["mint(uint256)"](ethers.utils.parseEther("100"));
     await cDAI.approve(goodReserve.address, amount);
     let transaction = await (
-      await goodReserve.buy(cDAI.address, amount, 0, 0, NULL_ADDRESS)
+      await goodReserve.buy(amount, 0, NULL_ADDRESS)
     ).wait();
 
     const gdBalanceAfter = await goodDollar.balanceOf(founder.address);
@@ -178,10 +178,10 @@ describe("GDX Token", () => {
     let amount = BN.from("10000");
     await goodDollar.approve(goodReserve.address, amount);
     let transaction = await (
-      await goodReserve.sell(cDAI.address, amount, 0, 0, NULL_ADDRESS)
+      await goodReserve.sell(amount, 0, NULL_ADDRESS, NULL_ADDRESS)
     ).wait();
 
-    const event = transaction.events.find(_ => _.event === "TokenSold");
+    const event = transaction.events.find((_) => _.event === "TokenSold");
     expect(event.args.contributionAmount).to.equal(0);
   });
   it("GDX should be 2 decimals", async () => {
@@ -197,10 +197,10 @@ describe("GDX Token", () => {
     let transaction = await (
       await goodReserve
         .connect(staker)
-        .sell(cDAI.address, amount, 0, 0, NULL_ADDRESS)
+        .sell(amount, 0, founder.address, NULL_ADDRESS)
     ).wait();
 
-    const event = transaction.events.find(_ => _.event === "TokenSold");
+    const event = transaction.events.find((_) => _.event === "TokenSold");
     const gdxAfter = await goodReserve["balanceOf(address)"](staker.address);
 
     expect(gdxAfter).to.equal(0, "gdx not burned");
@@ -215,18 +215,15 @@ describe("GDX Token", () => {
 
     await goodDollar.approve(goodReserve.address, amount);
     let transaction = await (
-      await goodReserve.sell(cDAI.address, amount, 0, 0, NULL_ADDRESS)
+      await goodReserve.sell(amount, 0, NULL_ADDRESS, NULL_ADDRESS)
     ).wait();
 
-    const event = transaction.events.find(_ => _.event === "TokenSold");
+    const event = transaction.events.find((_) => _.event === "TokenSold");
     const gdxAfter = await goodReserve["balanceOf(address)"](founder.address);
 
     expect(gdxAfter).to.equal(0, "gdx not burned");
     expect(event.args.contributionAmount).to.equal(
-      amount
-        .div(2)
-        .mul(2)
-        .div(10)
+      amount.div(2).mul(2).div(10)
     ); //20% of 5000 (half of amount)
   });
 
@@ -236,7 +233,7 @@ describe("GDX Token", () => {
     let reserve = (await rFactory.deploy()) as GoodReserveCDai;
     const airdropBytes = ethers.utils.defaultAbiCoder.encode(
       ["address[]", "uint256[]"],
-      [signers.map(_ => _.address), signers.map(_ => 1000)]
+      [signers.map((_) => _.address), signers.map((_) => 1000)]
     );
 
     await reserve["initialize(address,bytes32)"](
@@ -267,7 +264,7 @@ describe("GDX Token", () => {
         "0xf0db8914b45ce55ea25be091e1fe4d897db4cff19e1b1680c37061a30a95c102",
         "0xc6e2cbda2531c708550b3856fc208355b184483e19ad6d8877a541c441ad3fef",
         "0x355c34cc000364d5a1cebe4835197936bc5966e3e8ac116a8fa20a8d2714f7c5",
-        "0xd515f7a623c1a18396a6aececcdcae32818b64faa0f536103b3a32e8c5ae7643"
+        "0xd515f7a623c1a18396a6aececcdcae32818b64faa0f536103b3a32e8c5ae7643",
       ]
     );
     expect(
@@ -292,7 +289,7 @@ describe("GDX Token", () => {
         "0xf0db8914b45ce55ea25be091e1fe4d897db4cff19e1b1680c37061a30a95c102",
         "0xc6e2cbda2531c708550b3856fc208355b184483e19ad6d8877a541c441ad3fef",
         "0x355c34cc000364d5a1cebe4835197936bc5966e3e8ac116a8fa20a8d2714f7c5",
-        "0xd515f7a623c1a18396a6aececcdcae32818b64faa0f536103b3a32e8c5ae7643"
+        "0xd515f7a623c1a18396a6aececcdcae32818b64faa0f536103b3a32e8c5ae7643",
       ]
     );
     await expect(tx).to.be.revertedWith("already claimed gdx");

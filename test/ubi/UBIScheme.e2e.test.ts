@@ -4,14 +4,14 @@ import {
   UBIScheme,
   GoodReserveCDai,
   GoodMarketMaker,
-  GoodFundManager
+  GoodFundManager,
 } from "../../types";
 import {
   createDAO,
   deployUBI,
   advanceBlocks,
   increaseTime,
-  deployUniswap
+  deployUniswap,
 } from "../helpers";
 
 const BN = ethers.BigNumber;
@@ -38,7 +38,7 @@ async function proposeAndRegister(
   );
   proposalId = transaction.logs[0].args._proposalId;
   const voteResult = await absoluteVote.vote(proposalId, 1, 0, fnd);
-  return voteResult.logs.some(e => e.event === "ExecuteProposal");
+  return voteResult.logs.some((e) => e.event === "ExecuteProposal");
 }
 
 describe("UBIScheme - network e2e tests", () => {
@@ -73,7 +73,7 @@ describe("UBIScheme - network e2e tests", () => {
     daiEthOracle,
     ethUsdOracle;
 
-  before(async function() {
+  before(async function () {
     [founder, claimer, fisherman, ...signers] = await ethers.getSigners();
 
     schemeMock = signers.pop();
@@ -100,7 +100,7 @@ describe("UBIScheme - network e2e tests", () => {
       cdaiAddress,
       reserve,
       setReserveToken,
-      addWhitelisted
+      addWhitelisted,
     } = deployedDAO;
 
     const uniswap = await deployUniswap();
@@ -127,7 +127,7 @@ describe("UBIScheme - network e2e tests", () => {
     await setDAOAddress("COMP", comp.address);
     simpleStaking = await goodCompoundStakingFactory
       .deploy()
-      .then(async contract => {
+      .then(async (contract) => {
         await contract.init(
           dai.address,
           cDAI.address,
@@ -145,11 +145,11 @@ describe("UBIScheme - network e2e tests", () => {
       goodFundManagerFactory,
       [nameService.address],
       {
-        kind: "uups"
+        kind: "uups",
       }
     )) as GoodFundManager;
     console.log("Deployed goodfund manager", {
-      manager: goodFundManager.address
+      manager: goodFundManager.address,
     });
 
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
@@ -157,7 +157,6 @@ describe("UBIScheme - network e2e tests", () => {
     const ubiScheme = await deployUBI(deployedDAO);
     ubi = ubiScheme.ubiScheme;
     firstClaimPool = ubiScheme.firstClaim;
-
     setDAOAddress("CDAI", cDAI.address);
     setDAOAddress("DAI", dai.address);
     await goodReserve.setAddresses();
@@ -174,7 +173,7 @@ describe("UBIScheme - network e2e tests", () => {
         simpleStaking.address,
         currentBlockNumber - 5,
         currentBlockNumber + 1000,
-        false
+        false,
       ] // set 10 gd per block
     );
 
@@ -193,6 +192,7 @@ describe("UBIScheme - network e2e tests", () => {
     ethUsdOracle = await ethUsdOracleFactory.deploy();
 
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    console.log("staking reward set...");
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
@@ -210,7 +210,7 @@ describe("UBIScheme - network e2e tests", () => {
       ethers.utils.parseUnits("1000", 8)
     );
     await cDAI.approve(goodReserve.address, amount);
-    await goodReserve.buy(cDAI.address, amount, 0, 0, NULL_ADDRESS);
+    await goodReserve.buy(amount, 0, NULL_ADDRESS);
     let gdbalance = await goodDollar.balanceOf(founder.address);
     await goodDollar.transfer(firstClaimPool.address, gdbalance.toString());
     // transfers funds to the ubi
@@ -235,7 +235,7 @@ describe("UBIScheme - network e2e tests", () => {
     let error = await ubi
       .connect(fisherman)
       .fish(claimer.address)
-      .catch(e => e);
+      .catch((e) => e);
     await goodDollar.balanceOf(fisherman.address);
     expect(error.message).to.have.string("is not an inactive user");
   });
@@ -257,7 +257,7 @@ describe("UBIScheme - network e2e tests", () => {
     let error = await ubi
       .connect(fisherman)
       .fish(claimer.address)
-      .catch(e => e);
+      .catch((e) => e);
     expect(error.message).to.have.string("already fished");
   });
 
@@ -288,7 +288,7 @@ describe("UBIScheme - network e2e tests", () => {
       ethers.utils.parseUnits("1000", 8)
     );
     await cDAI.approve(goodReserve.address, amount);
-    await goodReserve.buy(cDAI.address, amount, 0, 0, NULL_ADDRESS);
+    await goodReserve.buy(amount, 0, NULL_ADDRESS);
     let gdbalance = await goodDollar.balanceOf(founder.address);
     await goodDollar.transfer(
       firstClaimPool.address,

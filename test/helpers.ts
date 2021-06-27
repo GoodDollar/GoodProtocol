@@ -245,7 +245,6 @@ export const createDAO = async () => {
     "10000", //0.0001 cDai
     "1000000" //100% rr
   );
-
   const votingMachine = (await upgrades.deployProxy(
     await ethers.getContractFactory("CompoundVotingMachine"),
     [nameService.address, 5760],
@@ -275,7 +274,6 @@ export const createDAO = async () => {
     votingMachine,
   };
 };
-
 export const deployUBI = async (deployedDAO) => {
   let { nameService, setSchemes, genericCall, setDAOAddress } = deployedDAO;
   const fcFactory = new ethers.ContractFactory(

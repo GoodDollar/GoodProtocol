@@ -26,7 +26,7 @@ import DonationsStaking from "@gooddollar/goodcontracts/upgradables/build/contra
 import releaser from "../scripts/releaser";
 import { increaseTime, deployUniswap } from "../test/helpers";
 
-const deploy = async () => {
+export const deploy = async (networkName = network.name) => {
   console.log("dao deploying...");
   //TODO: modify to deploy old DAO contracts version ie Reserve to truly simulate old DAO
   const dao = await createOldDAO();
@@ -77,7 +77,8 @@ const deploy = async () => {
     network: "develop",
     networkId: 4447
   };
-  releaser(release, network.name, "olddao");
+  await releaser(release, networkName, "olddao");
+  return release;
 };
 
 const deploy3rdParty = async dao => {
@@ -244,7 +245,12 @@ export const createOldDAO = async () => {
     MarketMaker.bytecode,
     root
   ).deploy(Avatar.address, 9999999999, 10000000000);
-
+  await marketMaker.initializeToken(
+    cDAI.address,
+    "100", //1gd
+    "10000", //0.0001 cDai
+    "1000000" //100% rr
+  );
   console.log("deploying reserve...");
 
   let goodReserve = await goodReserveF.deploy(
@@ -531,4 +537,4 @@ export const deployOldVoting = async dao => {
   }
 };
 
-deploy().catch(console.log);
+//deploy().catch(console.log);

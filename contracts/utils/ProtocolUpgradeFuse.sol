@@ -36,8 +36,8 @@ contract ProtocolUpgradeFuse {
 		setNameServiceContracts(ns, nameHash, nameAddress);
 
 		upgradeGovernance(
-			oldContracts[2],
-			oldContracts[3],
+			oldContracts[0],
+			oldContracts[1],
 			compoundVotingMachine
 		);
 
@@ -53,13 +53,12 @@ contract ProtocolUpgradeFuse {
 
 		uint256 ubiBalance = gd.balanceOf(oldUBI);
 
-		(bool ok, ) =
-			controller.genericCall(
-				address(firstClaim),
-				abi.encodeWithSignature("setUBIScheme(address)", newUBI),
-				address(avatar),
-				0
-			);
+		(bool ok, ) = controller.genericCall(
+			address(firstClaim),
+			abi.encodeWithSignature("setUBIScheme(address)", newUBI),
+			address(avatar),
+			0
+		);
 		require(ok, "setUBIScheme failed");
 
 		// transfer funds from old scheme here
@@ -117,17 +116,16 @@ contract ProtocolUpgradeFuse {
 		bytes32[] memory names,
 		address[] memory addresses
 	) internal {
-		(bool ok, ) =
-			controller.genericCall(
-				address(ns),
-				abi.encodeWithSignature(
-					"setAddresses(bytes32[],address[])",
-					names,
-					addresses
-				),
-				avatar,
-				0
-			);
+		(bool ok, ) = controller.genericCall(
+			address(ns),
+			abi.encodeWithSignature(
+				"setAddresses(bytes32[],address[])",
+				names,
+				addresses
+			),
+			avatar,
+			0
+		);
 		require(ok, "Calling setNameServiceContracts failed");
 	}
 }

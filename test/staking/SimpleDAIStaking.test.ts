@@ -1106,9 +1106,16 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await goodCompoundStaking
       .connect(staker)
       .withdrawStake(stakingAmount, false);
+    await dai["mint(address,uint256)"](
+      staker.address,
+      ethers.utils.parseEther("1000000")
+    );
+    await dai
+      .connect(staker)
+      .transfer(cDAI.address, ethers.utils.parseEther("1000000")); // We should put extra DAI to mock cDAI contract in order to provide interest
   });
 
-  it("should withdraw interest to owner [ @skip-on-coverage ]", async () => {
+  it("should withdraw interest to owner", async () => {
     const stakingAmount = ethers.utils.parseEther("100");
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
     await dai
@@ -1118,24 +1125,18 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       .connect(staker)
       .stake(stakingAmount, 100, false)
       .catch((e) => e);
-    await dai["mint(address,uint256)"](
-      staker.address,
-      ethers.utils.parseEther("1000000")
-    );
-    await dai
-      .connect(staker)
-      .transfer(cDAI.address, ethers.utils.parseEther("1000000")); // We should put extra DAI to mock cDAI contract in order to provide interest
+
     await cDAI.increasePriceWithMultiplier("1500"); // increase interest by calling exchangeRateCurrent
 
     const gains = await goodCompoundStaking.currentGains(false, true);
     const cdaiGains = gains["0"];
     const fundBalance0 = await cDAI.balanceOf(goodReserve.address);
     const contractAddressesToBeCollected =
-      await goodFundManager.calcSortedContracts("1000000");
+      await goodFundManager.calcSortedContracts("1100000");
     const res = await goodFundManager.collectInterest(
       contractAddressesToBeCollected,
       {
-        gasLimit: 1000000,
+        gasLimit: 1100000,
       }
     );
     const fundBalance1 = await cDAI.balanceOf(goodReserve.address);
@@ -1333,9 +1334,14 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       staker.address
     );
     const stakerDaiBalanceBeforeWithdraw = await dai.balanceOf(staker.address);
+    const exchangeRateStored = await cDAI.exchangeRateStored();
+    const withdrawAmount = stakingAmount
+      .mul(BN.from("10").pow(10))
+      .mul(exchangeRateStored)
+      .div(BN.from("10").pow(28));
     await goodCompoundStaking
       .connect(staker)
-      .withdrawStake("1603010101010101010101", false); // 1603010101010101010101 is equaliavent of 100cDAI in DAI with currentexchange rate
+      .withdrawStake(withdrawAmount, false); // 1603010101010101010101 is equaliavent of 100cDAI in DAI with currentexchange rate
     const stakingContractCdaiBalanceAfterWithdraw = await cDAI.balanceOf(
       goodCompoundStaking.address
     );
@@ -1380,7 +1386,16 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const stakerCdaiBalanceBeforeWithdraw = await cDAI.balanceOf(
       staker.address
     );
-    await goodCompoundStaking.connect(staker).withdrawStake("623826387", true);
+    const exchangeRateStored = await cDAI.exchangeRateStored();
+    const withdrawAmount = stakingAmount
+      .div(BN.from("10").pow(10))
+      .mul(BN.from("10").pow(28))
+      .div(exchangeRateStored);
+    console.log("exchangeratestored %s", exchangeRateStored);
+    console.log("withdrawAmount %s", withdrawAmount);
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(withdrawAmount, true);
     await goodCompoundStaking
       .connect(staker)
       .withdrawStake("000000000036236363637", false); // 000000000036236363637 is precision loss due to itoken decimals < token decimals
