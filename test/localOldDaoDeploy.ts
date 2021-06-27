@@ -6,6 +6,7 @@
  * npx hardhat run scripts/upgradeToV2/upgradeToV2.ts  --network develop
  */
 import { network, ethers, upgrades } from "hardhat";
+import { Contract } from "ethers";
 import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollar.json";
 import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
@@ -26,6 +27,10 @@ import DonationsStaking from "@gooddollar/goodcontracts/upgradables/build/contra
 import releaser from "../scripts/releaser";
 import { increaseTime, deployUniswap } from "../test/helpers";
 
+const printDeploy = async (c: Contract): Contract => {
+  console.log("deployed to: ", c.address);
+  return c;
+};
 export const deploy = async (networkName = network.name) => {
   console.log("dao deploying...");
   //TODO: modify to deploy old DAO contracts version ie Reserve to truly simulate old DAO
@@ -486,11 +491,14 @@ export const deployOldVoting = async dao => {
       (await ethers.getSigners())[0]
     );
 
-    const [absoluteVote, upgradeScheme, schemeRegistrar] = await Promise.all([
-      AbsoluteVoteF.deploy(),
-      UpgradeSchemeF.deploy(),
-      SchemeRegistrarF.deploy()
-    ]);
+    const absoluteVote = await AbsoluteVoteF.deploy();
+    const upgradeScheme = await UpgradeSchemeF.deploy();
+    const schemeRegistrar = await SchemeRegistrarF.deploy();
+    // const [absoluteVote, upgradeScheme, schemeRegistrar] = await Promise.all([
+    //   AbsoluteVoteF.deploy(),
+    //   UpgradeSchemeF.deploy(),
+    //   SchemeRegistrarF.deploy()
+    // ]);
     console.log("setting parameters");
     const voteParametersHash = await absoluteVote.getParametersHash(
       50,
@@ -499,15 +507,23 @@ export const deployOldVoting = async dao => {
 
     console.log("setting params for voting machine and schemes");
 
-    await Promise.all([
-      schemeRegistrar.setParameters(
-        voteParametersHash,
-        voteParametersHash,
-        absoluteVote.address
-      ),
-      absoluteVote.setParameters(50, ethers.constants.AddressZero),
-      upgradeScheme.setParameters(voteParametersHash, absoluteVote.address)
-    ]);
+    await schemeRegistrar.setParameters(
+      voteParametersHash,
+      voteParametersHash,
+      absoluteVote.address
+    );
+    await absoluteVote.setParameters(50, ethers.constants.AddressZero);
+    await upgradeScheme.setParameters(voteParametersHash, absoluteVote.address);
+
+    // await Promise.all([
+    //   schemeRegistrar.setParameters(
+    //     voteParametersHash,
+    //     voteParametersHash,
+    //     absoluteVote.address
+    //   ),
+    //   absoluteVote.setParameters(50, ethers.constants.AddressZero),
+    //   upgradeScheme.setParameters(voteParametersHash, absoluteVote.address)
+    // ]);
     const upgradeParametersHash = await upgradeScheme.getParametersHash(
       voteParametersHash,
       absoluteVote.address
