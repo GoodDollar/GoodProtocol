@@ -28,7 +28,7 @@
     }
   },
   "develop-mainnet": {
-    "gdxAirdrop": "0x0000000000000000000000000000000000000000000000000000000000000002",
+    "gdxAirdrop": "0x87db9fa52d55498bbf1e6005603afe05cb194c13e8ac4907282f4ea2717d0921",
     "governance": {
       "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
       "gdaoTotalSupply": "24000000000000000000000000",
@@ -97,6 +97,7 @@
     "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
   },
   "kovan-mainnet": {
+    "gdxAirdrop": "0x87db9fa52d55498bbf1e6005603afe05cb194c13e8ac4907282f4ea2717d0921",
     "governance": {
       "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
       "gdaoTotalSupply": "24000000000000000000000000",
@@ -104,8 +105,8 @@
     },
     "bancor": "0x8c1255c46B3a04686eA0FfD3B71d7cB391091a58",
     "compound": {
-      "cdai": "0x5d3a536e4d6dbd6114cc1ead35777bab948e3643",
-      "dai": "0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa ",
+      "cdai": "0xf0d0eb522cfa50b716b3b1604c4f0fa6f04376ad",
+      "dai": "0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa",
       "comp": "0x61460874a7196d6a22d1ee4922473664b3e95270",
       "daiUsdOracle": "0xb27bc5473c9c18e9860f520e6a554e23bb675eba",
       "compUsdOracle": "0xECF93D14d25E02bA2C13698eeDca9aA98348EFb6"
