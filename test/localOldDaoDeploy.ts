@@ -27,11 +27,8 @@ import DonationsStaking from "@gooddollar/goodcontracts/upgradables/build/contra
 import releaser from "../scripts/releaser";
 import { increaseTime, deployUniswap } from "../test/helpers";
 
-const printDeploy = async (c: Contract): Contract => {
-  console.log("deployed to: ", c.address);
-  return c;
-};
-export const deploy = async (networkName = network.name) => {
+const { name } = network;
+export const deploy = async (networkName = name) => {
   console.log("dao deploying...");
   //TODO: modify to deploy old DAO contracts version ie Reserve to truly simulate old DAO
   const dao = await createOldDAO();
@@ -552,5 +549,6 @@ export const deployOldVoting = async dao => {
     console.log("deployVote failed", e);
   }
 };
-
-//deploy().catch(console.log);
+if (network.name != "test" && network.name != "test-mainnet") {
+  deploy(name).catch(console.log);
+}
