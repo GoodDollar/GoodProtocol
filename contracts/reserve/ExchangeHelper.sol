@@ -10,6 +10,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 
 	function initialize(INameService _ns) public virtual initializer {
 		setDAO(_ns);
+		setAddresses();
 		_status = 1;
 	}
 

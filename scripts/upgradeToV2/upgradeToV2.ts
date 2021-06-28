@@ -65,10 +65,18 @@ export const main = async (networkName = name) => {
   const compoundTokens = [
     {
       name: "cdai",
-      address: protocolSettings.compound.cdai || dao.cDAI,
-      usdOracle: protocolSettings.compound.daiUsdOracle || dao.DAIUsdOracle,
+      address:
+        (protocolSettings.compound != undefined &&
+          protocolSettings.compound.cdai) ||
+        dao.cDAI,
+      usdOracle:
+        (protocolSettings.compound != undefined &&
+          protocolSettings.compound.daiUsdOracle) ||
+        dao.DAIUsdOracle,
       compUsdOracle:
-        protocolSettings.compound.compUsdOracle || dao.COMPUsdOracle
+        (protocolSettings.compound != undefined &&
+          protocolSettings.compound.compUsdOracle) ||
+        dao.COMPUsdOracle
     }
   ];
 
@@ -188,6 +196,12 @@ export const main = async (networkName = name) => {
           () => get(release, "NameService", newdao.NameService),
           protocolSettings.gdxAirdrop
         ]
+      },
+      {
+        network: "mainnet",
+        name: "ExchangeHelper",
+        initializer: "initialize(address)",
+        args: [() => get(release, "NameService", newdao.NameService)]
       },
       {
         network: "mainnet",
