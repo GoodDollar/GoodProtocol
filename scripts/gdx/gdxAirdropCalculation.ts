@@ -81,8 +81,8 @@ export const airdrop = ethers => {
   const buildMerkleTree = () => {
     const { addresses, isContracts } = JSON.parse(
       fs.readFileSync("buyBalances.json").toString()
+      // fs.readFileSync("test/gdx_airdrop_test.json").toString()
     );
-
     let toTree: Array<[string, number]> = Object.entries(addresses).map(
       ([addr, gdx]) => {
         return [addr, gdx as number];
@@ -128,8 +128,8 @@ export const airdrop = ethers => {
     const merkleRoot = merkleTree.getRoot().toString("hex");
     // generate merkle proof
     // returns array of 32 byte buffers
-    const proof = merkleTree.getProof(elements[10]).map(_ => _.toString("hex"));
-    console.log({ merkleRoot, proof, sampleProofFor: toTree[10] });
+    const proof = merkleTree.getProof(elements[0]).map(_ => _.toString("hex"));
+    console.log({ merkleRoot, proof, sampleProofFor: toTree[0] });
     fs.writeFileSync(
       "gdxairdrop.json",
       JSON.stringify({ treeData, merkleRoot })

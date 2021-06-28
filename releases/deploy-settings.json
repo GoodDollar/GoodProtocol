@@ -128,7 +128,7 @@
       "cdai": "0xf0d0eb522cfa50b716b3b1604c4f0fa6f04376ad",
       "dai": "0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa",
       "comp": "0x61460874a7196d6a22d1ee4922473664b3e95270",
-      "daiUsdOracle": "0xb27bc5473c9c18e9860f520e6a554e23bb675eba",
+      "daiUsdOracle": "0x777A68032a88E5A84678A77Af2CD65A7b3c0775a",
       "compUsdOracle": "0xECF93D14d25E02bA2C13698eeDca9aA98348EFb6"
     },
     "aave": {
@@ -136,7 +136,7 @@
       "lendingPool": "0xE0fBa4Fc209b4948668006B2bE61711b7f465bAe",
       "incentiveController": "0x54502350fb61b7752fFFA36690ecA43c6562fd5C",
       "usdc": "0xe22da380ee6B445bb8273C81944ADEB6E8450422",
-      "usdcUsdOracle": "0xd9f98271d60345737fd3fb7cd015aa0474dfd458",
+      "usdcUsdOracle": "0x9211c6b3BF41A10F78539810Cf5c64e1BB78Ec60",
       "aaveUsdOracle": "0xDE1af8A8442290e13C0451fb7Fd60bD2725e6Afc"
     },
     "chainlink": {

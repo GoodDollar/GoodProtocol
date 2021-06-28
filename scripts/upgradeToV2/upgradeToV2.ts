@@ -10,7 +10,7 @@
 import { network, ethers, upgrades } from "hardhat";
 import { networkNames } from "@openzeppelin/upgrades-core";
 import { isFunction, get } from "lodash";
-import { CompoundStakingFactory } from "../../types";
+import { AaveStakingFactory, CompoundStakingFactory } from "../../types";
 import releaser from "../releaser";
 import {
   GReputation,
@@ -65,10 +65,10 @@ export const main = async (networkName = name) => {
   const compoundTokens = [
     {
       name: "cdai",
-      address: dao.cDAI || protocolSettings.compound.cdai,
-      usdOracle: dao.DAIUsdOracle || protocolSettings.compound.daiUsdOracle,
+      address: protocolSettings.compound.cdai || dao.cDAI,
+      usdOracle: protocolSettings.compound.daiUsdOracle || dao.DAIUsdOracle,
       compUsdOracle:
-        dao.COMPUsdOracle || protocolSettings.compound.compUsdOracle
+        protocolSettings.compound.compUsdOracle || dao.COMPUsdOracle
     }
   ];
 
@@ -127,7 +127,6 @@ export const main = async (networkName = name) => {
             get(protocolSettings, "compound.dai", dao.DAI),
             get(protocolSettings, "compound.cdai", dao.cDAI),
             get(protocolSettings, "compound.comp", dao.COMP),
-
             dao.Bridge,
             protocolSettings.uniswapRouter || dao.UniswapRouter,
             !isMainnet || protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
@@ -225,7 +224,8 @@ export const main = async (networkName = name) => {
         network: "mainnet",
         name: "ProtocolUpgrade",
         args: [dao.Controller],
-        isUpgradable: false
+        isUpgradable: false,
+        initializer: null
       },
       {
         network: "fuse",
@@ -246,7 +246,6 @@ export const main = async (networkName = name) => {
         isUpgradable: false
       }
     ];
-    ethers.constants;
 
     for (let contract of toDeployUpgradable) {
       if (
@@ -354,6 +353,7 @@ export const main = async (networkName = name) => {
   };
 
   const performUpgrade = async release => {
+    const isKovan = networkName.includes("kovan");
     const upgrade: ProtocolUpgrade = (await ethers.getContractAt(
       "ProtocolUpgrade",
       release.ProtocolUpgrade
@@ -364,7 +364,8 @@ export const main = async (networkName = name) => {
       dao
     });
     console.log("upgrading nameservice + staking rewards...");
-    let tx = await upgrade.upgradeBasic(
+    let tx;
+    tx = await upgrade.upgradeBasic(
       release.NameService,
       [
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("RESERVE")),
@@ -382,14 +383,16 @@ export const main = async (networkName = name) => {
         release.GReputation,
         release.StakersDistribution,
         dao.Bridge,
-        newfusedao.UBIScheme
+        isKovan ? root.address : newfusedao.UBIScheme //fake for kovan
       ],
       release.StakingContracts.map((_: any) => _[0]),
       release.StakingContracts.map((_: any) => _[1])
     );
     await countTotalGas(tx);
 
-    console.log("upgrading reserve...");
+    console.log("upgrading reserve...", {
+      params: [release.NameService, dao.Reserve, dao.MarketMaker, dao.COMP]
+    });
     tx = await upgrade.upgradeReserve(
       release.NameService,
       dao.Reserve,
@@ -397,7 +400,13 @@ export const main = async (networkName = name) => {
       dao.COMP
     );
     await countTotalGas(tx);
-    console.log("upgrading donationstaking...");
+    console.log("upgrading donationstaking...", {
+      params: [
+        release.NameService,
+        dao.DonationsStaking, //old
+        release.DonationsStaking
+      ]
+    });
     tx = await upgrade.upgradeDonationStaking(
       release.NameService,
       dao.DonationsStaking, //old
@@ -531,7 +540,15 @@ export const main = async (networkName = name) => {
       console.log("deployStakingContracts", {
         token,
         settings: protocolSettings.staking,
-        rewardsPerBlock
+        rewardsPerBlock,
+        factory: compfactory.address,
+        params: [
+          token.address,
+          release.NameService,
+          protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
+          token.usdOracle,
+          token.compUsdOracle
+        ]
       });
       const tx = await (
         await compfactory.cloneAndInit(
@@ -549,10 +566,14 @@ export const main = async (networkName = name) => {
       return [log.args.proxy, rewardsPerBlock];
     });
 
+    await Promise.all(compps);
+    // const compps = [
+    //   Promise.resolve(["0x9999c40c8b88c740076b15d2e708db6a7a071b53", 13888])
+    // ];
+
     const aaveps = aaveTokens.map(async token => {
-      let rewardsPerBlock = (
-        protocolSettings.staking.rewardsPerBlock / 2
-      ).toFixed(0);
+      let rewardsPerBlock = (protocolSettings.staking.rewardsPerBlock / 2) //aave gets half of the rewards
+        .toFixed(0);
       console.log("deployStakingContracts", {
         token,
         settings: protocolSettings.staking,
@@ -575,15 +596,19 @@ export const main = async (networkName = name) => {
         )
       ).wait();
       await countTotalGas(tx);
-
       const log = tx.events.find(_ => _.event === "Deployed");
       if (!log.args.proxy)
         throw new Error(`staking contract deploy failed ${token}`);
       return [log.args.proxy, rewardsPerBlock];
     });
 
+    // const aaveps = [
+    //   Promise.resolve(["0x8f0c4f59b4c593193e5b5e0224d848ac803ad1a2", 13888 / 2])
+    // ];
+    await Promise.all(aaveps);
     const deployed = await Promise.all(compps.concat(aaveps));
 
+    console.log("deploying donation staking");
     const deployedDonationsStaking = await upgrades.deployProxy(
       await ethers.getContractFactory("DonationsStaking"),
       [release.NameService, deployed[0][0]],
@@ -601,6 +626,11 @@ export const main = async (networkName = name) => {
       DonationsStaking: deployedDonationsStaking.address,
       StakingContracts: deployed
     };
+
+    // return {
+    //   DonationsStaking: release["DonationsStaking"],
+    //   StakingContracts: deployed
+    // };
   };
 
   const release: any = await deployContracts();

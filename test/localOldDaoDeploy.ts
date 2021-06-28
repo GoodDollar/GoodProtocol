@@ -26,12 +26,17 @@ import DonationsStaking from "@gooddollar/goodcontracts/upgradables/build/contra
 
 import releaser from "../scripts/releaser";
 import { increaseTime, deployUniswap } from "../test/helpers";
+import ProtocolSettings from "../releases/deploy-settings.json";
 
 const { name } = network;
+const printDeploy = (c: Contract): Contract => {
+  console.log("deployed to: ", c.address);
+  return c;
+};
 export const deploy = async (networkName = name) => {
   console.log("dao deploying...");
   //TODO: modify to deploy old DAO contracts version ie Reserve to truly simulate old DAO
-  const dao = await createOldDAO();
+  const dao = await createOldDAO(null, null, null);
   console.log("dao deployed");
   const ubi = await deployUBI(dao);
   console.log("ubi deployed");
@@ -137,18 +142,70 @@ const deploy3rdParty = async dao => {
     incentiveController
   };
 };
-export const createOldDAO = async () => {
-  let [root, ...signers] = await ethers.getSigners();
 
+export const deployKovanOldDAO = async () => {
+  let { dai, cdai, comp } = ProtocolSettings[network.name].compound || {};
+  console.log("dao deploying...");
+  const dao = await createOldDAO(dai, cdai, comp);
+  console.log("dao deployed");
+
+  const gov = await deployOldVoting(dao);
+  console.log("old vote deployed");
+
+  const release = {
+    Reserve: dao.reserve.address,
+    GoodDollar: dao.gd,
+    Identity: dao.identity,
+    Avatar: dao.avatar,
+    Controller: dao.controller,
+    AbsoluteVote: gov.absoluteVote.address,
+    SchemeRegistrar: gov.schemeRegistrar.address,
+    UpgradeScheme: gov.upgradeScheme.address,
+    DAI: dao.daiAddress,
+    cDAI: dao.cdaiAddress,
+    COMP: dao.COMP,
+    Contribution: dao.contribution,
+    DAIStaking: dao.simpleStaking,
+    MarketMaker: dao.marketMaker.address,
+    Bridge: dao.bridge,
+    BancorFormula: dao.bancorFormula,
+    DonationsStaking: dao.donationsStaking,
+    network: "kovan-mainnet",
+    networkId: 42
+  };
+  releaser(release, network.name, "olddao");
+};
+export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
+  let [root, ...signers] = await ethers.getSigners();
+  //generic call permissions
+  let schemeMock = signers[signers.length - 1];
+
+  console.log("got signers:", {
+    daiAddr,
+    cdaiAddr,
+    COMPAddr,
+    root: root.address,
+    schemeMock: schemeMock.address,
+    balance: await ethers.provider
+      .getBalance(root.address)
+      .then(_ => _.toString())
+  });
   const cdaiFactory = await ethers.getContractFactory("cDAIMock");
   const daiFactory = await ethers.getContractFactory("DAIMock");
 
-  let dai = await daiFactory.deploy();
+  let dai = daiAddr
+    ? await ethers.getContractAt("DAIMock", daiAddr)
+    : await daiFactory.deploy();
 
-  let COMP = await daiFactory.deploy();
+  let COMP = COMPAddr
+    ? await ethers.getContractAt("DAIMock", COMPAddr)
+    : await daiFactory.deploy();
 
-  let cDAI = await cdaiFactory.deploy(dai.address);
+  let cDAI = cdaiAddr
+    ? await ethers.getContractAt("DAIMock", cdaiAddr)
+    : await cdaiFactory.deploy(dai.address);
 
+  console.log("deployed erc20 tokens");
   const DAOCreatorFactory = new ethers.ContractFactory(
     DAOCreatorABI.abi,
     DAOCreatorABI.bytecode,
@@ -181,12 +238,42 @@ export const createOldDAO = async () => {
     await ethers.getContractFactory("BancorFormula")
   ).deploy();
 
-  const Bridge = await BridgeFactory.deploy();
+  // const BancorFormula = await ethers.getContractAt(
+  //   "BancorFormula",
+  //   "0x56ca74cd7b31609a8ba666308f089e0d5e2d0584"
+  // );
 
-  const AddFounders = await AddFoundersFactory.deploy();
-  const Identity = await IdentityFactory.deploy();
-  const daoCreator = await DAOCreatorFactory.deploy(AddFounders.address);
-  const FeeFormula = await FeeFormulaFactory.deploy(0);
+  const Bridge = await BridgeFactory.deploy().then(printDeploy);
+  // const Bridge = await ethers.getContractAt(
+  //   BridgeMock.abi,
+  //   "0x8122241517e81b64F0fe56D6311981dF67965D87"
+  // );
+
+  const AddFounders = await AddFoundersFactory.deploy().then(printDeploy);
+  // const AddFounders = await ethers.getContractAt(
+  //   AddFoundersABI.abi,
+  //   "0x6F1BAbfF5E119d61F0c6d8653d84E8B284B87091"
+  // );
+
+  const Identity = await IdentityFactory.deploy().then(printDeploy);
+  // const Identity = await ethers.getContractAt(
+  //   IdentityABI.abi,
+  //   "0x77Bd4D825F4df162BDdda73a7E295c27e09E289f"
+  // );
+
+  const daoCreator = await DAOCreatorFactory.deploy(AddFounders.address).then(
+    printDeploy
+  );
+  // const daoCreator = await ethers.getContractAt(
+  //   DAOCreatorABI.abi,
+  //   "0xfD1eFFDed0EE8739dF61B580F24bCd6585d0c6B4"
+  // );
+
+  const FeeFormula = await FeeFormulaFactory.deploy(0).then(printDeploy);
+  // const FeeFormula = await ethers.getContractAt(
+  //   FeeFormulaABI.abi,
+  //   "0x85b146AAa910aF4ab1D64cD81ab6f804aDf3053c"
+  // );
 
   await Identity.setAuthenticationPeriod(365);
   await daoCreator.forgeOrg(
@@ -218,7 +305,13 @@ export const createOldDAO = async () => {
     root
   );
 
-  const contribution = await ccFactory.deploy(Avatar.address, 0, 1e15);
+  const contribution = await ccFactory
+    .deploy(Avatar.address, 0, 1e15)
+    .then(printDeploy);
+  // const contribution = await ethers.getContractAt(
+  //   ContributionCalculation.abi,
+  //   "0xc3171409dB6827A68294B3A0D40a31310E83eD6B"
+  // );
 
   let goodReserveF = new ethers.ContractFactory(
     GoodReserveCDai.abi,
@@ -231,22 +324,30 @@ export const createOldDAO = async () => {
     FundManager.abi,
     FundManager.bytecode,
     root
-  ).deploy(
-    Avatar.address,
-    Identity.address,
-    cDAI.address,
-    ethers.constants.AddressZero,
-    ethers.constants.AddressZero,
-    100
-  );
-
+  )
+    .deploy(
+      Avatar.address,
+      Identity.address,
+      cDAI.address,
+      ethers.constants.AddressZero,
+      ethers.constants.AddressZero,
+      100
+    )
+    .then(printDeploy);
+  // const fundManager = await ethers.getContractAt(
+  //   FundManager.abi,
+  //   "0x3D09770f01a3EdD0D910eC12d191Ac87C187aaD0"
+  // );
   console.log("deploying marketmaker...");
 
   let marketMaker = await new ethers.ContractFactory(
     MarketMaker.abi,
     MarketMaker.bytecode,
     root
-  ).deploy(Avatar.address, 9999999999, 10000000000);
+  )
+    .deploy(Avatar.address, 9999999999, 10000000000)
+    .then(printDeploy);
+
   await marketMaker.initializeToken(
     cDAI.address,
     "100", //1gd
@@ -255,16 +356,22 @@ export const createOldDAO = async () => {
   );
   console.log("deploying reserve...");
 
-  let goodReserve = await goodReserveF.deploy(
-    dai.address,
-    cDAI.address,
-    fundManager.address,
-    Avatar.address,
-    Identity.address,
-    marketMaker.address,
-    contribution.address,
-    100
-  );
+  let goodReserve = await goodReserveF
+    .deploy(
+      dai.address,
+      cDAI.address,
+      fundManager.address,
+      Avatar.address,
+      Identity.address,
+      marketMaker.address,
+      contribution.address,
+      100
+    )
+    .then(printDeploy);
+  // const goodReserve = await ethers.getContractAt(
+  //   GoodReserveCDai.abi,
+  //   "0xA4F5687F95943F7D339829A165c9EA3962a8538b"
+  // );
 
   await marketMaker.transferOwnership(goodReserve.address);
 
@@ -281,37 +388,50 @@ export const createOldDAO = async () => {
     100,
     Avatar.address,
     Identity.address
-  );
-
+  ).then(printDeploy);
+  // const simpleStaking = await ethers.getContractAt(
+  //   SimpleDAIStaking.abi,
+  //   "0x6E20B9fadeA7432c0565aEbdA1aD28D7f082eAF2"
+  // );
   const DonationsStakingF = new ethers.ContractFactory(
     DonationsStaking.abi,
     DonationsStaking.bytecode,
     root
   );
-  const donationsStaking = await DonationsStakingF.deploy();
+
+  console.log("deploy donationstaking");
+  const donationsStaking = await DonationsStakingF.deploy().then(printDeploy);
+  // const donationsStaking = await ethers.getContractAt(
+  //   DonationsStaking.abi,
+  //   "0x912C6056BC5818E7Bc681e34dEfBBd2bC32080AB"
+  // );
+
   await donationsStaking.initialize(
     Avatar.address,
     simpleStaking.address,
     dai.address
   );
   //fake donation staking for testing upgrade
-  await dai["mint(uint256)"](ethers.constants.WeiPerEther);
-  await dai.transfer(donationsStaking.address, ethers.constants.WeiPerEther);
-  await donationsStaking.stakeDonations(0);
-  root.sendTransaction({
-    to: donationsStaking.address,
-    value: ethers.constants.WeiPerEther
-  });
-  console.log("rergular deploy");
-  // const donationsStaking = await upgrades.deployProxy(DonationsStakingF, [
-  //   Avatar.address,
-  //   simpleStaking.address,
-  //   dai.address
-  // ]);
+  console.log("fake donations...");
+  await dai["mint(uint256)"](ethers.constants.WeiPerEther).catch(e =>
+    console.log("failed minting fake dai")
+  );
+  await dai
+    .transfer(donationsStaking.address, ethers.constants.WeiPerEther)
+    .catch(e => console.log("failed fake dai transfer"));
+  await donationsStaking
+    .stakeDonations(0)
+    .catch(e => console.log("failed staking fake dai"));
+  await root
+    .sendTransaction({
+      to: donationsStaking.address,
+      value: ethers.constants.WeiPerEther.div(1000)
+    })
+    .catch(e => console.log("failed transfering eth to donations"));
+
+  console.log("done donations...");
 
   console.log("Done deploying DAO, setting schemes permissions");
-  //generic call permissions
-  let schemeMock = signers[signers.length - 1];
 
   const ictrl = await ethers.getContractAt(
     "Controller",
@@ -348,6 +468,7 @@ export const createOldDAO = async () => {
     return Identity.addWhitelistedWithDID(addr, did);
   };
 
+  console.log("setting schemes");
   await daoCreator.setSchemes(
     Avatar.address,
     [
@@ -374,15 +495,18 @@ export const createOldDAO = async () => {
     await ethers.getContractAt("IGoodDollar", gd)
   ).interface.encodeFunctionData("addMinter", [goodReserve.address]);
 
+  console.log("adding minter");
   await ictrl.genericCall(gd, encoded, Avatar.address, 0);
 
-  await setReserveToken(
-    cDAI.address,
-    "100", //1gd
-    "10000", //0.0001 cDai
-    "1000000" //100% rr
-  );
+  console.log("setting reserve token");
+  // await setReserveToken(
+  //   cDAI.address,
+  //   "100", //1gd
+  //   "10000", //0.0001 cDai
+  //   "1000000" //100% rr
+  // );
 
+  console.log("starting...");
   await goodReserve.start();
   await fundManager.start();
   await simpleStaking.start();
@@ -488,9 +612,11 @@ export const deployOldVoting = async dao => {
       (await ethers.getSigners())[0]
     );
 
-    const absoluteVote = await AbsoluteVoteF.deploy();
-    const upgradeScheme = await UpgradeSchemeF.deploy();
-    const schemeRegistrar = await SchemeRegistrarF.deploy();
+    console.log("dpeloying voting schemes");
+    const absoluteVote = await AbsoluteVoteF.deploy().then(printDeploy);
+    const upgradeScheme = await UpgradeSchemeF.deploy().then(printDeploy);
+    const schemeRegistrar = await SchemeRegistrarF.deploy().then(printDeploy);
+
     // const [absoluteVote, upgradeScheme, schemeRegistrar] = await Promise.all([
     //   AbsoluteVoteF.deploy(),
     //   UpgradeSchemeF.deploy(),
@@ -503,7 +629,6 @@ export const deployOldVoting = async dao => {
     );
 
     console.log("setting params for voting machine and schemes");
-
     await schemeRegistrar.setParameters(
       voteParametersHash,
       voteParametersHash,
@@ -512,15 +637,6 @@ export const deployOldVoting = async dao => {
     await absoluteVote.setParameters(50, ethers.constants.AddressZero);
     await upgradeScheme.setParameters(voteParametersHash, absoluteVote.address);
 
-    // await Promise.all([
-    //   schemeRegistrar.setParameters(
-    //     voteParametersHash,
-    //     voteParametersHash,
-    //     absoluteVote.address
-    //   ),
-    //   absoluteVote.setParameters(50, ethers.constants.AddressZero),
-    //   upgradeScheme.setParameters(voteParametersHash, absoluteVote.address)
-    // ]);
     const upgradeParametersHash = await upgradeScheme.getParametersHash(
       voteParametersHash,
       absoluteVote.address
@@ -537,6 +653,7 @@ export const deployOldVoting = async dao => {
     let paramsArray;
 
     // Subscribe schemes
+    console.log("setting voting schemes");
     schemesArray = [schemeRegistrar.address, upgradeScheme.address];
     paramsArray = [schemeRegisterParams, upgradeParametersHash];
     await dao.setSchemes(schemesArray, paramsArray);
@@ -550,5 +667,7 @@ export const deployOldVoting = async dao => {
   }
 };
 if (network.name != "test" && network.name != "test-mainnet") {
-  deploy(name).catch(console.log);
+  if (network.name.includes("kovan")) {
+    deployKovanOldDAO().catch(console.log);
+  } else deploy(name).catch(console.log);
 }
