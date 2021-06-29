@@ -202,7 +202,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 				ERC20(_sellPath[0]).transfer(receiver, result) == true,
 				"Transfer failed"
 			);
-		} else{
+		} else if(_sellPath[0] != cDaiAddress){
 			result = _redeemDAI(result);
 			require(_sellPath[0] == daiAddress, "Input token for uniswap must be DAI");
 			uint256[] memory swap = _uniswapSwap(
