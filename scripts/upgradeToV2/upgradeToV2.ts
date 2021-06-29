@@ -388,7 +388,8 @@ export const main = async (networkName = name) => {
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKERS")),
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBI_RECIPIENT"))
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBI_RECIPIENT")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("EXCHANGE_HELPER"))
       ],
       [
         release.GoodReserveCDai,
@@ -397,7 +398,8 @@ export const main = async (networkName = name) => {
         release.GReputation,
         release.StakersDistribution,
         dao.Bridge,
-        isKovan ? root.address : newfusedao.UBIScheme //fake for kovan
+        isKovan ? root.address : newfusedao.UBIScheme, //fake for kovan
+        release.ExchangeHelper
       ],
       release.StakingContracts.map((_: any) => _[0]),
       release.StakingContracts.map((_: any) => _[1])
