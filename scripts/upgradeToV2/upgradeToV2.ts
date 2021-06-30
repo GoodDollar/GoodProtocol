@@ -47,8 +47,12 @@ export const main = async (networkName = name) => {
   };
   console.log(`networkName ${networkName}`);
   const dao = OldDAO[networkName];
-  const ProtocolAddresses = await require("../../releases/deployment.json");
-  const newfusedao = ProtocolAddresses[networkName.replace(/\-mainnet/, "")];
+  const fse = require("fs-extra");
+  const ProtocolAddresses = await fse.readJson("releases/deployment.json");
+  console.log(ProtocolAddresses);
+  const newfusedao = await ProtocolAddresses[
+    networkName.replace(/\-mainnet/, "")
+  ];
   console.log(`newfusedao ${newfusedao}`);
   const newdao = ProtocolAddresses[networkName] || {};
 
@@ -65,10 +69,18 @@ export const main = async (networkName = name) => {
   const compoundTokens = [
     {
       name: "cdai",
-      address: protocolSettings.compound.cdai || dao.cDAI,
-      usdOracle: protocolSettings.compound.daiUsdOracle || dao.DAIUsdOracle,
+      address:
+        (protocolSettings.compound != undefined &&
+          protocolSettings.compound.cdai) ||
+        dao.cDAI,
+      usdOracle:
+        (protocolSettings.compound != undefined &&
+          protocolSettings.compound.daiUsdOracle) ||
+        dao.DAIUsdOracle,
       compUsdOracle:
-        protocolSettings.compound.compUsdOracle || dao.COMPUsdOracle
+        (protocolSettings.compound != undefined &&
+          protocolSettings.compound.compUsdOracle) ||
+        dao.COMPUsdOracle
     }
   ];
 
@@ -643,6 +655,6 @@ export const main = async (networkName = name) => {
   await releaser(release, networkName);
   // await proveNewRep();
 };
-if (network.name != "test" && network.name != "test-mainnet") {
+if (process.env.TEST != "true") {
   main(name).catch(console.log);
 }

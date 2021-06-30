@@ -88,9 +88,6 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       UpgradeScheme: upgradeSchemeAddressFuse
     } = await deploy("test"); //deploy sidechain old dao localally
 
-    const {
-      main: performUpgrade
-    } = require("../../scripts/upgradeToV2/upgradeToV2");
     oldMarketMaker = oldMm;
     oldDonationsStaking = oldDonations;
     cDAI = await ethers.getContractAt("cDAIMock", cDAIAddress);
@@ -143,6 +140,9 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       upgradeSchemeAddressFuse,
       fuseAvatar
     );
+    const {
+      main: performUpgrade
+    } = require("../../scripts/upgradeToV2/upgradeToV2");
     await performUpgrade("test");
     await performUpgrade("test-mainnet");
     gdBalanceOfOldUBISchemeAfterUpgrade = await fuseGoodDollar.balanceOf(
@@ -255,7 +255,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
   });
   it("it should set nameservice variables properly", async () => {
     const deployment = require("../../releases/deployment.json");
-    const oldDao = require("../../releases/oldDao.json");
+    const oldDao = require("../../releases/olddao.json");
     const nameServiceContract = await ethers.getContractAt(
       "NameService",
       deployment["test-mainnet"].NameService
@@ -313,7 +313,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
   });
   it("it should set fuse nameservice variables properly", async () => {
     const deployment = require("../../releases/deployment.json");
-    const oldDao = require("../../releases/oldDao.json");
+    const oldDao = require("../../releases/olddao.json");
     const nameServiceContract = await ethers.getContractAt(
       "NameService",
       deployment["test"].NameService

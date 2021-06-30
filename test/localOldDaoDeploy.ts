@@ -29,6 +29,7 @@ import { increaseTime, deployUniswap } from "../test/helpers";
 import ProtocolSettings from "../releases/deploy-settings.json";
 
 const { name } = network;
+
 const printDeploy = (c: Contract): Contract => {
   console.log("deployed to: ", c.address);
   return c;
@@ -666,7 +667,7 @@ export const deployOldVoting = async dao => {
     console.log("deployVote failed", e);
   }
 };
-if (network.name != "test" && network.name != "test-mainnet") {
+if (process.env.TEST != "true") {
   if (network.name.includes("kovan")) {
     deployKovanOldDAO().catch(console.log);
   } else deploy(name).catch(console.log);
