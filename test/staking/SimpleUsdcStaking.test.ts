@@ -638,7 +638,7 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
     await genericCall(simpleStaking.address, encodedData);
 
     encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
-      "setcollectInterestGasCost",
+      "setcollectInterestGasCostParams",
       ["250000", "150000"]
     );
     await genericCall(simpleStaking1.address, encodedData);

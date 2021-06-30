@@ -1116,10 +1116,10 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       true
     );
     const contractsToBeCollected = await goodFundManager.calcSortedContracts(
-      "960000"
+      "1100000"
     );
     await goodFundManager.collectInterest(contractsToBeCollected, {
-      gasLimit: 960000
+      gasLimit: 1100000
     });
     const simpleStakingCurrentInterest = await simpleStaking.currentGains(
       false,
