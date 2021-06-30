@@ -127,9 +127,9 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		}
 
 		uint256 result;
-		if (_buyPath.length == 1 && _buyPath[0] == cDaiAddress) {
+		if (_buyPath[0] == cDaiAddress) {
 			result = reserve.buy(_tokenAmount, _minReturn, receiver);
-		} else if (_buyPath.length == 1 && _buyPath[0] == daiAddress) {
+		} else if (_buyPath[0] == daiAddress) {
 			result = _cdaiMintAndBuy(_tokenAmount, _minReturn, receiver);
 		} else {
 			require(_buyPath[_buyPath.length - 1] == daiAddress , "Target token in the path must be DAI");
