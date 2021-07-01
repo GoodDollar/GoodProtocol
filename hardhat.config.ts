@@ -7,13 +7,14 @@ import "@nomiclabs/hardhat-waffle";
 import "@nomiclabs/hardhat-etherscan";
 import "@openzeppelin/hardhat-upgrades";
 import "solidity-coverage";
+import "hardhat-gas-reporter";
+import "hardhat-contract-sizer";
 import { task, types } from "hardhat/config";
 import { sha3 } from "web3-utils";
 import { config } from "dotenv";
 import { airdrop } from "./scripts/governance/airdropCalculation";
 import { airdrop as gdxAirdrop } from "./scripts/gdx/gdxAirdropCalculation";
-import "hardhat-gas-reporter";
-import "hardhat-contract-sizer";
+import { verify } from "./scripts/verify";
 config();
 
 const mnemonic = process.env.MNEMONIC;
@@ -22,7 +23,7 @@ const alchemy_key = process.env.ALCHEMY_KEY;
 const etherscan_key = process.env.ETHERSCAN_KEY;
 const ethplorer_key = process.env.ETHPLORER_KEY;
 
-console.log({ mnemonic: sha3(mnemonic) });
+// console.log({ mnemonic: sha3(mnemonic) });
 const hhconfig: HardhatUserConfig = {
   solidity: {
     version: "0.8.3",
@@ -143,4 +144,9 @@ task("gdxAirdrop", "Calculates airdrop data")
     }
   });
 
+task("verifyjson", "verify contracts on etherscan").setAction(
+  async (taskArgs, hre) => {
+    return verify(hre);
+  }
+);
 export default hhconfig;
