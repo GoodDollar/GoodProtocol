@@ -341,4 +341,29 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       deployment["test"].ClaimersDistribution
     );
   });
+  it("it should be able to buy GD with exchangeHelper", async () => {
+    const deployment = require("../../releases/deployment.json");
+    const exchangeHelper = await ethers.getContractAt(
+      "ExchangeHelper",
+      deployment["test-mainnet"].ExchangeHelper
+    );
+    await cDAI["mint(address,uint256)"](
+      founder.address,
+      ethers.utils.parseUnits("1000", 8)
+    );
+    await cDAI.approve(
+      exchangeHelper.address,
+      ethers.utils.parseUnits("1000", 8)
+    );
+    const gdBalanceBeforeBuy = await goodDollar.balanceOf(founder.address);
+    await exchangeHelper.buy(
+      cDAI.address,
+      ethers.utils.parseUnits("1000", 8),
+      0,
+      0,
+      ethers.constants.AddressZero
+    );
+    const gdBalanceAfterBuy = await goodDollar.balanceOf(founder.address);
+    expect(gdBalanceAfterBuy).to.be.gt(gdBalanceBeforeBuy);
+  });
 });

@@ -87,9 +87,9 @@ export const main = async (networkName = name) => {
   const aaveTokens = [
     {
       name: "usdc",
-      address: dao.USDC || protocolSettings.aave.usdc,
-      usdOracle: dao.USDCUsdOracle || protocolSettings.aave.usdcUsdOracle,
-      aaveUsdOracle: dao.AAVEUsdOracle || protocolSettings.aave.aaveUsdOracle
+      address: protocolSettings.aave.usdc || dao.USDC,
+      usdOracle: protocolSettings.aave.usdcUsdOracle || dao.USDCUsdOracle,
+      aaveUsdOracle: protocolSettings.aave.aaveUsdOracle || dao.AAVEUsdOracle
     }
   ];
 
@@ -200,6 +200,12 @@ export const main = async (networkName = name) => {
           () => get(release, "NameService", newdao.NameService),
           protocolSettings.gdxAirdrop
         ]
+      },
+      {
+        network: "mainnet",
+        name: "ExchangeHelper",
+        initializer: "initialize(address)",
+        args: [() => get(release, "NameService", newdao.NameService)]
       },
       {
         network: "mainnet",
@@ -386,7 +392,8 @@ export const main = async (networkName = name) => {
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKERS")),
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBI_RECIPIENT"))
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBI_RECIPIENT")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("EXCHANGE_HELPER"))
       ],
       [
         release.GoodReserveCDai,
@@ -395,7 +402,8 @@ export const main = async (networkName = name) => {
         release.GReputation,
         release.StakersDistribution,
         dao.Bridge,
-        isKovan ? root.address : newfusedao.UBIScheme //fake for kovan
+        isKovan ? root.address : newfusedao.UBIScheme, //fake for kovan
+        release.ExchangeHelper
       ],
       release.StakingContracts.map((_: any) => _[0]),
       release.StakingContracts.map((_: any) => _[1])
