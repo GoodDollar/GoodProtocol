@@ -58,6 +58,8 @@ describe("ClaimersDistribution", () => {
     setDAOAddress("GDAO_CLAIMERS", cd.address);
     addWhitelisted(claimer1.address, "claimer1");
     await addWhitelisted(claimer2.address, "claimer2");
+    await addWhitelisted(claimer3.address, "claimer3");
+
     await increaseTime(60 * 60 * 24);
   });
 
@@ -166,27 +168,38 @@ describe("ClaimersDistribution", () => {
     await expect(ubiScheme.connect(claimer1).claim()).to.not.reverted;
   });
 
-  it("should not be able to claim reputation if already distributed", async () => {
-    await expect(cd.claimReputation(claimer1.address)).to.revertedWith(
-      "already claimed"
-    );
-    await expect(cd.claimReputation(claimer2.address)).to.revertedWith(
-      "already claimed"
-    );
+  it("should not be able to double claim reputation if already distributed", async () => {
+    const rep = (await ethers.getContractAt(
+      "GReputation",
+      reputation
+    )) as GReputation;
+    const startrep = await rep.balanceOf(claimer1.address);
+    await expect(cd.claimReputation(claimer1.address)).to.not.reverted;
+    const endrep = await rep.balanceOf(claimer1.address);
+    expect(startrep).to.equal(endrep);
   });
 
   it("should be able to claim reputation if never claimed but get 0 reputation", async () => {
     await cd.claimReputation(claimer3.address);
 
     const curmonth = await cd.currentMonth();
-    expect(await cd.lastMonthClaimed(claimer3.address)).to.equal(
-      curmonth.sub(1)
-    );
+    expect(await cd.lastMonthClaimed(claimer3.address)).to.equal(0);
 
     const rep = (await ethers.getContractAt(
       "GReputation",
       reputation
     )) as GReputation;
     expect(await rep.balanceOf(claimer3.address)).to.equal(0);
+  });
+
+  it("should be able to claim every day", async () => {
+    const startCount = await ubiScheme.totalClaimsPerUser(claimer3.address);
+    await increaseTime(60 * 60 * 24);
+    await ubiScheme.connect(claimer3).claim();
+    await increaseTime(60 * 60 * 24);
+    await ubiScheme.connect(claimer3).claim();
+    const endCount = await ubiScheme.totalClaimsPerUser(claimer3.address);
+
+    expect(endCount).to.be.equal(startCount.add(2));
   });
 });
