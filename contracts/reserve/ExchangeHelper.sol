@@ -85,7 +85,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 
 	/**
 	@dev Converts any 'buyWith' tokens to DAI then call reserve's buy function to convert it to GD tokens(no need reentrancy lock since we don't transfer external token's to user)
-	* @param _buyWith The tokens that should be converted to GD tokens
+	* @param _buyPath The tokens swap path in order to buy G$ if initial token is not DAI or cDAI then end of the path must set to DAI
 	* @param _tokenAmount The amount of `buyWith` tokens that should be converted to GD tokens
 	* @param _minReturn The minimum allowed return in GD tokens
 	* @param _minDAIAmount The mininmum dai out amount from Exchange swap function
@@ -93,12 +93,13 @@ contract ExchangeHelper is DAOUpgradeableContract {
 	* @return (gdReturn) How much GD tokens were transferred
 	 */
 	function buy(
-		ERC20 _buyWith,
+		address[] memory _buyPath,
 		uint256 _tokenAmount,
 		uint256 _minReturn,
 		uint256 _minDAIAmount,
 		address _targetAddress
 	) public payable returns (uint256) {
+		require(_buyPath.length > 0 , "Provide valid path");
 		GoodReserveCDai reserve = GoodReserveCDai(
 			nameService.getAddress("RESERVE")
 		);
@@ -106,7 +107,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			? msg.sender
 			: _targetAddress;
 
-		if (address(_buyWith) == address(0)) {
+		if (_buyPath[0] == address(0)) {
 			require(
 				msg.value > 0 && _tokenAmount == msg.value,
 				"you need to pay with ETH"
@@ -114,9 +115,9 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			_tokenAmount = msg.value;
 		} else {
 			require(
-				_buyWith.transferFrom(
+				ERC20(_buyPath[0]).transferFrom(
 					msg.sender,
-					address(_buyWith) == cDaiAddress
+					address(_buyPath[0]) == cDaiAddress
 						? address(reserve)
 						: address(this),
 					_tokenAmount
@@ -126,21 +127,21 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		}
 
 		uint256 result;
-		if (address(_buyWith) == cDaiAddress) {
+		if (_buyPath[0] == cDaiAddress) {
 			result = reserve.buy(_tokenAmount, _minReturn, receiver);
-		} else if (address(_buyWith) == daiAddress) {
+		} else if (_buyPath[0] == daiAddress) {
 			result = _cdaiMintAndBuy(_tokenAmount, _minReturn, receiver);
 		} else {
+			require(_buyPath[_buyPath.length - 1] == daiAddress , "Target token in the path must be DAI");
 			uint256[] memory swap = _uniswapSwap(
-				address(_buyWith),
-				daiAddress,
+				_buyPath,
 				_tokenAmount,
 				0,
 				_minDAIAmount,
 				address(this)
 			);
 
-			uint256 dai = swap[1];
+			uint256 dai = swap[swap.length - 1];
 			require(dai > 0, "token selling failed");
 
 			result = _cdaiMintAndBuy(dai, _minReturn, receiver);
@@ -148,7 +149,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 
 		emit TokenPurchased(
 			msg.sender,
-			address(_buyWith),
+			_buyPath[0],
 			_tokenAmount,
 			result,
 			receiver
@@ -159,7 +160,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 
 	/**
 	 * @dev Converts GD tokens to cDAI through reserve then make further transactions according to desired _sellTo token(either send cDAI or DAI directly or desired token through uniswap)
-	 * @param _sellTo The tokens that will be received after the conversion if address equals 0x0 then sell to ETH
+	 * @param _sellPath The tokens swap path in order to sell G$ to target token if target token is not DAI or cDAI then first element of the path must be DAI
 	 * @param _gdAmount The amount of GD tokens that should be converted to `_sellTo` tokens
 	 * @param _minReturn The minimum allowed `sellTo` tokens return
 	 * @param _minTokenReturn The mininmum dai out amount from Exchange swap function
@@ -167,12 +168,13 @@ contract ExchangeHelper is DAOUpgradeableContract {
 	 * @return (tokenReturn) How much `sellTo` tokens were transferred
 	 */
 	function sell(
-		ERC20 _sellTo,
+		address[] memory _sellPath,
 		uint256 _gdAmount,
 		uint256 _minReturn,
 		uint256 _minTokenReturn,
 		address _targetAddress
 	) public nonReentrant returns (uint256) {
+		require(_sellPath.length > 0 , "Provide valid path");
 		address receiver = _targetAddress == address(0x0)
 			? msg.sender
 			: _targetAddress;
@@ -190,37 +192,34 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		(result, contributionAmount) = reserve.sell(
 			_gdAmount,
 			_minReturn,
-			address(_sellTo) == cDaiAddress ? receiver : address(this), // if the tokens that will received is cDai then return it directly to receiver
+			(_sellPath.length == 1 && _sellPath[0] == cDaiAddress) ? receiver : address(this), // if the tokens that will received is cDai then return it directly to receiver
 			msg.sender
 		);
-		if (address(_sellTo) == daiAddress) {
+		if (_sellPath.length == 1 && _sellPath[0] == daiAddress) {
 			result = _redeemDAI(result);
 
 			require(
-				_sellTo.transfer(receiver, result) == true,
+				ERC20(_sellPath[0]).transfer(receiver, result) == true,
 				"Transfer failed"
 			);
-		} else if (
-			address(_sellTo) != daiAddress && address(_sellTo) != cDaiAddress
-		) {
+		} else if(_sellPath[0] != cDaiAddress){
 			result = _redeemDAI(result);
-
+			require(_sellPath[0] == daiAddress, "Input token for uniswap must be DAI");
 			uint256[] memory swap = _uniswapSwap(
-				daiAddress,
-				address(_sellTo),
+				_sellPath,
 				result,
 				0,
 				_minTokenReturn,
 				receiver
 			);
 
-			result = swap[1];
+			result = swap[swap.length - 1];
 			require(result > 0, "token selling failed");
 		}
 
 		emit TokenSold(
 			receiver,
-			address(_sellTo),
+			_sellPath[_sellPath.length - 1],
 			_gdAmount,
 			contributionAmount,
 			result,
@@ -278,16 +277,14 @@ contract ExchangeHelper is DAOUpgradeableContract {
 
 	/**
 	@dev Helper to swap tokens in the Uniswap
-	*@param _inputToken token to used for buy
-	*@param _outputToken token to get in sell transaction
+	*@param _inputPath token to used for buy
 	*@param _tokenAmount token amount to sell or buy
 	*@param _minDAIAmount minimum DAI amount to get in swap transaction if transaction is buy
 	*@param _minTokenReturn minimum token amount to get in swap transaction if transaction is sell
 	*@param _receiver receiver of tokens after swap transaction
 	 */
 	function _uniswapSwap(
-		address _inputToken,
-		address _outputToken,
+		address[] memory _inputPath,
 		uint256 _tokenAmount,
 		uint256 _minDAIAmount,
 		uint256 _minTokenReturn,
@@ -296,39 +293,38 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		Uniswap uniswapContract = Uniswap(
 			nameService.getAddress("UNISWAP_ROUTER")
 		);
-		address[] memory path = new address[](2);
 		address wETH = uniswapContract.WETH();
 		uint256[] memory swap;
-		path[0] = _inputToken== address(0x0) ? wETH :_inputToken;
-		path[1] = _outputToken == address(0x0) ? wETH : _outputToken;
-		bool isBuy = path[1] == daiAddress; // if outputToken is dai then transaction is buy with any ERC20 token
-		if (_inputToken == address(0x0)) {
+		bool isBuy = _inputPath[_inputPath.length - 1] == daiAddress; // if outputToken is dai then transaction is buy with any ERC20 token
+		if (_inputPath[0] == address(0x0)) {
+			_inputPath[0] = wETH;
 			swap = uniswapContract.swapExactETHForTokens{ value: _tokenAmount }(
 				_minDAIAmount,
-				path,
+				_inputPath,
 				address(this),
 				block.timestamp
 			);
 			return swap;
-		} else if (path[1] == wETH) {
+		} else if (_inputPath[_inputPath.length - 1] == address(0x0)) {
+			_inputPath[_inputPath.length - 1] = wETH;
 			swap = uniswapContract.swapExactTokensForETH(
 				_tokenAmount,
 				_minTokenReturn,
-				path,
+				_inputPath,
 				_receiver,
 				block.timestamp
 			);
 			return swap;
 		} else {
 			if (isBuy)
-				ERC20(_inputToken).approve(
+				ERC20(_inputPath[0]).approve(
 					address(uniswapContract),
 					_tokenAmount
 				);
 			swap = uniswapContract.swapExactTokensForTokens(
 				_tokenAmount,
 				isBuy ? _minDAIAmount : _minTokenReturn,
-				path,
+				_inputPath,
 				_receiver,
 				block.timestamp
 			);
