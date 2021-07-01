@@ -65,27 +65,19 @@ export const main = async (networkName = name) => {
   const compoundTokens = [
     {
       name: "cdai",
-      address:
-        (protocolSettings.compound != undefined &&
-          protocolSettings.compound.cdai) ||
-        dao.cDAI,
-      usdOracle:
-        (protocolSettings.compound != undefined &&
-          protocolSettings.compound.daiUsdOracle) ||
-        dao.DAIUsdOracle,
+      address: protocolSettings.compound.cdai || dao.cDAI,
+      usdOracle: protocolSettings.compound.daiUsdOracle || dao.DAIUsdOracle,
       compUsdOracle:
-        (protocolSettings.compound != undefined &&
-          protocolSettings.compound.compUsdOracle) ||
-        dao.COMPUsdOracle
+        protocolSettings.compound.compUsdOracle || dao.COMPUsdOracle
     }
   ];
 
   const aaveTokens = [
     {
       name: "usdc",
-      address: dao.USDC || protocolSettings.aave.usdc,
-      usdOracle: dao.USDCUsdOracle || protocolSettings.aave.usdcUsdOracle,
-      aaveUsdOracle: dao.AAVEUsdOracle || protocolSettings.aave.aaveUsdOracle
+      address: protocolSettings.aave.usdc || dao.USDC,
+      usdOracle: protocolSettings.aave.usdcUsdOracle || dao.USDCUsdOracle,
+      aaveUsdOracle: protocolSettings.aave.aaveUsdOracle || dao.AAVEUsdOracle
     }
   ];
 

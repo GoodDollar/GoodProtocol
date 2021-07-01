@@ -3,6 +3,8 @@
     "governance": {
       "proposalVotingPeriod": 241920
     },
+    "compound": {},
+    "aave": {},
     "expansionRatio": {
       "nom": 999388834642296,
       "denom": 1e15
