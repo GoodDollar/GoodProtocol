@@ -44,10 +44,11 @@ jobs:
         run: yarn
       - run: yarn compile
       - name: Run tests
-        run: npm run coverage
+        run: yarn test
+      - name: Run coverage
+        run: yarn coverage
 
       - name: Send code coverage results to Coveralls
-        uses: coverallsapp/github-action@v1.1.0
+        uses: coverallsapp/github-action@v1.1.2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          parallel: true
