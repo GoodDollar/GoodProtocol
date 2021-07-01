@@ -38,7 +38,15 @@ describe("ClaimersDistribution", () => {
     nameService = ns;
     genericCall = gn;
     reputation = rep;
+    const currentTime = (await ethers.provider.getBlock("latest")).timestamp;
+    if (currentTime % 2592000 > 2505600) {
+      await increaseTime(60 * 60 * 24);
+    }
 
+    if (currentTime % 86400 <= 43200) {
+      const increaseAmount = 50000 - (currentTime % 86400); // make sure that it passes noon
+      await increaseTime(increaseAmount);
+    }
     let ubi = await deployUBI(deployedDAO);
     cd = (await upgrades.deployProxy(
       await ethers.getContractFactory("ClaimersDistribution"),
