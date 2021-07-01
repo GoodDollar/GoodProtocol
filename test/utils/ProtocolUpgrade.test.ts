@@ -357,7 +357,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     );
     const gdBalanceBeforeBuy = await goodDollar.balanceOf(founder.address);
     await exchangeHelper.buy(
-      cDAI.address,
+      [cDAI.address],
       ethers.utils.parseUnits("1000", 8),
       0,
       0,
