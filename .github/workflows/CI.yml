@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches:
-      - master
+      - github_actions
   pull_request:
 
 jobs:
@@ -16,11 +16,15 @@ jobs:
         with:
           node-version: "14"
       - name: Automated Version Bump
-        uses: phips28/gh-action-bump-version@v8.0.18
+        uses: "phips28/gh-action-bump-version@master"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          minor-wording: "RELEASE"
+          minor-wording: 'RELEASE'
+          default: prerelease
+          preid: 'beta'
+          rc-wording: ''
+          
       - run: npm install -g yarn
 
       - name: Get yarn cache directory path
