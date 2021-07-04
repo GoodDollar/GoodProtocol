@@ -17,13 +17,14 @@ jobs:
           node-version: "14"
       - name: Automated Version Bump
         uses: "phips28/gh-action-bump-version@master"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           minor-wording: 'RELEASE'
           default: prerelease
-          preid: 'beta'
+          preid: beta
           rc-wording: ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
           
       - run: npm install -g yarn
 
