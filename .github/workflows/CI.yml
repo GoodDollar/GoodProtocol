@@ -16,16 +16,15 @@ jobs:
         with:
           node-version: "14"
       - name: Automated Version Bump
-        uses: "phips28/gh-action-bump-version@master"
+        uses: "aliberkhsl/gh-action-bump-version@master"
         with:
-          minor-wording: 'RELEASE'
+          minor-wording: "RELEASE"
           default: prerelease
           preid: beta
-          rc-wording: ''
+          rc-wording: ""
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-          
+
       - run: npm install -g yarn
 
       - name: Get yarn cache directory path
