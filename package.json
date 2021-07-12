@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "1.0.8",
+  "version": "1.0.0-beta.0",
   "description": "GoodDollar Protocol",
   "scripts": {
     "build": "scripts/build.sh deploy",
@@ -17,7 +17,7 @@
     "testDAOUpgradeFuse": "yarn runNode && yarn compile && yarn deployOldDAO --network develop && yarn daoUpgrade --network develop"
   },
   "files": [
-    "build",
+    "artifacts",
     "contracts",
     "releases",
     "scripts",
