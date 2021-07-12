@@ -46,7 +46,8 @@
   "dependencies": {
     "@gooddollar/goodcontracts": "^2.6.1",
     "@openzeppelin/contracts-upgradeable": "^4.1.0",
-    "openzeppelin-solidity": "^4.0.0"
+    "openzeppelin-solidity": "^4.0.0",
+    "truffle-plugin-verify": "^0.5.11"
   },
   "devDependencies": {
     "@babel/core": "*",
@@ -87,7 +88,6 @@
     "solidity-coverage": "*",
     "truffle": "^5.3.12",
     "truffle-hdwallet-provider": "*",
-    "truffle-plugin-verify": "^0.5.9",
     "ts-generator": "*",
     "ts-node": "*",
     "typechain": "*",
