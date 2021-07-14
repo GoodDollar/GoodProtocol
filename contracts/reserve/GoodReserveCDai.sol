@@ -20,6 +20,8 @@ interface ContributionCalc {
 		ERC20 _token,
 		uint256 _gdAmount
 	) external view returns (uint256);
+
+	function setContributionRatio(uint256 _nom, uint256 _denom) external;
 }
 
 /**
