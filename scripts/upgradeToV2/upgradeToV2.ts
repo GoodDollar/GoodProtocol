@@ -328,6 +328,12 @@ export const main = async (networkName = name) => {
     release["ForeignBridge"] = dao.Bridge;
     release["Controller"] = dao.Controller;
     release["Avatar"] = avatar;
+    release["FirstClaimPool"] = dao.FirstClaimPool;
+    release["Reputation"] = dao.Reputation;
+    release["AbsoluteVote"] = dao.AbsoluteVote;
+    release["SchemeRegistrar"] = dao.SchemeRegistrar;
+    release["UBI"] = dao.UBI;
+
     console.log({ StakingContracts, DonationsStaking });
     let res = Object.assign(newdao, release);
     await releaser(release, networkName);
