@@ -64,14 +64,14 @@
   },
   "fuse": {
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x9bf0fb0be13c4e1ab1da89850b23ab7919116fb9fc60ad08ec06bbca58516d11",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
     }
   },
   "fuse-mainnet": {
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x9bf0fb0be13c4e1ab1da89850b23ab7919116fb9fc60ad08ec06bbca58516d11",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
     },

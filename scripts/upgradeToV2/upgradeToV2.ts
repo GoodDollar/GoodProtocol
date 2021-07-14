@@ -11,6 +11,7 @@ import { network, ethers, upgrades } from "hardhat";
 import { networkNames } from "@openzeppelin/upgrades-core";
 import { isFunction, get } from "lodash";
 import { AaveStakingFactory, CompoundStakingFactory } from "../../types";
+import SchemeRegistrarABI from "@gooddollar/goodcontracts/build/contracts/SchemeRegistrar.json";
 import releaser from "../releaser";
 import {
   GReputation,
@@ -160,7 +161,7 @@ export const main = async (networkName = name) => {
             "GOODDOLLAR",
             "BRIDGE_CONTRACT"
           ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
-          [controller, avatar, dao.Identity, dao.GoodDollar, dao.Bridge]
+          [controller, avatar, dao.Identity, dao.GoodDollar, dao.HomeBridge]
         ]
       },
       {
@@ -310,6 +311,7 @@ export const main = async (networkName = name) => {
           kind: "uups"
         });
       else deployed = await Contract.deploy(...args);
+      deployed.deployed();
       countTotalGas(deployed);
       console.log(`${contract.name} deployed to: ${deployed.address}`);
       release[contract.name] = deployed.address;
@@ -486,7 +488,7 @@ export const main = async (networkName = name) => {
       ],
       [
         release.GReputation,
-        dao.Bridge,
+        dao.HomeBridge,
         release.UBIScheme,
         release.GovernanceStaking,
         release.ClaimersDistribution
@@ -504,10 +506,10 @@ export const main = async (networkName = name) => {
       dao.SchemeRegistrar
     );
     const schemeRegistrar: SchemeRegistrar = (await ethers.getContractAt(
-      "SchemeRegistrar",
+      SchemeRegistrarABI.abi,
       dao.SchemeRegistrar
     )) as SchemeRegistrar;
-
+    console.log("proprosing scheme ...");
     const proposal = await (
       await schemeRegistrar.proposeScheme(
         avatar,
@@ -658,10 +660,12 @@ export const main = async (networkName = name) => {
     // };
   };
 
-  const release: any = await deployContracts();
+  //const release: any = await deployContracts();
+  let release = await fse.readJson("releases/deployment.json");
+  release = release[network.name];
   console.log("deployed contracts", { totalGas });
-  await voteProtocolUpgrade(release);
-  console.log("voted contracts", { totalGas });
+  //await voteProtocolUpgrade(release);
+  //console.log("voted contracts", { totalGas });
   isMainnet && (await performUpgrade(release));
   !isMainnet && (await performUpgradeFuse(release));
   console.log("upgraded contracts", { totalGas });
