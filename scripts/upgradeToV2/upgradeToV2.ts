@@ -140,7 +140,7 @@ export const main = async (networkName = name) => {
             get(protocolSettings, "compound.dai", dao.DAI),
             get(protocolSettings, "compound.cdai", dao.cDAI),
             get(protocolSettings, "compound.comp", dao.COMP),
-            dao.Bridge,
+            dao.ForeignBridge,
             protocolSettings.uniswapRouter || dao.UniswapRouter,
             !isMainnet || protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
             !isMainnet || protocolSettings.chainlink.dai_eth,
@@ -556,6 +556,7 @@ export const main = async (networkName = name) => {
   };
 
   const deployStakingContracts = async release => {
+    const isRopsten = networkName !== "fuse-mainnet";
     console.log("deployStakingContracts", {
       factory: release.CompoundStakingFactory,
       ns: release.NameService
@@ -603,43 +604,47 @@ export const main = async (networkName = name) => {
     // const compps = [
     //   Promise.resolve(["0x9999c40c8b88c740076b15d2e708db6a7a071b53", 13888])
     // ];
+    let deployed;
+    if (isRopsten) {
+      const aaveps = aaveTokens.map(async token => {
+        let rewardsPerBlock = (protocolSettings.staking.rewardsPerBlock / 2) //aave gets half of the rewards
+          .toFixed(0);
+        console.log("deployStakingContracts", {
+          token,
+          settings: protocolSettings.staking,
+          rewardsPerBlock
+        });
+        const tx = await (
+          await aavefactory.cloneAndInit(
+            token.address,
+            get(protocolSettings, "aave.lendingPool", dao.AaveLendingPool),
+            release.NameService,
+            protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
+            token.usdOracle,
 
-    const aaveps = aaveTokens.map(async token => {
-      let rewardsPerBlock = (protocolSettings.staking.rewardsPerBlock / 2) //aave gets half of the rewards
-        .toFixed(0);
-      console.log("deployStakingContracts", {
-        token,
-        settings: protocolSettings.staking,
-        rewardsPerBlock
+            get(
+              protocolSettings,
+              "aave.incentiveController",
+              dao.AaveIncentiveController
+            ),
+            token.aaveUsdOracle
+          )
+        ).wait();
+        await countTotalGas(tx);
+        const log = tx.events.find(_ => _.event === "Deployed");
+        if (!log.args.proxy)
+          throw new Error(`staking contract deploy failed ${token}`);
+        return [log.args.proxy, rewardsPerBlock];
       });
-      const tx = await (
-        await aavefactory.cloneAndInit(
-          token.address,
-          get(protocolSettings, "aave.lendingPool", dao.AaveLendingPool),
-          release.NameService,
-          protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
-          token.usdOracle,
 
-          get(
-            protocolSettings,
-            "aave.incentiveController",
-            dao.AaveIncentiveController
-          ),
-          token.aaveUsdOracle
-        )
-      ).wait();
-      await countTotalGas(tx);
-      const log = tx.events.find(_ => _.event === "Deployed");
-      if (!log.args.proxy)
-        throw new Error(`staking contract deploy failed ${token}`);
-      return [log.args.proxy, rewardsPerBlock];
-    });
-
-    // const aaveps = [
-    //   Promise.resolve(["0x8f0c4f59b4c593193e5b5e0224d848ac803ad1a2", 13888 / 2])
-    // ];
-    await Promise.all(aaveps);
-    const deployed = await Promise.all(compps.concat(aaveps));
+      // const aaveps = [
+      //   Promise.resolve(["0x8f0c4f59b4c593193e5b5e0224d848ac803ad1a2", 13888 / 2])
+      // ];
+      await Promise.all(aaveps);
+      deployed = await Promise.all(compps.concat(aaveps));
+    } else {
+      deployed = await Promise.all(compps);
+    }
 
     console.log("deploying donation staking");
     const deployedDonationsStaking = await upgrades.deployProxy(

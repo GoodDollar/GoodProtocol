@@ -70,6 +70,7 @@
     }
   },
   "fuse-mainnet": {
+    "gdxAirdrop": "0x87db9fa52d55498bbf1e6005603afe05cb194c13e8ac4907282f4ea2717d0921",
     "governance": {
       "gdaoAirdrop": "0x9bf0fb0be13c4e1ab1da89850b23ab7919116fb9fc60ad08ec06bbca58516d11",
       "gdaoTotalSupply": "24000000000000000000000000",

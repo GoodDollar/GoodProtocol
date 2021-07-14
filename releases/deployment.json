@@ -64,6 +64,7 @@
   "fuse": {
     "NameService": "0x7C763323F40Db002a4b8b54A8E207DE48034fEb1",
     "GReputation": "0x0Fce4a964F2b69a6cD82c3FB40C101863091A5a7",
+    "FirstClaimPool": "0x6CF223eE3c5f95CF97065de35757247E04EaaAe3",
     "CompoundVotingMachine": "0xE8B5535c7f9FB497695d3Ee4B85008198E835493",
     "ClaimersDistribution": "0x93630845A2012aD605E46e808B9FaD69442234ca",
     "GovernanceStaking": "0x0875313e431a31D0926f757466C3a01Ba8434f3a",
@@ -73,6 +74,49 @@
     "GoodDollar": "0xeE724540706296ebad65aeA2515Efe0949F97Ae6",
     "Controller": "0x903a6Ba8b5A43FBd34a511fB5Cf193CE8dc8907B",
     "Avatar": "0x07B41192DD74172576a443C7B28DDC3dC2CE3074",
-    "HomeBridge": "0x628980264f86b20BbF4181f55a35602fEe6B4E6F"
+    "HomeBridge": "0x628980264f86b20BbF4181f55a35602fEe6B4E6F",
+    "FuseFaucet": "0xEEcc2620fb1EaC08Af5923B4D1D54d4703FBb29B",
+    "ProxyAdmin": "0xA74F8Ca91bA870608A909A9685e4a984Bbc068b5",
+    "Invites": "0x4218263062854C3953EF61699a85231b524A896a",
+    "ProxyAdmin2": "0x97429324686d39B424bC2d3228478280B46080Ed",
+    "UBI": "0xCC9B1382b0Ae9D80E81eCB1863DcE8685a044603",
+    "SignupBonus": "0xcdC704D3dEA0FcFD1Cae95dfdCB7883632E171b2",
+    "OneTimePayments": "0x94079dF920115c5296Cc06AE6D8F29E077906246"
+  },
+  "staging": {
+    "FuseFaucet": "0xDfCb356c9bd420263aC56D7980f409AcE9050896",
+    "ProxyAdmin": "0x2Ea4aAA8351CfE63B537E81Cd4a13c435B945C1D",
+    "Invites": "0x7d5FC799dE6fB6a30161684f27320BAcAdBf4126",
+    "ProxyAdmin2": "0x23D8492444DA663fcb2bDa8cA9A0e84989D1f59e",
+    "GoodDollar": "0x100b8fd10ff8DC43fda45E636B4BB1eE6088270a",
+    "Reputation": "0x0CA09cA67B42272b83a05346545329DE5B30b398",
+    "Identity": "0x104efFcBDddae9cd4813b8A05Ecd6A17BaBfE6d9",
+    "Avatar": "0xcA9E4D51bc496F0b661E9fa02d25E4f67Dd88870",
+    "Controller": "0x7CBA0778748960145F3E56b3285255064D86709D",
+    "OneTimePayments": "0x2b5Ef42bc3D1BEfCbA20E3233DeDadD2439B8Ac2",
+    "HomeBridge": {
+      "_homeBridge": "0x53f6Bd6Da1564f5B00D2069d8E0F316AF859fb99",
+      "_homeValidators": "0x7bc7d34376b2427498392160fDa537664d940313",
+      "_token": "0x100b8fd10ff8DC43fda45E636B4BB1eE6088270a",
+      "_blockNumber": 5897137
+    }
+  },
+  "staging-mainnet": {
+    "GoodDollar": "0x4738C5e91C4F809da21DD0Df4B5aD5f699878C1c",
+    "Reputation": "0x49920f0bb0E099755Ad61B5EB23b807aE1B5caFe",
+    "Identity": "0xfb5dAF44cd18Db7b96DB3F9c6E411D65fcf4f372",
+    "Avatar": "0x3BC91a65f53dACBd2336C04AC060741f70dCd187",
+    "Controller": "0x589F7ae100a7dbd80DC512208b7a0F457A041BE6",
+    "AbsoluteVote": "0x11e7716de4B5bC9A1dBc93184b27aC2134CA6E42",
+    "SchemeRegistrar": "0x4F151834efb18108080716d1467b397FAA87cF66",
+    "UpgradeScheme": "0xbd879865b649B7605c27cAa6A54e0f6B9Efb74b2",
+    "ForeignBridge": {
+      "_foreignBridge": "0xEDA39475415f1A2944a467Aa6359CB4C1c3ed50f",
+      "_foreignValidators": "0x9ebe7b1b0fB6E5D4c3996e65AB3750Fbbf8958aA",
+      "_foreignToken": "0x4738C5e91C4F809da21DD0Df4B5aD5f699878C1c",
+      "_blockNumber": 8259220
+    },
+    "network": "staging-mainnet",
+    "networkId": 3
   }
 }
