@@ -666,12 +666,10 @@ export const main = async (networkName = name) => {
     // };
   };
 
-  //const release: any = await deployContracts();
-  let release = await fse.readJson("releases/deployment.json");
-  release = release[network.name];
+  const release: any = await deployContracts();
   console.log("deployed contracts", { totalGas });
-  //await voteProtocolUpgrade(release);
-  //console.log("voted contracts", { totalGas });
+  await voteProtocolUpgrade(release);
+  console.log("voted contracts", { totalGas });
   isMainnet && (await performUpgrade(release));
   !isMainnet && (await performUpgradeFuse(release));
   console.log("upgraded contracts", { totalGas });
