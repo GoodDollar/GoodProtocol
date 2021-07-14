@@ -414,7 +414,7 @@ export const main = async (networkName = name) => {
         release.GoodFundManager,
         release.GReputation,
         release.StakersDistribution,
-        dao.Bridge,
+        dao.ForeignBridge,
         isKovan ? root.address : newfusedao.UBIScheme, //fake for kovan
         release.ExchangeHelper
       ],
