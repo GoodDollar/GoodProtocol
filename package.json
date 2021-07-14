@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "GoodDollar Protocol",
   "scripts": {
     "build": "scripts/build.sh deploy",
@@ -69,7 +69,7 @@
     "coveralls": "*",
     "dotenv": "*",
     "ethereum-waffle": "*",
-    "ethers": "*",
+    "ethers": "^5.4.1",
     "ethers-eip712": "*",
     "fs-extra": "*",
     "graphql": "^15.5.0",
