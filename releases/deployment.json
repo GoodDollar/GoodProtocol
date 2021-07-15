@@ -108,41 +108,5 @@
     "AbsoluteVote": "0x57312053C36A226Df13B01089218A5f9951D3f9c",
     "ProxyAdmin": "0xE383e9D08e3e4f76CBb4a6953aF343E7bbcc6e98",
     "COMP": "0xf76d4a441e4ba86a923ce32b89aff89dbccaa075"
-  },
-  "staging": {
-    "FuseFaucet": "0xDfCb356c9bd420263aC56D7980f409AcE9050896",
-    "ProxyAdmin": "0x2Ea4aAA8351CfE63B537E81Cd4a13c435B945C1D",
-    "Invites": "0x7d5FC799dE6fB6a30161684f27320BAcAdBf4126",
-    "ProxyAdmin2": "0x23D8492444DA663fcb2bDa8cA9A0e84989D1f59e",
-    "GoodDollar": "0x100b8fd10ff8DC43fda45E636B4BB1eE6088270a",
-    "Reputation": "0x0CA09cA67B42272b83a05346545329DE5B30b398",
-    "Identity": "0x104efFcBDddae9cd4813b8A05Ecd6A17BaBfE6d9",
-    "Avatar": "0xcA9E4D51bc496F0b661E9fa02d25E4f67Dd88870",
-    "Controller": "0x7CBA0778748960145F3E56b3285255064D86709D",
-    "OneTimePayments": "0x2b5Ef42bc3D1BEfCbA20E3233DeDadD2439B8Ac2",
-    "HomeBridge": {
-      "_homeBridge": "0x53f6Bd6Da1564f5B00D2069d8E0F316AF859fb99",
-      "_homeValidators": "0x7bc7d34376b2427498392160fDa537664d940313",
-      "_token": "0x100b8fd10ff8DC43fda45E636B4BB1eE6088270a",
-      "_blockNumber": 5897137
-    }
-  },
-  "staging-mainnet": {
-    "GoodDollar": "0x4738C5e91C4F809da21DD0Df4B5aD5f699878C1c",
-    "Reputation": "0x49920f0bb0E099755Ad61B5EB23b807aE1B5caFe",
-    "Identity": "0xfb5dAF44cd18Db7b96DB3F9c6E411D65fcf4f372",
-    "Avatar": "0x3BC91a65f53dACBd2336C04AC060741f70dCd187",
-    "Controller": "0x589F7ae100a7dbd80DC512208b7a0F457A041BE6",
-    "AbsoluteVote": "0x11e7716de4B5bC9A1dBc93184b27aC2134CA6E42",
-    "SchemeRegistrar": "0x4F151834efb18108080716d1467b397FAA87cF66",
-    "UpgradeScheme": "0xbd879865b649B7605c27cAa6A54e0f6B9Efb74b2",
-    "ForeignBridge": {
-      "_foreignBridge": "0xEDA39475415f1A2944a467Aa6359CB4C1c3ed50f",
-      "_foreignValidators": "0x9ebe7b1b0fB6E5D4c3996e65AB3750Fbbf8958aA",
-      "_foreignToken": "0x4738C5e91C4F809da21DD0Df4B5aD5f699878C1c",
-      "_blockNumber": 8259220
-    },
-    "network": "staging-mainnet",
-    "networkId": 3
   }
 }
