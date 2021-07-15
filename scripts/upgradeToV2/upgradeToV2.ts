@@ -556,7 +556,8 @@ export const main = async (networkName = name) => {
   };
 
   const deployStakingContracts = async release => {
-    const isRopsten = networkName !== "fuse-mainnet";
+    const isRopsten =
+      networkName === "fuse-mainnet" || networkName === "staging-mainnet";
     console.log("deployStakingContracts", {
       factory: release.CompoundStakingFactory,
       ns: release.NameService
@@ -605,7 +606,7 @@ export const main = async (networkName = name) => {
     //   Promise.resolve(["0x9999c40c8b88c740076b15d2e708db6a7a071b53", 13888])
     // ];
     let deployed;
-    if (isRopsten) {
+    if (!isRopsten) {
       const aaveps = aaveTokens.map(async token => {
         let rewardsPerBlock = (protocolSettings.staking.rewardsPerBlock / 2) //aave gets half of the rewards
           .toFixed(0);
@@ -671,10 +672,12 @@ export const main = async (networkName = name) => {
     // };
   };
 
-  const release: any = await deployContracts();
-  console.log("deployed contracts", { totalGas });
-  await voteProtocolUpgrade(release);
-  console.log("voted contracts", { totalGas });
+  //const release: any = await deployContracts();
+  //console.log("deployed contracts", { totalGas });
+  //await voteProtocolUpgrade(release);
+  //console.log("voted contracts", { totalGas });
+  const releaseFile = require("../../releases/deployment.json");
+  const release = releaseFile[network.name];
   isMainnet && (await performUpgrade(release));
   !isMainnet && (await performUpgradeFuse(release));
   console.log("upgraded contracts", { totalGas });
