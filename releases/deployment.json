@@ -28,7 +28,9 @@
     "ClaimersDistribution": "0xCace1b78160AE76398F486c8a18044da0d66d86D",
     "GovernanceStaking": "0xD5ac451B0c50B9476107823Af206eD814a2e2580",
     "UBIScheme": "0xc0F115A19107322cFBf1cDBC7ea011C19EbDB4F8",
-    "ProtocolUpgradeFuse": "0xc96304e3c037f81dA488ed9dEa1D8F2a48278a75"
+    "ProtocolUpgradeFuse": "0xc96304e3c037f81dA488ed9dEa1D8F2a48278a75",
+    "network": "develop",
+    "networkId": 4447
   },
   "develop-mainnet": {
     "NameService": "0x22753E4264FDDc6181dc7cce468904A80a363E44",
@@ -98,7 +100,9 @@
     "ProxyAdmin2": "0x97429324686d39B424bC2d3228478280B46080Ed",
     "UBI": "0xCC9B1382b0Ae9D80E81eCB1863DcE8685a044603",
     "SignupBonus": "0xcdC704D3dEA0FcFD1Cae95dfdCB7883632E171b2",
-    "OneTimePayments": "0x94079dF920115c5296Cc06AE6D8F29E077906246"
+    "OneTimePayments": "0x94079dF920115c5296Cc06AE6D8F29E077906246",
+    "network": "fuse",
+    "networkId": 122
   },
   "fuse-mainnet": {
     "NameService": "0x77f64D0B28546687c962957d017269457BCa239B",
@@ -124,6 +128,8 @@
     "Controller": "0xd6513d7145a208d94E508BAB2E4bE31f6dce5147",
     "AbsoluteVote": "0x57312053C36A226Df13B01089218A5f9951D3f9c",
     "ProxyAdmin": "0xE383e9D08e3e4f76CBb4a6953aF343E7bbcc6e98",
-    "COMP": "0xf76d4a441e4ba86a923ce32b89aff89dbccaa075"
+    "COMP": "0xf76d4a441e4ba86a923ce32b89aff89dbccaa075",
+    "network": "fuse-mainnet",
+    "networkId": 3
   }
 }

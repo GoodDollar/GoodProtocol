@@ -229,7 +229,9 @@
       "_homeValidators": "0x7bc7d34376b2427498392160fDa537664d940313",
       "_token": "0x100b8fd10ff8DC43fda45E636B4BB1eE6088270a",
       "_blockNumber": 5897137
-    }
+    },
+    "network": "staging",
+    "networkId": 122
   },
   "staging-mainnet": {
     "GoodDollar": "0x4738C5e91C4F809da21DD0Df4B5aD5f699878C1c",
