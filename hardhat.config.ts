@@ -58,7 +58,7 @@ const hhconfig: HardhatUserConfig = {
     ropsten: {
       accounts: { mnemonic },
       url: "https://ropsten.infura.io/v3/" + infura_api,
-      gas: 3000000,
+      gas: 8000000,
       gasPrice: 25000000000,
       chainId: 3
     },

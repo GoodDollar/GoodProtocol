@@ -1,6 +1,5 @@
 import fs from "fs"
 import { isArray } from "lodash"
-import { default as Verify } from "truffle-plugin-verify";
 import type EthersT from "ethers";
 import type HreT from "hardhat"
 import { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types"
@@ -10,6 +9,7 @@ type HRE = typeof HreT
 
 let ethers:Ethers
 export const verify = async (hre: HRE) => {
+    const Verify = require("truffle-plugin-verify").default //not imported because of bug    
     const truffleOutput = execSync("npx truffle compile").toString("utf8")
     console.log({truffleOutput})
     ethers = hre.ethers
@@ -35,7 +35,6 @@ export const verify = async (hre: HRE) => {
         contracts_build_directory: "build/contracts",
         '_':contractPairs
     }
-    console.log({config})
     return Verify(config)
 };
 

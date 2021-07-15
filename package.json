@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "1.0.9",
+  "version": "1.0.0",
   "description": "GoodDollar Protocol",
   "scripts": {
     "build": "scripts/build.sh deploy",
@@ -17,11 +17,11 @@
     "testDAOUpgradeFuse": "yarn runNode && yarn compile && yarn deployOldDAO --network develop && yarn daoUpgrade --network develop"
   },
   "files": [
-    "build",
+    "artifacts",
     "contracts",
     "releases",
     "scripts",
-    "package-lock.json",
+    "yarn.lock",
     "package.json"
   ],
   "repository": {
@@ -46,7 +46,8 @@
   "dependencies": {
     "@gooddollar/goodcontracts": "^2.6.1",
     "@openzeppelin/contracts-upgradeable": "^4.1.0",
-    "openzeppelin-solidity": "^4.0.0"
+    "openzeppelin-solidity": "^4.0.0",
+    "truffle-plugin-verify": "^0.5.11"
   },
   "devDependencies": {
     "@babel/core": "*",
@@ -68,7 +69,7 @@
     "coveralls": "*",
     "dotenv": "*",
     "ethereum-waffle": "*",
-    "ethers": "*",
+    "ethers": "^5.4.1",
     "ethers-eip712": "*",
     "fs-extra": "*",
     "graphql": "^15.5.0",
@@ -87,7 +88,6 @@
     "solidity-coverage": "*",
     "truffle": "^5.3.12",
     "truffle-hdwallet-provider": "*",
-    "truffle-plugin-verify": "^0.5.9",
     "ts-generator": "*",
     "ts-node": "*",
     "typechain": "*",
