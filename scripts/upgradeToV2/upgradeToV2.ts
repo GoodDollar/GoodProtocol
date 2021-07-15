@@ -325,7 +325,8 @@ export const main = async (networkName = name) => {
     release["Identity"] = dao.Identity;
     release["GoodDollar"] = dao.GoodDollar;
     release["Contribution"] = dao.Contribution;
-    release["ForeignBridge"] = dao.Bridge;
+    release["ForeignBridge"] = dao.ForeignBridge;
+    release["HomeBridge"] = dao.HomeBridge;
     release["Controller"] = dao.Controller;
     release["Avatar"] = avatar;
     release["FirstClaimPool"] = dao.FirstClaimPool;
@@ -396,31 +397,33 @@ export const main = async (networkName = name) => {
     });
     console.log("upgrading nameservice + staking rewards...");
     let tx;
-    tx = await upgrade.upgradeBasic(
-      release.NameService,
-      [
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("RESERVE")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MARKET_MAKER")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("FUND_MANAGER")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKERS")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBI_RECIPIENT")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("EXCHANGE_HELPER"))
-      ],
-      [
-        release.GoodReserveCDai,
-        release.GoodMarketMaker,
-        release.GoodFundManager,
-        release.GReputation,
-        release.StakersDistribution,
-        dao.ForeignBridge,
-        isKovan ? root.address : newfusedao.UBIScheme, //fake for kovan
-        release.ExchangeHelper
-      ],
-      release.StakingContracts.map((_: any) => _[0]),
-      release.StakingContracts.map((_: any) => _[1])
-    );
+    tx = await (
+      await upgrade.upgradeBasic(
+        release.NameService,
+        [
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("RESERVE")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MARKET_MAKER")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("FUND_MANAGER")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKERS")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBI_RECIPIENT")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("EXCHANGE_HELPER"))
+        ],
+        [
+          release.GoodReserveCDai,
+          release.GoodMarketMaker,
+          release.GoodFundManager,
+          release.GReputation,
+          release.StakersDistribution,
+          dao.ForeignBridge,
+          isKovan ? root.address : newfusedao.UBIScheme, //fake for kovan
+          release.ExchangeHelper
+        ],
+        release.StakingContracts.map((_: any) => _[0]),
+        release.StakingContracts.map((_: any) => _[1])
+      )
+    ).wait();
     await countTotalGas(tx);
 
     console.log("upgrading reserve...", {
@@ -672,12 +675,10 @@ export const main = async (networkName = name) => {
     // };
   };
 
-  //const release: any = await deployContracts();
-  //console.log("deployed contracts", { totalGas });
-  //await voteProtocolUpgrade(release);
-  //console.log("voted contracts", { totalGas });
-  const releaseFile = require("../../releases/deployment.json");
-  const release = releaseFile[network.name];
+  const release: any = await deployContracts();
+  console.log("deployed contracts", { totalGas });
+  await voteProtocolUpgrade(release);
+  console.log("voted contracts", { totalGas });
   isMainnet && (await performUpgrade(release));
   !isMainnet && (await performUpgradeFuse(release));
   console.log("upgraded contracts", { totalGas });

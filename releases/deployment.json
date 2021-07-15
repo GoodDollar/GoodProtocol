@@ -92,7 +92,7 @@
     "ExchangeHelper": "0x1F7c81268753F1399e39650f2fCBCb1fEf608AcE",
     "GoodFundManager": "0x84Adef829C7FbcDDeAD568C8314FbA6D8e03020d",
     "StakersDistribution": "0xB994B2beA7edc37589D36Dfc925888d9E5f91c3d",
-    "ProtocolUpgrade": "0xFB371F469451b696964006E79fB24351d6e163b5",
+    "ProtocolUpgrade": "0x19eb2626225254637e1760eBcb469759a769d001",
     "CompoundStakingFactory": "0xb9e56b2C05BcE465d8263fC031c8891d62A93DbD",
     "StakingContracts": [["0x168C00f0b509B0330b2cd2Ea613b4c7c592450e9", 13888]],
     "DonationsStaking": "0x230B8a9109B4F67F6B557fBfE567708d25678864",
