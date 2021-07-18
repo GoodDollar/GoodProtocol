@@ -327,6 +327,7 @@ export const main = async (networkName = name) => {
     } else {
       release["ForeignBridge"] = dao.ForeignBridge;
       release["Contribution"] = dao.Contribution;
+      release["AdminWallet"] = dao.AdminWallet;
     }
     release["StakingContracts"] = StakingContracts;
     release["DonationsStaking"] = DonationsStaking;
