@@ -326,14 +326,17 @@ export const main = async (networkName = name) => {
     release["GoodDollar"] = dao.GoodDollar;
     release["Contribution"] = dao.Contribution;
     release["ForeignBridge"] = dao.ForeignBridge;
-    release["HomeBridge"] = dao.HomeBridge;
     release["Controller"] = dao.Controller;
     release["Avatar"] = avatar;
     release["FirstClaimPool"] = dao.FirstClaimPool;
     release["Reputation"] = dao.Reputation;
     release["AbsoluteVote"] = dao.AbsoluteVote;
     release["SchemeRegistrar"] = dao.SchemeRegistrar;
-    release["UBI"] = dao.UBI;
+    release["BancorFormula"] = protocolSettings.bancor || dao.BancorFormula;
+
+    release["DAI"] = get(protocolSettings, "compound.dai", dao.DAI);
+    release["cDAI"] = get(protocolSettings, "compound.cdai", dao.cDAI);
+    release["COMP"] = get(protocolSettings, "compound.comp", dao.COMP);
 
     console.log({ StakingContracts, DonationsStaking });
     let res = Object.assign(newdao, release);
