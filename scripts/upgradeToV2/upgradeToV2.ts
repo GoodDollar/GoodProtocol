@@ -319,19 +319,23 @@ export const main = async (networkName = name) => {
 
     const { DonationsStaking, StakingContracts } =
       isMainnet && (await deployStakingContracts(release));
-
+    if (!isMainnet) {
+      release["HomeBridge"] = dao.HomeBridge;
+      release["SignupBonus"] = dao.SignupBonus;
+      release["OneTimePayments"] = dao.OneTimePayments;
+      release["Invites"] = dao.Invites;
+    } else {
+      release["ForeignBridge"] = dao.ForeignBridge;
+      release["Contribution"] = dao.Contribution;
+    }
     release["StakingContracts"] = StakingContracts;
     release["DonationsStaking"] = DonationsStaking;
     release["Identity"] = dao.Identity;
     release["GoodDollar"] = dao.GoodDollar;
-    release["Contribution"] = dao.Contribution;
-    release["ForeignBridge"] = dao.ForeignBridge;
     release["Controller"] = dao.Controller;
     release["Avatar"] = avatar;
     release["FirstClaimPool"] = dao.FirstClaimPool;
-    release["Reputation"] = dao.Reputation;
-    release["AbsoluteVote"] = dao.AbsoluteVote;
-    release["SchemeRegistrar"] = dao.SchemeRegistrar;
+    release["ProxyAdmin"] = dao.ProxyAdmin;
     release["BancorFormula"] = protocolSettings.bancor || dao.BancorFormula;
 
     release["DAI"] = get(protocolSettings, "compound.dai", dao.DAI);
