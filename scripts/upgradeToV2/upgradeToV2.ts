@@ -324,10 +324,10 @@ export const main = async (networkName = name) => {
       release["SignupBonus"] = dao.SignupBonus;
       release["OneTimePayments"] = dao.OneTimePayments;
       release["Invites"] = dao.Invites;
+      release["AdminWallet"] = dao.AdminWallet;
     } else {
       release["ForeignBridge"] = dao.ForeignBridge;
       release["Contribution"] = dao.Contribution;
-      release["AdminWallet"] = dao.AdminWallet;
     }
     release["StakingContracts"] = StakingContracts;
     release["DonationsStaking"] = DonationsStaking;
