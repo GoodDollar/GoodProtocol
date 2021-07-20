@@ -372,10 +372,10 @@ export const main = async (networkName = name) => {
 
   const performUpgrade = async release => {
     const isKovan = networkName.includes("kovan");
-    const upgrade: ProtocolUpgrade = (await ethers.getContractAt(
+    const upgrade: ProtocolUpgrade = ((await ethers.getContractAt(
       "ProtocolUpgrade",
       release.ProtocolUpgrade
-    )) as ProtocolUpgrade;
+    )) as unknown) as ProtocolUpgrade;
 
     console.log("performing protocol v2 upgrade on Mainnet...", {
       release,
@@ -454,10 +454,10 @@ export const main = async (networkName = name) => {
   };
 
   const performUpgradeFuse = async release => {
-    const upgrade: ProtocolUpgradeFuse = (await ethers.getContractAt(
+    const upgrade: ProtocolUpgradeFuse = ((await ethers.getContractAt(
       "ProtocolUpgradeFuse",
       release.ProtocolUpgradeFuse
-    )) as ProtocolUpgradeFuse;
+    )) as unknown) as ProtocolUpgradeFuse;
 
     console.log("performing protocol v2 upgrade on Fuse...", { release, dao });
     await upgrade.upgrade(
@@ -498,10 +498,10 @@ export const main = async (networkName = name) => {
       Upgrade,
       dao.SchemeRegistrar
     );
-    const schemeRegistrar: SchemeRegistrar = (await ethers.getContractAt(
+    const schemeRegistrar: SchemeRegistrar = ((await ethers.getContractAt(
       "SchemeRegistrar",
       dao.SchemeRegistrar
-    )) as SchemeRegistrar;
+    )) as unknown) as SchemeRegistrar;
 
     const proposal = await (
       await schemeRegistrar.proposeScheme(

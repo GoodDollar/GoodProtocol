@@ -33,6 +33,12 @@ interface ERC20 {
 	function symbol() external view returns (string memory);
 
 	event Transfer(address indexed from, address indexed to, uint256 amount);
+	event Transfer(
+		address indexed from,
+		address indexed to,
+		uint256 amount,
+		bytes data
+	);
 }
 
 interface cERC20 is ERC20 {
