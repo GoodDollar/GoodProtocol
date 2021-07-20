@@ -3,6 +3,7 @@ pragma solidity >=0.8.0;
 
 import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
+
 interface OldMarketMaker {
 	struct ReserveToken {
 		// Determines the reserve token balance
@@ -191,15 +192,18 @@ contract ProtocolUpgrade {
 		address oldMarketMaker,
 		address COMP
 	) internal {
-		(bool ok, ) =
-			controller.genericCall(
+		bool ok;
+		if (COMP != address(0x0)) {
+			(ok, ) = controller.genericCall(
 				oldReserve,
 				abi.encodeWithSignature("recover(address)", COMP),
 				avatar,
 				0
 			);
 
-		require(ok, "calling Reserve comp recover failed");
+			require(ok, "calling Reserve comp recover failed");
+		}
+
 		address cdai = ns.getAddress("CDAI");
 		uint256 oldReserveCdaiBalance = ERC20(cdai).balanceOf(oldReserve);
 		(ok, ) = controller.genericCall(
@@ -211,9 +215,9 @@ contract ProtocolUpgrade {
 
 		require(ok, "calling Reserve end failed");
 
-		
-		OldMarketMaker.ReserveToken memory rToken =
-			OldMarketMaker(oldMarketMaker).reserveTokens(cdai);
+		OldMarketMaker.ReserveToken memory rToken = OldMarketMaker(
+			oldMarketMaker
+		).reserveTokens(cdai);
 		ok = controller.externalTokenTransfer(
 			cdai,
 			ns.getAddress("RESERVE"),
@@ -246,17 +250,16 @@ contract ProtocolUpgrade {
 		bytes32[] memory names,
 		address[] memory addresses
 	) internal {
-		(bool ok, ) =
-			controller.genericCall(
-				address(ns),
-				abi.encodeWithSignature(
-					"setAddresses(bytes32[],address[])",
-					names,
-					addresses
-				),
-				avatar,
-				0
-			);
+		(bool ok, ) = controller.genericCall(
+			address(ns),
+			abi.encodeWithSignature(
+				"setAddresses(bytes32[],address[])",
+				names,
+				addresses
+			),
+			avatar,
+			0
+		);
 		require(ok, "Calling setNameServiceContracts failed");
 	}
 
@@ -267,20 +270,19 @@ contract ProtocolUpgrade {
 		uint256[] memory rewards
 	) internal {
 		for (uint256 i = 0; i < contracts.length; i++) {
-			(bool ok, ) =
-				controller.genericCall(
-					ns.getAddress("FUND_MANAGER"),
-					abi.encodeWithSignature(
-						"setStakingReward(uint32,address,uint32,uint32,bool)",
-						rewards[i],
-						contracts[i],
-						0,
-						0,
-						false
-					),
-					avatar,
-					0
-				);
+			(bool ok, ) = controller.genericCall(
+				ns.getAddress("FUND_MANAGER"),
+				abi.encodeWithSignature(
+					"setStakingReward(uint32,address,uint32,uint32,bool)",
+					rewards[i],
+					contracts[i],
+					0,
+					0,
+					false
+				),
+				avatar,
+				0
+			);
 			require(ok, "Calling setStakingRewards failed");
 		}
 	}
