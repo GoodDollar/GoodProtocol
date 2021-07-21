@@ -113,7 +113,6 @@ contract ExchangeHelper is DAOUpgradeableContract {
 				msg.value > 0 && _tokenAmount == msg.value,
 				"you need to pay with ETH"
 			);
-			_tokenAmount = msg.value;
 		} else {
 			require(
 				ERC20(_buyPath[0]).transferFrom(
