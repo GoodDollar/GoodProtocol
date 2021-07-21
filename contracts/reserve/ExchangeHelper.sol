@@ -216,6 +216,8 @@ contract ExchangeHelper is DAOUpgradeableContract {
 
 			result = swap[swap.length - 1];
 			require(result > 0, "token selling failed");
+		}else{
+			revert();
 		}
 
 		emit TokenSold(
