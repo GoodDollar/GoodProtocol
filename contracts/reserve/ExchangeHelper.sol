@@ -99,7 +99,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		uint256 _minReturn,
 		uint256 _minDAIAmount,
 		address _targetAddress
-	) public payable returns (uint256) {
+	) public nonReentrant payable returns (uint256) {
 		require(_buyPath.length > 0 , "Provide valid path");
 		GoodReserveCDai reserve = GoodReserveCDai(
 			nameService.getAddress("RESERVE")
