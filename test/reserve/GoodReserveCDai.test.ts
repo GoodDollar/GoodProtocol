@@ -15,7 +15,7 @@ export const BLOCK_INTERVAL = 1;
 describe("GoodReserve - staking with cDAI mocks", () => {
   let dai: Contract;
   let cDAI;
-  let goodReserve: GoodReserveCDai;
+  let goodReserve: Contract;
   let goodDollar,
     avatar,
     identity,
@@ -87,7 +87,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     console.log("deployed contribution, deploying reserve...", {
       founder: founder.address
     });
-    goodReserve = reserve as GoodReserveCDai;
+    goodReserve = reserve;
   });
 
   it("should get g$ minting permissions", async () => {

@@ -137,8 +137,8 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			uint256[] memory swap = _uniswapSwap(
 				_buyPath,
 				_tokenAmount,
-				0,
 				_minDAIAmount,
+				0,
 				address(this)
 			);
 
