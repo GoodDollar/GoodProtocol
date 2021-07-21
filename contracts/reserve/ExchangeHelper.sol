@@ -114,6 +114,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 				"you need to pay with ETH"
 			);
 		} else {
+			require(msg.value == 0 , 'When input token is different than ETH message value should be zero');
 			require(
 				ERC20(_buyPath[0]).transferFrom(
 					msg.sender,
