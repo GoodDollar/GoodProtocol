@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "1.0.0-beta.3",
+  "version": "1.0.0-beta.4",
   "description": "GoodDollar Protocol",
   "scripts": {
     "build": "scripts/build.sh deploy",
@@ -23,7 +23,9 @@
     "releases",
     "scripts",
     "yarn.lock",
-    "package.json"
+    "package.json",
+    "hardhat.config.ts",
+    "scripts"
   ],
   "repository": {
     "type": "git",
