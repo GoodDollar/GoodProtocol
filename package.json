@@ -25,6 +25,9 @@
     "yarn.lock",
     "package.json",
     "hardhat.config.ts",
+    "LICENSE",
+    "truffle-config.js",
+    "tsconfig.json",
     "scripts"
   ],
   "repository": {
