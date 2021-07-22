@@ -14,7 +14,8 @@
     "deployOldDAO": "hardhat run test/localOldDaoDeploy.ts",
     "runNode": "hardhat node &",
     "testDAOUpgrade": "yarn runNode && yarn compile && yarn deployOldDAO --network develop-mainnet && yarn daoUpgrade --network develop-mainnet",
-    "testDAOUpgradeFuse": "yarn runNode && yarn compile && yarn deployOldDAO --network develop && yarn daoUpgrade --network develop"
+    "testDAOUpgradeFuse": "yarn runNode && yarn compile && yarn deployOldDAO --network develop && yarn daoUpgrade --network develop",
+    "deployTest": "yarn runNode && yarn compile && hardhat run test/singleOldDaoDeploy.ts && yarn daoUpgrade --network dapptest && yarn daoUpgrade --network dapptest-mainnet && hardhat run test/simulateInterest"
   },
   "files": [
     "artifacts",

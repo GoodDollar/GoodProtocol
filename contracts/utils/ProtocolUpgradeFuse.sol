@@ -35,13 +35,13 @@ contract ProtocolUpgradeFuse {
 		upgradeUBI(oldContracts[2], ubiScheme, oldContracts[3]);
 		setNameServiceContracts(ns, nameHash, nameAddress);
 
-		upgradeGovernance(
-			oldContracts[0],
-			oldContracts[1],
-			compoundVotingMachine
-		);
+		// upgradeGovernance(
+		// 	oldContracts[0],
+		// 	oldContracts[1],
+		// 	compoundVotingMachine
+		// );
 
-		selfdestruct(payable(owner));
+		// selfdestruct(payable(owner));
 	}
 
 	function upgradeUBI(
@@ -89,7 +89,8 @@ contract ProtocolUpgradeFuse {
 		address schemeRegistrar,
 		address upgradeScheme,
 		address compoundVotingMachine
-	) internal {
+	) public {
+		require(msg.sender == owner, "only owner");
 		require(
 			controller.unregisterScheme(schemeRegistrar, avatar),
 			"unregistering schemeRegistrar failed"
@@ -107,6 +108,8 @@ contract ProtocolUpgradeFuse {
 			),
 			"registering compoundVotingMachine failed"
 		);
+
+		selfdestruct(payable(owner));
 	}
 
 	//set contracts in nameservice that are deployed after INameService is created
