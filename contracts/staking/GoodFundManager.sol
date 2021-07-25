@@ -16,10 +16,6 @@ import "../utils/DAOUpgradeableContract.sol";
 contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	// timestamp that indicates last time that interests collected
 	uint256 public lastCollectedInterest;
-
-	// Last block number which `transferInterest`
-	// has been executed in
-	uint256 public lastTransferred;
 	// Gas cost for mint ubi+bridge ubi+mint rewards
 	uint256 public gasCostExceptInterestCollect;
 	// Gas cost for minting GD for keeper
