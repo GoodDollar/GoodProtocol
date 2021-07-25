@@ -144,19 +144,16 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		//we dont allow to undo blacklisting as it will mess up rewards accounting.
 		//staking contracts are assumed immutable and thus non fixable
 		require(
-			false ==
-				(_isBlackListed == false &&
-					rewardsForStakingContract[_stakingAddress].isBlackListed ==
-					true),
+			(_isBlackListed ||
+				!rewardsForStakingContract[_stakingAddress].isBlackListed),
 			"can't undo blacklisting"
 		);
-		Reward memory reward =
-			Reward(
-				_rewardsPerBlock,
-				_blockStart > 0 ? _blockStart : uint32(block.number),
-				_blockEnd > 0 ? _blockEnd : 0xFFFFFFFF,
-				_isBlackListed
-			);
+		Reward memory reward = Reward(
+			_rewardsPerBlock,
+			_blockStart > 0 ? _blockStart : uint32(block.number),
+			_blockEnd > 0 ? _blockEnd : 0xFFFFFFFF,
+			_isBlackListed
+		);
 		rewardsForStakingContract[_stakingAddress] = reward;
 
 		bool exist;
@@ -204,16 +201,13 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			if (i == 0) break; // when active contracts length is 1 then gives error
 		}
 		// Finds the actual transferred DAI
-		uint256 daiToConvert =
-			daiToken.balanceOf(reserveAddress) - currentBalance;
+		uint256 daiToConvert = daiToken.balanceOf(reserveAddress) -
+			currentBalance;
 
 		// Mints gd while the interest amount is equal to the transferred amount
-		(uint256 gdUBI, uint256 interestInCdai) =
-			GoodReserveCDai(reserveAddress).mintUBI(
-				daiToConvert,
-				startingCDAIBalance,
-				iToken
-			);
+		(uint256 gdUBI, uint256 interestInCdai) = GoodReserveCDai(
+			reserveAddress
+		).mintUBI(daiToConvert, startingCDAIBalance, iToken);
 
 		IGoodDollar token = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
 		if (gdUBI > 0) {
@@ -227,8 +221,8 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				"ubi bridge transfer failed"
 			);
 		}
-		uint256 totalUsedGas =
-			((initialGas - gasleft() + gdMintGasCost) * 110) / 100; // We will return as reward 1.1x of used gas in GD
+		uint256 totalUsedGas = ((initialGas - gasleft() + gdMintGasCost) *
+			110) / 100; // We will return as reward 1.1x of used gas in GD
 		uint256 gdRewardToMint = getGasPriceInGD(totalUsedGas);
 
 		GoodReserveCDai(reserveAddress).mintRewardFromRR(
@@ -246,8 +240,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			gdRewardToMint
 		);
 
-		uint256 gasPriceIncDAI =
-			getGasPriceIncDAIorDAI(initialGas - gasleft(), false);
+		uint256 gasPriceIncDAI = getGasPriceIncDAIorDAI(
+			initialGas - gasleft(),
+			false
+		);
 
 		if (
 			block.timestamp >=
@@ -341,19 +337,18 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	function mintReward(address _token, address _user) public {
 		Reward memory staking = rewardsForStakingContract[address(msg.sender)];
 		require(staking.blockStart > 0, "Staking contract not registered");
-		uint256 amount =
-			IGoodStaking(address(msg.sender)).rewardsMinted(
-				_user,
-				staking.blockReward,
-				staking.blockStart,
-				staking.blockEnd
-			);
+		uint256 amount = IGoodStaking(address(msg.sender)).rewardsMinted(
+			_user,
+			staking.blockReward,
+			staking.blockStart,
+			staking.blockEnd
+		);
 		if (amount > 0 && staking.isBlackListed == false) {
 			GoodReserveCDai(nameService.getAddress("RESERVE")).mintRewardFromRR(
-				_token,
-				_user,
-				amount
-			);
+					_token,
+					_user,
+					amount
+				);
 
 			emit StakingRewardMinted(msg.sender, _user, amount);
 		}
@@ -412,12 +407,14 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		view
 		returns (uint256)
 	{
-		AggregatorV3Interface gasPriceOracle =
-			AggregatorV3Interface(nameService.getAddress("GAS_PRICE_ORACLE"));
+		AggregatorV3Interface gasPriceOracle = AggregatorV3Interface(
+			nameService.getAddress("GAS_PRICE_ORACLE")
+		);
 		int256 gasPrice = gasPriceOracle.latestAnswer(); // returns gas price in 0 decimal as GWEI so 1eth / 1e9 eth
 
-		AggregatorV3Interface daiETHOracle =
-			AggregatorV3Interface(nameService.getAddress("DAI_ETH_ORACLE"));
+		AggregatorV3Interface daiETHOracle = AggregatorV3Interface(
+			nameService.getAddress("DAI_ETH_ORACLE")
+		);
 		int256 daiInETH = daiETHOracle.latestAnswer(); // returns DAI price in ETH
 
 		uint256 result = ((uint256(gasPrice) * 1e18) / uint256(daiInETH)); // Gasprice in GWEI and daiInETH is 18 decimals so we multiply gasprice with 1e18 in order to get result in 18 decimals
@@ -436,8 +433,9 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
      */
 	function getGasPriceInGD(uint256 _gasAmount) public view returns (uint256) {
 		uint256 priceInCdai = getGasPriceIncDAIorDAI(_gasAmount, false);
-		uint256 gdPriceIncDAI =
-			GoodReserveCDai(nameService.getAddress("RESERVE")).currentPrice();
+		uint256 gdPriceIncDAI = GoodReserveCDai(
+			nameService.getAddress("RESERVE")
+		).currentPrice();
 		return rdiv(priceInCdai, gdPriceIncDAI) / 1e25; // rdiv returns result in 27 decimals since GD$ in 2 decimals then divide 1e25
 	}
 
