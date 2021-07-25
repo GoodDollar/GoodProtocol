@@ -35,9 +35,11 @@ console.log({
 const { name } = network;
 
 export const main = async (networkName = name) => {
-  networkNames[1] = networkName;
-  networkNames[122] = networkName;
-  networkNames[3] = networkName;
+  if (networkName.startsWith("dapptest") === false) {
+    networkNames[1] = networkName;
+    networkNames[122] = networkName;
+    networkNames[3] = networkName;
+  }
 
   const isProduction = networkName.startsWith("production");
   const isBackendTest = networkName.startsWith("dapptest");

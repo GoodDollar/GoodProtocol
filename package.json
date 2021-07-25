@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "1.0.0",
+  "version": "1.0.0-beta.8",
   "description": "GoodDollar Protocol",
   "scripts": {
     "build": "scripts/build.sh deploy",
@@ -15,7 +15,7 @@
     "runNode": "hardhat node &",
     "testDAOUpgrade": "yarn runNode && yarn compile && yarn deployOldDAO --network develop-mainnet && yarn daoUpgrade --network develop-mainnet",
     "testDAOUpgradeFuse": "yarn runNode && yarn compile && yarn deployOldDAO --network develop && yarn daoUpgrade --network develop",
-    "deployTest": "yarn runNode && yarn compile && hardhat run test/singleOldDaoDeploy.ts && yarn daoUpgrade --network dapptest && yarn daoUpgrade --network dapptest-mainnet && hardhat run test/simulateInterest"
+    "deployTest": "yarn runNode && yarn compile && hardhat run test/singleOldDaoDeploy.ts --network dapptest && yarn daoUpgrade --network dapptest && yarn daoUpgrade --network dapptest-mainnet && hardhat run test/simulateInterest.ts --network dapptest"
   },
   "files": [
     "artifacts",
@@ -28,7 +28,8 @@
     "LICENSE",
     "truffle-config.js",
     "tsconfig.json",
-    "scripts"
+    "scripts",
+    "test"
   ],
   "repository": {
     "type": "git",

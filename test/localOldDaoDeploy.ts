@@ -44,17 +44,7 @@ export const deploy = async (networkName = name, single = false) => {
   console.log("ubi deployed");
   const gov = await deployOldVoting(dao);
   console.log("old vote deployed");
-  const signers = await ethers.getSigners();
-  const adminWallet = await new ethers.ContractFactory(
-    AdminWalletABI.abi,
-    AdminWalletABI.bytecode,
-    signers[0]
-  ).deploy(
-    signers.slice(0, 10).map((_) => _.address),
-    ethers.utils.parseUnits("1000000", "gwei"),
-    4,
-    dao.identity
-  );
+  const adminWallet = await deployAdminWallet(dao);
 
   const {
     uniswap,
@@ -110,6 +100,27 @@ export const deploy = async (networkName = name, single = false) => {
   await releaser(release, networkName, "olddao");
   if (single) await releaser(release, `${networkName}-mainnet`, "olddao");
   return release;
+};
+
+const deployAdminWallet = async (dao) => {
+  const signers = await ethers.getSigners();
+  const adminWallet = await new ethers.ContractFactory(
+    AdminWalletABI.abi,
+    AdminWalletABI.bytecode,
+    signers[0]
+  ).deploy(
+    signers.slice(0, 10).map((_) => _.address),
+    ethers.utils.parseUnits("1000000", "gwei"),
+    4,
+    dao.identity
+  );
+  const id = await ethers.getContractAt("IIdentity", dao.identity);
+  await id.addIdentityAdmin(adminWallet.address);
+  await signers[0].sendTransaction({
+    to: adminWallet.address,
+    value: ethers.utils.parseEther("10"),
+  });
+  return adminWallet;
 };
 
 const deploy3rdParty = async (dao) => {

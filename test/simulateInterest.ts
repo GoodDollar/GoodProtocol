@@ -22,7 +22,7 @@ const simulate = async function () {
   console.log({ addresses, network });
   const identity = await ethers.getContractAt("IIdentity", addresses.Identity);
   await Promise.all(
-    accounts.slice(0, 5).map((a) =>
+    accounts.slice(0, 10).map((a) =>
       identity
         .addWhitelistedWithDID(a.address, a.address + Math.random())
         .then((_) => _.wait())
@@ -62,7 +62,7 @@ const simulate = async function () {
     console.log("transfering cdai to staking day:", { day, cdaiBalance });
 
     await waitTX(
-      cDAI.transfer(simpleStaking, ethers.utils.parseUnits("3000", "gwei")) //300 cdai
+      cDAI.transfer(simpleStaking, ethers.utils.parseUnits("30", "gwei")) //300 cdai
     );
     let stakingBalance = await cDAI
       .balanceOf(simpleStaking)
@@ -70,7 +70,7 @@ const simulate = async function () {
 
     console.log("collecting interest...", { stakingBalance });
 
-    goodFundManager.collectInterest([simpleStaking]);
+    await goodFundManager.collectInterest([simpleStaking]);
 
     console.log("claiming");
 
