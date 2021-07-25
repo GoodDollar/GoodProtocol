@@ -51,8 +51,9 @@ contract GoodAaveStaking is SimpleStaking {
 		address _aaveUSDOracle
 	) public {
 		lendingPool = ILendingPool(_lendingPool);
-		DataTypes.ReserveData memory reserve =
-			lendingPool.getReserveData(_token);
+		DataTypes.ReserveData memory reserve = lendingPool.getReserveData(
+			_token
+		);
 		initialize(
 			_token,
 			reserve.aTokenAddress,
@@ -82,7 +83,15 @@ contract GoodAaveStaking is SimpleStaking {
 	 * @param _amount of token to redeem in Token
 	 */
 	function redeem(uint256 _amount) internal override {
-		lendingPool.withdraw(address(token), _amount, address(this));
+		uint256 withdrawnAmount = lendingPool.withdraw(
+			address(token),
+			_amount,
+			address(this)
+		);
+		require(
+			withdrawnAmount > 0,
+			"Withdrawn amount should be bigger than zero"
+		);
 	}
 
 	/**
@@ -101,10 +110,13 @@ contract GoodAaveStaking is SimpleStaking {
 		address[] memory tokenAddress = new address[](1);
 		tokenAddress[0] = address(token);
 		address daiAddress = nameService.getAddress("DAI");
-		uint256 stkAaaveBalance =
-			incentiveController.getRewardsBalance(tokenAddress, address(this));
-		Uniswap uniswapContract =
-			Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+		uint256 stkAaaveBalance = incentiveController.getRewardsBalance(
+			tokenAddress,
+			address(this)
+		);
+		Uniswap uniswapContract = Uniswap(
+			nameService.getAddress("UNISWAP_ROUTER")
+		);
 		uint256[] memory swap;
 		if (stkAaaveBalance > 0) {
 			incentiveController.claimRewards(
@@ -170,14 +182,9 @@ contract GoodAaveStaking is SimpleStaking {
 	{
 		ERC20 aToken = ERC20(address(iToken));
 		uint256 tokenBalance = aToken.balanceOf(address(this));
-		uint256 balanceInUSD =
-			_returnTokenBalanceInUSD
-				? getTokenValueInUSD(
-					tokenUsdOracle,
-					tokenBalance,
-					token.decimals()
-				)
-				: 0;
+		uint256 balanceInUSD = _returnTokenBalanceInUSD
+			? getTokenValueInUSD(tokenUsdOracle, tokenBalance, token.decimals())
+			: 0;
 		address[] memory tokenAddress = new address[](1);
 		tokenAddress[0] = address(token);
 		if (tokenBalance <= totalProductivity) {
@@ -185,14 +192,9 @@ contract GoodAaveStaking is SimpleStaking {
 		}
 		uint256 tokenGains = tokenBalance - totalProductivity;
 
-		uint256 tokenGainsInUSD =
-			_returnTokenGainsInUSD
-				? getTokenValueInUSD(
-					tokenUsdOracle,
-					tokenGains,
-					token.decimals()
-				)
-				: 0;
+		uint256 tokenGainsInUSD = _returnTokenGainsInUSD
+			? getTokenValueInUSD(tokenUsdOracle, tokenGains, token.decimals())
+			: 0;
 		return (
 			tokenGains, // since token gains = atoken gains
 			tokenGains,
@@ -213,8 +215,10 @@ contract GoodAaveStaking is SimpleStaking {
 	{
 		address[] memory tokenAddress = new address[](1);
 		tokenAddress[0] = address(token);
-		uint256 stkAaaveBalance =
-			incentiveController.getRewardsBalance(tokenAddress, address(this));
+		uint256 stkAaaveBalance = incentiveController.getRewardsBalance(
+			tokenAddress,
+			address(this)
+		);
 		if (stkAaaveBalance > 0)
 			return collectInterestGasCost + stkAaveClaimGasCost;
 
