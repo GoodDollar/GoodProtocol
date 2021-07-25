@@ -277,12 +277,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		address[] memory addresses = new address[](activeContractsLength);
 		uint256[] memory balances = new uint256[](activeContractsLength);
 		uint256 tempInterest;
-		uint256 totalInterest;
 		int256 i;
 		for (i = 0; i < int256(activeContractsLength); i++) {
 			(, , , , tempInterest) = IGoodStaking(activeContracts[uint256(i)])
 				.currentGains(false, true);
-			totalInterest += tempInterest;
 			if (tempInterest != 0) {
 				addresses[uint256(i)] = activeContracts[uint256(i)];
 				balances[uint256(i)] = tempInterest;
