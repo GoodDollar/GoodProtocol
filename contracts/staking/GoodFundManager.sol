@@ -26,7 +26,24 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	uint8 public interestMultiplier;
 	//address of the active staking contracts
 	address[] public activeContracts;
-
+	event GasCostSet(uint256 timestamp, uint256 newGasCost);
+	event CollectInterestTimeThresholdSet(
+		uint256 timestamp,
+		uint256 newCollectInterestTimeThreshold
+	);
+	event InterestMultiplierSet(uint256 timestamp, uint8 newInterestMultiplier);
+	event GasCostExceptInterestCollectSet(
+		uint256 timestamp,
+		uint256 newGasCostExceptInterestCollect
+	);
+	event StakingRewardSet(
+		uint256 timestamp,
+		uint32 _rewardsPerBlock,
+		address _stakingAddress,
+		uint32 _blockStart,
+		uint32 _blockEnd,
+		bool _isBlackListed
+	);
 	//Structure that hold reward information and if its blacklicksted or not for particular staking Contract
 	struct Reward {
 		uint32 blockReward; //in G$
@@ -90,6 +107,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	function setGasCost(uint256 _gasAmount) public {
 		_onlyAvatar();
 		gdMintGasCost = _gasAmount;
+		emit GasCostSet(block.timestamp, _gasAmount);
 	}
 
 	/**
@@ -100,6 +118,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	function setCollectInterestTimeThreshold(uint256 _timeThreshold) public {
 		_onlyAvatar();
 		collectInterestTimeThreshold = _timeThreshold;
+		emit CollectInterestTimeThresholdSet(block.timestamp, _timeThreshold);
 	}
 
 	/**
@@ -108,6 +127,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	function setInterestMultiplier(uint8 _newMultiplier) public {
 		_onlyAvatar();
 		interestMultiplier = _newMultiplier;
+		emit InterestMultiplierSet(block.timestamp, _newMultiplier);
 	}
 
 	/**
@@ -118,6 +138,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	function setGasCostExceptInterestCollect(uint256 _gasAmount) public {
 		_onlyAvatar();
 		gasCostExceptInterestCollect = _gasAmount;
+		emit GasCostExceptInterestCollectSet(block.timestamp, _gasAmount);
 	}
 
 	/**
@@ -167,6 +188,14 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		} else if (!exist && !(_isBlackListed || _rewardsPerBlock == 0)) {
 			activeContracts.push(_stakingAddress);
 		}
+		emit StakingRewardSet(
+			block.timestamp,
+			_rewardsPerBlock,
+			_stakingAddress,
+			_blockStart,
+			_blockEnd,
+			_isBlackListed
+		);
 	}
 
 	/**
