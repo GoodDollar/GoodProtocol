@@ -299,7 +299,7 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		);
 		ReserveToken storage rtoken = reserveTokens[address(_token)];
 		require(
-			rtoken.gdSupply > _gdAmount,
+			rtoken.gdSupply >= _gdAmount,
 			"GD amount is higher than the total supply"
 		);
 
