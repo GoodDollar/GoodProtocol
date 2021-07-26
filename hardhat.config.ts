@@ -2,7 +2,7 @@
  * @type import('hardhat/config').HardhatUserConfig
  */
 import { HardhatUserConfig } from "hardhat/types";
-import "hardhat-typechain";
+import "@typechain/hardhat";
 import "@nomiclabs/hardhat-waffle";
 import "@nomiclabs/hardhat-etherscan";
 import "@openzeppelin/hardhat-upgrades";

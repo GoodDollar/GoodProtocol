@@ -24,6 +24,7 @@ import SimpleDAIStaking from "@gooddollar/goodcontracts/stakingModel/build/contr
 import BridgeMock from "@gooddollar/goodcontracts/stakingModel/build/contracts/BridgeMock.json";
 import DonationsStaking from "@gooddollar/goodcontracts/upgradables/build/contracts/DonationsStaking.json";
 import AdminWalletABI from "@gooddollar/goodcontracts/build/contracts/AdminWallet.json";
+import OTPABI from "@gooddollar/goodcontracts/build/contracts/OneTimePayments.json";
 
 import releaser from "../scripts/releaser";
 import { increaseTime, deployUniswap } from "../test/helpers";
@@ -93,6 +94,7 @@ export const deploy = async (networkName = name, single = false) => {
     ETHUsdOracle: ethusdOracle.address,
     AaveIncentiveController: incentiveController.address,
     AdminWallet: adminWallet.address,
+    OneTimePayments: dao.oneTimePayments,
     network: networkName,
     networkId: 4447,
   };
@@ -517,6 +519,16 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
     return Identity.addWhitelistedWithDID(addr, did);
   };
 
+  console.log("deploying OneTimePayments");
+
+  const otp = await new ethers.ContractFactory(
+    OTPABI.abi,
+    OTPABI.bytecode,
+    root
+  )
+    .deploy(Avatar.address, Identity.address)
+    .then(printDeploy);
+
   console.log("setting schemes");
   await daoCreator.setSchemes(
     Avatar.address,
@@ -526,6 +538,7 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
       goodReserve.address,
       fundManager.address,
       simpleStaking.address,
+      otp.address,
     ],
     [
       ethers.constants.HashZero,
@@ -533,8 +546,16 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
       ethers.constants.HashZero,
       ethers.constants.HashZero,
       ethers.constants.HashZero,
+      ethers.constants.HashZero,
     ],
-    ["0x0000001F", "0x0000001F", "0x0000001F", "0x0000001F", "0x0000001F"],
+    [
+      "0x0000001F",
+      "0x0000001F",
+      "0x0000001F",
+      "0x0000001F",
+      "0x0000001F",
+      "0x0000001F",
+    ],
     ""
   );
 
@@ -581,6 +602,7 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
     bancorFormula: BancorFormula.address,
     bridge: Bridge.address,
     donationsStaking: donationsStaking.address,
+    oneTimePayments: otp.address,
   };
 };
 

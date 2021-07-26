@@ -2012,14 +2012,14 @@
   resolved "https://registry.yarnpkg.com/@openzeppelin/contracts-upgradeable/-/contracts-upgradeable-4.2.0.tgz#3b12d6fe9d51e563c8a6ae39c96c1d32c5d0fa4a"
   integrity sha512-vn0hoUqQzgOLzLZwFgh+w/D5hzJHX8F7X/7t/gZdSQYIEXMyGpXUwkr5A3eoAeoc42f/n7yDhwusvBmNknM41Q==
 
-"@openzeppelin/hardhat-upgrades@^1.7.0":
-  version "1.9.0"
-  resolved "https://registry.yarnpkg.com/@openzeppelin/hardhat-upgrades/-/hardhat-upgrades-1.9.0.tgz#68d9d5b5876809f49ae445973614ea9624474872"
-  integrity sha512-ND1sqm8dpTY6CZLdaC5IgtUo6zvlVgSeqadrWRbr/N7J2Bs2JsINWA2G+r4IeunzbcOJFB7GHTs/RkFR6hNLmA==
+"@openzeppelin/hardhat-upgrades@1.7.0":
+  version "1.7.0"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/hardhat-upgrades/-/hardhat-upgrades-1.7.0.tgz#3086273b477818822b889ced9b4bd6d431c35e33"
+  integrity sha512-fInSIsIu2jYOqMzw0uQF6cBB0xDDUl7YSKEGU3Jp31UGe4jQg11d/echw0gc4BvLvxWEzhMpmqwDqV1KJPqNyQ==
   dependencies:
-    "@openzeppelin/upgrades-core" "^1.8.0"
+    "@openzeppelin/upgrades-core" "^1.7.0"
 
-"@openzeppelin/upgrades-core@^1.8.0":
+"@openzeppelin/upgrades-core@^1.7.0":
   version "1.8.0"
   resolved "https://registry.yarnpkg.com/@openzeppelin/upgrades-core/-/upgrades-core-1.8.0.tgz#b2d6f747e3a4c3e37a18d1b13f45b7617dde2260"
   integrity sha512-hO/SqUusFzD8mxrtDllShTE0eeWXsBkrR8zjjr8C8j+/gzvWQnd9HkNGTh7bpf8giUGzkERDuOOpFdSI1R3yvQ==
@@ -2792,6 +2792,13 @@
   dependencies:
     ethers "^5.0.2"
 
+"@typechain/hardhat@^2.2.0":
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/@typechain/hardhat/-/hardhat-2.2.0.tgz#a3e99b49c215c364c375c554bdce626bb21ecc47"
+  integrity sha512-ICZdbc5QA/bSZEvdAHsEL3/u260ZPIK7WZLNnoGywQNo6A98w7VKQW4DR7hPPMHe1FaSI1LTuIesRQvCUVyT3A==
+  dependencies:
+    fs-extra "^9.1.0"
+
 "@types/abstract-leveldown@*":
   version "5.0.2"
   resolved "https://registry.yarnpkg.com/@types/abstract-leveldown/-/abstract-leveldown-5.0.2.tgz#ee81917fe38f770e29eec8139b6f16ee4a8b0a5f"
@@ -3022,9 +3029,9 @@
     form-data "^3.0.0"
 
 "@types/node@*", "@types/node@>=13.7.0":
-  version "16.4.2"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-16.4.2.tgz#0a95d7fd950cb1eaca0ce11031d72e8f680b775a"
-  integrity sha512-vxyhOzFCm+jC/T5KugbVsYy1DbQM0h3NCFUrVbu0+pYa/nr+heeucpqxpa8j4pUmIGLPYzboY9zIdOF0niFAjQ==
+  version "16.4.3"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-16.4.3.tgz#c01c1a215721f6dec71b47d88b4687463601ba48"
+  integrity sha512-GKM4FLMkWDc0sfx7tXqPWkM6NBow1kge0fgQh0bOnlqo4iT1kvTvMEKE0c1RtUGnbLlGRXiAA8SumE//90uKAg==
 
 "@types/node@10.12.18":
   version "10.12.18"
@@ -4576,13 +4583,13 @@ bignumber.js@^2.1.4:
   resolved "https://registry.yarnpkg.com/bignumber.js/-/bignumber.js-2.4.0.tgz#838a992da9f9d737e0f4b2db0be62bb09dd0c5e8"
   integrity sha1-g4qZLan51zfg9LLbC+YrsJ3Qxeg=
 
+"bignumber.js@git+https://github.com/debris/bignumber.js#master":
+  version "2.0.7"
+  resolved "git+https://github.com/debris/bignumber.js#c7a38de919ed75e6fb6ba38051986e294b328df9"
+
 "bignumber.js@git+https://github.com/debris/bignumber.js.git#94d7146671b9719e00a09c29b01a691bc85048c2":
   version "2.0.7"
   resolved "git+https://github.com/debris/bignumber.js.git#94d7146671b9719e00a09c29b01a691bc85048c2"
-
-"bignumber.js@git+https://github.com/debris/bignumber.js.git#master":
-  version "2.0.7"
-  resolved "git+https://github.com/debris/bignumber.js.git#c7a38de919ed75e6fb6ba38051986e294b328df9"
 
 bin-build@^3.0.0:
   version "3.0.0"
@@ -5905,11 +5912,11 @@ cross-fetch@3.1.4, cross-fetch@^3.0.4, cross-fetch@^3.0.6:
     node-fetch "2.6.1"
 
 cross-fetch@^2.1.0, cross-fetch@^2.1.1:
-  version "2.2.3"
-  resolved "https://registry.yarnpkg.com/cross-fetch/-/cross-fetch-2.2.3.tgz#e8a0b3c54598136e037f8650f8e823ccdfac198e"
-  integrity sha512-PrWWNH3yL2NYIb/7WF/5vFG3DCQiXDOVf8k3ijatbrtnwNuhMWLC7YF7uqf53tbTFDzHIUD8oITw4Bxt8ST3Nw==
+  version "2.2.5"
+  resolved "https://registry.yarnpkg.com/cross-fetch/-/cross-fetch-2.2.5.tgz#afaf5729f3b6c78d89c9296115c9f142541a5705"
+  integrity sha512-xqYAhQb4NhCJSRym03dwxpP1bYXpK3y7UN83Bo2WFi3x1Zmzn0SL/6xGoPr+gpt4WmNrgCCX3HPysvOwFOW36w==
   dependencies:
-    node-fetch "2.1.2"
+    node-fetch "2.6.1"
     whatwg-fetch "2.0.4"
 
 cross-spawn@^5.0.1:
@@ -8999,15 +9006,10 @@ hardhat-gas-reporter@^1.0.4:
     eth-gas-reporter "^0.2.20"
     sha1 "^1.1.1"
 
-hardhat-typechain@*:
-  version "0.3.5"
-  resolved "https://registry.yarnpkg.com/hardhat-typechain/-/hardhat-typechain-0.3.5.tgz#8e50616a9da348b33bd001168c8fda9c66b7b4af"
-  integrity sha512-w9lm8sxqTJACY+V7vijiH+NkPExnmtiQEjsV9JKD1KgMdVk2q8y+RhvU/c4B7+7b1+HylRUCxpOIvFuB3rE4+w==
-
-hardhat@*:
-  version "2.5.0"
-  resolved "https://registry.yarnpkg.com/hardhat/-/hardhat-2.5.0.tgz#0a10bf85d9b2c3c7c12cfa4e35454296c670c054"
-  integrity sha512-S5CWcmiFZlFF2qFGyf5LlgVnJDXwTs5UBKU3GPQCjsUD3NAIWzXr/4xDSij3YWdg751axgLiKAJM01cHcxGb7A==
+hardhat@2.4.3:
+  version "2.4.3"
+  resolved "https://registry.yarnpkg.com/hardhat/-/hardhat-2.4.3.tgz#093373b383eacec0d3e7fb223353b2f0cb9f2802"
+  integrity sha512-xgbnhEnmaKau8xT6wPJlzoyMLAZyxQoElACQQCyEeAY1DURpZbYwjIQUywmL/ZNv3QEl38Yqu/n8mPOc2HXyGA==
   dependencies:
     "@ethereumjs/block" "^3.4.0"
     "@ethereumjs/blockchain" "^5.4.0"
@@ -12060,11 +12062,6 @@ node-fetch@*, node-fetch@2.6.1, node-fetch@^2.6.0, node-fetch@^2.6.1:
   version "2.6.1"
   resolved "https://registry.yarnpkg.com/node-fetch/-/node-fetch-2.6.1.tgz#045bd323631f76ed2e2b55573394416b639a0052"
   integrity sha512-V4aYg89jEoVRxRb2fJdAg8FHvI7cEyYdVAh94HH0UIK8oJxUfkjlDQN9RbMx+bEjP7+ggMiFRprSti032Oipxw==
-
-node-fetch@2.1.2:
-  version "2.1.2"
-  resolved "https://registry.yarnpkg.com/node-fetch/-/node-fetch-2.1.2.tgz#ab884e8e7e57e38a944753cec706f788d1768bb5"
-  integrity sha1-q4hOjn5X44qUR1POxwb3iNF2i7U=
 
 node-fetch@2.4.1:
   version "2.4.1"
