@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "1.0.0-beta.10",
+  "version": "1.0.0-beta.11",
   "description": "GoodDollar Protocol",
   "scripts": {
     "build": "scripts/build.sh deploy",
@@ -18,7 +18,7 @@
     "deployTest": "yarn runNode && yarn compile && hardhat run test/singleOldDaoDeploy.ts --network dapptest && yarn daoUpgrade --network dapptest && yarn daoUpgrade --network dapptest-mainnet && hardhat run test/simulateInterest.ts --network dapptest"
   },
   "files": [
-    "artifacts",
+    "artifacts/contracts",
     "contracts",
     "releases",
     "scripts",
