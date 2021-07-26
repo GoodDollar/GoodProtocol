@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "1.0.0-beta.11",
+  "version": "1.0.0-beta.12",
   "description": "GoodDollar Protocol",
   "scripts": {
     "build": "scripts/build.sh deploy",
@@ -80,7 +80,7 @@
     "ethereum-waffle": "*",
     "ethers": "^5.4.1",
     "ethers-eip712": "*",
-    "fs-extra": "*",
+    "fs-extra": "9.0.0",
     "graphql": "^15.5.0",
     "graphql-request": "^3.4.0",
     "hardhat": "2.4.3",
@@ -96,7 +96,7 @@
     "truffle": "^5.3.12",
     "truffle-hdwallet-provider": "*",
     "ts-generator": "*",
-    "ts-node": "*",
+    "ts-node": "^9.0.0",
     "typechain": "*",
     "typescript": "*"
   }
