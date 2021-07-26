@@ -110,9 +110,8 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		require(_denom > 0, "denominator must be above 0");
 		reserveRatioDailyExpansion = rdiv(_nom, _denom);
 		require(
-			reserveRatioDailyExpansion < 1e27 &&
-				reserveRatioDailyExpansion > 1e26,
-			"Reserve Ratio Daily expansion must be in the 27 decimals"
+			reserveRatioDailyExpansion < 1e27,
+			"Invalid nom or denom value"
 		);
 		emit ReserveRatioUpdated(msg.sender, _nom, _denom);
 	}
