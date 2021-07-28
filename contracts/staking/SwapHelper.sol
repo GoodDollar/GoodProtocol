@@ -7,10 +7,15 @@ import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+contract SwapHelper is DAOUpgradeableContract {
+	uint256 private _status;
 
-contract SwapHelper {
-	function encodePath(address[] memory _tokenAddresses, uint24[] memory _fees)
-		public
+	function initialize(INameService _ns) public virtual initializer {
+		setDAO(_ns);
+	}
+
+	function encodePath(address[] memory _tokenAddresses, uint32[] memory _fees)
+		internal
 		view
 		returns (bytes memory)
 	{
@@ -51,7 +56,6 @@ contract SwapHelper {
 	@dev Helper to swap tokens in the Uniswap
 	*@param _path the buy path
 	*@param _tokenAmount token amount to sell or buy
-	*@param _minDAIAmount minimum DAI amount to get in swap transaction if transaction is buy
 	*@param _minTokenReturn minimum token amount to get in swap transaction if transaction is sell
 	*@param _receiver receiver of tokens after swap transaction
 	 */
