@@ -100,6 +100,7 @@
     "ts-generator": "*",
     "ts-node": "^9.0.0",
     "typechain": "*",
-    "typescript": "*"
+    "typescript": "*",
+    "uniswap-v3-deploy-plugin": "^0.1.0"
   }
 }

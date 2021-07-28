@@ -4,17 +4,13 @@ pragma solidity >=0.8.0;
 import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 
-contract SwapHelper is DAOUpgradeableContract {
-	uint256 private _status;
-
-	function initialize(INameService _ns) public virtual initializer {
-		setDAO(_ns);
-	}
-
-	function encodePath(address[] _tokenAddresses, _fees)
-		internal
+contract SwapHelper {
+	function encodePath(address[] memory _tokenAddresses, uint24[] memory _fees)
+		public
 		view
 		returns (bytes memory)
 	{
@@ -34,18 +30,21 @@ contract SwapHelper is DAOUpgradeableContract {
 		return encodedPath;
 	}
 
-	function maxProtectedTokenAmount(address[] memory _path)
-		external
-		view
-		returns (uint256)
-	{
-		ISwapRouter uniswap = ISwapRouter(
-			nameService.getAddress("UNISWAP_V3_ROUTER")
+	function maxProtectedTokenAmount(
+		address uniswapRouter,
+		address tokenA,
+		address tokenB,
+		uint24 fee
+	) external view returns (uint256) {
+		IPeripheryImmutableState uniswap = IPeripheryImmutableState(
+			uniswapRouter
 		);
-		address tokenA = _path[0] == address(0x0) ? uniswap.WETH() : _path[0];
+		address tokenA = tokenA == address(0x0) ? uniswap.WETH9() : tokenA;
 
-		UniswapPair(UniswapFactory(uniswap.factory()).getPair(tokenA, _path[1]))
-			.getReserves();
+		IUniswapV3Pool(
+			IUniswapV3Factory(uniswap.factory()).getPool(tokenA, tokenB, fee)
+		);
+		return 1;
 	}
 
 	/**
@@ -56,46 +55,46 @@ contract SwapHelper is DAOUpgradeableContract {
 	*@param _minTokenReturn minimum token amount to get in swap transaction if transaction is sell
 	*@param _receiver receiver of tokens after swap transaction
 	 */
-	function swap(
-		address[] memory _path,
-		uint256 _tokenAmount,
-		uint256 _minTokenReturn,
-		address _receiver
-	) external returns (uint256[] memory) {
-		Uniswap uniswapContract = Uniswap(
-			nameService.getAddress("UNISWAP_ROUTER")
-		);
-		address wETH = uniswapContract.WETH();
-		uint256[] memory swap;
-		if (_path[0] == address(0x0)) {
-			_path[0] = wETH;
-			swap = uniswapContract.swapExactETHForTokens{ value: _tokenAmount }(
-				_minTokenReturn,
-				_path,
-				_receiver,
-				block.timestamp
-			);
-			return swap;
-		} else if (_path[_path.length - 1] == address(0x0)) {
-			_path[_path.length - 1] = wETH;
-			swap = uniswapContract.swapExactTokensForETH(
-				_tokenAmount,
-				_minTokenReturn,
-				_path,
-				_receiver,
-				block.timestamp
-			);
-			return swap;
-		} else {
-			ERC20(_path[0]).approve(address(uniswapContract), _tokenAmount);
-			swap = uniswapContract.swapExactTokensForTokens(
-				_tokenAmount,
-				_minTokenReturn,
-				_path,
-				_receiver,
-				block.timestamp
-			);
-			return swap;
-		}
-	}
+	// function swap(
+	// 	address[] memory _path,
+	// 	uint256 _tokenAmount,
+	// 	uint256 _minTokenReturn,
+	// 	address _receiver
+	// ) external returns (uint256[] memory) {
+	// 	Uniswap uniswapContract = Uniswap(
+	// 		nameService.getAddress("UNISWAP_ROUTER")
+	// 	);
+	// 	address wETH = uniswapContract.WETH();
+	// 	uint256[] memory swap;
+	// 	if (_path[0] == address(0x0)) {
+	// 		_path[0] = wETH;
+	// 		swap = uniswapContract.swapExactETHForTokens{ value: _tokenAmount }(
+	// 			_minTokenReturn,
+	// 			_path,
+	// 			_receiver,
+	// 			block.timestamp
+	// 		);
+	// 		return swap;
+	// 	} else if (_path[_path.length - 1] == address(0x0)) {
+	// 		_path[_path.length - 1] = wETH;
+	// 		swap = uniswapContract.swapExactTokensForETH(
+	// 			_tokenAmount,
+	// 			_minTokenReturn,
+	// 			_path,
+	// 			_receiver,
+	// 			block.timestamp
+	// 		);
+	// 		return swap;
+	// 	} else {
+	// 		ERC20(_path[0]).approve(address(uniswapContract), _tokenAmount);
+	// 		swap = uniswapContract.swapExactTokensForTokens(
+	// 			_tokenAmount,
+	// 			_minTokenReturn,
+	// 			_path,
+	// 			_receiver,
+	// 			block.timestamp
+	// 		);
+	// 		return swap;
+	// 	}
+	// }
 }
