@@ -72,6 +72,8 @@
     "@types/node": "*",
     "@uniswap/v2-core": "*",
     "@uniswap/v2-periphery": "^1.1.0-beta.0",
+    "@uniswap/v3-core": "^1.0.0",
+    "@uniswap/v3-periphery": "^1.1.1",
     "bignumber.js": "*",
     "bindings": "*",
     "chai": "*",

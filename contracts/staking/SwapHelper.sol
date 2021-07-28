@@ -3,6 +3,8 @@
 pragma solidity >=0.8.0;
 import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 
 contract SwapHelper is DAOUpgradeableContract {
 	uint256 private _status;
@@ -11,24 +13,37 @@ contract SwapHelper is DAOUpgradeableContract {
 		setDAO(_ns);
 	}
 
-	function setAddresses() public {
-		daiAddress = nameService.getAddress("DAI");
-		cDaiAddress = nameService.getAddress("CDAI");
-		// Approve transfer to cDAI contract
-		ERC20(daiAddress).approve(cDaiAddress, type(uint256).max);
-		ERC20(daiAddress).approve(
-			nameService.getAddress("UNISWAP_ROUTER"),
-			type(uint256).max
-		);
+	function encodePath(address[] _tokenAddresses, _fees)
+		internal
+		view
+		returns (bytes memory)
+	{
+		bytes memory encodedPath;
+
+		for (uint256 i; i < _tokenAddresses.length; i++) {
+			if (i != _tokenAddresses.length - 1) {
+				encodedPath = abi.encodePacked(
+					encodedPath,
+					_tokenAddresses[i],
+					_fees[i]
+				);
+			} else {
+				encodedPath = abi.encodePacked(encodedPath, _tokenAddresses[i]);
+			}
+		}
+		return encodedPath;
 	}
 
 	function maxProtectedTokenAmount(address[] memory _path)
-		public
+		external
 		view
 		returns (uint256)
 	{
-		Uniswap uniswap = Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+		ISwapRouter uniswap = ISwapRouter(
+			nameService.getAddress("UNISWAP_V3_ROUTER")
+		);
 		address tokenA = _path[0] == address(0x0) ? uniswap.WETH() : _path[0];
+
 		UniswapPair(UniswapFactory(uniswap.factory()).getPair(tokenA, _path[1]))
 			.getReserves();
 	}
