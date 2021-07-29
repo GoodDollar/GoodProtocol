@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity >=0.8.0;
-import "../utils/DAOUpgradeableContract.sol";
-import "../utils/NameService.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/IPeripheryPayments.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "../Interfaces.sol";
 
 contract SwapHelper {
 	function encodePath(address[] memory _tokenAddresses, uint24[] memory _fees)
@@ -30,19 +30,30 @@ contract SwapHelper {
 		return encodedPath;
 	}
 
+	function getRouter(address _optionalRouter)
+		internal
+		view
+		returns (address)
+	{
+		return
+			_optionalRouter == address(0x0)
+				? address(0xE592427A0AEce92De3Edee1F18E0157C05861564)
+				: _optionalRouter;
+	}
+
 	function maxProtectedTokenAmount(
-		address uniswapRouter,
-		address tokenA,
-		address tokenB,
-		uint24 fee
+		address _tokenA,
+		address _tokenB,
+		uint24 _fee,
+		address _optionalRouter
 	) external view returns (uint256) {
 		IPeripheryImmutableState uniswap = IPeripheryImmutableState(
-			uniswapRouter
+			getRouter(_optionalRouter)
 		);
-		address tokenA = tokenA == address(0x0) ? uniswap.WETH9() : tokenA;
+		_tokenA = _tokenA == address(0x0) ? uniswap.WETH9() : _tokenA;
 
 		IUniswapV3Pool(
-			IUniswapV3Factory(uniswap.factory()).getPool(tokenA, tokenB, fee)
+			IUniswapV3Factory(uniswap.factory()).getPool(_tokenA, _tokenB, _fee)
 		);
 		return 1;
 	}
@@ -51,50 +62,42 @@ contract SwapHelper {
 	@dev Helper to swap tokens in the Uniswap
 	*@param _path the buy path
 	*@param _tokenAmount token amount to sell or buy
-	*@param _minDAIAmount minimum DAI amount to get in swap transaction if transaction is buy
 	*@param _minTokenReturn minimum token amount to get in swap transaction if transaction is sell
 	*@param _receiver receiver of tokens after swap transaction
 	 */
-	// function swap(
-	// 	address[] memory _path,
-	// 	uint256 _tokenAmount,
-	// 	uint256 _minTokenReturn,
-	// 	address _receiver
-	// ) external returns (uint256[] memory) {
-	// 	Uniswap uniswapContract = Uniswap(
-	// 		nameService.getAddress("UNISWAP_ROUTER")
-	// 	);
-	// 	address wETH = uniswapContract.WETH();
-	// 	uint256[] memory swap;
-	// 	if (_path[0] == address(0x0)) {
-	// 		_path[0] = wETH;
-	// 		swap = uniswapContract.swapExactETHForTokens{ value: _tokenAmount }(
-	// 			_minTokenReturn,
-	// 			_path,
-	// 			_receiver,
-	// 			block.timestamp
-	// 		);
-	// 		return swap;
-	// 	} else if (_path[_path.length - 1] == address(0x0)) {
-	// 		_path[_path.length - 1] = wETH;
-	// 		swap = uniswapContract.swapExactTokensForETH(
-	// 			_tokenAmount,
-	// 			_minTokenReturn,
-	// 			_path,
-	// 			_receiver,
-	// 			block.timestamp
-	// 		);
-	// 		return swap;
-	// 	} else {
-	// 		ERC20(_path[0]).approve(address(uniswapContract), _tokenAmount);
-	// 		swap = uniswapContract.swapExactTokensForTokens(
-	// 			_tokenAmount,
-	// 			_minTokenReturn,
-	// 			_path,
-	// 			_receiver,
-	// 			block.timestamp
-	// 		);
-	// 		return swap;
-	// 	}
-	// }
+	function swap(
+		address[] memory _path,
+		uint24[] calldata _fees,
+		uint256 _tokenAmount,
+		uint256 _minTokenReturn,
+		address _receiver,
+		address _optionalRouter
+	) external returns (uint256 swapResult) {
+		ISwapRouter uniswap = ISwapRouter(getRouter(_optionalRouter));
+		address wETH = IPeripheryImmutableState(address(uniswap)).WETH9();
+		ISwapRouter.ExactInputParams memory params;
+		params.recipient = _receiver;
+		params.amountIn = _tokenAmount;
+		params.amountOutMinimum = _minTokenReturn;
+
+		if (_path[0] == address(0x0)) {
+			_path[0] = wETH;
+			params.path = encodePath(_path, _fees);
+			swapResult = uniswap.exactInput{ value: _tokenAmount }(params);
+		} else if (_path[_path.length - 1] == address(0x0)) {
+			_path[_path.length - 1] = wETH;
+			params.path = encodePath(_path, _fees);
+			//recipient is uniswap router, then we call unwrapWETH9 to send ether to receiver
+			params.recipient = address(uniswap);
+			swapResult = uniswap.exactInput{ value: _tokenAmount }(params);
+			IPeripheryPayments(address(uniswap)).unwrapWETH9(
+				swapResult,
+				_receiver
+			);
+		} else {
+			ERC20(_path[0]).approve(address(uniswap), _tokenAmount);
+			params.path = encodePath(_path, _fees);
+			swapResult = uniswap.exactInput{ value: _tokenAmount }(params);
+		}
+	}
 }

@@ -26,7 +26,7 @@ contract SwapMock {
 				_fees
 			)
 		);
-		encodedPath = result;
+		(encodedPath) = abi.decode(result, (bytes));
 		emit Result(result);
 	}
 }
