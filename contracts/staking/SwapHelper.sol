@@ -9,8 +9,8 @@ import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "../Interfaces.sol";
 
 contract SwapHelper {
-	function encodePath(address[] memory _tokenAddresses, uint24[] memory _fees)
-		public
+	function encodePath(address[] memory _tokenAddresses, uint32[] memory _fees)
+		internal
 		view
 		returns (bytes memory)
 	{
