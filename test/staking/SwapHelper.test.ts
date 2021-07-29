@@ -10,7 +10,7 @@ import {
   IPeripheryImmutableState,
   IUniswapV3Pool,
   ISwapRouter,
-  SwapHelper,
+  UniswapV3SwapHelper,
 } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import {
@@ -40,10 +40,15 @@ const encodePriceSqrt = (
   );
 };
 
+const getMinTick = (tickSpacing: number) =>
+  Math.ceil(-887272 / tickSpacing) * tickSpacing;
+const getMaxTick = (tickSpacing: number) =>
+  Math.floor(887272 / tickSpacing) * tickSpacing;
+
 let signers,
   uniswapContracts: { [name: string]: Contract },
   dao,
-  swapHelper: SwapHelper,
+  swapHelper: UniswapV3SwapHelper,
   gddaiPool: IUniswapV3Pool,
   daicdaiPool: IUniswapV3Pool,
   ethdaiPool: IUniswapV3Pool;
@@ -53,18 +58,36 @@ describe("SwapHelper - Library for uniswap V3", () => {
     signers = await ethers.getSigners();
     uniswapContracts = await UniswapV3Deployer.deploy(signers[0]);
 
+    let nfpm = uniswapContracts.positionManager;
     swapHelper = (await (
-      await ethers.getContractFactory("SwapHelper")
-    ).deploy()) as SwapHelper;
+      await ethers.getContractFactory("UniswapV3SwapHelper")
+    ).deploy()) as UniswapV3SwapHelper;
 
     const factory = uniswapContracts.factory as IUniswapV3Factory;
-    await factory.createPool(dao.gd, dao.daiAddress, 1000);
-    await factory.createPool(dao.daiAddress, dao.cdaiAddress, 1000);
-    await factory.createPool(
+    await factory.enableFeeAmount(1000, 10);
+    console.log("enabled fee");
+
+    await nfpm.createAndInitializePoolIfNecessary(
+      dao.gd,
+      dao.daiAddress,
+      1000,
+      encodePriceSqrt(1, 1)
+    );
+    console.log("created gd pool");
+    await nfpm.createAndInitializePoolIfNecessary(
+      dao.daiAddress,
+      dao.cdaiAddress,
+      1000,
+      encodePriceSqrt(1, 1)
+    );
+    console.log("created daicdai pool");
+    await nfpm.createAndInitializePoolIfNecessary(
       uniswapContracts.weth9.address,
       dao.daiAddress,
-      1000
+      1000,
+      encodePriceSqrt(1, 1)
     );
+    console.log("created ethdai pool");
     gddaiPool = (await ethers.getContractAt(
       "IUniswapV3Pool",
       await factory.getPool(dao.gd, dao.daiAddress, 1000)
@@ -82,9 +105,69 @@ describe("SwapHelper - Library for uniswap V3", () => {
       )
     )) as IUniswapV3Pool;
 
-    gddaiPool.initialize(encodePriceSqrt(1, 1));
-    daicdaiPool.initialize(encodePriceSqrt(1, 1));
-    ethdaiPool.initialize(encodePriceSqrt(1, 1));
+    const dai = await ethers.getContractAt("cERC20", dao.daiAddress);
+    const cDAI = await ethers.getContractAt("cERC20", dao.cdaiAddress);
+    const gooddollar = await ethers.getContractAt("IGoodDollar", dao.gd);
+
+    await (await dai["mint(uint256)"](ethers.utils.parseEther("10000"))).wait();
+    console.log("created minted dai");
+
+    await (
+      await dai.approve(cDAI.address, ethers.utils.parseEther("10000000000"))
+    ).wait();
+    await cDAI["mint(uint256)"](ethers.utils.parseEther("1000")).then((_) =>
+      _.wait()
+    );
+    console.log("created minted cdai");
+    await gooddollar
+      .mint(signers[0].address, "100000000000")
+      .then((_) => _.wait());
+    console.log("created minted gooddollar");
+    await uniswapContracts.weth9.deposit({
+      value: ethers.utils.parseEther("100"),
+    });
+    console.log("created minted weth9");
+    console.log(
+      "balances:",
+      await dai.balanceOf(signers[0].address).then((_) => _.toString()),
+      await uniswapContracts.weth9
+        .balanceOf(signers[0].address)
+        .then((_) => _.toString()),
+      await cDAI.balanceOf(signers[0].address).then((_) => _.toString()),
+      await gooddollar.balanceOf(signers[0].address).then((_) => _.toString())
+    );
+
+    await Promise.all(
+      [gooddollar, cDAI, uniswapContracts.weth9, dai].map((c) => {
+        return c
+          .approve(nfpm.address, ethers.utils.parseEther("10000000000"))
+          .then((_) => _.wait());
+      })
+    );
+
+    console.log("adding liquidity");
+    let liquidityTX = await nfpm
+      .mint({
+        token0: gooddollar.address,
+        token1: dai.address,
+        tickLower: getMinTick(10),
+        tickUpper: getMaxTick(10),
+        amount0Desired: 100000,
+        amount1Desired: 100000,
+        amount0Min: 0,
+        amount1Min: 0,
+        recipient: signers[0].address,
+        deadline: Date.now(),
+        fee: 1000,
+      })
+      .then((_) => _.wait());
+
+    console.log(
+      { liquidityTX: liquidityTX.events },
+      "poolbalance:",
+      await gooddollar.balanceOf(gddaiPool.address).then((_) => _.toString()),
+      await dai.balanceOf(gddaiPool.address).then((_) => _.toString())
+    );
   });
 
   it("should have uniswap deployed", async () => {

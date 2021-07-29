@@ -1,17 +1,17 @@
 pragma solidity >=0.8.0;
 
-import "../staking/SwapHelper.sol";
+import "../staking/UniswapV3SwapHelper.sol";
 
 contract SwapMock {
-	SwapHelper swapHelper;
+	UniswapV3SwapHelper swapHelper;
 
 	event Result(bytes result);
 
-	constructor(SwapHelper _swapHelper) {
+	constructor(UniswapV3SwapHelper _swapHelper) {
 		setHelper(_swapHelper);
 	}
 
-	function setHelper(SwapHelper _swapHelper) public {
+	function setHelper(UniswapV3SwapHelper _swapHelper) public {
 		swapHelper = _swapHelper;
 	}
 

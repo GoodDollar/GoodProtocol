@@ -8,10 +8,10 @@ import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "../Interfaces.sol";
 
-contract SwapHelper {
-	function encodePath(address[] memory _tokenAddresses, uint32[] memory _fees)
-		internal
-		view
+contract UniswapV3SwapHelper {
+	function encodePath(address[] memory _tokenAddresses, uint24[] memory _fees)
+		public
+		pure
 		returns (bytes memory)
 	{
 		bytes memory encodedPath;
@@ -32,7 +32,7 @@ contract SwapHelper {
 
 	function getRouter(address _optionalRouter)
 		internal
-		view
+		pure
 		returns (address)
 	{
 		return
