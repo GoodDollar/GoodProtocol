@@ -30,10 +30,6 @@ abstract contract SimpleStaking is
 	// Interest Token address
 	ERC20 public iToken;
 
-	// The total staked Token amount in the contract
-	// uint256 public totalStaked = 0;
-	uint8 public stakingTokenDecimals;
-
 	// emergency pause
 	bool public isPaused;
 
@@ -90,7 +86,6 @@ abstract contract SimpleStaking is
 			token.decimals() <= 18,
 			"Token decimals should be less than 18 decimals"
 		);
-		stakingTokenDecimals = token.decimals();
 		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;
 	}
@@ -497,7 +492,7 @@ abstract contract SimpleStaking is
 	}
 
 	function decimals() public view virtual override returns (uint8) {
-		return stakingTokenDecimals;
+		return token.decimals();
 	}
 
 	function getUserMintedAndPending(address _staker)
