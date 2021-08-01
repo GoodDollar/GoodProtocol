@@ -6,8 +6,8 @@ import "../Interfaces.sol";
 import "./SimpleStaking.sol";
 
 library UniswapV2SwapHelper {
-	function getRouter(SimpleStaking staking) public view returns (address) {
-		return staking.nameService().getAddress("UNISWAP_ROUTER");
+	function getRouter(SimpleStaking staking) public view returns (Uniswap) {
+		return Uniswap(staking.nameService().getAddress("UNISWAP_ROUTER"));
 	}
 
 	/**
@@ -25,15 +25,12 @@ library UniswapV2SwapHelper {
 		address _outToken,
 		uint256 _inTokenAmount
 	) public view returns (uint256 safeAmount) {
-		address uniswap = getRouter(staking);
-		address wETH = Uniswap(uniswap).WETH();
+		Uniswap uniswap = getRouter(staking);
+		address wETH = uniswap.WETH();
 		_inToken = _inToken == address(0x0) ? wETH : _inToken;
 		_outToken = _outToken == address(0x0) ? wETH : _outToken;
 		UniswapPair pair = UniswapPair(
-			UniswapFactory(Uniswap(uniswap).factory()).getPair(
-				_inToken,
-				_outToken
-			)
+			UniswapFactory(uniswap.factory()).getPair(_inToken, _outToken)
 		);
 		(uint112 reserve0, uint112 reserve1, ) = pair.getReserves();
 		uint112 reserve = reserve0;
@@ -61,7 +58,7 @@ library UniswapV2SwapHelper {
 		uint256 _minTokenReturn,
 		address _receiver
 	) internal returns (uint256 swapResult) {
-		Uniswap uniswapContract = Uniswap(getRouter(staking));
+		Uniswap uniswapContract = getRouter(staking);
 		uint256[] memory result;
 
 		if (_path[0] == address(0x0)) {

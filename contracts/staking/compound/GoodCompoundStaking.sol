@@ -26,7 +26,9 @@ contract GoodCompoundStaking is SimpleStaking {
 
 	address[] public tokenToDaiSwapPath;
 
-	address[] public compToDaiSwapPath;
+	ERC20 public comp;
+
+	Uniswap public uniswapContract;
 
 	/**
 	 * @param _token Token to swap DEFI token
@@ -71,6 +73,10 @@ contract GoodCompoundStaking is SimpleStaking {
 		compUsdOracle = _compUsdOracle;
 		tokenUsdOracle = _tokenUsdOracle;
 		tokenToDaiSwapPath = _tokenToDaiSwapPath;
+		comp = ERC20(nameService.getAddress("COMP"));
+		Uniswap uniswapContract = Uniswap(
+			nameService.getAddress("UNISWAP_ROUTER")
+		);
 
 		_approveTokens();
 	}
@@ -116,14 +122,15 @@ contract GoodCompoundStaking is SimpleStaking {
 			uint256 daiAmount
 		)
 	{
-		ERC20 comp = ERC20(nameService.getAddress("COMP"));
 		uint256 compBalance = comp.balanceOf(address(this));
-		Uniswap uniswapContract = Uniswap(
-			nameService.getAddress("UNISWAP_ROUTER")
-		);
+
 		uint256 daiFromComp;
 		cERC20 cToken = cERC20(address(iToken));
 		if (compBalance > 0) {
+			address[] memory compToDaiSwapPath = new address[](3);
+			compToDaiSwapPath[0] = address(comp);
+			compToDaiSwapPath[1] = uniswapContract.WETH();
+			compToDaiSwapPath[2] = nameService.getAddress("DAI");
 			actualRewardTokenGains = SimpleStaking(this).maxSafeTokenAmount(
 				address(comp),
 				uniswapContract.WETH(),
@@ -223,7 +230,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 compValueInUSD = _returnTokenGainsInUSD
 			? getTokenValueInUSD(
 				compUsdOracle,
-				ERC20(nameService.getAddress("COMP")).balanceOf(address(this)),
+				comp.balanceOf(address(this)),
 				18 // COMP is in 18 decimal
 			)
 			: 0;
@@ -257,7 +264,6 @@ contract GoodCompoundStaking is SimpleStaking {
 		override
 		returns (uint32)
 	{
-		ERC20 comp = ERC20(nameService.getAddress("COMP"));
 		uint256 compBalance = comp.balanceOf(address(this));
 		if (compBalance > 0) return collectInterestGasCost + 200000; // need to make more check for this value
 
@@ -300,16 +306,9 @@ contract GoodCompoundStaking is SimpleStaking {
 	}
 
 	function _approveTokens() internal override {
-		address uniswapRouter = nameService.getAddress("UNISWAP_ROUTER");
-		ERC20(nameService.getAddress("COMP")).approve(
-			uniswapRouter,
-			type(uint256).max
-		);
+		address uniswapRouter = address(uniswapContract);
+		comp.approve(uniswapRouter, type(uint256).max);
 		token.approve(uniswapRouter, type(uint256).max);
 		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
-		compToDaiSwapPath = new address[](3);
-		compToDaiSwapPath[0] = nameService.getAddress("COMP");
-		compToDaiSwapPath[1] = Uniswap(uniswapRouter).WETH();
-		compToDaiSwapPath[2] = nameService.getAddress("DAI");
 	}
 }
