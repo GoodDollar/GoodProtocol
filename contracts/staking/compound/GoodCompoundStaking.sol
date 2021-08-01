@@ -3,6 +3,7 @@
 pragma solidity >=0.8.0;
 import "../SimpleStaking.sol";
 import "../../Interfaces.sol";
+import "../UniswapV2SwapHelper.sol";
 
 /**
  * @title Staking contract that donates earned interest to the DAO
@@ -11,6 +12,8 @@ import "../../Interfaces.sol";
  * the contracts buy cToken and can transfer the daily interest to the  DAO
  */
 contract GoodCompoundStaking is SimpleStaking {
+	using UniswapV2SwapHelper for SimpleStaking;
+
 	// Address of the TOKEN/USD oracle from chainlink
 	address public tokenUsdOracle;
 	//Address of the COMP/USD oracle from chianlink
@@ -20,6 +23,11 @@ contract GoodCompoundStaking is SimpleStaking {
 	uint32 public collectInterestGasCost = 250000;
 	// Gas cost to collect COMP rewards
 	uint32 public compCollectGasCost = 150000;
+
+	address[] public tokenToDaiSwapPath;
+
+	address[] public compToDaiSwapPath;
+
 	/**
 	 * @param _token Token to swap DEFI token
 	 * @param _iToken DEFI token address
@@ -29,7 +37,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @param _tokenSymbol Determines blocks to pass for 1x Multiplier
 	 * @param _tokenUsdOracle address of the TOKEN/USD oracle
 	 * @param _compUsdOracle address of the COMP/USD oracle
-
+	 * @param _tokenToDaiSwapPath the uniswap path to swap token to DAI, should be empty if token is DAI
 	 */
 	function init(
 		address _token,
@@ -39,7 +47,8 @@ contract GoodCompoundStaking is SimpleStaking {
 		string memory _tokenSymbol,
 		uint64 _maxRewardThreshold,
 		address _tokenUsdOracle,
-		address _compUsdOracle
+		address _compUsdOracle,
+		address[] memory _tokenToDaiSwapPath
 	) public {
 		initialize(
 			_token,
@@ -49,9 +58,20 @@ contract GoodCompoundStaking is SimpleStaking {
 			_tokenSymbol,
 			_maxRewardThreshold
 		);
+
+		address dai = nameService.getAddress("DAI");
+		require(
+			_token == dai ||
+				(_tokenToDaiSwapPath[0] == _token &&
+					_tokenToDaiSwapPath[_tokenToDaiSwapPath.length - 1] == dai),
+			"invalid path"
+		);
+
 		//above  initialize going  to revert on second call, so this is safe
 		compUsdOracle = _compUsdOracle;
 		tokenUsdOracle = _tokenUsdOracle;
+		tokenToDaiSwapPath = _tokenToDaiSwapPath;
+
 		_approveTokens();
 	}
 
@@ -80,59 +100,79 @@ contract GoodCompoundStaking is SimpleStaking {
 	}
 
 	/**
-	 * @dev Function to redeem cToken for DAI, so reserve knows how to handle it. (reserve can handle dai or cdai)
+	 * @dev Function to redeem cToken + reward COMP for DAI, so reserve knows how to handle it. (reserve can handle dai or cdai)
 	 * @dev _amount of token in iToken
 	 * @dev _recipient recipient of the DAI
-	 * @return return address of the DAI and amount of the DAI
+	 * @return actualTokenGains amount of token redeemed for dai,
+			actualRewardTokenGains amount of reward token redeemed for dai,
+			daiAmount total dai received
 	 */
 	function redeemUnderlyingToDAI(uint256 _amount, address _recipient)
 		internal
 		override
-		returns (address, uint256)
+		returns (
+			uint256 actualTokenGains,
+			uint256 actualRewardTokenGains,
+			uint256 daiAmount
+		)
 	{
 		ERC20 comp = ERC20(nameService.getAddress("COMP"));
 		uint256 compBalance = comp.balanceOf(address(this));
-		address daiAddress = nameService.getAddress("DAI");
-		Uniswap uniswapContract =
-			Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+		Uniswap uniswapContract = Uniswap(
+			nameService.getAddress("UNISWAP_ROUTER")
+		);
 		uint256 daiFromComp;
 		cERC20 cToken = cERC20(address(iToken));
-		address[] memory path = new address[](2);
 		if (compBalance > 0) {
-			path[0] = address(comp);
-			path[1] = daiAddress;
-			uint256[] memory compSwap =
-				uniswapContract.swapExactTokensForTokens(
-					compBalance,
-					0,
-					path,
-					 _recipient,
-					block.timestamp
-				);
-			daiFromComp = compSwap[1];
+			actualRewardTokenGains = SimpleStaking(this).maxSafeTokenAmount(
+				address(comp),
+				uniswapContract.WETH(),
+				compBalance
+			);
+
+			daiFromComp = SimpleStaking(this).swap(
+				compToDaiSwapPath,
+				actualRewardTokenGains,
+				0,
+				_recipient
+			);
 		}
+		//in case of cdai there's no need to swap to DAI, we send cdai to reserve directly
+		actualTokenGains = iTokenWorthInToken(_amount);
 		if (address(iToken) == nameService.getAddress("CDAI")) {
-			return (address(iToken), _amount); // If iToken is cDAI then just return cDAI
-		}
-		require(cToken.redeem(_amount) == 0, "Failed to redeem cToken");
-		uint256 redeemedAmount = token.balanceOf(address(this));
-		uint256 dai;
-		address recipientTemp = _recipient;
-		if (redeemedAmount > 0) {
-			path[0] = address(token);
-			path[1] = daiAddress;
-			uint256[] memory swap =
-				uniswapContract.swapExactTokensForTokens(
-					redeemedAmount,
-					0,
-					path,
-					recipientTemp,
-					block.timestamp
-				);
-			dai = swap[1];
+			require(
+				iToken.transfer(_recipient, _amount),
+				"collect transfer failed"
+			);
+			return (
+				actualTokenGains,
+				actualRewardTokenGains,
+				actualTokenGains + daiFromComp
+			); // If iToken is cDAI then just return cDAI
 		}
 
-		return (daiAddress, dai + daiFromComp);
+		//out of requested interests to withdraw how much is it safe to swap
+		actualTokenGains = SimpleStaking(this).maxSafeTokenAmount(
+			address(token),
+			tokenToDaiSwapPath[1],
+			actualTokenGains
+		);
+
+		require(
+			cToken.redeemUnderlying(actualTokenGains) == 0,
+			"Failed to redeem cToken"
+		);
+		actualTokenGains = token.balanceOf(address(this));
+		if (actualTokenGains > 0) {
+			daiFromComp += SimpleStaking(this).swap(
+				tokenToDaiSwapPath,
+				actualTokenGains,
+				0,
+				_recipient
+			);
+		}
+
+		return (actualTokenGains, actualRewardTokenGains, daiFromComp);
 	}
 
 	/**
@@ -150,11 +190,12 @@ contract GoodCompoundStaking is SimpleStaking {
 		ERC20 cToken = ERC20(address(iToken));
 		return uint256(cToken.decimals());
 	}
+
 	/**
 	 * @dev Function that calculates current interest gains of this staking contract
 	 * @param _returnTokenBalanceInUSD determine return token balance of staking contract in USD
 	 * @param _returnTokenGainsInUSD determine return token gains of staking contract in USD
-	 * @return return gains in itoken,Token and worth of total locked Tokens,token balance in USD,token Gains in USD
+	 * @return  iTokenGains gains in itoken, tokenGains gains in token, tokenBalance total locked Tokens, balanceInUsd locked tokens worth in USD, tokenGainsInUSD token Gains in USD
 	 */
 	function currentGains(
 		bool _returnTokenBalanceInUSD,
@@ -164,42 +205,38 @@ contract GoodCompoundStaking is SimpleStaking {
 		view
 		override
 		returns (
-			uint256,
-			uint256,
-			uint256,
-			uint256,
-			uint256
+			uint256 iTokenGains,
+			uint256 tokenGains,
+			uint256 tokenBalance,
+			uint256 balanceInUSD,
+			uint256 tokenGainsInUSD
 		)
 	{
 		cERC20 cToken = cERC20(address(iToken));
 		uint256 er = cToken.exchangeRateStored();
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
-		uint256 tokenBalance =
-			iTokenWorthInToken(iToken.balanceOf(address(this)));
-		uint256 balanceInUSD =
-			_returnTokenBalanceInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenBalance,token.decimals())
-				: 0;
-		uint256 compValueInUSD =
-			_returnTokenGainsInUSD
-				? getTokenValueInUSD(
-					compUsdOracle,
-					ERC20(nameService.getAddress("COMP")).balanceOf(
-						address(this)
-					),18 // COMP is in 18 decimal
-				)
-				: 0;
+		tokenBalance = iTokenWorthInToken(iToken.balanceOf(address(this)));
+		balanceInUSD = _returnTokenBalanceInUSD
+			? getTokenValueInUSD(tokenUsdOracle, tokenBalance, token.decimals())
+			: 0;
+		uint256 compValueInUSD = _returnTokenGainsInUSD
+			? getTokenValueInUSD(
+				compUsdOracle,
+				ERC20(nameService.getAddress("COMP")).balanceOf(address(this)),
+				18 // COMP is in 18 decimal
+			)
+			: 0;
 		if (tokenBalance <= totalProductivity) {
 			return (0, 0, tokenBalance, balanceInUSD, compValueInUSD);
 		}
-		uint256 tokenGains = tokenBalance - totalProductivity;
-		uint256 tokenGainsInUSD =
-			_returnTokenGainsInUSD
-				? getTokenValueInUSD(tokenUsdOracle, tokenGains,token.decimals()) +
-					compValueInUSD
-				: 0;
-		uint256 iTokenGains;
+
+		tokenGains = tokenBalance - totalProductivity;
+		tokenGainsInUSD = _returnTokenGainsInUSD
+			? getTokenValueInUSD(tokenUsdOracle, tokenGains, token.decimals()) +
+				compValueInUSD
+			: 0;
+
 		if (caseType) {
 			iTokenGains =
 				((tokenGains / 10**decimalDifference) * 10**mantissa) /
@@ -209,17 +246,10 @@ contract GoodCompoundStaking is SimpleStaking {
 				((tokenGains * 10**decimalDifference) * 10**mantissa) /
 				er; // based on https://compound.finance/docs#protocol-math
 		}
-
-		return (
-			iTokenGains,
-			tokenGains,
-			tokenBalance,
-			balanceInUSD,
-			tokenGainsInUSD
-		);
 	}
-	/** 
-	* @dev Function to get interest transfer cost for this particular staking contract
+
+	/**
+	 * @dev Function to get interest transfer cost for this particular staking contract
 	 */
 	function getGasCostForInterestTransfer()
 		external
@@ -249,10 +279,9 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 er = cToken.exchangeRateStored();
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
-		uint256 tokenWorth =
-			caseType == true
-				? (_amount * (10**decimalDifference) * er) / 10**mantissa
-				: ((_amount / (10**decimalDifference)) * er) / 10**mantissa; // calculation based on https://compound.finance/docs#protocol-math
+		uint256 tokenWorth = caseType == true
+			? (_amount * (10**decimalDifference) * er) / 10**mantissa
+			: ((_amount / (10**decimalDifference)) * er) / 10**mantissa; // calculation based on https://compound.finance/docs#protocol-math
 		return tokenWorth;
 	}
 
@@ -261,12 +290,15 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @param _collectInterestGasCost Gas cost to collect interest
 	 * @param _rewardTokenCollectCost gas cost to collect reward tokens
 	 */
-	function setcollectInterestGasCostParams(uint32 _collectInterestGasCost, uint32 _rewardTokenCollectCost) external {
+	function setcollectInterestGasCostParams(
+		uint32 _collectInterestGasCost,
+		uint32 _rewardTokenCollectCost
+	) external {
 		_onlyAvatar();
 		collectInterestGasCost = _collectInterestGasCost;
 		compCollectGasCost = _rewardTokenCollectCost;
 	}
-	
+
 	function _approveTokens() internal override {
 		address uniswapRouter = nameService.getAddress("UNISWAP_ROUTER");
 		ERC20(nameService.getAddress("COMP")).approve(
@@ -275,5 +307,9 @@ contract GoodCompoundStaking is SimpleStaking {
 		);
 		token.approve(uniswapRouter, type(uint256).max);
 		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
+		compToDaiSwapPath = new address[](3);
+		compToDaiSwapPath[0] = nameService.getAddress("COMP");
+		compToDaiSwapPath[1] = Uniswap(uniswapRouter).WETH();
+		compToDaiSwapPath[2] = nameService.getAddress("DAI");
 	}
 }
