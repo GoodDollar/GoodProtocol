@@ -6,11 +6,11 @@ import "../utils/DSMath.sol";
 
 contract BaseShareField is DSMath {
 	// total staked for shares calculation
-	uint256 totalProductivity;
+	uint256 public totalProductivity;
 	// total staked that earns rewards (some stakers can donate their rewards)
 	uint256 public totalEffectiveStakes;
 	// accumulated rewards per share
-	uint256 accAmountPerShare;
+	uint256 public accAmountPerShare;
 	// rewards claimed by users
 	uint256 public mintedRewards;
 	// rewards accumulated for distribution
@@ -57,12 +57,13 @@ contract BaseShareField is DSMath {
 			lastRewardBlock = blockStart;
 		}
 
-		uint256 _lastRewardBlock =
-			lastRewardBlock < blockStart && block.number >= blockStart
-				? blockStart
-				: lastRewardBlock;
-		uint256 curRewardBlock =
-			block.number > blockEnd ? blockEnd : block.number;
+		uint256 _lastRewardBlock = lastRewardBlock < blockStart &&
+			block.number >= blockStart
+			? blockStart
+			: lastRewardBlock;
+		uint256 curRewardBlock = block.number > blockEnd
+			? blockEnd
+			: block.number;
 		if (curRewardBlock < blockStart || _lastRewardBlock >= blockEnd) return;
 
 		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block
@@ -100,12 +101,11 @@ contract BaseShareField is DSMath {
 			) = _auditCalcs(userInfo);
 
 			if (blocksToPay != 0) {
-				uint256 pending =
-					(userEffectiveStake *
-						(10**tokenDecimalDifference) *
-						accAmountPerShare) /
-						1e27 -
-						userInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
+				uint256 pending = (userEffectiveStake *
+					(10**tokenDecimalDifference) *
+					accAmountPerShare) /
+					1e27 -
+					userInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
 				uint256 rewardPerBlock = rdiv(pending, blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
 				pending =
 					rmul(
@@ -126,9 +126,8 @@ contract BaseShareField is DSMath {
 		if (updatedAmount <= _amount) {
 			userInfo.multiplierResetTime = uint64(block.number);
 			if (_amount > 0) {
-				uint256 withdrawFromEffectiveStake =
-					((_amount - updatedAmount) * userInfo.effectiveStakes) /
-						_amount;
+				uint256 withdrawFromEffectiveStake = ((_amount -
+					updatedAmount) * userInfo.effectiveStakes) / _amount;
 				userInfo.effectiveStakes -= withdrawFromEffectiveStake;
 				totalEffectiveStakes -= withdrawFromEffectiveStake;
 			}
@@ -157,18 +156,16 @@ contract BaseShareField is DSMath {
 			uint256
 		)
 	{
-		uint256 blocksPaid =
-			_userInfo.lastRewardTime - _userInfo.multiplierResetTime; // lastRewardTime is always >= multiplierResetTime
-		uint256 blocksPassedFirstMonth =
-			Math.min(
-				maxMultiplierThreshold,
-				block.number - _userInfo.multiplierResetTime
-			); // blocks which is after first month
+		uint256 blocksPaid = _userInfo.lastRewardTime -
+			_userInfo.multiplierResetTime; // lastRewardTime is always >= multiplierResetTime
+		uint256 blocksPassedFirstMonth = Math.min(
+			maxMultiplierThreshold,
+			block.number - _userInfo.multiplierResetTime
+		); // blocks which is after first month
 		uint256 blocksToPay = block.number - _userInfo.lastRewardTime; // blocks passed since last payment
-		uint256 firstMonthBlocksToPay =
-			blocksPaid >= maxMultiplierThreshold
-				? 0
-				: blocksPassedFirstMonth - blocksPaid; // block which is in the first month so pays with 0.5x multiplier
+		uint256 firstMonthBlocksToPay = blocksPaid >= maxMultiplierThreshold
+			? 0
+			: blocksPassedFirstMonth - blocksPaid; // block which is in the first month so pays with 0.5x multiplier
 		uint256 fullBlocksToPay = blocksToPay - firstMonthBlocksToPay; // blocks to pay in full amount which means with 1x multiplier
 		return (blocksToPay, firstMonthBlocksToPay, fullBlocksToPay);
 	}
@@ -319,12 +316,5 @@ contract BaseShareField is DSMath {
 		returns (uint256, uint256)
 	{
 		return (users[user].amount, totalProductivity);
-	}
-
-	/**
-	 * @return Returns the current gross product rate.
-	 */
-	function interestsPerBlock() public view virtual returns (uint256) {
-		return accAmountPerShare;
 	}
 }

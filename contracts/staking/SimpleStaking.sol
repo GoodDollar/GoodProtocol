@@ -2,16 +2,16 @@
 
 pragma solidity >=0.8.0;
 
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "../Interfaces.sol";
-
 import "../DAOStackInterfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOContract.sol";
 import "./GoodFundManager.sol";
 import "./BaseShareField.sol";
 import "../governance/StakersDistribution.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "./UniswapV2SwapHelper.sol";
 
 /**
  * @title Staking contract that donates earned interest to the DAO
@@ -37,6 +37,9 @@ abstract contract SimpleStaking is
 	// emergency pause
 	bool public isPaused;
 
+	//max percentage of token/dai pool liquidity to swap to DAI when collecting interest out of 100000
+	uint24 public maxLiquidityPercentageSwap = 300; //0.3%
+
 	/**
 	 * @dev Emitted when `staker` stake `value` tokens of `token`
 	 */
@@ -54,9 +57,11 @@ abstract contract SimpleStaking is
 	 */
 	event InterestCollected(
 		address recipient,
-		uint256 iTokenAmount,
-		uint256 tokenAmount,
-		uint256 usdValue
+		uint256 iTokenGains, // interest accrued
+		uint256 tokenGains, // interest worth in underlying token value
+		uint256 actualTokenRedeemed, //actual token redeemed in uniswap (max 0.3% of liquidity) to DAI
+		uint256 actualRewardTokenEarned, //actual reward token earned
+		uint256 interestCollectedInDAI //actual dai sent to the reserve as interest from converting token and optionally reward token in uniswap
 	);
 
 	/**
@@ -88,6 +93,14 @@ abstract contract SimpleStaking is
 		stakingTokenDecimals = token.decimals();
 		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;
+	}
+
+	function setMaxLiquidityPercentageSwap(uint24 _maxPercentage)
+		public
+		virtual
+	{
+		_onlyAvatar();
+		maxLiquidityPercentageSwap = _maxPercentage;
 	}
 
 	/**
@@ -130,12 +143,16 @@ abstract contract SimpleStaking is
 	/**
 	 * @dev Redeem invested underlying tokens from defi protocol and exchange into DAI
 	 * @param _amount tokens to be redeemed
-	 * @return token which redeemed from protocol and redeemed amount
+	 * @return amount of token swapped to dai, amount of reward token swapped to dai, total dai
 	 */
 	function redeemUnderlyingToDAI(uint256 _amount, address _recipient)
 		internal
 		virtual
-		returns (address, uint256);
+		returns (
+			uint256,
+			uint256,
+			uint256
+		);
 
 	/**
 	 * @dev Invests staked tokens to defi protocol.
@@ -383,36 +400,19 @@ abstract contract SimpleStaking is
 		return (decimalDifference, _tokenDecimal > _iTokenDecimal);
 	}
 
-	function getStakerData(address _staker)
-		public
-		view
-		returns (
-			uint256,
-			uint256,
-			uint256,
-			uint256
-		)
-	{
-		return (
-			users[_staker].amount,
-			users[_staker].rewardDebt,
-			users[_staker].rewardEarn,
-			users[_staker].lastRewardTime
-		);
-	}
-
 	/**
 	 * @dev Collects gained interest by fundmanager.
 	 * @param _recipient The recipient of cDAI gains
-	 * @return (uint256, uint256) The interest in iToken, the interest in Token
+	 * @return actualTokenRedeemed  actualRewardTokenRedeemed actualDai collected interest from token,
+	 * collected interest from reward token, total DAI received from swapping token+reward token
 	 */
 	function collectUBIInterest(address _recipient)
 		public
 		virtual
 		returns (
-			uint256,
-			uint256,
-			uint256
+			uint256 actualTokenRedeemed,
+			uint256 actualRewardTokenRedeemed,
+			uint256 actualDai
 		)
 	{
 		_canMintRewards();
@@ -421,30 +421,25 @@ abstract contract SimpleStaking is
 			_recipient != address(this),
 			"Recipient cannot be the staking contract"
 		);
-		(
-			uint256 iTokenGains,
-			uint256 tokenGains,
-			,
-			,
-			uint256 usdGains
-		) = currentGains(false, true);
-
-		(address redeemedToken, uint256 redeemedAmount) = redeemUnderlyingToDAI(
-			iTokenGains,
-			_recipient
+		(uint256 iTokenGains, uint256 tokenGains, , , ) = currentGains(
+			false,
+			false
 		);
-		if (
-			redeemedToken == nameService.getAddress("CDAI") &&
-			redeemedAmount > 0
-		)
-			require(
-				ERC20(redeemedToken).transfer(_recipient, redeemedAmount),
-				"collect transfer failed"
-			);
 
-		emit InterestCollected(_recipient, iTokenGains, tokenGains, usdGains);
+		(
+			actualTokenRedeemed,
+			actualRewardTokenRedeemed,
+			actualDai
+		) = redeemUnderlyingToDAI(iTokenGains, _recipient);
 
-		return (iTokenGains, tokenGains, usdGains);
+		emit InterestCollected(
+			_recipient,
+			iTokenGains,
+			tokenGains,
+			actualTokenRedeemed,
+			actualRewardTokenRedeemed,
+			actualDai
+		);
 	}
 
 	/**
@@ -457,7 +452,7 @@ abstract contract SimpleStaking is
 	}
 
 	/**
-	 * @dev method to recover any stuck erc20 tokens (ie  compound COMP)
+	 * @dev method to recover any stuck ERC20 tokens (ie  compound COMP)
 	 * @param _token the ERC20 token to recover
 	 */
 	function recover(ERC20 _token) public {

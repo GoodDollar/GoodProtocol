@@ -1,42 +1,39 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity >=0.8.0;
+import "../utils/DAOContract.sol";
 import "../Interfaces.sol";
+import "./SimpleStaking.sol";
 
-contract UniswapV2SwapHelper is ISwapHelper {
-	function getRouter(address _optionalRouter)
-		internal
-		pure
-		returns (address)
-	{
-		return
-			_optionalRouter == address(0x0)
-				? address(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D)
-				: _optionalRouter;
+library UniswapV2SwapHelper {
+	function getRouter(SimpleStaking staking) public view returns (address) {
+		return staking.nameService().getAddress("UNISWAP_ROUTER");
 	}
 
 	/**
-	 *@dev Helper to calculate percentage out of token liquidity in pool
+	 *@dev Helper to calculate percentage out of token liquidity in pool that is safe to exchange against sandwich attack.
+	 * also checks if token->eth has better safe limit, so perhaps doing tokenA->eth->tokenB is better than tokenA->tokenB
+	 * in that case it could be that eth->tokenB can be attacked because we dont know if eth received for tokenA->eth is less than _maxPercentage of the liquidity in
+	 * eth->tokenB. In our use case it is always eth->dai so either it will be safe or very minimal
 	 *@param _inToken address of token we are swapping
 	 *@param _outToken address of swap result token
-	 *@param _fee unused
-	 *@param _maxPercentage percentage points (out of 10000) out of input token pool liquidity that we feel safe to swap, not to change price too much
-	 *@param _optionalRouter use a different uniswap router if != address(0)
+	 *@param _inTokenAmount amount of in token required to swap
 	 */
-	function maxProtectedTokenAmount(
+	function maxSafeTokenAmount(
+		SimpleStaking staking,
 		address _inToken,
 		address _outToken,
-		uint24 _fee,
-		uint24 _maxPercentage,
-		address _optionalRouter
-	) public view override returns (uint256) {
-		_fee;
-		address wETH = Uniswap(getRouter(_optionalRouter)).WETH();
+		uint256 _inTokenAmount
+	) public view returns (uint256 safeAmount) {
+		address uniswap = getRouter(staking);
+		address wETH = Uniswap(uniswap).WETH();
 		_inToken = _inToken == address(0x0) ? wETH : _inToken;
 		_outToken = _outToken == address(0x0) ? wETH : _outToken;
 		UniswapPair pair = UniswapPair(
-			UniswapFactory(Uniswap(getRouter(_optionalRouter)).factory())
-			.getPair(_inToken, _outToken)
+			UniswapFactory(Uniswap(uniswap).factory()).getPair(
+				_inToken,
+				_outToken
+			)
 		);
 		(uint112 reserve0, uint112 reserve1, ) = pair.getReserves();
 		uint112 reserve = reserve0;
@@ -44,60 +41,38 @@ contract UniswapV2SwapHelper is ISwapHelper {
 			reserve = reserve1;
 		}
 
-		return (reserve * _maxPercentage) / 10000;
+		safeAmount = (reserve * staking.maxLiquidityPercentageSwap()) / 100000;
+
+		return safeAmount < _inTokenAmount ? safeAmount : _inTokenAmount;
 	}
 
 	/**
 	@dev Helper to swap tokens in the Uniswap
 	*@param _path the buy path
-    *@param _fees unused
 	*@param _tokenAmount token amount to swap
 	*@param _minTokenReturn minimum token amount to get in swap transaction
 	*@param _receiver receiver of tokens after swap transaction
-    *@param _maxLiquidityPercentage percentage points (out of 10000) out of input token pool liquidity that we feel safe to swap, not to change price too much
-    * so it is more resilient against sandwich attacks
-    *@param _optionalRouter use a different uniswap router if != address(0)
     *
 	 */
 	function swap(
+		SimpleStaking staking,
 		address[] memory _path,
-		uint24[] calldata _fees,
 		uint256 _tokenAmount,
 		uint256 _minTokenReturn,
-		address _receiver,
-		uint24 _maxLiquidityPercentage,
-		address _optionalRouter
-	) external override returns (uint256 swapResult) {
-		_fees;
-		Uniswap uniswapContract = Uniswap(getRouter(_optionalRouter));
+		address _receiver
+	) internal returns (uint256 swapResult) {
+		Uniswap uniswapContract = Uniswap(getRouter(staking));
 		uint256[] memory result;
-		uint256 maxSafeTokenAmount = maxProtectedTokenAmount(
-			_path[0],
-			_path[1],
-			0,
-			_maxLiquidityPercentage,
-			_optionalRouter
-		);
-		maxSafeTokenAmount = maxSafeTokenAmount < _tokenAmount
-			? maxSafeTokenAmount
-			: _tokenAmount;
-
-		if (_path[0] != address(0x0)) {
-			ERC20(_path[0]).approve(
-				address(uniswapContract),
-				maxSafeTokenAmount
-			);
-		}
 
 		if (_path[0] == address(0x0)) {
 			_path[0] = uniswapContract.WETH();
 			result = uniswapContract.swapExactETHForTokens{
-				value: maxSafeTokenAmount
+				value: _tokenAmount
 			}(_minTokenReturn, _path, _receiver, block.timestamp);
 		} else if (_path[_path.length - 1] == address(0x0)) {
 			_path[_path.length - 1] = uniswapContract.WETH();
 			result = uniswapContract.swapExactTokensForETH(
-				maxSafeTokenAmount,
+				_tokenAmount,
 				_minTokenReturn,
 				_path,
 				_receiver,
@@ -105,7 +80,7 @@ contract UniswapV2SwapHelper is ISwapHelper {
 			);
 		} else {
 			result = uniswapContract.swapExactTokensForTokens(
-				maxSafeTokenAmount,
+				_tokenAmount,
 				_minTokenReturn,
 				_path,
 				_receiver,
