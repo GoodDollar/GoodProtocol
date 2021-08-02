@@ -9,7 +9,7 @@ contract BaseShareField is DSMath {
 	uint256 totalProductivity;
 	// total staked that earns rewards (some stakers can donate their rewards)
 	uint256 public totalEffectiveStakes;
-	// accumulated rewards per share
+	// accumulated rewards per share in 27 decimals precision
 	uint256 accAmountPerShare;
 	// rewards claimed by users
 	uint256 public mintedRewards;
@@ -21,6 +21,8 @@ contract BaseShareField is DSMath {
 	uint256 public lastRewardBlock;
 	// Staking contracts accepts Tokens with max 18 decimals so this variable holds decimal difference between 18 and Token's decimal in order to make calculations
 	uint8 public tokenDecimalDifference;
+
+	//status of user rewards. everything is in 18 decimals
 	struct UserInfo {
 		uint256 amount; // How many tokens the user has provided.
 		uint256 effectiveStakes; // stakes not including stakes that donate their rewards
@@ -57,12 +59,13 @@ contract BaseShareField is DSMath {
 			lastRewardBlock = blockStart;
 		}
 
-		uint256 _lastRewardBlock =
-			lastRewardBlock < blockStart && block.number >= blockStart
-				? blockStart
-				: lastRewardBlock;
-		uint256 curRewardBlock =
-			block.number > blockEnd ? blockEnd : block.number;
+		uint256 _lastRewardBlock = lastRewardBlock < blockStart &&
+			block.number >= blockStart
+			? blockStart
+			: lastRewardBlock;
+		uint256 curRewardBlock = block.number > blockEnd
+			? blockEnd
+			: block.number;
 		if (curRewardBlock < blockStart || _lastRewardBlock >= blockEnd) return;
 
 		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block
@@ -100,12 +103,11 @@ contract BaseShareField is DSMath {
 			) = _auditCalcs(userInfo);
 
 			if (blocksToPay != 0) {
-				uint256 pending =
-					(userEffectiveStake *
-						(10**tokenDecimalDifference) *
-						accAmountPerShare) /
-						1e27 -
-						userInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
+				uint256 pending = (userEffectiveStake *
+					(10**tokenDecimalDifference) *
+					accAmountPerShare) /
+					1e27 -
+					userInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
 				uint256 rewardPerBlock = rdiv(pending, blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
 				pending =
 					rmul(
@@ -126,9 +128,8 @@ contract BaseShareField is DSMath {
 		if (updatedAmount <= _amount) {
 			userInfo.multiplierResetTime = uint64(block.number);
 			if (_amount > 0) {
-				uint256 withdrawFromEffectiveStake =
-					((_amount - updatedAmount) * userInfo.effectiveStakes) /
-						_amount;
+				uint256 withdrawFromEffectiveStake = ((_amount -
+					updatedAmount) * userInfo.effectiveStakes) / _amount;
 				userInfo.effectiveStakes -= withdrawFromEffectiveStake;
 				totalEffectiveStakes -= withdrawFromEffectiveStake;
 			}
@@ -157,18 +158,16 @@ contract BaseShareField is DSMath {
 			uint256
 		)
 	{
-		uint256 blocksPaid =
-			_userInfo.lastRewardTime - _userInfo.multiplierResetTime; // lastRewardTime is always >= multiplierResetTime
-		uint256 blocksPassedFirstMonth =
-			Math.min(
-				maxMultiplierThreshold,
-				block.number - _userInfo.multiplierResetTime
-			); // blocks which is after first month
+		uint256 blocksPaid = _userInfo.lastRewardTime -
+			_userInfo.multiplierResetTime; // lastRewardTime is always >= multiplierResetTime
+		uint256 blocksPassedFirstMonth = Math.min(
+			maxMultiplierThreshold,
+			block.number - _userInfo.multiplierResetTime
+		); // blocks which is after first month
 		uint256 blocksToPay = block.number - _userInfo.lastRewardTime; // blocks passed since last payment
-		uint256 firstMonthBlocksToPay =
-			blocksPaid >= maxMultiplierThreshold
-				? 0
-				: blocksPassedFirstMonth - blocksPaid; // block which is in the first month so pays with 0.5x multiplier
+		uint256 firstMonthBlocksToPay = blocksPaid >= maxMultiplierThreshold
+			? 0
+			: blocksPassedFirstMonth - blocksPaid; // block which is in the first month so pays with 0.5x multiplier
 		uint256 fullBlocksToPay = blocksToPay - firstMonthBlocksToPay; // blocks to pay in full amount which means with 1x multiplier
 		return (blocksToPay, firstMonthBlocksToPay, fullBlocksToPay);
 	}
@@ -277,7 +276,7 @@ contract BaseShareField is DSMath {
 					1e9; // Pending in 18 decimals so we divide 1e9 to bring it down to 18 decimals
 			}
 		}
-		return userInfo.rewardEarn + pending / 1e16; // Reward earn in 18decimals so need to divide 1e16 to bring down gd decimals which is 2
+		return userInfo.rewardEarn + pending; // rewardEarn is in 18 decimals
 	}
 
 	/**

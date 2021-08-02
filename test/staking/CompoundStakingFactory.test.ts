@@ -4,7 +4,7 @@ import { expect } from "chai";
 import {
   CERC20,
   GoodCompoundStaking,
-  CompoundStakingFactory
+  CompoundStakingFactory,
 } from "../../types";
 import { createDAO, deployUniswap } from "../helpers";
 import { Contract } from "ethers";
@@ -41,14 +41,14 @@ describe("CompoundStakingFactory", () => {
     cdai = dao.cdaiAddress;
     stakingFactory = (await ethers
       .getContractFactory("CompoundStakingFactory")
-      .then(_ => _.deploy())) as CompoundStakingFactory;
+      .then((_) => _.deploy())) as CompoundStakingFactory;
   });
 
   it("should create proxy clone", async () => {
     const res = await (
       await stakingFactory.clone(cdai, ethers.constants.HashZero)
     ).wait();
-    const log = res.events.find(_ => _.event === "Deployed");
+    const log = res.events.find((_) => _.event === "Deployed");
     const detAddress = await stakingFactory.predictAddress(
       cdai,
       ethers.constants.HashZero
@@ -61,7 +61,7 @@ describe("CompoundStakingFactory", () => {
   it("should create and initialize clone", async () => {
     const ns = await ethers
       .getContractFactory("NameService")
-      .then(_ => _.deploy());
+      .then((_) => _.deploy());
     const res = await (
       await stakingFactory.cloneAndInit(
         cdai,
@@ -71,7 +71,7 @@ describe("CompoundStakingFactory", () => {
         compUsdOracle.address
       )
     ).wait();
-    const log = res.events.find(_ => _.event === "Deployed");
+    const log = res.events.find((_) => _.event === "Deployed");
     const detAddress = await stakingFactory.predictAddress(
       cdai,
       ethers.utils.solidityKeccak256(

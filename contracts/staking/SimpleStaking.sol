@@ -505,6 +505,10 @@ abstract contract SimpleStaking is
 		return stakingTokenDecimals;
 	}
 
+	/**
+	 * @param _staker account to get rewards status for
+	 * @return (minted, pending) in G$ 2 decimals
+	 */
 	function getUserMintedAndPending(address _staker)
 		external
 		view
@@ -524,6 +528,7 @@ abstract contract SimpleStaking is
 			blockStart,
 			blockEnd
 		);
-		return (users[_staker].rewardMinted, pending);
+		//divide by 1e16 to return in 2 decimals
+		return (users[_staker].rewardMinted / 1e16, pending / 1e16);
 	}
 }
