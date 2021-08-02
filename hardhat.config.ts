@@ -49,6 +49,7 @@ const hhconfig: HardhatUserConfig = {
   networks: {
     hardhat: {
       chainId: 4447,
+      allowUnlimitedContractSize: true,
     },
     develop: {
       gasPrice: 1000000000, //1 gwei

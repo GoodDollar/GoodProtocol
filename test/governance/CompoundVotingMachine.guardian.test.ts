@@ -36,7 +36,7 @@ const states = [
   "Defeated",
   "Succeeded",
   "Expired",
-  "Executed"
+  "Executed",
 ];
 
 describe("CompoundVotingMachine#Guardian", () => {
@@ -63,7 +63,7 @@ describe("CompoundVotingMachine#Guardian", () => {
       setDAOAddress,
       genericCall,
       nameService: ns,
-      votingMachine
+      votingMachine,
     } = await createDAO();
 
     Controller = controller;
@@ -87,7 +87,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     await grep.mint(root.address, ethers.BigNumber.from("1000000"));
     await grep.mint(acct.address, ethers.BigNumber.from("500000"));
 
-    queuePeriod = await gov.queuePeriod().then(_ => _.toNumber());
+    queuePeriod = await gov.queuePeriod().then((_) => _.toNumber());
 
     let mockABI = ["function rec() payable"];
     mock = await deployMockContract(root, mockABI);
@@ -106,7 +106,7 @@ describe("CompoundVotingMachine#Guardian", () => {
 
   it("Should not be able to change guardian before foundation release time by avatar", async () => {
     const encoded = gov.interface.encodeFunctionData("setGuardian", [
-      acct.address
+      acct.address,
     ]);
     await avatarGenericCall(gov.address, encoded);
     expect(await gov.guardian()).to.equal(root.address);
@@ -128,7 +128,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     await increaseTime(60 * 60 * 24 * 365 * 2);
 
     const encoded = gov.interface.encodeFunctionData("setGuardian", [
-      acct.address
+      acct.address,
     ]);
     await avatarGenericCall(gov.address, encoded);
     expect(await gov.guardian()).to.equal(acct.address);
@@ -154,7 +154,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     expect(await gov2.guardian()).to.equal(ethers.constants.AddressZero);
 
     const encoded = gov2.interface.encodeFunctionData("setGuardian", [
-      acct.address
+      acct.address,
     ]);
     await avatarGenericCall(gov2.address, encoded);
     expect(await gov2.guardian()).to.equal(acct.address);
@@ -170,7 +170,7 @@ describe("CompoundVotingMachine#Guardian", () => {
 
     //new guardian signers[1]
     const encoded = gov.interface.encodeFunctionData("setGuardian", [
-      signers[1].address
+      signers[1].address,
     ]);
     await avatarGenericCall(gov.address, encoded);
 
@@ -181,7 +181,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     await advanceBlocks(1);
 
     await expect(gov.cancel(proposalId)).to.be.revertedWith(
-      "revert CompoundVotingMachine::cancel: proposer above threshold"
+      "CompoundVotingMachine::cancel: proposer above threshold"
     ); //should not be cancelable by anyone else buy guardian
 
     await gov.connect(signers[1]).cancel(proposalId);

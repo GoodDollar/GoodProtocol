@@ -52,7 +52,7 @@ contract Reputation is DAOUpgradeableContract, AccessControlUpgradeable {
 	function __Reputation_init(INameService _ns) internal {
 		decimals = 18;
 		name = "GoodDAO";
-		symbol = "GDAO";
+		symbol = "GOOD";
 		__Context_init_unchained();
 		__ERC165_init_unchained();
 		__AccessControl_init_unchained();
