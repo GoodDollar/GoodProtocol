@@ -24,7 +24,7 @@ import { Contract } from "@ethersproject/contracts";
 import { BigNumber } from "@ethersproject/bignumber";
 
 export const getStakingFactory = async (
-  factory: "GoodCompoundStaking" | "GoodAaveStaking"
+  factory: "GoodCompoundStaking" | "GoodAaveStaking" | "GoodCompoundStakingTest"
 ) => {
   let swapHelper = await ethers
     .getContractFactory("UniswapV2SwapHelper")

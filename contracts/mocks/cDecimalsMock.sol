@@ -7,7 +7,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetMinte
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "../utils/DSMath.sol";
 
-contract cEDTMock is DSMath, ERC20PresetMinterPauserUpgradeable {
+contract cDecimalsMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	using SafeMathUpgradeable for uint256;
 
 	ERC20PresetMinterPauserUpgradeable edt;
@@ -18,6 +18,7 @@ contract cEDTMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	constructor(ERC20PresetMinterPauserUpgradeable _edt) {
 		__ERC20PresetMinterPauser_init("Compound EDT", "cEDT");
 		edt = _edt;
+		mantissa = 18 + _edt.decimals() - 8;
 	}
 
 	function mint(uint256 edtAmount) public returns (uint256) {
@@ -39,8 +40,8 @@ contract cEDTMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	}
 
 	function redeemUnderlying(uint256 edtAmount) public returns (uint256) {
-		uint256 cEdtAmount =
-			(edtAmount * (10**mantissa)) / exchangeRateStored(); // based on https://compound.finance/docs#protocol-math
+		uint256 cEdtAmount = (edtAmount * (10**mantissa)) /
+			exchangeRateStored(); // based on https://compound.finance/docs#protocol-math
 		_burn(msg.sender, cEdtAmount);
 		edt.transfer(msg.sender, edtAmount);
 		return 0;

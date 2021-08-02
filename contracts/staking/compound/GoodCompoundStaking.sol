@@ -84,9 +84,8 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @param _amount of Token to stake
 	 */
 	function mintInterestToken(uint256 _amount) internal override {
-		cERC20 cToken = cERC20(address(iToken));
 		require(
-			cToken.mint(_amount) == 0,
+			cERC20(address(iToken)).mint(_amount) == 0,
 			"Minting cToken failed, funds returned"
 		);
 	}
@@ -96,9 +95,8 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @param _amount of token to redeem in Token
 	 */
 	function redeem(uint256 _amount) internal override {
-		cERC20 cToken = cERC20(address(iToken));
 		require(
-			cToken.redeemUnderlying(_amount) == 0,
+			cERC20(address(iToken)).redeemUnderlying(_amount) == 0,
 			"Failed to redeem cToken"
 		);
 	}
@@ -122,7 +120,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	{
 		uint256 compBalance = comp.balanceOf(address(this));
 
-		uint256 daiFromComp;
+		uint256 redeemedDAI;
 		cERC20 cToken = cERC20(address(iToken));
 		if (compBalance > 0) {
 			address[] memory compToDaiSwapPath = new address[](3);
@@ -135,7 +133,7 @@ contract GoodCompoundStaking is SimpleStaking {
 				compBalance
 			);
 
-			daiFromComp = SimpleStaking(this).swap(
+			redeemedDAI = SimpleStaking(this).swap(
 				compToDaiSwapPath,
 				actualRewardTokenGains,
 				0,
@@ -152,24 +150,32 @@ contract GoodCompoundStaking is SimpleStaking {
 			return (
 				actualTokenGains,
 				actualRewardTokenGains,
-				actualTokenGains + daiFromComp
+				actualTokenGains + redeemedDAI
 			); // If iToken is cDAI then just return cDAI
 		}
 
 		//out of requested interests to withdraw how much is it safe to swap
-		actualTokenGains = SimpleStaking(this).maxSafeTokenAmount(
+		uint256 safeAmount = SimpleStaking(this).maxSafeTokenAmount(
 			address(token),
 			tokenToDaiSwapPath[1],
 			actualTokenGains
 		);
 
+		if (actualTokenGains > safeAmount) {
+			actualTokenGains = safeAmount;
+			//recalculate how much iToken to redeem
+			_amount = tokenWorthIniToken(actualTokenGains);
+		}
+
 		require(
-			cToken.redeemUnderlying(actualTokenGains) == 0,
+			cERC20(address(iToken)).redeem(_amount) == 0,
 			"Failed to redeem cToken"
 		);
+
 		actualTokenGains = token.balanceOf(address(this));
+
 		if (actualTokenGains > 0) {
-			daiFromComp += SimpleStaking(this).swap(
+			redeemedDAI += SimpleStaking(this).swap(
 				tokenToDaiSwapPath,
 				actualTokenGains,
 				0,
@@ -177,7 +183,7 @@ contract GoodCompoundStaking is SimpleStaking {
 			);
 		}
 
-		return (actualTokenGains, actualRewardTokenGains, daiFromComp);
+		return (actualTokenGains, actualRewardTokenGains, redeemedDAI);
 	}
 
 	/**
@@ -242,15 +248,7 @@ contract GoodCompoundStaking is SimpleStaking {
 				compValueInUSD
 			: 0;
 
-		if (caseType) {
-			iTokenGains =
-				((tokenGains / 10**decimalDifference) * 10**mantissa) /
-				er; // based on https://compound.finance/docs#protocol-math
-		} else {
-			iTokenGains =
-				((tokenGains * 10**decimalDifference) * 10**mantissa) /
-				er; // based on https://compound.finance/docs#protocol-math
-		}
+		iTokenGains = tokenWorthIniToken(tokenGains);
 	}
 
 	/**
@@ -287,6 +285,25 @@ contract GoodCompoundStaking is SimpleStaking {
 			? (_amount * (10**decimalDifference) * er) / 10**mantissa
 			: ((_amount / (10**decimalDifference)) * er) / 10**mantissa; // calculation based on https://compound.finance/docs#protocol-math
 		return tokenWorth;
+	}
+
+	/**
+	 * @dev Calculates worth of given amount of token in iToken
+	 * @param _amount Amount of iToken to calculate worth in token
+	 * @return tokenWorth Worth of given amount of token in iToken
+	 */
+	function tokenWorthIniToken(uint256 _amount)
+		public
+		view
+		returns (uint256 tokenWorth)
+	{
+		cERC20 cToken = cERC20(address(iToken));
+		uint256 er = cToken.exchangeRateStored();
+		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
+		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
+		tokenWorth = caseType == true
+			? ((_amount / (10**decimalDifference)) * 10**mantissa) / er
+			: ((_amount * (10**decimalDifference)) * 10**mantissa) / er; // calculation based on https://compound.finance/docs#protocol-math
 	}
 
 	/**
