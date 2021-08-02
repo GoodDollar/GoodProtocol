@@ -242,6 +242,10 @@ interface IIdentity {
 
 	function setAvatar(address _avatar) external;
 
+	function isIdentityAdmin(address account) external view returns (bool);
+
+	function owner() external view returns (address);
+
 	event WhitelistedAdded(address user);
 }
 

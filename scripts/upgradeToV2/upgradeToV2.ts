@@ -35,11 +35,14 @@ console.log({
 const { name } = network;
 
 export const main = async (networkName = name) => {
-  networkNames[1] = networkName;
-  networkNames[122] = networkName;
-  networkNames[3] = networkName;
+  if (networkName.startsWith("dapptest") === false) {
+    networkNames[1] = networkName;
+    networkNames[122] = networkName;
+    networkNames[3] = networkName;
+  }
 
   const isProduction = networkName.startsWith("production");
+  const isBackendTest = networkName.startsWith("dapptest");
   const isDevelop = !isProduction;
   const isMainnet = networkName.includes("mainnet");
   let protocolSettings = {
@@ -50,11 +53,9 @@ export const main = async (networkName = name) => {
   const dao = OldDAO[networkName];
   const fse = require("fs-extra");
   const ProtocolAddresses = await fse.readJson("releases/deployment.json");
-  console.log(ProtocolAddresses);
   const newfusedao = await ProtocolAddresses[
     networkName.replace(/\-mainnet/, "")
   ];
-  console.log(`newfusedao ${newfusedao}`);
   const newdao = ProtocolAddresses[networkName] || {};
 
   let [root] = await ethers.getSigners();
@@ -111,7 +112,6 @@ export const main = async (networkName = name) => {
       {
         network: "mainnet",
         name: "NameService",
-        //TODO: arguments based on network
         args: [
           controller,
           [
@@ -142,16 +142,15 @@ export const main = async (networkName = name) => {
             get(protocolSettings, "compound.comp", dao.COMP),
             dao.ForeignBridge,
             protocolSettings.uniswapRouter || dao.UniswapRouter,
-            !isMainnet || protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
-            !isMainnet || protocolSettings.chainlink.dai_eth,
-            !isMainnet || protocolSettings.chainlink.eth_usd,
+            dao.GasPriceOracle || protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
+            dao.DAIEthOracle || protocolSettings.chainlink.dai_eth,
+            dao.ETHUsdOracle || protocolSettings.chainlink.eth_usd,
           ],
         ],
       },
       {
         network: "fuse",
         name: "NameService",
-        //TODO: arguments based on network
         args: [
           controller,
           [
@@ -319,6 +318,8 @@ export const main = async (networkName = name) => {
 
     const { DonationsStaking, StakingContracts } =
       isMainnet && (await deployStakingContracts(release));
+    release["network"] = networkName;
+    release["networkId"] = network.config.chainId || 4447;
     if (!isMainnet) {
       release["HomeBridge"] = dao.HomeBridge;
       release["SignupBonus"] = dao.SignupBonus;
@@ -343,7 +344,10 @@ export const main = async (networkName = name) => {
     release["cDAI"] = get(protocolSettings, "compound.cdai", dao.cDAI);
     release["COMP"] = get(protocolSettings, "compound.comp", dao.COMP);
 
-    console.log({ StakingContracts, DonationsStaking });
+    console.log("staking contracts result:", {
+      StakingContracts,
+      DonationsStaking,
+    });
     let res = Object.assign(newdao, release);
     await releaser(release, networkName);
     return res;
@@ -459,9 +463,9 @@ export const main = async (networkName = name) => {
     await countTotalGas(tx);
 
     //extract just the addresses without the rewards
-    release.StakingContracts = release.StakingContracts.map((_) => _[0]);
+    // release.StakingContracts = release.StakingContracts.map((_) => _[0]);
 
-    if (isProduction) {
+    if (isProduction || isBackendTest) {
       console.log(
         "SKIPPING GOVERNANCE UPGRADE FOR PRODUCTION. RUN IT MANUALLY"
       );
@@ -511,6 +515,20 @@ export const main = async (networkName = name) => {
         release.ClaimersDistribution,
       ]
     );
+
+    if (isProduction || isBackendTest) {
+      console.log(
+        "SKIPPING GOVERNANCE UPGRADE FOR PRODUCTION. RUN IT MANUALLY"
+      );
+    } else {
+      console.log("upgrading governance...");
+
+      await upgrade.upgradeGovernance(
+        dao.SchemeRegistrar,
+        dao.UpgradeScheme,
+        release.CompoundVotingMachine
+      );
+    }
   };
 
   //give Avatar permissions to the upgrade process contract
