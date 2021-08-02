@@ -74,9 +74,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		tokenUsdOracle = _tokenUsdOracle;
 		tokenToDaiSwapPath = _tokenToDaiSwapPath;
 		comp = ERC20(nameService.getAddress("COMP"));
-		Uniswap uniswapContract = Uniswap(
-			nameService.getAddress("UNISWAP_ROUTER")
-		);
+		uniswapContract = Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 
 		_approveTokens();
 	}

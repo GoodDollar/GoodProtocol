@@ -17,6 +17,7 @@ import {
   deployUniswap,
 } from "../helpers";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
+import { getStakingFactory } from "../helpers";
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
@@ -53,7 +54,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     ethUsdOracle,
     gasFeeOracle,
     daiUsdOracle,
-    compUsdOracle: Contract;
+    compUsdOracle: Contract,
+    deployDaiStaking;
 
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
@@ -67,9 +69,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const stakersDistributiongFactory = await ethers.getContractFactory(
       "StakersDistribution"
     );
-    const simpleStakingFactory = await ethers.getContractFactory(
-      "GoodCompoundStaking"
-    );
+
     let {
       controller: ctrl,
       avatar: av,
@@ -147,6 +147,9 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const uniswap = await deployUniswap();
     const router = uniswap.router;
     await setDAOAddress("UNISWAP_ROUTER", router.address);
+
+    let simpleStakingFactory = await getStakingFactory("GoodCompoundStaking");
+
     simpleUsdcStaking = await simpleStakingFactory
       .deploy()
       .then(async (contract) => {
@@ -158,14 +161,14 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
           "gUSDC",
           "172800",
           usdcUsdOracle.address,
-          compUsdOracle.address
+          compUsdOracle.address,
+          [usdc.address, daiAddress]
         );
         return contract;
       });
 
-    simpleStaking = await simpleStakingFactory
-      .deploy()
-      .then(async (contract) => {
+    deployDaiStaking = async () => {
+      return simpleStakingFactory.deploy().then(async (contract) => {
         await contract.init(
           dai.address,
           cDAI.address,
@@ -174,10 +177,15 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
           "gDAI",
           "200",
           daiUsdOracle.address,
-          compUsdOracle.address
+          compUsdOracle.address,
+          []
         );
         return contract;
       });
+    };
+
+    simpleStaking = await deployDaiStaking();
+
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
@@ -300,24 +308,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const simpleStakingFactory = await ethers.getContractFactory(
-      "GoodCompoundStaking"
-    );
-    const simpleStaking1 = await simpleStakingFactory
-      .deploy()
-      .then(async (contract) => {
-        await contract.init(
-          dai.address,
-          cDAI.address,
-          nameService.address,
-          "Good DAI",
-          "gDAI",
-          "200",
-          daiUsdOracle.address,
-          compUsdOracle.address
-        );
-        return contract;
-      });
+
+    const simpleStaking1 = await deployDaiStaking();
 
     const ictrl = await ethers.getContractAt(
       "Controller",
@@ -381,9 +373,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const simpleStakingFactory = await ethers.getContractFactory(
-      "GoodCompoundStaking"
-    );
+
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
@@ -433,9 +423,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const simpleStakingFactory = await ethers.getContractFactory(
-      "GoodCompoundStaking"
-    );
+
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
@@ -481,24 +469,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const simpleStakingFactory = await ethers.getContractFactory(
-      "GoodCompoundStaking"
-    );
-    const simpleStaking1 = await simpleStakingFactory
-      .deploy()
-      .then(async (contract) => {
-        await contract.init(
-          dai.address,
-          cDAI.address,
-          nameService.address,
-          "Good DAI",
-          "gDAI",
-          "200",
-          daiUsdOracle.address,
-          compUsdOracle.address
-        );
-        return contract;
-      });
+
+    const simpleStaking1 = await deployDaiStaking();
 
     const ictrl = await ethers.getContractAt(
       "Controller",
@@ -532,24 +504,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const simpleStakingFactory = await ethers.getContractFactory(
-      "GoodCompoundStaking"
-    );
-    const simpleStaking1 = await simpleStakingFactory
-      .deploy()
-      .then(async (contract) => {
-        await contract.init(
-          dai.address,
-          cDAI.address,
-          nameService.address,
-          "Good DAI",
-          "gDAI",
-          "200",
-          daiUsdOracle.address,
-          compUsdOracle.address
-        );
-        return contract;
-      });
+
+    const simpleStaking1 = await deployDaiStaking();
 
     const ictrl = await ethers.getContractAt(
       "Controller",
@@ -619,24 +575,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const simpleStakingFactory = await ethers.getContractFactory(
-      "GoodCompoundStaking"
-    );
-    const simpleStaking1 = await simpleStakingFactory
-      .deploy()
-      .then(async (contract) => {
-        await contract.init(
-          dai.address,
-          cDAI.address,
-          nameService.address,
-          "Good DAI",
-          "gDAI",
-          "200",
-          daiUsdOracle.address,
-          compUsdOracle.address
-        );
-        return contract;
-      });
+
+    const simpleStaking1 = await deployDaiStaking();
 
     const ictrl = await ethers.getContractAt(
       "Controller",
@@ -699,24 +639,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const simpleStakingFactory = await ethers.getContractFactory(
-      "GoodCompoundStaking"
-    );
-    const simpleStaking1 = await simpleStakingFactory
-      .deploy()
-      .then(async (contract) => {
-        await contract.init(
-          dai.address,
-          cDAI.address,
-          nameService.address,
-          "Good DAI",
-          "gDAI",
-          "200",
-          daiUsdOracle.address,
-          compUsdOracle.address
-        );
-        return contract;
-      });
+
+    const simpleStaking1 = await deployDaiStaking();
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
