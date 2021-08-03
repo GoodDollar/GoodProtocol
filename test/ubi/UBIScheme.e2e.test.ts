@@ -12,6 +12,7 @@ import {
   advanceBlocks,
   increaseTime,
   deployUniswap,
+  getStakingFactory,
 } from "../helpers";
 
 const BN = ethers.BigNumber;
@@ -81,7 +82,7 @@ describe("UBIScheme - network e2e tests", () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const goodCompoundStakingFactory = await ethers.getContractFactory(
+    const goodCompoundStakingFactory = await getStakingFactory(
       "GoodCompoundStaking"
     );
     const deployedDAO = await createDAO();
@@ -136,7 +137,8 @@ describe("UBIScheme - network e2e tests", () => {
           "gDAI",
           "172800",
           daiUsdOracle.address,
-          compUsdOracle.address
+          compUsdOracle.address,
+          []
         );
         return contract;
       });
