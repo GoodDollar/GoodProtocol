@@ -315,10 +315,10 @@ abstract contract SimpleStaking is
 	 * withdrawing rewards resets the multiplier! so if user just want GDAO he should use claimReputation()
 	 */
 	function withdrawRewards() external nonReentrant {
-		GoodFundManager fm = GoodFundManager(
-			nameService.getAddress("FUND_MANAGER")
-		);
-		fm.mintReward(nameService.getAddress("CDAI"), _msgSender()); // send rewards to user and use cDAI address since reserve in cDAI
+		GoodFundManager(nameService.getAddress("FUND_MANAGER")).mintReward(
+			nameService.getAddress("CDAI"),
+			_msgSender()
+		); // send rewards to user and use cDAI address since reserve in cDAI
 		claimReputation();
 	}
 
