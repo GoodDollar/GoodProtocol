@@ -36,7 +36,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @param _ns Address of the NameService
 	 * @param _tokenName Name of the staking token which will be provided to staker for their staking share
 	 * @param _tokenSymbol Symbol of the staking token which will be provided to staker for their staking share
-	 * @param _tokenSymbol Determines blocks to pass for 1x Multiplier
+	 * @param _maxRewardThreshold Determines blocks to pass for 1x Multiplier
 	 * @param _tokenUsdOracle address of the TOKEN/USD oracle
 	 * @param _compUsdOracle address of the COMP/USD oracle
 	 * @param _tokenToDaiSwapPath the uniswap path to swap token to DAI, should be empty if token is DAI
@@ -297,8 +297,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		view
 		returns (uint256 tokenWorth)
 	{
-		cERC20 cToken = cERC20(address(iToken));
-		uint256 er = cToken.exchangeRateStored();
+		uint256 er = cERC20(address(iToken)).exchangeRateStored();
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
 		tokenWorth = caseType == true
