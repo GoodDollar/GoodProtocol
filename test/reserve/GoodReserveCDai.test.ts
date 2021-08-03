@@ -932,9 +932,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
 
   it("should return an error if non avatar account is trying to execute recover", async () => {
     let error = await goodReserve.recover(cDAI.address).catch((e) => e);
-    expect(error.message).to.have.string(
-      "revert only avatar can call this method"
-    );
+    expect(error.message).to.have.string("only avatar can call this method");
   });
 
   it("should transfer funds when execute recover of token which the reserve has some balance", async () => {
