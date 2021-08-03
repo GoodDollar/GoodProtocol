@@ -221,6 +221,10 @@ interface UniswapPair {
 		);
 
 	function kLast() external view returns (uint256);
+
+	function token0() external view returns (address);
+
+	function token1() external view returns (address);
 }
 
 interface Reserve {
@@ -422,4 +426,24 @@ interface IGoodStaking {
 		uint256 blockStart,
 		uint256 blockEnd
 	) external returns (uint256);
+}
+
+interface ISwapHelper {
+	function maxProtectedTokenAmount(
+		address _tokenA,
+		address _tokenB,
+		uint24 _fee,
+		uint24 maxPercentage,
+		address _optionalRouter
+	) external view returns (uint256);
+
+	function swap(
+		address[] memory _path,
+		uint24[] calldata _fees,
+		uint256 _tokenAmount,
+		uint256 _minTokenReturn,
+		address _receiver,
+		uint24 maxLiquidityPercentage,
+		address _optionalRouter
+	) external returns (uint256 swapResult);
 }
