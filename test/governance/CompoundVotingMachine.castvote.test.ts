@@ -34,7 +34,7 @@ describe("CompoundVotingMachine#CastVote", () => {
       reputation,
       setDAOAddress,
       nameService,
-      votingMachine
+      votingMachine,
     } = await createDAO();
     gov = votingMachine;
     grep = (await ethers.getContractAt(
@@ -56,14 +56,14 @@ describe("CompoundVotingMachine#CastVote", () => {
     proposalId = await gov.latestProposalIds(root.address);
     trivialProposal = await gov.proposals(proposalId);
 
-    voteDelay = await gov.votingDelay().then(_ => _.toNumber());
-    votePeriod = await gov.votingPeriod().then(_ => _.toNumber());
+    voteDelay = await gov.votingDelay().then((_) => _.toNumber());
+    votePeriod = await gov.votingPeriod().then((_) => _.toNumber());
   });
 
   describe("We must revert if:", () => {
     it("There does not exist a proposal with matching proposal id where the current block number is between the proposal's start block (exclusive) and end block (inclusive)", async () => {
       await expect(gov.castVote(proposalId, true)).to.revertedWith(
-        "revert CompoundVotingMachine::_castVote: voting is closed"
+        "CompoundVotingMachine::_castVote: voting is closed"
       );
     });
 
@@ -72,7 +72,7 @@ describe("CompoundVotingMachine#CastVote", () => {
       await expect(
         gov.connect(signers[0]).castVote(proposalId, true)
       ).to.revertedWith(
-        "revert CompoundVotingMachine::_castVote: voter already voted"
+        "CompoundVotingMachine::_castVote: voter already voted"
       );
     });
   });
@@ -114,7 +114,7 @@ describe("CompoundVotingMachine#CastVote", () => {
 
         await grep.mint(actor.address, ethers.BigNumber.from("100001"));
         console.log(
-          await grep.balanceOf(actor.address).then(_ => _.toString())
+          await grep.balanceOf(actor.address).then((_) => _.toString())
         );
         let tx = await gov
           .connect(actor)
@@ -132,16 +132,16 @@ describe("CompoundVotingMachine#CastVote", () => {
       });
 
       describe("castVoteBySig", () => {
-        const Domain = async gov => ({
+        const Domain = async (gov) => ({
           name: await gov.name(),
           chainId: (await ethers.provider.getNetwork()).chainId,
-          verifyingContract: gov.address
+          verifyingContract: gov.address,
         });
         const Types = {
           Ballot: [
             { name: "proposalId", type: "uint256" },
-            { name: "support", type: "bool" }
-          ]
+            { name: "support", type: "bool" },
+          ],
         };
 
         it("reverts if the signatory is invalid", async () => {
@@ -154,7 +154,7 @@ describe("CompoundVotingMachine#CastVote", () => {
               ethers.utils.hexZeroPad("0xbada", 32)
             )
           ).to.revertedWith(
-            "revert CompoundVotingMachine::castVoteBySig: invalid signature"
+            "CompoundVotingMachine::castVoteBySig: invalid signature"
           );
         });
 
@@ -164,7 +164,7 @@ describe("CompoundVotingMachine#CastVote", () => {
             let wallet = ethers.Wallet.createRandom({ gasPrice: 10000000 });
             await acct.sendTransaction({
               to: wallet.address,
-              value: ethers.utils.parseEther("9999")
+              value: ethers.utils.parseEther("9999"),
             });
 
             wallet = wallet.connect(ethers.provider);
@@ -180,7 +180,7 @@ describe("CompoundVotingMachine#CastVote", () => {
               Types,
               {
                 proposalId: proposalId,
-                support: true
+                support: true,
               }
             );
 
@@ -207,7 +207,7 @@ describe("CompoundVotingMachine#CastVote", () => {
           });
         });
 
-        xit("gas costs for multiple sigs", async () => {
+        /*xit("gas costs for multiple sigs", async () => {
           let wallet = ethers.Wallet.createRandom();
 
           wallet = wallet.connect(ethers.provider);
@@ -264,7 +264,7 @@ describe("CompoundVotingMachine#CastVote", () => {
             i: sigsFor.length + sigsAgainst.length,
             gas: receipt.gasUsed.toNumber()
           });
-        });
+        });*/
       });
     });
   });
