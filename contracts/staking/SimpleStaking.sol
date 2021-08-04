@@ -193,7 +193,7 @@ abstract contract SimpleStaking is
 		uint256 _amount,
 		uint256 _donationPer,
 		bool _inInterestToken
-	) external virtual {
+	) external virtual nonReentrant {
 		require(isPaused == false, "Staking is paused");
 		require(
 			_donationPer == 0 || _donationPer == 100,
@@ -416,6 +416,7 @@ abstract contract SimpleStaking is
 			_recipient != address(this),
 			"Recipient cannot be the staking contract"
 		);
+    
 		(uint256 iTokenGains, uint256 tokenGains, , , ) = currentGains(
 			false,
 			false
@@ -495,6 +496,10 @@ abstract contract SimpleStaking is
 		return token.decimals();
 	}
 
+	/**
+	 * @param _staker account to get rewards status for
+	 * @return (minted, pending) in G$ 2 decimals
+	 */
 	function getUserMintedAndPending(address _staker)
 		external
 		view
@@ -514,6 +519,8 @@ abstract contract SimpleStaking is
 			blockStart,
 			blockEnd
 		);
-		return (users[_staker].rewardMinted, pending);
+
+		//divide by 1e16 to return in 2 decimals
+		return (users[_staker].rewardMinted / 1e16, pending / 1e16);
 	}
 }

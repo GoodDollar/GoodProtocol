@@ -36,9 +36,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     batUsdOracle: Contract,
     ethUsdOracle: Contract,
     compUsdOracle: Contract;
-  let goodReserve: GoodReserveCDai;
+  let goodReserve: Contract;
   let goodCompoundStaking;
-  let goodFundManager: GoodFundManager;
+  let goodFundManager: Contract;
   let avatar,
     goodDollar,
     identity,
@@ -101,7 +101,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     setDAOAddress = sda;
     nameService = ns;
     initializeToken = setReserveToken;
-    goodReserve = reserve as GoodReserveCDai;
+    goodReserve = reserve;
     console.log("deployed dao", {
       founder: founder.address,
       gd,
@@ -109,13 +109,13 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       controller,
       avatar,
     });
-    goodFundManager = (await upgrades.deployProxy(
+    goodFundManager = await upgrades.deployProxy(
       goodFundManagerFactory,
       [nameService.address],
       {
         kind: "uups",
       }
-    )) as GoodFundManager;
+    );
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     console.log("Deployed goodfund manager", {
       manager: goodFundManager.address,
@@ -173,7 +173,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "cDAINonMintableMock"
     );
     cDAI3 = await cdaiNonMintableFactory.deploy(dai.address);
-    bat = (await daiFactory.deploy()) as DAIMock; // Another erc20 token for uniswap router test
+    bat = await daiFactory.deploy(); // Another erc20 token for uniswap router test
     cBat = await cBatFactory.deploy(bat.address);
     await initializeToken(
       cDAI1.address,
@@ -653,7 +653,11 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       stakingContractVals[1],
       stakingContractVals[2]
     );
-    expect(rewardsEarned.toString()).to.be.equal("2000"); // Each block reward is 10gd so total reward 40gd but since multiplier is 0.5 for first month should get 20gd
+    //baseshare rewards is in 18 decimals
+    expect(rewardsEarned.toString()).to.be.equal(
+      ethers.utils.parseUnits("20", 18)
+    ); // Each block reward is 10gd so total reward 40gd but since multiplier is 0.5 for first month should get 20gd
+
     await goodCompoundStaking
       .connect(staker)
       .withdrawStake(stakingAmount, false);
@@ -663,6 +667,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
+
     const simpleStaking = await await deployStaking();
 
     const currentBlockNumber = await ethers.provider.getBlockNumber();
@@ -774,6 +779,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .withdrawStake(stakingAmount, false);
   });
   it("it should not mint reward when staking contract is not registered", async () => {
+
     const simpleStaking = await deployStaking();
 
     const tx = await simpleStaking.withdrawRewards().catch((e) => e);
@@ -1673,6 +1679,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       compUsdOracle.address,
       [bat.address, dai.address]
     )) as GoodCompoundStaking;
+
     const currentBlock = await ethers.provider.getBlockNumber();
     const rewardsPerBlock = BN.from("100");
     let encodedData = goodFundManager.interface.encodeFunctionData(

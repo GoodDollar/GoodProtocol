@@ -464,7 +464,9 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       stakingContractVals[1],
       stakingContractVals[2]
     );
-    expect(rewardsEarned.toString()).to.be.equal("2000"); // Each block reward is 10gd so total reward 40gd but since multiplier is 0.5 for first month should get 20gd
+    expect(rewardsEarned.toString()).to.be.equal(
+      ethers.utils.parseUnits("20", 18)
+    ); // Each block reward is 10gd so total reward 40gd but since multiplier is 0.5 for first month should get 20gd in 18 decimals
     await goodCompoundStaking
       .connect(staker)
       .withdrawStake(stakingAmount, false);

@@ -9,7 +9,7 @@ contract BaseShareField is DSMath {
 	uint256 public totalProductivity;
 	// total staked that earns rewards (some stakers can donate their rewards)
 	uint256 public totalEffectiveStakes;
-	// accumulated rewards per share
+	// accumulated rewards per share in 27 decimals precision
 	uint256 public accAmountPerShare;
 	// rewards claimed by users
 	uint256 public mintedRewards;
@@ -21,6 +21,8 @@ contract BaseShareField is DSMath {
 	uint256 public lastRewardBlock;
 	// Staking contracts accepts Tokens with max 18 decimals so this variable holds decimal difference between 18 and Token's decimal in order to make calculations
 	uint8 public tokenDecimalDifference;
+
+	//status of user rewards. everything is in 18 decimals
 	struct UserInfo {
 		uint256 amount; // How many tokens the user has provided.
 		uint256 effectiveStakes; // stakes not including stakes that donate their rewards
@@ -274,7 +276,7 @@ contract BaseShareField is DSMath {
 					1e9; // Pending in 18 decimals so we divide 1e9 to bring it down to 18 decimals
 			}
 		}
-		return userInfo.rewardEarn + pending / 1e16; // Reward earn in 18decimals so need to divide 1e16 to bring down gd decimals which is 2
+		return userInfo.rewardEarn + pending; // rewardEarn is in 18 decimals
 	}
 
 	/**

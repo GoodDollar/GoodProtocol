@@ -36,7 +36,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     ethUsdOracle: Contract,
     compUsdOracle: Contract,
     aaveUsdOracle: Contract;
-  let goodReserve: GoodReserveCDai;
+  let goodReserve: Contract;
   let goodAaveStaking: Contract;
   let goodFundManager: Contract;
   let avatar,
@@ -97,7 +97,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     nameService = ns;
     genericCall = gc;
     initializeToken = setReserveToken;
-    goodReserve = reserve as GoodReserveCDai;
+    goodReserve = reserve;
     console.log("deployed dao", {
       founder: founder.address,
       gd,

@@ -97,7 +97,15 @@ contract GoodAaveStaking is SimpleStaking {
 	 * @param _amount of token to redeem in Token
 	 */
 	function redeem(uint256 _amount) internal override {
-		lendingPool.withdraw(address(token), _amount, address(this));
+		uint256 withdrawnAmount = lendingPool.withdraw(
+			address(token),
+			_amount,
+			address(this)
+		);
+		require(
+			withdrawnAmount > 0,
+			"Withdrawn amount should be bigger than zero"
+		);
 	}
 
 	/**

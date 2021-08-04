@@ -65,26 +65,27 @@ contract StakersDistribution is
 			month != currentMonth
 		) {
 			//read active staking contracts set pro rate monthly share
-			GoodFundManager gfm =
-				GoodFundManager(nameService.getAddress("FUND_MANAGER"));
+			GoodFundManager gfm = GoodFundManager(
+				nameService.getAddress("FUND_MANAGER")
+			);
 
 			uint256 activeContractsCount = gfm.getActiveContractsCount();
-			address payable[] memory activeStakingList =
-				new address payable[](activeContractsCount);
-			uint256[] memory contractLockedValue =
-				new uint256[](activeContractsCount);
+			address payable[] memory activeStakingList = new address payable[](
+				activeContractsCount
+			);
+			uint256[] memory contractLockedValue = new uint256[](
+				activeContractsCount
+			);
 
 			uint256 totalLockedValue;
 			for (uint256 i = 0; i < activeContractsCount; i++) {
 				activeStakingList[i] = payable(gfm.activeContracts(i));
-				(, uint64 blockStart, uint64 blockEnd, ) =
-					gfm.rewardsForStakingContract(activeStakingList[i]);
+				(, uint64 blockStart, uint64 blockEnd, ) = gfm
+					.rewardsForStakingContract(activeStakingList[i]);
 				if (blockStart <= block.number && blockEnd > block.number) {
-					(, , , uint256 lockedValueInUSD, ) =
-						SimpleStaking(activeStakingList[i]).currentGains(
-							true,
-							false
-						);
+					(, , , uint256 lockedValueInUSD, ) = SimpleStaking(
+						activeStakingList[i]
+					).currentGains(true, false);
 					contractLockedValue[i] = lockedValueInUSD;
 					totalLockedValue += contractLockedValue[i];
 				}
@@ -92,11 +93,10 @@ contract StakersDistribution is
 
 			//set each contract relative monthly rewards
 			for (uint256 i = 0; i < activeContractsCount; i++) {
-				uint256 contractShare =
-					totalLockedValue > 0
-						? (monthlyReputationDistribution *
-							contractLockedValue[i]) / totalLockedValue
-						: monthlyReputationDistribution / activeContractsCount;
+				uint256 contractShare = totalLockedValue > 0
+					? (monthlyReputationDistribution * contractLockedValue[i]) /
+						totalLockedValue
+					: monthlyReputationDistribution / activeContractsCount;
 				if (contractLockedValue[i] > 0) {
 					_setMonthlyRewards(activeStakingList[i], contractShare);
 				}
@@ -114,8 +114,12 @@ contract StakersDistribution is
 	 */
 	function userStaked(address _staker, uint256 _value) external {
 		address stakingContract = msg.sender;
-		(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) =
-			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
+		(
+			,
+			uint64 blockStart,
+			uint64 blockEnd,
+			bool isBlackListed
+		) = GoodFundManager(nameService.getAddress("FUND_MANAGER"))
 				.rewardsForStakingContract(stakingContract);
 
 		if (isBlackListed) return; //dont do anything if staking contract has been blacklisted;
@@ -143,8 +147,12 @@ contract StakersDistribution is
 	 */
 	function userWithdraw(address _staker, uint256 _value) external {
 		address stakingContract = msg.sender;
-		(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) =
-			GoodFundManager(nameService.getAddress("FUND_MANAGER"))
+		(
+			,
+			uint64 blockStart,
+			uint64 blockEnd,
+			bool isBlackListed
+		) = GoodFundManager(nameService.getAddress("FUND_MANAGER"))
 				.rewardsForStakingContract(stakingContract);
 
 		if (isBlackListed) return; //dont do anything if staking contract has been blacklisted;
@@ -181,12 +189,13 @@ contract StakersDistribution is
 		address[] memory _stakingContracts
 	) internal {
 		uint256 totalRep;
-		GoodFundManager gfm =
-			GoodFundManager(nameService.getAddress("FUND_MANAGER"));
+		GoodFundManager gfm = GoodFundManager(
+			nameService.getAddress("FUND_MANAGER")
+		);
 
 		for (uint256 i = 0; i < _stakingContracts.length; i++) {
-			(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) =
-				gfm.rewardsForStakingContract(_stakingContracts[i]);
+			(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) = gfm
+				.rewardsForStakingContract(_stakingContracts[i]);
 
 			if (isBlackListed == false)
 				totalRep += _issueEarnedRewards(
@@ -218,8 +227,12 @@ contract StakersDistribution is
 	{
 		uint256 pending;
 		for (uint256 i = 0; i < _contracts.length; i++) {
-			(, uint64 blockStart, uint64 blockEnd, bool isBlackListed) =
-				GoodFundManager(nameService.getAddress("FUND_MANAGER"))
+			(
+				,
+				uint64 blockStart,
+				uint64 blockEnd,
+				bool isBlackListed
+			) = GoodFundManager(nameService.getAddress("FUND_MANAGER"))
 					.rewardsForStakingContract(_contracts[i]);
 
 			if (isBlackListed == false) {
@@ -235,6 +248,11 @@ contract StakersDistribution is
 		return pending;
 	}
 
+	/**
+	 * @param _contracts staking contracts to sum _user minted and pending
+	 * @param _user account to get rewards status for
+	 * @return (minted, pending) in GDAO 18 decimals
+	 */
 	function getUserMintedAndPending(address[] memory _contracts, address _user)
 		public
 		view
