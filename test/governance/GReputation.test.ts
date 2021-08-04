@@ -19,7 +19,7 @@ type BlockChainState = {
 };
 
 export const getMerkleAndProof = (data, proofIdx) => {
-  const elements = data.map(e =>
+  const elements = data.map((e) =>
     Buffer.from(
       ethers.utils
         .keccak256(
@@ -70,7 +70,7 @@ describe("GReputation", () => {
       reputation,
       setDAOAddress: sda,
       avatar: av,
-      genericCall
+      genericCall,
     } = await createDAO();
 
     setDAOAddress = sda;
@@ -84,7 +84,7 @@ describe("GReputation", () => {
 
     signers = await ethers.getSigners();
     [founder, repOwner, rep1, rep2, rep3, repTarget] = signers.map(
-      _ => _.address
+      (_) => _.address
     );
     delegator = ethers.Wallet.createRandom().connect(ethers.provider);
 
@@ -94,8 +94,8 @@ describe("GReputation", () => {
     // if using web3.sha3, convert first -> Buffer(web3.sha3('a'), 'hex')
     const elements = [
       [rep1, 1],
-      [rep2, 2]
-    ].map(e =>
+      [rep2, 2],
+    ].map((e) =>
       Buffer.from(
         ethers.utils
           .keccak256(
@@ -139,10 +139,10 @@ describe("GReputation", () => {
 
   it("should not be able to mint or burn if not minter", async () => {
     await expect(grep.connect(signers[4]).mint(founder, 2)).to.revertedWith(
-      "revert GReputation: need minter role or be GDAO contract"
+      "GReputation: need minter role or be GDAO contract"
     );
     await expect(grep.connect(signers[4]).burn(founder, 2)).to.revertedWith(
-      "revert GReputation: need minter role or be GDAO contract"
+      "GReputation: need minter role or be GDAO contract"
     );
   });
 
@@ -194,7 +194,7 @@ describe("GReputation", () => {
     it("should reject invalid merkle proof", async () => {
       const e = await grep
         .proveBalanceOfAtBlockchain("rootState", rep3, 10, proof)
-        .catch(e => e);
+        .catch((e) => e);
       expect(e.message).to.match(/invalid merkle proof/);
     });
   });
@@ -215,7 +215,7 @@ describe("GReputation", () => {
       const { merkleRoot, proof } = getMerkleAndProof(
         [
           [rep1, 1],
-          [rep2, 2]
+          [rep2, 2],
         ],
         1
       );
@@ -269,17 +269,17 @@ describe("GReputation", () => {
   });
 
   describe("delegateBySig", () => {
-    const Domain = async gov => ({
+    const Domain = async (gov) => ({
       name: await grep.name(),
       chainId: (await ethers.provider.getNetwork()).chainId,
-      verifyingContract: grep.address
+      verifyingContract: grep.address,
     });
     const Types = {
       Delegation: [
         { name: "delegate", type: "address" },
         { name: "nonce", type: "uint256" },
-        { name: "expiry", type: "uint256" }
-      ]
+        { name: "expiry", type: "uint256" },
+      ],
     };
 
     it("reverts if the signatory is invalid", async () => {
@@ -295,11 +295,11 @@ describe("GReputation", () => {
           ethers.utils.hexZeroPad("0xbadd", 32),
           ethers.utils.hexZeroPad("0xbadd", 32)
         )
-      ).to.revertedWith("revert GReputation::delegateBySig: invalid signature");
+      ).to.revertedWith("GReputation::delegateBySig: invalid signature");
     });
 
     it("It should not be delegate when delegation address is null", async () => {
-      let tx = await grep["delegateTo(address)"](NULL_ADDRESS).catch(e => e);
+      let tx = await grep["delegateTo(address)"](NULL_ADDRESS).catch((e) => e);
       expect(tx.message).to.have.string(
         "GReputation::delegate can't delegate to null address"
       );
@@ -311,7 +311,7 @@ describe("GReputation", () => {
         ethers.utils.parseEther("1")
       );
       await grep.delegateTo(rep1);
-      const tx = await grep.delegateTo(rep1).catch(e => e);
+      const tx = await grep.delegateTo(rep1).catch((e) => e);
       expect(tx.message).to.have.string("already delegating to delegator");
       await grepWithOwner["burn(address,uint256)"](
         founder,
@@ -329,14 +329,14 @@ describe("GReputation", () => {
         {
           delegate,
           nonce,
-          expiry
+          expiry,
         }
       );
 
       const sig = ethers.utils.splitSignature(signature);
       await expect(
         grep.delegateBySig(delegate, nonce, expiry, sig.v, sig.r, sig.s)
-      ).to.revertedWith("revert GReputation::delegateBySig: invalid nonce");
+      ).to.revertedWith("GReputation::delegateBySig: invalid nonce");
     });
 
     it("reverts if the signature has expired", async () => {
@@ -349,14 +349,14 @@ describe("GReputation", () => {
         {
           delegate,
           nonce,
-          expiry
+          expiry,
         }
       );
 
       const sig = ethers.utils.splitSignature(signature);
       await expect(
         grep.delegateBySig(delegate, nonce, expiry, sig.v, sig.r, sig.s)
-      ).to.revertedWith("revert GReputation::delegateBySig: signature expired");
+      ).to.revertedWith("GReputation::delegateBySig: signature expired");
     });
 
     describe("delegates on behalf of the signatory", () => {
@@ -371,7 +371,7 @@ describe("GReputation", () => {
           {
             delegate,
             nonce,
-            expiry
+            expiry,
           }
         );
 
@@ -396,7 +396,7 @@ describe("GReputation", () => {
       const { merkleRoot, proof } = getMerkleAndProof(
         [
           [rep1, 100],
-          [rep2, 200]
+          [rep2, 200],
         ],
         1
       );
@@ -423,7 +423,7 @@ describe("GReputation", () => {
       const { proof } = getMerkleAndProof(
         [
           [rep1, 100],
-          [rep2, 200]
+          [rep2, 200],
         ],
         1
       );
@@ -448,7 +448,7 @@ describe("GReputation", () => {
         [
           [rep1, 100],
           [rep2, 200],
-          [rep3, 10]
+          [rep3, 10],
         ],
         1
       );
@@ -470,7 +470,7 @@ describe("GReputation", () => {
         [
           [rep1, 100],
           [rep2, 200],
-          [rep3, 10]
+          [rep3, 10],
         ],
         1
       );
@@ -484,7 +484,7 @@ describe("GReputation", () => {
         [
           [rep1, 100],
           [rep2, 200],
-          [rep3, 10]
+          [rep3, 10],
         ],
         2
       );
@@ -520,7 +520,7 @@ describe("GReputation", () => {
       it("should set a new state hash", async () => {
         await expect(
           grep.setBlockchainStateHash("fuse", fuseHash, BN.from("100"))
-        ).to.be.revertedWith("revert only avatar can call this method");
+        ).to.be.revertedWith("only avatar can call this method");
 
         let encodedCall = grep.interface.encodeFunctionData(
           "setBlockchainStateHash",
@@ -530,10 +530,10 @@ describe("GReputation", () => {
         expect(await avatarGenericCall(grep.address, encodedCall)).to.not.throw;
 
         const first = await grep.activeBlockchains(0);
-        const state: BlockChainState = ((await grep.blockchainStates(
+        const state: BlockChainState = (await grep.blockchainStates(
           fuseHash,
           2 //third state of fuse
-        )) as unknown) as BlockChainState;
+        )) as unknown as BlockChainState;
         expect(first).to.be.equal(fuseHash);
         expect(state.stateHash).to.be.equal(fuseHash);
         expect(state.totalSupply.toNumber()).to.be.equal(100);
@@ -582,7 +582,7 @@ describe("GReputation", () => {
         [
           "realState",
           "0x5c42f9dd07d58ddfce08f39159eb5d1da7ce89e2f8ed4488c19163cffd9760c2",
-          2400042
+          2400042,
         ]
       );
 
@@ -607,7 +607,7 @@ describe("GReputation", () => {
         "0x0582b0084b238128163879a707f336e6932ce8ddcfe1fdfce9dbc37ab7c430a5",
         "0x278db5f9072c404b1d8d9baba030c171943a4a5cdc51e8c9b21fee01f2fe32bd",
         "0xe3d136bf3ea1fbed0055294cd43a0fd4b52d6388ecb524627a88b73db57a3429",
-        "0x2c8245c2d4c0e4ac0ae22754005d62d994aabe2bdb05f46cfe3ac63a4bf72a32"
+        "0x2c8245c2d4c0e4ac0ae22754005d62d994aabe2bdb05f46cfe3ac63a4bf72a32",
       ];
       await grep.proveBalanceOfAtBlockchain(
         "realState",
@@ -680,7 +680,7 @@ describe("GReputation", () => {
         "0x0582b0084b238128163879a707f336e6932ce8ddcfe1fdfce9dbc37ab7c430a5",
         "0x278db5f9072c404b1d8d9baba030c171943a4a5cdc51e8c9b21fee01f2fe32bd",
         "0xe3d136bf3ea1fbed0055294cd43a0fd4b52d6388ecb524627a88b73db57a3429",
-        "0x2c8245c2d4c0e4ac0ae22754005d62d994aabe2bdb05f46cfe3ac63a4bf72a32"
+        "0x2c8245c2d4c0e4ac0ae22754005d62d994aabe2bdb05f46cfe3ac63a4bf72a32",
       ];
       const tx = await grep
         .proveBalanceOfAtBlockchain(
@@ -689,7 +689,7 @@ describe("GReputation", () => {
           1199,
           proof
         )
-        .catch(e => e);
+        .catch((e) => e);
       expect(tx.message).to.have.string("stateHash already proved");
     });
     it("It should not prove balance of blockchain if particular chain does not exist", async () => {
@@ -707,7 +707,7 @@ describe("GReputation", () => {
         "0x0582b0084b238128163879a707f336e6932ce8ddcfe1fdfce9dbc37ab7c430a5",
         "0x278db5f9072c404b1d8d9baba030c171943a4a5cdc51e8c9b21fee01f2fe32bd",
         "0xe3d136bf3ea1fbed0055294cd43a0fd4b52d6388ecb524627a88b73db57a3429",
-        "0x2c8245c2d4c0e4ac0ae22754005d62d994aabe2bdb05f46cfe3ac63a4bf72a32"
+        "0x2c8245c2d4c0e4ac0ae22754005d62d994aabe2bdb05f46cfe3ac63a4bf72a32",
       ];
       let tx = await grep
         .proveBalanceOfAtBlockchain(
@@ -716,7 +716,7 @@ describe("GReputation", () => {
           1199,
           proof
         )
-        .catch(e => e);
+        .catch((e) => e);
       expect(tx.message).to.have.string("no state found for given _id");
     });
   });
