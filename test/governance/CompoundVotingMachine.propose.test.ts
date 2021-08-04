@@ -26,13 +26,8 @@ describe("GovernorAlpha#propose", () => {
       "CompoundVotingMachine"
     );
 
-    let {
-      avatar,
-      reputation,
-      setDAOAddress,
-      nameService,
-      votingMachine
-    } = await createDAO();
+    let { avatar, reputation, setDAOAddress, nameService, votingMachine } =
+      await createDAO();
 
     grep = (await ethers.getContractAt(
       "GReputation",
@@ -55,8 +50,8 @@ describe("GovernorAlpha#propose", () => {
     proposalId = await gov.latestProposalIds(root.address);
     trivialProposal = await gov.proposals(proposalId);
 
-    voteDelay = await gov.votingDelay().then(_ => _.toNumber());
-    votePeriod = await gov.votingPeriod().then(_ => _.toNumber());
+    voteDelay = await gov.votingDelay().then((_) => _.toNumber());
+    votePeriod = await gov.votingPeriod().then((_) => _.toNumber());
   });
 
   // it("Given the sender's GetPriorVotes for the immediately previous block is above the Proposal Threshold (e.g. 2%), the given proposal is added to all proposals, given the following settings", async () => {
@@ -67,7 +62,7 @@ describe("GovernorAlpha#propose", () => {
     await expect(
       gov.propose(targets, values, signatures, callDatas, "do nothing")
     ).to.revertedWith(
-      "revert CompoundVotingMachine::propose: one live proposal per proposer, found an already pending proposal"
+      "CompoundVotingMachine::propose: one live proposal per proposer, found an already pending proposal"
     );
   });
 
@@ -116,7 +111,7 @@ describe("GovernorAlpha#propose", () => {
       let dynamicFields = await gov.getActions(trivialProposal.id);
       expect(dynamicFields.targets).to.deep.equal(targets);
       expect(
-        dynamicFields["1"].map(_ => _.toString()), //values is reserved word in ethersjs so we use array index
+        dynamicFields["1"].map((_) => _.toString()), //values is reserved word in ethersjs so we use array index
         "values not equal"
       ).to.deep.equal(values);
       expect(dynamicFields.signatures).to.deep.equal(signatures);
@@ -133,7 +128,7 @@ describe("GovernorAlpha#propose", () => {
         await expect(
           gov.propose(targets, values, signatures, callDatas, "do nothing")
         ).to.revertedWith(
-          "revert CompoundVotingMachine::propose: one live proposal per proposer, found an already active proposal"
+          "CompoundVotingMachine::propose: one live proposal per proposer, found an already active proposal"
         );
       });
     });
@@ -145,7 +140,7 @@ describe("GovernorAlpha#propose", () => {
             .connect(signers[4])
             .propose(targets, values, signatures, callDatas, "do nothing")
         ).to.revertedWith(
-          "revert CompoundVotingMachine::propose: proposer votes below proposal threshold"
+          "CompoundVotingMachine::propose: proposer votes below proposal threshold"
         );
       });
 
@@ -159,7 +154,7 @@ describe("GovernorAlpha#propose", () => {
             "do nothing"
           )
         ).to.revertedWith(
-          "revert CompoundVotingMachine::propose: proposal function information arity mismatch"
+          "CompoundVotingMachine::propose: proposal function information arity mismatch"
         );
 
         await expect(
@@ -171,7 +166,7 @@ describe("GovernorAlpha#propose", () => {
             "do nothing"
           )
         ).to.revertedWith(
-          "revert CompoundVotingMachine::propose: proposal function information arity mismatch"
+          "CompoundVotingMachine::propose: proposal function information arity mismatch"
         );
 
         await expect(
@@ -183,7 +178,7 @@ describe("GovernorAlpha#propose", () => {
             "do nothing"
           )
         ).to.revertedWith(
-          "revert CompoundVotingMachine::propose: proposal function information arity mismatch"
+          "CompoundVotingMachine::propose: proposal function information arity mismatch"
         );
 
         await expect(
@@ -195,13 +190,13 @@ describe("GovernorAlpha#propose", () => {
             "do nothing"
           )
         ).to.revertedWith(
-          "revert CompoundVotingMachine::propose: proposal function information arity mismatch"
+          "CompoundVotingMachine::propose: proposal function information arity mismatch"
         );
       });
 
       it("or if that length is zero or greater than Max Operations.", async () => {
         await expect(gov.propose([], [], [], [], "do nothing")).to.revertedWith(
-          "revert CompoundVotingMachine::propose: must provide actions"
+          "CompoundVotingMachine::propose: must provide actions"
         );
       });
     });
@@ -223,8 +218,8 @@ describe("GovernorAlpha#propose", () => {
         .propose(targets, values, signatures, callDatas, "second proposal");
 
       let nextProposalId = await nextProposal
-        .then(_ => _.wait())
-        .then(_ => gov.proposalCount());
+        .then((_) => _.wait())
+        .then((_) => gov.proposalCount());
       let proposalBlock = +(await ethers.provider.getBlockNumber());
 
       expect(nextProposal)
