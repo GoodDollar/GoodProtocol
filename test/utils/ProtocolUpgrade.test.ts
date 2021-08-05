@@ -28,6 +28,8 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     cDaiBalanceOfOldReserveAfterUpgrade,
     stakingAmountOfOldDonationsStakingBeforeUpgrade,
     stakingAmountOfOldDonationsStakingAfterUpgrade,
+    ethBalanceOfOldDonationsStakingBeforeUpgrade,
+    ethBalanceOfOldDonationsStakingAfterUpgrade,
     stakingAmountOfNewDonationStaking,
     oldReserveSupply,
     newReserveSupply,
@@ -65,6 +67,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
   before(async () => {
     [founder, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
+    const prov = ethers.provider;
     let {
       Reserve: oldRes,
       MarketMaker: oldMm,
@@ -143,6 +146,10 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       upgradeSchemeAddressFuse,
       fuseAvatar
     );
+    ethBalanceOfOldDonationsStakingBeforeUpgrade = await prov.getBalance(
+      oldDonationsStaking
+    );
+
     const {
       main: performUpgrade,
     } = require("../../scripts/upgradeToV2/upgradeToV2");
@@ -160,8 +167,11 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     );
     stakingAmountOfOldDonationsStakingAfterUpgrade =
       await oldDaiStaking.stakers(oldDonations);
-
+    ethBalanceOfOldDonationsStakingAfterUpgrade = await prov.getBalance(
+      oldDonationsStaking
+    );
     const deployment = require("../../releases/deployment.json");
+    console.log("got deployment json file");
     cdaiBalanceOfNewReserve = await cDAI.balanceOf(
       deployment["test-mainnet"].GoodReserveCDai
     );
@@ -171,7 +181,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     );
     newStakingContract = await ethers.getContractAt(
       "GoodCompoundStaking",
-      deployment["test-mainnet"].StakingContracts[0]
+      deployment["test-mainnet"].StakingContracts[0][0]
     );
     stakingAmountOfNewDonationStaking =
       await newStakingContract.getProductivity(
@@ -227,6 +237,8 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     expect(stakingAmountOfOldDonationsStakingBeforeUpgrade[0]).to.be.gt(0);
     expect(stakingAmountOfOldDonationsStakingAfterUpgrade[0]).to.be.equal(0);
     expect(stakingAmountOfNewDonationStaking[0]).to.be.gt(0);
+    expect(ethBalanceOfOldDonationsStakingBeforeUpgrade).to.be.gt(0);
+    expect(ethBalanceOfOldDonationsStakingAfterUpgrade).to.be.equal(0);
   });
   it("it should set staking rewards per block properly for staking contract", async () => {
     const rewardsPerBlock = await newFundManager.rewardsForStakingContract(
@@ -302,7 +314,9 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     expect(stakersDistributionAddress).to.be.equal(
       deployment["test-mainnet"].StakersDistribution
     );
-    expect(bridgeContractAddress).to.be.equal(oldDao["test-mainnet"].Bridge);
+    expect(bridgeContractAddress).to.be.equal(
+      oldDao["test-mainnet"].ForeignBridge
+    );
     expect(ubiRecipientAddress).to.be.equal(deployment["test"].UBIScheme);
   });
   it("it should delete schemes after protocolupgrade and register new compoundvotingmachine", async () => {
@@ -340,7 +354,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       "GDAO_CLAIMERS"
     );
     expect(reputationAddress).to.be.equal(deployment["test"].GReputation);
-    expect(bridgeContractAddress).to.be.equal(oldDao["test"].Bridge);
+    expect(bridgeContractAddress).to.be.equal(oldDao["test"].ForeignBridge);
     expect(ubiSchemeAddress).to.be.equal(deployment["test"].UBIScheme);
     expect(gdaoStakingAddress).to.be.equal(
       deployment["test"].GovernanceStaking

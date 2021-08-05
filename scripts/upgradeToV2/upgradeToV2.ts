@@ -479,7 +479,7 @@ export const main = async (networkName = name) => {
       release.DonationsStaking //new
     );
     await countTotalGas(tx);
-
+    console.log("Donation staking upgraded");
     //extract just the addresses without the rewards
     // release.StakingContracts = release.StakingContracts.map((_) => _[0]);
 
