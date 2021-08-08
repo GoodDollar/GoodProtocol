@@ -81,8 +81,8 @@
     "GoodFundManager": "0xAeEC5Af38c034D2f983dA5948646617Eee3a3372",
     "StakersDistribution": "0x139F5DD0D48b9BDbF9d12e7A2A2fDc42577746ad",
     "ProtocolUpgrade": "0x15Ac42377D9eD4168DFf9126DAf188F20b23E54D",
-    "CompoundStakingFactory": "0x2F60bda97bF208658A171b398E25CD3e11D3A0Ce",
-    "AaveStakingFactory": "0xf7561D6b0A2E2Ce3C333d0D605D4CE2107551608",
+    "CompoundStakingFactory": "0x932DC4c08140272D658C5059589A6f862991aB02",
+    "AaveStakingFactory": "0xeB348140d16eacf3BF321247504FeDD448Fd0B8F",
     "StakingContracts": [
       ["0xD034967a2Fd770eD109ab7e4897d26b68B89A176", 13888],
       ["0xf5e4C09Cd8A01F066f976A0c17f88e549817ea17", 6944]
@@ -104,7 +104,8 @@
     "DAIStaking": "0xd222e5557395c5b62b682Cbfd50567908592703d",
     "MarketMaker": "0xD7cF329519e749B5f3c220e644660c61Acc24DAA",
     "Bridge": "0x26D044e8a7bcD384FeFD22E753229922D6693d0E",
-    "BancorFormula": "0x56ca74cd7b31609a8ba666308f089e0d5e2d0584"
+    "BancorFormula": "0x56ca74cd7b31609a8ba666308f089e0d5e2d0584",
+    "UniswapV2SwapHelper": "0x7D7200b2b049BB3d91bCbdf95eC0EE6c2b5f8b7E"
   },
   "fuse": {
     "NameService": "0x7C763323F40Db002a4b8b54A8E207DE48034fEb1",
