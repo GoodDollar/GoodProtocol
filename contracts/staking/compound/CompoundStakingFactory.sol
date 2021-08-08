@@ -22,13 +22,13 @@ contract CompoundStakingFactory {
 		public
 		returns (GoodCompoundStaking)
 	{
-		address deployed =
-			address(impl).cloneDeterministic(
-				keccak256(abi.encodePacked(address(cToken), paramsHash))
-			);
+		address deployed = address(impl).cloneDeterministic(
+			keccak256(abi.encodePacked(address(cToken), paramsHash))
+		);
 		emit Deployed(deployed, address(cToken));
 		return GoodCompoundStaking(deployed);
 	}
+
 	/**
 	@dev Function to clone Staking contract and initialize new one with new ctoken
 	@param cToken Staking cToken to use in staking contract
@@ -42,19 +42,20 @@ contract CompoundStakingFactory {
 		INameService _ns,
 		uint64 _maxRewardThreshold,
 		address _tokenUsdOracle,
-		address _compUsdOracle
+		address _compUsdOracle,
+		address[] memory _tokenToDaiSwapPath
 	) public {
-		GoodCompoundStaking deployed =
-			clone(
-				cToken,
-				keccak256(
-					abi.encodePacked(
-						address(_ns),
-						_maxRewardThreshold,
-						_tokenUsdOracle
-					)
+		GoodCompoundStaking deployed = clone(
+			cToken,
+			keccak256(
+				abi.encodePacked(
+					address(_ns),
+					_maxRewardThreshold,
+					_tokenUsdOracle,
+					_tokenToDaiSwapPath
 				)
-			);
+			)
+		);
 		deployed.init(
 			cToken.underlying(),
 			address(cToken),
@@ -63,7 +64,8 @@ contract CompoundStakingFactory {
 			string(abi.encodePacked("g", cToken.symbol())),
 			_maxRewardThreshold,
 			_tokenUsdOracle,
-			_compUsdOracle
+			_compUsdOracle,
+			_tokenToDaiSwapPath
 		);
 	}
 

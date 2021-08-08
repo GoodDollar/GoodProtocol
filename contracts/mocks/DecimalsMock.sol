@@ -6,19 +6,15 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/presets/ERC20PresetMinte
 
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 
-contract EightDecimalsMock is ERC20PresetMinterPauserUpgradeable {
-	using SafeMathUpgradeable for uint256;
+contract DecimalsMock is ERC20PresetMinterPauserUpgradeable {
+	uint8 tokenDecimals;
 
-
-
-	constructor() {
+	constructor(uint8 decimals) {
 		__ERC20PresetMinterPauser_init("Eight Decimals Token", "EDT");
+		tokenDecimals = decimals;
 	}
 
-	
-
-	function decimals() public pure override returns (uint8) {
-		return 8;
+	function decimals() public view override returns (uint8) {
+		return tokenDecimals;
 	}
-	
 }

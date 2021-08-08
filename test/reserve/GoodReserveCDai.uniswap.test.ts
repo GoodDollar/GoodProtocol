@@ -23,7 +23,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     wethPair: Contract,
     uniswapRouter: Contract;
   let cDAI;
-  let goodReserve: GoodReserveCDai;
+  let goodReserve: Contract;
   let goodDollar,
     avatar,
     identity,
@@ -115,7 +115,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     console.log("deployed contribution, deploying reserve...", {
       founder: founder.address
     });
-    goodReserve = reserve as GoodReserveCDai;
+    goodReserve = reserve;
 
     setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
     const exchangeHelperFactory = await ethers.getContractFactory(

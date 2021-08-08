@@ -28,6 +28,7 @@ contract AaveStakingFactory {
 		emit Deployed(deployed, address(token));
 		return GoodAaveStaking(deployed);
 	}
+
 	/**
 	@dev Function to clone Staking contract and initialize new one with new token
 	@param token Staking token to use in staking contract
@@ -45,7 +46,8 @@ contract AaveStakingFactory {
 		uint64 _maxRewardThreshold,
 		address _tokenUsdOracle,
 		IAaveIncentivesController _incentiveController,
-		address _aaveUSDOracle
+		address _aaveUSDOracle,
+		address[] memory _tokenToDaiSwapPath
 	) public {
 		GoodAaveStaking deployed = clone(
 			token,
@@ -70,7 +72,8 @@ contract AaveStakingFactory {
 			_maxRewardThreshold,
 			_tokenUsdOracle,
 			_incentiveController,
-			_aaveUSDOracle
+			_aaveUSDOracle,
+			_tokenToDaiSwapPath
 		);
 	}
 
