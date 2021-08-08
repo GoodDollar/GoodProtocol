@@ -196,13 +196,15 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			(_sellPath.length == 1 && _sellPath[0] == cDaiAddress) ? receiver : address(this), // if the tokens that will received is cDai then return it directly to receiver
 			msg.sender
 		);
-		if (_sellPath.length == 1 && _sellPath[0] == daiAddress) {
-			result = _redeemDAI(result);
+		if (_sellPath.length == 1 && (_sellPath[0] == daiAddress || _sellPath[0] == cDaiAddress)) {
+			if(_sellPath[0] == daiAddress ){
+				result = _redeemDAI(result);
 
-			require(
-				ERC20(_sellPath[0]).transfer(receiver, result) == true,
-				"Transfer failed"
-			);
+				require(
+					ERC20(_sellPath[0]).transfer(receiver, result) == true,
+					"Transfer failed"
+				);
+			}
 		} else if(_sellPath[0] != cDaiAddress){
 			result = _redeemDAI(result);
 			require(_sellPath[0] == daiAddress, "Input token for uniswap must be DAI");

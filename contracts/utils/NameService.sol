@@ -15,7 +15,7 @@ contract NameService is Initializable, UUPSUpgradeable {
 	mapping(bytes32 => address) public addresses;
 
 	Controller public dao;
-
+	event AddressChanged(string name ,address addr);
 	function initialize(
 		Controller _dao,
 		bytes32[] memory _nameHashes,
@@ -43,6 +43,7 @@ contract NameService is Initializable, UUPSUpgradeable {
 	function setAddress(string memory name, address addr) external {
 		_onlyAvatar();
 		addresses[keccak256(bytes(name))] = addr;
+		emit AddressChanged(name, addr);
 	}
 
 	function setAddresses(bytes32[] calldata hash, address[] calldata addrs)

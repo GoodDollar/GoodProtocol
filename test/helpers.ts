@@ -13,9 +13,30 @@ import UBIScheme from "@gooddollar/goodcontracts/stakingModel/build/contracts/UB
 import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
 import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
-import { Controller, GoodMarketMaker, CompoundVotingMachine } from "../types";
+import {
+  Controller,
+  GoodMarketMaker,
+  CompoundVotingMachine,
+  GoodCompoundStaking,
+  GoodAaveStaking,
+} from "../types";
 import { Contract } from "@ethersproject/contracts";
 import { BigNumber } from "@ethersproject/bignumber";
+
+export const getStakingFactory = async (
+  factory: "GoodCompoundStaking" | "GoodAaveStaking" | "GoodCompoundStakingTest"
+) => {
+  let swapHelper = await ethers
+    .getContractFactory("UniswapV2SwapHelper")
+    .then((_) => _.deploy());
+
+  const simpleStakingFactory = await ethers.getContractFactory(factory, {
+    libraries: {
+      UniswapV2SwapHelper: swapHelper.address,
+    },
+  });
+  return simpleStakingFactory;
+};
 
 export const createDAO = async () => {
   let [root, ...signers] = await ethers.getSigners();

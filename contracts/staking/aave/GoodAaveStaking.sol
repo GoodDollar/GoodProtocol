@@ -4,6 +4,7 @@ pragma solidity >=0.8.0;
 import "../SimpleStaking.sol";
 import "../../Interfaces.sol";
 import "../../utils/DataTypes.sol";
+import "../UniswapV2SwapHelper.sol";
 
 /**
  * @title Staking contract that donates earned interest to the DAO
@@ -12,6 +13,8 @@ import "../../utils/DataTypes.sol";
  * the contracts buy cToken and can transfer the daily interest to the  DAO
  */
 contract GoodAaveStaking is SimpleStaking {
+	using UniswapV2SwapHelper for SimpleStaking;
+
 	// Address of the TOKEN/USD oracle from chainlink
 	address public tokenUsdOracle;
 
@@ -27,6 +30,8 @@ contract GoodAaveStaking is SimpleStaking {
 	uint32 public collectInterestGasCost = 250000;
 	// Gas cost to claim stkAave rewards
 	uint32 stkAaveClaimGasCost = 50000;
+
+	address[] public tokenToDaiSwapPath;
 
 	/**
 	 * @param _token Token to swap DEFI token
@@ -48,7 +53,8 @@ contract GoodAaveStaking is SimpleStaking {
 		uint64 _maxRewardThreshold,
 		address _tokenUsdOracle,
 		IAaveIncentivesController _incentiveController,
-		address _aaveUSDOracle
+		address _aaveUSDOracle,
+		address[] memory _tokenToDaiSwapPath
 	) public {
 		lendingPool = ILendingPool(_lendingPool);
 		DataTypes.ReserveData memory reserve = lendingPool.getReserveData(
@@ -62,6 +68,14 @@ contract GoodAaveStaking is SimpleStaking {
 			_tokenSymbol,
 			_maxRewardThreshold
 		);
+		require(
+			_tokenToDaiSwapPath[0] == _token &&
+				_tokenToDaiSwapPath[_tokenToDaiSwapPath.length - 1] ==
+				nameService.getAddress("DAI"),
+			"invalid _tokenToDaiSwapPath"
+		);
+		tokenToDaiSwapPath = _tokenToDaiSwapPath;
+
 		//above  initialize going  to revert on second call, so this is safe
 		tokenUsdOracle = _tokenUsdOracle;
 		incentiveController = _incentiveController;
@@ -96,51 +110,49 @@ contract GoodAaveStaking is SimpleStaking {
 
 	/**
 	 * @dev Function to redeem aToken for DAI, so reserve knows how to handle it. (reserve can handle dai or cdai)
+	 * also transfers stkaave to reserve
 	 * @dev _amount of token in iToken
 	 * @dev _recipient recipient of the DAI
-	 * @return return address of the DAI and amount of the DAI
+	 * @return actualTokenGains amount of token redeemed for dai,
+			actualRewardTokenGains amount of reward token earned,
+			daiAmount total dai received
 	 */
 	function redeemUnderlyingToDAI(uint256 _amount, address _recipient)
 		internal
 		override
-		returns (address, uint256)
+		returns (
+			uint256 actualTokenGains,
+			uint256 actualRewardTokenGains,
+			uint256 daiAmount
+		)
 	{
-		lendingPool.withdraw(address(token), _amount, address(this));
-		uint256 redeemedAmount = token.balanceOf(address(this));
+		//out of requested interests to withdraw how much is it safe to swap
+		actualTokenGains = SimpleStaking(this).maxSafeTokenAmount(
+			address(token),
+			tokenToDaiSwapPath[1],
+			_amount
+		);
+
+		lendingPool.withdraw(address(token), actualTokenGains, address(this));
+		actualTokenGains = token.balanceOf(address(this));
+
 		address[] memory tokenAddress = new address[](1);
 		tokenAddress[0] = address(token);
-		address daiAddress = nameService.getAddress("DAI");
-		uint256 stkAaaveBalance = incentiveController.getRewardsBalance(
+
+		actualRewardTokenGains = incentiveController.claimRewards(
 			tokenAddress,
-			address(this)
+			type(uint256).max,
+			_recipient
 		);
-		Uniswap uniswapContract = Uniswap(
-			nameService.getAddress("UNISWAP_ROUTER")
-		);
-		uint256[] memory swap;
-		if (stkAaaveBalance > 0) {
-			incentiveController.claimRewards(
-				tokenAddress,
-				stkAaaveBalance,
+
+		if (actualTokenGains > 0) {
+			daiAmount = SimpleStaking(this).swap(
+				tokenToDaiSwapPath,
+				actualTokenGains,
+				0,
 				_recipient
 			);
 		}
-		uint256 daiFromToken;
-		if (redeemedAmount > 0) {
-			address[] memory path = new address[](2);
-			path[0] = address(token);
-			path[1] = daiAddress;
-			swap = uniswapContract.swapExactTokensForTokens(
-				redeemedAmount,
-				0,
-				path,
-				_recipient,
-				block.timestamp
-			);
-			daiFromToken = swap[1];
-		}
-
-		return (daiAddress, daiFromToken);
 	}
 
 	/**

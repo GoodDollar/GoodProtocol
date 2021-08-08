@@ -6,11 +6,11 @@ import "../utils/DSMath.sol";
 
 contract BaseShareField is DSMath {
 	// total staked for shares calculation
-	uint256 totalProductivity;
+	uint256 public totalProductivity;
 	// total staked that earns rewards (some stakers can donate their rewards)
 	uint256 public totalEffectiveStakes;
 	// accumulated rewards per share in 27 decimals precision
-	uint256 accAmountPerShare;
+	uint256 public accAmountPerShare;
 	// rewards claimed by users
 	uint256 public mintedRewards;
 	// rewards accumulated for distribution
@@ -318,12 +318,5 @@ contract BaseShareField is DSMath {
 		returns (uint256, uint256)
 	{
 		return (users[user].amount, totalProductivity);
-	}
-
-	/**
-	 * @return Returns the current gross product rate.
-	 */
-	function interestsPerBlock() public view virtual returns (uint256) {
-		return accAmountPerShare;
 	}
 }

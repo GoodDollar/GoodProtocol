@@ -83,6 +83,7 @@ export const main = async (networkName = name) => {
         (protocolSettings.compound != undefined &&
           protocolSettings.compound.compUsdOracle) ||
         dao.COMPUsdOracle,
+      swapPath: [],
     },
   ];
 
@@ -92,6 +93,10 @@ export const main = async (networkName = name) => {
       address: protocolSettings.aave.usdc || dao.USDC,
       usdOracle: protocolSettings.aave.usdcUsdOracle || dao.USDCUsdOracle,
       aaveUsdOracle: protocolSettings.aave.aaveUsdOracle || dao.AAVEUsdOracle,
+      swapPath: [
+        get(protocolSettings, "aave.usdc", dao.USDC),
+        get(protocolSettings, "compound.dai", dao.DAI),
+      ],
     },
   ];
 
@@ -253,15 +258,23 @@ export const main = async (networkName = name) => {
       },
       {
         network: "mainnet",
+        name: "UniswapV2SwapHelper",
+        args: [],
+        isUpgradable: false,
+      },
+      {
+        network: "mainnet",
         name: "CompoundStakingFactory",
         args: [],
         isUpgradable: false,
+        libraries: ["UniswapV2SwapHelper"],
       },
       {
         network: "mainnet",
         name: "AaveStakingFactory",
         args: [],
         isUpgradable: false,
+        libraries: ["UniswapV2SwapHelper"],
       },
     ];
 
@@ -298,8 +311,13 @@ export const main = async (networkName = name) => {
         release,
         // pf: ProxyFactory.factory.address
       });
-
-      const Contract = await ethers.getContractFactory(contract.name);
+      let opts = {};
+      if (contract.libraries) {
+        let libraries = {};
+        contract.libraries.forEach((l) => (libraries[l] = release[l]));
+        opts = { libraries };
+      }
+      const Contract = await ethers.getContractFactory(contract.name, opts);
       //   const ProxyFactory = await fetchOrDeployProxyFactory();
 
       let deployed;
@@ -461,7 +479,7 @@ export const main = async (networkName = name) => {
       release.DonationsStaking //new
     );
     await countTotalGas(tx);
-
+    console.log("Donation staking upgraded");
     //extract just the addresses without the rewards
     // release.StakingContracts = release.StakingContracts.map((_) => _[0]);
 
@@ -625,7 +643,8 @@ export const main = async (networkName = name) => {
           release.NameService,
           protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
           token.usdOracle,
-          token.compUsdOracle
+          token.compUsdOracle,
+          token.swapPath
         )
       ).wait();
       countTotalGas(tx);
@@ -662,7 +681,8 @@ export const main = async (networkName = name) => {
               "aave.incentiveController",
               dao.AaveIncentiveController
             ),
-            token.aaveUsdOracle
+            token.aaveUsdOracle,
+            token.swapPath
           )
         ).wait();
         await countTotalGas(tx);
@@ -717,5 +737,8 @@ export const main = async (networkName = name) => {
   // await proveNewRep();
 };
 if (process.env.TEST != "true") {
-  main(name).catch(console.log);
+  main(name).catch((e) => {
+    console.log(e);
+    throw e;
+  });
 }

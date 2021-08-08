@@ -635,7 +635,7 @@ export const deployUBI = async (deployedDAO) => {
     identity,
     firstClaim.address,
     now.timestamp,
-    now.timestamp + 1000,
+    now.timestamp + 10000,
     14,
     7
   );
@@ -654,10 +654,17 @@ export const deployUBI = async (deployedDAO) => {
 
   console.log("set firstclaim,ubischeme as scheme and starting...");
   await setSchemes([firstClaim.address, ubiScheme.address]);
+  await increaseTime(1000); //make sure period start has reached
+  console.log(
+    "ubischeme start:",
+    now.timestamp,
+    await ubiScheme.periodStart(),
+    await ubiScheme.periodEnd()
+  );
   const tx = await firstClaim.start();
   await ubiScheme.start();
 
-  await increaseTime(1000); //make sure period end of ubischeme has reached
+  await increaseTime(10000); //make sure period end of ubischeme has reached
   return { firstClaim, ubiScheme };
 };
 
@@ -734,7 +741,8 @@ export const deployOldVoting = async (dao) => {
   }
 };
 
-if (process.env.TEST != "true") {
+if (process.env.TEST != "true" && name === "develop") {
+  console.log("deploying non-test localOldDao");
   if (network.name.includes("kovan")) {
     deployKovanOldDAO().catch(console.log);
   } else deploy(name).catch(console.log);

@@ -16,6 +16,7 @@ contract IncentiveControllerMock {
 		address to
 	) external returns (uint256) {
 		assets; //warning
+		if (rewards[msg.sender] < amount) amount = rewards[msg.sender];
 		aave.mint(to, amount);
 		rewards[msg.sender] -= amount;
 		return amount;

@@ -16,6 +16,7 @@ import {
   increaseTime,
   advanceBlocks,
   deployUniswap,
+  getStakingFactory,
 } from "../helpers";
 import { experimentalAddHardhatNetworkMessageTraceHook } from "hardhat/config";
 
@@ -53,7 +54,8 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     incentiveController,
     lendingPool,
     setDAOAddress,
-    genericCall;
+    genericCall,
+    goodAaveStakingFactory;
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
@@ -62,9 +64,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    const goodAaveStakingFactory = await ethers.getContractFactory(
-      "GoodAaveStaking"
-    );
+    goodAaveStakingFactory = await getStakingFactory("GoodAaveStaking");
 
     const lendingPoolFactory = await ethers.getContractFactory(
       "LendingPoolMock"
@@ -208,22 +208,23 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
           "172800",
           daiUsdOracle.address,
           incentiveController.address,
-          aaveUsdOracle.address
+          aaveUsdOracle.address,
+          [usdc.address, dai.address]
         );
         return contract;
       });
     await dai["mint(address,uint256)"](
       founder.address,
-      ethers.utils.parseEther("2000000")
+      ethers.utils.parseEther("200000000000000")
     );
     await usdc["mint(address,uint256)"](
       founder.address,
-      ethers.utils.parseUnits("2000000", 6)
+      ethers.utils.parseUnits("200000000000000", 6)
     );
 
     await addLiquidity(
-      ethers.utils.parseUnits("2000000", 6),
-      ethers.utils.parseEther("2000000")
+      ethers.utils.parseUnits("200000000000000", 6),
+      ethers.utils.parseEther("200000000000000")
     );
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
@@ -242,7 +243,8 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
         "172800",
         daiUsdOracle.address,
         incentiveController.address,
-        aaveUsdOracle.address
+        aaveUsdOracle.address,
+        []
       )
     ).to.revertedWith("Initializable: contract is already initialized");
   });
@@ -305,7 +307,8 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     let gdBalancerAfterWithdraw = await goodDollar.balanceOf(staker.address);
     expect(gdBalancerAfterWithdraw.toString()).to.be.equal("2500");
   });
-  it("stake should generate some interest and shoul be used to generate UBI", async () => {
+
+  xit("stake should generate some interest and shoul be used to generate UBI", async () => {
     const stakingAmount = ethers.utils.parseUnits("100", 6);
     await usdc["mint(address,uint256)"](staker.address, stakingAmount);
     await usdc.connect(staker).approve(goodAaveStaking.address, stakingAmount);
@@ -345,7 +348,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     expect(currentUBIInterestAfterWithdraw[0].toString()).to.be.equal("0");
     expect(gdBalanceAfterCollectInterest.gt(gdBalanceBeforeCollectInterest));
   });
-  it("should be able to sort staking contracts and collect interests from highest to lowest and only one staking contract's interest should be collected due to gas amount [ @skip-on-coverage ]", async () => {
+  xit("should be able to sort staking contracts and collect interests from highest to lowest and only one staking contract's interest should be collected due to gas amount [ @skip-on-coverage ]", async () => {
     const stakingAmount = ethers.utils.parseUnits("100", 6);
     await usdc["mint(address,uint256)"](staker.address, stakingAmount);
     await usdc.connect(staker).approve(goodAaveStaking.address, stakingAmount);
@@ -353,10 +356,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
 
     await lendingPool.giveInterestToUser("6000", goodAaveStaking.address); // increase interest by calling giveInterestToUser
 
-    const goodCompoundStakingFactory = await ethers.getContractFactory(
-      "GoodCompoundStaking"
-    );
-    const simpleStaking = await goodCompoundStakingFactory
+    const simpleStaking = await goodAaveStakingFactory
       .deploy()
       .then(async (contract) => {
         await contract.init(
@@ -367,12 +367,13 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
           "gDAI",
           "50",
           daiUsdOracle.address,
-          compUsdOracle.address
+          compUsdOracle.address,
+          []
         );
         return contract;
       });
 
-    const simpleStaking1 = await goodCompoundStakingFactory
+    const simpleStaking1 = await goodAaveStakingFactory
       .deploy()
       .then(async (contract) => {
         await contract.init(
@@ -435,6 +436,10 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
   it("it should collectRewards while collecting interest from aToken if there some earned reward as stkAAVE", async () => {
     const stakingAmount = ethers.utils.parseUnits("100", 6);
     await usdc["mint(address,uint256)"](founder.address, stakingAmount);
+    await usdc["mint(address,uint256)"](
+      lendingPool.address,
+      ethers.utils.parseUnits("10000000000", 6)
+    );
     await usdc.approve(goodAaveStaking.address, stakingAmount);
     await goodAaveStaking.stake(stakingAmount, "0", false);
     let currentGains = await goodAaveStaking.currentGains(false, true);

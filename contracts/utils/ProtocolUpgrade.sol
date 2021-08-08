@@ -3,6 +3,7 @@ pragma solidity >=0.8.0;
 
 import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
 interface OldMarketMaker {
 	struct ReserveToken {
@@ -30,7 +31,7 @@ contract ProtocolUpgrade {
 	Controller controller;
 	address owner;
 	address avatar;
-
+	
 	modifier onlyOwner() {
 		require(msg.sender == owner, "only owner");
 		_;
@@ -97,9 +98,7 @@ contract ProtocolUpgrade {
 		);
 
 		require(ok, "Calling oldDonationStaking end failed");
-
 		(uint256 dai, uint256 eth) = abi.decode(result, (uint256, uint256));
-
 		ok = controller.externalTokenTransfer(
 			ns.getAddress("DAI"),
 			donationStaking,
@@ -108,16 +107,17 @@ contract ProtocolUpgrade {
 		);
 
 		require(ok, "Calling DAI externalTokenTransfer failed");
-
 		if (eth > 0) {
-			ok = controller.sendEther(eth, donationStaking, avatar);
+		
+			ok = controller.sendEther(eth, payable(this), avatar);
 
 			require(ok, "Calling  sendEther failed");
+		
+			AddressUpgradeable.sendValue(donationStaking, eth);
 		}
-
 		IDonationStaking(donationStaking).stakeDonations(0);
 	}
-
+	receive() external payable {}
 	/**
 	 * 6. upgrade to new DAO and relinquish control
 	 * unregister old voting schemes

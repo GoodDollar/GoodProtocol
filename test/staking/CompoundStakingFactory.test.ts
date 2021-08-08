@@ -39,8 +39,15 @@ describe("CompoundStakingFactory", () => {
     await dao.setDAOAddress("COMP", comp.address);
     dai = dao.daiAddress;
     cdai = dao.cdaiAddress;
+
+    let swapHelper = await ethers
+      .getContractFactory("UniswapV2SwapHelper")
+      .then((_) => _.deploy());
+
     stakingFactory = (await ethers
-      .getContractFactory("CompoundStakingFactory")
+      .getContractFactory("CompoundStakingFactory", {
+        libraries: { UniswapV2SwapHelper: swapHelper.address },
+      })
       .then((_) => _.deploy())) as CompoundStakingFactory;
   });
 
@@ -59,24 +66,23 @@ describe("CompoundStakingFactory", () => {
   });
 
   it("should create and initialize clone", async () => {
-    const ns = await ethers
-      .getContractFactory("NameService")
-      .then((_) => _.deploy());
+    console.log(await dao.nameService.getAddress("UNISWAP_ROUTER"));
     const res = await (
       await stakingFactory.cloneAndInit(
         cdai,
         dao.nameService.address,
         5760,
         stakingFactory.address,
-        compUsdOracle.address
+        compUsdOracle.address,
+        []
       )
     ).wait();
     const log = res.events.find((_) => _.event === "Deployed");
     const detAddress = await stakingFactory.predictAddress(
       cdai,
       ethers.utils.solidityKeccak256(
-        ["address", "uint64", "address"],
-        [dao.nameService.address, 5760, stakingFactory.address]
+        ["address", "uint64", "address", "address[]"],
+        [dao.nameService.address, 5760, stakingFactory.address, []]
       )
     );
     expect(log).to.not.empty;

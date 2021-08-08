@@ -45,8 +45,14 @@ describe("AaveStakingFactory", () => {
     const router = uniswap.router;
     await dao.setDAOAddress("UNISWAP_ROUTER", router.address);
     await dao.setDAOAddress("AAVE", aave.address);
+    let swapHelper = await ethers
+      .getContractFactory("UniswapV2SwapHelper")
+      .then((_) => _.deploy());
+
     stakingFactory = (await ethers
-      .getContractFactory("AaveStakingFactory")
+      .getContractFactory("AaveStakingFactory", {
+        libraries: { UniswapV2SwapHelper: swapHelper.address },
+      })
       .then((_) => _.deploy())) as AaveStakingFactory;
   });
 
@@ -77,7 +83,8 @@ describe("AaveStakingFactory", () => {
         5760,
         stakingFactory.address,
         incentiveController.address,
-        aaveUsdOracle.address
+        aaveUsdOracle.address,
+        [usdc.address, dai]
       )
     ).wait();
     const log = res.events.find((_) => _.event === "Deployed");
