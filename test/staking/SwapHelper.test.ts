@@ -385,6 +385,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
         return contract;
       });
     const reserve = await pair.getReserves();
+    const usdcPairReserve = await usdcPair.getReserves();
     console.log(`reserve ${reserve}`);
     const currentBlock = await ethers.provider.getBlockNumber();
     let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
@@ -421,7 +422,9 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       gasLimit: 1500000,
     });
     const currentReserve = await pair.getReserves();
-    console.log(`currentReserve ${currentReserve}`);
+    const currentUsdcPairReserve = await usdcPair.getReserves();
+    expect(usdcPairReserve[1]).to.be.gt(currentUsdcPairReserve[1]); // Since we use multiple hops to swap initial reserves should be greater than after reserve for bat
+    expect(reserve[0]).to.be.gt(currentReserve[0]); // bat reserve should be greater than initial reserve since we swap bat to dai
     await simpleStaking.withdrawStake(ethers.utils.parseUnits("100", 6), false);
   });
   async function addLiquidity(
