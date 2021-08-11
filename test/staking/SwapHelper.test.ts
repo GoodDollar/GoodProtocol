@@ -28,7 +28,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
   let dai: Contract;
   let bat: Contract;
   let comp: Contract;
-  let pair: Contract, uniswapRouter: Contract, usdcPair;
+  let pair: Contract, uniswapRouter: Contract, usdcPair, compPair;
   let cDAI, cDAI1, cDAI2, cDAI3, cUsdc, usdc, cBat: Contract;
   let gasFeeOracle,
     daiEthOracle: Contract,
@@ -255,13 +255,13 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       ethers.utils.parseEther("200000")
     );
 
-    await factory.createPair(comp.address, weth.address); // Create comp and dai pair
+    await factory.createPair(comp.address, weth.address); // Create comp and weth pair
     const compPairAddress = factory.getPair(comp.address, weth.address);
 
     await factory.createPair(dai.address, weth.address); // Create comp and dai pair
     const daiPairAddress = factory.getPair(dai.address, weth.address);
 
-    const compPair = new Contract(
+    compPair = new Contract(
       compPairAddress,
       JSON.stringify(IUniswapV2Pair.abi),
       staker
@@ -361,6 +361,12 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
 
     await simpleStaking.withdrawStake(ethers.utils.parseEther("100"), false);
     expect(reserve[0].sub(currentReserve[0])).to.be.lt(currentGains[1]);
+
+    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["100", simpleStaking.address, currentBlock, currentBlock + 10000, true]
+    );
+    await genericCall(goodFundManager.address, encodedData, avatar, 0);
   });
 
   it("it should swap with multiple hops", async () => {
@@ -426,6 +432,61 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     expect(usdcPairReserve[1]).to.be.gt(currentUsdcPairReserve[1]); // Since we use multiple hops to swap initial reserves should be greater than after reserve for bat
     expect(reserve[0]).to.be.gt(currentReserve[0]); // bat reserve should be greater than initial reserve since we swap bat to dai
     await simpleStaking.withdrawStake(ethers.utils.parseUnits("100", 6), false);
+  });
+  it("it should swap comp to dai", async () => {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+
+    const simpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async (contract) => {
+        await contract.init(
+          usdc.address,
+          cUsdc.address,
+          nameService.address,
+          "Good Usdc",
+          "gUsdc",
+          "50",
+          batUsdOracle.address,
+          compUsdOracle.address,
+          [usdc.address, bat.address, dai.address]
+        );
+        return contract;
+      });
+
+    const currentBlock = await ethers.provider.getBlockNumber();
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["100", simpleStaking.address, currentBlock, currentBlock + 10000, false]
+    );
+    await genericCall(goodFundManager.address, encodedData, avatar, 0);
+    encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
+      "setcollectInterestGasCostParams",
+      ["250000", "150000"]
+    );
+    await genericCall(simpleStaking.address, encodedData, avatar, 0);
+    comp["mint(address,uint256)"](
+      simpleStaking.address,
+      ethers.utils.parseEther("10000")
+    );
+    const collectableContracts = await goodFundManager.calcSortedContracts(
+      "1500000"
+    );
+    const reserveBeforeSwap = await compPair.getReserves();
+    const currentGains = await simpleStaking.currentGains(true, true);
+    await goodFundManager.collectInterest(collectableContracts, {
+      gasLimit: 1500000,
+    });
+    const gainsAfterCollectInterest = await simpleStaking.currentGains(
+      true,
+      true
+    );
+    const reserveAfterSwap = await compPair.getReserves();
+    const safeAmount = reserveBeforeSwap[0].mul(BN.from(3)).div(BN.from(1000));
+    expect(safeAmount).to.be.equal(
+      reserveAfterSwap[0].sub(reserveBeforeSwap[0])
+    );
   });
   async function addLiquidity(
     token0Amount: BigNumber,
