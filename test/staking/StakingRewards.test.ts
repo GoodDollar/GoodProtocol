@@ -779,7 +779,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .withdrawStake(stakingAmount, false);
   });
   it("it should not mint reward when staking contract is not registered", async () => {
-
     const simpleStaking = await deployStaking();
 
     const tx = await simpleStaking.withdrawRewards().catch((e) => e);
@@ -1028,7 +1027,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(tx.message).to.be.not.empty;
   });
 
-  xit("should be able to sort staking contracts and collect interests from highest to lowest and only one staking contract's interest should be collected due to gas amount [ @skip-on-coverage ]", async () => {
+  it("should be able to sort staking contracts and collect interests from lowest to highest and non-collectable contracts should be equal address zero [ @skip-on-coverage ]", async () => {
     const stakingAmount = ethers.utils.parseEther("100");
 
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
@@ -1060,20 +1059,11 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await simpleStaking1.connect(staker).stake(stakingAmount, 100, false);
 
     await cDAI.increasePriceWithMultiplier("200"); // increase interest by calling increasePriceWithMultiplier
-    const simpleStakingCurrentInterestBeforeCollect =
-      await simpleStaking.currentGains(false, true);
     const contractsToBeCollected = await goodFundManager.calcSortedContracts(
       "1100000"
     );
-    await goodFundManager.collectInterest(contractsToBeCollected, {
-      gasLimit: 1100000,
-    });
-    const simpleStakingCurrentInterest = await simpleStaking.currentGains(
-      false,
-      true
-    );
-    const goodCompoundStakingCurrentInterest =
-      await goodCompoundStaking.currentGains(false, true);
+    expect(contractsToBeCollected[0]).to.be.equal(ethers.constants.AddressZero);
+    expect(contractsToBeCollected[1]).to.be.equal(goodCompoundStaking.address);
 
     await goodCompoundStaking
       .connect(staker)
@@ -1083,13 +1073,10 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       ["100", simpleStaking.address, 0, 10, true]
     );
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
-    expect(goodCompoundStakingCurrentInterest[0].toString()).to.be.equal("0"); // Goodcompound staking's interest should be collected so currentinterest should be 0
-    expect(simpleStakingCurrentInterestBeforeCollect[0]).to.be.equal(
-      simpleStakingCurrentInterest[0]
-    ); // simple staking's interest shouldn't be collected so currentinterest should be equal to before collectinterest
   });
 
   it("It should not collect interest when interest is lower than gas cost [ @skip-on-coverage ]", async () => {
+    await goodFundManager.collectInterest([goodCompoundStaking.address]); // make sure there is no interest left
     const stakingAmount = ethers.utils.parseEther("100");
 
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
@@ -1901,7 +1888,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
 
     const currentGains = await simpleStaking.currentGains(false, true);
-    expect(currentGains[4]).to.be.equal("23"); //should be equal 0 but due to precision loss equals 23
+    expect(currentGains[4]).to.be.lt("200"); //should be equal 0 but due to precision loss give some offset so make sure less than 200
     await simpleStaking.withdrawStake(stakingAmount, false);
 
     const encodedData = goodFundManager.interface.encodeFunctionData(
