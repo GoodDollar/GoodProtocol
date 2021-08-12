@@ -54,8 +54,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     setDAOAddress,
     genericCall,
     goodCompoundStakingFactory,
-    goodCompoundStakingTestFactory,
-    deployStaking;
+    goodCompoundStakingTestFactory;
 
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
@@ -143,24 +142,13 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       "CompUSDMockOracle"
     );
     compUsdOracle = await compUsdOracleFactory.deploy();
-
-    deployStaking = (token, itoken, blocksThreashold = "50") =>
-      goodCompoundStakingFactory.deploy().then(async (contract) => {
-        await contract.init(
-          token || dai.address,
-          itoken || cDAI.address,
-          nameService.address,
-          "Good DAI",
-          "gDAI",
-          blocksThreashold,
-          daiUsdOracle.address,
-          compUsdOracle.address,
-          []
-        );
-        return contract;
-      });
-
-    goodCompoundStaking = await deployStaking(null, null, "172800");
+    goodCompoundStaking = await deployStaking(
+      dai.address,
+      cDAI.address,
+      "50",
+      daiUsdOracle.address,
+      []
+    );
 
     console.log("initializing marketmaker...");
 
@@ -302,36 +290,15 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
+    const simpleStaking = await deployStaking(
+      bat.address,
+      cBat.address,
+      "50",
+      batUsdOracle.address,
+      [bat.address, dai.address]
+    );
 
-    const simpleStaking = await goodCompoundStakingFactory
-      .deploy()
-      .then(async (contract) => {
-        await contract.init(
-          bat.address,
-          cBat.address,
-          nameService.address,
-          "Good BaT",
-          "gBAT",
-          "50",
-          batUsdOracle.address,
-          compUsdOracle.address,
-          [bat.address, dai.address]
-        );
-        return contract;
-      });
     const reserve = await pair.getReserves();
-    const currentBlock = await ethers.provider.getBlockNumber();
-    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
-      "setStakingReward",
-      ["100", simpleStaking.address, currentBlock, currentBlock + 10000, false]
-    );
-    await genericCall(goodFundManager.address, encodedData, avatar, 0);
-    encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
-      "setcollectInterestGasCostParams",
-      ["250000", "150000"]
-    );
-    await genericCall(simpleStaking.address, encodedData, avatar, 0);
-
     await dai.approve(
       goodCompoundStaking.address,
       ethers.utils.parseEther("100")
@@ -362,9 +329,9 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
 
     await simpleStaking.withdrawStake(ethers.utils.parseEther("100"), false);
 
-    encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+    const encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
-      ["100", simpleStaking.address, currentBlock, currentBlock + 10000, true]
+      ["100", simpleStaking.address, 0, 10000, true]
     );
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
     expect(reserve[0].sub(currentReserve[0])).to.be.lt(currentGains[1]);
@@ -376,35 +343,17 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       "GoodFundManager"
     );
 
-    const simpleStaking = await goodCompoundStakingFactory
-      .deploy()
-      .then(async (contract) => {
-        await contract.init(
-          usdc.address,
-          cUsdc.address,
-          nameService.address,
-          "Good Usdc",
-          "gUsdc",
-          "50",
-          batUsdOracle.address,
-          compUsdOracle.address,
-          [usdc.address, bat.address, dai.address]
-        );
-        return contract;
-      });
+    const simpleStaking = await deployStaking(
+      usdc.address,
+      cUsdc.address,
+      "50",
+      batUsdOracle.address,
+      [usdc.address, bat.address, dai.address]
+    );
+
     const reserve = await pair.getReserves();
     const usdcPairReserve = await usdcPair.getReserves();
-    const currentBlock = await ethers.provider.getBlockNumber();
-    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
-      "setStakingReward",
-      ["100", simpleStaking.address, currentBlock, currentBlock + 10000, false]
-    );
-    await genericCall(goodFundManager.address, encodedData, avatar, 0);
-    encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
-      "setcollectInterestGasCostParams",
-      ["250000", "150000"]
-    );
-    await genericCall(simpleStaking.address, encodedData, avatar, 0);
+
     await usdc.transfer(cUsdc.address, ethers.utils.parseUnits("1000000", 6)); // We should put extra usdc to mock cUSDC contract in order to provide interest
 
     await usdc.approve(
@@ -435,34 +384,14 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       "GoodFundManager"
     );
 
-    const simpleStaking = await goodCompoundStakingFactory
-      .deploy()
-      .then(async (contract) => {
-        await contract.init(
-          usdc.address,
-          cUsdc.address,
-          nameService.address,
-          "Good Usdc",
-          "gUsdc",
-          "50",
-          batUsdOracle.address,
-          compUsdOracle.address,
-          [usdc.address, bat.address, dai.address]
-        );
-        return contract;
-      });
+    const simpleStaking = await deployStaking(
+      usdc.address,
+      cUsdc.address,
+      "50",
+      batUsdOracle.address,
+      [usdc.address, bat.address, dai.address]
+    );
 
-    const currentBlock = await ethers.provider.getBlockNumber();
-    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
-      "setStakingReward",
-      ["100", simpleStaking.address, currentBlock, currentBlock + 10000, false]
-    );
-    await genericCall(goodFundManager.address, encodedData, avatar, 0);
-    encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
-      "setcollectInterestGasCostParams",
-      ["250000", "150000"]
-    );
-    await genericCall(simpleStaking.address, encodedData, avatar, 0);
     comp["mint(address,uint256)"](
       simpleStaking.address,
       ethers.utils.parseEther("10000")
@@ -471,14 +400,9 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       "1500000"
     );
     const reserveBeforeSwap = await compPair.getReserves();
-    const currentGains = await simpleStaking.currentGains(true, true);
     await goodFundManager.collectInterest(collectableContracts, {
       gasLimit: 1500000,
     });
-    const gainsAfterCollectInterest = await simpleStaking.currentGains(
-      true,
-      true
-    );
     const reserveAfterSwap = await compPair.getReserves();
     const safeAmount = reserveBeforeSwap[0].mul(BN.from(3)).div(BN.from(1000));
     expect(safeAmount).to.be.equal(
@@ -492,5 +416,44 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     await bat.transfer(pair.address, token0Amount);
     await dai.transfer(pair.address, token1Amount);
     await pair.mint(founder.address);
+  }
+  async function deployStaking(
+    token,
+    itoken,
+    blocksThreshold = "50",
+    tokenUsdOracle,
+    swapPath = null
+  ) {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const currentBlock = await ethers.provider.getBlockNumber();
+    const simpleStaking = await goodCompoundStakingFactory
+      .deploy()
+      .then(async (contract) => {
+        await contract.init(
+          token,
+          itoken,
+          nameService.address,
+          "Good Decimals",
+          "gcDecimals",
+          blocksThreshold,
+          tokenUsdOracle,
+          compUsdOracle.address,
+          swapPath || [token, dai.address]
+        );
+        return contract;
+      });
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      ["100", simpleStaking.address, currentBlock, currentBlock + 10000, false]
+    );
+    await genericCall(goodFundManager.address, encodedData, avatar, 0);
+    encodedData = goodCompoundStakingFactory.interface.encodeFunctionData(
+      "setcollectInterestGasCostParams",
+      ["250000", "150000"]
+    );
+    await genericCall(simpleStaking.address, encodedData, avatar, 0);
+    return simpleStaking;
   }
 });
