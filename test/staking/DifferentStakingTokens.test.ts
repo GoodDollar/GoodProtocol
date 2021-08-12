@@ -125,8 +125,8 @@ describe("Different decimals staking token", () => {
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
   });
 
-  [6, 8, 18].map((decimals) => {
-    xit(`token decimals ${decimals}: stake should generate some interest and should be used to generate UBI`, async () => {
+  [6, 8, 16].map((decimals) => {
+    it(`token decimals ${decimals}: stake should generate some interest and should be used to generate UBI`, async () => {
       const stakingAmount = ethers.utils.parseUnits("100", decimals);
       const token = await tokenFactory.deploy(decimals);
       const iToken = await cTokenFactory.deploy(token.address);
@@ -141,7 +141,7 @@ describe("Different decimals staking token", () => {
         uniswap.factory,
         token,
         dai,
-        ethers.utils.parseEther("100000000"),
+        ethers.utils.parseUnits("100000000", decimals),
         ethers.utils.parseEther("100000000")
       );
       const currentBlockNumber = await ethers.provider.getBlockNumber();
@@ -167,21 +167,9 @@ describe("Different decimals staking token", () => {
         .stake(stakingAmount, 100, false);
 
       const fakeInterest = ethers.utils.parseUnits("1000000000", decimals);
-      await token["mint(address,uint256)"](staker.address, fakeInterest);
+      await token["mint(address,uint256)"](iToken.address, fakeInterest);
 
-      await token["mint(address,uint256)"](staker.address, fakeInterest).then(
-        (_) => _.wait()
-      );
-      await token.connect(staker).approve(iToken.address, fakeInterest);
-      await iToken
-        .connect(staker)
-        ["mint(uint256)"](fakeInterest)
-        .then((_) => _.wait());
-      const iTokenInterest = await iToken.balanceOf(staker.address);
-      await iToken
-        .connect(staker)
-        .transfer(goodCompoundStaking.address, iTokenInterest); // transfer fake interest to staking contract
-
+      await iToken.increasePriceWithMultiplier("2500");
       const currentUBIInterestBeforeWithdraw =
         await goodCompoundStaking.currentGains(false, true);
       await goodCompoundStaking
@@ -194,12 +182,20 @@ describe("Different decimals staking token", () => {
         await goodFundManager.calcSortedContracts("1300000");
       await goodFundManager
         .connect(staker)
-        .collectInterest(contractAddressesToBeCollected);
+        .collectInterest(contractAddressesToBeCollected, {
+          gasLimit: 1300000,
+        });
       const gdBalanceAfterCollectInterest = await goodDollar.balanceOf(
         staker.address
       );
       const currentUBIInterestAfterWithdraw =
         await goodCompoundStaking.currentGains(false, true);
+      console.log(
+        `currentUBIInterestBeforeWithdraw ${currentUBIInterestBeforeWithdraw}`
+      );
+      console.log(
+        `currentUBIInterestAfterWithdraw ${currentUBIInterestAfterWithdraw}`
+      );
       expect(currentUBIInterestBeforeWithdraw[0].toString()).to.not.be.equal(
         "0"
       );

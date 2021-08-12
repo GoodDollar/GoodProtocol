@@ -23,16 +23,32 @@ contract cDecimalsMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 
 	function mint(uint256 edtAmount) public returns (uint256) {
 		edt.transferFrom(msg.sender, address(this), edtAmount);
+		uint256 decimalsDifference = edt.decimals() >= 8
+			? edt.decimals() - 8
+			: 8 - edt.decimals();
+		bool caseType = edt.decimals() >= 8;
 		//mul by 1e10 to match to precision of 1e16 of the exchange rate
 		_mint(
 			msg.sender,
-			(edtAmount * (10**mantissa)) / exchangeRateStored() // based on https://compound.finance/docs#protocol-math
+			caseType
+				? ((edtAmount / (10**decimalsDifference)) * (10**mantissa)) /
+					exchangeRateStored()
+				: (edtAmount * (10**decimalsDifference) * (10**mantissa)) /
+					exchangeRateStored() // based on https://compound.finance/docs#protocol-math
 		);
 		return 0;
 	}
 
 	function redeem(uint256 cEdtAmount) public returns (uint256) {
-		uint256 edtAmount = (cEdtAmount * exchangeRateStored()) / 1e18; // based on https://compound.finance/docs#protocol-math
+		uint256 decimalsDifference = edt.decimals() >= 8
+			? edt.decimals() - 8
+			: 8 - edt.decimals();
+		bool caseType = edt.decimals() >= 8;
+		uint256 edtAmount = caseType
+			? (cEdtAmount * 10**decimalsDifference * exchangeRateStored()) /
+				10**mantissa
+			: ((cEdtAmount / 10**decimalsDifference) * exchangeRateStored()) /
+				10**mantissa; // based on https://compound.finance/docs#protocol-math
 
 		_burn(msg.sender, cEdtAmount);
 		edt.transfer(msg.sender, edtAmount);
@@ -40,8 +56,15 @@ contract cDecimalsMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	}
 
 	function redeemUnderlying(uint256 edtAmount) public returns (uint256) {
-		uint256 cEdtAmount = (edtAmount * (10**mantissa)) /
-			exchangeRateStored(); // based on https://compound.finance/docs#protocol-math
+		uint256 decimalsDifference = edt.decimals() >= 8
+			? edt.decimals() - 8
+			: 8 - edt.decimals();
+		bool caseType = edt.decimals() >= 8;
+		uint256 cEdtAmount = caseType
+			? ((edtAmount / (10**decimalsDifference)) * (10**mantissa)) /
+				exchangeRateStored()
+			: (edtAmount * (10**decimalsDifference) * (10**mantissa)) /
+				exchangeRateStored(); // based on https://compound.finance/docs#protocol-math
 		_burn(msg.sender, cEdtAmount);
 		edt.transfer(msg.sender, edtAmount);
 		return 0;

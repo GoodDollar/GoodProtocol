@@ -234,16 +234,17 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     ethUsdOracle = await ethUsdOracleFactory.deploy();
     await dai["mint(address,uint256)"](
       founder.address,
-      ethers.utils.parseEther("2000000")
+      ethers.utils.parseEther("10000000")
     );
     await bat["mint(address,uint256)"](
       founder.address,
-      ethers.utils.parseEther("4000000")
+      ethers.utils.parseEther("5001000")
     );
     await usdc["mint(address,uint256)"](
       founder.address,
-      ethers.utils.parseUnits("2000000", 6)
+      ethers.utils.parseUnits("10000000", 6)
     );
+    await bat.transfer(cBat.address, ethers.utils.parseEther("1000000")); // We should put extra BAT to mock cBAT contract in order to provide interest
     await bat.transfer(usdcPair.address, ethers.utils.parseEther("2000000"));
     await usdc.transfer(
       usdcPair.address,
@@ -331,15 +332,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       ["250000", "150000"]
     );
     await genericCall(simpleStaking.address, encodedData, avatar, 0);
-    await bat["mint(address,uint256)"](
-      founder.address,
-      ethers.utils.parseEther("1001000")
-    );
-    await bat.transfer(cBat.address, ethers.utils.parseEther("1000000")); // We should put extra BAT to mock cBAT contract in order to provide interest
-    await dai["mint(address,uint256)"](
-      founder.address,
-      ethers.utils.parseEther("1000000")
-    );
+
     await dai.approve(
       goodCompoundStaking.address,
       ethers.utils.parseEther("100")
@@ -392,7 +385,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       });
     const reserve = await pair.getReserves();
     const usdcPairReserve = await usdcPair.getReserves();
-    console.log(`reserve ${reserve}`);
     const currentBlock = await ethers.provider.getBlockNumber();
     let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
@@ -404,10 +396,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       ["250000", "150000"]
     );
     await genericCall(simpleStaking.address, encodedData, avatar, 0);
-    await usdc["mint(address,uint256)"](
-      founder.address,
-      ethers.utils.parseUnits("1001000", 6)
-    );
     await usdc.transfer(cUsdc.address, ethers.utils.parseUnits("1000000", 6)); // We should put extra usdc to mock cUSDC contract in order to provide interest
 
     await usdc.approve(
