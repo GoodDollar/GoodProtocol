@@ -61,7 +61,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     [founder, staker, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
     const cdaiFactory = await ethers.getContractFactory("cDAIMock");
-    const cBatFactory = await ethers.getContractFactory("cBATMock");
+    const cBatFactory = await ethers.getContractFactory("cDecimalsMock");
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -320,7 +320,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
         return contract;
       });
     const reserve = await pair.getReserves();
-    console.log(`reserve ${reserve}`);
     const currentBlock = await ethers.provider.getBlockNumber();
     let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
@@ -346,6 +345,15 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const collectableContracts = await goodFundManager.calcSortedContracts(
       "1500000"
     );
+    const safeAmount = reserve[1].mul(BN.from(3)).div(BN.from(1000));
+    const safeAmountInIToken = await simpleStaking.tokenWorthIniToken(
+      safeAmount
+    );
+    const er = await cBat.exchangeRateStored();
+    const redeemedAmount = safeAmountInIToken
+      .mul(er)
+      .mul(BN.from(10).pow(10))
+      .div(BN.from(10).pow(28));
     const currentGains = await simpleStaking.currentGains(true, true);
     await goodFundManager.collectInterest(collectableContracts, {
       gasLimit: 1500000,
@@ -353,13 +361,14 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const currentReserve = await pair.getReserves();
 
     await simpleStaking.withdrawStake(ethers.utils.parseEther("100"), false);
-    expect(reserve[0].sub(currentReserve[0])).to.be.lt(currentGains[1]);
 
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["100", simpleStaking.address, currentBlock, currentBlock + 10000, true]
     );
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
+    expect(reserve[0].sub(currentReserve[0])).to.be.lt(currentGains[1]);
+    expect(currentReserve[1].sub(reserve[1])).to.be.equal(redeemedAmount);
   });
 
   it("it should swap with multiple hops", async () => {
@@ -409,7 +418,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const collectableContracts = await goodFundManager.calcSortedContracts(
       "1500000"
     );
-    console.log(`collectableContracts ${collectableContracts}`);
     const currentGains = await simpleStaking.currentGains(true, true);
 
     await goodFundManager.collectInterest(collectableContracts, {
@@ -417,9 +425,10 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     });
     const currentReserve = await pair.getReserves();
     const currentUsdcPairReserve = await usdcPair.getReserves();
+
+    await simpleStaking.withdrawStake(ethers.utils.parseUnits("100", 6), false);
     expect(usdcPairReserve[1]).to.be.gt(currentUsdcPairReserve[1]); // Since we use multiple hops to swap initial reserves should be greater than after reserve for bat
     expect(reserve[0]).to.be.gt(currentReserve[0]); // bat reserve should be greater than initial reserve since we swap bat to dai
-    await simpleStaking.withdrawStake(ethers.utils.parseUnits("100", 6), false);
   });
   it("it should swap comp to dai", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
