@@ -61,10 +61,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       "GoodCompoundStakingTest"
     );
 
-    const uniswap = await deployUniswap();
-    uniswapRouter = uniswap.router;
-    const { factory, weth } = uniswap;
-
     const daiFactory = await ethers.getContractFactory("DAIMock");
     let {
       controller: ctrl,
@@ -88,6 +84,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
 
     comp = COMP;
+    const uniswap = await deployUniswap(comp, dai);
+    uniswapRouter = uniswap.router;
+    const { factory, weth, compPairContract, daiPairContract } = uniswap;
     avatar = av;
     controller = ctrl;
     setDAOAddress = sda;
@@ -212,42 +211,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       ethers.utils.parseEther("2000000")
     );
 
-    await factory.createPair(comp.address, weth.address); // Create comp and dai pair
-    const compPairAddress = factory.getPair(comp.address, weth.address);
-
-    await factory.createPair(dai.address, weth.address); // Create comp and dai pair
-    const daiPairAddress = factory.getPair(dai.address, weth.address);
-
-    const compPair = new Contract(
-      compPairAddress,
-      JSON.stringify(IUniswapV2Pair.abi),
-      staker
-    ).connect(founder);
-    const daiPair = new Contract(
-      daiPairAddress,
-      JSON.stringify(IUniswapV2Pair.abi),
-      staker
-    ).connect(founder);
-
-    await dai["mint(address,uint256)"](
-      daiPair.address,
-      ethers.utils.parseEther("2000000")
-    );
-    await comp["mint(address,uint256)"](
-      compPair.address,
-      ethers.utils.parseEther("200000")
-    );
-    console.log("depositing eth to liquidity pools");
-    await weth.deposit({ value: ethers.utils.parseEther("4000") });
-    console.log(
-      await weth.balanceOf(founder.address).then((_) => _.toString())
-    );
-    await weth.transfer(compPair.address, ethers.utils.parseEther("2000"));
-    await weth.transfer(daiPair.address, ethers.utils.parseEther("2000"));
-    console.log("minting liquidity pools");
-
-    await compPair.mint(founder.address);
-    await daiPair.mint(founder.address);
     gasFeeOracle = await ethers.getContractAt(
       "GasPriceMockOracle",
       await nameService.getAddress("GAS_PRICE_ORACLE")

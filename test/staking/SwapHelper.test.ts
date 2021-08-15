@@ -12,7 +12,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
   let dai: Contract;
   let bat: Contract;
   let comp: Contract;
-  let pair: Contract, uniswapRouter: Contract, usdcPair, compPair;
+  let pair: Contract, uniswapRouter: Contract, usdcPair, compPair, daiPair;
   let cDAI, cUsdc, usdc, cBat: Contract;
   let gasFeeOracle,
     daiEthOracle: Contract,
@@ -48,10 +48,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       "GoodCompoundStakingTest"
     );
 
-    const uniswap = await deployUniswap();
-    uniswapRouter = uniswap.router;
-    const { factory, weth } = uniswap;
-
     const daiFactory = await ethers.getContractFactory("DAIMock");
     let {
       controller: ctrl,
@@ -74,6 +70,11 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
     comp = COMP;
+    const uniswap = await deployUniswap(comp, dai);
+    uniswapRouter = uniswap.router;
+    const { factory, weth, daiPairContract, compPairContract } = uniswap;
+    daiPair = daiPairContract;
+    compPair = compPairContract;
     avatar = av;
     controller = ctrl;
     setDAOAddress = sda;
@@ -140,10 +141,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
 
     batUsdOracle = await tokenUsdOracleFactory.deploy();
 
-    await dai["mint(address,uint256)"](
-      founder.address,
-      ethers.utils.parseEther("10000000")
-    );
     await bat["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseEther("5001000")
@@ -163,43 +160,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       ethers.utils.parseEther("200000"),
       ethers.utils.parseEther("200000")
     );
-
-    await factory.createPair(comp.address, weth.address); // Create comp and weth pair
-    const compPairAddress = factory.getPair(comp.address, weth.address);
-
-    await factory.createPair(dai.address, weth.address); // Create comp and dai pair
-    const daiPairAddress = factory.getPair(dai.address, weth.address);
-
-    compPair = new Contract(
-      compPairAddress,
-      JSON.stringify(IUniswapV2Pair.abi),
-      staker
-    ).connect(founder);
-    const daiPair = new Contract(
-      daiPairAddress,
-      JSON.stringify(IUniswapV2Pair.abi),
-      staker
-    ).connect(founder);
-
-    await dai["mint(address,uint256)"](
-      daiPair.address,
-      ethers.utils.parseEther("2000000")
-    );
-    await comp["mint(address,uint256)"](
-      compPair.address,
-      ethers.utils.parseEther("200000")
-    );
-    console.log("depositing eth to liquidity pools");
-    await weth.deposit({ value: ethers.utils.parseEther("4000") });
-    console.log(
-      await weth.balanceOf(founder.address).then((_) => _.toString())
-    );
-    await weth.transfer(compPair.address, ethers.utils.parseEther("2000"));
-    await weth.transfer(daiPair.address, ethers.utils.parseEther("2000"));
-    console.log("minting liquidity pools");
-
-    await compPair.mint(founder.address);
-    await daiPair.mint(founder.address);
   });
 
   it("it should swap only safe amount when gains larger than safe amount", async () => {
@@ -215,10 +175,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     );
 
     const reserve = await pair.getReserves();
-    await dai.approve(
-      goodCompoundStaking.address,
-      ethers.utils.parseEther("100")
-    );
 
     await bat.approve(simpleStaking.address, ethers.utils.parseEther("100"));
     await simpleStaking.stake(ethers.utils.parseEther("100"), 100, false);
@@ -228,7 +184,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const collectableContracts = await goodFundManager.calcSortedContracts(
       "1500000"
     );
-    const safeAmount = reserve[1].mul(BN.from(3)).div(BN.from(1000));
+    const safeAmount = reserve[0].mul(BN.from(3)).div(BN.from(1000));
     const safeAmountInIToken = await simpleStaking.tokenWorthIniToken(
       safeAmount
     );
@@ -251,7 +207,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     );
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
     expect(reserve[0].sub(currentReserve[0])).to.be.lt(currentGains[1]);
-    expect(currentReserve[1].sub(reserve[1])).to.be.equal(redeemedAmount);
+    expect(currentReserve[0].sub(reserve[0])).to.be.equal(redeemedAmount);
   });
 
   it("it should swap with multiple hops", async () => {
@@ -287,7 +243,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const currentReserve = await pair.getReserves();
     const currentUsdcPairReserve = await usdcPair.getReserves();
     await simpleStaking.withdrawStake(ethers.utils.parseUnits("100", 6), false);
-    const safeAmount = usdcPairReserve[0].mul(BN.from(3)).div(BN.from(1000));
+    const safeAmount = usdcPairReserve[1].mul(BN.from(3)).div(BN.from(1000));
     const safeAmountInIToken = await simpleStaking.tokenWorthIniToken(
       safeAmount
     );
@@ -297,10 +253,10 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       .mul(er)
       .div(BN.from(10).pow(16));
     expect(redeemedAmount).to.be.eq(
-      currentUsdcPairReserve[0].sub(usdcPairReserve[0])
+      currentUsdcPairReserve[1].sub(usdcPairReserve[1])
     );
-    expect(usdcPairReserve[1]).to.be.gt(currentUsdcPairReserve[1]); // Since we use multiple hops to swap initial reserves should be greater than after reserve for bat
-    expect(reserve[0]).to.be.gt(currentReserve[0]); // bat reserve should be greater than initial reserve since we swap bat to dai
+    expect(usdcPairReserve[0]).to.be.gt(currentUsdcPairReserve[0]); // Since we use multiple hops to swap initial reserves should be greater than after reserve for bat
+    expect(reserve[1]).to.be.gt(currentReserve[1]); // bat reserve should be greater than initial reserve since we swap bat to dai
   });
   it("it should swap comp to dai", async () => {
     const simpleStaking = await deployStaking(
@@ -323,9 +279,9 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       gasLimit: 1500000,
     });
     const reserveAfterSwap = await compPair.getReserves();
-    const safeAmount = reserveBeforeSwap[0].mul(BN.from(3)).div(BN.from(1000));
+    const safeAmount = reserveBeforeSwap[1].mul(BN.from(3)).div(BN.from(1000));
     expect(safeAmount).to.be.equal(
-      reserveAfterSwap[0].sub(reserveBeforeSwap[0])
+      reserveAfterSwap[1].sub(reserveBeforeSwap[1])
     );
   });
   async function addLiquidity(

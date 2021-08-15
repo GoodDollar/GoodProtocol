@@ -76,6 +76,7 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
       cdaiAddress,
       reserve,
       setReserveToken,
+      COMP,
     } = await createDAO();
 
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -111,10 +112,6 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
 
     marketMaker = mm;
 
-    const uniswap = await deployUniswap();
-    uniswapRouter = uniswap.router;
-    const { factory, weth } = uniswap;
-
     console.log("deployed contribution, deploying reserve...", {
       founder: founder.address,
     });
@@ -126,10 +123,12 @@ describe("SimpleSixteenDecimalsSTAking - staking with cSDT mocks", () => {
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
 
     console.log("initializing marketmaker...");
-
+    comp = COMP;
     sixteenDecimalsToken = await sdtFactory.deploy(); // Another erc20 token for uniswap router test
     cSDT = await cSDTFactory.deploy(sixteenDecimalsToken.address);
-
+    const uniswap = await deployUniswap(comp, dai);
+    uniswapRouter = uniswap.router;
+    const { factory, weth } = uniswap;
     setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
     await factory.createPair(sixteenDecimalsToken.address, dai.address); // Create tokenA and dai pair
     const pairAddress = factory.getPair(

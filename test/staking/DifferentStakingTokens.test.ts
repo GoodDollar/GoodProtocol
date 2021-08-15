@@ -39,7 +39,8 @@ describe("Different decimals staking token", () => {
     cTokenFactory,
     tokenUsdOracleFactory,
     goodCompoundStakingFactory,
-    uniswap;
+    uniswap,
+    comp;
 
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
@@ -58,15 +59,15 @@ describe("Different decimals staking token", () => {
       cdaiAddress,
       genericCall: gc,
       setDAOAddress,
+      COMP,
     } = await createDAO();
 
-    uniswap = await deployUniswap();
-    uniswapRouter = uniswap.router;
-    setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
-
+    comp = COMP;
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
-
+    uniswap = await deployUniswap(comp, dai);
+    uniswapRouter = uniswap.router;
+    setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
     avatar = av;
     controller = ctrl;
     genericCall = gc;

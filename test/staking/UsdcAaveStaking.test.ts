@@ -69,7 +69,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     const lendingPoolFactory = await ethers.getContractFactory(
       "LendingPoolMock"
     );
-    const uniswap = await deployUniswap();
+    const uniswap = await deployUniswap(comp, dai);
     uniswapRouter = uniswap.router;
     const { factory, weth } = uniswap;
     const usdcFactory = await ethers.getContractFactory("USDCMock");

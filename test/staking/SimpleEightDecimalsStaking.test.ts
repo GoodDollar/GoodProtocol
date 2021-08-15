@@ -71,11 +71,8 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
       reserve,
       genericCall: gc,
       setReserveToken,
+      COMP,
     } = await createDAO();
-
-    const uniswap = await deployUniswap();
-    uniswapRouter = uniswap.router;
-    const { factory, weth } = uniswap;
 
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
@@ -84,6 +81,10 @@ describe("SimpleEightDecimalsSTAking - staking with cEDT mocks", () => {
     genericCall = gc;
     setDAOAddress = sda;
     nameService = ns;
+    comp = COMP;
+    const uniswap = await deployUniswap(comp, dai);
+    uniswapRouter = uniswap.router;
+    const { factory, weth } = uniswap;
     initializeToken = setReserveToken;
     goodReserve = reserve as GoodReserveCDai;
     console.log("deployed dao", {

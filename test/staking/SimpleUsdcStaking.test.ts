@@ -56,10 +56,6 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
     );
     goodCompoundStakingFactory = await getStakingFactory("GoodCompoundStaking");
 
-    const uniswap = await deployUniswap();
-    uniswapRouter = uniswap.router;
-    const { factory, weth } = uniswap;
-
     const usdcFactory = await ethers.getContractFactory("USDCMock");
     let {
       controller: ctrl,
@@ -76,6 +72,7 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
       reserve,
       genericCall: gc,
       setReserveToken,
+      COMP,
     } = await createDAO();
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
@@ -119,7 +116,9 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
 
     usdc = await usdcFactory.deploy(); // Another erc20 token for uniswap router test
     cUsdc = await cUsdcFactory.deploy(usdc.address);
-
+    const uniswap = await deployUniswap(comp, dai);
+    uniswapRouter = uniswap.router;
+    const { factory, weth } = uniswap;
     setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
     await factory.createPair(usdc.address, dai.address); // Create tokenA and dai pair
     const pairAddress = factory.getPair(usdc.address, dai.address);
