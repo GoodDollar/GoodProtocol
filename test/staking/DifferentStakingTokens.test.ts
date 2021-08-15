@@ -190,12 +190,6 @@ describe("Different decimals staking token", () => {
       );
       const currentUBIInterestAfterWithdraw =
         await goodCompoundStaking.currentGains(false, true);
-      console.log(
-        `currentUBIInterestBeforeWithdraw ${currentUBIInterestBeforeWithdraw}`
-      );
-      console.log(
-        `currentUBIInterestAfterWithdraw ${currentUBIInterestAfterWithdraw}`
-      );
       expect(currentUBIInterestBeforeWithdraw[0].toString()).to.not.be.equal(
         "0"
       );

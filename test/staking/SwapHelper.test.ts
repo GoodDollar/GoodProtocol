@@ -1,15 +1,7 @@
 import { ethers, upgrades } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
-import {
-  GoodMarketMaker,
-  CERC20,
-  GoodReserveCDai,
-  SimpleStaking,
-  GoodFundManager,
-  GoodCompoundStaking,
-  DAIMock,
-} from "../../types";
+import { GoodMarketMaker } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import {
   createDAO,
@@ -18,7 +10,6 @@ import {
   deployUniswap,
   getStakingFactory,
 } from "../helpers";
-import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
@@ -29,7 +20,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
   let bat: Contract;
   let comp: Contract;
   let pair: Contract, uniswapRouter: Contract, usdcPair, compPair;
-  let cDAI, cDAI1, cDAI2, cDAI3, cUsdc, usdc, cBat: Contract;
+  let cDAI, cUsdc, usdc, cBat: Contract;
   let gasFeeOracle,
     daiEthOracle: Contract,
     daiUsdOracle: Contract,
@@ -40,10 +31,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
   let goodCompoundStaking;
   let goodFundManager: Contract;
   let avatar,
-    goodDollar,
-    identity,
-    marketMaker: GoodMarketMaker,
-    contribution,
     controller,
     founder,
     staker,
@@ -119,13 +106,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     console.log("Deployed goodfund manager", {
       manager: goodFundManager.address,
     });
-    goodDollar = await ethers.getContractAt("IGoodDollar", gd);
-    contribution = await ethers.getContractAt(
-      ContributionCalculation.abi,
-      await nameService.getAddress("CONTRIBUTION_CALCULATION")
-    );
-
-    marketMaker = mm;
 
     console.log("deployed contribution, deploying reserve...", {
       founder: founder.address,
@@ -150,41 +130,12 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       []
     );
 
-    console.log("initializing marketmaker...");
-
-    cDAI1 = await cdaiFactory.deploy(dai.address);
-    const cdaiLowWorthFactory = await ethers.getContractFactory(
-      "cDAILowWorthMock"
-    );
-    cDAI2 = await cdaiLowWorthFactory.deploy(dai.address);
-    const cdaiNonMintableFactory = await ethers.getContractFactory(
-      "cDAINonMintableMock"
-    );
-    cDAI3 = await cdaiNonMintableFactory.deploy(dai.address);
     bat = await daiFactory.deploy(); // Another erc20 token for uniswap router test
     cBat = await cBatFactory.deploy(bat.address);
     usdc = await (await ethers.getContractFactory("USDCMock")).deploy();
     cUsdc = await (
       await ethers.getContractFactory("cUSDCMock")
     ).deploy(usdc.address);
-    await initializeToken(
-      cDAI1.address,
-      "100", //1gd
-      "10000", //0.0001 cDai
-      "1000000" //100% rr
-    );
-    await initializeToken(
-      cDAI2.address,
-      "100", //1gd
-      "10000", //0.0001 cDai
-      "1000000" //100% rr
-    );
-    await initializeToken(
-      cDAI3.address,
-      "100", //1gd
-      "10000", //0.0001 cDai
-      "1000000" //100% rr
-    );
 
     await factory.createPair(bat.address, dai.address); // Create tokenA and dai pair
     const pairAddress = factory.getPair(bat.address, dai.address);
@@ -283,7 +234,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
     await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
     await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
-    await setDAOAddress("MARKET_MAKER", marketMaker.address);
   });
 
   it("it should swap only safe amount when gains larger than safe amount", async () => {
