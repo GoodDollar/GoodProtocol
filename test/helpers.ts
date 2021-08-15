@@ -255,7 +255,23 @@ export const createDAO = async () => {
   ).interface.encodeFunctionData("addMinter", [goodReserve.address]);
 
   await ictrl.genericCall(gd, encoded, Avatar.address, 0);
+  const gasFeeMockFactory = await ethers.getContractFactory(
+    "GasPriceMockOracle"
+  );
+  const gasFeeOracle = await gasFeeMockFactory.deploy();
+  const daiEthPriceMockFactory = await ethers.getContractFactory(
+    "DaiEthPriceMockOracle"
+  );
+  const daiEthOracle = await daiEthPriceMockFactory.deploy();
 
+  const ethUsdOracleFactory = await ethers.getContractFactory(
+    "EthUSDMockOracle"
+  );
+  const ethUsdOracle = await ethUsdOracleFactory.deploy();
+
+  await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
+  await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
+  await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
   await setDAOAddress("RESERVE", goodReserve.address);
   await setDAOAddress("MARKET_MAKER", marketMaker.address);
   await setDAOAddress("REPUTATION", reputation.address);
@@ -271,7 +287,6 @@ export const createDAO = async () => {
     [nameService.address, 5760],
     { kind: "uups" }
   )) as unknown as CompoundVotingMachine;
-
   return {
     daoCreator,
     controller,

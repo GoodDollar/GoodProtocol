@@ -144,19 +144,6 @@ describe("Different decimals staking token", () => {
         ethers.utils.parseUnits("100000000", decimals),
         ethers.utils.parseEther("100000000")
       );
-      const currentBlockNumber = await ethers.provider.getBlockNumber();
-
-      let encodedDataTwo = goodFundManager.interface.encodeFunctionData(
-        "setStakingReward",
-        [
-          "1000",
-          goodCompoundStaking.address,
-          currentBlockNumber,
-          currentBlockNumber + 5000,
-          false,
-        ] // set 10 gd per block
-      );
-      await genericCall(goodFundManager.address, encodedDataTwo);
 
       await token["mint(address,uint256)"](staker.address, stakingAmount);
       await token
@@ -196,6 +183,44 @@ describe("Different decimals staking token", () => {
       expect(currentUBIInterestAfterWithdraw[0].toString()).to.be.equal("0");
       expect(gdBalanceAfterCollectInterest.gt(gdBalanceBeforeCollectInterest));
     });
+
+    it(`token decimals ${decimals}:  it should get rewards with updated values`, async () => {
+      const stakingAmount = ethers.utils.parseUnits("100", decimals);
+      const token = await tokenFactory.deploy(decimals);
+      const iToken = await cTokenFactory.deploy(token.address);
+      const tokenUsdOracle = await tokenUsdOracleFactory.deploy();
+      const goodCompoundStaking = await deployStaking(
+        token.address,
+        iToken.address,
+        "50",
+        tokenUsdOracle.address
+      );
+
+      await token["mint(address,uint256)"](staker.address, stakingAmount);
+      await token
+        .connect(staker)
+        .approve(goodCompoundStaking.address, stakingAmount);
+      await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
+
+      await advanceBlocks(4);
+      const stakingContractVals =
+        await goodFundManager.rewardsForStakingContract(
+          goodCompoundStaking.address
+        );
+      let rewardsEarned = await goodCompoundStaking.getUserPendingReward(
+        staker.address,
+        stakingContractVals[0],
+        stakingContractVals[1],
+        stakingContractVals[2]
+      );
+      //baseshare rewards are in 18 decimals
+      expect(rewardsEarned.toString()).to.be.equal(
+        ethers.utils.parseUnits("20", 18)
+      ); // Each block reward is 10gd so total reward 40gd but since multiplier is 0.5 for first month should get 20gd
+      await goodCompoundStaking
+        .connect(staker)
+        .withdrawStake(stakingAmount, false);
+    });
   });
 
   async function deployStaking(
@@ -205,20 +230,36 @@ describe("Different decimals staking token", () => {
     tokenUsdOracle,
     swapPath = null
   ) {
-    return goodCompoundStakingFactory.deploy().then(async (contract) => {
-      await contract.init(
-        token,
-        itoken,
-        nameService.address,
-        "Good Decimals",
-        "gcDecimals",
-        blocksThreashold,
-        tokenUsdOracle,
-        compUsdOracle.address,
-        swapPath || [token, dai.address]
-      );
-      return contract;
-    });
+    const stakingContract = await goodCompoundStakingFactory
+      .deploy()
+      .then(async (contract) => {
+        await contract.init(
+          token,
+          itoken,
+          nameService.address,
+          "Good Decimals",
+          "gcDecimals",
+          blocksThreashold,
+          tokenUsdOracle,
+          compUsdOracle.address,
+          swapPath || [token, dai.address]
+        );
+        return contract;
+      });
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+
+    let encodedDataTwo = goodFundManager.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        stakingContract.address,
+        currentBlockNumber,
+        currentBlockNumber + 5000,
+        false,
+      ] // set 10 gd per block
+    );
+    await genericCall(goodFundManager.address, encodedDataTwo);
+    return stakingContract;
   }
 
   async function addLiquidity(

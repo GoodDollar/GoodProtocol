@@ -98,11 +98,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       manager: goodFundManager.address,
     });
 
-    console.log("deployed contribution, deploying reserve...", {
-      founder: founder.address,
-    });
-
-    console.log("setting permissions...");
     const tokenUsdOracleFactory = await ethers.getContractFactory(
       "BatUSDMockOracle"
     );
@@ -142,26 +137,9 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       JSON.stringify(IUniswapV2Pair.abi),
       staker
     ).connect(founder);
-    setDAOAddress("CDAI", cDAI.address);
-    setDAOAddress("DAI", dai.address);
-
-    //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
-    await goodReserve.setAddresses();
-    const gasFeeMockFactory = await ethers.getContractFactory(
-      "GasPriceMockOracle"
-    );
-    gasFeeOracle = await gasFeeMockFactory.deploy();
-    const daiEthPriceMockFactory = await ethers.getContractFactory(
-      "DaiEthPriceMockOracle"
-    );
-    daiEthOracle = await daiEthPriceMockFactory.deploy();
-
-    const ethUsdOracleFactory = await ethers.getContractFactory(
-      "EthUSDMockOracle"
-    );
 
     batUsdOracle = await tokenUsdOracleFactory.deploy();
-    ethUsdOracle = await ethUsdOracleFactory.deploy();
+
     await dai["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseEther("10000000")
@@ -222,9 +200,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
 
     await compPair.mint(founder.address);
     await daiPair.mint(founder.address);
-    await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
-    await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
-    await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
   });
 
   it("it should swap only safe amount when gains larger than safe amount", async () => {

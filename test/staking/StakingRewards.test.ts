@@ -1,16 +1,7 @@
 import { ethers, upgrades } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
-import {
-  GoodMarketMaker,
-  CERC20,
-  GoodReserveCDai,
-  SimpleStaking,
-  GoodFundManager,
-  GoodCompoundStaking,
-  DAIMock,
-} from "../../types";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
+import { GoodMarketMaker, GoodCompoundStaking } from "../../types";
 import {
   createDAO,
   increaseTime,
@@ -30,7 +21,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   let comp: Contract;
   let pair: Contract, uniswapRouter: Contract;
   let cDAI, cDAI1, cDAI2, cDAI3, cBat: Contract;
-  let gasFeeOracle,
+  let gasFeeOracle: Contract,
     daiEthOracle: Contract,
     daiUsdOracle: Contract,
     batUsdOracle: Contract,
@@ -95,6 +86,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     genericCall = gc;
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
+
     comp = COMP;
     avatar = av;
     controller = ctrl;
@@ -204,23 +196,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     setDAOAddress("CDAI", cDAI.address);
     setDAOAddress("DAI", dai.address);
 
-    //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
-    await goodReserve.setAddresses();
-    const gasFeeMockFactory = await ethers.getContractFactory(
-      "GasPriceMockOracle"
-    );
-    gasFeeOracle = await gasFeeMockFactory.deploy();
-    const daiEthPriceMockFactory = await ethers.getContractFactory(
-      "DaiEthPriceMockOracle"
-    );
-    daiEthOracle = await daiEthPriceMockFactory.deploy();
-
-    const ethUsdOracleFactory = await ethers.getContractFactory(
-      "EthUSDMockOracle"
-    );
-
     batUsdOracle = await tokenUsdOracleFactory.deploy();
-    ethUsdOracle = await ethUsdOracleFactory.deploy();
+
     await dai["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseEther("2000000")
@@ -271,9 +248,14 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
     await compPair.mint(founder.address);
     await daiPair.mint(founder.address);
-    await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
-    await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
-    await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
+    gasFeeOracle = await ethers.getContractAt(
+      "GasPriceMockOracle",
+      await nameService.getAddress("GAS_PRICE_ORACLE")
+    );
+    daiEthOracle = await ethers.getContractAt(
+      "DaiEthPriceMockOracle",
+      await nameService.getAddress("DAI_ETH_ORACLE")
+    );
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
   });
 

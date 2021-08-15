@@ -110,11 +110,6 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
 
     marketMaker = mm;
 
-    console.log("deployed contribution, deploying reserve...", {
-      founder: founder.address,
-    });
-
-    console.log("setting permissions...");
     const tokenUsdOracleFactory = await ethers.getContractFactory(
       "BatUSDMockOracle"
     );
@@ -133,8 +128,6 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
       JSON.stringify(IUniswapV2Pair.abi),
       staker
     ).connect(founder);
-    setDAOAddress("CDAI", cDAI.address);
-    setDAOAddress("DAI", dai.address);
 
     const ictrl = await ethers.getContractAt(
       "Controller",
@@ -142,23 +135,8 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
       schemeMock
     );
 
-    //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
-    await goodReserve.setAddresses();
-    const gasFeeMockFactory = await ethers.getContractFactory(
-      "GasPriceMockOracle"
-    );
-    gasFeeOracle = await gasFeeMockFactory.deploy();
-    const daiEthPriceMockFactory = await ethers.getContractFactory(
-      "DaiEthPriceMockOracle"
-    );
-    daiEthOracle = await daiEthPriceMockFactory.deploy();
-
-    const ethUsdOracleFactory = await ethers.getContractFactory(
-      "EthUSDMockOracle"
-    );
-
     usdcUsdOracle = await tokenUsdOracleFactory.deploy();
-    ethUsdOracle = await ethUsdOracleFactory.deploy();
+
     const daiFactory = await ethers.getContractFactory("DAIMock");
 
     const compUsdOracleFactory = await ethers.getContractFactory(
@@ -202,10 +180,6 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
       ethers.utils.parseUnits("2000000", 6),
       ethers.utils.parseEther("2000000")
     );
-
-    await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
-    await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
-    await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
   });
   it("should be set rewards per block for particular stacking contract", async () => {
