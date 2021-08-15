@@ -1,15 +1,8 @@
 import { ethers, upgrades } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
-import { GoodMarketMaker } from "../../types";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import {
-  createDAO,
-  increaseTime,
-  advanceBlocks,
-  deployUniswap,
-  getStakingFactory,
-} from "../helpers";
+
+import { createDAO, deployUniswap, getStakingFactory } from "../helpers";
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
@@ -37,7 +30,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     schemeMock,
     signers,
     nameService,
-    initializeToken,
     setDAOAddress,
     genericCall,
     goodCompoundStakingFactory,
@@ -86,7 +78,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     controller = ctrl;
     setDAOAddress = sda;
     nameService = ns;
-    initializeToken = setReserveToken;
     goodReserve = reserve;
     console.log("deployed dao", {
       founder: founder.address,
