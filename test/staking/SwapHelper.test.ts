@@ -280,10 +280,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
   });
 
   it("it should swap with multiple hops", async () => {
-    const goodFundManagerFactory = await ethers.getContractFactory(
-      "GoodFundManager"
-    );
-
     const simpleStaking = await deployStaking(
       usdc.address,
       cUsdc.address,
@@ -315,16 +311,23 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     });
     const currentReserve = await pair.getReserves();
     const currentUsdcPairReserve = await usdcPair.getReserves();
-
     await simpleStaking.withdrawStake(ethers.utils.parseUnits("100", 6), false);
+    const safeAmount = usdcPairReserve[0].mul(BN.from(3)).div(BN.from(1000));
+    const safeAmountInIToken = await simpleStaking.tokenWorthIniToken(
+      safeAmount
+    );
+    const er = await cUsdc.exchangeRateStored();
+    const redeemedAmount = safeAmountInIToken
+      .div(BN.from(10).pow(2))
+      .mul(er)
+      .div(BN.from(10).pow(16));
+    expect(redeemedAmount).to.be.eq(
+      currentUsdcPairReserve[0].sub(usdcPairReserve[0])
+    );
     expect(usdcPairReserve[1]).to.be.gt(currentUsdcPairReserve[1]); // Since we use multiple hops to swap initial reserves should be greater than after reserve for bat
     expect(reserve[0]).to.be.gt(currentReserve[0]); // bat reserve should be greater than initial reserve since we swap bat to dai
   });
   it("it should swap comp to dai", async () => {
-    const goodFundManagerFactory = await ethers.getContractFactory(
-      "GoodFundManager"
-    );
-
     const simpleStaking = await deployStaking(
       usdc.address,
       cUsdc.address,
