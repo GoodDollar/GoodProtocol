@@ -15,15 +15,12 @@ export const BLOCK_INTERVAL = 30;
 
 describe("Different decimals staking token", () => {
   let dai: Contract;
-  let eightDecimalsToken: Contract;
   let pair: Contract, uniswapRouter: Contract;
-  let cDAI, cEDT: Contract; // cEDT is for c Eight decimal token
+  let cDAI;
   let gasFeeOracle,
     daiEthOracle: Contract,
-    eightDecimalsUsdOracle: Contract,
     ethUsdOracle: Contract,
     compUsdOracle: Contract;
-  let goodCompoundStaking;
   let goodFundManager: Contract;
   let avatar,
     goodDollar,
@@ -98,32 +95,10 @@ describe("Different decimals staking token", () => {
     tokenFactory = await ethers.getContractFactory("DecimalsMock");
     cTokenFactory = await ethers.getContractFactory("cDecimalsMock");
 
-    setDAOAddress("CDAI", cDAI.address);
-    setDAOAddress("DAI", dai.address);
-
-    const gasFeeMockFactory = await ethers.getContractFactory(
-      "GasPriceMockOracle"
-    );
-    gasFeeOracle = await gasFeeMockFactory.deploy();
-    const daiEthPriceMockFactory = await ethers.getContractFactory(
-      "DaiEthPriceMockOracle"
-    );
-    daiEthOracle = await daiEthPriceMockFactory.deploy();
-
-    const ethUsdOracleFactory = await ethers.getContractFactory(
-      "EthUSDMockOracle"
-    );
-
-    ethUsdOracle = await ethUsdOracleFactory.deploy();
-
     const compUsdOracleFactory = await ethers.getContractFactory(
       "CompUSDMockOracle"
     );
     compUsdOracle = await compUsdOracleFactory.deploy();
-
-    await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
-    await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
-    await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
   });
 
   [6, 8, 16].map((decimals) => {
