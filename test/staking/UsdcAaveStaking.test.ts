@@ -69,9 +69,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     const lendingPoolFactory = await ethers.getContractFactory(
       "LendingPoolMock"
     );
-    const uniswap = await deployUniswap(comp, dai);
-    uniswapRouter = uniswap.router;
-    const { factory, weth } = uniswap;
+
     const usdcFactory = await ethers.getContractFactory("USDCMock");
     let {
       controller: ctrl,
@@ -133,7 +131,9 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
 
     usdc = await usdcFactory.deploy(); // Another erc20 token for uniswap router test
     cUsdc = await cUsdcFactory.deploy(usdc.address);
-
+    const uniswap = await deployUniswap(comp, dai);
+    uniswapRouter = uniswap.router;
+    const { factory, weth } = uniswap;
     setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
     await factory.createPair(usdc.address, dai.address); // Create tokenA and dai pair
     const pairAddress = factory.getPair(usdc.address, dai.address);
@@ -161,8 +161,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     await dai.transfer(aavePair.address, ethers.utils.parseEther("2000000"));
     await aave.transfer(aavePair.address, ethers.utils.parseEther("2000"));
     await aavePair.mint(founder.address);
-    setDAOAddress("CDAI", cDAI.address);
-    setDAOAddress("DAI", dai.address);
+
     comp = await daiFactory.deploy();
     await setDAOAddress("COMP", comp.address);
     const ictrl = await ethers.getContractAt(
@@ -171,23 +170,8 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       schemeMock
     );
 
-    //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
-    await goodReserve.setAddresses();
-    const gasFeeMockFactory = await ethers.getContractFactory(
-      "GasPriceMockOracle"
-    );
-    gasFeeOracle = await gasFeeMockFactory.deploy();
-    const daiEthPriceMockFactory = await ethers.getContractFactory(
-      "DaiEthPriceMockOracle"
-    );
-    daiEthOracle = await daiEthPriceMockFactory.deploy();
-
-    const ethUsdOracleFactory = await ethers.getContractFactory(
-      "EthUSDMockOracle"
-    );
-
     usdcUsdOracle = await tokenUsdOracleFactory.deploy();
-    ethUsdOracle = await ethUsdOracleFactory.deploy();
+
     lendingPool = await lendingPoolFactory.deploy(usdc.address);
     incentiveController = await (
       await ethers.getContractFactory("IncentiveControllerMock")
@@ -226,9 +210,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       ethers.utils.parseUnits("200000000000000", 6),
       ethers.utils.parseEther("200000000000000")
     );
-    await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
-    await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
-    await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
+
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
   });
 

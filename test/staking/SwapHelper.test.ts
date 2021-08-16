@@ -12,7 +12,14 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
   let dai: Contract;
   let bat: Contract;
   let comp: Contract;
-  let pair: Contract, uniswapRouter: Contract, usdcPair, compPair, daiPair;
+  let wethContract: Contract;
+  let pair: Contract,
+    uniswapRouter: Contract,
+    uniswapFactory: Contract,
+    usdcPair,
+    compPair,
+    daiPair,
+    swapHelperTest;
   let cDAI, cUsdc, usdc, cBat: Contract;
   let gasFeeOracle,
     daiEthOracle: Contract,
@@ -43,11 +50,14 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
+    const swapHelperTestFactory = await ethers.getContractFactory(
+      "SwapHelperTest"
+    );
     goodCompoundStakingFactory = await getStakingFactory("GoodCompoundStaking");
     goodCompoundStakingTestFactory = await getStakingFactory(
       "GoodCompoundStakingTest"
     );
-
+    swapHelperTest = await swapHelperTestFactory.deploy();
     const daiFactory = await ethers.getContractFactory("DAIMock");
     let {
       controller: ctrl,
@@ -72,7 +82,10 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     comp = COMP;
     const uniswap = await deployUniswap(comp, dai);
     uniswapRouter = uniswap.router;
+
     const { factory, weth, daiPairContract, compPairContract } = uniswap;
+    wethContract = weth;
+    uniswapFactory = factory;
     daiPair = daiPairContract;
     compPair = compPairContract;
     avatar = av;
@@ -167,7 +180,11 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       [bat.address, dai.address]
     );
 
-    const reserve = await pair.getReserves();
+    const reserve = await swapHelperTest.getReserves(
+      uniswapFactory.address,
+      bat.address,
+      dai.address
+    );
 
     await bat.approve(simpleStaking.address, ethers.utils.parseEther("100"));
     await simpleStaking.stake(ethers.utils.parseEther("100"), 100, false);
@@ -190,7 +207,11 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     await goodFundManager.collectInterest(collectableContracts, {
       gasLimit: 1500000,
     });
-    const currentReserve = await pair.getReserves();
+    const currentReserve = await swapHelperTest.getReserves(
+      uniswapFactory.address,
+      bat.address,
+      dai.address
+    );
 
     await simpleStaking.withdrawStake(ethers.utils.parseEther("100"), false);
 
@@ -212,9 +233,16 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       [usdc.address, bat.address, dai.address]
     );
 
-    const reserve = await pair.getReserves();
-    const usdcPairReserve = await usdcPair.getReserves();
-
+    const reserve = await swapHelperTest.getReserves(
+      uniswapFactory.address,
+      bat.address,
+      dai.address
+    );
+    const usdcPairReserve = await swapHelperTest.getReserves(
+      uniswapFactory.address,
+      usdc.address,
+      bat.address
+    );
     await usdc.transfer(cUsdc.address, ethers.utils.parseUnits("1000000", 6)); // We should put extra usdc to mock cUSDC contract in order to provide interest
 
     await usdc.approve(
@@ -233,8 +261,16 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     await goodFundManager.collectInterest(collectableContracts, {
       gasLimit: 1500000,
     });
-    const currentReserve = await pair.getReserves();
-    const currentUsdcPairReserve = await usdcPair.getReserves();
+    const currentReserve = await swapHelperTest.getReserves(
+      uniswapFactory.address,
+      bat.address,
+      dai.address
+    );
+    const currentUsdcPairReserve = await swapHelperTest.getReserves(
+      uniswapFactory.address,
+      usdc.address,
+      bat.address
+    );
     await simpleStaking.withdrawStake(ethers.utils.parseUnits("100", 6), false);
     const safeAmount = usdcPairReserve[0].mul(BN.from(3)).div(BN.from(1000));
     const safeAmountInIToken = await simpleStaking.tokenWorthIniToken(
@@ -267,14 +303,22 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const collectableContracts = await goodFundManager.calcSortedContracts(
       "1500000"
     );
-    const reserveBeforeSwap = await compPair.getReserves();
+    const reserveBeforeSwap = await swapHelperTest.getReserves(
+      uniswapFactory.address,
+      comp.address,
+      wethContract.address
+    );
     await goodFundManager.collectInterest(collectableContracts, {
       gasLimit: 1500000,
     });
-    const reserveAfterSwap = await compPair.getReserves();
-    const safeAmount = reserveBeforeSwap[1].mul(BN.from(3)).div(BN.from(1000));
+    const reserveAfterSwap = await swapHelperTest.getReserves(
+      uniswapFactory.address,
+      comp.address,
+      wethContract.address
+    );
+    const safeAmount = reserveBeforeSwap[0].mul(BN.from(3)).div(BN.from(1000));
     expect(safeAmount).to.be.equal(
-      reserveAfterSwap[1].sub(reserveBeforeSwap[1])
+      reserveAfterSwap[0].sub(reserveBeforeSwap[0])
     );
   });
   async function addLiquidity(

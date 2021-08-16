@@ -50,6 +50,9 @@ const hhconfig: HardhatUserConfig = {
     hardhat: {
       chainId: 4447,
       allowUnlimitedContractSize: true,
+      accounts: {
+        accountsBalance: "10000000000000000000000000",
+      },
     },
     develop: {
       gasPrice: 1000000000, //1 gwei

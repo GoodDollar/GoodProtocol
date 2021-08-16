@@ -146,16 +146,8 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
       JSON.stringify(IUniswapV2Pair.abi),
       staker
     ).connect(founder);
-    await uniswap.factory.createPair(uniswap.weth.address, dai.address);
-    const wethPairAddress = uniswap.factory.getPair(
-      uniswap.weth.address,
-      dai.address
-    );
-    wethPair = new Contract(
-      wethPairAddress,
-      JSON.stringify(IUniswapV2Pair.abi),
-      staker
-    ).connect(founder);
+
+    wethPair = uniswap.daiPairContract;
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
     await setDAOAddress("FUND_MANAGER", founder.address);
   });
@@ -512,7 +504,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
 
     await dai["mint(uint256)"](mintAmount);
     let buyAmount = ethers.utils.parseEther("10");
-    await addETHLiquidity(mintAmount, ETHAmount);
+
     const gdBalanceBeforeSwap = await goodDollar.balanceOf(founder.address);
     let transaction = await (
       await exchangeHelper.buy(

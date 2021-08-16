@@ -113,7 +113,7 @@ describe("SimpleUsdcSTAking - staking with cUSDC mocks", () => {
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
 
     console.log("initializing marketmaker...");
-
+    comp = COMP;
     usdc = await usdcFactory.deploy(); // Another erc20 token for uniswap router test
     cUsdc = await cUsdcFactory.deploy(usdc.address);
     const uniswap = await deployUniswap(comp, dai);

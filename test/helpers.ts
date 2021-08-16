@@ -572,6 +572,7 @@ export const deployUniswap = async (comp, dai) => {
 
   await compPair.mint(founder.address);
   await daiPair.mint(founder.address);
+  console.log("LP tokens minted");
   return {
     router,
     factory,
