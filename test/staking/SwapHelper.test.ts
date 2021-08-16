@@ -109,13 +109,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       "CompUSDMockOracle"
     );
     compUsdOracle = await compUsdOracleFactory.deploy();
-    goodCompoundStaking = await deployStaking(
-      dai.address,
-      cDAI.address,
-      "50",
-      daiUsdOracle.address,
-      []
-    );
 
     bat = await daiFactory.deploy(); // Another erc20 token for uniswap router test
     cBat = await cBatFactory.deploy(bat.address);
@@ -243,7 +236,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const currentReserve = await pair.getReserves();
     const currentUsdcPairReserve = await usdcPair.getReserves();
     await simpleStaking.withdrawStake(ethers.utils.parseUnits("100", 6), false);
-    const safeAmount = usdcPairReserve[1].mul(BN.from(3)).div(BN.from(1000));
+    const safeAmount = usdcPairReserve[0].mul(BN.from(3)).div(BN.from(1000));
     const safeAmountInIToken = await simpleStaking.tokenWorthIniToken(
       safeAmount
     );
@@ -253,9 +246,9 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       .mul(er)
       .div(BN.from(10).pow(16));
     expect(redeemedAmount).to.be.eq(
-      currentUsdcPairReserve[1].sub(usdcPairReserve[1])
+      currentUsdcPairReserve[0].sub(usdcPairReserve[0])
     );
-    expect(usdcPairReserve[0]).to.be.gt(currentUsdcPairReserve[0]); // Since we use multiple hops to swap initial reserves should be greater than after reserve for bat
+    expect(usdcPairReserve[1]).to.be.gt(currentUsdcPairReserve[1]); // Since we use multiple hops to swap initial reserves should be greater than after reserve for bat
     expect(reserve[1]).to.be.gt(currentReserve[1]); // bat reserve should be greater than initial reserve since we swap bat to dai
   });
   it("it should swap comp to dai", async () => {
