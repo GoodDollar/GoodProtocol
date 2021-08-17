@@ -86,6 +86,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       cdaiAddress,
       reserve,
       setReserveToken,
+      COMP,
     } = await createDAO();
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
@@ -128,7 +129,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
 
     console.log("initializing marketmaker...");
-
+    comp = COMP;
     usdc = await usdcFactory.deploy(); // Another erc20 token for uniswap router test
     cUsdc = await cUsdcFactory.deploy(usdc.address);
     const uniswap = await deployUniswap(comp, dai);
@@ -162,7 +163,6 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     await aave.transfer(aavePair.address, ethers.utils.parseEther("2000"));
     await aavePair.mint(founder.address);
 
-    comp = await daiFactory.deploy();
     await setDAOAddress("COMP", comp.address);
     const ictrl = await ethers.getContractAt(
       "Controller",
