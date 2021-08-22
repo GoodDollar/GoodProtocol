@@ -170,7 +170,8 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     ethBalanceOfOldDonationsStakingAfterUpgrade = await prov.getBalance(
       oldDonationsStaking
     );
-    const deployment = require("../../releases/deployment.json");
+    const fse = require("fs-extra");
+    const deployment = await fse.readJson("releases/deployment.json");
     console.log("got deployment json file");
     cdaiBalanceOfNewReserve = await cDAI.balanceOf(
       deployment["test-mainnet"].GoodReserveCDai
@@ -274,8 +275,9 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     );
   });
   it("it should set nameservice variables properly", async () => {
-    const deployment = require("../../releases/deployment.json");
-    const oldDao = require("../../releases/olddao.json");
+    const fse = require("fs-extra");
+    const deployment = await fse.readJson("releases/deployment.json");
+    const oldDao = fse.readJson("releases/olddao.json");
     const nameServiceContract = await ethers.getContractAt(
       "NameService",
       deployment["test-mainnet"].NameService
@@ -334,8 +336,9 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     expect(isCompoundVotingMachineRegisteredFuse).to.be.equal(true);
   });
   it("it should set fuse nameservice variables properly", async () => {
-    const deployment = require("../../releases/deployment.json");
-    const oldDao = require("../../releases/olddao.json");
+    const fse = require("fs-extra");
+    const deployment = await fse.readJson("releases/deployment.json");
+    const oldDao = fse.readJson("releases/olddao.json");
     const nameServiceContract = await ethers.getContractAt(
       "NameService",
       deployment["test"].NameService
@@ -364,7 +367,8 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     );
   });
   it("it should be able to buy GD with exchangeHelper", async () => {
-    const deployment = require("../../releases/deployment.json");
+    const fse = require("fs-extra");
+    const deployment = await fse.readJson("releases/deployment.json");
     const exchangeHelper = await ethers.getContractAt(
       "ExchangeHelper",
       deployment["test-mainnet"].ExchangeHelper
