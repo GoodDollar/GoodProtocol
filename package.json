@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "GoodDollar Protocol",
   "scripts": {
     "build": "scripts/build.sh deploy",
@@ -14,15 +14,22 @@
     "deployOldDAO": "hardhat run test/localOldDaoDeploy.ts",
     "runNode": "hardhat node &",
     "testDAOUpgrade": "yarn runNode && yarn compile && yarn deployOldDAO --network develop-mainnet && yarn daoUpgrade --network develop-mainnet",
-    "testDAOUpgradeFuse": "yarn runNode && yarn compile && yarn deployOldDAO --network develop && yarn daoUpgrade --network develop"
+    "testDAOUpgradeFuse": "yarn runNode && yarn compile && yarn deployOldDAO --network develop && yarn daoUpgrade --network develop",
+    "deployTest": "yarn runNode && yarn compile && hardhat run test/singleOldDaoDeploy.ts --network dapptest && yarn daoUpgrade --network dapptest && yarn daoUpgrade --network dapptest-mainnet && hardhat run test/simulateInterest.ts --network dapptest"
   },
   "files": [
-    "artifacts",
+    "artifacts/contracts",
     "contracts",
     "releases",
     "scripts",
     "yarn.lock",
-    "package.json"
+    "package.json",
+    "hardhat.config.ts",
+    "LICENSE",
+    "truffle-config.js",
+    "tsconfig.json",
+    "scripts",
+    "test"
   ],
   "repository": {
     "type": "git",
@@ -46,7 +53,9 @@
   "dependencies": {
     "@gooddollar/goodcontracts": "^2.6.1",
     "@openzeppelin/contracts-upgradeable": "^4.1.0",
+    "@typechain/hardhat": "^2.2.0",
     "openzeppelin-solidity": "^4.0.0",
+    "patch-package": "latest",
     "truffle-plugin-verify": "^0.5.11"
   },
   "devDependencies": {
@@ -57,7 +66,7 @@
     "@nomiclabs/hardhat-ethers": "*",
     "@nomiclabs/hardhat-etherscan": "^2.1.3",
     "@nomiclabs/hardhat-waffle": "*",
-    "@openzeppelin/hardhat-upgrades": "^1.7.0",
+    "@openzeppelin/hardhat-upgrades": "1.7.0",
     "@typechain/ethers-v5": "*",
     "@types/mocha": "*",
     "@types/node": "*",
@@ -71,25 +80,23 @@
     "ethereum-waffle": "*",
     "ethers": "^5.4.1",
     "ethers-eip712": "*",
-    "fs-extra": "*",
+    "fs-extra": "9.0.0",
     "graphql": "^15.5.0",
     "graphql-request": "^3.4.0",
-    "hardhat": "*",
+    "hardhat": "2.4.3",
     "hardhat-contract-sizer": "^2.0.3",
     "hardhat-gas-reporter": "^1.0.4",
-    "hardhat-typechain": "*",
     "lodash": "^4.17.21",
     "merkle-tree-solidity": "*",
     "mocha-lcov-reporter": "*",
     "node-fetch": "*",
     "node-jq": "*",
-    "patch-package": "*",
     "solhint": "*",
     "solidity-coverage": "*",
     "truffle": "^5.3.12",
     "truffle-hdwallet-provider": "*",
     "ts-generator": "*",
-    "ts-node": "*",
+    "ts-node": "^9.0.0",
     "typechain": "*",
     "typescript": "*"
   }

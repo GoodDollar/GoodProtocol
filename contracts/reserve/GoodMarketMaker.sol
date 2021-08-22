@@ -109,6 +109,10 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		_onlyReserveOrAvatar();
 		require(_denom > 0, "denominator must be above 0");
 		reserveRatioDailyExpansion = rdiv(_nom, _denom);
+		require(
+			reserveRatioDailyExpansion < 1e27,
+			"Invalid nom or denom value"
+		);
 		emit ReserveRatioUpdated(msg.sender, _nom, _denom);
 	}
 
@@ -157,8 +161,8 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		}
 		ratio *= 1e21; //expand to e27 precision
 
-		uint256 daysPassed =
-			(block.timestamp - reserveToken.lastExpansion) / 1 days;
+		uint256 daysPassed = (block.timestamp - reserveToken.lastExpansion) /
+			1 days;
 		for (uint256 i = 0; i < daysPassed; i++) {
 			ratio = rmul(ratio, reserveRatioDailyExpansion);
 		}
@@ -258,7 +262,7 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 
 	/**
 	 * @dev Updates the bonding curve params. Decrease RR to in order to mint gd in the amount of provided
-	 * new RR = Reserve supply / (gd supply + gd mint amount) * price
+	 * new RR = Reserve supply / ((gd supply + gd mint amount) * price)
 	 * @param _gdAmount Amount of gd to add reserveParams
 	 * @param _token The reserve token which is currently active
 	 */
@@ -299,7 +303,7 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		);
 		ReserveToken storage rtoken = reserveTokens[address(_token)];
 		require(
-			rtoken.gdSupply > _gdAmount,
+			rtoken.gdSupply >= _gdAmount,
 			"GD amount is higher than the total supply"
 		);
 
@@ -397,17 +401,15 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		ReserveToken memory reserveToken = reserveTokens[address(_token)];
 		uint32 newReserveRatio = calculateNewReserveRatio(_token); // new reserve ratio
 		uint256 reserveDecimalsDiff = uint256(27) - _token.decimals(); // //result is in RAY precision
-		uint256 denom =
-			rmul(
-				uint256(newReserveRatio) * 1e21,
-				currentPrice(_token) * (10**reserveDecimalsDiff)
-			); // (newreserveratio * currentprice) in RAY precision
+		uint256 denom = rmul(
+			uint256(newReserveRatio) * 1e21,
+			currentPrice(_token) * (10**reserveDecimalsDiff)
+		); // (newreserveratio * currentprice) in RAY precision
 		uint256 gdDecimalsDiff = uint256(27) - decimals;
-		uint256 toMint =
-			rdiv(
-				reserveToken.reserveSupply * (10**reserveDecimalsDiff), // reservebalance in RAY precision
-				denom
-			) / (10**gdDecimalsDiff); // return to gd precision
+		uint256 toMint = rdiv(
+			reserveToken.reserveSupply * (10**reserveDecimalsDiff), // reservebalance in RAY precision
+			denom
+		) / (10**gdDecimalsDiff); // return to gd precision
 		return toMint - reserveToken.gdSupply;
 	}
 

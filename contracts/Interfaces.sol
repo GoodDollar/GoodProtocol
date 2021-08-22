@@ -221,6 +221,10 @@ interface UniswapPair {
 		);
 
 	function kLast() external view returns (uint256);
+
+	function token0() external view returns (address);
+
+	function token1() external view returns (address);
 }
 
 interface Reserve {
@@ -241,6 +245,10 @@ interface IIdentity {
 	function addIdentityAdmin(address account) external returns (bool);
 
 	function setAvatar(address _avatar) external;
+
+	function isIdentityAdmin(address account) external view returns (bool);
+
+	function owner() external view returns (address);
 
 	event WhitelistedAdded(address user);
 }

@@ -99,7 +99,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		uint256 _minReturn,
 		uint256 _minDAIAmount,
 		address _targetAddress
-	) public payable returns (uint256) {
+	) public nonReentrant payable returns (uint256) {
 		require(_buyPath.length > 0 , "Provide valid path");
 		GoodReserveCDai reserve = GoodReserveCDai(
 			nameService.getAddress("RESERVE")
@@ -113,8 +113,8 @@ contract ExchangeHelper is DAOUpgradeableContract {
 				msg.value > 0 && _tokenAmount == msg.value,
 				"you need to pay with ETH"
 			);
-			_tokenAmount = msg.value;
 		} else {
+			require(msg.value == 0 , 'When input token is different than ETH message value should be zero');
 			require(
 				ERC20(_buyPath[0]).transferFrom(
 					msg.sender,
@@ -137,8 +137,8 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			uint256[] memory swap = _uniswapSwap(
 				_buyPath,
 				_tokenAmount,
-				0,
 				_minDAIAmount,
+				0,
 				address(this)
 			);
 
@@ -196,13 +196,15 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			(_sellPath.length == 1 && _sellPath[0] == cDaiAddress) ? receiver : address(this), // if the tokens that will received is cDai then return it directly to receiver
 			msg.sender
 		);
-		if (_sellPath.length == 1 && _sellPath[0] == daiAddress) {
-			result = _redeemDAI(result);
+		if (_sellPath.length == 1 && (_sellPath[0] == daiAddress || _sellPath[0] == cDaiAddress)) {
+			if(_sellPath[0] == daiAddress ){
+				result = _redeemDAI(result);
 
-			require(
-				ERC20(_sellPath[0]).transfer(receiver, result) == true,
-				"Transfer failed"
-			);
+				require(
+					ERC20(_sellPath[0]).transfer(receiver, result) == true,
+					"Transfer failed"
+				);
+			}
 		} else if(_sellPath[0] != cDaiAddress){
 			result = _redeemDAI(result);
 			require(_sellPath[0] == daiAddress, "Input token for uniswap must be DAI");
@@ -216,6 +218,8 @@ contract ExchangeHelper is DAOUpgradeableContract {
 
 			result = swap[swap.length - 1];
 			require(result > 0, "token selling failed");
+		}else{
+			revert();
 		}
 
 		emit TokenSold(

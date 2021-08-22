@@ -124,6 +124,12 @@ contract UBIScheme is DAOUpgradeableContract {
 	);
 
 	event UBIClaimed(address indexed claimer, uint256 amount);
+	event CycleLengthSet(uint256 timestamp, uint256 newCycleLength);
+	event DaySet(uint256 timestamp, uint256 newDay);
+	event ShouldWithdrawFromDAOSet(
+		uint256 timestamp,
+		bool ShouldWithdrawFromDAO
+	);
 
 	/**
 	 * @dev Constructor
@@ -169,11 +175,7 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * @dev function that gets count of claimers and amount claimed for the current day
 	 * @return the count of claimers and the amount claimed.
 	 */
-	function getDailyStats()
-		public
-		view
-		returns (uint256, uint256)
-	{
+	function getDailyStats() public view returns (uint256, uint256) {
 		uint256 today = (block.timestamp - periodStart) / 1 days;
 		return (getClaimerCount(today), getClaimAmount(today));
 	}
@@ -221,6 +223,7 @@ contract UBIScheme is DAOUpgradeableContract {
 		_onlyAvatar();
 		require(_newLength > 0, "cycle must be at least 1 day long");
 		cycleLength = _newLength;
+		emit CycleLengthSet(block.timestamp, _newLength);
 	}
 
 	/**
@@ -243,13 +246,13 @@ contract UBIScheme is DAOUpgradeableContract {
 		if (currentDay != lastWithdrawDay) {
 			IGoodDollar token = nativeToken();
 			uint256 currentBalance = token.balanceOf(address(this));
-			uint256 currentCycleStartingBalance =
-				dailyCyclePool * currentCycleLength;
+			uint256 currentCycleStartingBalance = dailyCyclePool *
+				currentCycleLength;
 			//we start a new cycle earlier if we got some significant funds deposited (currentBalance > 1.3 * openBalance[prevDay]) and currentBalance > 80% of prev cycle starting balance
 			uint256 prevDayBalance = dailyUBIHistory[currentDay - 1].openAmount;
-			bool shouldStartEarlyCycle =
-				currentBalance >= (prevDayBalance * 130) / 100 &&
-					currentBalance > (currentCycleStartingBalance * 80) / 100;
+			bool shouldStartEarlyCycle = currentBalance >=
+				(prevDayBalance * 130) / 100 &&
+				currentBalance > (currentCycleStartingBalance * 80) / 100;
 			if (
 				currentDayInCycle() >= currentCycleLength ||
 				shouldStartEarlyCycle
@@ -287,6 +290,7 @@ contract UBIScheme is DAOUpgradeableContract {
 	 */
 	function setDay() public {
 		currentDay = (block.timestamp - periodStart) / (1 days);
+		emit DaySet(block.timestamp, currentDay);
 	}
 
 	/**
@@ -323,8 +327,8 @@ contract UBIScheme is DAOUpgradeableContract {
 	function isActiveUser(address _account) public view returns (bool) {
 		uint256 _lastClaimed = lastClaimed[_account];
 		if (isNotNewUser(_account)) {
-			uint256 daysSinceLastClaim =
-				(block.timestamp - _lastClaimed) / (1 days);
+			uint256 daysSinceLastClaim = (block.timestamp - _lastClaimed) /
+				(1 days);
 			if (daysSinceLastClaim < maxInactiveDays) {
 				// active user
 				return true;
@@ -512,5 +516,6 @@ contract UBIScheme is DAOUpgradeableContract {
 	function setShouldWithdrawFromDAO(bool _shouldWithdraw) public {
 		_onlyAvatar();
 		shouldWithdrawFromDAO = _shouldWithdraw;
+		emit ShouldWithdrawFromDAOSet(block.timestamp, shouldWithdrawFromDAO);
 	}
 }

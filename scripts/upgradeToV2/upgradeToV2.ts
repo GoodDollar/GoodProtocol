@@ -35,11 +35,14 @@ console.log({
 const { name } = network;
 
 export const main = async (networkName = name) => {
-  networkNames[1] = networkName;
-  networkNames[122] = networkName;
-  networkNames[3] = networkName;
+  if (networkName.startsWith("dapptest") === false) {
+    networkNames[1] = networkName;
+    networkNames[122] = networkName;
+    networkNames[3] = networkName;
+  }
 
   const isProduction = networkName.startsWith("production");
+  const isBackendTest = networkName.startsWith("dapptest");
   const isDevelop = !isProduction;
   const isMainnet = networkName.includes("mainnet");
   let protocolSettings = {
@@ -50,11 +53,9 @@ export const main = async (networkName = name) => {
   const dao = OldDAO[networkName];
   const fse = require("fs-extra");
   const ProtocolAddresses = await fse.readJson("releases/deployment.json");
-  console.log(ProtocolAddresses);
   const newfusedao = await ProtocolAddresses[
     networkName.replace(/\-mainnet/, "")
   ];
-  console.log(`newfusedao ${newfusedao}`);
   const newdao = ProtocolAddresses[networkName] || {};
 
   let [root] = await ethers.getSigners();
@@ -82,6 +83,7 @@ export const main = async (networkName = name) => {
         (protocolSettings.compound != undefined &&
           protocolSettings.compound.compUsdOracle) ||
         dao.COMPUsdOracle,
+      swapPath: [],
     },
   ];
 
@@ -91,6 +93,10 @@ export const main = async (networkName = name) => {
       address: protocolSettings.aave.usdc || dao.USDC,
       usdOracle: protocolSettings.aave.usdcUsdOracle || dao.USDCUsdOracle,
       aaveUsdOracle: protocolSettings.aave.aaveUsdOracle || dao.AAVEUsdOracle,
+      swapPath: [
+        get(protocolSettings, "aave.usdc", dao.USDC),
+        get(protocolSettings, "compound.dai", dao.DAI),
+      ],
     },
   ];
 
@@ -111,7 +117,6 @@ export const main = async (networkName = name) => {
       {
         network: "mainnet",
         name: "NameService",
-        //TODO: arguments based on network
         args: [
           controller,
           [
@@ -142,16 +147,15 @@ export const main = async (networkName = name) => {
             get(protocolSettings, "compound.comp", dao.COMP),
             dao.ForeignBridge,
             protocolSettings.uniswapRouter || dao.UniswapRouter,
-            !isMainnet || protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
-            !isMainnet || protocolSettings.chainlink.dai_eth,
-            !isMainnet || protocolSettings.chainlink.eth_usd,
+            dao.GasPriceOracle || protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
+            dao.DAIEthOracle || protocolSettings.chainlink.dai_eth,
+            dao.ETHUsdOracle || protocolSettings.chainlink.eth_usd,
           ],
         ],
       },
       {
         network: "fuse",
         name: "NameService",
-        //TODO: arguments based on network
         args: [
           controller,
           [
@@ -254,15 +258,23 @@ export const main = async (networkName = name) => {
       },
       {
         network: "mainnet",
+        name: "UniswapV2SwapHelper",
+        args: [],
+        isUpgradable: false,
+      },
+      {
+        network: "mainnet",
         name: "CompoundStakingFactory",
         args: [],
         isUpgradable: false,
+        libraries: ["UniswapV2SwapHelper"],
       },
       {
         network: "mainnet",
         name: "AaveStakingFactory",
         args: [],
         isUpgradable: false,
+        libraries: ["UniswapV2SwapHelper"],
       },
     ];
 
@@ -299,8 +311,13 @@ export const main = async (networkName = name) => {
         release,
         // pf: ProxyFactory.factory.address
       });
-
-      const Contract = await ethers.getContractFactory(contract.name);
+      let opts = {};
+      if (contract.libraries) {
+        let libraries = {};
+        contract.libraries.forEach((l) => (libraries[l] = release[l]));
+        opts = { libraries };
+      }
+      const Contract = await ethers.getContractFactory(contract.name, opts);
       //   const ProxyFactory = await fetchOrDeployProxyFactory();
 
       let deployed;
@@ -319,6 +336,8 @@ export const main = async (networkName = name) => {
 
     const { DonationsStaking, StakingContracts } =
       isMainnet && (await deployStakingContracts(release));
+    release["network"] = networkName;
+    release["networkId"] = network.config.chainId || 4447;
     if (!isMainnet) {
       release["HomeBridge"] = dao.HomeBridge;
       release["SignupBonus"] = dao.SignupBonus;
@@ -343,7 +362,10 @@ export const main = async (networkName = name) => {
     release["cDAI"] = get(protocolSettings, "compound.cdai", dao.cDAI);
     release["COMP"] = get(protocolSettings, "compound.comp", dao.COMP);
 
-    console.log({ StakingContracts, DonationsStaking });
+    console.log("staking contracts result:", {
+      StakingContracts,
+      DonationsStaking,
+    });
     let res = Object.assign(newdao, release);
     await releaser(release, networkName);
     return res;
@@ -457,11 +479,11 @@ export const main = async (networkName = name) => {
       release.DonationsStaking //new
     );
     await countTotalGas(tx);
-
+    console.log("Donation staking upgraded");
     //extract just the addresses without the rewards
-    release.StakingContracts = release.StakingContracts.map((_) => _[0]);
+    // release.StakingContracts = release.StakingContracts.map((_) => _[0]);
 
-    if (isProduction) {
+    if (isProduction || isBackendTest) {
       console.log(
         "SKIPPING GOVERNANCE UPGRADE FOR PRODUCTION. RUN IT MANUALLY"
       );
@@ -511,6 +533,20 @@ export const main = async (networkName = name) => {
         release.ClaimersDistribution,
       ]
     );
+
+    if (isProduction || isBackendTest) {
+      console.log(
+        "SKIPPING GOVERNANCE UPGRADE FOR PRODUCTION. RUN IT MANUALLY"
+      );
+    } else {
+      console.log("upgrading governance...");
+
+      await upgrade.upgradeGovernance(
+        dao.SchemeRegistrar,
+        dao.UpgradeScheme,
+        release.CompoundVotingMachine
+      );
+    }
   };
 
   //give Avatar permissions to the upgrade process contract
@@ -607,7 +643,8 @@ export const main = async (networkName = name) => {
           release.NameService,
           protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
           token.usdOracle,
-          token.compUsdOracle
+          token.compUsdOracle,
+          token.swapPath
         )
       ).wait();
       countTotalGas(tx);
@@ -644,7 +681,8 @@ export const main = async (networkName = name) => {
               "aave.incentiveController",
               dao.AaveIncentiveController
             ),
-            token.aaveUsdOracle
+            token.aaveUsdOracle,
+            token.swapPath
           )
         ).wait();
         await countTotalGas(tx);
@@ -699,5 +737,8 @@ export const main = async (networkName = name) => {
   // await proveNewRep();
 };
 if (process.env.TEST != "true") {
-  main(name).catch(console.log);
+  main(name).catch((e) => {
+    console.log(e);
+    throw e;
+  });
 }
