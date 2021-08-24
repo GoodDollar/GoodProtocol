@@ -104,35 +104,13 @@ describe("Different decimals staking token", () => {
   [6, 8, 16].map((decimals) => {
     it(`token decimals ${decimals}: stake should generate some interest and should be used to generate UBI`, async () => {
       const stakingAmount = ethers.utils.parseUnits("100", decimals);
-      const token = await tokenFactory.deploy(decimals);
-      const iToken = await cTokenFactory.deploy(token.address);
-      const tokenUsdOracle = await tokenUsdOracleFactory.deploy();
-      const goodCompoundStaking = await deployStaking(
-        token.address,
-        iToken.address,
-        "50",
-        tokenUsdOracle.address
+      const deployedContracts = await deployStakingAndTokens(
+        decimals,
+        stakingAmount,
+        true,
+        true
       );
-      await addLiquidity(
-        uniswap.factory,
-        token,
-        dai,
-        ethers.utils.parseUnits("100000000", decimals),
-        ethers.utils.parseEther("100000000")
-      );
-
-      await token["mint(address,uint256)"](staker.address, stakingAmount);
-      await token
-        .connect(staker)
-        .approve(goodCompoundStaking.address, stakingAmount);
-      await goodCompoundStaking
-        .connect(staker)
-        .stake(stakingAmount, 100, false);
-
-      const fakeInterest = ethers.utils.parseUnits("1000000000", decimals);
-      await token["mint(address,uint256)"](iToken.address, fakeInterest);
-
-      await iToken.increasePriceWithMultiplier("2500");
+      const goodCompoundStaking = deployedContracts.goodCompoundStaking;
       const currentUBIInterestBeforeWithdraw =
         await goodCompoundStaking.currentGains(false, true);
       await goodCompoundStaking
@@ -162,22 +140,11 @@ describe("Different decimals staking token", () => {
 
     it(`token decimals ${decimals}:  it should get rewards with updated values`, async () => {
       const stakingAmount = ethers.utils.parseUnits("100", decimals);
-      const token = await tokenFactory.deploy(decimals);
-      const iToken = await cTokenFactory.deploy(token.address);
-      const tokenUsdOracle = await tokenUsdOracleFactory.deploy();
-      const goodCompoundStaking = await deployStaking(
-        token.address,
-        iToken.address,
-        "50",
-        tokenUsdOracle.address
+      const deployedContracts = await deployStakingAndTokens(
+        decimals,
+        stakingAmount
       );
-
-      await token["mint(address,uint256)"](staker.address, stakingAmount);
-      await token
-        .connect(staker)
-        .approve(goodCompoundStaking.address, stakingAmount);
-      await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
-
+      const goodCompoundStaking = deployedContracts.goodCompoundStaking;
       await advanceBlocks(4);
       const stakingContractVals =
         await goodFundManager.rewardsForStakingContract(
@@ -196,6 +163,64 @@ describe("Different decimals staking token", () => {
       await goodCompoundStaking
         .connect(staker)
         .withdrawStake(stakingAmount, false);
+    });
+    it(`token decimals ${decimals}: it should get rewards with 1x multiplier for after threshold pass`, async () => {
+      const stakingAmount = ethers.utils.parseUnits("100", decimals);
+      let gdBalanceStakerBeforeWithdraw = await goodDollar.balanceOf(
+        staker.address
+      );
+      const deployedContracts = await deployStakingAndTokens(
+        decimals,
+        stakingAmount
+      );
+      const goodCompoundStaking = deployedContracts.goodCompoundStaking;
+      await advanceBlocks(54);
+      await goodCompoundStaking
+        .connect(staker)
+        .withdrawStake(stakingAmount, false);
+      let gdBalanceStakerAfterWithdraw = await goodDollar.balanceOf(
+        staker.address
+      );
+
+      expect(
+        gdBalanceStakerAfterWithdraw
+          .sub(gdBalanceStakerBeforeWithdraw)
+          .toString()
+      ).to.be.equal("30000"); // 50 blocks reward worth 500gd but since it's with the 0.5x multiplier so 250gd then there is 5 blocks which gets full reward so total reward is 300gd
+    });
+    it(`token decimals ${decimals}: should be able earn to 50% of rewards when owns 50% of total productivity`, async () => {
+      const stakingAmount = ethers.utils.parseUnits("100", decimals);
+      let stakerGDAmountBeforeStake = await goodDollar.balanceOf(
+        staker.address
+      );
+      let stakerTwoGDAmountBeforeStake = await goodDollar.balanceOf(
+        signers[0].address
+      );
+      const deployedContracts = await deployStakingAndTokens(
+        decimals,
+        stakingAmount,
+        false,
+        false,
+        true
+      );
+      const goodCompoundStaking = deployedContracts.goodCompoundStaking;
+
+      await advanceBlocks(4);
+      await goodCompoundStaking
+        .connect(staker)
+        .withdrawStake(stakingAmount, false);
+      await goodCompoundStaking
+        .connect(signers[0])
+        .withdrawStake(stakingAmount, false);
+      let stakerTwoGDAmountAfterStake = await goodDollar.balanceOf(
+        signers[0].address
+      );
+      let stakerGDAmountAfterStake = await goodDollar.balanceOf(staker.address);
+      expect(
+        stakerTwoGDAmountAfterStake.sub(stakerTwoGDAmountBeforeStake).toString()
+      ).to.be.equal(
+        stakerGDAmountAfterStake.sub(stakerGDAmountBeforeStake).toString()
+      );
     });
   });
 
@@ -255,5 +280,55 @@ describe("Different decimals staking token", () => {
     await tokenA["mint(address,uint256)"](pair.address, tokenAAmount);
     await tokenB["mint(address,uint256)"](pair.address, tokenBAmount);
     await pair.mint(founder.address);
+  }
+  async function deployStakingAndTokens(
+    decimals,
+    stakingAmount,
+    shouldAddLiquidity = false,
+    shouldAddInterest = false,
+    useSecondStaker = false
+  ) {
+    const token = await tokenFactory.deploy(decimals);
+    const iToken = await cTokenFactory.deploy(token.address);
+    const tokenUsdOracle = await tokenUsdOracleFactory.deploy();
+    const goodCompoundStaking = await deployStaking(
+      token.address,
+      iToken.address,
+      "50",
+      tokenUsdOracle.address
+    );
+    if (shouldAddLiquidity) {
+      await addLiquidity(
+        uniswap.factory,
+        token,
+        dai,
+        ethers.utils.parseUnits("100000000", decimals),
+        ethers.utils.parseEther("100000000")
+      );
+    }
+
+    await token["mint(address,uint256)"](staker.address, stakingAmount);
+    await token
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    if (useSecondStaker) {
+      await token["mint(address,uint256)"](signers[0].address, stakingAmount); // We use some different signer than founder since founder also UBI INTEREST collector
+      await token
+        .connect(signers[0])
+        .approve(goodCompoundStaking.address, stakingAmount);
+    }
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
+    if (useSecondStaker) {
+      await goodCompoundStaking
+        .connect(signers[0])
+        .stake(stakingAmount, 0, false);
+    }
+    if (shouldAddInterest) {
+      const fakeInterest = ethers.utils.parseUnits("1000000000", decimals);
+      await token["mint(address,uint256)"](iToken.address, fakeInterest);
+
+      await iToken.increasePriceWithMultiplier("2500");
+    }
+    return { goodCompoundStaking, token };
   }
 });
