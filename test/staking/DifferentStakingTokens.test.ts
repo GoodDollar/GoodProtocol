@@ -222,6 +222,26 @@ describe("Different decimals staking token", () => {
         stakerGDAmountAfterStake.sub(stakerGDAmountBeforeStake).toString()
       );
     });
+    it(`token decimals ${decimals}: Accumulated per share has enough precision when reward << totalproductivity`, async () => {
+      const stakingAmount = ethers.utils.parseUnits("100", decimals);
+
+      const deployedContracts = await deployStakingAndTokens(
+        decimals,
+        stakingAmount
+      );
+      const goodCompoundStaking = deployedContracts.goodCompoundStaking;
+      await advanceBlocks(4);
+      const gdBalanceBeforeWithdraw = await goodDollar.balanceOf(
+        staker.address
+      );
+      await goodCompoundStaking
+        .connect(staker)
+        .withdrawStake(stakingAmount, false);
+      const gdBalanceAfterWithdraw = await goodDollar.balanceOf(staker.address);
+      expect(
+        gdBalanceAfterWithdraw.sub(gdBalanceBeforeWithdraw).toString()
+      ).to.be.equal("2500");
+    });
   });
 
   async function deployStaking(
