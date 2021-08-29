@@ -21,14 +21,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     daiPair,
     swapHelperTest;
   let cDAI, cUsdc, usdc, cBat: Contract;
-  let gasFeeOracle,
-    daiEthOracle: Contract,
-    daiUsdOracle: Contract,
-    batUsdOracle: Contract,
-    ethUsdOracle: Contract,
-    compUsdOracle: Contract;
-  let goodReserve: Contract;
-  let goodCompoundStaking;
+  let batUsdOracle: Contract, compUsdOracle: Contract;
   let goodFundManager: Contract;
   let avatar,
     controller,
@@ -92,7 +85,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     controller = ctrl;
     setDAOAddress = sda;
     nameService = ns;
-    goodReserve = reserve;
     console.log("deployed dao", {
       founder: founder.address,
       gd,
@@ -117,7 +109,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     );
     setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
 
-    daiUsdOracle = await tokenUsdOracleFactory.deploy();
     const compUsdOracleFactory = await ethers.getContractFactory(
       "CompUSDMockOracle"
     );
