@@ -73,6 +73,8 @@ interface IGoodDollar is ERC20 {
 		uint256 value,
 		bytes calldata data
 	) external returns (bool);
+
+	function formula() external view returns (address);
 }
 
 interface IERC2917 is ERC20 {

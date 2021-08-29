@@ -15,15 +15,18 @@ export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 1;
 
 describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
-  let nameService,
+  let avatar,
+    fuseAvatar,
     dai,
     cDAI,
     signers,
-    protocolUpgrade,
     oldReserve,
+    oldFundManager,
+    oldDAIStaking,
+    identity,
+    fuseIdentity,
     oldMarketMaker,
     oldDonationsStaking,
-    marketMaker,
     cDaiBalanceOfOldReserveBeforeUpgrade,
     cDaiBalanceOfOldReserveAfterUpgrade,
     stakingAmountOfOldDonationsStakingBeforeUpgrade,
@@ -59,6 +62,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     bancorFormula,
     newStakingContract,
     controller,
+    fuseController,
     goodReserve;
   const { name: networkName } = network;
   networkNames[1] = networkName;
@@ -80,19 +84,30 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       Controller: ctrl,
       SchemeRegistrar: schemeRegistrarAddress,
       UpgradeScheme: upgradeSchemeAddress,
-      Avatar: avatar,
+      Identity,
+      FundManager,
+      DAIStaking,
+      Avatar,
     } = await deploy("test-mainnet"); // deploy old dao locally
+
+    identity = Identity;
+    oldFundManager = FundManager;
+    oldDAIStaking = DAIStaking;
 
     console.log("deployed old mainnet dao");
     let {
       UBIScheme: oldUBISc,
       GoodDollar: fuseGd,
-      Avatar: fuseAvatar,
+      Avatar: FuseAvatar,
       Controller: fuseCtrl,
       SchemeRegistrar: schemeRegistrarAddressFuse,
       UpgradeScheme: upgradeSchemeAddressFuse,
+      Identity: FuseIdentity,
     } = await deploy("test"); //deploy sidechain old dao localally
 
+    avatar = Avatar;
+    fuseAvatar = FuseAvatar;
+    fuseIdentity = FuseIdentity;
     console.log("deployed old sidechain dao");
 
     oldMarketMaker = oldMm;
@@ -105,7 +120,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     );
     comp = await ethers.getContractAt("DAIMock", compAddress);
     controller = await ethers.getContractAt("Controller", ctrl);
-    const fuseController = await ethers.getContractAt("Controller", fuseCtrl);
+    fuseController = await ethers.getContractAt("Controller", fuseCtrl);
     //add some funds to reserve so we can test upgrade transfer
     oldReserve = await ethers.getContractAt(GoodReserveCDai.abi, oldRes);
     const oldMmContract = await ethers.getContractAt(MarketMaker.abi, oldMm);
@@ -224,6 +239,55 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
         fuseAvatar
       );
   });
+
+  it("should unregister old fundmanager, reserve, daistaking, identity, formula", async () => {
+    const formula = await goodDollar.formula();
+    console.log({
+      identity,
+      reserve: oldReserve.address,
+      oldFundManager,
+      oldDAIStaking,
+      formula,
+    });
+    expect(await controller.isSchemeRegistered(identity, avatar)).to.be.true;
+    expect(await controller.getSchemePermissions(identity, avatar)).to.equal(
+      "0x00000001"
+    );
+
+    expect(await controller.isSchemeRegistered(oldReserve.address, avatar)).to
+      .be.false;
+    expect(await controller.isSchemeRegistered(oldFundManager, avatar)).to.be
+      .false;
+    expect(await controller.isSchemeRegistered(oldDAIStaking, avatar)).to.be
+      .false;
+    expect(await controller.isSchemeRegistered(formula, avatar)).to.be.false;
+    const stakingContract = await ethers.getContractAt(
+      ["function paused() view returns(bool)"],
+      oldDAIStaking
+    );
+    expect(await stakingContract.paused()).to.be.true;
+  });
+
+  it("should unregister old fuse ubi, identity, formula", async () => {
+    const formula = await fuseGoodDollar.formula();
+    console.log({
+      fuseIdentity,
+      oldUBIScheme,
+      formula,
+    });
+
+    expect(await fuseController.isSchemeRegistered(oldUBIScheme, fuseAvatar)).to
+      .be.false;
+    expect(await fuseController.isSchemeRegistered(formula, fuseAvatar)).to.be
+      .false;
+
+    expect(await fuseController.isSchemeRegistered(fuseIdentity, fuseAvatar)).to
+      .be.true;
+    expect(
+      await fuseController.getSchemePermissions(fuseIdentity, fuseAvatar)
+    ).to.equal("0x00000001");
+  });
+
   it("it should update reserve and transfer old funds ", async () => {
     expect(cDaiBalanceOfOldReserveBeforeUpgrade).to.be.gt(0);
     expect(cDaiBalanceOfOldReserveAfterUpgrade).to.be.equal(0);

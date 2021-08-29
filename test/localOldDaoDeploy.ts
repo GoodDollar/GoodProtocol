@@ -63,6 +63,7 @@ export const deploy = async (networkName = name, single = false) => {
 
   const release = {
     Reserve: dao.reserve.address,
+    FundManager: dao.fundManager.address,
     GoodDollar: dao.gd,
     Identity: dao.identity,
     Avatar: dao.avatar,
@@ -539,6 +540,7 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
       fundManager.address,
       simpleStaking.address,
       otp.address,
+      FeeFormula.address,
     ],
     [
       ethers.constants.HashZero,
@@ -547,8 +549,10 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
       ethers.constants.HashZero,
       ethers.constants.HashZero,
       ethers.constants.HashZero,
+      ethers.constants.HashZero,
     ],
     [
+      "0x0000001F",
       "0x0000001F",
       "0x0000001F",
       "0x0000001F",
@@ -582,6 +586,7 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
   await simpleStaking.start();
 
   return {
+    fundManager,
     daoCreator,
     controller,
     reserve: goodReserve,
