@@ -240,5 +240,14 @@
     "DAI": "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
     "cDAI": "0x6ce27497a64fffb5517aa4aee908b1e7eb63b9ff",
     "COMP": "0xf76d4a441e4ba86a923ce32b89aff89dbccaa075"
+  },
+  "staging": {
+    "NameService": "0x42397cda22eA9678B99aB044e09943dcd9C1C197",
+    "GReputation": "0xf4467Ad0c9D7D0446B379fE6217111a4690066D1",
+    "CompoundVotingMachine": "0x35ea7176cfde2D35Dff3E688F7bA45D1d5dF0A76",
+    "ClaimersDistribution": "0x0f621891827e6F269c812C57dFb333cBD71f9172",
+    "GovernanceStaking": "0x2204149F662193AeEAD934921Be56a81E9f18F24",
+    "UBIScheme": "0xd2870bA2115DF59fDF5CE8c19Da18b7C22bb4E68",
+    "ProtocolUpgradeFuse": "0x739B4fAeA11D83050048020E5E55CC8DcCA65d82"
   }
 }

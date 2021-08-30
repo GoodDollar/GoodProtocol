@@ -111,7 +111,7 @@ const hhconfig: HardhatUserConfig = {
       accounts: { mnemonic },
       url: "https://rpc.fuse.io/",
       gas: 3000000,
-      gasPrice: 1000000000,
+      gasPrice: 3000000000,
       chainId: 122,
     },
     "staging-mainnet": {
