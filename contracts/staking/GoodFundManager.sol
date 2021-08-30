@@ -296,7 +296,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	function calcSortedContracts(uint256 _maxGasAmount)
 		public
 		view
-		returns (address[] memory)
+		returns (address[] memory, uint256[] memory)
 	{
 		uint256 activeContractsLength = activeContracts.length;
 		address[] memory addresses = new address[](activeContractsLength);
@@ -311,9 +311,9 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				balances[uint256(i)] = tempInterest;
 			}
 		}
-		uint256 gasCostInDAI = getGasPriceIncDAIorDAI(_maxGasAmount, true); // Get gas price in DAI so can compare with possible interest amount to get
+		uint256 initialGasAmount = _maxGasAmount;
 		address[] memory emptyArray = new address[](0);
-
+		uint256[] memory emptyUintArray = new uint256[](0);
 		quick(balances, addresses); // sort the values according to interest balance
 		uint256 gasCost;
 		uint256 possibleCollected;
@@ -339,17 +339,22 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			addresses[uint256(i)] = address(0x0);
 			i -= 1;
 		}
+		uint256 actualGasUsed = initialGasAmount -
+			_maxGasAmount +
+			gasCostExceptInterestCollect; // Actual gas used to collect to interest
+		uint256 gasCostInDAI = getGasPriceIncDAIorDAI(actualGasUsed, true); // Get gas price in DAI so can compare with possible interest amount to get
 		if (
 			block.timestamp >=
 			lastCollectedInterest + collectInterestTimeThreshold
 		) {
-			if (possibleCollected * 1e10 < gasCostInDAI) return emptyArray; // multiply possiblecollected by 1e10 so it will be on the 18decimals
+			if (possibleCollected * 1e10 < gasCostInDAI)
+				return (emptyArray, emptyUintArray); // multiply possiblecollected by 1e10 so it will be on the 18decimals
 		} else {
 			// multiply possiblecollected by 1e10 so it will be on the 18decimals
 			if (possibleCollected * 1e10 < interestMultiplier * gasCostInDAI)
-				return emptyArray;
+				return (emptyArray, emptyUintArray);
 		}
-		return addresses;
+		return (addresses, balances);
 	}
 
 	/**
