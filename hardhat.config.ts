@@ -50,6 +50,9 @@ const hhconfig: HardhatUserConfig = {
     hardhat: {
       chainId: 4447,
       allowUnlimitedContractSize: true,
+      accounts: {
+        accountsBalance: "10000000000000000000000000",
+      },
     },
     develop: {
       gasPrice: 1000000000, //1 gwei
@@ -110,6 +113,12 @@ const hhconfig: HardhatUserConfig = {
       gas: 3000000,
       gasPrice: 1000000000,
       chainId: 122,
+    },
+    "staging-mainnet": {
+      accounts: { mnemonic },
+      url: "https://ropsten.infura.io/v3/" + infura_api,
+
+      chainId: 3,
     },
     production: {
       accounts: { mnemonic },

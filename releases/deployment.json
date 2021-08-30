@@ -212,5 +212,33 @@
     "COMP": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
     "networkId": 4447,
     "network": "dapptest-mainnet"
+  },
+  "staging-mainnet": {
+    "NameService": "0x855e98563268A5901245EDAF5D6DC4a84dE52488",
+    "GReputation": "0x9d527F4509f5d80bb23611B69b28a3809D04ecd4",
+    "CompoundVotingMachine": "0xb5B0BfDE56baCB64594c115C6cd5fC246011dB5f",
+    "GoodMarketMaker": "0x36cFbb93E8C1B9aAb2Ff413C92e78D12fbAcDc0E",
+    "GoodReserveCDai": "0x11c736655DF25e37D16D3D63dfbc68E2bE9Ad603",
+    "ExchangeHelper": "0xAaB60FE459C0eB809461d858ce9A98523d826c2A",
+    "GoodFundManager": "0x628Ac069cc7d1a29a111D9CE5bAD329432C481D7",
+    "StakersDistribution": "0x8CCD0aaF0eCF85994CBd14D4e968CE11E72A2873",
+    "ProtocolUpgrade": "0x9AF22262897E176b4dcF8e8cabb8FB6ebdA7A98a",
+    "UniswapV2SwapHelper": "0x83bAed0B819CddEe940F9eaC783E51eb671b5ddF",
+    "CompoundStakingFactory": "0x13921D84D3D38Fa6Fa43Abd777F7708055D5a2Bd",
+    "AaveStakingFactory": "0xE1BaC1507C13f927E42d150af0bD2bCd2e93dED9",
+    "DonationsStaking": "0xC249BC7553dC279369810292eC9eC1150A54C9c8",
+    "network": "staging-mainnet",
+    "networkId": 3,
+    "ForeignBridge": "0xEDA39475415f1A2944a467Aa6359CB4C1c3ed50f",
+    "Contribution": "0x7cC2CcDA5483e721778C4040B1DbD23B3Ab1B4A5",
+    "StakingContracts": [["0x410c9c4688B3f1f065c41F2b86BEc673A9bb7171", 13888]],
+    "Identity": "0xfb5dAF44cd18Db7b96DB3F9c6E411D65fcf4f372",
+    "GoodDollar": "0x4738C5e91C4F809da21DD0Df4B5aD5f699878C1c",
+    "Controller": "0x589F7ae100a7dbd80DC512208b7a0F457A041BE6",
+    "Avatar": "0x3BC91a65f53dACBd2336C04AC060741f70dCd187",
+    "BancorFormula": "0x57b2c85934Ef1A891eC9b9945f3fdbcf1104c302",
+    "DAI": "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
+    "cDAI": "0x6ce27497a64fffb5517aa4aee908b1e7eb63b9ff",
+    "COMP": "0xf76d4a441e4ba86a923ce32b89aff89dbccaa075"
   }
 }
