@@ -291,19 +291,24 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	 * @dev  Function that get addresses of staking contracts that we can collect interest from with a specific gas limit
 	 * but that also pass the interest>=gascosts*multiplier
 	 * @param _maxGasAmount The maximum amount of the gas that keeper willing to spend collect interests
-	 * @return addresses of the staking contracts to the collect interests
+	 * @return addresses of the staking contracts to the collect interests , interests of the staking contracts ,
+	 * Max gas amount can be used for collected interest value,Actual gas required to collect interests
 	 */
 	function calcSortedContracts(uint256 _maxGasAmount)
 		public
 		view
-		returns (address[] memory, uint256[] memory)
+		returns (
+			address[] memory,
+			uint256[] memory,
+			uint256,
+			uint256
+		)
 	{
-		uint256 activeContractsLength = activeContracts.length;
-		address[] memory addresses = new address[](activeContractsLength);
-		uint256[] memory balances = new uint256[](activeContractsLength);
+		address[] memory addresses = new address[](activeContracts.length);
+		uint256[] memory balances = new uint256[](activeContracts.length);
 		uint256 tempInterest;
 		int256 i;
-		for (i = 0; i < int256(activeContractsLength); i++) {
+		for (i = 0; i < int256(activeContracts.length); i++) {
 			(, , , , tempInterest) = IGoodStaking(activeContracts[uint256(i)])
 				.currentGains(false, true);
 			if (tempInterest != 0) {
@@ -317,17 +322,18 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		quick(balances, addresses); // sort the values according to interest balance
 		uint256 gasCost;
 		uint256 possibleCollected;
-		for (i = int256(activeContractsLength) - 1; i >= 0; i--) {
+		uint256 maxGasAmount = _maxGasAmount;
+		for (i = int256(activeContracts.length) - 1; i >= 0; i--) {
 			// elements are sorted by balances from lowest to highest
 
 			if (addresses[uint256(i)] != address(0x0)) {
 				gasCost = IGoodStaking(addresses[uint256(i)])
 					.getGasCostForInterestTransfer();
-				if (_maxGasAmount - gasCost >= gasCostExceptInterestCollect) {
+				if (maxGasAmount - gasCost >= gasCostExceptInterestCollect) {
 					// collects the interest from the staking contract and transfer it directly to the reserve contract
 					//`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
 					possibleCollected += balances[uint256(i)];
-					_maxGasAmount = _maxGasAmount - gasCost;
+					maxGasAmount = maxGasAmount - gasCost;
 				} else {
 					break;
 				}
@@ -340,7 +346,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			i -= 1;
 		}
 		uint256 actualGasUsed = initialGasAmount -
-			_maxGasAmount +
+			maxGasAmount +
 			gasCostExceptInterestCollect; // Actual gas used to collect to interest
 		uint256 gasCostInDAI = getGasPriceIncDAIorDAI(actualGasUsed, true); // Get gas price in DAI so can compare with possible interest amount to get
 		if (
@@ -348,13 +354,23 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			lastCollectedInterest + collectInterestTimeThreshold
 		) {
 			if (possibleCollected * 1e10 < gasCostInDAI)
-				return (emptyArray, emptyUintArray); // multiply possiblecollected by 1e10 so it will be on the 18decimals
+				return (emptyArray, emptyUintArray, 0, 0); // multiply possiblecollected by 1e10 so it will be on the 18decimals
 		} else {
-			// multiply possiblecollected by 1e10 so it will be on the 18decimals
 			if (possibleCollected * 1e10 < interestMultiplier * gasCostInDAI)
-				return (emptyArray, emptyUintArray);
+				return (emptyArray, emptyUintArray, 0, 0); // multiply possiblecollected by 1e10 so it will be on the 18decimals
 		}
-		return (addresses, balances);
+		return (
+			addresses,
+			balances,
+			block.timestamp >=
+				lastCollectedInterest + collectInterestTimeThreshold
+				? (possibleCollected * 1e10) /
+					getGasPriceIncDAIorDAI(actualGasUsed, true)
+				: (possibleCollected * 1e10) /
+					(interestMultiplier *
+						getGasPriceIncDAIorDAI(actualGasUsed, true)),
+			actualGasUsed
+		);
 	}
 
 	/**
