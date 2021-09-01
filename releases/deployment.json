@@ -261,6 +261,8 @@
     "SchemeRegistrar": "0x0E79f80809180aB8FAE189D4e76fC814672d9a40",
     "AdminWallet": "0x8b0Ec4aFaEE9974233c29fa52cC5D2493FB81D45",
     "UpgradeScheme": "0xfC9F6F5E3ff7BAAB3fEf82e66f56917D625ba38B",
-    "OneTimePayments": "0x2b5Ef42bc3D1BEfCbA20E3233DeDadD2439B8Ac2"
+    "OneTimePayments": "0x2b5Ef42bc3D1BEfCbA20E3233DeDadD2439B8Ac2",
+    "network": "staging",
+    "networkId": 122
   }
 }
