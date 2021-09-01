@@ -277,7 +277,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
   it("it should set nameservice variables properly", async () => {
     const fse = require("fs-extra");
     const deployment = await fse.readJson("releases/deployment.json");
-    const oldDao = fse.readJson("releases/olddao.json");
+    const oldDao = await fse.readJson("releases/olddao.json");
     const nameServiceContract = await ethers.getContractAt(
       "NameService",
       deployment["test-mainnet"].NameService
@@ -338,7 +338,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
   it("it should set fuse nameservice variables properly", async () => {
     const fse = require("fs-extra");
     const deployment = await fse.readJson("releases/deployment.json");
-    const oldDao = fse.readJson("releases/olddao.json");
+    const oldDao = await fse.readJson("releases/olddao.json");
     const nameServiceContract = await ethers.getContractAt(
       "NameService",
       deployment["test"].NameService
