@@ -2,24 +2,18 @@ import { default as hre, ethers, upgrades } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
 import { GoodMarketMaker } from "../../types";
-
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 import { createDAO, deployUniswap, getStakingFactory } from "../helpers";
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
-export const BLOCK_INTERVAL = 30;
 
 describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
   let dai: Contract;
   let usdc: Contract;
   let pair: Contract, uniswapRouter: Contract;
-  let cDAI, cUsdc: Contract, comp: Contract, aave: Contract;
-  let gasFeeOracle,
-    daiUsdOracle: Contract,
-    compUsdOracle: Contract,
-    aaveUsdOracle: Contract;
-  let goodReserve: Contract;
+  let comp: Contract, aave: Contract;
+  let daiUsdOracle: Contract, aaveUsdOracle: Contract;
   let goodAaveStaking: Contract;
   let goodFundManager: Contract;
   let avatar,
@@ -39,7 +33,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
-    const daiFactory = await ethers.getContractFactory("DAIMock");
+
     const cUsdcFactory = await ethers.getContractFactory("cUSDCMock");
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
@@ -56,26 +50,19 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       avatar: av,
       gd,
       identity,
-      daoCreator,
       nameService: ns,
       setDAOAddress: sda,
-      setSchemes,
       marketMaker: mm,
       daiAddress,
       genericCall: gc,
-      cdaiAddress,
-      reserve,
-      setReserveToken,
       COMP,
     } = await createDAO();
     dai = await ethers.getContractAt("DAIMock", daiAddress);
-    cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
     avatar = av;
     controller = ctrl;
     setDAOAddress = sda;
     nameService = ns;
     genericCall = gc;
-    goodReserve = reserve;
     console.log("deployed dao", {
       founder: founder.address,
       gd,
@@ -95,22 +82,12 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
 
     marketMaker = mm;
-    console.log("deployed contribution, deploying reserve...", {
-      founder: founder.address,
-    });
-    compUsdOracle = await (
-      await ethers.getContractFactory("CompUSDMockOracle")
-    ).deploy();
-    console.log("setting permissions...");
     const tokenUsdOracleFactory = await ethers.getContractFactory(
       "BatUSDMockOracle"
     );
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
-
-    console.log("initializing marketmaker...");
     comp = COMP;
     usdc = await usdcFactory.deploy(); // Another erc20 token for uniswap router test
-    cUsdc = await cUsdcFactory.deploy(usdc.address);
     const uniswap = await deployUniswap(comp, dai);
     uniswapRouter = uniswap.router;
     const { factory, weth } = uniswap;
@@ -132,15 +109,19 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     ).connect(founder);
     await dai["mint(address,uint256)"](
       founder.address,
-      ethers.utils.parseEther("20000000")
+      ethers.utils.parseEther("500000000000000")
     );
     await aave["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseEther("20000")
     );
-    await dai.transfer(aavePair.address, ethers.utils.parseEther("2000000"));
-    await aave.transfer(aavePair.address, ethers.utils.parseEther("2000"));
-    await aavePair.mint(founder.address);
+    await addLiquidity(
+      dai,
+      aave,
+      aavePair,
+      ethers.utils.parseEther("2000000"),
+      ethers.utils.parseEther("2000")
+    );
 
     await setDAOAddress("COMP", comp.address);
 
@@ -169,10 +150,6 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
         );
         return contract;
       });
-    await dai["mint(address,uint256)"](
-      founder.address,
-      ethers.utils.parseEther("200000000000000")
-    );
     await usdc["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseUnits("500000000000000", 6)
@@ -186,6 +163,9 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       ethers.utils.parseEther("100000000")
     ); // We should put extra USDC to LendingPool/Atoken contract in order to provide interest
     await addLiquidity(
+      usdc,
+      dai,
+      pair,
       ethers.utils.parseUnits("200000000000000", 6),
       ethers.utils.parseEther("200000000000000")
     );
@@ -295,11 +275,14 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     expect(currentGainsAfterCollectInterest[4]).to.be.equal("0");
   });
   async function addLiquidity(
+    token0: Contract,
+    token1: Contract,
+    pair: Contract,
     token0Amount: BigNumber,
     token1Amount: BigNumber
   ) {
-    await usdc.transfer(pair.address, token0Amount);
-    await dai.transfer(pair.address, token1Amount);
+    await token0.transfer(pair.address, token0Amount);
+    await token1.transfer(pair.address, token1Amount);
     await pair.mint(founder.address);
   }
 });
