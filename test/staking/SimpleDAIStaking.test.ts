@@ -162,23 +162,6 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
 
-    const gasFeeMockFactory = await ethers.getContractFactory(
-      "GasPriceMockOracle"
-    );
-    gasFeeOracle = await gasFeeMockFactory.deploy();
-    const daiEthPriceMockFactory = await ethers.getContractFactory(
-      "DaiEthPriceMockOracle"
-    );
-
-    const ethUsdOracleFactory = await ethers.getContractFactory(
-      "EthUSDMockOracle"
-    );
-    daiEthOracle = await daiEthPriceMockFactory.deploy();
-    ethUsdOracle = await ethUsdOracleFactory.deploy();
-
-    await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
-    await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
-    await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
   });
 

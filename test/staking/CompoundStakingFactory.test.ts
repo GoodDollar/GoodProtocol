@@ -32,14 +32,18 @@ describe("CompoundStakingFactory", () => {
       "CompUSDMockOracle"
     );
     compUsdOracle = await compUsdOracleFactory.deploy();
-    comp = await (await ethers.getContractFactory("DAIMock")).deploy();
-    const uniswap = await deployUniswap();
-    const router = uniswap.router;
-    await dao.setDAOAddress("UNISWAP_ROUTER", router.address);
+    comp = dao.COMP;
+
     await dao.setDAOAddress("COMP", comp.address);
     dai = dao.daiAddress;
     cdai = dao.cdaiAddress;
 
+    const uniswap = await deployUniswap(
+      comp,
+      await ethers.getContractAt("DAIMock", dai)
+    );
+    const router = uniswap.router;
+    await dao.setDAOAddress("UNISWAP_ROUTER", router.address);
     let swapHelper = await ethers
       .getContractFactory("UniswapV2SwapHelper")
       .then((_) => _.deploy());

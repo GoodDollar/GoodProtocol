@@ -86,6 +86,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       reputation,
       setReserveToken,
       genericCall: gc,
+      COMP,
     } = await createDAO();
 
     genericCall = gc;
@@ -142,9 +143,9 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     usdc = await usdcFactory.deploy();
     cUsdc = await cUsdcFactory.deploy(usdc.address);
     usdcUsdOracle = await tokenUsdOracleFactory.deploy();
-    comp = await (await ethers.getContractFactory("DAIMock")).deploy();
+    comp = COMP;
     await setDAOAddress("COMP", comp.address);
-    const uniswap = await deployUniswap();
+    const uniswap = await deployUniswap(comp, dai);
     const router = uniswap.router;
     await setDAOAddress("UNISWAP_ROUTER", router.address);
 
@@ -209,27 +210,6 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       { kind: "uups" }
     );
 
-    setDAOAddress("CDAI", cDAI.address);
-    setDAOAddress("DAI", dai.address);
-
-    //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
-    await goodReserve.setAddresses();
-    const gasFeeMockFactory = await ethers.getContractFactory(
-      "GasPriceMockOracle"
-    );
-    gasFeeOracle = await gasFeeMockFactory.deploy();
-    const daiEthPriceMockFactory = await ethers.getContractFactory(
-      "DaiEthPriceMockOracle"
-    );
-
-    const ethUsdOracleFactory = await ethers.getContractFactory(
-      "EthUSDMockOracle"
-    );
-    daiEthOracle = await daiEthPriceMockFactory.deploy();
-    ethUsdOracle = await ethUsdOracleFactory.deploy();
-    await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
-    await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
-    await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
     await setDAOAddress("GDAO_STAKERS", stakersDistribution.address);
   });
 

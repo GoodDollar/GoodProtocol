@@ -10,6 +10,7 @@ import SchemeRegistrar from "@gooddollar/goodcontracts/build/contracts/SchemeReg
 import AbsoluteVote from "@gooddollar/goodcontracts/build/contracts/AbsoluteVote.json";
 import UpgradeScheme from "@gooddollar/goodcontracts/build/contracts/UpgradeScheme.json";
 import UBIScheme from "@gooddollar/goodcontracts/stakingModel/build/contracts/UBIScheme.json";
+import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
 import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
@@ -255,7 +256,23 @@ export const createDAO = async () => {
   ).interface.encodeFunctionData("addMinter", [goodReserve.address]);
 
   await ictrl.genericCall(gd, encoded, Avatar.address, 0);
+  const gasFeeMockFactory = await ethers.getContractFactory(
+    "GasPriceMockOracle"
+  );
+  const gasFeeOracle = await gasFeeMockFactory.deploy();
+  const daiEthPriceMockFactory = await ethers.getContractFactory(
+    "DaiEthPriceMockOracle"
+  );
+  const daiEthOracle = await daiEthPriceMockFactory.deploy();
 
+  const ethUsdOracleFactory = await ethers.getContractFactory(
+    "EthUSDMockOracle"
+  );
+  const ethUsdOracle = await ethUsdOracleFactory.deploy();
+
+  await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
+  await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
+  await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
   await setDAOAddress("RESERVE", goodReserve.address);
   await setDAOAddress("MARKET_MAKER", marketMaker.address);
   await setDAOAddress("REPUTATION", reputation.address);
@@ -271,7 +288,6 @@ export const createDAO = async () => {
     [nameService.address, 5760],
     { kind: "uups" }
   )) as unknown as CompoundVotingMachine;
-
   return {
     daoCreator,
     controller,
@@ -493,7 +509,9 @@ export const deployOldVoting = async (dao) => {
   }
 };
 
-export const deployUniswap = async () => {
+export const deployUniswap = async (comp, dai) => {
+  let founder, staker, signers;
+  [founder, staker, ...signers] = await ethers.getSigners();
   const routerFactory = new ethers.ContractFactory(
     UniswapV2Router02.abi,
     UniswapV2Router02.bytecode,
@@ -517,5 +535,49 @@ export const deployUniswap = async () => {
     )[0].address
   );
   const router = await routerFactory.deploy(factory.address, weth.address);
-  return { router, factory, weth };
+  await factory.createPair(comp.address, weth.address); // Create comp and weth pair
+  const compPairAddress = factory.getPair(comp.address, weth.address);
+
+  await factory.createPair(dai.address, weth.address); // Create comp and dai pair
+  const daiPairAddress = factory.getPair(dai.address, weth.address);
+
+  const compPair = new Contract(
+    compPairAddress,
+    JSON.stringify(IUniswapV2Pair.abi),
+    staker
+  ).connect(founder);
+  const daiPair = new Contract(
+    daiPairAddress,
+    JSON.stringify(IUniswapV2Pair.abi),
+    staker
+  ).connect(founder);
+  await dai["mint(address,uint256)"](
+    founder.address,
+    ethers.utils.parseEther("2000000")
+  );
+  await dai["mint(address,uint256)"](
+    daiPair.address,
+    ethers.utils.parseEther("2000000")
+  );
+  await comp["mint(address,uint256)"](
+    compPair.address,
+    ethers.utils.parseEther("200000")
+  );
+  console.log("depositing eth to liquidity pools");
+  await weth.deposit({ value: ethers.utils.parseEther("4000") });
+  console.log(await weth.balanceOf(founder.address).then((_) => _.toString()));
+  await weth.transfer(compPair.address, ethers.utils.parseEther("2000"));
+  await weth.transfer(daiPair.address, ethers.utils.parseEther("2000"));
+  console.log("minting liquidity pools");
+
+  await compPair.mint(founder.address);
+  await daiPair.mint(founder.address);
+  console.log("LP tokens minted");
+  return {
+    router,
+    factory,
+    weth,
+    compPairContract: compPair,
+    daiPairContract: daiPair,
+  };
 };

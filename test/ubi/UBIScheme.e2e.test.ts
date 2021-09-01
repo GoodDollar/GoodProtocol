@@ -102,10 +102,9 @@ describe("UBIScheme - network e2e tests", () => {
       reserve,
       setReserveToken,
       addWhitelisted,
+      COMP,
     } = deployedDAO;
 
-    const uniswap = await deployUniswap();
-    await sda("UNISWAP_ROUTER", uniswap.router.address);
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
     avatar = av;
@@ -124,7 +123,9 @@ describe("UBIScheme - network e2e tests", () => {
     const compUsdOracle = await compUsdOracleFactory.deploy();
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
     const daiFactory = await ethers.getContractFactory("DAIMock");
-    comp = await daiFactory.deploy();
+    comp = COMP;
+    const uniswap = await deployUniswap(comp, dai);
+    await setDAOAddress("UNISWAP_ROUTER", uniswap.router.address);
     await setDAOAddress("COMP", comp.address);
     simpleStaking = await goodCompoundStakingFactory
       .deploy()

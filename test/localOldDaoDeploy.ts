@@ -46,7 +46,7 @@ export const deploy = async (networkName = name, single = false) => {
   const gov = await deployOldVoting(dao);
   console.log("old vote deployed");
   const adminWallet = await deployAdminWallet(dao);
-
+  console.log("Admin wallet deployed");
   const {
     uniswap,
     daiUsdOracle,
@@ -60,7 +60,7 @@ export const deploy = async (networkName = name, single = false) => {
     lendingPool,
     incentiveController,
   } = await deploy3rdParty(dao);
-
+  console.log("");
   const release = {
     Reserve: dao.reserve.address,
     GoodDollar: dao.gd,
@@ -126,27 +126,14 @@ const deployAdminWallet = async (dao) => {
 };
 
 const deploy3rdParty = async (dao) => {
-  const uniswap = await deployUniswap();
   //create et/dai pair
-  let mintAmount = ethers.utils.parseEther("1000");
+  let mintAmount = ethers.utils.parseEther("5000");
   const ETHAmount = ethers.utils.parseEther("50");
   const dai = await ethers.getContractAt("cERC20", dao.daiAddress);
+  const comp = await ethers.getContractAt("DAIMock", dao.COMP);
   await dai["mint(uint256)"](mintAmount);
-
+  const uniswap = await deployUniswap(comp, dai);
   await dai.approve(uniswap.router.address, mintAmount);
-  await uniswap.router.addLiquidityETH(
-    dao.daiAddress,
-    mintAmount,
-    mintAmount,
-    ETHAmount,
-    (
-      await ethers.getSigners()
-    )[0].address,
-    ethers.constants.MaxUint256,
-    {
-      value: ETHAmount,
-    }
-  );
 
   const tokenUsdOracleFactory = await ethers.getContractFactory(
     "BatUSDMockOracle"

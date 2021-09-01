@@ -75,9 +75,6 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       genericCall: gc,
     } = await createDAO();
 
-    const uniswap = await deployUniswap();
-    sda("UNISWAP_ROUTER", uniswap.router.address);
-    uniswapRouter = uniswap.router;
     comp = await daiFactory.deploy();
     genericCall = gc;
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -102,6 +99,9 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
         kind: "uups",
       }
     )) as GoodFundManager;
+    const uniswap = await deployUniswap(comp, dai);
+    await setDAOAddress("UNISWAP_ROUTER", uniswap.router.address);
+    uniswapRouter = uniswap.router;
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     console.log("Deployed goodfund manager", {
       manager: goodFundManager.address,
@@ -151,38 +151,9 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
         return contract;
       });
     console.log("staking contract initialized");
-    console.log("initializing marketmaker...");
-
-    await setDAOAddress("CDAI", cDAI.address);
-    await setDAOAddress("DAI", dai.address);
-
-    //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
-    await goodReserve.setAddresses();
-    const gasFeeMockFactory = await ethers.getContractFactory(
-      "GasPriceMockOracle"
-    );
-    gasFeeOracle = await gasFeeMockFactory.deploy();
-    const daiEthPriceMockFactory = await ethers.getContractFactory(
-      "DaiEthPriceMockOracle"
-    );
-    daiEthOracle = await daiEthPriceMockFactory.deploy();
-
-    const ethUsdOracleFactory = await ethers.getContractFactory(
-      "EthUSDMockOracle"
-    );
 
     batUsdOracle = await tokenUsdOracleFactory.deploy();
-    ethUsdOracle = await ethUsdOracleFactory.deploy();
 
-    let mintAmount = ethers.utils.parseEther("1000");
-    const ETHAmount = ethers.utils.parseEther("50");
-
-    await dai["mint(uint256)"](mintAmount);
-
-    await addETHLiquidity(mintAmount, ETHAmount);
-    await setDAOAddress("ETH_USD_ORACLE", ethUsdOracle.address);
-    await setDAOAddress("GAS_PRICE_ORACLE", gasFeeOracle.address);
-    await setDAOAddress("DAI_ETH_ORACLE", daiEthOracle.address);
     await setDAOAddress("MARKET_MAKER", marketMaker.address);
     const donationsStakingFactory = await ethers.getContractFactory(
       "DonationsStaking"
