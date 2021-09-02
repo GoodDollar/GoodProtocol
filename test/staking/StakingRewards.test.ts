@@ -552,7 +552,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
     await goodFundManager
       .connect(staker)
-      .collectInterest(contractAddressesToBeCollected);
+      .collectInterest(contractAddressesToBeCollected[0]);
     const gdBalanceAfterCollectInterest = await goodDollar.balanceOf(
       staker.address
     );
@@ -1007,8 +1007,12 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const contractsToBeCollected = await goodFundManager.calcSortedContracts(
       "1100000"
     );
-    expect(contractsToBeCollected[0]).to.be.equal(ethers.constants.AddressZero);
-    expect(contractsToBeCollected[1]).to.be.equal(goodCompoundStaking.address);
+    expect(contractsToBeCollected[0][0]).to.be.equal(
+      ethers.constants.AddressZero
+    );
+    expect(contractsToBeCollected[0][1]).to.be.equal(
+      goodCompoundStaking.address
+    );
 
     await goodCompoundStaking
       .connect(staker)
@@ -1043,7 +1047,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(transaction.message).to.have.string(
       "Collected interest value should be interestMultiplier x gas costs"
     );
-    expect(contractsToInterestCollected.length).to.be.equal(0);
+    expect(contractsToInterestCollected[0].length).to.be.equal(0);
   });
 
   it("It should sort array from lowest to highest ", async () => {
@@ -1086,7 +1090,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
     const contractsToInterestCollected =
       await goodFundManager.calcSortedContracts("800000");
-    expect(contractsToInterestCollected.length).to.be.equal(0);
+    expect(contractsToInterestCollected[0].length).to.be.equal(0);
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["100", goodCompoundStaking.address, 100, 1000, false]
@@ -1097,7 +1101,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   it("it should return empty array with calcSortedContracts when requirements does not meet", async () => {
     const contractsToInterestCollected =
       await goodFundManager.calcSortedContracts("800000");
-    expect(contractsToInterestCollected.length).to.be.equal(0);
+    expect(contractsToInterestCollected[0].length).to.be.equal(0);
   });
 
   it("collected interest should be greater than gas cost when 2 months passed", async () => {
@@ -1215,7 +1219,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const collectableContracts = await goodFundManager.calcSortedContracts(
       "1500000"
     );
-    await goodFundManager.collectInterest(collectableContracts, {
+    await goodFundManager.collectInterest(collectableContracts[0], {
       gasLimit: 1500000,
     });
     await simpleStaking.withdrawStake(ethers.utils.parseEther("100"), false);
@@ -2025,7 +2029,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const contractAddressesToBeCollected = await goodFundManager
       .connect(staker)
       .calcSortedContracts("1100000");
-    await goodFundManager.collectInterest(contractAddressesToBeCollected);
+    await goodFundManager.collectInterest(contractAddressesToBeCollected[0]);
     return { simpleStaking };
   };
 });

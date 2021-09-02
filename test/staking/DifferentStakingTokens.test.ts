@@ -123,7 +123,7 @@ describe("Different decimals staking token", () => {
         await goodFundManager.calcSortedContracts("1300000");
       await goodFundManager
         .connect(staker)
-        .collectInterest(contractAddressesToBeCollected, {
+        .collectInterest(contractAddressesToBeCollected[0], {
           gasLimit: 1300000,
         });
       const gdBalanceAfterCollectInterest = await goodDollar.balanceOf(
