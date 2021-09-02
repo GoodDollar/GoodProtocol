@@ -6,6 +6,7 @@ import "../reserve/GoodReserveCDai.sol";
 import "../Interfaces.sol";
 import "../utils/DSMath.sol";
 import "../utils/DAOUpgradeableContract.sol";
+import "hardhat/console.sol";
 
 /**
  * @title GoodFundManager contract that transfer interest from the staking contract
@@ -359,16 +360,16 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			if (possibleCollected * 1e10 < interestMultiplier * gasCostInDAI)
 				return (emptyArray, emptyUintArray, 0, 0); // multiply possiblecollected by 1e10 so it will be on the 18decimals
 		}
+		console.log("possible collected %s", possibleCollected);
+		console.log("gas Price in DAI %s", getGasPriceIncDAIorDAI(1, true));
 		return (
 			addresses,
 			balances,
 			block.timestamp >=
 				lastCollectedInterest + collectInterestTimeThreshold
-				? (possibleCollected * 1e10) /
-					getGasPriceIncDAIorDAI(actualGasUsed, true)
+				? (possibleCollected * 1e10) / getGasPriceIncDAIorDAI(1, true)
 				: (possibleCollected * 1e10) /
-					(interestMultiplier *
-						getGasPriceIncDAIorDAI(actualGasUsed, true)),
+					(interestMultiplier * getGasPriceIncDAIorDAI(1, true)),
 			actualGasUsed
 		);
 	}
