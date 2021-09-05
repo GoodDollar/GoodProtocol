@@ -291,22 +291,28 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	/**
 	 * @dev  Function that get addresses of staking contracts that we can collect interest from with a specific gas limit
 	 * but that also pass the interest>=gascosts*multiplier
-	 * @param _maxGasAmount The maximum amount of the gas that keeper willing to spend collect interests
 	 * @return addresses of the staking contracts to the collect interests , interests of the staking contracts ,
-	 * Max gas amount can be used for collected interest value,Actual gas required to collect interests
+	 * collected interest amounts until the contract including it , gas spent amounts until the contract including it,max gas amount can spend on the interestcollect transaction
+	 * if actual spend gas equal or smaller than max gas amount
 	 */
-	function calcSortedContracts(uint256 _maxGasAmount)
+	function calcSortedContracts()
 		public
 		view
 		returns (
 			address[] memory,
 			uint256[] memory,
+			uint256[] memory,
+			uint256[] memory,
 			uint256,
-			uint256
+			bool
 		)
 	{
 		address[] memory addresses = new address[](activeContracts.length);
 		uint256[] memory balances = new uint256[](activeContracts.length);
+		uint256[] memory collectedInterestSoFar = new uint256[](
+			activeContracts.length
+		);
+		uint256[] memory gasCostsSoFar = new uint256[](activeContracts.length);
 		uint256 tempInterest;
 		int256 i;
 		for (i = 0; i < int256(activeContracts.length); i++) {
@@ -317,60 +323,39 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				balances[uint256(i)] = tempInterest;
 			}
 		}
-		uint256 initialGasAmount = _maxGasAmount;
-		address[] memory emptyArray = new address[](0);
-		uint256[] memory emptyUintArray = new uint256[](0);
+		uint256 usedGasAmount = gasCostExceptInterestCollect;
 		quick(balances, addresses); // sort the values according to interest balance
 		uint256 gasCost;
 		uint256 possibleCollected;
-		uint256 maxGasAmount = _maxGasAmount;
 		for (i = int256(activeContracts.length) - 1; i >= 0; i--) {
 			// elements are sorted by balances from lowest to highest
 
 			if (addresses[uint256(i)] != address(0x0)) {
 				gasCost = IGoodStaking(addresses[uint256(i)])
 					.getGasCostForInterestTransfer();
-				if (maxGasAmount - gasCost >= gasCostExceptInterestCollect) {
-					// collects the interest from the staking contract and transfer it directly to the reserve contract
-					//`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
-					possibleCollected += balances[uint256(i)];
-					maxGasAmount = maxGasAmount - gasCost;
-				} else {
-					break;
-				}
+
+				// collects the interest from the staking contract and transfer it directly to the reserve contract
+				//`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
+				possibleCollected += balances[uint256(i)];
+				usedGasAmount += gasCost;
+				gasCostsSoFar[uint256(i)] = usedGasAmount;
+				collectedInterestSoFar[uint256(i)] = possibleCollected;
 			} else {
 				break; // if addresses are null after this element then break because we initialize array in size activecontracts but if their interest balance is zero then we dont put it in this array
 			}
 		}
-		while (i > -1) {
-			addresses[uint256(i)] = address(0x0);
-			i -= 1;
-		}
-		uint256 actualGasUsed = initialGasAmount -
-			maxGasAmount +
-			gasCostExceptInterestCollect; // Actual gas used to collect to interest
-		uint256 gasCostInDAI = getGasPriceIncDAIorDAI(actualGasUsed, true); // Get gas price in DAI so can compare with possible interest amount to get
-		if (
-			block.timestamp >=
+		uint256 maxGasAmount = block.timestamp >=
 			lastCollectedInterest + collectInterestTimeThreshold
-		) {
-			if (possibleCollected * 1e10 < gasCostInDAI)
-				return (emptyArray, emptyUintArray, 0, 0); // multiply possiblecollected by 1e10 so it will be on the 18decimals
-		} else {
-			if (possibleCollected * 1e10 < interestMultiplier * gasCostInDAI)
-				return (emptyArray, emptyUintArray, 0, 0); // multiply possiblecollected by 1e10 so it will be on the 18decimals
-		}
-		console.log("possible collected %s", possibleCollected);
-		console.log("gas Price in DAI %s", getGasPriceIncDAIorDAI(1, true));
+			? (possibleCollected * 1e10) / getGasPriceIncDAIorDAI(1, true)
+			: (possibleCollected * 1e10) /
+				(interestMultiplier * getGasPriceIncDAIorDAI(1, true));
 		return (
 			addresses,
 			balances,
-			block.timestamp >=
-				lastCollectedInterest + collectInterestTimeThreshold
-				? (possibleCollected * 1e10) / getGasPriceIncDAIorDAI(1, true)
-				: (possibleCollected * 1e10) /
-					(interestMultiplier * getGasPriceIncDAIorDAI(1, true)),
-			actualGasUsed
+			collectedInterestSoFar,
+			gasCostsSoFar,
+			maxGasAmount,
+			maxGasAmount >= usedGasAmount
 		);
 	}
 
