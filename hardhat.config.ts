@@ -165,8 +165,9 @@ task("repAirdrop", "Calculates airdrop data and merkle tree")
 task("gdxAirdrop", "Calculates airdrop data")
   .addParam("action", "calculate/tree/proof")
   .addOptionalPositionalParam("address", "proof for address")
+  .addOptionalParam("ethsnapshotblock", "eth block for calculate")
   .setAction(async (taskArgs, hre) => {
-    const actions = gdxAirdrop(hre.ethers);
+    const actions = gdxAirdrop(hre.ethers, taskArgs.ethsnapshotblock);
     switch (taskArgs.action) {
       case "calculate":
         return actions.collectAirdropData();
