@@ -324,22 +324,49 @@ export const airdrop = (
       }
     `;
 
+    let pair = await ethers.getContractAt(
+      "UniswapPair",
+      "0xa56a281cd8ba5c083af121193b2aaccaaac9850a"
+    );
+    pair = pair.connect(poktArchiveProvider);
+
+    const pairTotalSupply = await pair
+      .totalSupply({
+        blockTag: ETH_SNAPSHOT_BLOCK
+      })
+      .then(_ => _.toNumber());
+    const [reserve0] = await pair.getReserves({
+      blockTag: ETH_SNAPSHOT_BLOCK
+    });
+    console.log("uniswap pair data:", { reserve0, pairTotalSupply });
+
     //TODO: read supplier balance at snapshot
     const { liquidityPositions } = await request(
       "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2",
       query
     );
+
     const gdHoldings = liquidityPositions.map(async pos => {
-      const share = pos.liquidityTokenBalance / pos.pair.totalSupply;
-      const gdShare = parseInt((pos.pair.reserve0 * share * 100).toFixed(0)); //to G$ cents
       const uAddress = pos.user.id.toLowerCase();
+
+      const providerBalance = await pair.balanceOf(uAddress, {
+        blockTag: ETH_SNAPSHOT_BLOCK
+      });
+      const share = providerBalance.toNumber() / pairTotalSupply;
+      const gdShare = parseInt((share * reserve0).toFixed(0)); //parseInt((pos.pair.reserve0 * share * 100).toFixed(0)); //to G$ cents
       const isNotContract = get(
         addresses,
         `${uAddress}.isNotContract`,
         (await gdMainnet.provider.getCode(uAddress).catch(e => "0x")) === "0x"
       );
       const newBalance = get(addresses, `${uAddress}.balance`, 0) + gdShare;
-      console.log("uniswap position:", { pos, newBalance, uAddress });
+      console.log("uniswap position:", {
+        pos,
+        newBalance,
+        uAddress,
+        share,
+        gdShare
+      });
       addresses[uAddress] = updateBalance(addresses[uAddress], {
         balance: newBalance,
         isNotContract
@@ -351,26 +378,67 @@ export const airdrop = (
     return addresses;
   };
 
-  const _calcHoldings = (pair, addresses: Balances = {}) => {
-    const { liquidityPositions, reserve0, reserve1, totalSupply } = pair;
-    const reserve = reserve0 || reserve1;
-    liquidityPositions.map(pos => {
-      const share = pos.liquidityTokenBalance / totalSupply;
-      const gdShare = parseInt((reserve * share * 100).toFixed(0)); //to G$ cents
-      const uAddress = pos.user.id.toLowerCase();
-      const newBalance = get(addresses, `${uAddress}.balance`, 0) + gdShare;
-
-      addresses[uAddress] = updateBalance(addresses[uAddress], {
-        balance: newBalance
-      });
-    });
-  };
-
   const getFuseSwapBalances = async (
     graphqlUrl,
     tokenId,
     addresses: Balances = {}
   ) => {
+    const _calcHoldings = async (pair, addresses: Balances = {}) => {
+      const { liquidityPositions, reserve0: isReserve0, id } = pair;
+      let pairContract = await ethers.getContractAt("UniswapPair", id);
+      pairContract = pairContract.connect(fuseArchiveProvider);
+
+      try {
+        const pairTotalSupply = await pairContract
+          .totalSupply({
+            blockTag: FUSE_SNAPSHOT_BLOCK
+          })
+          .then(_ => _.toNumber());
+        const [reserve0, reserve1] = await pairContract.getReserves({
+          blockTag: FUSE_SNAPSHOT_BLOCK
+        });
+
+        const reserve = isReserve0 ? reserve0.toNumber() : reserve1.toNumber();
+
+        console.log("fuseswap pair data:", {
+          id,
+          reserve0,
+          reserve1,
+          pairTotalSupply
+        });
+
+        liquidityPositions.map(async pos => {
+          const uAddress = pos.user.id.toLowerCase();
+
+          const providerBalance = await pairContract.balanceOf(uAddress, {
+            blockTag: FUSE_SNAPSHOT_BLOCK
+          });
+
+          const share = providerBalance.toNumber() / pairTotalSupply;
+          const gdShare = parseInt((share * reserve).toFixed(0));
+          if (gdShare > 0) {
+            console.log("liquidity provider:", {
+              uAddress,
+              pair: id,
+              share,
+              gdShare,
+              reserve: reserve
+            });
+
+            const newBalance =
+              get(addresses, `${uAddress}.balance`, 0) + gdShare;
+
+            addresses[uAddress] = updateBalance(addresses[uAddress], {
+              balance: newBalance
+            });
+          }
+        });
+      } catch (e) {
+        console.error("failed fuseswap pair", id, e);
+        return;
+      }
+    };
+
     const query = gql`
       {
         t0: pairs(
@@ -421,6 +489,7 @@ export const airdrop = (
       return _calcHoldings(pair, addresses);
     });
 
+    await Promise.all([...t0Promises, ...t1Promises]);
     //get liquidity miners for 0x04Ee5DE43332aF99eeC2D40de19962AA1cC583EC, fuse G$ liquidity farmin rewards
     const staked = await usdcgdYieldFarming.queryFilter(
       usdcgdYieldFarming.filters.Staked(),
@@ -433,39 +502,44 @@ export const airdrop = (
 
     const farmers = {};
     const yieldFarmingRep =
-      addresses[usdcgdYieldFarming.address.toLowerCase()].balance;
-    await Promise.all(
-      staked.map(async e => {
-        const [balance] = await usdcgdYieldFarming.getStakerData(
-          e.args.staker,
-          { blockTag: FUSE_SNAPSHOT_BLOCK }
-        );
+      addresses[usdcgdYieldFarming.address.toLowerCase()]?.balance || 0;
+    if (yieldFarmingRep > 0) {
+      await Promise.all(
+        staked.map(async e => {
+          const [balance] = await usdcgdYieldFarming.getStakerData(
+            e.args.staker,
+            { blockTag: FUSE_SNAPSHOT_BLOCK }
+          );
 
-        if (balance > 0) {
-          const share = balance / totalStaked;
-          const uAddress = e.args.staker;
-          farmers[uAddress] = [share, share * yieldFarmingRep];
-          const newBalance =
-            get(addresses, `${uAddress}.balance`, 0) + share * yieldFarmingRep;
+          if (balance > 0) {
+            const share = balance.toNumber() / totalStaked.toNumber();
+            const uAddress = e.args.staker;
+            const repShare = parseInt((share * yieldFarmingRep).toFixed(0));
+            farmers[uAddress] = [share, repShare];
+            const newBalance =
+              get(addresses, `${uAddress}.balance`, 0) +
+              share * yieldFarmingRep;
 
-          addresses[uAddress] = updateBalance(addresses[uAddress], {
-            balance: newBalance
-          });
-        }
-      })
-    );
-    console.log("got fuseswap yield farmers:", {
-      contract: usdcgdYieldFarming.address.toLowerCase(),
-      yieldFarmingRep,
-      totalStaked: totalStaked.toString(),
-      farmers: Object.values(farmers).length,
-      totalShares: Object.values(farmers)
-        .map(_ => _[0])
-        .reduceRight((x: number, y: number) => x + y)
-    });
+            addresses[uAddress] = updateBalance(addresses[uAddress], {
+              balance: newBalance
+            });
+          }
+        })
+      );
+      console.log("got fuseswap yield farmers:", {
+        farmers,
+        contract: usdcgdYieldFarming.address.toLowerCase(),
+        yieldFarmingRep,
+        totalStaked: totalStaked.toNumber(),
+        totalFarmers: Object.values(farmers).length,
+        totalShares: Object.values(farmers)
+          .map(_ => _[0])
+          .reduceRight((x: number, y: number) => x + y)
+      });
 
-    //dont send rep to the yield farming contract
-    delete addresses[usdcgdYieldFarming.address.toLowerCase()];
+      //dont send rep to the yield farming contract
+      delete addresses[usdcgdYieldFarming.address.toLowerCase()];
+    }
 
     return addresses;
   };
@@ -646,8 +720,12 @@ export const airdrop = (
   };
 
   const collectAirdropData = async (fuseBlock, ethBlock) => {
-    FUSE_SNAPSHOT_BLOCK = fuseBlock;
-    ETH_SNAPSHOT_BLOCK = ethBlock;
+    FUSE_SNAPSHOT_BLOCK = parseInt(
+      fuseBlock || (await fuseArchiveProvider.getBlockNumber())
+    );
+    ETH_SNAPSHOT_BLOCK = parseInt(
+      ethBlock || (await poktArchiveProvider.getBlockNumber())
+    );
 
     console.log({
       FUSE_SNAPSHOT_BLOCK,
