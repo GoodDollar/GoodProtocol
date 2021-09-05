@@ -91,6 +91,7 @@
     "mocha-lcov-reporter": "*",
     "node-fetch": "*",
     "node-jq": "*",
+    "promise-queue": "^2.2.5",
     "solhint": "*",
     "solidity-coverage": "*",
     "truffle": "^5.3.12",
