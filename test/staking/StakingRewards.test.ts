@@ -548,11 +548,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       staker.address
     );
     const contractAddressesToBeCollected =
-      await goodFundManager.calcSortedContracts("1100000");
-
-    await goodFundManager
-      .connect(staker)
-      .collectInterest(contractAddressesToBeCollected[0]);
+      await goodFundManager.calcSortedContracts();
+    const addressesToCollect = contractAddressesToBeCollected.map((x) => x[0]);
+    await goodFundManager.connect(staker).collectInterest(addressesToCollect);
     const gdBalanceAfterCollectInterest = await goodDollar.balanceOf(
       staker.address
     );
@@ -972,7 +970,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(tx.message).to.be.not.empty;
   });
 
-  it("should be able to sort staking contracts and collect interests from lowest to highest and non-collectable contracts should be equal address zero [ @skip-on-coverage ]", async () => {
+  xit("should be able to sort staking contracts and collect interests from lowest to highest and non-collectable contracts should be equal address zero [ @skip-on-coverage ]", async () => {
     const stakingAmount = ethers.utils.parseEther("100");
 
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
@@ -1004,15 +1002,11 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await simpleStaking1.connect(staker).stake(stakingAmount, 100, false);
 
     await cDAI.increasePriceWithMultiplier("200"); // increase interest by calling increasePriceWithMultiplier
-    const contractsToBeCollected = await goodFundManager.calcSortedContracts(
-      "1100000"
-    );
-    expect(contractsToBeCollected[0][0]).to.be.equal(
-      ethers.constants.AddressZero
-    );
-    expect(contractsToBeCollected[0][1]).to.be.equal(
-      goodCompoundStaking.address
-    );
+    const contractsToBeCollected = await goodFundManager.calcSortedContracts();
+    console.log(`contractsToBeCollected ${contractsToBeCollected}`);
+    const addressesToCollect = contractsToBeCollected.map((x) => x[0]);
+    expect(addressesToCollect[0]).to.be.equal(ethers.constants.AddressZero);
+    expect(addressesToCollect[1]).to.be.equal(goodCompoundStaking.address);
 
     await goodCompoundStaking
       .connect(staker)
@@ -1034,8 +1028,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .approve(goodCompoundStaking.address, stakingAmount);
 
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 100, false);
-    const contractsToInterestCollected =
-      await goodFundManager.calcSortedContracts("800000");
     const transaction = await goodFundManager
       .collectInterest([goodCompoundStaking.address], {
         gasLimit: 770000,
@@ -1047,7 +1039,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(transaction.message).to.have.string(
       "Collected interest value should be interestMultiplier x gas costs"
     );
-    expect(contractsToInterestCollected[0].length).to.be.equal(0);
   });
 
   it("It should sort array from lowest to highest ", async () => {
@@ -1089,8 +1080,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     );
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
     const contractsToInterestCollected =
-      await goodFundManager.calcSortedContracts("800000");
-    expect(contractsToInterestCollected[0].length).to.be.equal(0);
+      await goodFundManager.calcSortedContracts();
+    expect(contractsToInterestCollected.length).to.be.equal(0);
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       ["100", goodCompoundStaking.address, 100, 1000, false]
@@ -1100,7 +1091,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
   it("it should return empty array with calcSortedContracts when requirements does not meet", async () => {
     const contractsToInterestCollected =
-      await goodFundManager.calcSortedContracts("800000");
+      await goodFundManager.calcSortedContracts();
     expect(contractsToInterestCollected[0].length).to.be.equal(0);
   });
 
@@ -1113,7 +1104,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     ]);
     await ethers.provider.send("evm_mine", []);
     const collectableContracts = await goodFundManager
-      .calcSortedContracts("700000")
+      .calcSortedContracts()
       .catch((e) => e);
     const tx = await goodFundManager
       .collectInterest([goodCompoundStaking.address])
@@ -1216,9 +1207,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await cDAI.increasePriceWithMultiplier("2000");
     await cBat.increasePriceWithMultiplier("500");
 
-    const collectableContracts = await goodFundManager.calcSortedContracts(
-      "1500000"
-    );
+    const collectableContracts = await goodFundManager.calcSortedContracts();
     await goodFundManager.collectInterest(collectableContracts[0], {
       gasLimit: 1500000,
     });
@@ -2028,8 +2017,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
     const contractAddressesToBeCollected = await goodFundManager
       .connect(staker)
-      .calcSortedContracts("1100000");
-    await goodFundManager.collectInterest(contractAddressesToBeCollected[0]);
+      .calcSortedContracts();
+    const addressesToCollect = contractAddressesToBeCollected.map((x) => x[0]);
+    await goodFundManager.collectInterest(addressesToCollect);
     return { simpleStaking };
   };
 });
