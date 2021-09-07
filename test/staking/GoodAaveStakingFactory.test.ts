@@ -41,7 +41,10 @@ describe("AaveStakingFactory", () => {
     ).deploy();
     dai = dao.daiAddress;
     cdai = dao.cdaiAddress;
-    const uniswap = await deployUniswap();
+    const uniswap = await deployUniswap(
+      dao.COMP,
+      await ethers.getContractAt("DAIMock", dai)
+    );
     const router = uniswap.router;
     await dao.setDAOAddress("UNISWAP_ROUTER", router.address);
     await dao.setDAOAddress("AAVE", aave.address);
