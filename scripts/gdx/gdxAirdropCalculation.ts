@@ -2,8 +2,7 @@ import { get, range, chunk, flatten, mergeWith, sortBy } from "lodash";
 import fs from "fs";
 import MerkleTree from "merkle-tree-solidity";
 import stakingContracts from "@gooddollar/goodcontracts/stakingModel/releases/deployment.json";
-import fetch from "node-fetch";
-import { string } from "hardhat/internal/core/params/argumentTypes";
+import { ethers as Ethers } from "hardhat";
 
 type Tree = {
   [key: string]: {
@@ -22,37 +21,67 @@ const quantile = (sorted, q) => {
   return sum;
 };
 
-export const airdrop = ethers => {
+export const airdrop = (ethers: typeof Ethers, ethSnapshotBlock) => {
   const getBuyingAddresses = async (addresses = {}, isContracts = {}) => {
     const provider = new ethers.providers.InfuraProvider();
 
     let reserve = await ethers.getContractAt(
-      "GoodReserveCDai",
+      [
+        "event TokenPurchased(address indexed caller,address indexed reserveToken,uint256 reserveAmount,uint256 minReturn,uint256 actualReturn)"
+      ],
       stakingContracts["production-mainnet"].Reserve
     );
+
+    let swaphelper = await ethers.getContractAt(
+      [
+        "event GDTraded(string protocol, string action, address from, uint256 value, uint256[] uniswap, uint256 gd)"
+      ],
+      "0xe28dbcce95764dc379f45e61d609356010595fd1"
+    );
+
     reserve = reserve.connect(provider);
+    swaphelper = swaphelper.connect(provider);
+
     const step = 100000;
-    const latestBlock = await provider.getBlockNumber();
+    const snapshotBlock = parseInt(
+      ethSnapshotBlock || (await provider.getBlockNumber())
+    );
     // const blocks = range(startBlock, endBlock, step);
-    const blocks = range(6000000, latestBlock, step);
+    const blocks = range(10575670, snapshotBlock, step);
     const filter = reserve.filters.TokenPurchased();
-    console.log({ latestBlock });
+    const swapFilter = swaphelper.filters.GDTraded();
+    console.log({ snapshotBlock });
     for (let blockChunk of chunk(blocks, 10)) {
       // Get the filter (the second null could be omitted)
       const ps = blockChunk.map(async bc => {
         // Query the filter (the latest could be omitted)
         const logs = await reserve
-          .queryFilter(filter, bc, Math.min(bc + step - 1, latestBlock))
+          .queryFilter(filter, bc, Math.min(bc + step - 1, snapshotBlock))
           .catch(e => {
             console.log("block transfer logs failed retrying...", bc);
             return reserve.queryFilter(
               filter,
               bc,
-              Math.min(bc + step - 1, latestBlock)
+              Math.min(bc + step - 1, snapshotBlock)
             );
           });
 
-        console.log("found transfer logs in block:", { bc }, logs.length);
+        const swapLogs = await swaphelper
+          .queryFilter(swapFilter, bc, Math.min(bc + step - 1, snapshotBlock))
+          .catch(e => {
+            console.log("block swaphelper logs failed retrying...", bc);
+            return swaphelper.queryFilter(
+              swapFilter,
+              bc,
+              Math.min(bc + step - 1, snapshotBlock)
+            );
+          });
+
+        console.log(
+          "found transfer logs in block:",
+          { bc },
+          { reserve: logs.length, swaphelper: swapLogs.length }
+        );
         // Print out all the values:
         const ps = logs.map(async log => {
           let isContract =
@@ -64,11 +93,25 @@ export const airdrop = ethers => {
             balance + log.args.actualReturn.toNumber();
           isContracts[log.args.caller] = isContract;
         });
-        await Promise.all(ps);
+        const swapps = swapLogs
+          .filter(_ => _.args.action == "buy")
+          .map(async log => {
+            let isContract =
+              (await reserve.provider
+                .getCode(log.args.caller)
+                .catch(e => "0x")) !== "0x";
+            let balance = addresses[log.args.from] || 0;
+            addresses[log.args.from] = balance + log.args.gd.toNumber();
+            isContracts[log.args.from] = isContract;
+          });
+
+        await Promise.all([...ps, ...swapps]);
       });
       await Promise.all(ps);
     }
 
+    delete addresses["0xE28dBcCE95764dC379f45e61D609356010595fd1"]; //delete swaphelper
+    console.log({ addresses, isContracts });
     return { addresses, isContracts: isContracts };
   };
 
