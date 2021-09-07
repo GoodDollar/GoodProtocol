@@ -225,6 +225,10 @@ interface UniswapPair {
 	function token0() external view returns (address);
 
 	function token1() external view returns (address);
+
+	function totalSupply() external view returns (uint256);
+
+	function balanceOf(address owner) external view returns (uint256);
 }
 
 interface Reserve {
