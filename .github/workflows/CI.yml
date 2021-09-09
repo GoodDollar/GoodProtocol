@@ -15,11 +15,15 @@ jobs:
         with:
           node-version: "14"
       - name: Automated Version Bump
-        uses: phips28/gh-action-bump-version@v8.0.18
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: "aliberkhsl/gh-action-bump-version@master"
         with:
           minor-wording: "RELEASE"
+          default: prerelease
+          preid: beta
+          rc-wording: ""
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - run: npm install -g yarn
 
       - name: Get yarn cache directory path
@@ -42,12 +46,16 @@ jobs:
       - name: Install project dependencies
         run: yarn
       - run: yarn compile
+
       - name: Run tests
         run: yarn test
       - name: Run coverage
         run: yarn coverage
-
       - name: Send code coverage results to Coveralls
         uses: coverallsapp/github-action@v1.1.2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: aliberkhsl/npm-publish@master
+        with:
+          token: ${{ secrets.NPM_KEY_4BF8 }}
+          access: "public"

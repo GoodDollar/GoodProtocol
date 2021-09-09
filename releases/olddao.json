@@ -252,6 +252,7 @@
     "cDAI": "0x6ce27497a64fffb5517aa4aee908b1e7eb63b9ff",
     "UpgradeScheme": "0xbd879865b649B7605c27cAa6A54e0f6B9Efb74b2",
     "ForeignBridge": "0xEDA39475415f1A2944a467Aa6359CB4C1c3ed50f",
+    "COMP": "0xf76d4a441e4ba86a923ce32b89aff89dbccaa075",
     "network": "staging-mainnet",
     "networkId": 3
   }

@@ -5,7 +5,7 @@ import {
   createDAO,
   deployUniswap,
   advanceBlocks,
-  getStakingFactory,
+  getStakingFactory
 } from "../helpers";
 import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 
@@ -56,7 +56,7 @@ describe("Different decimals staking token", () => {
       cdaiAddress,
       genericCall: gc,
       setDAOAddress,
-      COMP,
+      COMP
     } = await createDAO();
 
     comp = COMP;
@@ -74,7 +74,7 @@ describe("Different decimals staking token", () => {
       founder: founder.address,
       gd,
       controller,
-      avatar,
+      avatar
     });
 
     goodFundManager = await upgrades.deployProxy(
@@ -84,7 +84,7 @@ describe("Different decimals staking token", () => {
     );
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     console.log("Deployed goodfund manager", {
-      manager: goodFundManager.address,
+      manager: goodFundManager.address
     });
 
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
@@ -101,7 +101,7 @@ describe("Different decimals staking token", () => {
     compUsdOracle = await compUsdOracleFactory.deploy();
   });
 
-  [6, 8, 16].map((decimals) => {
+  [6, 8, 16].map(decimals => {
     it(`token decimals ${decimals}: stake should generate some interest and should be used to generate UBI`, async () => {
       const stakingAmount = ethers.utils.parseUnits("100", decimals);
       const deployedContracts = await deployStakingAndTokens(
@@ -121,13 +121,11 @@ describe("Different decimals staking token", () => {
       );
       const contractAddressesToBeCollected =
         await goodFundManager.calcSortedContracts();
-      const addressesToCollect = contractAddressesToBeCollected.map(
-        (x) => x[0]
-      );
+      const addressesToCollect = contractAddressesToBeCollected.map(x => x[0]);
       await goodFundManager
         .connect(staker)
         .collectInterest(addressesToCollect, {
-          gasLimit: 1300000,
+          gasLimit: 1300000
         });
       const gdBalanceAfterCollectInterest = await goodDollar.balanceOf(
         staker.address
@@ -256,7 +254,7 @@ describe("Different decimals staking token", () => {
   ) {
     const stakingContract = await goodCompoundStakingFactory
       .deploy()
-      .then(async (contract) => {
+      .then(async contract => {
         await contract.init(
           token,
           itoken,
@@ -279,7 +277,7 @@ describe("Different decimals staking token", () => {
         stakingContract.address,
         currentBlockNumber,
         currentBlockNumber + 5000,
-        false,
+        false
       ] // set 10 gd per block
     );
     await genericCall(goodFundManager.address, encodedDataTwo);

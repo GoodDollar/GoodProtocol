@@ -147,9 +147,15 @@ export const main = async (networkName = name) => {
             get(protocolSettings, "compound.comp", dao.COMP),
             dao.ForeignBridge,
             protocolSettings.uniswapRouter || dao.UniswapRouter,
-            dao.GasPriceOracle || protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
-            dao.DAIEthOracle || protocolSettings.chainlink.dai_eth,
-            dao.ETHUsdOracle || protocolSettings.chainlink.eth_usd,
+            !isMainnet ||
+              dao.GasPriceOracle ||
+              protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
+            !isMainnet ||
+              dao.DAIEthOracle ||
+              protocolSettings.chainlink.dai_eth,
+            !isMainnet ||
+              dao.ETHUsdOracle ||
+              protocolSettings.chainlink.eth_usd,
           ],
         ],
       },
@@ -457,12 +463,19 @@ export const main = async (networkName = name) => {
     await countTotalGas(tx);
 
     console.log("upgrading reserve...", {
-      params: [release.NameService, dao.Reserve, dao.MarketMaker, dao.COMP],
+      params: [
+        release.NameService,
+        dao.Reserve,
+        dao.MarketMaker,
+        dao.FundManager,
+        dao.COMP,
+      ],
     });
     tx = await upgrade.upgradeReserve(
       release.NameService,
       dao.Reserve,
       dao.MarketMaker,
+      dao.FundManager,
       dao.COMP
     );
     await countTotalGas(tx);
@@ -476,7 +489,8 @@ export const main = async (networkName = name) => {
     tx = await upgrade.upgradeDonationStaking(
       release.NameService,
       dao.DonationsStaking, //old
-      release.DonationsStaking //new
+      release.DonationsStaking, //new
+      dao.DAIStaking
     );
     await countTotalGas(tx);
     console.log("Donation staking upgraded");

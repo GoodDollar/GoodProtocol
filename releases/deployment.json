@@ -242,12 +242,27 @@
     "COMP": "0xf76d4a441e4ba86a923ce32b89aff89dbccaa075"
   },
   "staging": {
+    "FuseFaucet": "0xDfCb356c9bd420263aC56D7980f409AcE9050896",
+    "ProxyAdmin": "0x2Ea4aAA8351CfE63B537E81Cd4a13c435B945C1D",
+    "Invites": "0x7d5FC799dE6fB6a30161684f27320BAcAdBf4126",
+    "ProxyAdmin2": "0x23D8492444DA663fcb2bDa8cA9A0e84989D1f59e",
+    "GoodDollar": "0x100b8fd10ff8DC43fda45E636B4BB1eE6088270a",
     "NameService": "0x42397cda22eA9678B99aB044e09943dcd9C1C197",
     "GReputation": "0xf4467Ad0c9D7D0446B379fE6217111a4690066D1",
     "CompoundVotingMachine": "0x35ea7176cfde2D35Dff3E688F7bA45D1d5dF0A76",
     "ClaimersDistribution": "0x0f621891827e6F269c812C57dFb333cBD71f9172",
     "GovernanceStaking": "0x2204149F662193AeEAD934921Be56a81E9f18F24",
     "UBIScheme": "0xd2870bA2115DF59fDF5CE8c19Da18b7C22bb4E68",
-    "ProtocolUpgradeFuse": "0x739B4fAeA11D83050048020E5E55CC8DcCA65d82"
+    "ProtocolUpgradeFuse": "0x739B4fAeA11D83050048020E5E55CC8DcCA65d82",
+    "Identity": "0x104efFcBDddae9cd4813b8A05Ecd6A17BaBfE6d9",
+    "Avatar": "0xcA9E4D51bc496F0b661E9fa02d25E4f67Dd88870",
+    "Controller": "0x7CBA0778748960145F3E56b3285255064D86709D",
+    "AbsoluteVote": "0x7b58A5737440Bc05ca3972fDeFf8ac3bA984536B",
+    "SchemeRegistrar": "0x0E79f80809180aB8FAE189D4e76fC814672d9a40",
+    "AdminWallet": "0x8b0Ec4aFaEE9974233c29fa52cC5D2493FB81D45",
+    "UpgradeScheme": "0xfC9F6F5E3ff7BAAB3fEf82e66f56917D625ba38B",
+    "OneTimePayments": "0x2b5Ef42bc3D1BEfCbA20E3233DeDadD2439B8Ac2",
+    "network": "staging",
+    "networkId": 122
   }
 }

@@ -66,7 +66,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       reserve,
       setReserveToken,
       genericCall: gc,
-      COMP,
+      COMP
     } = await createDAO();
 
     genericCall = gc;
@@ -90,18 +90,18 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       gd,
       identity,
       controller,
-      avatar,
+      avatar
     });
     goodFundManager = await upgrades.deployProxy(
       goodFundManagerFactory,
       [nameService.address],
       {
-        kind: "uups",
+        kind: "uups"
       }
     );
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     console.log("Deployed goodfund manager", {
-      manager: goodFundManager.address,
+      manager: goodFundManager.address
     });
 
     const tokenUsdOracleFactory = await ethers.getContractFactory(
@@ -196,7 +196,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       .div(BN.from(10).pow(28));
     const currentGains = await simpleStaking.currentGains(true, true);
     await goodFundManager.collectInterest(collectableContracts[0], {
-      gasLimit: 1500000,
+      gasLimit: 1500000
     });
     const currentReserve = await swapHelperTest.getReserves(
       uniswapFactory.address,
@@ -250,7 +250,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const currentGains = await simpleStaking.currentGains(true, true);
 
     await goodFundManager.collectInterest(collectableContracts[0], {
-      gasLimit: 1500000,
+      gasLimit: 1500000
     });
     const currentReserve = await swapHelperTest.getReserves(
       uniswapFactory.address,
@@ -300,7 +300,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       wethContract.address
     );
     await goodFundManager.collectInterest(collectableContracts[0], {
-      gasLimit: 1500000,
+      gasLimit: 1500000
     });
     const reserveAfterSwap = await swapHelperTest.getReserves(
       uniswapFactory.address,
@@ -333,7 +333,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const currentBlock = await ethers.provider.getBlockNumber();
     const simpleStaking = await goodCompoundStakingFactory
       .deploy()
-      .then(async (contract) => {
+      .then(async contract => {
         await contract.init(
           token,
           itoken,

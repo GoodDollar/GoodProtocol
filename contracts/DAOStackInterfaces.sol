@@ -27,6 +27,8 @@ interface Controller {
 		external
 		returns (bool);
 
+	function unregisterSelf(address _avatar) external returns (bool);
+
 	function registerScheme(
 		address _scheme,
 		bytes32 _paramsHash,

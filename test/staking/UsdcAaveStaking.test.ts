@@ -55,7 +55,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       marketMaker: mm,
       daiAddress,
       genericCall: gc,
-      COMP,
+      COMP
     } = await createDAO();
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     avatar = av;
@@ -68,7 +68,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       gd,
       identity,
       controller,
-      avatar,
+      avatar
     });
     goodFundManager = await upgrades.deployProxy(
       goodFundManagerFactory,
@@ -77,7 +77,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     );
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     console.log("Deployed goodfund manager", {
-      manager: goodFundManager.address,
+      manager: goodFundManager.address
     });
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
 
@@ -135,7 +135,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     await setDAOAddress("AAVE", aave.address);
     goodAaveStaking = await goodAaveStakingFactory
       .deploy()
-      .then(async (contract) => {
+      .then(async contract => {
         await contract.init(
           usdc.address,
           lendingPool.address,
@@ -181,7 +181,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
         goodAaveStaking.address,
         currentBlockNumber - 5,
         currentBlockNumber + 500,
-        false,
+        false
       ] // set 10 gd per block
     );
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -260,7 +260,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       .connect(staker)
       .calcSortedContracts("1200000");
     await goodFundManager.collectInterest(contractAddressesToBeCollected[0], {
-      gasLimit: 1200000,
+      gasLimit: 1200000
     });
     const currentGainsAfterCollectInterest = await goodAaveStaking.currentGains(
       false,

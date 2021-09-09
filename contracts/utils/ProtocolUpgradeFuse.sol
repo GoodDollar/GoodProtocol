@@ -35,13 +35,25 @@ contract ProtocolUpgradeFuse {
 		upgradeUBI(oldContracts[2], ubiScheme, oldContracts[3]);
 		setNameServiceContracts(ns, nameHash, nameAddress);
 
-		// upgradeGovernance(
-		// 	oldContracts[0],
-		// 	oldContracts[1],
-		// 	compoundVotingMachine
-		// );
+		//identity has no need for special permissions, just needs to be registered
+		require(
+			controller.registerScheme(
+				ns.getAddress("IDENTITY"),
+				bytes32(0x0),
+				bytes4(0x00000001),
+				avatar
+			),
+			"registering Identity failed"
+		);
 
-		// selfdestruct(payable(owner));
+		//formula has no need to be a registered scheme
+		require(
+			controller.unregisterScheme(
+				IGoodDollar(ns.getAddress("GOODDOLLAR")).formula(),
+				avatar
+			),
+			"unregistering formula failed"
+		);
 	}
 
 	function upgradeUBI(
@@ -69,6 +81,11 @@ contract ProtocolUpgradeFuse {
 			0
 		);
 		require(ok, "old ubischeme end failed");
+
+		require(
+			controller.unregisterScheme(oldUBI, avatar),
+			"unregistering old UBIScheme failed"
+		);
 
 		if (ubiBalance > 0) {
 			ok = controller.externalTokenTransfer(
@@ -107,6 +124,11 @@ contract ProtocolUpgradeFuse {
 				avatar
 			),
 			"registering compoundVotingMachine failed"
+		);
+
+		require(
+			controller.unregisterSelf(avatar),
+			"unregistering ProtocolUpgradeFuse failed"
 		);
 
 		selfdestruct(payable(owner));
