@@ -34,7 +34,7 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		view
 		returns (uint256)
 	{
-		return (rep.totalSupplyAt(blockNumber) * 1) / 100; //1%
+		return (rep.totalSupplyAt(blockNumber) * 25) / 10000; //0.25%
 	}
 
 	/// @notice The maximum number of actions that can be included in a proposal

@@ -31,7 +31,7 @@ contract ProtocolUpgrade {
 	Controller controller;
 	address owner;
 	address avatar;
-	
+
 	modifier onlyOwner() {
 		require(msg.sender == owner, "only owner");
 		_;
@@ -63,6 +63,26 @@ contract ProtocolUpgrade {
 		_setNameServiceContracts(ns, nameHash, nameAddress);
 
 		_setStakingRewards(ns, staking, monthlyRewards);
+
+		//identity has no need for special permissions, just needs to be registered
+		require(
+			controller.registerScheme(
+				ns.getAddress("IDENTITY"),
+				bytes32(0x0),
+				bytes4(0x00000001),
+				avatar
+			),
+			"registering Identity failed"
+		);
+
+		//formula has no need to be a registered scheme
+		require(
+			controller.unregisterScheme(
+				IGoodDollar(ns.getAddress("GOODDOLLAR")).formula(),
+				avatar
+			),
+			"unregistering formula failed"
+		);
 	}
 
 	/**
@@ -73,11 +93,17 @@ contract ProtocolUpgrade {
 		INameService ns,
 		address oldReserve,
 		address oldMarketMaker,
+		address oldFundManager,
 		address COMP
 	) external onlyOwner {
 		_setReserveSoleMinter(ns);
 
 		_setNewReserve(ns, oldReserve, oldMarketMaker, COMP);
+
+		require(
+			controller.unregisterScheme(oldFundManager, avatar),
+			"unregistering old FundManager failed"
+		);
 	}
 
 	/**
@@ -86,13 +112,14 @@ contract ProtocolUpgrade {
 	function upgradeDonationStaking(
 		INameService ns,
 		address oldDonationStaking,
-		address payable donationStaking
+		address payable donationStaking,
+		address oldSimpleDAIStaking
 	) public onlyOwner {
 		bool ok;
 		bytes memory result;
 		(ok, result) = controller.genericCall(
 			oldDonationStaking,
-			abi.encodeWithSignature("end()", 0, 0, false),
+			abi.encodeWithSignature("end()"),
 			avatar,
 			0
 		);
@@ -108,16 +135,31 @@ contract ProtocolUpgrade {
 
 		require(ok, "Calling DAI externalTokenTransfer failed");
 		if (eth > 0) {
-		
 			ok = controller.sendEther(eth, payable(this), avatar);
 
 			require(ok, "Calling  sendEther failed");
-		
+
 			AddressUpgradeable.sendValue(donationStaking, eth);
 		}
 		IDonationStaking(donationStaking).stakeDonations(0);
+
+		(ok, result) = controller.genericCall(
+			oldSimpleDAIStaking,
+			abi.encodeWithSignature("end()"),
+			avatar,
+			0
+		);
+
+		require(ok, "Calling old SimpleDAIStaking end failed");
+
+		require(
+			controller.unregisterScheme(oldSimpleDAIStaking, avatar),
+			"unregistering old SimpleDAIStaking failed"
+		);
 	}
+
 	receive() external payable {}
+
 	/**
 	 * 6. upgrade to new DAO and relinquish control
 	 * unregister old voting schemes
@@ -147,6 +189,10 @@ contract ProtocolUpgrade {
 			"registering compoundVotingMachine failed"
 		);
 
+		require(
+			controller.unregisterSelf(avatar),
+			"unregistering protocolupgrade failed"
+		);
 		selfdestruct(payable(owner));
 	}
 
@@ -241,6 +287,11 @@ contract ProtocolUpgrade {
 		);
 
 		require(ok, "calling marketMaker initializeToken failed");
+
+		require(
+			controller.unregisterScheme(oldReserve, avatar),
+			"unregistering old reserve failed"
+		);
 	}
 
 	//set contracts in nameservice that are deployed after INameService is created
