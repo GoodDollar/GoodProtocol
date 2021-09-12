@@ -219,11 +219,10 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       staker.address
     );
     const contractAddressesToBeCollected =
-      await goodFundManager.calcSortedContracts("1100000");
+      await goodFundManager.calcSortedContracts();
     console.log(contractAddressesToBeCollected.toString());
-    await goodFundManager
-      .connect(staker)
-      .collectInterest(contractAddressesToBeCollected[0]);
+    const addressesToCollect = contractAddressesToBeCollected.map(x => x[0]);
+    await goodFundManager.connect(staker).collectInterest(addressesToCollect);
     const gdBalanceAfterCollectInterest = await goodDollar.balanceOf(
       staker.address
     );
@@ -258,8 +257,9 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     );
     const contractAddressesToBeCollected = await goodFundManager
       .connect(staker)
-      .calcSortedContracts("1200000");
-    await goodFundManager.collectInterest(contractAddressesToBeCollected[0], {
+      .calcSortedContracts();
+    const addressesToCollect = contractAddressesToBeCollected.map(x => x[0]);
+    await goodFundManager.collectInterest(addressesToCollect, {
       gasLimit: 1200000
     });
     const currentGainsAfterCollectInterest = await goodAaveStaking.currentGains(
