@@ -52,12 +52,12 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		bool isBlackListed; // If staking contract is blacklisted or not
 	}
 	struct InterestInfo {
-		address contractAddress;
-		uint256 interestBalance;
-		uint256 collectedInterestSoFar;
-		uint256 gasCostSoFar;
-		uint256 maxGasAmountSoFar;
-		bool maxGasLargerOrEqualRequired;
+		address contractAddress; // staking contract address which interest will be collected
+		uint256 interestBalance; // Interest amount that staking contract has
+		uint256 collectedInterestSoFar; // Collected interest amount so far including this contract
+		uint256 gasCostSoFar; // Spent gas amount so far including this contract
+		uint256 maxGasAmountSoFar; //  Max gas amount that can spend to collect this interest according to interest amount
+		bool maxGasLargerOrEqualRequired; // Bool that indicates if max gas amount larger or equal to actual gas needed
 	}
 	// Rewards per block for particular Staking contract
 	mapping(address => Reward) public rewardsForStakingContract;
@@ -296,11 +296,8 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	}
 
 	/**
-	 * @dev  Function that get addresses of staking contracts that we can collect interest from with a specific gas limit
-	 * but that also pass the interest>=gascosts*multiplier
-	 * @return addresses of the staking contracts to the collect interests , interests of the staking contracts ,
-	 * collected interest amounts until the contract including it , gas spent amounts until the contract including it,max gas amount can spend on the interestcollect transaction
-	 * if actual spend gas equal or smaller than max gas amount
+	 * @dev  Function that get interest informations of staking contracts in the sorted array by highest interest to lowest interest amount
+	 * @return array of interestInfo struct
 	 */
 	function calcSortedContracts() public view returns (InterestInfo[] memory) {
 		address[] memory addresses = new address[](activeContracts.length);
