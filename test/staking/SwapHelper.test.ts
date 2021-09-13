@@ -66,7 +66,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       reserve,
       setReserveToken,
       genericCall: gc,
-      COMP,
+      COMP
     } = await createDAO();
 
     genericCall = gc;
@@ -90,18 +90,18 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       gd,
       identity,
       controller,
-      avatar,
+      avatar
     });
     goodFundManager = await upgrades.deployProxy(
       goodFundManagerFactory,
       [nameService.address],
       {
-        kind: "uups",
+        kind: "uups"
       }
     );
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     console.log("Deployed goodfund manager", {
-      manager: goodFundManager.address,
+      manager: goodFundManager.address
     });
 
     const tokenUsdOracleFactory = await ethers.getContractFactory(
@@ -182,9 +182,8 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
 
     await cBat.increasePriceWithMultiplier("1500");
 
-    const collectableContracts = await goodFundManager.calcSortedContracts(
-      "1500000"
-    );
+    const collectableContracts = await goodFundManager.calcSortedContracts();
+    const addressToCollect = collectableContracts.map(x => x[0]);
     const safeAmount = reserve[0].mul(BN.from(3)).div(BN.from(1000));
     const safeAmountInIToken = await simpleStaking.tokenWorthIniToken(
       safeAmount
@@ -195,8 +194,8 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       .mul(BN.from(10).pow(10))
       .div(BN.from(10).pow(28));
     const currentGains = await simpleStaking.currentGains(true, true);
-    await goodFundManager.collectInterest(collectableContracts, {
-      gasLimit: 1500000,
+    await goodFundManager.collectInterest(addressToCollect, {
+      gasLimit: 1500000
     });
     const currentReserve = await swapHelperTest.getReserves(
       uniswapFactory.address,
@@ -244,13 +243,11 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
 
     await cUsdc.increasePriceWithMultiplier("1500");
 
-    const collectableContracts = await goodFundManager.calcSortedContracts(
-      "1500000"
-    );
+    const collectableContracts = await goodFundManager.calcSortedContracts();
     const currentGains = await simpleStaking.currentGains(true, true);
-
-    await goodFundManager.collectInterest(collectableContracts, {
-      gasLimit: 1500000,
+    const addressesToCollect = collectableContracts.map(x => x[0]);
+    await goodFundManager.collectInterest(addressesToCollect, {
+      gasLimit: 1500000
     });
     const currentReserve = await swapHelperTest.getReserves(
       uniswapFactory.address,
@@ -291,16 +288,15 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       simpleStaking.address,
       ethers.utils.parseEther("10000")
     );
-    const collectableContracts = await goodFundManager.calcSortedContracts(
-      "1500000"
-    );
+    const collectableContracts = await goodFundManager.calcSortedContracts();
+    const addressesToCollect = collectableContracts.map(x => x[0]);
     const reserveBeforeSwap = await swapHelperTest.getReserves(
       uniswapFactory.address,
       comp.address,
       wethContract.address
     );
-    await goodFundManager.collectInterest(collectableContracts, {
-      gasLimit: 1500000,
+    await goodFundManager.collectInterest(addressesToCollect, {
+      gasLimit: 1500000
     });
     const reserveAfterSwap = await swapHelperTest.getReserves(
       uniswapFactory.address,
@@ -333,7 +329,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const currentBlock = await ethers.provider.getBlockNumber();
     const simpleStaking = await goodCompoundStakingFactory
       .deploy()
-      .then(async (contract) => {
+      .then(async contract => {
         await contract.init(
           token,
           itoken,

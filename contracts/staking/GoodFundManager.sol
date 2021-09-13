@@ -51,6 +51,14 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		uint64 blockEnd; // # of the end block to distribute rewards
 		bool isBlackListed; // If staking contract is blacklisted or not
 	}
+	struct InterestInfo {
+		address contractAddress; // staking contract address which interest will be collected
+		uint256 interestBalance; // Interest amount that staking contract has
+		uint256 collectedInterestSoFar; // Collected interest amount so far including this contract
+		uint256 gasCostSoFar; // Spent gas amount so far including this contract
+		uint256 maxGasAmountSoFar; //  Max gas amount that can spend to collect this interest according to interest amount
+		bool maxGasLargerOrEqualRequired; // Bool that indicates if max gas amount larger or equal to actual gas needed
+	}
 	// Rewards per block for particular Staking contract
 	mapping(address => Reward) public rewardsForStakingContract;
 	// Emits when `transferInterest` transfers
@@ -288,22 +296,18 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	}
 
 	/**
-	 * @dev  Function that get addresses of staking contracts that we can collect interest from with a specific gas limit
-	 * but that also pass the interest>=gascosts*multiplier
-	 * @param _maxGasAmount The maximum amount of the gas that keeper willing to spend collect interests
-	 * @return addresses of the staking contracts to the collect interests
+	 * @dev  Function that get interest informations of staking contracts in the sorted array by highest interest to lowest interest amount
+	 * @return array of interestInfo struct
 	 */
-	function calcSortedContracts(uint256 _maxGasAmount)
-		public
-		view
-		returns (address[] memory)
-	{
-		uint256 activeContractsLength = activeContracts.length;
-		address[] memory addresses = new address[](activeContractsLength);
-		uint256[] memory balances = new uint256[](activeContractsLength);
+	function calcSortedContracts() public view returns (InterestInfo[] memory) {
+		address[] memory addresses = new address[](activeContracts.length);
+		uint256[] memory balances = new uint256[](activeContracts.length);
+		InterestInfo[] memory interestInfos = new InterestInfo[](
+			activeContracts.length
+		);
 		uint256 tempInterest;
 		int256 i;
-		for (i = 0; i < int256(activeContractsLength); i++) {
+		for (i = 0; i < int256(activeContracts.length); i++) {
 			(, , , , tempInterest) = IGoodStaking(activeContracts[uint256(i)])
 				.currentGains(false, true);
 			if (tempInterest != 0) {
@@ -311,45 +315,42 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				balances[uint256(i)] = tempInterest;
 			}
 		}
-		uint256 gasCostInDAI = getGasPriceIncDAIorDAI(_maxGasAmount, true); // Get gas price in DAI so can compare with possible interest amount to get
-		address[] memory emptyArray = new address[](0);
-
+		uint256 usedGasAmount = gasCostExceptInterestCollect;
 		quick(balances, addresses); // sort the values according to interest balance
 		uint256 gasCost;
 		uint256 possibleCollected;
-		for (i = int256(activeContractsLength) - 1; i >= 0; i--) {
+		uint256 maxGasAmount;
+		for (i = int256(activeContracts.length) - 1; i >= 0; i--) {
 			// elements are sorted by balances from lowest to highest
 
 			if (addresses[uint256(i)] != address(0x0)) {
 				gasCost = IGoodStaking(addresses[uint256(i)])
 					.getGasCostForInterestTransfer();
-				if (_maxGasAmount - gasCost >= gasCostExceptInterestCollect) {
-					// collects the interest from the staking contract and transfer it directly to the reserve contract
-					//`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
-					possibleCollected += balances[uint256(i)];
-					_maxGasAmount = _maxGasAmount - gasCost;
-				} else {
-					break;
-				}
+
+				// collects the interest from the staking contract and transfer it directly to the reserve contract
+				//`collectUBIInterest` returns (iTokengains, tokengains, precission loss, donation ratio)
+				possibleCollected += balances[uint256(i)];
+				usedGasAmount += gasCost;
+				maxGasAmount = block.timestamp >=
+					lastCollectedInterest + collectInterestTimeThreshold
+					? (possibleCollected * 1e10) /
+						getGasPriceIncDAIorDAI(1, true)
+					: (possibleCollected * 1e10) /
+						(interestMultiplier * getGasPriceIncDAIorDAI(1, true));
+				interestInfos[uint256(i)] = InterestInfo({
+					contractAddress: addresses[uint256(i)],
+					interestBalance: balances[uint256(i)],
+					collectedInterestSoFar: possibleCollected,
+					gasCostSoFar: usedGasAmount,
+					maxGasAmountSoFar: maxGasAmount,
+					maxGasLargerOrEqualRequired: maxGasAmount >= usedGasAmount
+				});
 			} else {
 				break; // if addresses are null after this element then break because we initialize array in size activecontracts but if their interest balance is zero then we dont put it in this array
 			}
 		}
-		while (i > -1) {
-			addresses[uint256(i)] = address(0x0);
-			i -= 1;
-		}
-		if (
-			block.timestamp >=
-			lastCollectedInterest + collectInterestTimeThreshold
-		) {
-			if (possibleCollected * 1e10 < gasCostInDAI) return emptyArray; // multiply possiblecollected by 1e10 so it will be on the 18decimals
-		} else {
-			// multiply possiblecollected by 1e10 so it will be on the 18decimals
-			if (possibleCollected * 1e10 < interestMultiplier * gasCostInDAI)
-				return emptyArray;
-		}
-		return addresses;
+
+		return interestInfos;
 	}
 
 	/**
