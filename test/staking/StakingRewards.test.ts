@@ -970,7 +970,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(tx.message).to.be.not.empty;
   });
 
-  xit("should be able to sort staking contracts and collect interests from lowest to highest and non-collectable contracts should be equal address zero [ @skip-on-coverage ]", async () => {
+  it("should be able to sort staking contracts and collect interests from lowest to highest[ @skip-on-coverage ]", async () => {
     const stakingAmount = ethers.utils.parseEther("100");
 
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
@@ -1004,7 +1004,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await cDAI.increasePriceWithMultiplier("200"); // increase interest by calling increasePriceWithMultiplier
     const contractsToBeCollected = await goodFundManager.calcSortedContracts();
     const addressesToCollect = contractsToBeCollected.map(x => x[0]);
-    expect(addressesToCollect[0]).to.be.equal(ethers.constants.AddressZero);
+    expect(addressesToCollect[0]).to.be.equal(simpleStaking.address);
     expect(addressesToCollect[1]).to.be.equal(goodCompoundStaking.address);
 
     await goodCompoundStaking
@@ -1018,7 +1018,10 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   });
 
   it("It should not collect interest when interest is lower than gas cost [ @skip-on-coverage ]", async () => {
-    await goodFundManager.collectInterest([goodCompoundStaking.address]); // make sure there is no interest left
+    await goodFundManager
+      .collectInterest([goodCompoundStaking.address])
+      .catch(e => e); // make sure there is no interest left
+
     const stakingAmount = ethers.utils.parseEther("100");
 
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
