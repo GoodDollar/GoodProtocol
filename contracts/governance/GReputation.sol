@@ -331,6 +331,7 @@ contract GReputation is Reputation {
 	/**
 	 * @notice prove user balance in a specific blockchain state hash
 	 * @dev "rootState" is a special state that can be supplied once, and actually mints reputation on the current blockchain
+	 * we use non sorted merkle tree, as sorting while preparing merkle tree is heavy
 	 * @param _id the string id of the blockchain we supply proof for
 	 * @param _user the user to prove his balance
 	 * @param _balance the balance we are prooving
@@ -361,13 +362,14 @@ contract GReputation is Reputation {
 			"stateHash already proved"
 		);
 
-		(, bool isProofValid) = _checkMerkleProof(
-			_user,
-			_balance,
-			stateHash,
+		bytes32 leafHash = keccak256(abi.encode(_user, _balance));
+		bool isProofValid = checkProofOrdered(
 			_proof,
+			stateHash,
+			leafHash,
 			_nodeIndex
 		);
+
 		require(isProofValid, "invalid merkle proof");
 
 		//if initiial state then set real balance
@@ -495,20 +497,10 @@ contract GReputation is Reputation {
 		emit DelegateVotesChanged(_delegate, _delegator, _oldVotes, _newVotes);
 	}
 
-	/// @notice helper function to check merkle proof using openzeppelin
-	/// @return leafHash isProofValid tuple (byte32, bool) with the hash of the leaf data we prove and true if proof is valid
-	function _checkMerkleProof(
-		address _user,
-		uint256 _balance,
-		bytes32 _root,
-		bytes32[] memory _proof,
-		uint256 _nodeIndex
-	) internal pure returns (bytes32 leafHash, bool isProofValid) {
-		leafHash = keccak256(abi.encode(_user, _balance));
-		isProofValid = checkProofOrdered(_proof, _root, leafHash, _nodeIndex);
-	}
-
 	// from StorJ -- https://github.com/nginnever/storj-audit-verifier/blob/master/contracts/MerkleVerifyv3.sol
+	/**
+	 * @dev non sorted merkle tree proof check
+	 */
 	function checkProofOrdered(
 		bytes32[] memory _proof,
 		bytes32 _root,

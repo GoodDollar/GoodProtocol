@@ -995,6 +995,9 @@ export const airdrop = (
     });
 
     console.log("creating merkletree...", elements.length);
+    //NOTICE: we use a non sorted merkletree to save generation time, this requires also a different proof verification algorithm which
+    //is not in the default openzeppelin library
+
     const merkleTree = new MerkleTree(elements, true);
     // get the merkle root
     // returns 32 byte buffer
