@@ -1,6 +1,9 @@
 import { get, range, chunk, flatten, mergeWith, sortBy, uniq } from "lodash";
 import fs from "fs";
-import MerkleTree from "merkle-tree-solidity";
+import MerkleTree, {
+  checkProof,
+  checkProofOrdered
+} from "merkle-tree-solidity";
 import coreContracts from "@gooddollar/goodcontracts/releases/deployment.json";
 import stakingContracts from "@gooddollar/goodcontracts/stakingModel/releases/deployment.json";
 import upgradablesContracts from "@gooddollar/goodcontracts/upgradables/releases/deployment.json";
@@ -560,11 +563,11 @@ export const airdrop = (
     const blocks = range(6400000, latestBlock, step);
     const filter = gdNonArchive.filters.Transfer();
 
-    const pool = new PromisePool({ concurrency: 30 });
+    const pool = new PromisePool({ concurrency: 50 });
 
     blocks.forEach(bc => {
       pool.add(async () => {
-        const options = { limit: 10, delay: 2000 };
+        const options = { limit: 20, delay: 2000 };
         const retrier = new Retrier(options);
         // Query the filter (the latest could be omitted)
         const logs = await retrier.resolve(attempt => {
@@ -775,7 +778,7 @@ export const airdrop = (
     balances: Balances = {},
     ubiContract = ubi
   ) => {
-    const pool = new PromisePool({ concurrency: 30 });
+    const pool = new PromisePool({ concurrency: 50 });
     const step = 1000;
     const latestBlock = FUSE_SNAPSHOT_BLOCK; //await ubiContract.provider.getBlockNumber();
     const blocks = range(6400000, latestBlock, step);
@@ -783,7 +786,7 @@ export const airdrop = (
 
     blocks.forEach(bc => {
       pool.add(async () => {
-        const options = { limit: 10, delay: 2000 };
+        const options = { limit: 20, delay: 2000 };
         const retrier = new Retrier(options);
         // Query the filter (the latest could be omitted)
         const logs = await retrier.resolve(attempt => {
@@ -807,7 +810,7 @@ export const airdrop = (
         });
       });
     });
-
+    await pool.all();
     return balances;
   };
 
@@ -971,6 +974,7 @@ export const airdrop = (
     );
 
     const treeData = {};
+
     const elements = toTree.map(e => {
       const repInWei = (e[1] * 1e18)
         .toLocaleString("fullwide", {
@@ -990,14 +994,41 @@ export const airdrop = (
       return Buffer.from(hash.slice(2), "hex");
     });
 
+    console.log("creating merkletree...", elements.length);
     const merkleTree = new MerkleTree(elements, true);
     // get the merkle root
     // returns 32 byte buffer
     const merkleRoot = merkleTree.getRoot().toString("hex");
     // generate merkle proof
     // returns array of 32 byte buffers
+
     const proof = merkleTree.getProof(elements[0]).map(_ => _.toString("hex"));
-    console.log({ merkleRoot, proof, sampleProofFor: toTree[0] });
+    const validProof = checkProofOrdered(
+      proof.map(_ => Buffer.from(_, "hex")),
+      merkleTree.getRoot(),
+      elements[0],
+      1
+    );
+
+    const lastProof = merkleTree
+      .getProof(elements[elements.length - 1])
+      .map(_ => _.toString("hex"));
+    const lastValidProof = checkProofOrdered(
+      lastProof.map(_ => Buffer.from(_, "hex")),
+      merkleTree.getRoot(),
+      elements[elements.length - 1],
+      elements.length
+    );
+
+    console.log({
+      merkleRoot,
+      proof,
+      validProof,
+      lastProof,
+      lastValidProof,
+      proofFor: toTree[0],
+      lastProofFor: toTree[toTree.length - 1]
+    });
     fs.writeFileSync("airdrop.json", JSON.stringify({ treeData, merkleRoot }));
   };
 
@@ -1006,20 +1037,30 @@ export const airdrop = (
       fs.readFileSync("airdrop.json").toString()
     );
 
-    const elements = Object.entries(treeData as Tree).map(e =>
-      Buffer.from(e[1].hash.slice(2), "hex")
-    );
+    let entries = Object.entries(treeData as Tree);
+    let elements = entries.map(e => Buffer.from(e[1].hash.slice(2), "hex"));
 
+    console.log("creating merkletree...", elements.length);
     const merkleTree = new MerkleTree(elements, true);
+
     const calcMerkleRoot = merkleTree.getRoot().toString("hex");
     console.log("merkleroots:", {
       fromFile: merkleRoot,
       calculated: calcMerkleRoot
     });
-    const proof = merkleTree
-      .getProof(Buffer.from(treeData[addr].hash.slice(2), "hex"))
-      .map(_ => "0x" + _.toString("hex"));
-    console.log({ proof, [addr]: treeData[addr] });
+
+    const addrData = treeData[addr];
+    const proofFor = Buffer.from(addrData.hash.slice(2), "hex");
+
+    const proof = merkleTree.getProof(proofFor);
+    const proofIndex = entries.findIndex(_ => _[1].hash === addrData.hash) + 1;
+
+    console.log(
+      "checkProof:",
+      checkProofOrdered(proof, merkleTree.getRoot(), proofFor, proofIndex)
+    );
+    const hexProof = proof.map(_ => "0x" + _.toString("hex"));
+    console.log({ proofIndex, proof: hexProof, [addr]: treeData[addr] });
   };
 
   return { buildMerkleTree, collectAirdropData, getProof };

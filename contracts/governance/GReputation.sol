@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
-
 import "./Reputation.sol";
 import "../Interfaces.sol";
 
@@ -337,22 +335,25 @@ contract GReputation is Reputation {
 	 * @param _user the user to prove his balance
 	 * @param _balance the balance we are prooving
 	 * @param _proof array of byte32 with proof data (currently merkle tree path)
+ 	 * @param _nodeIndex index of node in the tree (for unsorted merkle tree proof)
+
 	 * @return true if proof is valid
 	 */
 	function proveBalanceOfAtBlockchain(
 		string memory _id,
 		address _user,
 		uint256 _balance,
-		bytes32[] memory _proof
+		bytes32[] memory _proof,
+		uint256 _nodeIndex
 	) public returns (bool) {
 		bytes32 idHash = keccak256(bytes(_id));
 		require(
 			blockchainStates[idHash].length > 0,
 			"no state found for given _id"
 		);
-		bytes32 stateHash =
-			blockchainStates[idHash][blockchainStates[idHash].length - 1]
-				.stateHash;
+		bytes32 stateHash = blockchainStates[idHash][
+			blockchainStates[idHash].length - 1
+		].stateHash;
 
 		//this is specifically important for rootState that should update real balance only once
 		require(
@@ -360,8 +361,13 @@ contract GReputation is Reputation {
 			"stateHash already proved"
 		);
 
-		(, bool isProofValid) =
-			_checkMerkleProof(_user, _balance, stateHash, _proof);
+		(, bool isProofValid) = _checkMerkleProof(
+			_user,
+			_balance,
+			stateHash,
+			_proof,
+			_nodeIndex
+		);
 		require(isProofValid, "invalid merkle proof");
 
 		//if initiial state then set real balance
@@ -412,23 +418,20 @@ contract GReputation is Reputation {
 		bytes32 _r,
 		bytes32 _s
 	) public {
-		bytes32 domainSeparator =
-			keccak256(
-				abi.encode(
-					DOMAIN_TYPEHASH,
-					keccak256(bytes(name)),
-					getChainId(),
-					address(this)
-				)
-			);
-		bytes32 structHash =
-			keccak256(
-				abi.encode(DELEGATION_TYPEHASH, _delegate, _nonce, _expiry)
-			);
-		bytes32 digest =
-			keccak256(
-				abi.encodePacked("\x19\x01", domainSeparator, structHash)
-			);
+		bytes32 domainSeparator = keccak256(
+			abi.encode(
+				DOMAIN_TYPEHASH,
+				keccak256(bytes(name)),
+				getChainId(),
+				address(this)
+			)
+		);
+		bytes32 structHash = keccak256(
+			abi.encode(DELEGATION_TYPEHASH, _delegate, _nonce, _expiry)
+		);
+		bytes32 digest = keccak256(
+			abi.encodePacked("\x19\x01", domainSeparator, structHash)
+		);
 		address signatory = ecrecover(digest, _v, _r, _s);
 		require(
 			signatory != address(0),
@@ -474,12 +477,7 @@ contract GReputation is Reputation {
 
 		//move votes to new delegator
 		uint256 addVotes = getVotesAt(_delegate, false, block.number);
-		_updateDelegateVotes(
-			_delegate,
-			_user,
-			addVotes,
-			addVotes + coreBalance
-		);
+		_updateDelegateVotes(_delegate, _user, addVotes, addVotes + coreBalance);
 	}
 
 	/// @notice internal function to update delegated votes, emits event with changes
@@ -503,10 +501,50 @@ contract GReputation is Reputation {
 		address _user,
 		uint256 _balance,
 		bytes32 _root,
-		bytes32[] memory _proof
+		bytes32[] memory _proof,
+		uint256 _nodeIndex
 	) internal pure returns (bytes32 leafHash, bool isProofValid) {
 		leafHash = keccak256(abi.encode(_user, _balance));
-		isProofValid = MerkleProofUpgradeable.verify(_proof, _root, leafHash);
+		isProofValid = checkProofOrdered(_proof, _root, leafHash, _nodeIndex);
+	}
+
+	// from StorJ -- https://github.com/nginnever/storj-audit-verifier/blob/master/contracts/MerkleVerifyv3.sol
+	function checkProofOrdered(
+		bytes32[] memory _proof,
+		bytes32 _root,
+		bytes32 _hash,
+		uint256 _index
+	) public pure returns (bool) {
+		// use the index to determine the node ordering
+		// index ranges 1 to n
+
+		bytes32 proofElement;
+		bytes32 computedHash = _hash;
+		uint256 remaining;
+
+		for (uint256 j = 0; j < _proof.length; j++) {
+			proofElement = _proof[j];
+
+			// calculate remaining elements in proof
+			remaining = _proof.length - j;
+
+			// we don't assume that the tree is padded to a power of 2
+			// if the index is odd then the proof will start with a hash at a higher
+			// layer, so we have to adjust the index to be the index at that layer
+			while (remaining > 0 && _index % 2 == 1 && _index > 2**remaining) {
+				_index = _index / 2 + 1;
+			}
+
+			if (_index % 2 == 0) {
+				computedHash = keccak256(abi.encodePacked(proofElement, computedHash));
+				_index = _index / 2;
+			} else {
+				computedHash = keccak256(abi.encodePacked(computedHash, proofElement));
+				_index = _index / 2 + 1;
+			}
+		}
+
+		return computedHash == _root;
 	}
 
 	/// @notice helper function to get current chain id
