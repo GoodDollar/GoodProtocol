@@ -19,7 +19,7 @@ import {
   CompoundVotingMachine,
   ProtocolUpgrade,
   ProtocolUpgradeFuse,
-  NameService,
+  NameService
 } from "../../types";
 import { getFounders } from "../getFounders";
 import { fetchOrDeployProxyFactory } from "../fetchOrDeployProxyFactory";
@@ -30,7 +30,7 @@ import ProtocolSettings from "../../releases/deploy-settings.json";
 console.log({
   networkNames,
   network: network.name,
-  upgrade: process.env.UPGRADE,
+  upgrade: process.env.UPGRADE
 });
 const { name } = network;
 
@@ -47,7 +47,7 @@ export const main = async (networkName = name) => {
   const isMainnet = networkName.includes("mainnet");
   let protocolSettings = {
     ...ProtocolSettings["default"],
-    ...ProtocolSettings[networkName],
+    ...ProtocolSettings[networkName]
   };
   console.log(`networkName ${networkName}`);
   const dao = OldDAO[networkName];
@@ -83,8 +83,8 @@ export const main = async (networkName = name) => {
         (protocolSettings.compound != undefined &&
           protocolSettings.compound.compUsdOracle) ||
         dao.COMPUsdOracle,
-      swapPath: [],
-    },
+      swapPath: []
+    }
   ];
 
   const aaveTokens = [
@@ -95,13 +95,13 @@ export const main = async (networkName = name) => {
       aaveUsdOracle: protocolSettings.aave.aaveUsdOracle || dao.AAVEUsdOracle,
       swapPath: [
         get(protocolSettings, "aave.usdc", dao.USDC),
-        get(protocolSettings, "compound.dai", dao.DAI),
-      ],
-    },
+        get(protocolSettings, "compound.dai", dao.DAI)
+      ]
+    }
   ];
 
   let totalGas = 0;
-  const countTotalGas = async (tx) => {
+  const countTotalGas = async tx => {
     let res = tx;
     if (tx.deployTransaction) tx = tx.deployTransaction;
     if (tx.wait) res = await tx.wait();
@@ -133,8 +133,8 @@ export const main = async (networkName = name) => {
             "UNISWAP_ROUTER",
             "GAS_PRICE_ORACLE",
             "DAI_ETH_ORACLE",
-            "ETH_USD_ORACLE",
-          ].map((_) => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
+            "ETH_USD_ORACLE"
+          ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
           [
             controller,
             avatar,
@@ -153,11 +153,9 @@ export const main = async (networkName = name) => {
             !isMainnet ||
               dao.DAIEthOracle ||
               protocolSettings.chainlink.dai_eth,
-            !isMainnet ||
-              dao.ETHUsdOracle ||
-              protocolSettings.chainlink.eth_usd,
-          ],
-        ],
+            !isMainnet || dao.ETHUsdOracle || protocolSettings.chainlink.eth_usd
+          ]
+        ]
       },
       {
         network: "fuse",
@@ -169,10 +167,10 @@ export const main = async (networkName = name) => {
             "AVATAR",
             "IDENTITY",
             "GOODDOLLAR",
-            "BRIDGE_CONTRACT",
-          ].map((_) => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
-          [controller, avatar, dao.Identity, dao.GoodDollar, dao.HomeBridge],
-        ],
+            "BRIDGE_CONTRACT"
+          ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
+          [controller, avatar, dao.Identity, dao.GoodDollar, dao.HomeBridge]
+        ]
       },
       {
         network: "both",
@@ -182,17 +180,16 @@ export const main = async (networkName = name) => {
           () => get(release, "NameService", newdao.NameService),
           repStateId,
           protocolSettings.governance.gdaoAirdrop, //should fail on real deploy if not set
-          protocolSettings.governance.gdaoTotalSupply, //should fail on real deploy if not set
-        ],
+          protocolSettings.governance.gdaoTotalSupply //should fail on real deploy if not set
+        ]
       },
       {
         network: "both",
         name: "CompoundVotingMachine",
         args: [
           () => get(release, "NameService", newdao.NameService),
-          //TODO: make sure this changes by network
-          protocolSettings.governance.proposalVotingPeriod,
-        ],
+          protocolSettings.governance.proposalVotingPeriod
+        ]
       },
       {
         network: "mainnet",
@@ -200,8 +197,8 @@ export const main = async (networkName = name) => {
         args: [
           () => get(release, "NameService", newdao.NameService),
           protocolSettings.expansionRatio.nom,
-          protocolSettings.expansionRatio.denom,
-        ],
+          protocolSettings.expansionRatio.denom
+        ]
       },
       {
         network: "mainnet",
@@ -209,35 +206,35 @@ export const main = async (networkName = name) => {
         initializer: "initialize(address, bytes32)",
         args: [
           () => get(release, "NameService", newdao.NameService),
-          protocolSettings.gdxAirdrop,
-        ],
+          protocolSettings.gdxAirdrop
+        ]
       },
       {
         network: "mainnet",
         name: "ExchangeHelper",
         initializer: "initialize(address)",
-        args: [() => get(release, "NameService", newdao.NameService)],
+        args: [() => get(release, "NameService", newdao.NameService)]
       },
       {
         network: "mainnet",
         name: "GoodFundManager",
-        args: [() => get(release, "NameService", newdao.NameService)],
+        args: [() => get(release, "NameService", newdao.NameService)]
       },
       {
         network: "mainnet",
         name: "StakersDistribution",
-        args: [() => get(release, "NameService", newdao.NameService)],
+        args: [() => get(release, "NameService", newdao.NameService)]
       },
       {
         network: "fuse",
         name: "ClaimersDistribution",
-        args: [() => get(release, "NameService", newdao.NameService)],
+        args: [() => get(release, "NameService", newdao.NameService)]
       },
       {
         network: "fuse",
         name: "GovernanceStaking",
         args: [() => get(release, "NameService", newdao.NameService)],
-        isUpgradable: false,
+        isUpgradable: false
       },
       {
         network: "fuse",
@@ -246,42 +243,42 @@ export const main = async (networkName = name) => {
         args: [
           () => get(release, "NameService", newdao.NameService),
           dao.FirstClaimPool,
-          14,
-        ],
+          14
+        ]
       },
       {
         network: "mainnet",
         name: "ProtocolUpgrade",
         args: [dao.Controller],
         isUpgradable: false,
-        initializer: null,
+        initializer: null
       },
       {
         network: "fuse",
         name: "ProtocolUpgradeFuse",
         args: [dao.Controller],
-        isUpgradable: false,
+        isUpgradable: false
       },
       {
         network: "mainnet",
         name: "UniswapV2SwapHelper",
         args: [],
-        isUpgradable: false,
+        isUpgradable: false
       },
       {
         network: "mainnet",
         name: "CompoundStakingFactory",
         args: [],
         isUpgradable: false,
-        libraries: ["UniswapV2SwapHelper"],
+        libraries: ["UniswapV2SwapHelper"]
       },
       {
         network: "mainnet",
         name: "AaveStakingFactory",
         args: [],
         isUpgradable: false,
-        libraries: ["UniswapV2SwapHelper"],
-      },
+        libraries: ["UniswapV2SwapHelper"]
+      }
     ];
 
     for (let contract of toDeployUpgradable) {
@@ -309,18 +306,18 @@ export const main = async (networkName = name) => {
       }
 
       const args = await Promise.all(
-        contract.args.map(async (_) => await (isFunction(_) ? _() : _))
+        contract.args.map(async _ => await (isFunction(_) ? _() : _))
       );
 
       console.log(`deploying contract upgrade ${contract.name}`, {
         args,
-        release,
+        release
         // pf: ProxyFactory.factory.address
       });
       let opts = {};
       if (contract.libraries) {
         let libraries = {};
-        contract.libraries.forEach((l) => (libraries[l] = release[l]));
+        contract.libraries.forEach(l => (libraries[l] = release[l]));
         opts = { libraries };
       }
       const Contract = await ethers.getContractFactory(contract.name, opts);
@@ -331,7 +328,7 @@ export const main = async (networkName = name) => {
         deployed = await upgrades.deployProxy(Contract, args, {
           // proxyFactory: ProxyFactory,
           initializer: contract.initializer,
-          kind: "uups",
+          kind: "uups"
         });
       else deployed = await Contract.deploy(...args);
       deployed.deployed();
@@ -370,57 +367,57 @@ export const main = async (networkName = name) => {
 
     console.log("staking contracts result:", {
       StakingContracts,
-      DonationsStaking,
+      DonationsStaking
     });
     let res = Object.assign(newdao, release);
     await releaser(release, networkName);
     return res;
   };
 
-  const proveNewRep = async () => {
-    console.log("prooving new rep...");
-    if (networkName.includes("production") === false) {
-      const proofs = [
-        [
-          "0x23d8bd1cdfa398986bb91927d3011fb1ded1425b6ae3ff794e497235481fe57f",
-          "0xe4ac4e67088f036e8dc535fee10a3ad42065e444d2b0bd3668e0df21e1590db3",
-        ],
-        ["0x4c01c2c86a047dc65fc8ff0a1d9ac11842597af9a363711e4db7dcabcfda307b"],
-        [
-          "0x235dc3126b01e763befb96ead059e3f19d0380e65e477e6ebb95c1d9fc90e0b7",
-          "0xe4ac4e67088f036e8dc535fee10a3ad42065e444d2b0bd3668e0df21e1590db3",
-        ],
-      ];
-      let proofResults = await Promise.all(
-        founders.map((f, idx) =>
-          grep
-            .connect(f)
-            .proveBalanceOfAtBlockchain(repStateId, f.address, 100, proofs[idx])
-            .then((_) => _.wait())
-        )
-      );
-      console.log(
-        "proofs:",
-        proofResults.map((_) => _.events)
-      );
-    } else {
-      //prove foundation multi sig account
-      const proof = [];
-      const foundationAddress = protocolSettings.governance.foundationAddress;
-      let proofResult = await grep
-        .proveBalanceOfAtBlockchain(
-          repStateId,
-          foundationAddress,
-          12000000,
-          proof
-        )
-        .then((_) => _.wait());
+  // const proveNewRep = async () => {
+  //   console.log("prooving new rep...");
+  //   if (networkName.includes("production") === false) {
+  //     const proofs = [
+  //       [
+  //         "0x23d8bd1cdfa398986bb91927d3011fb1ded1425b6ae3ff794e497235481fe57f",
+  //         "0xe4ac4e67088f036e8dc535fee10a3ad42065e444d2b0bd3668e0df21e1590db3",
+  //       ],
+  //       ["0x4c01c2c86a047dc65fc8ff0a1d9ac11842597af9a363711e4db7dcabcfda307b"],
+  //       [
+  //         "0x235dc3126b01e763befb96ead059e3f19d0380e65e477e6ebb95c1d9fc90e0b7",
+  //         "0xe4ac4e67088f036e8dc535fee10a3ad42065e444d2b0bd3668e0df21e1590db3",
+  //       ],
+  //     ];
+  //     let proofResults = await Promise.all(
+  //       founders.map((f, idx) =>
+  //         grep
+  //           .connect(f)
+  //           .proveBalanceOfAtBlockchain(repStateId, f.address, 100, proofs[idx])
+  //           .then((_) => _.wait())
+  //       )
+  //     );
+  //     console.log(
+  //       "proofs:",
+  //       proofResults.map((_) => _.events)
+  //     );
+  //   } else {
+  //     //prove foundation multi sig account
+  //     const proof = [];
+  //     const foundationAddress = protocolSettings.governance.foundationAddress;
+  //     let proofResult = await grep
+  //       .proveBalanceOfAtBlockchain(
+  //         repStateId,
+  //         foundationAddress,
+  //         12000000,
+  //         proof
+  //       )
+  //       .then((_) => _.wait());
 
-      console.log("proofs:", proofResult.events);
-    }
-  };
+  //     console.log("proofs:", proofResult.events);
+  //   }
+  // };
 
-  const performUpgrade = async (release) => {
+  const performUpgrade = async release => {
     const isKovan = networkName.includes("kovan");
     const upgrade: ProtocolUpgrade = (await ethers.getContractAt(
       "ProtocolUpgrade",
@@ -429,7 +426,7 @@ export const main = async (networkName = name) => {
 
     console.log("performing protocol v2 upgrade on Mainnet...", {
       release,
-      dao,
+      dao
     });
     console.log("upgrading nameservice + staking rewards...");
     let tx;
@@ -444,7 +441,7 @@ export const main = async (networkName = name) => {
           ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKERS")),
           ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
           ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBI_RECIPIENT")),
-          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("EXCHANGE_HELPER")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("EXCHANGE_HELPER"))
         ],
         [
           release.GoodReserveCDai,
@@ -454,7 +451,7 @@ export const main = async (networkName = name) => {
           release.StakersDistribution,
           dao.ForeignBridge,
           isKovan ? root.address : newfusedao.UBIScheme, //fake for kovan
-          release.ExchangeHelper,
+          release.ExchangeHelper
         ],
         release.StakingContracts.map((_: any) => _[0]),
         release.StakingContracts.map((_: any) => _[1])
@@ -468,8 +465,8 @@ export const main = async (networkName = name) => {
         dao.Reserve,
         dao.MarketMaker,
         dao.FundManager,
-        dao.COMP,
-      ],
+        dao.COMP
+      ]
     });
     tx = await upgrade.upgradeReserve(
       release.NameService,
@@ -483,8 +480,8 @@ export const main = async (networkName = name) => {
       params: [
         release.NameService,
         dao.DonationsStaking, //old
-        release.DonationsStaking,
-      ],
+        release.DonationsStaking
+      ]
     });
     tx = await upgrade.upgradeDonationStaking(
       release.NameService,
@@ -513,7 +510,7 @@ export const main = async (networkName = name) => {
     }
   };
 
-  const performUpgradeFuse = async (release) => {
+  const performUpgradeFuse = async release => {
     const upgrade: ProtocolUpgradeFuse = (await ethers.getContractAt(
       "ProtocolUpgradeFuse",
       release.ProtocolUpgradeFuse
@@ -527,7 +524,7 @@ export const main = async (networkName = name) => {
         dao.SchemeRegistrar,
         dao.UpgradeScheme,
         dao.UBIScheme,
-        dao.FirstClaimPool,
+        dao.FirstClaimPool
       ],
       //new gov
       release.CompoundVotingMachine,
@@ -537,14 +534,14 @@ export const main = async (networkName = name) => {
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBISCHEME")),
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKING")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_CLAIMERS")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_CLAIMERS"))
       ],
       [
         release.GReputation,
         dao.HomeBridge,
         release.UBIScheme,
         release.GovernanceStaking,
-        release.ClaimersDistribution,
+        release.ClaimersDistribution
       ]
     );
 
@@ -564,7 +561,7 @@ export const main = async (networkName = name) => {
   };
 
   //give Avatar permissions to the upgrade process contract
-  const voteProtocolUpgrade = async (release) => {
+  const voteProtocolUpgrade = async release => {
     const Upgrade = release.ProtocolUpgrade || release.ProtocolUpgradeFuse;
 
     console.log(
@@ -591,9 +588,8 @@ export const main = async (networkName = name) => {
     await countTotalGas(proposal);
 
     console.log("proposal tx:", proposal.transactionHash);
-    let proposalId = proposal.events.find(
-      (_) => _.event === "NewSchemeProposal"
-    ).args._proposalId;
+    let proposalId = proposal.events.find(_ => _.event === "NewSchemeProposal")
+      .args._proposalId;
 
     console.log("proposal", { scheme: Upgrade, proposalId });
 
@@ -606,27 +602,25 @@ export const main = async (networkName = name) => {
 
     console.log("voteUpgradeScheme", {
       absoluteVote: dao.AbsoluteVote,
-      founders,
+      founders
     });
     await Promise.all(
-      founders.slice(0, Math.ceil(founders.length / 2)).map((f) =>
+      founders.slice(0, Math.ceil(founders.length / 2)).map(f =>
         absoluteVote
           .connect(f)
           .vote(proposalId, 1, 0, f.address, { gasLimit: 300000 })
-          .then((_) => countTotalGas(_.wait()))
-          .catch((e) =>
-            console.log("founder vote failed:", f.address, e.message)
-          )
+          .then(_ => countTotalGas(_.wait()))
+          .catch(e => console.log("founder vote failed:", f.address, e.message))
       )
     );
   };
 
-  const deployStakingContracts = async (release) => {
+  const deployStakingContracts = async release => {
     const isRopsten =
       networkName === "fuse-mainnet" || networkName === "staging-mainnet";
     console.log("deployStakingContracts", {
       factory: release.CompoundStakingFactory,
-      ns: release.NameService,
+      ns: release.NameService
     });
     const compfactory = await ethers.getContractAt(
       "CompoundStakingFactory",
@@ -636,7 +630,7 @@ export const main = async (networkName = name) => {
       "AaveStakingFactory",
       release.AaveStakingFactory
     );
-    const compps = compoundTokens.map(async (token) => {
+    const compps = compoundTokens.map(async token => {
       let rewardsPerBlock = protocolSettings.staking.rewardsPerBlock;
       console.log("deployStakingContracts", {
         token,
@@ -648,8 +642,8 @@ export const main = async (networkName = name) => {
           release.NameService,
           protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
           token.usdOracle,
-          token.compUsdOracle,
-        ],
+          token.compUsdOracle
+        ]
       });
       const tx = await (
         await compfactory.cloneAndInit(
@@ -662,7 +656,7 @@ export const main = async (networkName = name) => {
         )
       ).wait();
       countTotalGas(tx);
-      const log = tx.events.find((_) => _.event === "Deployed");
+      const log = tx.events.find(_ => _.event === "Deployed");
       if (!log.args.proxy)
         throw new Error(`staking contract deploy failed ${token}`);
       return [log.args.proxy, rewardsPerBlock];
@@ -674,13 +668,13 @@ export const main = async (networkName = name) => {
     // ];
     let deployed;
     if (!isRopsten) {
-      const aaveps = aaveTokens.map(async (token) => {
+      const aaveps = aaveTokens.map(async token => {
         let rewardsPerBlock = (protocolSettings.staking.rewardsPerBlock / 2) //aave gets half of the rewards
           .toFixed(0);
         console.log("deployStakingContracts", {
           token,
           settings: protocolSettings.staking,
-          rewardsPerBlock,
+          rewardsPerBlock
         });
         const tx = await (
           await aavefactory.cloneAndInit(
@@ -700,7 +694,7 @@ export const main = async (networkName = name) => {
           )
         ).wait();
         await countTotalGas(tx);
-        const log = tx.events.find((_) => _.event === "Deployed");
+        const log = tx.events.find(_ => _.event === "Deployed");
         if (!log.args.proxy)
           throw new Error(`staking contract deploy failed ${token}`);
         return [log.args.proxy, rewardsPerBlock];
@@ -720,7 +714,7 @@ export const main = async (networkName = name) => {
       await ethers.getContractFactory("DonationsStaking"),
       [release.NameService, deployed[0][0]],
       {
-        kind: "uups",
+        kind: "uups"
       }
     );
     await countTotalGas(deployedDonationsStaking);
@@ -731,7 +725,7 @@ export const main = async (networkName = name) => {
 
     return {
       DonationsStaking: deployedDonationsStaking.address,
-      StakingContracts: deployed,
+      StakingContracts: deployed
     };
 
     // return {
@@ -751,7 +745,7 @@ export const main = async (networkName = name) => {
   // await proveNewRep();
 };
 if (process.env.TEST != "true") {
-  main(name).catch((e) => {
+  main(name).catch(e => {
     console.log(e);
     throw e;
   });
