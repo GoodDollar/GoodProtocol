@@ -613,6 +613,10 @@ export const airdrop = (
     } else {
       if (onlyFailed) {
         addrs = JSON.parse(fs.readFileSync("airdrop/failed.tmp").toString());
+        console.log(
+          "existing failed",
+          addrs.map(addr => addresses[addr])
+        );
       } else {
         addrs = JSON.parse(fs.readFileSync("airdrop/addrs.tmp").toString());
       }
@@ -647,7 +651,9 @@ export const airdrop = (
     for (let addrChunk of chunk(addrs, 50)) {
       balancesPool.add(async () => {
         const ps = addrChunk.map(async uAddress => {
-          const curBalance = get(addresses, `${uAddress}.balance`, 0);
+          const curBalance = onlyFailed
+            ? 0
+            : get(addresses, `${uAddress}.balance`, 0);
           const isNotContract = get(
             addresses,
             `${uAddress}.isNotContract`,
@@ -657,8 +663,11 @@ export const airdrop = (
           const balance = await gd
             .balanceOf(uAddress)
             .then(_ => _.toNumber(), { blockTag: FUSE_SNAPSHOT_BLOCK })
-            .catch(e => failed.push(uAddress));
-          const claims = get(uAddress, "claims", 0) + 1;
+            .catch(e => {
+              failed.push(uAddress);
+              return 0;
+            });
+
           addresses[uAddress] = updateBalance(addresses[uAddress], {
             balance: curBalance + balance,
             isNotContract
@@ -672,7 +681,8 @@ export const airdrop = (
 
     await balancesPool.all();
     console.log("fuseHolders failed:", failed.length);
-    fs.writeFileSync("airdrop/failed.tmp", JSON.stringify(failed));
+    if (!onlyFailed)
+      fs.writeFileSync("airdrop/failed.tmp", JSON.stringify(failed));
     return addresses;
   };
 
@@ -929,6 +939,9 @@ export const airdrop = (
     //     fs.writeFileSync("fuseBalances.json", JSON.stringify(r))
     //   ));
 
+    // const balances = JSON.parse(
+    //   fs.readFileSync("airdrop/fuseBalances.json").toString()
+    // );
     ps[4] = _timer(
       "getFuseHolders",
       getFuseHolders({}).then(r =>
@@ -994,7 +1007,7 @@ export const airdrop = (
       "0x61ec01ad0937ebc10d448d259a2bbb1556b61e38"
     ];
     const EtoroOfficial =
-      "0xf79b804bae955ae4cd8e8b0331c4bc437104804f".toLowerCase();
+      "0x61ec01ad0937ebc10d448d259a2bbb1556b61e38".toLowerCase();
     const FoundationOfficial =
       "0x66582D24FEaD72555adaC681Cc621caCbB208324".toLowerCase();
 
@@ -1014,7 +1027,9 @@ export const airdrop = (
       "0x18C0416357937cf576e8277e3C3d806095D071B7",
       "0x7982D1883d43B2EF4a341fCFffc5e72f9e8D365b",
       "0x2CD2645dAe0ebC45642d131E4be1ea9e0Dc28e4A",
-      "0xdBB617A5E3e21695058Ae4AbfAe4f2793775D3E3"
+      "0xdBB617A5E3e21695058Ae4AbfAe4f2793775D3E3",
+      "0x647481c033A4A2E816175cE115a0804adf793891",
+      "0x3abdC9ed5f5dE6A74CFeb42a82087C853E160E76"
     ].map(_ => _.toLowerCase());
 
     const eToroRep = ETORO.map(addr => {
@@ -1191,6 +1206,7 @@ export const airdrop = (
   };
 
   const getProof = addr => {
+    addr = addr.toLowerCase();
     const { treeData, merkleRoot } = JSON.parse(
       fs.readFileSync("airdrop/airdrop.json").toString()
     );

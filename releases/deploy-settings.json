@@ -167,15 +167,15 @@
   },
   "production": {
     "governance": {
-      "gdaoAirdrop": null,
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "96000000000000000000000000",
       "proposalVotingPeriod": 241920
     }
   },
   "production-mainnet": {
-    "gdxAirdrop": null,
+    "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
     "governance": {
-      "gdaoAirdrop": null,
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "96000000000000000000000000",
       "proposalVotingPeriod": 80640
     },
