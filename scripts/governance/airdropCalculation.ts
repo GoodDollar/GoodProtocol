@@ -86,18 +86,27 @@ const quantile = (sorted, q) => {
   return sum;
 };
 
-let FUSE_SNAPSHOT_BLOCK = 12000000;
-let ETH_SNAPSHOT_BLOCK = 12000000;
+let FUSE_SNAPSHOT_BLOCK = 13175510; //September-29-2021 03:00:00 PM +3 UTC
+let ETH_SNAPSHOT_BLOCK = 13320531; //first blocka after 12pm Sep-29-2021 12:00:20 PM +UTC
 
 export const airdrop = (
   ethers: typeof Ethers,
   ethplorer_key,
   etherscan_key
 ) => {
+  const fusePoktProvider = new ethers.providers.JsonRpcProvider({
+    url: "https://fuse-mainnet.gateway.pokt.network/v1/lb/60ee374fc6318362996a1fb0",
+    user: "",
+    password: "d57939c260bdf0a6f22550e2350b4312" //end point will be removed, so its ok to keep clear text password
+  });
+
   const fuseProvider = new ethers.providers.JsonRpcProvider(
     "https://rpc.fuse.io"
   );
 
+  const fuseGDProvider = new ethers.providers.JsonRpcProvider(
+    "https://gooddollar-rpc.fuse.io"
+  );
   const fuseArchiveProvider = new ethers.providers.JsonRpcBatchProvider(
     "https://explorer-node.fuse.io/"
   );
@@ -553,40 +562,61 @@ export const airdrop = (
     return addresses;
   };
 
-  const getFuseHolders = async (addresses: Balances = {}) => {
+  const getFuseHolders = async (
+    addresses: Balances = {},
+    onlyBalances = false,
+    onlyFailed = false
+  ) => {
+    console.log(
+      "getFuseHolders",
+      { onlyBalances, onlyFailed },
+      Object.keys(addresses).length
+    );
     const toFetch = {};
 
     const step = 1000;
     const gdNonArchive = gd.connect(fuseProvider);
 
+    const contracts = [gdNonArchive, gd.connect(fuseGDProvider)];
     const latestBlock = FUSE_SNAPSHOT_BLOCK; //await ubiContract.provider.getBlockNumber();
     const blocks = range(6400000, latestBlock, step);
     const filter = gdNonArchive.filters.Transfer();
 
-    const pool = new PromisePool({ concurrency: 50 });
+    const pool = new PromisePool({ concurrency: 70 });
+    let addrs;
 
-    blocks.forEach(bc => {
-      pool.add(async () => {
-        const options = { limit: 20, delay: 2000 };
-        const retrier = new Retrier(options);
-        // Query the filter (the latest could be omitted)
-        const logs = await retrier.resolve(attempt => {
-          console.log("fetching block transfer logs", { attempt, bc });
+    let idx = 0;
+    if (!onlyBalances) {
+      blocks.forEach(bc => {
+        pool.add(async () => {
+          const options = { limit: 20, delay: 2000 };
+          const retrier = new Retrier(options);
+          // Query the filter (the latest could be omitted)
+          const logs = await retrier.resolve(attempt => {
+            console.log("fetching block transfer logs", { attempt, bc });
 
-          return gdNonArchive.queryFilter(
-            filter,
-            bc,
-            Math.min(bc + step - 1, latestBlock)
-          );
+            return contracts[idx++ % contracts.length].queryFilter(
+              filter,
+              bc,
+              Math.min(bc + step - 1, latestBlock)
+            );
+          });
+
+          logs.forEach(l => (toFetch[l.args.to.toLowerCase()] = true));
+          console.log("found Transfer logs in block:", { bc }, logs.length);
         });
-
-        logs.forEach(l => (toFetch[l.args.to.toLowerCase()] = true));
-        console.log("found Transfer logs in block:", { bc }, logs.length);
       });
-    });
 
-    await pool.all();
-
+      await pool.all();
+      addrs = Object.keys(toFetch);
+      fs.writeFileSync("airdrop/addrs.tmp", JSON.stringify(addrs));
+    } else {
+      if (onlyFailed) {
+        addrs = JSON.parse(fs.readFileSync("airdrop/failed.tmp").toString());
+      } else {
+        addrs = JSON.parse(fs.readFileSync("airdrop/addrs.tmp").toString());
+      }
+    }
     // for (let blockChunk of chunk(blocks, 30)) {
     //   // Get the filter (the second null could be omitted)
     //   const ps = blockChunk.map(async bc => {
@@ -607,12 +637,13 @@ export const airdrop = (
     //   });
     //   await Promise.all(ps);
     // }
-    const addrs = Object.keys(toFetch);
+
     console.log("found G$ holders, fetching balacnes...:", addrs.length);
-    // Print out all the values:
+
     let fetched = 0;
     const balancesPool = new PromisePool({ concurrency: 10 });
 
+    let failed = [];
     for (let addrChunk of chunk(addrs, 50)) {
       balancesPool.add(async () => {
         const ps = addrChunk.map(async uAddress => {
@@ -625,7 +656,8 @@ export const airdrop = (
           );
           const balance = await gd
             .balanceOf(uAddress)
-            .then(_ => _.toNumber(), { blockTag: FUSE_SNAPSHOT_BLOCK });
+            .then(_ => _.toNumber(), { blockTag: FUSE_SNAPSHOT_BLOCK })
+            .catch(e => failed.push(uAddress));
           const claims = get(uAddress, "claims", 0) + 1;
           addresses[uAddress] = updateBalance(addresses[uAddress], {
             balance: curBalance + balance,
@@ -637,7 +669,10 @@ export const airdrop = (
         console.log("fetched fuse balances:", fetched);
       });
     }
+
     await balancesPool.all();
+    console.log("fuseHolders failed:", failed.length);
+    fs.writeFileSync("airdrop/failed.tmp", JSON.stringify(failed));
     return addresses;
   };
 
@@ -778,12 +813,21 @@ export const airdrop = (
     balances: Balances = {},
     ubiContract = ubi
   ) => {
+    const ubiFuse = ubiContract.connect(fuseProvider);
+    const ubiPokt = ubiContract.connect(fusePoktProvider);
+    const ubiGD = ubiContract.connect(fuseGDProvider);
+
     const pool = new PromisePool({ concurrency: 50 });
     const step = 1000;
     const latestBlock = FUSE_SNAPSHOT_BLOCK; //await ubiContract.provider.getBlockNumber();
-    const blocks = range(6400000, latestBlock, step);
+    const blocks = range(
+      ubiContract === ubi ? 6276288 : 9376522,
+      ubiContract === ubi ? 9497482 : latestBlock,
+      step
+    );
     const filter = ubiContract.filters.UBIClaimed();
-
+    const contracts = [ubiFuse, ubiGD];
+    let idx = 0;
     blocks.forEach(bc => {
       pool.add(async () => {
         const options = { limit: 20, delay: 2000 };
@@ -792,7 +836,7 @@ export const airdrop = (
         const logs = await retrier.resolve(attempt => {
           console.log("fetching block ubiclaimed logs", { attempt, bc });
 
-          return ubiContract.queryFilter(
+          return contracts[idx++ % contracts.length].queryFilter(
             filter,
             bc,
             Math.min(bc + step - 1, latestBlock)
@@ -803,7 +847,7 @@ export const airdrop = (
         // Print out all the values:
         logs.map(log => {
           const uAddress = log.args.from.toLowerCase();
-          const claims = get(uAddress, "claims", 0) + 1;
+          const claims = get(balances, `${uAddress}.claims`, 0) + 1;
           balances[uAddress] = updateBalance(balances[uAddress], {
             claims
           });
@@ -834,12 +878,8 @@ export const airdrop = (
   };
 
   const collectAirdropData = async (fuseBlock, ethBlock) => {
-    FUSE_SNAPSHOT_BLOCK = parseInt(
-      fuseBlock || (await fuseArchiveProvider.getBlockNumber())
-    );
-    ETH_SNAPSHOT_BLOCK = parseInt(
-      ethBlock || (await poktArchiveProvider.getBlockNumber())
-    );
+    FUSE_SNAPSHOT_BLOCK = parseInt(fuseBlock || FUSE_SNAPSHOT_BLOCK);
+    ETH_SNAPSHOT_BLOCK = parseInt(ethBlock || ETH_SNAPSHOT_BLOCK);
 
     console.log({
       FUSE_SNAPSHOT_BLOCK,
@@ -855,42 +895,51 @@ export const airdrop = (
       getFuseSwapBalances(
         "https://graph.fuse.io/subgraphs/name/fuseio/fuseswap",
         GD_FUSE
-      ).then(r => fs.writeFileSync("fuseswapBalances.json", JSON.stringify(r)))
+      ).then(r =>
+        fs.writeFileSync("airdrop/fuseswapBalances.json", JSON.stringify(r))
+      )
     );
+
     ps[1] = _timer(
       "getUniswapBalances",
       getUniswapBalances().then(r =>
-        fs.writeFileSync("uniswapBalances.json", JSON.stringify(r))
+        fs.writeFileSync("airdrop/uniswapBalances.json", JSON.stringify(r))
       )
     );
+
     ps[2] = _timer(
       "getClaimsPerAddress",
       getClaimsPerAddress()
         .then(r => getClaimsPerAddress(r, ubinew))
-        .then(r => fs.writeFileSync("claimBalances.json", JSON.stringify(r)))
+        .then(r =>
+          fs.writeFileSync("airdrop/claimBalances.json", JSON.stringify(r))
+        )
     );
+
     ps[3] = _timer(
       "getEthPlorerHolders",
       getEthPlorerHolders().then(r =>
-        fs.writeFileSync("ethBalances.json", JSON.stringify(r))
+        fs.writeFileSync("airdrop/ethBalances.json", JSON.stringify(r))
       )
     );
+
     // ps[4] = _timer(
     //   "getBlockScoutHolders",
     //   getBlockScoutHolders().then(r =>
     //     fs.writeFileSync("fuseBalances.json", JSON.stringify(r))
     //   ));
+
     ps[4] = _timer(
       "getFuseHolders",
-      getFuseHolders().then(r =>
-        fs.writeFileSync("fuseBalances.json", JSON.stringify(r))
+      getFuseHolders({}).then(r =>
+        fs.writeFileSync("airdrop/fuseBalances.json", JSON.stringify(r))
       )
     );
 
     ps[5] = _timer(
       "getStakersBalance",
       getStakersBalance().then(r =>
-        fs.writeFileSync("stakersBalances.json", JSON.stringify(r))
+        fs.writeFileSync("airdrop/stakersBalances.json", JSON.stringify(r))
       )
     );
 
@@ -901,13 +950,15 @@ export const airdrop = (
     // const files = ["test/testnetBalances.json"].map(f =>
     //   JSON.parse(fs.readFileSync(f).toString())
     // );
+
+    const folder = "airdrop";
     const files = [
-      "claimBalances.json",
-      "ethBalances.json",
-      "fuseBalances.json",
-      "uniswapBalances.json",
-      "fuseswapBalances.json",
-      "stakersBalances.json"
+      `${folder}/claimBalances.json`,
+      `${folder}/ethBalances.json`,
+      `${folder}/fuseBalances.json`,
+      `${folder}/uniswapBalances.json`,
+      `${folder}/fuseswapBalances.json`,
+      `${folder}/stakersBalances.json`
     ].map(f => JSON.parse(fs.readFileSync(f).toString()));
 
     const merge = (obj1, obj2, key) => {
@@ -927,28 +978,124 @@ export const airdrop = (
 
     const data: Balances = mergeWith(files[0], ...files.slice(1), merge);
 
+    //switch shoppingio wallet
+    const shoppingio = data["0x2a18975b0bc72e28e09381cae19451aaaf4b771b"];
+    delete data["0x2a18975b0bc72e28e09381cae19451aaaf4b771b"];
+    data["0xAA0ded62E992F8FE5Dd184fCa9B468C6060f9683"] = shoppingio;
+
     let { totalSupply, totalClaims, balances } = calcRelativeRep(data);
 
     const CLAIMER_REP_ALLOCATION = 48000000;
     const HOLDER_REP_ALLOCATION = 24000000;
     const STAKER_REP_ALLOCATION = 24000000;
 
-    let toTree: Array<[string, number, boolean]> = Object.entries(balances).map(
-      ([addr, data]) => {
-        let rep =
-          data.claimRepShare * CLAIMER_REP_ALLOCATION +
-          data.gdRepShare * HOLDER_REP_ALLOCATION +
-          data.stakeRepShare * STAKER_REP_ALLOCATION;
+    const ETORO = [
+      "0xf79b804bae955ae4cd8e8b0331c4bc437104804f",
+      "0x61ec01ad0937ebc10d448d259a2bbb1556b61e38"
+    ];
+    const EtoroOfficial =
+      "0xf79b804bae955ae4cd8e8b0331c4bc437104804f".toLowerCase();
+    const FoundationOfficial =
+      "0x66582D24FEaD72555adaC681Cc621caCbB208324".toLowerCase();
 
-        return [addr, rep, data.isNotContract];
+    const TEAM = [
+      "0x5AeE2397b39B479B72bcfbDA114512BD3329E5aC",
+      "0x330a78895b150007d1c00a471202ce0A9df046f2",
+      "0x642ADC7965938D649192FF634e5Ab40df728b1bB",
+      "0xA8Eb8eFeAcF45623816Eb2D1B1653BAC4245a358",
+      "0x18C532F20C3a916b3989fCe4A3C6693F936a16C6",
+      "0xA5eb500FcD5f85d30b38A84B433F343F100267d9",
+      "0x9BA0721F9a83A8d90bA52Eaa1799ec08d164B7A0",
+      "0xEFe1890bE2AAdaDF74FE3EaE72904Bd2FC926A63",
+      "0xA48840D89a761502A4a7d995c74f3864D651A87F",
+      "0x884e76001F9A807E0bA3b6d4574539D2FC0fcC4f",
+      "0x75A57224f7b7380b92B0e04f7358775203058Eb2",
+      "0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4",
+      "0x18C0416357937cf576e8277e3C3d806095D071B7",
+      "0x7982D1883d43B2EF4a341fCFffc5e72f9e8D365b",
+      "0x2CD2645dAe0ebC45642d131E4be1ea9e0Dc28e4A",
+      "0xdBB617A5E3e21695058Ae4AbfAe4f2793775D3E3"
+    ].map(_ => _.toLowerCase());
+
+    const eToroRep = ETORO.map(addr => {
+      const data = balances[addr];
+      console.log("Found eToro record for redistribution", data);
+      let rep =
+        data.claimRepShare * CLAIMER_REP_ALLOCATION +
+        data.gdRepShare * HOLDER_REP_ALLOCATION +
+        data.stakeRepShare * STAKER_REP_ALLOCATION;
+      return rep;
+    }).reduce((acc, rep) => acc + rep, 0);
+
+    ETORO.forEach(addr => delete balances[addr]);
+
+    let toTree: Array<
+      [string, number, boolean, number, number, number, number]
+    > = Object.entries(balances).map(([addr, data]) => {
+      let rep =
+        data.claimRepShare * CLAIMER_REP_ALLOCATION +
+        data.gdRepShare * HOLDER_REP_ALLOCATION +
+        data.stakeRepShare * STAKER_REP_ALLOCATION;
+
+      return [
+        addr,
+        rep,
+        !data.isNotContract,
+        data.claimRepShare * CLAIMER_REP_ALLOCATION,
+        data.gdRepShare * HOLDER_REP_ALLOCATION,
+        data.stakeRepShare * STAKER_REP_ALLOCATION,
+        0
+      ];
+    });
+
+    //split etoro's rep between team,etoro and foundation
+    const foundationEtoroRepShare = 8640000;
+    const teamRepShare = (eToroRep - 8640000 * 2) / TEAM.length;
+    const foundationRecord = toTree.find(x => x[0] === FoundationOfficial);
+    foundationRecord[1] += foundationEtoroRepShare;
+    foundationRecord[6] = foundationEtoroRepShare;
+    console.log("Foundation updated record:", foundationRecord);
+
+    const etoroRecord: [
+      string,
+      number,
+      boolean,
+      number,
+      number,
+      number,
+      number
+    ] = [
+      EtoroOfficial,
+      foundationEtoroRepShare,
+      false,
+      0,
+      0,
+      0,
+      foundationEtoroRepShare
+    ];
+
+    console.log("eToro updated record:", etoroRecord);
+
+    toTree.push(etoroRecord);
+
+    TEAM.forEach(addr => {
+      let record = toTree.find(x => x[0] === addr);
+      if (!record) {
+        record = [addr, 0, false, 0, 0, 0, 0];
+        toTree.push(record);
+        console.log("added TEAM missing record:", addr);
       }
-    );
+      record[1] += teamRepShare;
+      record[6] = teamRepShare;
+      console.log("TEAM updated record:", record);
+    });
+
     toTree = sortBy(toTree, "1")
       .reverse()
       .filter(x => x[1] > 0);
 
     console.log({ toTree });
-    const topContracts = toTree.filter(_ => _[2] === false);
+    const topContracts = toTree.filter(_ => _[2] === true);
     const totalReputationAirdrop = toTree.reduce((c, a) => c + a[1], 0);
     console.log({
       topContracts,
@@ -959,7 +1106,7 @@ export const airdrop = (
     });
 
     const sorted = toTree.map(_ => _[1]);
-    fs.writeFileSync("reptree.json", JSON.stringify(toTree));
+    fs.writeFileSync(`${folder}/reptree.json`, JSON.stringify(toTree));
     console.log("Reputation Distribution");
     [0.001, 0.01, 0.1, 0.5].forEach(q =>
       console.log({
@@ -1032,12 +1179,20 @@ export const airdrop = (
       proofFor: toTree[0],
       lastProofFor: toTree[toTree.length - 1]
     });
-    fs.writeFileSync("airdrop.json", JSON.stringify({ treeData, merkleRoot }));
+    fs.writeFileSync(
+      `${folder}/airdrop.json`,
+      JSON.stringify({
+        treeData,
+        merkleRoot,
+        ETH_SNAPSHOT_BLOCK,
+        FUSE_SNAPSHOT_BLOCK
+      })
+    );
   };
 
   const getProof = addr => {
     const { treeData, merkleRoot } = JSON.parse(
-      fs.readFileSync("airdrop.json").toString()
+      fs.readFileSync("airdrop/airdrop.json").toString()
     );
 
     let entries = Object.entries(treeData as Tree);

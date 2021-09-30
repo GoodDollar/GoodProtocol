@@ -21,6 +21,8 @@ const quantile = (sorted, q) => {
   return sum;
 };
 
+let ETH_SNAPSHOT_BLOCK = 13320531; //first blocka after 12pm Sep-29-2021 12:00:20 PM +UTC
+
 export const airdrop = (ethers: typeof Ethers, ethSnapshotBlock) => {
   const getBuyingAddresses = async (addresses = {}, isContracts = {}) => {
     const provider = new ethers.providers.InfuraProvider();
@@ -43,9 +45,7 @@ export const airdrop = (ethers: typeof Ethers, ethSnapshotBlock) => {
     swaphelper = swaphelper.connect(provider);
 
     const step = 100000;
-    const snapshotBlock = parseInt(
-      ethSnapshotBlock || (await provider.getBlockNumber())
-    );
+    const snapshotBlock = parseInt(ethSnapshotBlock || ETH_SNAPSHOT_BLOCK);
     // const blocks = range(startBlock, endBlock, step);
     const blocks = range(10575670, snapshotBlock, step);
     const filter = reserve.filters.TokenPurchased();
@@ -117,13 +117,13 @@ export const airdrop = (ethers: typeof Ethers, ethSnapshotBlock) => {
 
   const collectAirdropData = async () => {
     return getBuyingAddresses().then(r =>
-      fs.writeFileSync("buyBalances.json", JSON.stringify(r))
+      fs.writeFileSync("airdrop/buyBalances.json", JSON.stringify(r))
     );
   };
 
   const buildMerkleTree = () => {
     const { addresses, isContracts } = JSON.parse(
-      fs.readFileSync("buyBalances.json").toString()
+      fs.readFileSync("airdrop/buyBalances.json").toString()
       // fs.readFileSync("test/gdx_airdrop_test.json").toString()
     );
     let toTree: Array<[string, number]> = Object.entries(addresses).map(
@@ -133,11 +133,12 @@ export const airdrop = (ethers: typeof Ethers, ethSnapshotBlock) => {
     );
 
     toTree = sortBy(toTree, "1").reverse();
-
+    const totalGDX = toTree.reduce((acc, v) => acc + v[1], 0);
     console.log({
       isContracts,
       toTree,
-      numberOfAccounts: toTree.length
+      numberOfAccounts: toTree.length,
+      totalGDX
     });
 
     const sorted = toTree.map(_ => _[1]);
@@ -174,21 +175,21 @@ export const airdrop = (ethers: typeof Ethers, ethSnapshotBlock) => {
     const proof = merkleTree.getProof(elements[0]).map(_ => _.toString("hex"));
     console.log({ merkleRoot, proof, sampleProofFor: toTree[0] });
     fs.writeFileSync(
-      "gdxairdrop.json",
+      "airdrop/gdxairdrop.json",
       JSON.stringify({ treeData, merkleRoot })
     );
   };
 
   const getProof = addr => {
     const { treeData, merkleRoot } = JSON.parse(
-      fs.readFileSync("gdxairdrop.json").toString()
+      fs.readFileSync("airdrop/gdxairdrop.json").toString()
     );
 
     const elements = Object.entries(treeData as Tree).map(e =>
       Buffer.from(e[1].hash.slice(2), "hex")
     );
 
-    const merkleTree = new MerkleTree(elements, true);
+    const merkleTree = new MerkleTree(elements, false);
     const proof = merkleTree
       .getProof(Buffer.from(treeData[addr].hash.slice(2), "hex"))
       .map(_ => "0x" + _.toString("hex"));
