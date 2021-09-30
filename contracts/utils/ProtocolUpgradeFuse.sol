@@ -127,6 +127,16 @@ contract ProtocolUpgradeFuse {
 		);
 
 		require(
+			controller.registerScheme(
+				owner,
+				bytes32(0x0),
+				bytes4(0x0000001F),
+				avatar
+			),
+			"registering gov failsafe failed"
+		);
+
+		require(
 			controller.unregisterSelf(avatar),
 			"unregistering ProtocolUpgradeFuse failed"
 		);
