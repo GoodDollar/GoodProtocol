@@ -165,8 +165,18 @@
     },
     "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
   },
-  "production-mainnet": {
+  "production": {
     "governance": {
+      "gdaoAirdrop": null,
+      "gdaoTotalSupply": "96000000000000000000000000",
+      "proposalVotingPeriod": 241920
+    }
+  },
+  "production-mainnet": {
+    "gdxAirdrop": null,
+    "governance": {
+      "gdaoAirdrop": null,
+      "gdaoTotalSupply": "96000000000000000000000000",
       "proposalVotingPeriod": 80640
     },
     "bancor": "0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a",
