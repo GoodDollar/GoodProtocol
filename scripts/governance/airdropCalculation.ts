@@ -1206,7 +1206,6 @@ export const airdrop = (
   };
 
   const getProof = addr => {
-    addr = addr.toLowerCase();
     const { treeData, merkleRoot } = JSON.parse(
       fs.readFileSync("airdrop/airdrop.json").toString()
     );
@@ -1223,7 +1222,7 @@ export const airdrop = (
       calculated: calcMerkleRoot
     });
 
-    const addrData = treeData[addr];
+    const addrData = treeData[addr] || treeData[addr.toLowerCase()];
     const proofFor = Buffer.from(addrData.hash.slice(2), "hex");
 
     const proof = merkleTree.getProof(proofFor);
@@ -1234,7 +1233,7 @@ export const airdrop = (
       checkProofOrdered(proof, merkleTree.getRoot(), proofFor, proofIndex)
     );
     const hexProof = proof.map(_ => "0x" + _.toString("hex"));
-    console.log({ proofIndex, proof: hexProof, [addr]: treeData[addr] });
+    console.log({ proofIndex, proof: hexProof, [addr]: addrData });
   };
 
   return { buildMerkleTree, collectAirdropData, getProof };
