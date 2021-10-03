@@ -36,7 +36,7 @@ const states = [
   "Defeated",
   "Succeeded",
   "Expired",
-  "Executed",
+  "Executed"
 ];
 
 describe("CompoundVotingMachine#Guardian", () => {
@@ -63,7 +63,7 @@ describe("CompoundVotingMachine#Guardian", () => {
       setDAOAddress,
       genericCall,
       nameService: ns,
-      votingMachine,
+      votingMachine
     } = await createDAO();
 
     Controller = controller;
@@ -87,7 +87,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     await grep.mint(root.address, ethers.BigNumber.from("1000000"));
     await grep.mint(acct.address, ethers.BigNumber.from("500000"));
 
-    queuePeriod = await gov.queuePeriod().then((_) => _.toNumber());
+    queuePeriod = await gov.queuePeriod().then(_ => _.toNumber());
 
     let mockABI = ["function rec() payable"];
     mock = await deployMockContract(root, mockABI);
@@ -106,7 +106,7 @@ describe("CompoundVotingMachine#Guardian", () => {
 
   it("Should not be able to change guardian before foundation release time by avatar", async () => {
     const encoded = gov.interface.encodeFunctionData("setGuardian", [
-      acct.address,
+      acct.address
     ]);
     await avatarGenericCall(gov.address, encoded);
     expect(await gov.guardian()).to.equal(root.address);
@@ -128,7 +128,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     await increaseTime(60 * 60 * 24 * 365 * 2);
 
     const encoded = gov.interface.encodeFunctionData("setGuardian", [
-      acct.address,
+      acct.address
     ]);
     await avatarGenericCall(gov.address, encoded);
     expect(await gov.guardian()).to.equal(acct.address);
@@ -154,7 +154,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     expect(await gov2.guardian()).to.equal(ethers.constants.AddressZero);
 
     const encoded = gov2.interface.encodeFunctionData("setGuardian", [
-      acct.address,
+      acct.address
     ]);
     await avatarGenericCall(gov2.address, encoded);
     expect(await gov2.guardian()).to.equal(acct.address);
@@ -170,7 +170,7 @@ describe("CompoundVotingMachine#Guardian", () => {
 
     //new guardian signers[1]
     const encoded = gov.interface.encodeFunctionData("setGuardian", [
-      signers[1].address,
+      signers[1].address
     ]);
     await avatarGenericCall(gov.address, encoded);
 
@@ -186,5 +186,36 @@ describe("CompoundVotingMachine#Guardian", () => {
 
     await gov.connect(signers[1]).cancel(proposalId);
     expect(states[await gov.state(proposalId)]).to.equal("Canceled");
+    await grep.delegateTo(root.address); //delegate back our votes
+
+  });
+
+  it("Should be able to pass proposal to change guardian", async () => {
+    console.log(
+      grep.address,
+      await grep.totalSupply().then(_ => _.toString()),
+      await (await grep.getVotes(root.address)).toString(),
+      await (await grep.balanceOf(root.address)).toString(),
+      await gov.rep()
+    );
+    let targets = [gov.address];
+    let values = ["0"];
+    let signatures = ["setGuardian(address)"];
+    let callDatas = [encodeParameters(["address"], [signers[1].address])];
+
+    await gov
+      .connect(root)
+      .propose(targets, values, signatures, callDatas, "set guardian");
+    let proposalBlock = +(await ethers.provider.getBlockNumber());
+    let proposalId = await gov.latestProposalIds(root.address);
+    await advanceBlocks(1);
+    await gov.connect(root).castVote(proposalId, true);
+    await increaseTime(queuePeriod);
+    expect(states[await gov.state(proposalId)]).to.equal("Succeeded");
+    await gov.execute(proposalId);
+    expect(states[await gov.state(proposalId)]).to.equal("Executed");
+
+    //acct should now have 1M after proposal minted rep
+    expect(await gov.guardian()).to.equal(signers[1].address);
   });
 });
