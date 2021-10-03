@@ -18,6 +18,8 @@ contract DonationsStaking is DAOUpgradeableContract {
 	Uniswap public uniswap;
 	bool public active;
 	uint256 public totalETHDonated;
+	//max percentage of weth/token pool liquidity 
+	uint24 public maxLiquidityPercentageSwap = 300; //0.3%
 	mapping(address => uint256) public totalStakingTokensDonated;
 	event DonationStaked(
 		address caller,
@@ -49,15 +51,14 @@ contract DonationsStaking is DAOUpgradeableContract {
 	 * @dev stake available funds. It
 	 * take balance in eth and buy stakingToken from uniswap then stake outstanding StakingToken balance.
 	 * anyone can call this.
-	 * @param _minStakingTokenAmount enforce expected return from uniswap when converting eth balance to StakingToken
 	 */
-	function stakeDonations(uint256 _minStakingTokenAmount)
+	function stakeDonations()
 		public
 		payable
 		isActive
 	{
 		uint256 stakingTokenDonated = stakingToken.balanceOf(address(this));
-		uint256 ethDonated = _buyStakingToken(_minStakingTokenAmount);
+		uint256 ethDonated = _buyStakingToken();
 
 		uint256 stakingTokenBalance = stakingToken.balanceOf(address(this));
 		require(stakingTokenBalance > 0, "no stakingToken to stake");
@@ -85,10 +86,9 @@ contract DonationsStaking is DAOUpgradeableContract {
 
 	/**
 	 * @dev internal method to buy stakingToken from uniswap
-	 * @param _minStakingTokenAmount enforce expected return from uniswap when converting eth balance to StakingToken
 	 * @return eth value converted
 	 */
-	function _buyStakingToken(uint256 _minStakingTokenAmount)
+	function _buyStakingToken()
 		internal
 		returns (uint256)
 	{
@@ -98,8 +98,9 @@ contract DonationsStaking is DAOUpgradeableContract {
 		address[] memory path = new address[](2);
 		path[0] = uniswap.WETH();
 		path[1] = address(stakingToken);
-		uniswap.swapExactETHForTokens{ value: ethBalance }(
-			_minStakingTokenAmount,
+		uint safeAmount = maxSafeTokenAmount(ethBalance);
+		uniswap.swapExactETHForTokens{ value: safeAmount }(
+			0,
 			path,
 			address(this),
 			block.timestamp
@@ -152,5 +153,31 @@ contract DonationsStaking is DAOUpgradeableContract {
 		stakingContract = SimpleStaking(_stakingContract);
 		stakingToken = stakingContract.token();
 		stakingToken.approve(address(stakingContract), type(uint256).max); //we trust the staking contract
+	}
+
+	/**
+	 *@dev Helper to calculate percentage out of token liquidity in pool that is safe to exchange against sandwich attack.
+	 * also checks if token->eth has better safe limit, so perhaps doing tokenA->eth->tokenB is better than tokenA->tokenB
+	 * in that case it could be that eth->tokenB can be attacked because we dont know if eth received for tokenA->eth is less than _maxPercentage of the liquidity in
+	 * eth->tokenB. In our use case it is always eth->dai so either it will be safe or very minimal
+	 *@param _inTokenAmount amount of in token required to swap
+	 */
+	function maxSafeTokenAmount(
+		uint256 _inTokenAmount
+	) public view returns (uint256 safeAmount) {
+		address inToken = uniswap.WETH();
+		address outToken = address(stakingToken);
+		UniswapPair pair = UniswapPair(
+			UniswapFactory(uniswap.factory()).getPair(inToken, outToken)
+		);
+		(uint112 reserve0, uint112 reserve1, ) = pair.getReserves();
+		uint112 reserve = reserve0;
+		if (inToken == pair.token1()) {
+			reserve = reserve1;
+		}
+
+		safeAmount = (reserve * maxLiquidityPercentageSwap) / 100000;
+
+		return safeAmount < _inTokenAmount ? safeAmount : _inTokenAmount;
 	}
 }
