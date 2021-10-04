@@ -83,7 +83,9 @@ contract ProxyFactory1967 {
 		public
 		returns (address)
 	{
-		return _deployCode(_salt, msg.sender, _bytecode);
+		address addr = _deployCode(_salt, msg.sender, _bytecode);
+		emit ContractCreated(addr);
+		return addr;
 	}
 
 	function getDeploymentAddress(uint256 _salt, address _sender)
@@ -91,10 +93,18 @@ contract ProxyFactory1967 {
 		view
 		returns (address)
 	{
+		return getDeploymentAddress(_salt, _sender, contractCodeHash);
+	}
+
+	function getDeploymentAddress(
+		uint256 _salt,
+		address _sender,
+		bytes32 _contractCodeHash
+	) public view returns (address) {
 		// Adapted from https://github.com/archanova/solidity/blob/08f8f6bedc6e71c24758d20219b7d0749d75919d/contracts/contractCreator/ContractCreator.sol
 		bytes32 salt = _getSalt(_salt, _sender);
 		bytes32 rawAddress = keccak256(
-			abi.encodePacked(bytes1(0xff), address(this), salt, contractCodeHash)
+			abi.encodePacked(bytes1(0xff), address(this), salt, _contractCodeHash)
 		);
 
 		return address(bytes20(rawAddress << 96));

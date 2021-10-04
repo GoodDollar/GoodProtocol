@@ -10,7 +10,11 @@
 import { network, ethers, upgrades } from "hardhat";
 import { networkNames } from "@openzeppelin/upgrades-core";
 import { isFunction, get } from "lodash";
-import { AaveStakingFactory, CompoundStakingFactory } from "../../types";
+import {
+  AaveStakingFactory,
+  CompoundStakingFactory,
+  ProxyFactory1967
+} from "../../types";
 import SchemeRegistrarABI from "@gooddollar/goodcontracts/build/contracts/SchemeRegistrar.json";
 import releaser from "../releaser";
 import {
@@ -26,6 +30,12 @@ import { fetchOrDeployProxyFactory } from "../fetchOrDeployProxyFactory";
 import OldDAO from "../../releases/olddao.json";
 
 import ProtocolSettings from "../../releases/deploy-settings.json";
+import { keccak256 } from "@ethersproject/keccak256";
+
+const GAS_SETTINGS = {
+  maxPriorityFeePerGas: ethers.utils.parseUnits("1", "gwei"),
+  maxFeePerGas: ethers.utils.parseUnits("50", "gwei")
+};
 
 console.log({
   networkNames,
@@ -100,6 +110,174 @@ export const main = async (networkName = name) => {
     }
   ];
 
+  let release = {};
+
+  const toDeployUpgradable = [
+    {
+      network: "mainnet",
+      name: "NameService",
+      args: [
+        controller,
+        [
+          "CONTROLLER",
+          "AVATAR",
+          "IDENTITY",
+          "GOODDOLLAR",
+          "CONTRIBUTION_CALCULATION",
+          "BANCOR_FORMULA",
+          "DAI",
+          "CDAI",
+          "COMP",
+          "BRIDGE_CONTRACT",
+          "UNISWAP_ROUTER",
+          "GAS_PRICE_ORACLE",
+          "DAI_ETH_ORACLE",
+          "ETH_USD_ORACLE"
+        ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
+        [
+          controller,
+          avatar,
+          dao.Identity,
+          dao.GoodDollar,
+          dao.Contribution,
+          protocolSettings.bancor || dao.BancorFormula,
+          get(protocolSettings, "compound.dai", dao.DAI),
+          get(protocolSettings, "compound.cdai", dao.cDAI),
+          get(protocolSettings, "compound.comp", dao.COMP),
+          dao.ForeignBridge,
+          protocolSettings.uniswapRouter || dao.UniswapRouter,
+          !isMainnet ||
+            dao.GasPriceOracle ||
+            protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
+          !isMainnet || dao.DAIEthOracle || protocolSettings.chainlink.dai_eth,
+          !isMainnet || dao.ETHUsdOracle || protocolSettings.chainlink.eth_usd
+        ]
+      ]
+    },
+    {
+      network: "fuse",
+      name: "NameService",
+      args: [
+        controller,
+        [
+          "CONTROLLER",
+          "AVATAR",
+          "IDENTITY",
+          "GOODDOLLAR",
+          "BRIDGE_CONTRACT"
+        ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
+        [controller, avatar, dao.Identity, dao.GoodDollar, dao.HomeBridge]
+      ]
+    },
+    {
+      network: "both",
+      name: "GReputation",
+      initializer: "initialize(address, string, bytes32, uint256)",
+      args: [
+        () => get(release, "NameService", newdao.NameService),
+        repStateId,
+        protocolSettings.governance.gdaoAirdrop, //should fail on real deploy if not set
+        protocolSettings.governance.gdaoTotalSupply //should fail on real deploy if not set
+      ]
+    },
+    {
+      network: "both",
+      name: "CompoundVotingMachine",
+      args: [
+        () => get(release, "NameService", newdao.NameService),
+        protocolSettings.governance.proposalVotingPeriod
+      ]
+    },
+    {
+      network: "mainnet",
+      name: "GoodMarketMaker",
+      args: [
+        () => get(release, "NameService", newdao.NameService),
+        protocolSettings.expansionRatio.nom,
+        protocolSettings.expansionRatio.denom
+      ]
+    },
+    {
+      network: "mainnet",
+      name: "GoodReserveCDai",
+      initializer: "initialize(address, bytes32)",
+      args: [
+        () => get(release, "NameService", newdao.NameService),
+        protocolSettings.gdxAirdrop
+      ]
+    },
+    {
+      network: "mainnet",
+      name: "ExchangeHelper",
+      initializer: "initialize(address)",
+      args: [() => get(release, "NameService", newdao.NameService)]
+    },
+    {
+      network: "mainnet",
+      name: "GoodFundManager",
+      args: [() => get(release, "NameService", newdao.NameService)]
+    },
+    {
+      network: "mainnet",
+      name: "StakersDistribution",
+      args: [() => get(release, "NameService", newdao.NameService)]
+    },
+    {
+      network: "fuse",
+      name: "ClaimersDistribution",
+      args: [() => get(release, "NameService", newdao.NameService)]
+    },
+    {
+      network: "fuse",
+      name: "GovernanceStaking",
+      args: [() => get(release, "NameService", newdao.NameService)],
+      isUpgradable: false
+    },
+    {
+      network: "fuse",
+      name: "UBIScheme",
+      initializer: "initialize(address, address, uint256)",
+      args: [
+        () => get(release, "NameService", newdao.NameService),
+        dao.FirstClaimPool,
+        14
+      ]
+    },
+    {
+      network: "mainnet",
+      name: "ProtocolUpgrade",
+      args: [dao.Controller],
+      isUpgradable: false,
+      initializer: null
+    },
+    {
+      network: "fuse",
+      name: "ProtocolUpgradeFuse",
+      args: [dao.Controller],
+      isUpgradable: false
+    },
+    {
+      network: "mainnet",
+      name: "UniswapV2SwapHelper",
+      args: [],
+      isUpgradable: false
+    },
+    {
+      network: "mainnet",
+      name: "CompoundStakingFactory",
+      args: [],
+      isUpgradable: false,
+      libraries: ["UniswapV2SwapHelper"]
+    },
+    {
+      network: "mainnet",
+      name: "AaveStakingFactory",
+      args: [],
+      isUpgradable: false,
+      libraries: ["UniswapV2SwapHelper"]
+    }
+  ];
+
   let totalGas = 0;
   const countTotalGas = async tx => {
     let res = tx;
@@ -109,178 +287,93 @@ export const main = async (networkName = name) => {
     else console.log("no gas data", { res, tx });
   };
 
+  let proxyFactory: ProxyFactory1967;
+  const getProxyFactory = async () => {
+    if (isDevelop === false && newdao.ProxyFactory) {
+      console.info("deploying ProxyFactory1967");
+      return (proxyFactory = ethers.getContractAt(
+        "ProxyFactory1967",
+        newdao.ProxyFactory
+      ) as unknown as ProxyFactory1967);
+    } else {
+      const pf = await (
+        await ethers.getContractFactory("ProxyFactory1967")
+      ).deploy(GAS_SETTINGS);
+      await pf.deployed();
+      await releaser(
+        { ProxyFactory: pf.address },
+        networkName,
+        "deployment",
+        false
+      );
+      return (proxyFactory = pf as unknown as ProxyFactory1967);
+    }
+  };
+
+  const deployDeterministic = async (
+    contract,
+    args: any[],
+    factoryOpts = {}
+  ) => {
+    const Contract = await ethers.getContractFactory(
+      contract.name,
+      factoryOpts
+    );
+
+    const salt = ethers.BigNumber.from(
+      keccak256(ethers.utils.toUtf8Bytes(contract.name))
+    );
+
+    if (contract.isUpgradable !== false) {
+      const encoded = Contract.interface.encodeFunctionData(
+        contract.initializer || "initialize",
+        args
+      );
+      const impl = await (await Contract.deploy(GAS_SETTINGS)).deployed();
+      const deployTx = await (
+        await proxyFactory.deployProxy(
+          salt,
+          impl.address,
+          encoded,
+          GAS_SETTINGS
+        )
+      )
+        .wait()
+        .catch(e =>
+          console.error("failed to deploy proxy, assuming it exists...", e)
+        );
+      return ethers.getContractAt(
+        contract.name,
+        await proxyFactory["getDeploymentAddress(uint256,address)"](
+          salt,
+          root.address
+        )
+      );
+    } else {
+      const constructor = Contract.interface.encodeDeploy(args);
+      const bytecode = ethers.utils.solidityPack(
+        ["bytes", "bytes"],
+        [Contract.bytecode, constructor]
+      );
+      const deployTx = await (
+        await proxyFactory.deployCode(salt, bytecode, GAS_SETTINGS)
+      ).wait();
+      return ethers.getContractAt(
+        contract.name,
+        await proxyFactory["getDeploymentAddress(uint256,address,bytes32)"](
+          salt,
+          root.address,
+          keccak256(bytecode)
+        )
+      );
+    }
+  };
+
   const deployContracts = async () => {
     console.log({ dao, newdao, protocolSettings });
-    let release = {};
 
-    const toDeployUpgradable = [
-      {
-        network: "mainnet",
-        name: "NameService",
-        args: [
-          controller,
-          [
-            "CONTROLLER",
-            "AVATAR",
-            "IDENTITY",
-            "GOODDOLLAR",
-            "CONTRIBUTION_CALCULATION",
-            "BANCOR_FORMULA",
-            "DAI",
-            "CDAI",
-            "COMP",
-            "BRIDGE_CONTRACT",
-            "UNISWAP_ROUTER",
-            "GAS_PRICE_ORACLE",
-            "DAI_ETH_ORACLE",
-            "ETH_USD_ORACLE"
-          ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
-          [
-            controller,
-            avatar,
-            dao.Identity,
-            dao.GoodDollar,
-            dao.Contribution,
-            protocolSettings.bancor || dao.BancorFormula,
-            get(protocolSettings, "compound.dai", dao.DAI),
-            get(protocolSettings, "compound.cdai", dao.cDAI),
-            get(protocolSettings, "compound.comp", dao.COMP),
-            dao.ForeignBridge,
-            protocolSettings.uniswapRouter || dao.UniswapRouter,
-            !isMainnet ||
-              dao.GasPriceOracle ||
-              protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
-            !isMainnet ||
-              dao.DAIEthOracle ||
-              protocolSettings.chainlink.dai_eth,
-            !isMainnet || dao.ETHUsdOracle || protocolSettings.chainlink.eth_usd
-          ]
-        ]
-      },
-      {
-        network: "fuse",
-        name: "NameService",
-        args: [
-          controller,
-          [
-            "CONTROLLER",
-            "AVATAR",
-            "IDENTITY",
-            "GOODDOLLAR",
-            "BRIDGE_CONTRACT"
-          ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
-          [controller, avatar, dao.Identity, dao.GoodDollar, dao.HomeBridge]
-        ]
-      },
-      {
-        network: "both",
-        name: "GReputation",
-        initializer: "initialize(address, string, bytes32, uint256)",
-        args: [
-          () => get(release, "NameService", newdao.NameService),
-          repStateId,
-          protocolSettings.governance.gdaoAirdrop, //should fail on real deploy if not set
-          protocolSettings.governance.gdaoTotalSupply //should fail on real deploy if not set
-        ]
-      },
-      {
-        network: "both",
-        name: "CompoundVotingMachine",
-        args: [
-          () => get(release, "NameService", newdao.NameService),
-          protocolSettings.governance.proposalVotingPeriod
-        ]
-      },
-      {
-        network: "mainnet",
-        name: "GoodMarketMaker",
-        args: [
-          () => get(release, "NameService", newdao.NameService),
-          protocolSettings.expansionRatio.nom,
-          protocolSettings.expansionRatio.denom
-        ]
-      },
-      {
-        network: "mainnet",
-        name: "GoodReserveCDai",
-        initializer: "initialize(address, bytes32)",
-        args: [
-          () => get(release, "NameService", newdao.NameService),
-          protocolSettings.gdxAirdrop
-        ]
-      },
-      {
-        network: "mainnet",
-        name: "ExchangeHelper",
-        initializer: "initialize(address)",
-        args: [() => get(release, "NameService", newdao.NameService)]
-      },
-      {
-        network: "mainnet",
-        name: "GoodFundManager",
-        args: [() => get(release, "NameService", newdao.NameService)]
-      },
-      {
-        network: "mainnet",
-        name: "StakersDistribution",
-        args: [() => get(release, "NameService", newdao.NameService)]
-      },
-      {
-        network: "fuse",
-        name: "ClaimersDistribution",
-        args: [() => get(release, "NameService", newdao.NameService)]
-      },
-      {
-        network: "fuse",
-        name: "GovernanceStaking",
-        args: [() => get(release, "NameService", newdao.NameService)],
-        isUpgradable: false
-      },
-      {
-        network: "fuse",
-        name: "UBIScheme",
-        initializer: "initialize(address, address, uint256)",
-        args: [
-          () => get(release, "NameService", newdao.NameService),
-          dao.FirstClaimPool,
-          14
-        ]
-      },
-      {
-        network: "mainnet",
-        name: "ProtocolUpgrade",
-        args: [dao.Controller],
-        isUpgradable: false,
-        initializer: null
-      },
-      {
-        network: "fuse",
-        name: "ProtocolUpgradeFuse",
-        args: [dao.Controller],
-        isUpgradable: false
-      },
-      {
-        network: "mainnet",
-        name: "UniswapV2SwapHelper",
-        args: [],
-        isUpgradable: false
-      },
-      {
-        network: "mainnet",
-        name: "CompoundStakingFactory",
-        args: [],
-        isUpgradable: false,
-        libraries: ["UniswapV2SwapHelper"]
-      },
-      {
-        network: "mainnet",
-        name: "AaveStakingFactory",
-        args: [],
-        isUpgradable: false,
-        libraries: ["UniswapV2SwapHelper"]
-      }
-    ];
-
+    await getProxyFactory();
+    console.info("got proxyfactory at:", proxyFactory.address);
     for (let contract of toDeployUpgradable) {
       if (
         contract.network !== "both" &&
@@ -310,8 +403,8 @@ export const main = async (networkName = name) => {
       );
 
       console.log(`deploying contract upgrade ${contract.name}`, {
-        args,
-        release
+        args
+        // release
         // pf: ProxyFactory.factory.address
       });
       let opts = {};
@@ -321,19 +414,11 @@ export const main = async (networkName = name) => {
         opts = { libraries };
       }
       const Contract = await ethers.getContractFactory(contract.name, opts);
-      //   const ProxyFactory = await fetchOrDeployProxyFactory();
 
-      let deployed;
-      if (contract.isUpgradable !== false)
-        deployed = await upgrades.deployProxy(Contract, args, {
-          // proxyFactory: ProxyFactory,
-          initializer: contract.initializer,
-          kind: "uups"
-        });
-      else deployed = await Contract.deploy(...args);
-      deployed.deployed();
-      countTotalGas(deployed);
+      let deployed = await deployDeterministic(contract, args, opts);
+
       console.log(`${contract.name} deployed to: ${deployed.address}`);
+      await releaser(release, networkName, "deployment", false);
       release[contract.name] = deployed.address;
     }
 
@@ -710,14 +795,15 @@ export const main = async (networkName = name) => {
     }
 
     console.log("deploying donation staking");
-    const deployedDonationsStaking = await upgrades.deployProxy(
-      await ethers.getContractFactory("DonationsStaking"),
-      [release.NameService, deployed[0][0]],
+    const deployedDonationsStaking = await deployDeterministic(
       {
-        kind: "uups"
-      }
+        network: "mainnet",
+        name: "DonationsStaking",
+        isUpgradable: true
+      },
+      [release.NameService, deployed[0][0]]
     );
-    await countTotalGas(deployedDonationsStaking);
+    // await countTotalGas(deployedDonationsStaking);
 
     console.log(
       `DonationsStaking deployed to: ${deployedDonationsStaking.address}`
@@ -727,14 +813,9 @@ export const main = async (networkName = name) => {
       DonationsStaking: deployedDonationsStaking.address,
       StakingContracts: deployed
     };
-
-    // return {
-    //   DonationsStaking: release["DonationsStaking"],
-    //   StakingContracts: deployed
-    // };
   };
 
-  const release: any = await deployContracts();
+  await deployContracts();
   console.log("deployed contracts", { totalGas });
   await voteProtocolUpgrade(release);
   console.log("voted contracts", { totalGas });
