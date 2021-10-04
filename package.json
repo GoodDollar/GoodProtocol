@@ -94,7 +94,7 @@
     "node-fetch": "*",
     "node-jq": "*",
     "solhint": "*",
-    "solidity-coverage": "*",
+    "solidity-coverage": "^0.7.17",
     "truffle": "^5.3.12",
     "truffle-hdwallet-provider": "*",
     "ts-generator": "*",
