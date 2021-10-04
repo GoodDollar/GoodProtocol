@@ -24,7 +24,9 @@ describe("proxyfactory", () => {
     const Contract = await ethers.getContractFactory("CompoundStakingFactory", {
       libraries: { UniswapV2SwapHelper: uniswap.address }
     });
-    await expect(factory.deployCode(308932532, Contract.bytecode)).to.throw;
+    expect(
+      await factory.deployCode(308932532, Contract.bytecode).catch(e => e)
+    ).to.be.an("error");
     // const tx = await (
     //   await factory.deployCode(308932532, Contract.bytecode)
     // ).wait();
@@ -32,7 +34,7 @@ describe("proxyfactory", () => {
     // expect(event).not.empty;
   });
 
-  it("[hardhat bug] should deploy non upgradable code", async () => {
+  it("should deploy non upgradable code", async () => {
     const Contract = await ethers.getContractFactory("UniswapV2SwapHelper");
     const constructor = Contract.interface.encodeDeploy([]);
     const bytecode = ethers.utils.solidityPack(
