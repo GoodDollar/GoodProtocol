@@ -35,7 +35,7 @@ import { keccak256 } from "@ethersproject/keccak256";
 const GAS_SETTINGS = {
   maxPriorityFeePerGas: ethers.utils.parseUnits("1", "gwei"),
   maxFeePerGas: ethers.utils.parseUnits("50", "gwei"),
-  gasLimit: 700000
+  gasLimit: 7000000
 };
 
 let totalGas = 0;
@@ -88,9 +88,7 @@ export const main = async (networkName = name) => {
   let avatar = dao.Avatar;
   let controller = dao.Controller;
   let repStateId = isMainnet ? "fuse" : "rootState";
-  let oldVotingMachine = dao.SchemeRegistrar;
 
-  let grep: GReputation, vm: CompoundVotingMachine;
   const founders = await getFounders(networkName);
 
   const compoundTokens = [
@@ -847,7 +845,7 @@ export const main = async (networkName = name) => {
   await releaser(release, networkName);
   // await proveNewRep();
 };
-if (process.env.TEST != "true") {
+if (network.name !== "hardhat") {
   main(name)
     .catch(e => {
       console.log(e);
