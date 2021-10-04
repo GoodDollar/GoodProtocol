@@ -7,7 +7,7 @@ import {
   GoodReserveCDai,
   SimpleStaking,
   GoodFundManager,
-  DonationsStaking,
+  DonationsStaking
 } from "../../types";
 import { createDAO, deployUniswap, getStakingFactory } from "../helpers";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
@@ -72,7 +72,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       cdaiAddress,
       reserve,
       setReserveToken,
-      genericCall: gc,
+      genericCall: gc
     } = await createDAO();
 
     comp = await daiFactory.deploy();
@@ -90,13 +90,13 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       gd,
       identity,
       controller,
-      avatar,
+      avatar
     });
     goodFundManager = (await upgrades.deployProxy(
       goodFundManagerFactory,
       [nameService.address],
       {
-        kind: "uups",
+        kind: "uups"
       }
     )) as GoodFundManager;
     const uniswap = await deployUniswap(comp, dai);
@@ -104,7 +104,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     uniswapRouter = uniswap.router;
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
     console.log("Deployed goodfund manager", {
-      manager: goodFundManager.address,
+      manager: goodFundManager.address
     });
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
     contribution = await ethers.getContractAt(
@@ -115,7 +115,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     marketMaker = mm;
 
     console.log("deployed contribution, deploying reserve...", {
-      founder: founder.address,
+      founder: founder.address
     });
     bat = await daiFactory.deploy(); // Another erc20 token for uniswap router test
     cBat = await cBatFactory.deploy(bat.address);
@@ -136,7 +136,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     await setDAOAddress("COMP", comp.address);
     goodCompoundStaking = await goodCompoundStakingFactory
       .deploy()
-      .then(async (contract) => {
+      .then(async contract => {
         await contract.init(
           dai.address,
           cDAI.address,
@@ -162,10 +162,11 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       donationsStakingFactory,
       [nameService.address, goodCompoundStaking.address],
       {
-        kind: "uups",
+        kind: "uups"
       }
     )) as DonationsStaking;
   });
+
   it("it should stake donations with ETH", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
@@ -178,7 +179,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
         goodCompoundStaking.address,
         currentBlockNumber - 10,
         currentBlockNumber + 500,
-        false,
+        false
       ] // set 10 gd per block
     );
     await genericCall(goodFundManager.address, encodedData);
@@ -205,7 +206,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const tx = await donationsStaking
       .connect(staker)
       ["withdraw()"]()
-      .catch((e) => e);
+      .catch(e => e);
     expect(tx.message).to.have.string("only avatar can call this method");
   });
   it("it should withdraw donationStaking when caller is avatar and return funds to avatar", async () => {
@@ -232,7 +233,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const stakingTokenBeforeSet = await donationsStaking.stakingToken();
     const simpleStaking = await goodCompoundStakingFactory
       .deploy()
-      .then(async (contract) => {
+      .then(async contract => {
         await contract.init(
           bat.address,
           cDAI.address,
@@ -271,7 +272,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       founder.address,
       MaxUint256,
       {
-        value: WETHAmount,
+        value: WETHAmount
       }
     );
   }
