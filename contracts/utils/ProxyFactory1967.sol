@@ -79,8 +79,8 @@ contract ProxyFactory1967 {
 		return _deployProxy(_salt, _logic, _data, msg.sender);
 	}
 
-	function deployCode(uint256 _salt, bytes memory _bytecode)
-		public
+	function deployCode(uint256 _salt, bytes calldata _bytecode)
+		external
 		returns (address)
 	{
 		address addr = _deployCode(_salt, msg.sender, _bytecode);

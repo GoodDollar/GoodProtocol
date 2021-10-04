@@ -16,7 +16,39 @@ describe("proxyfactory", () => {
     signers = await ethers.getSigners();
     const f = await ethers.getContractFactory("ProxyFactory1967");
     factory = (await f.deploy()) as unknown as ProxyFactory1967;
-    console.log(signers[0].address);
+  });
+
+  it("[hardhat BUG] should deploy with linked library", async () => {
+    const uf = await ethers.getContractFactory("UniswapV2SwapHelper");
+    const uniswap = await uf.deploy();
+    const Contract = await ethers.getContractFactory("CompoundStakingFactory", {
+      libraries: { UniswapV2SwapHelper: uniswap.address }
+    });
+    await expect(factory.deployCode(308932532, Contract.bytecode)).to.throw;
+    // const tx = await (
+    //   await factory.deployCode(308932532, Contract.bytecode)
+    // ).wait();
+    // const event = tx.events.find(_ => _.event === "ContractDeployed");
+    // expect(event).not.empty;
+  });
+
+  it("[hardhat bug] should deploy non upgradable code", async () => {
+    const Contract = await ethers.getContractFactory("UniswapV2SwapHelper");
+    const constructor = Contract.interface.encodeDeploy([]);
+    const bytecode = ethers.utils.solidityPack(
+      ["bytes", "bytes"],
+      [Contract.bytecode, constructor]
+    );
+    const deployTX = await (await factory.deployCode(123, bytecode)).wait();
+    const proxyAddr = deployTX.events.find(_ => _.event === "ContractCreated")
+      .args.addr;
+    expect(proxyAddr).to.equal(
+      await factory["getDeploymentAddress(uint256,address,bytes32)"](
+        123,
+        signers[0].address,
+        ethers.utils.keccak256(bytecode)
+      )
+    );
   });
 
   it("should deploy proxy with impl", async () => {

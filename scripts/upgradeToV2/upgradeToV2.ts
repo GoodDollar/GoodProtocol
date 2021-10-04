@@ -34,7 +34,21 @@ import { keccak256 } from "@ethersproject/keccak256";
 
 const GAS_SETTINGS = {
   maxPriorityFeePerGas: ethers.utils.parseUnits("1", "gwei"),
-  maxFeePerGas: ethers.utils.parseUnits("50", "gwei")
+  maxFeePerGas: ethers.utils.parseUnits("50", "gwei"),
+  gasLimit: 700000
+};
+
+let totalGas = 0;
+const gasUsage = {};
+const countTotalGas = async (tx, name) => {
+  let res = tx;
+  if (tx.deployTransaction) tx = tx.deployTransaction;
+  if (tx.wait) res = await tx.wait();
+  if (res.gasUsed) {
+    totalGas += parseInt(res.gasUsed);
+    gasUsage[name] = gasUsage[name] || 0;
+    gasUsage[name] += parseInt(res.gasUsed);
+  } else console.log("no gas data", { res, tx });
 };
 
 console.log({
@@ -53,6 +67,7 @@ export const main = async (networkName = name) => {
 
   const isProduction = networkName.startsWith("production");
   const isBackendTest = networkName.startsWith("dapptest");
+  const isTest = network.name === "hardhat";
   const isDevelop = !isProduction;
   const isMainnet = networkName.includes("mainnet");
   let protocolSettings = {
@@ -68,7 +83,7 @@ export const main = async (networkName = name) => {
   ];
   const newdao = ProtocolAddresses[networkName] || {};
 
-  let [root] = await ethers.getSigners();
+  let [root, proxyDeployer] = await ethers.getSigners();
 
   let avatar = dao.Avatar;
   let controller = dao.Controller;
@@ -246,14 +261,14 @@ export const main = async (networkName = name) => {
     {
       network: "mainnet",
       name: "ProtocolUpgrade",
-      args: [dao.Controller],
+      args: [dao.Controller, root.address],
       isUpgradable: false,
       initializer: null
     },
     {
       network: "fuse",
       name: "ProtocolUpgradeFuse",
-      args: [dao.Controller],
+      args: [dao.Controller, root.address],
       isUpgradable: false
     },
     {
@@ -278,15 +293,6 @@ export const main = async (networkName = name) => {
     }
   ];
 
-  let totalGas = 0;
-  const countTotalGas = async tx => {
-    let res = tx;
-    if (tx.deployTransaction) tx = tx.deployTransaction;
-    if (tx.wait) res = await tx.wait();
-    if (res.gasUsed) totalGas += parseInt(res.gasUsed);
-    else console.log("no gas data", { res, tx });
-  };
-
   let proxyFactory: ProxyFactory1967;
   const getProxyFactory = async () => {
     if (isDevelop === false && newdao.ProxyFactory) {
@@ -297,7 +303,7 @@ export const main = async (networkName = name) => {
       ) as unknown as ProxyFactory1967);
     } else {
       const pf = await (
-        await ethers.getContractFactory("ProxyFactory1967")
+        await ethers.getContractFactory("ProxyFactory1967", proxyDeployer)
       ).deploy(GAS_SETTINGS);
       await pf.deployed();
       await releaser(
@@ -306,7 +312,7 @@ export const main = async (networkName = name) => {
         "deployment",
         false
       );
-      return (proxyFactory = pf as unknown as ProxyFactory1967);
+      return (proxyFactory = pf.connect(root) as unknown as ProxyFactory1967);
     }
   };
 
@@ -315,57 +321,73 @@ export const main = async (networkName = name) => {
     args: any[],
     factoryOpts = {}
   ) => {
-    const Contract = await ethers.getContractFactory(
-      contract.name,
-      factoryOpts
-    );
-
-    const salt = ethers.BigNumber.from(
-      keccak256(ethers.utils.toUtf8Bytes(contract.name))
-    );
-
-    if (contract.isUpgradable !== false) {
-      const encoded = Contract.interface.encodeFunctionData(
-        contract.initializer || "initialize",
-        args
+    try {
+      const Contract = await ethers.getContractFactory(
+        contract.name,
+        factoryOpts
       );
-      const impl = await (await Contract.deploy(GAS_SETTINGS)).deployed();
-      const deployTx = await (
-        await proxyFactory.deployProxy(
+
+      const salt = ethers.BigNumber.from(
+        keccak256(ethers.utils.toUtf8Bytes(contract.name))
+      );
+
+      if (contract.isUpgradable !== false) {
+        const encoded = Contract.interface.encodeFunctionData(
+          contract.initializer || "initialize",
+          args
+        );
+        const tx = await Contract.deploy(GAS_SETTINGS);
+        const impl = await tx.deployed();
+        await countTotalGas(tx, contract.name);
+
+        const tx2 = await proxyFactory.deployProxy(
           salt,
           impl.address,
           encoded,
           GAS_SETTINGS
-        )
-      )
-        .wait()
-        .catch(e =>
-          console.error("failed to deploy proxy, assuming it exists...", e)
         );
-      return ethers.getContractAt(
-        contract.name,
-        await proxyFactory["getDeploymentAddress(uint256,address)"](
-          salt,
-          root.address
-        )
-      );
-    } else {
-      const constructor = Contract.interface.encodeDeploy(args);
-      const bytecode = ethers.utils.solidityPack(
-        ["bytes", "bytes"],
-        [Contract.bytecode, constructor]
-      );
-      const deployTx = await (
-        await proxyFactory.deployCode(salt, bytecode, GAS_SETTINGS)
-      ).wait();
-      return ethers.getContractAt(
-        contract.name,
-        await proxyFactory["getDeploymentAddress(uint256,address,bytes32)"](
-          salt,
-          root.address,
-          keccak256(bytecode)
-        )
-      );
+        await countTotalGas(tx2, contract.name);
+        const deployTx = await tx2
+          .wait()
+          .catch(e =>
+            console.error("failed to deploy proxy, assuming it exists...", e)
+          );
+        return ethers.getContractAt(
+          contract.name,
+          await proxyFactory["getDeploymentAddress(uint256,address)"](
+            salt,
+            root.address
+          )
+        );
+      } else {
+        //for some reason deploying with link library via proxy doesnt work on hardhat test env
+        if (isTest === false) {
+          const constructor = Contract.interface.encodeDeploy(args);
+          const bytecode = ethers.utils.solidityPack(
+            ["bytes", "bytes"],
+            [Contract.bytecode, constructor]
+          );
+          const deployTx = await (
+            await proxyFactory.deployCode(salt, bytecode, GAS_SETTINGS)
+          ).wait();
+          return ethers.getContractAt(
+            contract.name,
+            await proxyFactory["getDeploymentAddress(uint256,address,bytes32)"](
+              salt,
+              root.address,
+              keccak256(bytecode)
+            )
+          );
+        } else {
+          const tx = await Contract.deploy(...args, GAS_SETTINGS);
+          await countTotalGas(tx, contract.name);
+          const impl = await tx.deployed();
+          return impl;
+        }
+      }
+    } catch (e) {
+      console.log("Failed deploying contract:", { contract });
+      throw e;
     }
   };
 
@@ -542,7 +564,7 @@ export const main = async (networkName = name) => {
         release.StakingContracts.map((_: any) => _[1])
       )
     ).wait();
-    await countTotalGas(tx);
+    await countTotalGas(tx, "call upgrade basic");
 
     console.log("upgrading reserve...", {
       params: [
@@ -560,7 +582,7 @@ export const main = async (networkName = name) => {
       dao.FundManager,
       dao.COMP
     );
-    await countTotalGas(tx);
+    await countTotalGas(tx, "call upgrade reserve");
     console.log("upgrading donationstaking...", {
       params: [
         release.NameService,
@@ -574,7 +596,7 @@ export const main = async (networkName = name) => {
       release.DonationsStaking, //new
       dao.DAIStaking
     );
-    await countTotalGas(tx);
+    await countTotalGas(tx, "call upgrade donations");
     console.log("Donation staking upgraded");
     //extract just the addresses without the rewards
     // release.StakingContracts = release.StakingContracts.map((_) => _[0]);
@@ -591,7 +613,7 @@ export const main = async (networkName = name) => {
         dao.UpgradeScheme,
         release.CompoundVotingMachine
       );
-      await countTotalGas(tx);
+      await countTotalGas(tx, "call upgrade gov");
     }
   };
 
@@ -670,7 +692,7 @@ export const main = async (networkName = name) => {
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("ProtocolUpgrade"))
       )
     ).wait();
-    await countTotalGas(proposal);
+    await countTotalGas(proposal, "propose upgrade");
 
     console.log("proposal tx:", proposal.transactionHash);
     let proposalId = proposal.events.find(_ => _.event === "NewSchemeProposal")
@@ -694,7 +716,7 @@ export const main = async (networkName = name) => {
         absoluteVote
           .connect(f)
           .vote(proposalId, 1, 0, f.address, { gasLimit: 300000 })
-          .then(_ => countTotalGas(_.wait()))
+          .then(_ => countTotalGas(_.wait(), "vote"))
           .catch(e => console.log("founder vote failed:", f.address, e.message))
       )
     );
@@ -740,7 +762,7 @@ export const main = async (networkName = name) => {
           token.swapPath
         )
       ).wait();
-      countTotalGas(tx);
+      await countTotalGas(tx, "deploy comp staking");
       const log = tx.events.find(_ => _.event === "Deployed");
       if (!log.args.proxy)
         throw new Error(`staking contract deploy failed ${token}`);
@@ -778,7 +800,7 @@ export const main = async (networkName = name) => {
             token.swapPath
           )
         ).wait();
-        await countTotalGas(tx);
+        await countTotalGas(tx, "deploy aave staking");
         const log = tx.events.find(_ => _.event === "Deployed");
         if (!log.args.proxy)
           throw new Error(`staking contract deploy failed ${token}`);
@@ -826,8 +848,12 @@ export const main = async (networkName = name) => {
   // await proveNewRep();
 };
 if (process.env.TEST != "true") {
-  main(name).catch(e => {
-    console.log(e);
-    throw e;
-  });
+  main(name)
+    .catch(e => {
+      console.log(e);
+      throw e;
+    })
+    .finally(() => {
+      console.log({ totalGas, gasUsage });
+    });
 }
