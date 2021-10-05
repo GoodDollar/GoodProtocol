@@ -18,7 +18,7 @@ describe("proxyfactory", () => {
     factory = (await f.deploy()) as unknown as ProxyFactory1967;
   });
 
-  it("[hardhat BUG] should deploy with linked library", async () => {
+  it("[@skip-on-coverage] [hardhat BUG] should deploy with linked library", async () => {
     const uf = await ethers.getContractFactory("UniswapV2SwapHelper");
     const uniswap = await uf.deploy();
     const Contract = await ethers.getContractFactory("CompoundStakingFactory", {
