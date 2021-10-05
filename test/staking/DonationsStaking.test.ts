@@ -171,12 +171,8 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       donationsStakingFactory,
       [nameService.address, goodCompoundStaking.address],
       {
-<<<<<<< HEAD
         kind: "uups",
         unsafeAllowLinkedLibraries: true
-=======
-        kind: "uups"
->>>>>>> master
       }
     )) as DonationsStaking;
   });
