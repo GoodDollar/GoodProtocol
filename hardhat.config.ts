@@ -26,7 +26,7 @@ const ethplorer_key = process.env.ETHPLORER_KEY;
 // console.log({ mnemonic: sha3(mnemonic) });
 const hhconfig: HardhatUserConfig = {
   solidity: {
-    version: "0.8.3",
+    version: "0.8.8",
     settings: {
       optimizer: {
         enabled: true,

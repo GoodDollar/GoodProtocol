@@ -12,7 +12,7 @@ import "./DAOContract.sol";
 */
 
 contract DAOUpgradeableContract is Initializable, UUPSUpgradeable, DAOContract {
-	function _authorizeUpgrade(address) internal override {
+	function _authorizeUpgrade(address) internal virtual override {
 		_onlyAvatar();
 	}
 }

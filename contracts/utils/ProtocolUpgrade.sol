@@ -37,9 +37,9 @@ contract ProtocolUpgrade {
 		_;
 	}
 
-	constructor(Controller _controller) {
+	constructor(Controller _controller, address _owner) {
 		controller = _controller;
-		owner = msg.sender;
+		owner = _owner;
 		avatar = address(controller.avatar());
 	}
 
@@ -55,10 +55,7 @@ contract ProtocolUpgrade {
 		uint256[] calldata monthlyRewards
 	) external onlyOwner {
 		require(nameHash.length == nameAddress.length, "length mismatch");
-		require(
-			staking.length == monthlyRewards.length,
-			"staking length mismatch"
-		);
+		require(staking.length == monthlyRewards.length, "staking length mismatch");
 
 		_setNameServiceContracts(ns, nameHash, nameAddress);
 
@@ -198,7 +195,7 @@ contract ProtocolUpgrade {
 			),
 			"registering governance failsafe failed"
 		);
-		
+
 		require(
 			controller.unregisterSelf(avatar),
 			"unregistering protocolupgrade failed"
@@ -213,10 +210,7 @@ contract ProtocolUpgrade {
 		bool ok;
 		(ok, ) = controller.genericCall(
 			ns.getAddress("GOODDOLLAR"),
-			abi.encodeWithSignature(
-				"addMinter(address)",
-				ns.getAddress("RESERVE")
-			),
+			abi.encodeWithSignature("addMinter(address)", ns.getAddress("RESERVE")),
 			avatar,
 			0
 		);
@@ -271,9 +265,8 @@ contract ProtocolUpgrade {
 
 		require(ok, "calling Reserve end failed");
 
-		OldMarketMaker.ReserveToken memory rToken = OldMarketMaker(
-			oldMarketMaker
-		).reserveTokens(cdai);
+		OldMarketMaker.ReserveToken memory rToken = OldMarketMaker(oldMarketMaker)
+			.reserveTokens(cdai);
 		ok = controller.externalTokenTransfer(
 			cdai,
 			ns.getAddress("RESERVE"),

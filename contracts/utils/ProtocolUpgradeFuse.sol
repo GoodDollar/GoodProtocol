@@ -13,9 +13,9 @@ contract ProtocolUpgradeFuse {
 	address owner;
 	address avatar;
 
-	constructor(Controller _controller) {
+	constructor(Controller _controller, address _owner) {
 		controller = _controller;
-		owner = msg.sender;
+		owner = _owner;
 		avatar = address(controller.avatar());
 	}
 

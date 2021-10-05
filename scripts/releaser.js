@@ -1,6 +1,11 @@
 const fse = require("fs-extra");
 
-module.exports = async function(deployment, network, filename = "deployment") {
+module.exports = async function (
+  deployment,
+  network,
+  filename = "deployment",
+  log = true
+) {
   const dir = "releases/";
   console.log("releaser:", { network, dir });
   const previousDeployment =
@@ -10,9 +15,10 @@ module.exports = async function(deployment, network, filename = "deployment") {
     ...previousDeployment,
     [network]: { ...previousDeployment[network], ...deployment }
   };
-  console.log("releaser:", {
-    previousDeployment: previousDeployment[network],
-    finalDeployment: finalDeployment[network]
-  });
+  log &&
+    console.log("releaser:", {
+      previousDeployment: previousDeployment[network],
+      finalDeployment: finalDeployment[network]
+    });
   return fse.writeJson(dir + `/${filename}.json`, finalDeployment);
 };

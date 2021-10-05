@@ -58,7 +58,7 @@ export const deploy = async (networkName = name, single = false) => {
     ethusdOracle,
     usdc,
     lendingPool,
-    incentiveController,
+    incentiveController
   } = await deploy3rdParty(dao);
   console.log("");
   const release = {
@@ -97,7 +97,7 @@ export const deploy = async (networkName = name, single = false) => {
     AdminWallet: adminWallet.address,
     OneTimePayments: dao.oneTimePayments,
     network: networkName,
-    networkId: 4447,
+    networkId: 4447
   };
 
   await releaser(release, networkName, "olddao");
@@ -105,14 +105,14 @@ export const deploy = async (networkName = name, single = false) => {
   return release;
 };
 
-const deployAdminWallet = async (dao) => {
+const deployAdminWallet = async dao => {
   const signers = await ethers.getSigners();
   const adminWallet = await new ethers.ContractFactory(
     AdminWalletABI.abi,
     AdminWalletABI.bytecode,
     signers[0]
   ).deploy(
-    signers.slice(0, 10).map((_) => _.address),
+    signers.slice(0, 10).map(_ => _.address),
     ethers.utils.parseUnits("1000000", "gwei"),
     4,
     dao.identity
@@ -121,12 +121,12 @@ const deployAdminWallet = async (dao) => {
   await id.addIdentityAdmin(adminWallet.address);
   await signers[0].sendTransaction({
     to: adminWallet.address,
-    value: ethers.utils.parseEther("10"),
+    value: ethers.utils.parseEther("10")
   });
   return adminWallet;
 };
 
-const deploy3rdParty = async (dao) => {
+const deploy3rdParty = async dao => {
   //create et/dai pair
   let mintAmount = ethers.utils.parseEther("5000");
   const ETHAmount = ethers.utils.parseEther("50");
@@ -178,7 +178,7 @@ const deploy3rdParty = async (dao) => {
     ethusdOracle,
     usdc,
     lendingPool,
-    incentiveController,
+    incentiveController
   };
 };
 
@@ -210,7 +210,7 @@ export const deployKovanOldDAO = async () => {
     BancorFormula: dao.bancorFormula,
     DonationsStaking: dao.donationsStaking,
     network: "kovan-mainnet",
-    networkId: 42,
+    networkId: 42
   };
   releaser(release, network.name, "olddao");
 };
@@ -227,7 +227,7 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
     schemeMock: schemeMock.address,
     balance: await ethers.provider
       .getBalance(root.address)
-      .then((_) => _.toString()),
+      .then(_ => _.toString())
   });
   const cdaiFactory = await ethers.getContractFactory("cDAIMock");
   const daiFactory = await ethers.getContractFactory("DAIMock");
@@ -330,7 +330,7 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
     await daoCreator.avatar(),
     [
       "function owner() view returns (address)",
-      "function nativeToken() view returns (address)",
+      "function nativeToken() view returns (address)"
     ],
     root
   );
@@ -452,21 +452,21 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
   );
   //fake donation staking for testing upgrade
   console.log("fake donations...");
-  await dai["mint(uint256)"](ethers.constants.WeiPerEther).catch((e) =>
+  await dai["mint(uint256)"](ethers.constants.WeiPerEther).catch(e =>
     console.log("failed minting fake dai")
   );
   await dai
     .transfer(donationsStaking.address, ethers.constants.WeiPerEther)
-    .catch((e) => console.log("failed fake dai transfer"));
+    .catch(e => console.log("failed fake dai transfer"));
   await donationsStaking
     .stakeDonations(0)
-    .catch((e) => console.log("failed staking fake dai"));
+    .catch(e => console.log("failed staking fake dai"));
   await root
     .sendTransaction({
       to: donationsStaking.address,
-      value: ethers.constants.WeiPerEther.div(1000),
+      value: ethers.constants.WeiPerEther.div(1000)
     })
-    .catch((e) => console.log("failed transfering eth to donations"));
+    .catch(e => console.log("failed transfering eth to donations"));
 
   console.log("done donations...");
 
@@ -527,7 +527,7 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
       fundManager.address,
       simpleStaking.address,
       otp.address,
-      FeeFormula.address,
+      FeeFormula.address
     ],
     [
       ethers.constants.HashZero,
@@ -536,7 +536,7 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
       ethers.constants.HashZero,
       ethers.constants.HashZero,
       ethers.constants.HashZero,
-      ethers.constants.HashZero,
+      ethers.constants.HashZero
     ],
     [
       "0x0000001F",
@@ -545,7 +545,7 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
       "0x0000001F",
       "0x0000001F",
       "0x0000001F",
-      "0x0000001F",
+      "0x0000001F"
     ],
     ""
   );
@@ -594,11 +594,11 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
     bancorFormula: BancorFormula.address,
     bridge: Bridge.address,
     donationsStaking: donationsStaking.address,
-    oneTimePayments: otp.address,
+    oneTimePayments: otp.address
   };
 };
 
-export const deployUBI = async (deployedDAO) => {
+export const deployUBI = async deployedDAO => {
   let { nameService, setSchemes, genericCall, avatar, identity, gd } =
     deployedDAO;
   const fcFactory = new ethers.ContractFactory(
@@ -609,7 +609,7 @@ export const deployUBI = async (deployedDAO) => {
 
   console.log("deploying first claim...", {
     avatar,
-    identity,
+    identity
   });
   const firstClaim = await fcFactory.deploy(avatar, identity, 1000);
 
@@ -660,7 +660,7 @@ export const deployUBI = async (deployedDAO) => {
   return { firstClaim, ubiScheme };
 };
 
-export const deployOldVoting = async (dao) => {
+export const deployOldVoting = async dao => {
   try {
     const SchemeRegistrarF = new ethers.ContractFactory(
       SchemeRegistrar.abi,
@@ -726,14 +726,14 @@ export const deployOldVoting = async (dao) => {
     return {
       schemeRegistrar,
       upgradeScheme,
-      absoluteVote,
+      absoluteVote
     };
   } catch (e) {
     console.log("deployVote failed", e);
   }
 };
 
-if (process.env.TEST != "true" && name === "develop") {
+if (process.env.TEST != "true" && name.startsWith("develop")) {
   console.log("deploying non-test localOldDao");
   if (network.name.includes("kovan")) {
     deployKovanOldDAO().catch(console.log);

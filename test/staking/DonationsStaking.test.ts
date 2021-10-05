@@ -171,11 +171,16 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       donationsStakingFactory,
       [nameService.address, goodCompoundStaking.address],
       {
+<<<<<<< HEAD
         kind: "uups",
         unsafeAllowLinkedLibraries: true
+=======
+        kind: "uups"
+>>>>>>> master
       }
     )) as DonationsStaking;
   });
+
   it("it should stake donations with ETH", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
