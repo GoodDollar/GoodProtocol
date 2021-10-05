@@ -5,7 +5,7 @@
   "scripts": {
     "build": "scripts/build.sh deploy",
     "coverage:report": "export COVERALLS_REPO_TOKEN='qiXNelh1HXMAsoPah9yRD2yG2WlqrDfLh' && cat ../coverage/lcov.info coverage/lcov.info | coveralls",
-    "coverage": "hardhat coverage",
+    "coverage": "export CODE_COVERAGE=true; hardhat coverage",
     "minimize": "../scripts/minimize.sh 'artifacts/contracts'",
     "test": "hardhat test",
     "postinstall": "patch-package",

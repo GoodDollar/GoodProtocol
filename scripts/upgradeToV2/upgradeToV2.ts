@@ -35,7 +35,7 @@ import { keccak256 } from "@ethersproject/keccak256";
 const GAS_SETTINGS = {
   maxPriorityFeePerGas: ethers.utils.parseUnits("1", "gwei"),
   maxFeePerGas: ethers.utils.parseUnits("50", "gwei"),
-  gasLimit: 7000000
+  gasLimit: 30000000
 };
 
 let totalGas = 0;
@@ -58,7 +58,11 @@ console.log({
 });
 const { name } = network;
 
-export const main = async (networkName = name) => {
+export const main = async (
+  networkName = name,
+  isPerformUpgrade = true,
+  olddao?
+) => {
   if (networkName.startsWith("dapptest") === false) {
     networkNames[1] = networkName;
     networkNames[122] = networkName;
@@ -66,8 +70,12 @@ export const main = async (networkName = name) => {
   }
 
   const isProduction = networkName.startsWith("production");
+  if (isProduction) {
+    GAS_SETTINGS.gasLimit = 7000000;
+  }
   const isBackendTest = networkName.startsWith("dapptest");
   const isTest = network.name === "hardhat";
+  const isCoverage = process.env.CODE_COVERAGE;
   const isDevelop = !isProduction;
   const isMainnet = networkName.includes("mainnet");
   let protocolSettings = {
@@ -75,7 +83,7 @@ export const main = async (networkName = name) => {
     ...ProtocolSettings[networkName]
   };
   console.log(`networkName ${networkName}`);
-  const dao = OldDAO[networkName];
+  const dao = olddao || OldDAO[networkName];
   const fse = require("fs-extra");
   const ProtocolAddresses = await fse.readJson("releases/deployment.json");
   const newfusedao = await ProtocolAddresses[
@@ -330,6 +338,15 @@ export const main = async (networkName = name) => {
       );
 
       if (contract.isUpgradable !== false) {
+        if (isCoverage) {
+          //coverage has large contracts doesnt work with proxy factory
+          const tx = await upgrades.deployProxy(Contract, args, {
+            initializer: contract.initializer,
+            kind: "uups"
+          });
+          await countTotalGas(tx, contract.name);
+          return tx;
+        }
         const encoded = Contract.interface.encodeFunctionData(
           contract.initializer || "initialize",
           args
@@ -476,7 +493,7 @@ export const main = async (networkName = name) => {
     });
     let res = Object.assign(newdao, release);
     await releaser(release, networkName);
-    return res;
+    return release;
   };
 
   // const proveNewRep = async () => {
@@ -836,13 +853,16 @@ export const main = async (networkName = name) => {
   };
 
   await deployContracts();
-  console.log("deployed contracts", { totalGas });
-  await voteProtocolUpgrade(release);
-  console.log("voted contracts", { totalGas });
-  isMainnet && (await performUpgrade(release));
-  !isMainnet && (await performUpgradeFuse(release));
-  console.log("upgraded contracts", { totalGas });
+  if (isPerformUpgrade) {
+    console.log("deployed contracts", { totalGas });
+    await voteProtocolUpgrade(release);
+    console.log("voted contracts", { totalGas });
+    isMainnet && (await performUpgrade(release));
+    !isMainnet && (await performUpgradeFuse(release));
+    console.log("upgraded contracts", { totalGas });
+  }
   await releaser(release, networkName);
+  return release;
   // await proveNewRep();
 };
 if (network.name !== "hardhat") {
