@@ -13,8 +13,8 @@ import "./UniswapV2SwapHelper.sol";
  * @title DonationStaking contract that receives funds in ETH/StakingToken
  * and stake them in the SimpleStaking contract
  */
-contract DonationsStaking is DAOUpgradeableContract {
-	using UniswapV2SwapHelper for SimpleStaking;
+contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
+	using UniswapV2SwapHelper for IHasRouter;
 	SimpleStaking public stakingContract;
 	ERC20 public stakingToken;
 	Uniswap public uniswap;
@@ -89,14 +89,15 @@ contract DonationsStaking is DAOUpgradeableContract {
 		uint256 ethBalance = address(this).balance;
 		if (ethBalance == 0) return 0;
 		address[] memory path = new address[](2);
-		path[0] = uniswap.WETH();
+		path[0] = address(0x0);
 		path[1] = address(stakingToken);
-		uint256 safeAmount = stakingContract.maxSafeTokenAmount(
+		uint256 safeAmount = IHasRouter(this).maxSafeTokenAmount(
 			address(0x0),
 			address(stakingToken),
-			ethBalance
+			ethBalance,
+			stakingContract.maxLiquidityPercentageSwap()
 		);
-		stakingContract.swap(path, safeAmount, 0, address(this));
+		IHasRouter(this).swap(path, safeAmount, 0, address(this));
 		return ethBalance;
 	}
 
@@ -134,15 +135,16 @@ contract DonationsStaking is DAOUpgradeableContract {
 		(uint256 stakingAmount, ) = stakingContract.getProductivity(address(this));
 		if (stakingAmount > 0) stakingContract.withdrawStake(stakingAmount, false);
 		uint256 stakingTokenBalance = stakingToken.balanceOf(address(this));
-		uint256 safeAmount = stakingContract.maxSafeTokenAmount(
+		uint256 safeAmount = IHasRouter(this).maxSafeTokenAmount(
 			address(stakingToken),
 			address(0x0),
-			stakingTokenBalance
+			stakingTokenBalance,
+			stakingContract.maxLiquidityPercentageSwap()
 		);
 		address[] memory path = new address[](2);
 		path[0] = address(stakingToken);
 		path[1] = uniswap.WETH();
-		if (safeAmount > 0) stakingContract.swap(path, safeAmount, 0, avatar);
+		if (safeAmount > 0) IHasRouter(this).swap(path, safeAmount, 0, avatar);
 
 		uint256 remainingStakingTokenBalance = stakingToken.balanceOf(
 			address(this)
@@ -153,5 +155,9 @@ contract DonationsStaking is DAOUpgradeableContract {
 		stakingToken = stakingContract.token();
 		stakingToken.approve(address(stakingContract), type(uint256).max); //we trust the staking contract
 		stakingToken.approve(address(uniswap), type(uint256).max); // we trust uniswap router
+	}
+
+	function getRouter() public view override returns (Uniswap) {
+		return Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 	}
 }

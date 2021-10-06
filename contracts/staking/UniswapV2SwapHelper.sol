@@ -6,10 +6,6 @@ import "../Interfaces.sol";
 import "./SimpleStaking.sol";
 
 library UniswapV2SwapHelper {
-	function getRouter(SimpleStaking staking) public view returns (Uniswap) {
-		return Uniswap(staking.nameService().getAddress("UNISWAP_ROUTER"));
-	}
-
 	/**
 	 *@dev Helper to calculate percentage out of token liquidity in pool that is safe to exchange against sandwich attack.
 	 * also checks if token->eth has better safe limit, so perhaps doing tokenA->eth->tokenB is better than tokenA->tokenB
@@ -20,12 +16,13 @@ library UniswapV2SwapHelper {
 	 *@param _inTokenAmount amount of in token required to swap
 	 */
 	function maxSafeTokenAmount(
-		SimpleStaking staking,
+		IHasRouter _iHasRouter,
 		address _inToken,
 		address _outToken,
-		uint256 _inTokenAmount
+		uint256 _inTokenAmount,
+		uint256 _maxLiquidityPercentageSwap
 	) public view returns (uint256 safeAmount) {
-		Uniswap uniswap = getRouter(staking);
+		Uniswap uniswap = _iHasRouter.getRouter();
 		address wETH = uniswap.WETH();
 		_inToken = _inToken == address(0x0) ? wETH : _inToken;
 		_outToken = _outToken == address(0x0) ? wETH : _outToken;
@@ -38,7 +35,7 @@ library UniswapV2SwapHelper {
 			reserve = reserve1;
 		}
 
-		safeAmount = (reserve * staking.maxLiquidityPercentageSwap()) / 100000;
+		safeAmount = (reserve * _maxLiquidityPercentageSwap) / 100000;
 
 		return safeAmount < _inTokenAmount ? safeAmount : _inTokenAmount;
 	}
@@ -52,20 +49,23 @@ library UniswapV2SwapHelper {
     *
 	 */
 	function swap(
-		SimpleStaking staking,
+		IHasRouter _iHasRouter,
 		address[] memory _path,
 		uint256 _tokenAmount,
 		uint256 _minTokenReturn,
 		address _receiver
 	) internal returns (uint256 swapResult) {
-		Uniswap uniswapContract = getRouter(staking);
+		Uniswap uniswapContract = _iHasRouter.getRouter();
 		uint256[] memory result;
 
 		if (_path[0] == address(0x0)) {
 			_path[0] = uniswapContract.WETH();
-			result = uniswapContract.swapExactETHForTokens{
-				value: _tokenAmount
-			}(_minTokenReturn, _path, _receiver, block.timestamp);
+			result = uniswapContract.swapExactETHForTokens{ value: _tokenAmount }(
+				_minTokenReturn,
+				_path,
+				_receiver,
+				block.timestamp
+			);
 		} else if (_path[_path.length - 1] == address(0x0)) {
 			_path[_path.length - 1] = uniswapContract.WETH();
 			result = uniswapContract.swapExactTokensForETH(

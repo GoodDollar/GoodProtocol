@@ -11,8 +11,8 @@ import "../UniswapV2SwapHelper.sol";
  * or withdraw their stake in Token
  * the contracts buy cToken and can transfer the daily interest to the  DAO
  */
-contract GoodCompoundStaking is SimpleStaking {
-	using UniswapV2SwapHelper for SimpleStaking;
+contract GoodCompoundStaking is SimpleStaking, IHasRouter {
+	using UniswapV2SwapHelper for IHasRouter;
 
 	// Address of the TOKEN/USD oracle from chainlink
 	address public tokenUsdOracle;
@@ -127,13 +127,14 @@ contract GoodCompoundStaking is SimpleStaking {
 			compToDaiSwapPath[0] = address(comp);
 			compToDaiSwapPath[1] = uniswapContract.WETH();
 			compToDaiSwapPath[2] = nameService.getAddress("DAI");
-			actualRewardTokenGains = SimpleStaking(this).maxSafeTokenAmount(
+			actualRewardTokenGains = IHasRouter(this).maxSafeTokenAmount(
 				address(comp),
 				uniswapContract.WETH(),
-				compBalance
+				compBalance,
+				maxLiquidityPercentageSwap
 			);
 
-			redeemedDAI = SimpleStaking(this).swap(
+			redeemedDAI = IHasRouter(this).swap(
 				compToDaiSwapPath,
 				actualRewardTokenGains,
 				0,
@@ -143,10 +144,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		//in case of cdai there's no need to swap to DAI, we send cdai to reserve directly
 		actualTokenGains = iTokenWorthInToken(_amount);
 		if (address(iToken) == nameService.getAddress("CDAI")) {
-			require(
-				iToken.transfer(_recipient, _amount),
-				"collect transfer failed"
-			);
+			require(iToken.transfer(_recipient, _amount), "collect transfer failed");
 			return (
 				actualTokenGains,
 				actualRewardTokenGains,
@@ -155,10 +153,11 @@ contract GoodCompoundStaking is SimpleStaking {
 		}
 
 		//out of requested interests to withdraw how much is it safe to swap
-		uint256 safeAmount = SimpleStaking(this).maxSafeTokenAmount(
+		uint256 safeAmount = IHasRouter(this).maxSafeTokenAmount(
 			address(token),
 			tokenToDaiSwapPath[1],
-			actualTokenGains
+			actualTokenGains,
+			maxLiquidityPercentageSwap
 		);
 
 		if (actualTokenGains > safeAmount) {
@@ -175,7 +174,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		actualTokenGains = token.balanceOf(address(this));
 
 		if (actualTokenGains > 0) {
-			redeemedDAI += SimpleStaking(this).swap(
+			redeemedDAI += IHasRouter(this).swap(
 				tokenToDaiSwapPath,
 				actualTokenGains,
 				0,
@@ -324,5 +323,9 @@ contract GoodCompoundStaking is SimpleStaking {
 		comp.approve(uniswapRouter, type(uint256).max);
 		token.approve(uniswapRouter, type(uint256).max);
 		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
+	}
+
+	function getRouter() public view override returns (Uniswap) {
+		return Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 	}
 }
