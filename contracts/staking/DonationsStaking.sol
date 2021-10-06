@@ -96,12 +96,7 @@ contract DonationsStaking is DAOUpgradeableContract {
 			address(stakingToken),
 			ethBalance
 		);
-		uniswap.swapExactETHForTokens{ value: safeAmount }(
-			0,
-			path,
-			address(this),
-			block.timestamp
-		);
+		stakingContract.swap(path, safeAmount, 0, address(this));
 		return ethBalance;
 	}
 
