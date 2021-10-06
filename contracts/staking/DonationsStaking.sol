@@ -144,14 +144,11 @@ contract DonationsStaking is DAOUpgradeableContract {
 		path[1] = uniswap.WETH();
 		if (safeAmount > 0) stakingContract.swap(path, safeAmount, 0, avatar);
 
-		uint256 ethBalance = address(this).balance;
 		uint256 remainingStakingTokenBalance = stakingToken.balanceOf(
 			address(this)
 		);
 		if (remainingStakingTokenBalance > 0)
 			stakingToken.transfer(avatar, remainingStakingTokenBalance);
-		address payable receiver = payable(avatar);
-		receiver.transfer(ethBalance);
 		stakingContract = SimpleStaking(_stakingContract);
 		stakingToken = stakingContract.token();
 		stakingToken.approve(address(stakingContract), type(uint256).max); //we trust the staking contract
