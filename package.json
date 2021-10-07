@@ -51,7 +51,7 @@
   },
   "homepage": "https://gooddollar.org",
   "dependencies": {
-    "@gooddollar/goodcontracts": "^2.6.1",
+    "@gooddollar/goodcontracts": "^2.6.2",
     "@jsier/retrier": "^1.2.4",
     "@openzeppelin/contracts-upgradeable": "^4.3.2",
     "@typechain/hardhat": "^2.2.0",

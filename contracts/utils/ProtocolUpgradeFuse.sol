@@ -46,14 +46,17 @@ contract ProtocolUpgradeFuse {
 			"registering Identity failed"
 		);
 
-		//formula has no need to be a registered scheme
-		require(
-			controller.unregisterScheme(
-				IGoodDollar(ns.getAddress("GOODDOLLAR")).formula(),
-				avatar
-			),
-			"unregistering formula failed"
-		);
+		//if we are really doing an upgrade and not deploying dev env which will not have formula
+		if (oldContracts[0] != address(0)) {
+			//formula has no need to be a registered scheme
+			require(
+				controller.unregisterScheme(
+					IGoodDollar(ns.getAddress("GOODDOLLAR")).formula(),
+					avatar
+				),
+				"unregistering formula failed"
+			);
+		}
 	}
 
 	function upgradeUBI(
@@ -73,19 +76,21 @@ contract ProtocolUpgradeFuse {
 		);
 		require(ok, "setUBIScheme failed");
 
-		// transfer funds from old scheme here
-		(ok, ) = controller.genericCall(
-			oldUBI,
-			abi.encodeWithSignature("end()"),
-			address(avatar),
-			0
-		);
-		require(ok, "old ubischeme end failed");
+		if (oldUBI != address(0)) {
+			// transfer funds from old scheme here
+			(ok, ) = controller.genericCall(
+				oldUBI,
+				abi.encodeWithSignature("end()"),
+				address(avatar),
+				0
+			);
+			require(ok, "old ubischeme end failed");
 
-		require(
-			controller.unregisterScheme(oldUBI, avatar),
-			"unregistering old UBIScheme failed"
-		);
+			require(
+				controller.unregisterScheme(oldUBI, avatar),
+				"unregistering old UBIScheme failed"
+			);
+		}
 
 		if (ubiBalance > 0) {
 			ok = controller.externalTokenTransfer(
@@ -108,14 +113,19 @@ contract ProtocolUpgradeFuse {
 		address compoundVotingMachine
 	) public {
 		require(msg.sender == owner, "only owner");
-		require(
-			controller.unregisterScheme(schemeRegistrar, avatar),
-			"unregistering schemeRegistrar failed"
-		);
-		require(
-			controller.unregisterScheme(upgradeScheme, avatar),
-			"unregistering upgradeScheme failed"
-		);
+
+		if (schemeRegistrar != address(0))
+			require(
+				controller.unregisterScheme(schemeRegistrar, avatar),
+				"unregistering schemeRegistrar failed"
+			);
+
+		if (upgradeScheme != address(0))
+			require(
+				controller.unregisterScheme(upgradeScheme, avatar),
+				"unregistering upgradeScheme failed"
+			);
+
 		require(
 			controller.registerScheme(
 				compoundVotingMachine,

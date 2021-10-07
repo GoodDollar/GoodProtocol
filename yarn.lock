@@ -1716,10 +1716,10 @@
     "@ethersproject/properties" "^5.4.0"
     "@ethersproject/strings" "^5.4.0"
 
-"@gooddollar/goodcontracts@^2.6.1":
-  version "2.6.1"
-  resolved "https://registry.yarnpkg.com/@gooddollar/goodcontracts/-/goodcontracts-2.6.1.tgz#fb70f4c743e987d7390e3934039438f5e108a2db"
-  integrity sha512-MsD26V9dFI/v6884UbLL3CQv9X9me7X83CLKvnlQgqB/Yo0w6ZVaMq3im9Ogy9S4tAfEjluJvoWKf6L8hT0p+Q==
+"@gooddollar/goodcontracts@^2.6.2":
+  version "2.6.2"
+  resolved "https://registry.yarnpkg.com/@gooddollar/goodcontracts/-/goodcontracts-2.6.2.tgz#b8ed904e3126fb5a8a9d7bd48abf0e2da48c534b"
+  integrity sha512-TfOF+t+vCbsGkh5hwWjLiWt6xwLhyhpNocf2LRAtGt2e21hy0H7sPIvaT/jIDUCgTJpVn5KcZ5+3ksCdc0kdyA==
   dependencies:
     truffle-flattener "^1.4.4"
     truffle-plugin-verify "^0.3.11"

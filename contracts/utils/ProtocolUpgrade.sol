@@ -73,13 +73,15 @@ contract ProtocolUpgrade {
 		);
 
 		//formula has no need to be a registered scheme
-		require(
-			controller.unregisterScheme(
-				IGoodDollar(ns.getAddress("GOODDOLLAR")).formula(),
-				avatar
-			),
-			"unregistering formula failed"
-		);
+		address formula = IGoodDollar(ns.getAddress("GOODDOLLAR")).formula();
+		if (controller.isSchemeRegistered(formula, avatar))
+			require(
+				controller.unregisterScheme(
+					IGoodDollar(ns.getAddress("GOODDOLLAR")).formula(),
+					avatar
+				),
+				"unregistering formula failed"
+			);
 	}
 
 	/**
@@ -95,12 +97,14 @@ contract ProtocolUpgrade {
 	) external onlyOwner {
 		_setReserveSoleMinter(ns);
 
-		_setNewReserve(ns, oldReserve, oldMarketMaker, COMP);
+		if (oldReserve != address(0)) {
+			_setNewReserve(ns, oldReserve, oldMarketMaker, COMP);
 
-		require(
-			controller.unregisterScheme(oldFundManager, avatar),
-			"unregistering old FundManager failed"
-		);
+			require(
+				controller.unregisterScheme(oldFundManager, avatar),
+				"unregistering old FundManager failed"
+			);
+		}
 	}
 
 	/**
@@ -114,6 +118,7 @@ contract ProtocolUpgrade {
 	) public onlyOwner {
 		bool ok;
 		bytes memory result;
+
 		(ok, result) = controller.genericCall(
 			oldDonationStaking,
 			abi.encodeWithSignature("end()"),
@@ -168,14 +173,18 @@ contract ProtocolUpgrade {
 		address upgradeScheme,
 		address compoundVotingMachine
 	) public onlyOwner {
-		require(
-			controller.unregisterScheme(schemeRegistrar, avatar),
-			"unregistering schemeRegistrar failed"
-		);
-		require(
-			controller.unregisterScheme(upgradeScheme, avatar),
-			"unregistering upgradeScheme failed"
-		);
+		if (schemeRegistrar != address(0))
+			require(
+				controller.unregisterScheme(schemeRegistrar, avatar),
+				"unregistering schemeRegistrar failed"
+			);
+
+		if (upgradeScheme != address(0))
+			require(
+				controller.unregisterScheme(upgradeScheme, avatar),
+				"unregistering upgradeScheme failed"
+			);
+
 		require(
 			controller.registerScheme(
 				compoundVotingMachine,

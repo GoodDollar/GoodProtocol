@@ -9,7 +9,7 @@
 
 import { network, ethers, upgrades } from "hardhat";
 import { networkNames } from "@openzeppelin/upgrades-core";
-import { isFunction, get } from "lodash";
+import { isFunction, get, omitBy } from "lodash";
 import {
   AaveStakingFactory,
   CompoundStakingFactory,
@@ -62,7 +62,7 @@ export const main = async (
   networkName = name,
   isPerformUpgrade = true,
   olddao?
-) => {
+): Promise<{ [key: string]: any }> => {
   if (networkName.startsWith("dapptest") === false) {
     networkNames[1] = networkName;
     networkNames[122] = networkName;
@@ -131,7 +131,7 @@ export const main = async (
     }
   ];
 
-  let release = {};
+  let release: { [key: string]: any } = {};
 
   const toDeployUpgradable = [
     {
@@ -491,6 +491,7 @@ export const main = async (
       StakingContracts,
       DonationsStaking
     });
+    release = omitBy(release, _ => _ === undefined);
     let res = Object.assign(newdao, release);
     await releaser(release, networkName);
     return release;
@@ -789,7 +790,7 @@ export const main = async (
     //   Promise.resolve(["0x9999c40c8b88c740076b15d2e708db6a7a071b53", 13888])
     // ];
     let deployed;
-    if (!isRopsten) {
+    if (!isRopsten && !isDevelop) {
       const aaveps = aaveTokens.map(async token => {
         let rewardsPerBlock = (protocolSettings.staking.rewardsPerBlock / 2) //aave gets half of the rewards
           .toFixed(0);
