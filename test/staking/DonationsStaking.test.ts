@@ -19,7 +19,7 @@ export const BLOCK_INTERVAL = 30;
 describe("DonationsStaking - DonationStaking contract that receives funds in ETH/StakingToken and stake them in the SimpleStaking contract", () => {
   let dai: Contract;
   let bat: Contract;
-  let pair: Contract, uniswapRouter: Contract;
+  let pair: Contract, uniswapRouter: Contract, uniswapFactory: Contract;
   let cDAI, cDAI1, cDAI2, cDAI3, cBat: Contract, comp: Contract;
   let gasFeeOracle,
     daiEthOracle: Contract,
@@ -101,6 +101,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       }
     )) as GoodFundManager;
     const uniswap = await deployUniswap(comp, dai);
+    uniswapFactory = uniswap.factory;
     await setDAOAddress("UNISWAP_ROUTER", uniswap.router.address);
     uniswapRouter = uniswap.router;
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
@@ -210,6 +211,34 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const totalStakedAfterStake = await donationsStaking.totalStaked();
     expect(totalStakedAfterStake.sub(totalStakedBeforeStake)).to.be.equal(
       stakeAmount
+    );
+  });
+  it("it should stake donations with ETH according to 0.3% of pool", async () => {
+    let stakeAmount = ethers.utils.parseEther("20");
+    const pairContract = await ethers.getContractAt(
+      "UniswapPair",
+      await uniswapFactory.getPair(await uniswapRouter.WETH(), dai.address)
+    );
+    const beforeDonationReserves = await pairContract.getReserves();
+
+    let beforeDonationReserve = beforeDonationReserves[0];
+    if ((await pairContract.token1()) === (await uniswapRouter.WETH())) {
+      beforeDonationReserve = beforeDonationReserves[1];
+    }
+    const maxAmount = beforeDonationReserve
+      .mul(await donationsStaking.maxLiquidityPercentageSwap())
+      .div(100000);
+
+    let transaction = await (
+      await donationsStaking.stakeDonations({ value: stakeAmount })
+    ).wait();
+    const afterDonationReserves = await pairContract.getReserves();
+    let afterDonationReserve = afterDonationReserves[0];
+    if ((await pairContract.token1()) === (await uniswapRouter.WETH())) {
+      afterDonationReserve = afterDonationReserves[1];
+    }
+    expect(afterDonationReserve).to.be.equal(
+      beforeDonationReserve.add(maxAmount)
     );
   });
   it("withdraw should reverted if caller not avatar", async () => {

@@ -20,6 +20,8 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 	Uniswap public uniswap;
 	bool public active;
 	uint256 public totalETHDonated;
+	//max percentage of token/dai pool liquidity to swap to DAI when collecting interest out of 100000
+	uint24 public maxLiquidityPercentageSwap;
 	mapping(address => uint256) public totalStakingTokensDonated;
 	event DonationStaked(
 		address caller,
@@ -43,6 +45,7 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 		uniswap = Uniswap(_ns.getAddress("UNISWAP_ROUTER"));
 		stakingContract = SimpleStaking(_stakingContract);
 		stakingToken = stakingContract.token();
+		maxLiquidityPercentageSwap = 300; //0.3%
 		stakingToken.approve(address(stakingContract), type(uint256).max); //we trust the staking contract
 		stakingToken.approve(address(uniswap), type(uint256).max); // we trust uniswap router
 		active = true;
@@ -95,7 +98,7 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 			address(0x0),
 			address(stakingToken),
 			ethBalance,
-			stakingContract.maxLiquidityPercentageSwap()
+			maxLiquidityPercentageSwap
 		);
 		IHasRouter(this).swap(path, safeAmount, 0, address(this));
 		return ethBalance;

@@ -12,7 +12,7 @@ import "../UniswapV2SwapHelper.sol";
  * or withdraw their stake in Token
  * the contracts buy cToken and can transfer the daily interest to the  DAO
  */
-contract GoodAaveStaking is SimpleStaking, IHasRouter {
+contract GoodAaveStaking is SimpleStaking {
 	using UniswapV2SwapHelper for IHasRouter;
 
 	// Address of the TOKEN/USD oracle from chainlink
@@ -265,9 +265,5 @@ contract GoodAaveStaking is SimpleStaking, IHasRouter {
 		address uniswapRouter = nameService.getAddress("UNISWAP_ROUTER");
 		token.approve(uniswapRouter, type(uint256).max);
 		token.approve(address(lendingPool), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
-	}
-
-	function getRouter() public view override returns (Uniswap) {
-		return Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 	}
 }
