@@ -4,6 +4,7 @@
 
 import { network, ethers, upgrades } from "hardhat";
 import { Contract } from "ethers";
+import { range } from "lodash";
 import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollar.json";
 import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
@@ -12,6 +13,8 @@ import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/buil
 import FirstClaimPool from "@gooddollar/goodcontracts/stakingModel/build/contracts/FirstClaimPool.json";
 import AdminWalletABI from "@gooddollar/goodcontracts/build/contracts/AdminWallet.json";
 import OTPABI from "@gooddollar/goodcontracts/build/contracts/OneTimePayments.json";
+import HomeBridgeABI from "@gooddollar/goodcontracts/build/contracts/DeployHomeBridge.json";
+import ForeignBridgeABI from "@gooddollar/goodcontracts/build/contracts/DeployForeignBridge.json";
 
 import releaser from "../scripts/releaser";
 import ProtocolSettings from "../releases/deploy-settings.json";
@@ -62,8 +65,6 @@ export const createDAO = async () => {
     AddFoundersABI.bytecode,
     root
   );
-
-  //TODO bridge: deployment
 
   const BancorFormula = await (
     await ethers.getContractFactory("BancorFormula")
@@ -159,8 +160,11 @@ export const createDAO = async () => {
       gd
     );
     schemes.push(sidechain.OneTimePayments.address);
-    //TODO: top admin wallet
     const adminWallet = await deployAdminWallet(Identity.address);
+    await root.sendTransaction({
+      to: adminWallet.address,
+      value: ethers.utils.parseUnits("0.1", "ether")
+    });
     Object.entries(sidechain).forEach(([k, v]) => (release[k] = v.address));
     release["AdminWallet"] = adminWallet.address;
   }
@@ -207,34 +211,6 @@ export const createDAO = async () => {
     ]);
 
     await genericCall(release.GoodMarketMaker, encoded);
-
-    // console.log("setting nameservice");
-    // encoded = (
-    //   await ethers.getContractAt("NameService", release.NameService)
-    // ).interface.encodeFunctionData("setAddresses", [
-    //   [
-    //     ethers.utils.keccak256(ethers.utils.toUtf8Bytes("RESERVE")),
-    //     ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MARKET_MAKER")),
-    //     ethers.utils.keccak256(ethers.utils.toUtf8Bytes("FUND_MANAGER")),
-    //     ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
-    //     ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKERS")),
-    //     ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
-    //     ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBI_RECIPIENT")),
-    //     ethers.utils.keccak256(ethers.utils.toUtf8Bytes("EXCHANGE_HELPER"))
-    //   ],
-    //   [
-    //     release.GoodReserveCDai,
-    //     release.GoodMarketMaker,
-    //     release.GoodFundManager,
-    //     release.GReputation,
-    //     release.StakersDistribution,
-    //     mainnet?.ForeignBridge?.address || ethers.constants.AddressZero,
-    //     //TODO: read sidechain deployment
-    //     //fusedao.UBIScheme,
-    //     ethers.constants.AddressZero,
-    //     release.ExchangeHelper
-    //   ]
-    // ]);
   }
 
   if (false === isMainnet) {
@@ -307,9 +283,6 @@ const deployMainnet = async (Avatar, Identity) => {
   };
 };
 
-//TODO: deploy OTP
-//deploy invites
-//deploy faucet
 export const deploySidechain = async (
   setSchemes,
   genericCall,
@@ -384,14 +357,18 @@ export const deploySidechain = async (
 };
 
 const deployAdminWallet = async identity => {
-  //TODO: get signers from admin mnemonic
-  const signers = await ethers.getSigners();
+  const root = (await ethers.getSigners())[0];
+  const hdNode = ethers.utils.HDNode.fromMnemonic(process.env.ADMIN_MNEMONIC);
+  const admins = range(0, 50).map(i =>
+    hdNode.derivePath(`m/44'/60'/0'/0/${i + 1}`)
+  );
+
   const adminWallet = await new ethers.ContractFactory(
     AdminWalletABI.abi,
     AdminWalletABI.bytecode,
-    signers[0]
+    root
   ).deploy(
-    signers.slice(0, 10).map(_ => _.address),
+    admins.slice(0, 20).map(_ => _.address),
     ethers.utils.parseUnits("1000000", "gwei"),
     4,
     identity
@@ -399,10 +376,18 @@ const deployAdminWallet = async identity => {
 
   const id = await ethers.getContractAt("IIdentity", identity);
   await id.addIdentityAdmin(adminWallet.address);
-  await signers[0].sendTransaction({
+  await root.sendTransaction({
     to: adminWallet.address,
     value: ethers.utils.parseEther("10")
   });
+  await adminWallet["topAdmins(uint256)"](0);
+  console.log(
+    "deployAdminWallet admins:",
+    admins.map(_ => _.address),
+    "balance:",
+    await ethers.provider.getBalance(adminWallet.address)
+  );
+
   return adminWallet;
 };
 
@@ -452,8 +437,6 @@ const performUpgradeFuse = async release => {
       ethers.constants.AddressZero,
       release.FirstClaimPool
     ],
-    //new gov
-    release.CompoundVotingMachine,
     release.UBIScheme,
     [
       ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
