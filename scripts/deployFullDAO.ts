@@ -11,6 +11,7 @@ import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.
 import AddFoundersABI from "@gooddollar/goodcontracts/build/contracts/AddFoundersGoodDollar.json";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
 import FirstClaimPool from "@gooddollar/goodcontracts/stakingModel/build/contracts/FirstClaimPool.json";
+import BridgeMock from "@gooddollar/goodcontracts/stakingModel/build/contracts/BridgeMock.json";
 import AdminWalletABI from "@gooddollar/goodcontracts/build/contracts/AdminWallet.json";
 import OTPABI from "@gooddollar/goodcontracts/build/contracts/OneTimePayments.json";
 import HomeBridgeABI from "@gooddollar/goodcontracts/build/contracts/DeployHomeBridge.json";
@@ -169,6 +170,9 @@ export const createDAO = async () => {
     release["AdminWallet"] = adminWallet.address;
   }
 
+  const bridgeRelease = await deployBridge(Avatar, gd, setSchemes, isMainnet);
+  release = { ...release, ...bridgeRelease };
+
   //deploy v2 mainnet/sidechain contracts, returns their addresses
   const v2 = await deployV2(network.name, false, {
     FirstClaimPool: sidechain?.FirstClaimPool?.address,
@@ -190,8 +194,7 @@ export const createDAO = async () => {
     GoodDollar: gd,
     Contribution: mainnet?.contribution?.address,
     UniswapRouter: "0x0000000000000000000000000000000000000001",
-    HomeBridge: ethers.constants.AddressZero,
-    ForeignBridge: ethers.constants.AddressZero,
+    ...bridgeRelease,
     SchemeRegistrar: ethers.constants.AddressZero,
     UpgradeScheme: ethers.constants.AddressZero
   });
@@ -237,6 +240,55 @@ export const createDAO = async () => {
     bancorFormula: BancorFormula.address
     // bridge: Bridge.address,
   };
+};
+
+const deployBridge = async (Avatar, gd, setSchemes, isMainnet) => {
+  const GoodDollar = await ethers.getContractAt("IGoodDollar", gd);
+  const [root] = await ethers.getSigners();
+  const BridgeABI = isMainnet ? ForeignBridgeABI : HomeBridgeABI;
+  const bridgeFactory = new ethers.ContractFactory(
+    BridgeABI.abi,
+    BridgeABI.bytecode,
+    root
+  );
+  let BridgeFactoryContract = isMainnet
+    ? "0xABBf5D8599B2Eb7b4e1D25a1Fd737FF1987655aD"
+    : "0xb895638fb3870AD5832402a5BcAa64A044687db0"; //Fuse test bridge addresses
+
+  const isAlreadyMinter = await GoodDollar.isMinter(BridgeFactoryContract);
+  console.log("deploying bridge scheme:", {
+    BridgeFactoryContract,
+    isMainnet,
+    isAlreadyMinter
+  });
+  const scheme = await bridgeFactory.deploy(
+    Avatar.address,
+    BridgeFactoryContract
+  );
+  await setSchemes([scheme.address]);
+
+  if (network.name.includes("develop")) {
+    const mockBridge = await new ethers.ContractFactory(
+      BridgeMock.abi,
+      BridgeMock.bytecode,
+      root
+    ).deploy();
+    console.log("deployed mock bridge for develop mode:", mockBridge.address);
+    return isMainnet
+      ? { ForeignBridge: mockBridge.address }
+      : { HomeBridge: mockBridge.address };
+  }
+
+  let tx = await (
+    await (isMainnet
+      ? scheme.setBridge()
+      : scheme.setBridge(isAlreadyMinter === false))
+  ).wait();
+  console.log("deployed bridge:", tx.events[0].args);
+  console.log(tx.events, tx);
+  return isMainnet
+    ? { ForeignBridge: tx.events[0].args._foreignBridge }
+    : { HomeBridge: tx.events[0].args._homeBridge };
 };
 
 const deployMainnet = async (Avatar, Identity) => {
