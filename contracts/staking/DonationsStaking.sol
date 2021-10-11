@@ -109,6 +109,11 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 		active = _active;
 	}
 
+	function setMaxLiquidityPercentageSwap(uint24 _maxPercentage) public virtual {
+		_onlyAvatar();
+		maxLiquidityPercentageSwap = _maxPercentage;
+	}
+
 	/**
 	 * @dev withdraws all stakes and then transfer all balances to avatar
 	 * this can also be called by owner(Foundation) but it is safe as funds are transfered to avatar
@@ -142,7 +147,7 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 			address(stakingToken),
 			address(0x0),
 			stakingTokenBalance,
-			stakingContract.maxLiquidityPercentageSwap()
+			maxLiquidityPercentageSwap
 		);
 		address[] memory path = new address[](2);
 		path[0] = address(stakingToken);

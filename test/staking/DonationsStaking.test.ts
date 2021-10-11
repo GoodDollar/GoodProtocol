@@ -234,14 +234,16 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     ).wait();
     const afterDonationReserves = await pairContract.getReserves();
     let afterDonationReserve = afterDonationReserves[0];
+    const ethBalanceAfterStake = await donationsStaking.provider.getBalance(
+      donationsStaking.address
+    );
     if ((await pairContract.token1()) === (await uniswapRouter.WETH())) {
       afterDonationReserve = afterDonationReserves[1];
     }
     expect(afterDonationReserve).to.be.equal(
       beforeDonationReserve.add(maxAmount)
     );
-    const cdaiBalance = await cDAI.balanceOf(goodCompoundStaking.address);
-    console.log(`cdaiBalance ${cdaiBalance}`);
+    expect(stakeAmount.sub(maxAmount)).to.be.equal(ethBalanceAfterStake); // check leftover ETH in contract
   });
   it("withdraw should reverted if caller not avatar", async () => {
     const tx = await donationsStaking
@@ -255,15 +257,37 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const avatarDaiBalanceBeforeEnd = await dai.balanceOf(avatar);
     let isActive = await donationsStaking.active();
     expect(isActive).to.be.equal(true);
+    const ethBalanceBeforeWithdraw = await donationsStaking.provider.getBalance(
+      donationsStaking.address
+    );
+    const avatarETHBalanceBeforeWithdraw =
+      await donationsStaking.provider.getBalance(avatar);
+    const balance = await goodCompoundStaking.balanceOf(
+      donationsStaking.address
+    );
+
     const encoded = donationsStaking.interface.encodeFunctionData("withdraw");
     await genericCall(donationsStaking.address, encoded);
 
     isActive = await donationsStaking.active();
+
     const totalStakedAfterEnd = await donationsStaking.totalStaked();
     const avatarDaiBalanceAfterEnd = await dai.balanceOf(avatar);
     expect(avatarDaiBalanceAfterEnd).to.be.gt(avatarDaiBalanceBeforeEnd);
     expect(avatarDaiBalanceAfterEnd).to.be.equal(totalStakedBeforeEnd);
+    expect(avatarDaiBalanceAfterEnd).to.be.equal(
+      avatarDaiBalanceBeforeEnd.add(balance)
+    );
+    const ethBalanceAfterWithdraw = await donationsStaking.provider.getBalance(
+      donationsStaking.address
+    );
+    const avatarETHBalanceAfterWithdraw =
+      await donationsStaking.provider.getBalance(avatar);
     expect(totalStakedAfterEnd).to.be.equal(0);
+    expect(ethBalanceAfterWithdraw).to.be.equal(0);
+    expect(avatarETHBalanceAfterWithdraw).to.be.equal(
+      ethBalanceBeforeWithdraw.add(avatarETHBalanceBeforeWithdraw)
+    );
   });
   it("it should set stakingContract when avatar call it ", async () => {
     const donationsStakingFactory = await ethers.getContractFactory(
@@ -305,21 +329,4 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(stakingContractAfterSet).to.be.equal(simpleStaking.address);
     expect(stakingTokenAfterSet).to.be.equal(bat.address);
   });
-  async function addETHLiquidity(
-    token0Amount: BigNumber,
-    WETHAmount: BigNumber
-  ) {
-    await dai.approve(uniswapRouter.address, MaxUint256);
-    await uniswapRouter.addLiquidityETH(
-      dai.address,
-      token0Amount,
-      token0Amount,
-      WETHAmount,
-      founder.address,
-      MaxUint256,
-      {
-        value: WETHAmount
-      }
-    );
-  }
 });
