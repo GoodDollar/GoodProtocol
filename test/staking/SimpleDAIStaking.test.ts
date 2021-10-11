@@ -182,7 +182,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
 
   it("should mock cdai exchange rate 1e28 precision", async () => {
     let rate = await cDAI.exchangeRateStored();
-    expect(rate.toString()).to.be.equal("10101010101010101010101010101");
+    expect(rate.toString()).to.be.equal("200000000000000000000000000");
   });
 
   it("should mint new dai", async () => {
@@ -203,7 +203,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     balance = await dai.balanceOf(staker.address);
     expect(balance.toString()).to.be.equal("0");
     let cdaiBalance = await cDAI.balanceOf(staker.address);
-    expect(cdaiBalance.toString()).to.be.equal("9900000000");
+    expect(cdaiBalance.toString()).to.be.equal("500000000000"); // must mint 5000cDAI with 100DAI
   });
 
   it("should redeem cdai", async () => {
@@ -211,7 +211,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await cDAI.connect(staker)["redeem(uint256)"](cdaiBalance.toString());
     let balance = await dai.balanceOf(staker.address);
     let er = await cDAI.exchangeRateStored();
-    expect(balance).to.be.equal(cdaiBalance.mul(er).div(BN.from(10).pow(18)));
+    expect(balance).to.be.equal(
+      cdaiBalance.mul(BN.from(10).pow(10)).mul(er).div(BN.from(10).pow(28))
+    );
     await dai.connect(staker).transfer(dai.address, balance.toString());
   });
 
@@ -532,7 +534,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
     let stakedcDaiBalance = await cDAI.balanceOf(goodCompoundStaking.address);
     expect(stakedcDaiBalance.toString()).to.be.equal(
-      "9900000000" //8 decimals precision (99 cdai because of the exchange rate dai <> cdai)
+      "500000000000" // 100 DAI worth 5000 cDAI with 0.02 exchangeRate
     );
   });
 
@@ -670,7 +672,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     let stakedcDaiBalance = await cDAI.balanceOf(goodCompoundStaking.address);
     let stakercDaiBalance = await cDAI.balanceOf(staker.address);
     expect(stakedcDaiBalance.toString()).to.be.equal(
-      "9900000000" //8 decimals precision
+      "500000000000" //8 decimals precision
     );
     let stakedDaiBalance = await dai.balanceOf(goodCompoundStaking.address);
     expect(stakedDaiBalance.isZero()).to.be.true;
@@ -804,7 +806,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     expect(
       (stakedcDaiBalanceAfter - stakedcDaiBalanceBefore).toString()
     ).to.be.equal(
-      "9900000000" //8 decimals precision (99 cdai)
+      "500000000000" // 100 dai worth 5000 cdai in the 0.02 exchangerate
     );
 
     await goodCompoundStaking
@@ -923,7 +925,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
   it("should mock cdai updated exchange rate", async () => {
     await cDAI.exchangeRateCurrent();
     let rate = await cDAI.exchangeRateStored();
-    expect(rate.toString()).to.be.equal("10201010101010101010101010101");
+    expect(rate.toString()).to.be.equal("300000000000000000000000000");
   });
 
   it("should report interest gains", async () => {
@@ -941,7 +943,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
 
     const cdaiGains = gains["0"];
 
-    expect(cdaiGains.toString()).to.be.equal("380659785"); //8 decimals precision
+    expect(cdaiGains.toString()).to.be.equal("333333333325"); //8 decimals precision
     await goodCompoundStaking
       .connect(staker)
       .withdrawStake(stakingAmount, false);
@@ -983,7 +985,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
     expect(fundDaiWorth[2].toString()).to.be.equal(
       //it should be equal 100000000000000000000 but since there is some precision loss due to iToken decimal < token decimal it returns 100000000124064646464
-      "100000000124064646464"
+      "100000000147200000000"
     );
     await goodCompoundStaking
       .connect(staker)
@@ -1235,7 +1237,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       .withdrawStake(withdrawAmount, true);
     await goodCompoundStaking
       .connect(staker)
-      .withdrawStake("000000000036236363637", false); // 000000000036236363637 is precision loss due to itoken decimals < token decimals
+      .withdrawStake("00000000003200000000", false); // 00000000003200000000 is precision loss due to itoken decimals < token decimals
     const stakerCdaiBalanceAfterWithdraw = await cDAI.balanceOf(staker.address);
     const productivityAfterWithdraw = await goodCompoundStaking.getProductivity(
       staker.address
@@ -1248,7 +1250,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     expect(stakerDaiBalanceAfterStake.add(stakingAmount)).to.be.equal(
       stakerDaiBalanceBeforeStake
     );
-    expect(stakerCdaiBalanceBeforeWithdraw.add("623826387")).to.be.equal(
+    expect(stakerCdaiBalanceBeforeWithdraw.add("664893617")).to.be.equal(
       stakerCdaiBalanceAfterWithdraw
     );
   });

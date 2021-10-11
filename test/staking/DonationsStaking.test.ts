@@ -240,6 +240,8 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(afterDonationReserve).to.be.equal(
       beforeDonationReserve.add(maxAmount)
     );
+    const cdaiBalance = await cDAI.balanceOf(goodCompoundStaking.address);
+    console.log(`cdaiBalance ${cdaiBalance}`);
   });
   it("withdraw should reverted if caller not avatar", async () => {
     const tx = await donationsStaking
