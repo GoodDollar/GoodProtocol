@@ -649,8 +649,6 @@ export const main = async (
         dao.UBIScheme,
         dao.FirstClaimPool
       ],
-      //new gov
-      release.CompoundVotingMachine,
       release.UBIScheme,
       [
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),

@@ -4,7 +4,7 @@ import {
   UBIScheme,
   GoodReserveCDai,
   GoodMarketMaker,
-  GoodFundManager,
+  GoodFundManager
 } from "../../types";
 import {
   createDAO,
@@ -12,7 +12,7 @@ import {
   advanceBlocks,
   increaseTime,
   deployUniswap,
-  getStakingFactory,
+  getStakingFactory
 } from "../helpers";
 
 const BN = ethers.BigNumber;
@@ -39,7 +39,7 @@ async function proposeAndRegister(
   );
   proposalId = transaction.logs[0].args._proposalId;
   const voteResult = await absoluteVote.vote(proposalId, 1, 0, fnd);
-  return voteResult.logs.some((e) => e.event === "ExecuteProposal");
+  return voteResult.logs.some(e => e.event === "ExecuteProposal");
 }
 
 describe("UBIScheme - network e2e tests", () => {
@@ -102,7 +102,7 @@ describe("UBIScheme - network e2e tests", () => {
       reserve,
       setReserveToken,
       addWhitelisted,
-      COMP,
+      COMP
     } = deployedDAO;
 
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -129,7 +129,7 @@ describe("UBIScheme - network e2e tests", () => {
     await setDAOAddress("COMP", comp.address);
     simpleStaking = await goodCompoundStakingFactory
       .deploy()
-      .then(async (contract) => {
+      .then(async contract => {
         await contract.init(
           dai.address,
           cDAI.address,
@@ -148,11 +148,11 @@ describe("UBIScheme - network e2e tests", () => {
       goodFundManagerFactory,
       [nameService.address],
       {
-        kind: "uups",
+        kind: "uups"
       }
     )) as GoodFundManager;
     console.log("Deployed goodfund manager", {
-      manager: goodFundManager.address,
+      manager: goodFundManager.address
     });
 
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
@@ -176,7 +176,7 @@ describe("UBIScheme - network e2e tests", () => {
         simpleStaking.address,
         currentBlockNumber - 5,
         currentBlockNumber + 1000,
-        false,
+        false
       ] // set 10 gd per block
     );
 
@@ -218,7 +218,7 @@ describe("UBIScheme - network e2e tests", () => {
     await goodDollar.transfer(firstClaimPool.address, gdbalance.toString());
     // transfers funds to the ubi
     await cDAI.increasePriceWithMultiplier("10000"); // Generate some interests
-    await goodFundManager.collectInterest([simpleStaking.address]);
+    await goodFundManager.collectInterest([simpleStaking.address], false);
 
     await addWhitelisted(claimer.address, "claimer1");
   });
@@ -238,7 +238,7 @@ describe("UBIScheme - network e2e tests", () => {
     let error = await ubi
       .connect(fisherman)
       .fish(claimer.address)
-      .catch((e) => e);
+      .catch(e => e);
     await goodDollar.balanceOf(fisherman.address);
     expect(error.message).to.have.string("is not an inactive user");
   });
@@ -260,7 +260,7 @@ describe("UBIScheme - network e2e tests", () => {
     let error = await ubi
       .connect(fisherman)
       .fish(claimer.address)
-      .catch((e) => e);
+      .catch(e => e);
     expect(error.message).to.have.string("already fished");
   });
 

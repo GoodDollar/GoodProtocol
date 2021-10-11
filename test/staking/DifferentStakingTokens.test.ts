@@ -124,7 +124,7 @@ describe("Different decimals staking token", () => {
       const addressesToCollect = contractAddressesToBeCollected.map(x => x[0]);
       await goodFundManager
         .connect(staker)
-        .collectInterest(addressesToCollect, {
+        .collectInterest(addressesToCollect, false, {
           gasLimit: 1300000
         });
       const gdBalanceAfterCollectInterest = await goodDollar.balanceOf(

@@ -121,7 +121,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		uint256 compBalance = comp.balanceOf(address(this));
 
 		uint256 redeemedDAI;
-		cERC20 cToken = cERC20(address(iToken));
+
 		if (compBalance > 0) {
 			address[] memory compToDaiSwapPath = new address[](3);
 			compToDaiSwapPath[0] = address(comp);
@@ -143,10 +143,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		//in case of cdai there's no need to swap to DAI, we send cdai to reserve directly
 		actualTokenGains = iTokenWorthInToken(_amount);
 		if (address(iToken) == nameService.getAddress("CDAI")) {
-			require(
-				iToken.transfer(_recipient, _amount),
-				"collect transfer failed"
-			);
+			require(iToken.transfer(_recipient, _amount), "collect transfer failed");
 			return (
 				actualTokenGains,
 				actualRewardTokenGains,
@@ -223,10 +220,6 @@ contract GoodCompoundStaking is SimpleStaking {
 			uint256 tokenGainsInUSD
 		)
 	{
-		cERC20 cToken = cERC20(address(iToken));
-		uint256 er = cToken.exchangeRateStored();
-		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
-		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
 		tokenBalance = iTokenWorthInToken(iToken.balanceOf(address(this)));
 		balanceInUSD = _returnTokenBalanceInUSD
 			? getTokenValueInUSD(tokenUsdOracle, tokenBalance, token.decimals())

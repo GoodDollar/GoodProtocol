@@ -79,15 +79,15 @@ contract FuseFaucet is Initializable {
 	}
 
 	function canTop(address _user) public view returns (bool) {
-		uint256 currentDay = (block.timestamp - startTime) / 1 days;
+		uint256 _currentDay = (block.timestamp - startTime) / 1 days;
 		bool can = address(_user).balance < toppingAmount / 2 &&
-			toppings[currentDay][_user] < perDayRoughLimit &&
+			toppings[_currentDay][_user] < perDayRoughLimit &&
 			(identity.isWhitelisted(_user) || notFirstTime[_user] == false);
 
 		uint256 weekTotal = 0;
 		for (
-			int256 i = int256(currentDay);
-			i >= 0 && i > int256(currentDay) - 7;
+			int256 i = int256(_currentDay);
+			i >= 0 && i > int256(_currentDay) - 7;
 			i--
 		) {
 			weekTotal += toppings[uint256(i)][_user];

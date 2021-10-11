@@ -22,7 +22,6 @@ contract ProtocolUpgradeFuse {
 	function upgrade(
 		INameService ns,
 		address[] memory oldContracts, //schemeRegistrar,upgradeScheme, old ubi, firstclaim
-		address compoundVotingMachine,
 		address ubiScheme,
 		bytes32[] calldata nameHash,
 		address[] calldata nameAddress

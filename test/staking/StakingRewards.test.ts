@@ -550,7 +550,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const contractAddressesToBeCollected =
       await goodFundManager.calcSortedContracts();
     const addressesToCollect = contractAddressesToBeCollected.map(x => x[0]);
-    await goodFundManager.connect(staker).collectInterest(addressesToCollect);
+    await goodFundManager
+      .connect(staker)
+      .collectInterest(addressesToCollect, false);
     const gdBalanceAfterCollectInterest = await goodDollar.balanceOf(
       staker.address
     );
@@ -1019,7 +1021,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
   it("It should not collect interest when interest is lower than gas cost [ @skip-on-coverage ]", async () => {
     await goodFundManager
-      .collectInterest([goodCompoundStaking.address])
+      .collectInterest([goodCompoundStaking.address], false)
       .catch(e => e); // make sure there is no interest left
 
     const stakingAmount = ethers.utils.parseEther("100");
@@ -1031,7 +1033,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
 
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 100, false);
     const transaction = await goodFundManager
-      .collectInterest([goodCompoundStaking.address], {
+      .collectInterest([goodCompoundStaking.address], false, {
         gasLimit: 770000
       })
       .catch(e => e);
@@ -1041,6 +1043,37 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(transaction.message).to.have.string(
       "Collected interest value should be interestMultiplier x gas costs"
     );
+  });
+
+  it("It should always collect interest without rewards when forced", async () => {
+    await goodFundManager
+      .collectInterest([goodCompoundStaking.address], false)
+      .catch(e => e); // make sure there is no interest left
+
+    const stakingAmount = ethers.utils.parseEther("100");
+
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 100, false);
+    const transaction = goodFundManager.collectInterest(
+      [goodCompoundStaking.address],
+      true,
+      {
+        gasLimit: 770000
+      }
+    );
+
+    await expect(transaction).to.emit(goodFundManager, "FundsTransferred");
+    const tx = await (await transaction).wait();
+    const event = tx.events.find(e => e.event === "FundsTransferred");
+    expect(event.args.gdReward).to.equal(0);
+
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false);
   });
 
   it("It should sort array from lowest to highest ", async () => {
@@ -1103,7 +1136,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .calcSortedContracts()
       .catch(e => e);
     const tx = await goodFundManager
-      .collectInterest([goodCompoundStaking.address])
+      .collectInterest([goodCompoundStaking.address], false)
       .catch(e => e);
     expect(tx.message).to.have.string(
       "Collected interest value should be larger than spent gas costs"
@@ -1206,7 +1239,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const collectableContracts = await goodFundManager.calcSortedContracts();
     const addressesToCollect = collectableContracts.map(x => x[0]);
 
-    await goodFundManager.collectInterest(addressesToCollect, {
+    await goodFundManager.collectInterest(addressesToCollect, false, {
       gasLimit: 1500000
     });
     await simpleStaking.withdrawStake(ethers.utils.parseEther("100"), false);
@@ -2017,7 +2050,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .connect(staker)
       .calcSortedContracts();
     const addressesToCollect = contractAddressesToBeCollected.map(x => x[0]);
-    await goodFundManager.collectInterest(addressesToCollect);
+    await goodFundManager.collectInterest(addressesToCollect, false);
     return { simpleStaking };
   };
 });

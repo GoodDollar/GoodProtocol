@@ -194,7 +194,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       .mul(BN.from(10).pow(10))
       .div(BN.from(10).pow(28));
     const currentGains = await simpleStaking.currentGains(true, true);
-    await goodFundManager.collectInterest(addressToCollect, {
+    await goodFundManager.collectInterest(addressToCollect, false, {
       gasLimit: 1500000
     });
     const currentReserve = await swapHelperTest.getReserves(
@@ -246,7 +246,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const collectableContracts = await goodFundManager.calcSortedContracts();
     const currentGains = await simpleStaking.currentGains(true, true);
     const addressesToCollect = collectableContracts.map(x => x[0]);
-    await goodFundManager.collectInterest(addressesToCollect, {
+    await goodFundManager.collectInterest(addressesToCollect, false, {
       gasLimit: 1500000
     });
     const currentReserve = await swapHelperTest.getReserves(
@@ -295,7 +295,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       comp.address,
       wethContract.address
     );
-    await goodFundManager.collectInterest(addressesToCollect, {
+    await goodFundManager.collectInterest(addressesToCollect, false, {
       gasLimit: 1500000
     });
     const reserveAfterSwap = await swapHelperTest.getReserves(

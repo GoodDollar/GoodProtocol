@@ -973,9 +973,13 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     const contractAddressesToBeCollected =
       await goodFundManager.calcSortedContracts();
     const addressesToCollect = contractAddressesToBeCollected.map(x => x[0]);
-    const res = await goodFundManager.collectInterest(addressesToCollect, {
-      gasLimit: 1100000
-    });
+    const res = await goodFundManager.collectInterest(
+      addressesToCollect,
+      false,
+      {
+        gasLimit: 1100000
+      }
+    );
     const fundBalance1 = await cDAI.balanceOf(goodReserve.address);
     const fundDaiWorth = await goodCompoundStaking.currentGains(false, true);
     expect(cdaiGains.toString()).to.be.equal(
