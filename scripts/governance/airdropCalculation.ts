@@ -650,7 +650,7 @@ export const airdrop = (
     let failed = [];
     for (let addrChunk of chunk(addrs, 50)) {
       balancesPool.add(async () => {
-        const ps = addrChunk.map(async uAddress => {
+        const ps = addrChunk.map(async (uAddress: string) => {
           const curBalance = onlyFailed
             ? 0
             : get(addresses, `${uAddress}.balance`, 0);
