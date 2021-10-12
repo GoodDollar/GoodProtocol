@@ -14,6 +14,8 @@ library UniswapV2SwapHelper {
 	 *@param _inToken address of token we are swapping
 	 *@param _outToken address of swap result token
 	 *@param _inTokenAmount amount of in token required to swap
+	 *@param _maxLiquidityPercentageSwap max percentage of liquidity to swap to token
+	 * when swapping tokens and this value is out of 100000 so for example if you want to set it to 0.3 you need set it to 300
 	 */
 	function maxSafeTokenAmount(
 		IHasRouter _iHasRouter,

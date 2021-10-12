@@ -211,9 +211,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     await cDAI.connect(staker)["redeem(uint256)"](cdaiBalance.toString());
     let balance = await dai.balanceOf(staker.address);
     let er = await cDAI.exchangeRateStored();
-    expect(balance).to.be.equal(
-      cdaiBalance.mul(BN.from(10).pow(10)).mul(er).div(BN.from(10).pow(28))
-    );
+    expect(balance).to.be.equal(cdaiBalance.mul(er).div(BN.from(10).pow(18)));
     await dai.connect(staker).transfer(dai.address, balance.toString());
   });
 
@@ -925,7 +923,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
   it("should mock cdai updated exchange rate", async () => {
     await cDAI.exchangeRateCurrent();
     let rate = await cDAI.exchangeRateStored();
-    expect(rate.toString()).to.be.equal("300000000000000000000000000");
+    expect(rate.toString()).to.be.equal("300000000000000000000000000"); // it was 200000000000000000000000000 so after we call exchangeratecurrent it will update value by 1e26 so should be 300000000000000000000000000
   });
 
   it("should report interest gains", async () => {
@@ -1230,8 +1228,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       .div(BN.from("10").pow(10))
       .mul(BN.from("10").pow(28))
       .div(exchangeRateStored);
-    console.log("exchangeratestored %s", exchangeRateStored);
-    console.log("withdrawAmount %s", withdrawAmount);
+
     await goodCompoundStaking
       .connect(staker)
       .withdrawStake(withdrawAmount, true);

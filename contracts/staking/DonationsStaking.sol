@@ -126,8 +126,6 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 		uint256 stakingTokenBalance = stakingToken.balanceOf(address(this));
 		uint256 ethBalance = address(this).balance;
 		stakingToken.transfer(avatar, stakingTokenBalance);
-		address payable receiver = payable(avatar);
-		receiver.transfer(ethBalance);
 		return (stakingTokenBalance, ethBalance);
 	}
 
