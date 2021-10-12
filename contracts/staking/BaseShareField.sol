@@ -3,6 +3,7 @@ pragma solidity >=0.8.0;
 import "../Interfaces.sol";
 import "openzeppelin-solidity/contracts/utils/math/Math.sol";
 import "../utils/DSMath.sol";
+import "hardhat/console.sol";
 
 contract BaseShareField is DSMath {
 	// total staked for shares calculation
@@ -63,9 +64,7 @@ contract BaseShareField is DSMath {
 			block.number >= blockStart
 			? blockStart
 			: lastRewardBlock;
-		uint256 curRewardBlock = block.number > blockEnd
-			? blockEnd
-			: block.number;
+		uint256 curRewardBlock = block.number > blockEnd ? blockEnd : block.number;
 		if (curRewardBlock < blockStart || _lastRewardBlock >= blockEnd) return;
 
 		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block
@@ -73,7 +72,8 @@ contract BaseShareField is DSMath {
 
 		accAmountPerShare =
 			accAmountPerShare +
-			rdiv(reward, totalEffectiveStakes * (10**tokenDecimalDifference)); // Increase totalEffectiveStakes decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
+			(((reward * 1e27) / (totalEffectiveStakes)) *
+				(10**tokenDecimalDifference)); // Increase totalEffectiveStakes decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
 
 		lastRewardBlock = curRewardBlock;
 	}
@@ -108,15 +108,13 @@ contract BaseShareField is DSMath {
 					accAmountPerShare) /
 					1e27 -
 					userInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
-				uint256 rewardPerBlock = rdiv(pending, blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
+				uint256 rewardPerBlock = (pending * 1e27) / (blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
 				pending =
-					rmul(
-						(((firstMonthBlocksToPay * 1e27 * 5) / 10) + // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e27 to get it 27decimals
-							fullBlocksToPay *
-							1e27), // Multiply fullBlocksToPay with 1e27 to bring it to 27decimals
-						rewardPerBlock // rewardPerBlock is in 27decimals
-					) /
-					1e9; // Pending in 18 decimals so we divide 1e9 to bring it down to 18 decimals
+					((((firstMonthBlocksToPay * 1e27 * 5) / 10) + // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e27 to get it 27decimals
+						fullBlocksToPay *
+						1e27) * rewardPerBlock) / // rewardPerBlock is in 27decimals
+					1e36; // Pending in 18 decimals so we divide 1e36 to bring it down to 18 decimals
+
 				userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
 				accumulatedRewards = accumulatedRewards + pending;
 			}
@@ -128,8 +126,8 @@ contract BaseShareField is DSMath {
 		if (updatedAmount <= _amount) {
 			userInfo.multiplierResetTime = uint64(block.number);
 			if (_amount > 0) {
-				uint256 withdrawFromEffectiveStake = ((_amount -
-					updatedAmount) * userInfo.effectiveStakes) / _amount;
+				uint256 withdrawFromEffectiveStake = ((_amount - updatedAmount) *
+					userInfo.effectiveStakes) / _amount;
 				userInfo.effectiveStakes -= withdrawFromEffectiveStake;
 				totalEffectiveStakes -= withdrawFromEffectiveStake;
 			}
@@ -256,7 +254,8 @@ contract BaseShareField is DSMath {
 
 			_accAmountPerShare =
 				_accAmountPerShare +
-				rdiv(reward, totalEffectiveStakes * 10**tokenDecimalDifference); // Increase totalEffectiveStakes decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
+				(reward * 1e27) /
+				(totalEffectiveStakes * 10**tokenDecimalDifference); // Increase totalEffectiveStakes decimals if it is less than 18 decimals then accAmountPerShare in 27 decimals
 			UserInfo memory tempUserInfo = userInfo; // to prevent stack too deep error any other recommendation?
 			if (blocksToPay != 0) {
 				pending =
@@ -265,15 +264,12 @@ contract BaseShareField is DSMath {
 						_accAmountPerShare) /
 					1e27 -
 					tempUserInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
-				uint256 rewardPerBlock = rdiv(pending, blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals and rdiv returns in 27decimals
+				uint256 rewardPerBlock = (pending * 1e27) / (blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals and rdiv returns in 27decimals
 				pending =
-					rmul(
-						(((firstMonthBlocksToPay * 1e27 * 5) / 10) + // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e27 to get it 27decimals
-							fullBlocksToPay *
-							1e27), // Multiply fullBlocksToPay with 1e27 to bring it to 27decimals
-						rewardPerBlock // rewardPerBlock is in 27decimals
-					) /
-					1e9; // Pending in 18 decimals so we divide 1e9 to bring it down to 18 decimals
+					((((firstMonthBlocksToPay * 1e27 * 5) / 10) + // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e27 to get it 27decimals
+						fullBlocksToPay *
+						1e27) * rewardPerBlock) / // rewardPerBlock is in 27decimals
+					1e36; // Pending in 18 decimals so we divide 1e36 to bring it down to 18 decimals
 			}
 		}
 		return userInfo.rewardEarn + pending; // rewardEarn is in 18 decimals
