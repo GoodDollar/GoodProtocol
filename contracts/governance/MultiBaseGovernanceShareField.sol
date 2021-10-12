@@ -58,8 +58,11 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 			return;
 		}
 
-		(uint256 _lastRewardBlock, uint256 _accAmountPerShare) =
-			_calcUpdate(_contract, _blockStart, _blockEnd);
+		(uint256 _lastRewardBlock, uint256 _accAmountPerShare) = _calcUpdate(
+			_contract,
+			_blockStart,
+			_blockEnd
+		);
 
 		accAmountPerShare[_contract] = _accAmountPerShare;
 		lastRewardBlock[_contract] = _lastRewardBlock;
@@ -86,15 +89,16 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 			block.number >= _blockStart
 			? _blockStart
 			: _lastRewardBlock;
-		uint256 curRewardBlock =
-			block.number > _blockEnd ? _blockEnd : block.number;
+		uint256 curRewardBlock = block.number > _blockEnd
+			? _blockEnd
+			: block.number;
 		if (curRewardBlock < _blockStart || _lastRewardBlock >= _blockEnd)
 			return (_lastRewardBlock, _accAmountPerShare);
 
 		uint256 multiplier = curRewardBlock - _lastRewardBlock; // Blocks passed since last reward block
 		uint256 reward = multiplier * rewardsPerBlock[_contract]; // rewardsPerBlock is in GDAO which is in 18 decimals
 
-		_accAmountPerShare += rdiv(reward, totalProductivity[_contract]); // totalProductivity in 18decimals  and reward in 18 decimals so rdiv result in 27decimals
+		_accAmountPerShare += (reward * 1e27) / (totalProductivity[_contract]); // totalProductivity in 18decimals  and reward in 18 decimals so rdiv result in 27decimals
 		_lastRewardBlock = curRewardBlock;
 	}
 
@@ -108,10 +112,9 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 	) internal virtual {
 		UserInfo storage userInfo = contractToUsers[_contract][_user];
 		if (userInfo.amount > 0) {
-			uint256 pending =
-				(userInfo.amount * accAmountPerShare[_contract]) /
-					1e27 -
-					userInfo.rewardDebt; // Divide 1e27(because userinfo.amount in 18 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
+			uint256 pending = (userInfo.amount * accAmountPerShare[_contract]) /
+				1e27 -
+				userInfo.rewardDebt; // Divide 1e27(because userinfo.amount in 18 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
 			userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
 			totalRewardsAccumulated[_contract] =
 				totalRewardsAccumulated[_contract] +
@@ -137,11 +140,7 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 		uint256 _blockEnd
 	) internal virtual returns (bool) {
 		_update(_contract, _blockStart, _blockEnd);
-		_audit(
-			_contract,
-			_user,
-			contractToUsers[_contract][_user].amount + _value
-		);
+		_audit(_contract, _user, contractToUsers[_contract][_user].amount + _value);
 
 		totalProductivity[_contract] = totalProductivity[_contract] + _value;
 		return true;
@@ -160,11 +159,7 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 		uint256 _blockEnd
 	) internal virtual returns (bool) {
 		_update(_contract, _blockStart, _blockEnd);
-		_audit(
-			_contract,
-			_user,
-			contractToUsers[_contract][_user].amount - _value
-		);
+		_audit(_contract, _user, contractToUsers[_contract][_user].amount - _value);
 
 		totalProductivity[_contract] = totalProductivity[_contract] - _value;
 
@@ -188,8 +183,11 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 		UserInfo memory userInfo = contractToUsers[_contract][_user];
 		uint256 pending = 0;
 		if (totalProductivity[_contract] != 0) {
-			(, uint256 _accAmountPerShare) =
-				_calcUpdate(_contract, _blockStart, _blockEnd);
+			(, uint256 _accAmountPerShare) = _calcUpdate(
+				_contract,
+				_blockStart,
+				_blockEnd
+			);
 
 			pending = userInfo.rewardEarn;
 			pending +=
