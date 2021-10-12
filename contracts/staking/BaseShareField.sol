@@ -112,7 +112,7 @@ contract BaseShareField is DSMath {
 					((((firstMonthBlocksToPay * 1e27 * 5) / 10) + // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e27 to get it 27decimals
 						fullBlocksToPay *
 						1e27) * rewardPerBlock) / // Multiply fullBlocksToPay with 1e27 to bring it to 27decimals // rewardPerBlock is in 27decimals
-					1e36; // Pending in 18 decimals so we divide 1e9 to bring it down to 18 decimals
+					1e36; // Pending in 18 decimals so we divide 1e36 to bring it down to 18 decimals
 				userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
 				accumulatedRewards = accumulatedRewards + pending;
 			}
@@ -267,7 +267,7 @@ contract BaseShareField is DSMath {
 					((((firstMonthBlocksToPay * 1e27 * 5) / 10) + // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e27 to get it 27decimals
 						fullBlocksToPay *
 						1e27) * rewardPerBlock) / // Multiply fullBlocksToPay with 1e27 to bring it to 27decimals // rewardPerBlock is in 27decimals
-					1e36; // Pending in 18 decimals so we divide 1e9 to bring it down to 18 decimals
+					1e36; // Pending in 18 decimals so we divide 1e36 to bring it down to 18 decimals
 			}
 		}
 		return userInfo.rewardEarn + pending; // rewardEarn is in 18 decimals
