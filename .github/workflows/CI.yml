@@ -58,23 +58,6 @@ jobs:
           export TESTFILES=$(echo $CHUNKS | jq '.[${{ matrix.chunk }}][]') 
           yarn test:parallel $TESTFILES
 
-      - name: Automated Version Bump
-        if: github.ref == 'refs/heads/master'
-        uses: "aliberkhsl/gh-action-bump-version@master"
-        with:
-          minor-wording: "RELEASE"
-          default: prerelease
-          preid: beta
-          rc-wording: ""
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish to npm
-        if: github.ref == 'refs/heads/master'
-        uses: aliberkhsl/npm-publish@master
-        with:
-          token: ${{ secrets.NPM_KEY_4BF8 }}
-          access: "public"
-
   coverage:
     runs-on: ubuntu-latest
     needs: setup
@@ -106,8 +89,10 @@ jobs:
           echo MNEMONIC="dasdasds" >> .env
           echo TEST="true" >> .env
           cat .env
-      - name: Install project dependencies
-        run: yarn
+      - name: Install project
+        run: |
+          yarn
+          yarn compile
       - name: Run coverage
         run: |
           export TESTFILES=\"$(echo $CHUNKS | jq -r '.[${{ matrix.chunk }}] | join("\",\"")')\"
@@ -128,3 +113,43 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           parallel-finished: true
+
+  deploy:
+    runs-on: ubuntu-latest
+    name: "version bump and publish to npm"
+    needs: test
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: "14"
+      - run: npm install -g yarn
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+      - uses: actions/cache@v2
+        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+      - name: "build"
+        run: |
+          yarn
+          yarn compile
+      - name: Automated Version Bump
+        uses: "aliberkhsl/gh-action-bump-version"
+        with:
+          minor-wording: "RELEASE"
+          default: prerelease
+          preid: beta
+          rc-wording: ""
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish to npm
+        uses: aliberkhsl/npm-publish
+        with:
+          token: ${{ secrets.NPM_KEY_4BF8 }}
+          access: "public"
