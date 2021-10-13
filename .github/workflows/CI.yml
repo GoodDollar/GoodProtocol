@@ -10,7 +10,6 @@ jobs:
       test-chunk-ids: ${{ steps['set-test-chunk-ids'].outputs['test-chunk-ids'] }}
     steps:
       - uses: actions/checkout@v2
-      - run: npm install
       - id: set-test-chunks
         name: Set Chunks
         run: echo "::set-output name=test-chunks::$(find test -name '*.ts' | jq -R -s -c 'split("\n")[:-1]' | jq -cM '[_nwise(length / 8 | floor)]')"
