@@ -49,13 +49,14 @@ jobs:
           touch .env
           echo MNEMONIC="dasdasds" >> .env
           echo TEST="true" >> .env
-          echo "TESTFILES=$(echo $CHUNKS | jq '.[${{ matrix.chunk }}][])" >> $GITHUB_ENV
           cat .env
       - name: Install project dependencies
         run: yarn
       - run: yarn compile
       - name: Run tests
-        run: yarn test:parallel $TESTFILES
+        run: |
+          export TESTFILES=$(echo $CHUNKS | jq '.[${{ matrix.chunk }}][]') 
+          yarn test:parallel $TESTFILES
 
       - name: Automated Version Bump
         if: github.ref == 'refs/heads/master'
@@ -104,12 +105,13 @@ jobs:
           touch .env
           echo MNEMONIC="dasdasds" >> .env
           echo TEST="true" >> .env
-          echo "TESTFILES=\"$(echo $CHUNKS | jq -r '.[1] | join("\",\"")')\""" >> $GITHUB_ENV
           cat .env
       - name: Install project dependencies
         run: yarn
       - name: Run coverage
-        run: yarn coverage --testfiles "{$TESTFILES}"
+        run: |
+          export TESTFILES=\"$(echo $CHUNKS | jq -r '.[${{ matrix.chunk }}] | join("\",\"")')\"
+          yarn coverage --testfiles "{$TESTFILES}"
       - name: Coveralls
         uses: coverallsapp/github-action@master
         with:
