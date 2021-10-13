@@ -38,13 +38,8 @@ jobs:
         uses: coverallsapp/github-action@v1.1.2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/master'
-    steps:
       - name: Automated Version Bump
+        if: github.ref == 'refs/heads/master'
         uses: "aliberkhsl/gh-action-bump-version@master"
         with:
           minor-wording: "RELEASE"
@@ -53,7 +48,9 @@ jobs:
           rc-wording: ""
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: aliberkhsl/npm-publish@master
+      - name: Publish to npm
+        if: github.ref == 'refs/heads/master'
+        uses: aliberkhsl/npm-publish@master
         with:
           token: ${{ secrets.NPM_KEY_4BF8 }}
           access: "public"
