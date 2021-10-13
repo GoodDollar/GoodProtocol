@@ -140,7 +140,7 @@ jobs:
           yarn
           yarn compile
       - name: Automated Version Bump
-        uses: "aliberkhsl/gh-action-bump-version"
+        uses: aliberkhsl/gh-action-bump-version@master
         with:
           minor-wording: "RELEASE"
           default: prerelease
@@ -149,7 +149,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish to npm
-        uses: aliberkhsl/npm-publish
+        uses: aliberkhsl/npm-publish@master
         with:
           token: ${{ secrets.NPM_KEY_4BF8 }}
           access: "public"
