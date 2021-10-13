@@ -135,6 +135,12 @@ jobs:
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
+      - name: Create env file
+        run: |
+          touch .env
+          echo MNEMONIC="dasdasds" >> .env
+          echo TEST="true" >> .env
+          cat .env
       - name: "build"
         run: |
           yarn
