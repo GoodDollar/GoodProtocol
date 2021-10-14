@@ -257,20 +257,30 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const avatarDaiBalanceBeforeEnd = await dai.balanceOf(avatar);
     let isActive = await donationsStaking.active();
     expect(isActive).to.be.equal(true);
-
+    const avatarETHBalanceBeforeWithdraw =
+      await donationsStaking.provider.getBalance(avatar);
     const balance = await goodCompoundStaking.balanceOf(
       donationsStaking.address
     );
-
+    const ethBalanceBeforeWithdraw = await donationsStaking.provider.getBalance(
+      donationsStaking.address
+    );
     const encoded = donationsStaking.interface.encodeFunctionData("withdraw");
     await genericCall(donationsStaking.address, encoded);
-
+    const ethBalanceAfterWithdraw = await donationsStaking.provider.getBalance(
+      donationsStaking.address
+    );
     isActive = await donationsStaking.active();
-
+    const avatarETHBalanceAfterWithdraw =
+      await donationsStaking.provider.getBalance(avatar);
     const totalStakedAfterEnd = await donationsStaking.totalStaked();
     const avatarDaiBalanceAfterEnd = await dai.balanceOf(avatar);
     expect(avatarDaiBalanceAfterEnd).to.be.gt(avatarDaiBalanceBeforeEnd);
     expect(avatarDaiBalanceAfterEnd).to.be.equal(totalStakedBeforeEnd);
+    expect(ethBalanceAfterWithdraw).to.be.equal(0);
+    expect(avatarETHBalanceAfterWithdraw).to.be.equal(
+      ethBalanceBeforeWithdraw.add(avatarETHBalanceBeforeWithdraw)
+    );
     expect(avatarDaiBalanceAfterEnd).to.be.equal(
       avatarDaiBalanceBeforeEnd.add(balance)
     );
@@ -278,6 +288,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(totalStakedAfterEnd).to.be.equal(0);
   });
   it("it should set stakingContract when avatar call it ", async () => {
+    let stakeAmount = ethers.utils.parseEther("10");
     const donationsStakingFactory = await ethers.getContractFactory(
       "DonationsStaking",
       {
@@ -287,6 +298,11 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       }
     );
 
+    await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
+    await donationsStaking.stakeDonations();
+    const stakingAmountBeforeSet = await goodCompoundStaking.balanceOf(
+      donationsStaking.address
+    );
     const stakingContractBeforeSet = await donationsStaking.stakingContract();
     const stakingTokenBeforeSet = await donationsStaking.stakingToken();
     const simpleStaking = await goodCompoundStakingFactory
@@ -309,9 +325,15 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       "setStakingContract",
       [simpleStaking.address]
     );
+
     await genericCall(donationsStaking.address, encodedData);
+    const stakingAmountAfterSet = await goodCompoundStaking.balanceOf(
+      donationsStaking.address
+    );
     const stakingContractAfterSet = await donationsStaking.stakingContract();
     const stakingTokenAfterSet = await donationsStaking.stakingToken();
+    expect(stakingAmountBeforeSet).to.be.gt(0);
+    expect(stakingAmountAfterSet).to.be.equal(0);
     expect(stakingContractBeforeSet).to.be.equal(goodCompoundStaking.address);
     expect(stakingTokenBeforeSet).to.be.equal(dai.address);
     expect(stakingContractAfterSet).to.be.equal(simpleStaking.address);
