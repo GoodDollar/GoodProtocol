@@ -476,7 +476,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		uint256 priceInCdai = getGasPriceIncDAIorDAI(_gasAmount, false);
 		uint256 gdPriceIncDAI = GoodReserveCDai(nameService.getAddress("RESERVE"))
 			.currentPrice();
-		return rdiv(priceInCdai, gdPriceIncDAI) / 1e25; // rdiv returns result in 27 decimals since GD$ in 2 decimals then divide 1e25
+		return ((priceInCdai * 1e27) / gdPriceIncDAI) / 1e25; // rdiv returns result in 27 decimals since GD$ in 2 decimals then divide 1e25
 	}
 
 	function getActiveContractsCount() public view returns (uint256) {
