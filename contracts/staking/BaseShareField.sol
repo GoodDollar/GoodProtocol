@@ -107,12 +107,11 @@ contract BaseShareField is DSMath {
 					accAmountPerShare) /
 					1e27 -
 					userInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
-				uint256 rewardPerBlock = (pending * 1e27) / (blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals
+				uint256 rewardPerBlock = (pending * 1e27) / (blocksToPay * 1e18); // bring both variable to 18 decimals and multiply pending by 1e27 so when we divide them to each other result would be in 1e27
 				pending =
-					((((firstMonthBlocksToPay * 1e27 * 5) / 10) + // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e27 to get it 27decimals
-						fullBlocksToPay *
-						1e27) * rewardPerBlock) / // Multiply fullBlocksToPay with 1e27 to bring it to 27decimals // rewardPerBlock is in 27decimals
-					1e36; // Pending in 18 decimals so we divide 1e36 to bring it down to 18 decimals
+					((((firstMonthBlocksToPay * 1e2 * 5) / 10) + fullBlocksToPay * 1e2) * // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e2 to get it 2decimals so we could get more precision
+						rewardPerBlock) / // Multiply fullBlocksToPay with 1e2 to bring it to 2 decimals // rewardPerBlock is in 27decimals
+					1e11; // Pending in 18 decimals so we divide 1e11 to bring it down to 18 decimals
 				userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
 				accumulatedRewards = accumulatedRewards + pending;
 			}
@@ -262,12 +261,11 @@ contract BaseShareField is DSMath {
 						_accAmountPerShare) /
 					1e27 -
 					tempUserInfo.rewardDebt; // Turn userInfo.amount to 18 decimals by multiplying tokenDecimalDifference if it's not and multiply with accAmountPerShare which is 27 decimals then divide it 1e27 bring it down to 18 decimals
-				uint256 rewardPerBlock = (pending * 1e27) / (blocksToPay * 1e18); // bring both variable to 18 decimals so they would be in same decimals and rdiv returns in 27decimals
+				uint256 rewardPerBlock = (pending * 1e27) / (blocksToPay * 1e18); // bring both variable to 18 decimals and multiply pending by 1e27 so when we divide them to each other result would be in 1e27
 				pending =
-					((((firstMonthBlocksToPay * 1e27 * 5) / 10) + // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e27 to get it 27decimals
-						fullBlocksToPay *
-						1e27) * rewardPerBlock) / // Multiply fullBlocksToPay with 1e27 to bring it to 27decimals // rewardPerBlock is in 27decimals
-					1e36; // Pending in 18 decimals so we divide 1e36 to bring it down to 18 decimals
+					((((firstMonthBlocksToPay * 1e2 * 5) / 10) + fullBlocksToPay * 1e2) * // multiply first month by 0.5x (5/10) since rewards in first month with multiplier 0.5 and multiply it with 1e2 to get it 2decimals so we could get more precision
+						rewardPerBlock) / // Multiply fullBlocksToPay with 1e2 to bring it to 2decimals // rewardPerBlock is in 27decimals
+					1e11; // Pending in 18 decimals so we divide 1e11 to bring it down to 18 decimals
 			}
 		}
 		return userInfo.rewardEarn + pending; // rewardEarn is in 18 decimals
