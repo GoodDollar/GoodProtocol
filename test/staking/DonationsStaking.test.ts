@@ -257,9 +257,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const avatarDaiBalanceBeforeEnd = await dai.balanceOf(avatar);
     let isActive = await donationsStaking.active();
     expect(isActive).to.be.equal(true);
-    const ethBalanceBeforeWithdraw = await donationsStaking.provider.getBalance(
-      donationsStaking.address
-    );
+
     const balance = await goodCompoundStaking.balanceOf(
       donationsStaking.address
     );
@@ -276,12 +274,8 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(avatarDaiBalanceAfterEnd).to.be.equal(
       avatarDaiBalanceBeforeEnd.add(balance)
     );
-    const ethBalanceAfterWithdraw = await donationsStaking.provider.getBalance(
-      donationsStaking.address
-    );
+
     expect(totalStakedAfterEnd).to.be.equal(0);
-    expect(ethBalanceBeforeWithdraw).to.be.gt(0);
-    expect(ethBalanceAfterWithdraw).to.be.equal(ethBalanceBeforeWithdraw);
   });
   it("it should set stakingContract when avatar call it ", async () => {
     const donationsStakingFactory = await ethers.getContractFactory(

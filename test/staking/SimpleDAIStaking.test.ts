@@ -182,7 +182,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
 
   it("should mock cdai exchange rate 1e28 precision", async () => {
     let rate = await cDAI.exchangeRateStored();
-    expect(rate.toString()).to.be.equal("200000000000000000000000000");
+    expect(rate.toString()).to.be.equal("200000000000000000000000000"); // defined initial exchange rate in the cDAIMock contract
   });
 
   it("should mint new dai", async () => {
@@ -941,7 +941,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
 
     const cdaiGains = gains["0"];
 
-    expect(cdaiGains.toString()).to.be.equal("333333333325"); //8 decimals precision
+    expect(cdaiGains.toString()).to.be.equal("333333333325"); //cdaiGains after increase exchangerate and calculated manually to make sure contract calculations are correct
     await goodCompoundStaking
       .connect(staker)
       .withdrawStake(stakingAmount, false);
