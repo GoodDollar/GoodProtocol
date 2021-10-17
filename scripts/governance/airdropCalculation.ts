@@ -376,7 +376,8 @@ export const airdrop = (
         `${uAddress}.isNotContract`,
         (await gdMainnet.provider.getCode(uAddress).catch(e => "0x")) === "0x"
       );
-      const newBalance = get(addresses, `${uAddress}.balance`, 0) + gdShare;
+      const newBalance =
+        (get(addresses, `${uAddress}.balance`, 0) as number) + gdShare;
       console.log("uniswap position:", {
         pos,
         newBalance,
@@ -443,7 +444,7 @@ export const airdrop = (
             });
 
             const newBalance =
-              get(addresses, `${uAddress}.balance`, 0) + gdShare;
+              (get(addresses, `${uAddress}.balance`, 0) as number) + gdShare;
 
             addresses[uAddress] = updateBalance(addresses[uAddress], {
               balance: newBalance
@@ -535,7 +536,7 @@ export const airdrop = (
             const repShare = parseInt((share * yieldFarmingRep).toFixed(0));
             farmers[uAddress] = [share, repShare];
             const newBalance =
-              get(addresses, `${uAddress}.balance`, 0) +
+              (get(addresses, `${uAddress}.balance`, 0) as number) +
               share * yieldFarmingRep;
 
             addresses[uAddress] = updateBalance(addresses[uAddress], {
@@ -857,7 +858,7 @@ export const airdrop = (
         // Print out all the values:
         logs.map(log => {
           const uAddress = log.args.from.toLowerCase();
-          const claims = get(balances, `${uAddress}.claims`, 0) + 1;
+          const claims = (get(balances, `${uAddress}.claims`, 0) as number) + 1;
           balances[uAddress] = updateBalance(balances[uAddress], {
             claims
           });
