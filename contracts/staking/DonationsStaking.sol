@@ -8,6 +8,7 @@ import "../Interfaces.sol";
 import "./SimpleStaking.sol";
 import "../utils/DAOUpgradeableContract.sol";
 import "./UniswapV2SwapHelper.sol";
+import "hardhat/console.sol";
 
 /**
  * @title DonationStaking contract that receives funds in ETH/StakingToken
@@ -138,8 +139,14 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 	/**
 	 * @dev Function to set staking contract and withdraw previous stakings and send it to avatar
 	 */
-	function setStakingContract(address _stakingContract) external {
+	function setStakingContract(address _stakingContract, address[] memory path)
+		external
+	{
 		_onlyAvatar();
+		require(
+			path[path.length - 1] == address(0x0),
+			"Last element of path must be ETH"
+		);
 		(uint256 stakingAmount, ) = stakingContract.getProductivity(address(this));
 		if (stakingAmount > 0) stakingContract.withdrawStake(stakingAmount, false);
 		uint256 stakingTokenBalance = stakingToken.balanceOf(address(this));
@@ -149,9 +156,7 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 			stakingTokenBalance,
 			maxLiquidityPercentageSwap
 		);
-		address[] memory path = new address[](2);
-		path[0] = address(stakingToken);
-		path[1] = address(0x0);
+		console.log("safeAmount %s", safeAmount);
 		if (safeAmount > 0)
 			IHasRouter(this).swap(path, safeAmount, 0, address(this));
 		uint256 remainingStakingTokenBalance = stakingToken.balanceOf(

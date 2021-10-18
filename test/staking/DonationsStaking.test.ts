@@ -20,13 +20,14 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
   let dai: Contract;
   let bat: Contract;
   let pair: Contract, uniswapRouter: Contract, uniswapFactory: Contract;
-  let cDAI, cDAI1, cDAI2, cDAI3, cBat: Contract, comp: Contract;
+  let cDAI, cDAI1, cDAI2, cDAI3, cBat, weth: Contract, comp: Contract;
   let gasFeeOracle,
     daiEthOracle: Contract,
     daiUsdOracle: Contract,
     batUsdOracle: Contract,
     ethUsdOracle: Contract,
     swapHelper,
+    swapHelperTest,
     compUsdOracle: Contract;
   let goodReserve: GoodReserveCDai;
   let donationsStaking: DonationsStaking;
@@ -80,6 +81,10 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     genericCall = gc;
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
+    const swapHelperTestFactory = await ethers.getContractFactory(
+      "SwapHelperTest"
+    );
+    swapHelperTest = await swapHelperTestFactory.deploy();
     avatar = av;
     controller = ctrl;
     setDAOAddress = sda;
@@ -121,6 +126,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     });
     bat = await daiFactory.deploy(); // Another erc20 token for uniswap router test
     cBat = await cBatFactory.deploy(bat.address);
+    weth = uniswap.weth;
     console.log("setting permissions...");
     const tokenUsdOracleFactory = await ethers.getContractFactory(
       "BatUSDMockOracle"
@@ -307,6 +313,15 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       await donationsStaking.provider.getBalance(donationsStaking.address);
     const stakingContractBeforeSet = await donationsStaking.stakingContract();
     const stakingTokenBeforeSet = await donationsStaking.stakingToken();
+    const avatarDaiBalanceBeforeSet = await dai.balanceOf(avatar);
+    const reserve = await swapHelperTest.getReserves(
+      uniswapFactory.address,
+      dai.address,
+      weth.address
+    );
+
+    let safeAmount = reserve[0].mul(BN.from(300)).div(BN.from(100000));
+    safeAmount = safeAmount > stakeAmount ? stakeAmount : safeAmount;
     const simpleStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {
@@ -325,10 +340,11 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       });
     let encodedData = donationsStakingFactory.interface.encodeFunctionData(
       "setStakingContract",
-      [simpleStaking.address]
+      [simpleStaking.address, [dai.address, constants.AddressZero]]
     );
 
     await genericCall(donationsStaking.address, encodedData);
+    const avatarDaiBalanceAfterSet = await dai.balanceOf(avatar);
     const stakingAmountAfterSet = await goodCompoundStaking.balanceOf(
       donationsStaking.address
     );
@@ -347,7 +363,11 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(stakingTokenAfterSet).to.be.equal(bat.address);
     expect(daiBalanceOfDonationsStaking).to.be.equal(0); // make sure there is no old staking tokens left in the donations staking
     expect(donationsStakingETHBalanceAfterSet).to.be.gt(
+      // make sure that we sold possible amount of staking tokens that we can sell for ETH
       donationsStakingETHBalanceBeforeSet
+    );
+    expect(avatarDaiBalanceAfterSet).to.be.equal(
+      avatarDaiBalanceBeforeSet.add(stakingAmountBeforeSet.sub(safeAmount))
     );
   });
 });
