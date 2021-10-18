@@ -303,6 +303,8 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const stakingAmountBeforeSet = await goodCompoundStaking.balanceOf(
       donationsStaking.address
     );
+    const donationsStakingETHBalanceBeforeSet =
+      await donationsStaking.provider.getBalance(donationsStaking.address);
     const stakingContractBeforeSet = await donationsStaking.stakingContract();
     const stakingTokenBeforeSet = await donationsStaking.stakingToken();
     const simpleStaking = await goodCompoundStakingFactory
@@ -332,11 +334,20 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     );
     const stakingContractAfterSet = await donationsStaking.stakingContract();
     const stakingTokenAfterSet = await donationsStaking.stakingToken();
+    const donationsStakingETHBalanceAfterSet =
+      await donationsStaking.provider.getBalance(donationsStaking.address);
+    const daiBalanceOfDonationsStaking = await dai.balanceOf(
+      donationsStaking.address
+    );
     expect(stakingAmountBeforeSet).to.be.gt(0);
     expect(stakingAmountAfterSet).to.be.equal(0);
     expect(stakingContractBeforeSet).to.be.equal(goodCompoundStaking.address);
     expect(stakingTokenBeforeSet).to.be.equal(dai.address);
     expect(stakingContractAfterSet).to.be.equal(simpleStaking.address);
     expect(stakingTokenAfterSet).to.be.equal(bat.address);
+    expect(daiBalanceOfDonationsStaking).to.be.equal(0); // make sure there is no old staking tokens left in the donations staking
+    expect(donationsStakingETHBalanceAfterSet).to.be.gt(
+      donationsStakingETHBalanceBeforeSet
+    );
   });
 });

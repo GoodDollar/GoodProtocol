@@ -8,7 +8,6 @@ import "../Interfaces.sol";
 import "./SimpleStaking.sol";
 import "../utils/DAOUpgradeableContract.sol";
 import "./UniswapV2SwapHelper.sol";
-import "hardhat/console.sol";
 
 /**
  * @title DonationStaking contract that receives funds in ETH/StakingToken
@@ -152,9 +151,9 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 		);
 		address[] memory path = new address[](2);
 		path[0] = address(stakingToken);
-		path[1] = uniswap.WETH();
-		if (safeAmount > 0) IHasRouter(this).swap(path, safeAmount, 0, avatar);
-
+		path[1] = address(0x0);
+		if (safeAmount > 0)
+			IHasRouter(this).swap(path, safeAmount, 0, address(this));
 		uint256 remainingStakingTokenBalance = stakingToken.balanceOf(
 			address(this)
 		);
