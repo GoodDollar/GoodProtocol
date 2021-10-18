@@ -8,7 +8,6 @@ import "../Interfaces.sol";
 import "./SimpleStaking.sol";
 import "../utils/DAOUpgradeableContract.sol";
 import "./UniswapV2SwapHelper.sol";
-import "hardhat/console.sol";
 
 /**
  * @title DonationStaking contract that receives funds in ETH/StakingToken
@@ -156,7 +155,6 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 			stakingTokenBalance,
 			maxLiquidityPercentageSwap
 		);
-		console.log("safeAmount %s", safeAmount);
 		if (safeAmount > 0)
 			IHasRouter(this).swap(path, safeAmount, 0, address(this));
 		uint256 remainingStakingTokenBalance = stakingToken.balanceOf(
