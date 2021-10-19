@@ -56,9 +56,13 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 	 * take balance in eth and buy stakingToken from uniswap then stake outstanding StakingToken balance.
 	 * anyone can call this.
 	 */
-	function stakeDonations() public payable isActive {
+	function stakeDonations(address[] memory path) public payable isActive {
+		require(
+			path[0] == address(0x0) && path[path.length - 1] == address(stakingToken),
+			"Invalid Path"
+		);
 		uint256 stakingTokenDonated = stakingToken.balanceOf(address(this));
-		uint256 ethDonated = _buyStakingToken();
+		uint256 ethDonated = _buyStakingToken(path);
 
 		uint256 stakingTokenBalance = stakingToken.balanceOf(address(this));
 		require(stakingTokenBalance > 0, "no stakingToken to stake");
@@ -87,13 +91,10 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 	 * @dev internal method to buy stakingToken from uniswap
 	 * @return eth value converted
 	 */
-	function _buyStakingToken() internal returns (uint256) {
+	function _buyStakingToken(address[] memory path) internal returns (uint256) {
 		//buy from uniwasp
 		uint256 ethBalance = address(this).balance;
 		if (ethBalance == 0) return 0;
-		address[] memory path = new address[](2);
-		path[0] = address(0x0);
-		path[1] = address(stakingToken);
 		uint256 safeAmount = IHasRouter(this).maxSafeTokenAmount(
 			address(0x0),
 			address(stakingToken),
@@ -143,8 +144,8 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 	{
 		_onlyAvatar();
 		require(
-			path[path.length - 1] == address(0x0),
-			"Last element of path must be ETH"
+			path[path.length - 1] == address(0x0) && path[0] == address(stakingToken),
+			"Invalid Path"
 		);
 		(uint256 stakingAmount, ) = stakingContract.getProductivity(address(this));
 		if (stakingAmount > 0) stakingContract.withdrawStake(stakingAmount, false);

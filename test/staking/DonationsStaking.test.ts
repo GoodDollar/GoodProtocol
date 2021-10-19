@@ -203,7 +203,9 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     let stakeAmount = ethers.utils.parseEther("5");
     const totalStakedBeforeStake = await donationsStaking.totalStaked();
     let transaction = await (
-      await donationsStaking.stakeDonations({ value: stakeAmount })
+      await donationsStaking.stakeDonations([NULL_ADDRESS, dai.address], {
+        value: stakeAmount
+      })
     ).wait();
     const totalStakedAfterStake = await donationsStaking.totalStaked();
     expect(totalStakedBeforeStake).to.be.equal(0);
@@ -213,7 +215,9 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     let stakeAmount = ethers.utils.parseEther("10");
     await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
     const totalStakedBeforeStake = await donationsStaking.totalStaked();
-    let transaction = await (await donationsStaking.stakeDonations()).wait();
+    let transaction = await (
+      await donationsStaking.stakeDonations([NULL_ADDRESS, dai.address])
+    ).wait();
     const totalStakedAfterStake = await donationsStaking.totalStaked();
     expect(totalStakedAfterStake.sub(totalStakedBeforeStake)).to.be.equal(
       stakeAmount
@@ -236,7 +240,9 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       .div(100000);
 
     let transaction = await (
-      await donationsStaking.stakeDonations({ value: stakeAmount })
+      await donationsStaking.stakeDonations([NULL_ADDRESS, dai.address], {
+        value: stakeAmount
+      })
     ).wait();
     const afterDonationReserves = await pairContract.getReserves();
     let afterDonationReserve = afterDonationReserves[0];
@@ -294,7 +300,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(totalStakedAfterEnd).to.be.equal(0);
   });
   it("it should set stakingContract when avatar call it ", async () => {
-    let stakeAmount = ethers.utils.parseEther("10");
+    let stakeAmount = ethers.utils.parseEther("1000");
     const donationsStakingFactory = await ethers.getContractFactory(
       "DonationsStaking",
       {
@@ -305,7 +311,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     );
 
     await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
-    await donationsStaking.stakeDonations();
+    await donationsStaking.stakeDonations([NULL_ADDRESS, dai.address]);
     const stakingAmountBeforeSet = await goodCompoundStaking.balanceOf(
       donationsStaking.address
     );
@@ -368,6 +374,6 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     );
     expect(avatarDaiBalanceAfterSet).to.be.equal(
       avatarDaiBalanceBeforeSet.add(stakingAmountBeforeSet.sub(safeAmount))
-    );
+    ); // It should send leftover stakingToken to avatar after swap to ETH in safeAmount
   });
 });
