@@ -148,19 +148,14 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 	 */
 	function setStakingContract(
 		address _stakingContract,
-		address[] memory _ethToStakingTokenSwapPath,
-		address[] memory _stakingTokenToEthSwapPath
+		address[] memory _ethToStakingTokenSwapPath
 	) external {
-		_onlyAvatar();
 		require(
-			_ethToStakingTokenSwapPath[0] == address(0x0) &&
+			_ethToStakingTokenSwapPath.length >= 2 &&
+				_ethToStakingTokenSwapPath[0] == address(0x0) &&
 				_ethToStakingTokenSwapPath[_ethToStakingTokenSwapPath.length - 1] ==
-				address(SimpleStaking(_stakingContract).token()) &&
-				_stakingTokenToEthSwapPath[0] ==
-				address(SimpleStaking(_stakingContract).token()) &&
-				_stakingTokenToEthSwapPath[_stakingTokenToEthSwapPath.length - 1] ==
-				address(0x0),
-			"Invalid path"
+				address(SimpleStaking(_stakingContract).token()),
+			"Invalid Path"
 		);
 		(uint256 stakingAmount, ) = stakingContract.getProductivity(address(this));
 		if (stakingAmount > 0) stakingContract.withdrawStake(stakingAmount, false);
@@ -188,7 +183,15 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 		stakingToken.approve(address(stakingContract), type(uint256).max); //we trust the staking contract
 		stakingToken.approve(address(uniswap), type(uint256).max); // we trust uniswap router
 		ethToStakingTokenSwapPath = _ethToStakingTokenSwapPath;
-		stakingTokenToEthSwapPath = _stakingTokenToEthSwapPath;
+		address[] memory tempStakingToEthSwapPath = new address[](
+			_ethToStakingTokenSwapPath.length
+		);
+		uint256 k = 0;
+		for (uint256 i = _ethToStakingTokenSwapPath.length; i > 0; --i) {
+			tempStakingToEthSwapPath[k] = _ethToStakingTokenSwapPath[i - 1];
+			k += 1;
+		}
+		stakingTokenToEthSwapPath = tempStakingToEthSwapPath;
 	}
 
 	function getRouter() public view override returns (Uniswap) {
@@ -198,13 +201,30 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 	/**
 	 * @dev Function to set swap paths from eth to staking and staking to eth
 	 */
-	function setSwapPaths(
-		address[] memory _ethToStakingTokenSwapPath,
-		address[] memory _stakingTokenToEthSwapPath
-	) external returns (bool) {
+	function setSwapPaths(address[] memory _ethToStakingTokenSwapPath)
+		external
+		returns (bool)
+	{
+		require(
+			_ethToStakingTokenSwapPath.length >= 2 &&
+				_ethToStakingTokenSwapPath.length >= 2 &&
+				_ethToStakingTokenSwapPath[0] == address(0x0) &&
+				_ethToStakingTokenSwapPath[_ethToStakingTokenSwapPath.length - 1] ==
+				address(stakingToken),
+			"Invalid path"
+		);
 		_onlyAvatar();
+		address[] memory tempStakingToEthSwapPath = new address[](
+			_ethToStakingTokenSwapPath.length
+		);
+		uint256 k = 0;
+		for (uint256 i = _ethToStakingTokenSwapPath.length; i > 0; --i) {
+			tempStakingToEthSwapPath[k] = _ethToStakingTokenSwapPath[i - 1];
+			k += 1;
+		}
 		ethToStakingTokenSwapPath = _ethToStakingTokenSwapPath;
-		stakingTokenToEthSwapPath = _stakingTokenToEthSwapPath;
+		stakingTokenToEthSwapPath = tempStakingToEthSwapPath;
+
 		return true;
 	}
 }

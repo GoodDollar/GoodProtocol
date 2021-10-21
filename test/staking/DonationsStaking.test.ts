@@ -347,16 +347,16 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
         );
         return contract;
       });
-    let encodedData = donationsStakingFactory.interface.encodeFunctionData(
-      "setStakingContract",
-      [
-        simpleStaking.address,
-        [NULL_ADDRESS, bat.address],
-        [bat.address, constants.AddressZero]
-      ]
-    );
-
-    await genericCall(donationsStaking.address, encodedData);
+    //let encodedData = donationsStakingFactory.interface.encodeFunctionData(
+    //  "setStakingContract",
+    //  [simpleStaking.address, [NULL_ADDRESS, bat.address]]
+    //);
+    //
+    //await genericCall(donationsStaking.address, encodedData);
+    await donationsStaking.setStakingContract(simpleStaking.address, [
+      NULL_ADDRESS,
+      bat.address
+    ]);
     const avatarDaiBalanceAfterSet = await dai.balanceOf(avatar);
     const stakingAmountAfterSet = await goodCompoundStaking.balanceOf(
       donationsStaking.address
