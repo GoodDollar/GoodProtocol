@@ -194,4 +194,17 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 	function getRouter() public view override returns (Uniswap) {
 		return Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 	}
+
+	/**
+	 * @dev Function to set swap paths from eth to staking and staking to eth
+	 */
+	function setSwapPaths(
+		address[] memory _ethToStakingTokenSwapPath,
+		address[] memory _stakingTokenToEthSwapPath
+	) external returns (bool) {
+		_onlyAvatar();
+		ethToStakingTokenSwapPath = _ethToStakingTokenSwapPath;
+		stakingTokenToEthSwapPath = _stakingTokenToEthSwapPath;
+		return true;
+	}
 }
