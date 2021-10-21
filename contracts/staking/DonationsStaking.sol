@@ -22,6 +22,8 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 	uint256 public totalETHDonated;
 	//max percentage of token/dai pool liquidity to swap to DAI when collecting interest out of 100000
 	uint24 public maxLiquidityPercentageSwap;
+	address[] public ethToStakingTokenSwapPath;
+	address[] public stakingTokenToEthSwapPath;
 	mapping(address => uint256) public totalStakingTokensDonated;
 	event DonationStaked(
 		address caller,
@@ -37,10 +39,12 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 
 	receive() external payable {}
 
-	function initialize(INameService _ns, address _stakingContract)
-		public
-		initializer
-	{
+	function initialize(
+		INameService _ns,
+		address _stakingContract,
+		address[] memory _ethToStakingTokenSwapPath,
+		address[] memory _stakingTokenToEthSwapPath
+	) public initializer {
 		setDAO(_ns);
 		uniswap = Uniswap(_ns.getAddress("UNISWAP_ROUTER"));
 		stakingContract = SimpleStaking(_stakingContract);
@@ -49,6 +53,8 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 		stakingToken.approve(address(stakingContract), type(uint256).max); //we trust the staking contract
 		stakingToken.approve(address(uniswap), type(uint256).max); // we trust uniswap router
 		active = true;
+		ethToStakingTokenSwapPath = _ethToStakingTokenSwapPath;
+		stakingTokenToEthSwapPath = _stakingTokenToEthSwapPath;
 	}
 
 	/**
@@ -56,13 +62,9 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 	 * take balance in eth and buy stakingToken from uniswap then stake outstanding StakingToken balance.
 	 * anyone can call this.
 	 */
-	function stakeDonations(address[] memory path) public payable isActive {
-		require(
-			path[0] == address(0x0) && path[path.length - 1] == address(stakingToken),
-			"Invalid Path"
-		);
+	function stakeDonations() public payable isActive {
 		uint256 stakingTokenDonated = stakingToken.balanceOf(address(this));
-		uint256 ethDonated = _buyStakingToken(path);
+		uint256 ethDonated = _buyStakingToken();
 
 		uint256 stakingTokenBalance = stakingToken.balanceOf(address(this));
 		require(stakingTokenBalance > 0, "no stakingToken to stake");
@@ -91,7 +93,7 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 	 * @dev internal method to buy stakingToken from uniswap
 	 * @return eth value converted
 	 */
-	function _buyStakingToken(address[] memory path) internal returns (uint256) {
+	function _buyStakingToken() internal returns (uint256) {
 		//buy from uniwasp
 		uint256 ethBalance = address(this).balance;
 		if (ethBalance == 0) return 0;
@@ -101,7 +103,12 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 			ethBalance,
 			maxLiquidityPercentageSwap
 		);
-		IHasRouter(this).swap(path, safeAmount, 0, address(this));
+		IHasRouter(this).swap(
+			ethToStakingTokenSwapPath,
+			safeAmount,
+			0,
+			address(this)
+		);
 		return ethBalance;
 	}
 
@@ -139,13 +146,21 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 	/**
 	 * @dev Function to set staking contract and withdraw previous stakings and send it to avatar
 	 */
-	function setStakingContract(address _stakingContract, address[] memory path)
-		external
-	{
+	function setStakingContract(
+		address _stakingContract,
+		address[] memory _ethToStakingTokenSwapPath,
+		address[] memory _stakingTokenToEthSwapPath
+	) external {
 		_onlyAvatar();
 		require(
-			path[path.length - 1] == address(0x0) && path[0] == address(stakingToken),
-			"Invalid Path"
+			_ethToStakingTokenSwapPath[0] == address(0x0) &&
+				_ethToStakingTokenSwapPath[_ethToStakingTokenSwapPath.length - 1] ==
+				address(SimpleStaking(_stakingContract).token()) &&
+				_stakingTokenToEthSwapPath[0] ==
+				address(SimpleStaking(_stakingContract).token()) &&
+				_stakingTokenToEthSwapPath[_stakingTokenToEthSwapPath.length - 1] ==
+				address(0x0),
+			"Invalid path"
 		);
 		(uint256 stakingAmount, ) = stakingContract.getProductivity(address(this));
 		if (stakingAmount > 0) stakingContract.withdrawStake(stakingAmount, false);
@@ -157,7 +172,12 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 			maxLiquidityPercentageSwap
 		);
 		if (safeAmount > 0)
-			IHasRouter(this).swap(path, safeAmount, 0, address(this));
+			IHasRouter(this).swap(
+				stakingTokenToEthSwapPath,
+				safeAmount,
+				0,
+				address(this)
+			);
 		uint256 remainingStakingTokenBalance = stakingToken.balanceOf(
 			address(this)
 		);
@@ -167,6 +187,8 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 		stakingToken = stakingContract.token();
 		stakingToken.approve(address(stakingContract), type(uint256).max); //we trust the staking contract
 		stakingToken.approve(address(uniswap), type(uint256).max); // we trust uniswap router
+		ethToStakingTokenSwapPath = _ethToStakingTokenSwapPath;
+		stakingTokenToEthSwapPath = _stakingTokenToEthSwapPath;
 	}
 
 	function getRouter() public view override returns (Uniswap) {
