@@ -241,7 +241,6 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const maxAmount = beforeDonationReserve
       .mul(await donationsStaking.maxLiquidityPercentageSwap())
       .div(100000);
-
     let transaction = await (
       await donationsStaking.stakeDonations({
         value: stakeAmount
@@ -258,6 +257,8 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(afterDonationReserve).to.be.equal(
       beforeDonationReserve.add(maxAmount)
     );
+    expect(maxAmount).to.be.gt(0);
+    expect(stakeAmount).to.be.gt(maxAmount);
     expect(stakeAmount.sub(maxAmount)).to.be.equal(ethBalanceAfterStake); // check leftover ETH in contract
   });
   it("withdraw should reverted if caller not avatar", async () => {
