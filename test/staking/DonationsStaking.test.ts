@@ -303,7 +303,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(totalStakedAfterEnd).to.be.equal(0);
   });
   it("it should set stakingContract when avatar call it ", async () => {
-    let stakeAmount = ethers.utils.parseEther("1000");
+    let stakeAmount = ethers.utils.parseEther("6000"); // Max swap amount is around 5964 with current liquidity level so we should set it to higher number in order to test functionality
     const donationsStakingFactory = await ethers.getContractFactory(
       "DonationsStaking",
       {
@@ -329,8 +329,11 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       weth.address
     );
 
-    let safeAmount = reserve[0].mul(BN.from(300)).div(BN.from(100000));
-    safeAmount = safeAmount > stakeAmount ? stakeAmount : safeAmount;
+    const safeSwappableAmount = reserve[0]
+      .mul(BN.from(300))
+      .div(BN.from(100000));
+    const safeAmount =
+      safeSwappableAmount > stakeAmount ? stakeAmount : safeSwappableAmount;
     const simpleStaking = await goodCompoundStakingFactory
       .deploy()
       .then(async contract => {
@@ -382,5 +385,6 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(avatarDaiBalanceAfterSet).to.be.equal(
       avatarDaiBalanceBeforeSet.add(stakingAmountBeforeSet.sub(safeAmount))
     ); // It should send leftover stakingToken to avatar after swap to ETH in safeAmount
+    expect(stakingAmountBeforeSet).to.be.gt(safeAmount); // maxSafeAmount must be smaller than actualstaking amount so we can verify that we hit the limit for transaction amount at once
   });
 });
