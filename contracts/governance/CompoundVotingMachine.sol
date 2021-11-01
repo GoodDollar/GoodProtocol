@@ -407,6 +407,11 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 			"CompoundVotingMachine::execute: proposal can only be executed if it is succeeded"
 		);
 
+		require(
+			proposals[proposalId].forBlockchain == getChainId(),
+			"CompoundVotingMachine::execute: proposal for wrong blockchain"
+		);
+
 		proposals[proposalId].executed = true;
 		address[] memory _targets = proposals[proposalId].targets;
 		uint256[] memory _values = proposals[proposalId].values;
@@ -758,6 +763,11 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 			"CompoundVotingMachine: not Succeeded"
 		);
 		Proposal storage proposal = proposals[_proposalId];
+		//also mark in storage as executed for cross chain voting. can be used by storage proofs, to verify proposal passed
+		if (proposal.forBlockchain != getChainId()) {
+			proposal.executed = true;
+		}
+
 		emit ProposalSucceeded(
 			_proposalId,
 			proposal.proposer,
