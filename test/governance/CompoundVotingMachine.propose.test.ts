@@ -45,13 +45,19 @@ describe("CompoundVotingMachine#propose", () => {
     signatures = ["getBalanceOf(address)"];
     callDatas = [encodeParameters(["address"], [acct.address])];
 
-    await gov.propose(targets, values, signatures, callDatas, "do nothing");
+    await gov["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "do nothing"
+    );
     proposalBlock = +(await ethers.provider.getBlockNumber());
     proposalId = await gov.latestProposalIds(root.address);
     trivialProposal = await gov.proposals(proposalId);
 
-    voteDelay = await gov.votingDelay().then((_) => _.toNumber());
-    votePeriod = await gov.votingPeriod().then((_) => _.toNumber());
+    voteDelay = await gov.votingDelay().then(_ => _.toNumber());
+    votePeriod = await gov.votingPeriod().then(_ => _.toNumber());
   });
 
   // it("Given the sender's GetPriorVotes for the immediately previous block is above the Proposal Threshold (e.g. 2%), the given proposal is added to all proposals, given the following settings", async () => {
@@ -60,7 +66,13 @@ describe("CompoundVotingMachine#propose", () => {
 
   it("reverts with pending", async () => {
     await expect(
-      gov.propose(targets, values, signatures, callDatas, "do nothing")
+      gov["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      )
     ).to.revertedWith(
       "CompoundVotingMachine::propose: one live proposal per proposer, found an already pending proposal"
     );
@@ -111,7 +123,7 @@ describe("CompoundVotingMachine#propose", () => {
       let dynamicFields = await gov.getActions(trivialProposal.id);
       expect(dynamicFields.targets).to.deep.equal(targets);
       expect(
-        dynamicFields["1"].map((_) => _.toString()), //values is reserved word in ethersjs so we use array index
+        dynamicFields["1"].map(_ => _.toString()), //values is reserved word in ethersjs so we use array index
         "values not equal"
       ).to.deep.equal(values);
       expect(dynamicFields.signatures).to.deep.equal(signatures);
@@ -126,7 +138,13 @@ describe("CompoundVotingMachine#propose", () => {
         grep.undelegate();
 
         await expect(
-          gov.propose(targets, values, signatures, callDatas, "do nothing")
+          gov["propose(address[],uint256[],string[],bytes[],string)"](
+            targets,
+            values,
+            signatures,
+            callDatas,
+            "do nothing"
+          )
         ).to.revertedWith(
           "CompoundVotingMachine::propose: one live proposal per proposer, found an already active proposal"
         );
@@ -138,7 +156,13 @@ describe("CompoundVotingMachine#propose", () => {
         await expect(
           gov
             .connect(signers[4])
-            .propose(targets, values, signatures, callDatas, "do nothing")
+            ["propose(address[],uint256[],string[],bytes[],string)"](
+              targets,
+              values,
+              signatures,
+              callDatas,
+              "do nothing"
+            )
         ).to.revertedWith(
           "CompoundVotingMachine::propose: proposer votes below proposal threshold"
         );
@@ -146,7 +170,7 @@ describe("CompoundVotingMachine#propose", () => {
 
       it("the length of the values, signatures or calldatas arrays are not the same length,", async () => {
         await expect(
-          gov.propose(
+          gov["propose(address[],uint256[],string[],bytes[],string)"](
             targets.concat(root.address),
             values,
             signatures,
@@ -158,7 +182,7 @@ describe("CompoundVotingMachine#propose", () => {
         );
 
         await expect(
-          gov.propose(
+          gov["propose(address[],uint256[],string[],bytes[],string)"](
             targets,
             values.concat(values),
             signatures,
@@ -170,7 +194,7 @@ describe("CompoundVotingMachine#propose", () => {
         );
 
         await expect(
-          gov.propose(
+          gov["propose(address[],uint256[],string[],bytes[],string)"](
             targets,
             values,
             signatures.concat(signatures),
@@ -182,7 +206,7 @@ describe("CompoundVotingMachine#propose", () => {
         );
 
         await expect(
-          gov.propose(
+          gov["propose(address[],uint256[],string[],bytes[],string)"](
             targets,
             values,
             signatures,
@@ -195,7 +219,15 @@ describe("CompoundVotingMachine#propose", () => {
       });
 
       it("or if that length is zero or greater than Max Operations.", async () => {
-        await expect(gov.propose([], [], [], [], "do nothing")).to.revertedWith(
+        await expect(
+          gov["propose(address[],uint256[],string[],bytes[],string)"](
+            [],
+            [],
+            [],
+            [],
+            "do nothing"
+          )
+        ).to.revertedWith(
           "CompoundVotingMachine::propose: must provide actions"
         );
       });
@@ -206,7 +238,13 @@ describe("CompoundVotingMachine#propose", () => {
 
       await gov
         .connect(acct)
-        .propose(targets, values, signatures, callDatas, "yoot");
+        ["propose(address[],uint256[],string[],bytes[],string)"](
+          targets,
+          values,
+          signatures,
+          callDatas,
+          "yoot"
+        );
 
       expect(await gov.proposalCount()).to.equal(+trivialProposal.id + 1);
     });
@@ -215,11 +253,17 @@ describe("CompoundVotingMachine#propose", () => {
       await grep.delegateTo(signers[0].address);
       let nextProposal = gov
         .connect(signers[0])
-        .propose(targets, values, signatures, callDatas, "second proposal");
+        ["propose(address[],uint256[],string[],bytes[],string)"](
+          targets,
+          values,
+          signatures,
+          callDatas,
+          "second proposal"
+        );
 
       let nextProposalId = await nextProposal
-        .then((_) => _.wait())
-        .then((_) => gov.proposalCount());
+        .then(_ => _.wait())
+        .then(_ => gov.proposalCount());
       let proposalBlock = +(await ethers.provider.getBlockNumber());
 
       expect(nextProposal)
