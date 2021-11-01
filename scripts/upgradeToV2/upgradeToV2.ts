@@ -837,7 +837,13 @@ export const main = async (
         name: "DonationsStaking",
         isUpgradable: true
       },
-      [release.NameService, deployed[0][0]]
+      [
+        release.NameService,
+        deployed[0][0],
+        protocolSettings.donationsStaking.ethToStakingTokenSwapPath,
+        protocolSettings.donationsStaking.stakingTokenToEthSwapPath
+      ],
+      { libraries: { UniswapV2SwapHelper: release["UniswapV2SwapHelper"] } }
     );
     // await countTotalGas(deployedDonationsStaking);
 

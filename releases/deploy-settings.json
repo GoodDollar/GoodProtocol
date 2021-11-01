@@ -104,7 +104,17 @@
       "dai_eth": "0x24959556020AE5D39e5bAEC2bd6Bf12420C25aB5",
       "eth_usd": "0x30B5068156688f818cEa0874B580206dFe081a03"
     },
-    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    "donationsStaking": {
+      "ethToStakingTokenSwapPath": [
+        "0x0000000000000000000000000000000000000000",
+        "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd"
+      ],
+      "stakingTokenToEthSwapPath": [
+        "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
+        "0x0000000000000000000000000000000000000000"
+      ]
+    }
   },
   "staging": {
     "governance": {
@@ -133,7 +143,17 @@
       "dai_eth": "0x24959556020AE5D39e5bAEC2bd6Bf12420C25aB5",
       "eth_usd": "0x30B5068156688f818cEa0874B580206dFe081a03"
     },
-    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    "donationsStaking": {
+      "ethToStakingTokenSwapPath": [
+        "0x0000000000000000000000000000000000000000",
+        "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd"
+      ],
+      "stakingTokenToEthSwapPath": [
+        "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
+        "0x0000000000000000000000000000000000000000"
+      ]
+    }
   },
   "kovan-mainnet": {
     "gdxAirdrop": "0x87db9fa52d55498bbf1e6005603afe05cb194c13e8ac4907282f4ea2717d0921",

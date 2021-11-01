@@ -96,22 +96,18 @@ const hhconfig: HardhatUserConfig = {
     fuse: {
       accounts: { mnemonic },
       url: "https://rpc.fuse.io/",
-      gas: 3000000,
-      gasPrice: 1000000000,
       chainId: 122
     },
     "fuse-mainnet": {
       accounts: { mnemonic },
       url: "https://ropsten.infura.io/v3/" + infura_api,
-      gas: 8000000,
-      gasPrice: 25000000000,
+
       chainId: 3
     },
     staging: {
       accounts: { mnemonic },
       url: "https://rpc.fuse.io/",
-      gas: 3000000,
-      gasPrice: 5000000000,
+
       chainId: 122
     },
     "staging-mainnet": {
