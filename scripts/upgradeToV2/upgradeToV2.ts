@@ -7,9 +7,10 @@
  * 4. deploy ubi staking contracts
  */
 
-import { network, ethers, upgrades } from "hardhat";
+import { network, ethers, upgrades, run } from "hardhat";
 import { networkNames } from "@openzeppelin/upgrades-core";
 import { isFunction, get, omitBy } from "lodash";
+import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 import {
   AaveStakingFactory,
   CompoundStakingFactory,
@@ -342,7 +343,8 @@ export const main = async (
           //coverage has large contracts doesnt work with proxy factory
           const tx = await upgrades.deployProxy(Contract, args, {
             initializer: contract.initializer,
-            kind: "uups"
+            kind: "uups",
+            unsafeAllowLinkedLibraries: true
           });
           await countTotalGas(tx, contract.name);
           return tx;
@@ -856,8 +858,57 @@ export const main = async (
       StakingContracts: deployed
     };
   };
+  const verifyContracts = async release => {
+    for (let contract of toDeployUpgradable) {
+      if (
+        contract.network !== "both" &&
+        (contract.network === "mainnet") !== isMainnet
+      ) {
+        console.log(
+          contract,
+          " Skipping non mainnet/sidechain contract:",
+          contract.network,
+          contract.name
+        );
+        continue;
+      }
+      if (isDevelop === false && newdao[contract.name]) {
+        console.log(
+          contract.name,
+          " Skipping deployed contract at:",
+          newdao[contract.name],
+          "upgrading:",
+          !!process.env.UPGRADE
+        );
+        continue;
+      }
+      if (contract.isUpgradable !== false) {
+        const implementationAddress = await getImplementationAddress(
+          network.provider,
+          release[contract.name]
+        );
+        try {
+          await run("verify:verify", {
+            address: implementationAddress
+          });
+        } catch (err) {
+          console.log("err", err);
+        }
+      } else {
+        try {
+          await run("verify:verify", {
+            address: release[contract.name],
+            constructorArguments: contract.args
+          });
+        } catch (err) {
+          console.log("err", err);
+        }
+      }
+    }
+  };
 
   await deployContracts();
+
   if (isPerformUpgrade) {
     console.log("deployed contracts", { totalGas });
     await voteProtocolUpgrade(release);
@@ -866,6 +917,7 @@ export const main = async (
     !isMainnet && (await performUpgradeFuse(release));
     console.log("upgraded contracts", { totalGas });
   }
+  await verifyContracts(release);
   await releaser(release, networkName);
   return release;
   // await proveNewRep();
