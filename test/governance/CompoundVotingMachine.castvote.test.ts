@@ -32,7 +32,7 @@ describe("CompoundVotingMachine#CastVote", () => {
       reputation,
       setDAOAddress,
       nameService,
-      votingMachine,
+      votingMachine
     } = await createDAO();
     gov = votingMachine;
     grep = (await ethers.getContractAt(
@@ -49,13 +49,19 @@ describe("CompoundVotingMachine#CastVote", () => {
     signatures = ["getBalanceOf(address)"];
     callDatas = [encodeParameters(["address"], [acct.address])];
 
-    await gov.propose(targets, values, signatures, callDatas, "do nothing");
+    await gov["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "do nothing"
+    );
     proposalBlock = +(await ethers.provider.getBlockNumber());
     proposalId = await gov.latestProposalIds(root.address);
     trivialProposal = await gov.proposals(proposalId);
 
-    voteDelay = await gov.votingDelay().then((_) => _.toNumber());
-    votePeriod = await gov.votingPeriod().then((_) => _.toNumber());
+    voteDelay = await gov.votingDelay().then(_ => _.toNumber());
+    votePeriod = await gov.votingPeriod().then(_ => _.toNumber());
   });
 
   describe("We must revert if:", () => {
@@ -93,7 +99,13 @@ describe("CompoundVotingMachine#CastVote", () => {
 
         await gov
           .connect(actor)
-          .propose(targets, values, signatures, callDatas, "do nothing");
+          ["propose(address[],uint256[],string[],bytes[],string)"](
+            targets,
+            values,
+            signatures,
+            callDatas,
+            "do nothing"
+          );
         await ethers.provider.send("evm_mine", []);
         await ethers.provider.send("evm_mine", []);
         let proposalId = await gov.latestProposalIds(actor.address);
@@ -112,11 +124,17 @@ describe("CompoundVotingMachine#CastVote", () => {
 
         await grep.mint(actor.address, ethers.BigNumber.from("100001"));
         console.log(
-          await grep.balanceOf(actor.address).then((_) => _.toString())
+          await grep.balanceOf(actor.address).then(_ => _.toString())
         );
         let tx = await gov
           .connect(actor)
-          .propose(targets, values, signatures, callDatas, "do nothing");
+          ["propose(address[],uint256[],string[],bytes[],string)"](
+            targets,
+            values,
+            signatures,
+            callDatas,
+            "do nothing"
+          );
         await ethers.provider.send("evm_mine", []);
         await ethers.provider.send("evm_mine", []);
         let proposalId = await gov.latestProposalIds(actor.address);
@@ -130,16 +148,16 @@ describe("CompoundVotingMachine#CastVote", () => {
       });
 
       describe("castVoteBySig", () => {
-        const Domain = async (gov) => ({
+        const Domain = async gov => ({
           name: await gov.name(),
           chainId: (await ethers.provider.getNetwork()).chainId,
-          verifyingContract: gov.address,
+          verifyingContract: gov.address
         });
         const Types = {
           Ballot: [
             { name: "proposalId", type: "uint256" },
-            { name: "support", type: "bool" },
-          ],
+            { name: "support", type: "bool" }
+          ]
         };
 
         it("reverts if the signatory is invalid", async () => {
@@ -162,7 +180,7 @@ describe("CompoundVotingMachine#CastVote", () => {
             let wallet = ethers.Wallet.createRandom({ gasPrice: 10000000 });
             await acct.sendTransaction({
               to: wallet.address,
-              value: ethers.utils.parseEther("9999"),
+              value: ethers.utils.parseEther("9999")
             });
 
             wallet = wallet.connect(ethers.provider);
@@ -170,7 +188,13 @@ describe("CompoundVotingMachine#CastVote", () => {
             await grep.mint(actor.address, ethers.BigNumber.from("100001"));
             await gov
               .connect(actor)
-              .propose(targets, values, signatures, callDatas, "do nothing");
+              ["propose(address[],uint256[],string[],bytes[],string)"](
+                targets,
+                values,
+                signatures,
+                callDatas,
+                "do nothing"
+              );
             let proposalId = await gov.latestProposalIds(actor.address);
 
             const signature = await wallet._signTypedData(
@@ -178,7 +202,7 @@ describe("CompoundVotingMachine#CastVote", () => {
               Types,
               {
                 proposalId: proposalId,
-                support: true,
+                support: true
               }
             );
 
@@ -213,7 +237,13 @@ describe("CompoundVotingMachine#CastVote", () => {
           await grep.mint(actor.address, ethers.BigNumber.from("100001"));
           await gov
             .connect(actor)
-            .propose(targets, values, signatures, callDatas, "do nothing");
+            ["propose(address[],uint256[],string[],bytes[],string)"](
+              targets,
+              values,
+              signatures,
+              callDatas,
+              "do nothing"
+            );
           let proposalId = await gov.latestProposalIds(actor.address);
 
           const sigsFor = [];
@@ -229,7 +259,7 @@ describe("CompoundVotingMachine#CastVote", () => {
               Types,
               {
                 proposalId: proposalId,
-                support,
+                support
               }
             );
             const sig = ethers.utils.splitSignature(signature);
@@ -238,14 +268,14 @@ describe("CompoundVotingMachine#CastVote", () => {
                 support,
                 v: sig.v,
                 r: sig.r,
-                s: sig.s,
+                s: sig.s
               });
             else
               sigsAgainst.push({
                 support,
                 v: sig.v,
                 r: sig.r,
-                s: sig.s,
+                s: sig.s
               });
           };
           const ps = [];
@@ -260,7 +290,7 @@ describe("CompoundVotingMachine#CastVote", () => {
           let receipt = await tx.wait();
           console.log("gas for sigs:", {
             i: sigsFor.length + sigsAgainst.length,
-            gas: receipt.gasUsed.toNumber(),
+            gas: receipt.gasUsed.toNumber()
           });
         });
       });

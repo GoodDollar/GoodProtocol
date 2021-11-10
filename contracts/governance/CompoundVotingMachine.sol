@@ -100,6 +100,8 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		mapping(address => Receipt) receipts;
 		// quorom required at time of proposing
 		uint256 quoromRequired;
+		// support proposal voting bridge
+		uint256 forBlockchain;
 	}
 
 	/// @notice Ballot receipt record for a voter
@@ -154,6 +156,25 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		string description
 	);
 
+	/// @notice An event emitted when using blockchain proposal bridge
+	event ProposalSucceeded(
+		uint256 id,
+		address proposer,
+		address[] targets,
+		uint256[] values,
+		string[] signatures,
+		bytes[] calldatas,
+		uint256 startBlock,
+		uint256 endBlock,
+		uint256 forBlockchain,
+		uint256 eta,
+		uint256 forVotes,
+		uint256 againstVotes
+	);
+
+	/// @notice event when proposal made for a different blockchain
+	event ProposalBridge(uint256 id, uint256 indexed forBlockchain);
+
 	/// @notice An event emitted when a vote has been cast on a proposal
 	event VoteCast(
 		address voter,
@@ -192,14 +213,14 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		rep = ReputationInterface(ns_.getAddress("REPUTATION"));
 		uint256[9] memory params = [
 			votingPeriodBlocks_,
-			30000,
-			2500,
-			10,
-			1,
-			2 days,
-			1 days / 8,
-			1 days,
-			3 days
+			30000, //3% quorum
+			2500, //0.25% proposing threshold
+			10, //max operations
+			1, //voting delay blocks
+			2 days, //queue period
+			1 days / 8, //fast queue period
+			1 days, //game change period
+			3 days //grace period
 		];
 		_setVotingParameters(params);
 		guardian = _msgSender();
@@ -251,6 +272,31 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		string[] memory signatures,
 		bytes[] memory calldatas,
 		string memory description
+	) public returns (uint256) {
+		return
+			propose(
+				targets,
+				values,
+				signatures,
+				calldatas,
+				description,
+				getChainId()
+			);
+	}
+
+	/// @notice make a proposal to be voted on
+	/// @param targets list of contracts to be excuted on
+	/// @param values list of eth value to be used in each contract call
+	/// @param signatures the list of functions to execute
+	/// @param calldatas the list of parameters to pass to each function
+	/// @return uint256 proposal id
+	function propose(
+		address[] memory targets,
+		uint256[] memory values,
+		string[] memory signatures,
+		bytes[] memory calldatas,
+		string memory description,
+		uint256 forBlockchain
 	) public returns (uint256) {
 		require(
 			rep.getVotesAt(_msgSender(), true, block.number - 1) >
@@ -306,7 +352,7 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		newProposal.canceled = false;
 		newProposal.executed = false;
 		newProposal.quoromRequired = quorumVotes();
-
+		newProposal.forBlockchain = forBlockchain;
 		latestProposalIds[newProposal.proposer] = newProposal.id;
 
 		emit ProposalCreated(
@@ -320,6 +366,11 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 			endBlock,
 			description
 		);
+
+		if (getChainId() != forBlockchain) {
+			emit ProposalBridge(proposalCount, forBlockchain);
+		}
+
 		return newProposal.id;
 	}
 
@@ -354,6 +405,11 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		require(
 			state(proposalId) == ProposalState.Succeeded,
 			"CompoundVotingMachine::execute: proposal can only be executed if it is succeeded"
+		);
+
+		require(
+			proposals[proposalId].forBlockchain == getChainId(),
+			"CompoundVotingMachine::execute: proposal for wrong blockchain"
 		);
 
 		proposals[proposalId].executed = true;
@@ -698,5 +754,33 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 
 		guardian = _guardian;
 		emit GuardianSet(guardian);
+	}
+
+	/// @notice allow anyone to emit details about proposal that passed. can be used for cross-chain proposals using blockheader proofs
+	function emitSucceeded(uint256 _proposalId) public {
+		require(
+			state(_proposalId) == ProposalState.Succeeded,
+			"CompoundVotingMachine: not Succeeded"
+		);
+		Proposal storage proposal = proposals[_proposalId];
+		//also mark in storage as executed for cross chain voting. can be used by storage proofs, to verify proposal passed
+		if (proposal.forBlockchain != getChainId()) {
+			proposal.executed = true;
+		}
+
+		emit ProposalSucceeded(
+			_proposalId,
+			proposal.proposer,
+			proposal.targets,
+			proposal.values,
+			proposal.signatures,
+			proposal.calldatas,
+			proposal.startBlock,
+			proposal.endBlock,
+			proposal.forBlockchain,
+			proposal.eta,
+			proposal.forVotes,
+			proposal.againstVotes
+		);
 	}
 }
