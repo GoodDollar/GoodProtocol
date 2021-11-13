@@ -13,7 +13,7 @@ import "../UniswapV2SwapHelper.sol";
  * the contracts buy cToken and can transfer the daily interest to the  DAO
  */
 contract GoodAaveStaking is SimpleStaking {
-	using UniswapV2SwapHelper for SimpleStaking;
+	using UniswapV2SwapHelper for IHasRouter;
 
 	// Address of the TOKEN/USD oracle from chainlink
 	address public tokenUsdOracle;
@@ -57,9 +57,7 @@ contract GoodAaveStaking is SimpleStaking {
 		address[] memory _tokenToDaiSwapPath
 	) public {
 		lendingPool = ILendingPool(_lendingPool);
-		DataTypes.ReserveData memory reserve = lendingPool.getReserveData(
-			_token
-		);
+		DataTypes.ReserveData memory reserve = lendingPool.getReserveData(_token);
 		initialize(
 			_token,
 			reserve.aTokenAddress,
@@ -102,10 +100,7 @@ contract GoodAaveStaking is SimpleStaking {
 			_amount,
 			address(this)
 		);
-		require(
-			withdrawnAmount > 0,
-			"Withdrawn amount should be bigger than zero"
-		);
+		require(withdrawnAmount > 0, "Withdrawn amount should be bigger than zero");
 	}
 
 	/**
@@ -127,10 +122,11 @@ contract GoodAaveStaking is SimpleStaking {
 		)
 	{
 		//out of requested interests to withdraw how much is it safe to swap
-		actualTokenGains = SimpleStaking(this).maxSafeTokenAmount(
+		actualTokenGains = IHasRouter(this).maxSafeTokenAmount(
 			address(token),
 			tokenToDaiSwapPath[1],
-			_amount
+			_amount,
+			maxLiquidityPercentageSwap
 		);
 
 		lendingPool.withdraw(address(token), actualTokenGains, address(this));
@@ -146,7 +142,7 @@ contract GoodAaveStaking is SimpleStaking {
 		);
 
 		if (actualTokenGains > 0) {
-			daiAmount = SimpleStaking(this).swap(
+			daiAmount = IHasRouter(this).swap(
 				tokenToDaiSwapPath,
 				actualTokenGains,
 				0,

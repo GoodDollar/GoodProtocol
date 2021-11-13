@@ -23,7 +23,8 @@ abstract contract SimpleStaking is
 	ERC20Upgradeable,
 	DAOContract,
 	BaseShareField,
-	ReentrancyGuardUpgradeable
+	ReentrancyGuardUpgradeable,
+	IHasRouter
 {
 	// Token address
 	ERC20 public token;
@@ -90,10 +91,7 @@ abstract contract SimpleStaking is
 		maxMultiplierThreshold = _maxRewardThreshold;
 	}
 
-	function setMaxLiquidityPercentageSwap(uint24 _maxPercentage)
-		public
-		virtual
-	{
+	function setMaxLiquidityPercentageSwap(uint24 _maxPercentage) public virtual {
 		_onlyAvatar();
 		maxLiquidityPercentageSwap = _maxPercentage;
 	}
@@ -358,13 +356,7 @@ abstract contract SimpleStaking is
 		) = GoodFundManager(nameService.getAddress("FUND_MANAGER"))
 				.rewardsForStakingContract(address(this));
 
-		_decreaseProductivity(
-			_from,
-			_value,
-			rewardsPerBlock,
-			blockStart,
-			blockEnd
-		);
+		_decreaseProductivity(_from, _value, rewardsPerBlock, blockStart, blockEnd);
 
 		_increaseProductivity(
 			_to,
@@ -416,7 +408,7 @@ abstract contract SimpleStaking is
 			_recipient != address(this),
 			"Recipient cannot be the staking contract"
 		);
-    
+
 		(uint256 iTokenGains, uint256 tokenGains, , , ) = currentGains(
 			false,
 			false
@@ -522,5 +514,9 @@ abstract contract SimpleStaking is
 
 		//divide by 1e16 to return in 2 decimals
 		return (users[_staker].rewardMinted / 1e16, pending / 1e16);
+	}
+
+	function getRouter() public view override returns (Uniswap) {
+		return Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 	}
 }

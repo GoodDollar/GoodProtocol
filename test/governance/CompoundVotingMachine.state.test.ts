@@ -40,7 +40,7 @@ const states = [
   "Defeated",
   "Succeeded",
   "Expired",
-  "Executed",
+  "Executed"
 ];
 
 describe("CompoundVotingMachine#States", () => {
@@ -68,7 +68,7 @@ describe("CompoundVotingMachine#States", () => {
       reputation,
       setDAOAddress,
       nameService,
-      votingMachine,
+      votingMachine
     } = await createDAO();
 
     grep = (await ethers.getContractAt(
@@ -91,18 +91,24 @@ describe("CompoundVotingMachine#States", () => {
     signatures = ["balanceOf(address)", ""];
     callDatas = [
       encodeParameters(["address"], [acct.address]),
-      grep.interface.encodeFunctionData("balanceOf", [acct.address]),
+      grep.interface.encodeFunctionData("balanceOf", [acct.address])
     ];
 
-    await gov.propose(targets, values, signatures, callDatas, "do nothing");
+    await gov["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "do nothing"
+    );
     proposalBlock = +(await ethers.provider.getBlockNumber());
     proposalId = await gov.latestProposalIds(root.address);
     trivialProposal = await gov.proposals(proposalId);
 
-    voteDelay = await gov.votingDelay().then((_) => _.toNumber());
-    votePeriod = await gov.votingPeriod().then((_) => _.toNumber());
-    queuePeriod = await gov.queuePeriod().then((_) => _.toNumber());
-    gracePeriod = await gov.gracePeriod().then((_) => _.toNumber());
+    voteDelay = await gov.votingDelay().then(_ => _.toNumber());
+    votePeriod = await gov.votingPeriod().then(_ => _.toNumber());
+    queuePeriod = await gov.queuePeriod().then(_ => _.toNumber());
+    gracePeriod = await gov.gracePeriod().then(_ => _.toNumber());
   });
 
   it("Invalid for proposal not found", async () => {
@@ -126,7 +132,13 @@ describe("CompoundVotingMachine#States", () => {
     await grep.delegateTo(actor.address);
     await gov
       .connect(actor)
-      .propose(targets, values, signatures, callDatas, "do nothing");
+      ["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      );
     let newProposalId = await gov.proposalCount();
 
     // send away the delegates
@@ -147,7 +159,13 @@ describe("CompoundVotingMachine#States", () => {
     let proposalId;
     before(async () => {
       await advanceBlocks(1);
-      await gov.propose(targets, values, signatures, callDatas, "do nothing");
+      await gov["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      );
       proposalId = await gov.latestProposalIds(root.address);
       await advanceBlocks(1);
     });
@@ -196,7 +214,13 @@ describe("CompoundVotingMachine#States", () => {
     await advanceBlocks(1);
     await gov
       .connect(actor)
-      .propose(targets, values, signatures, callDatas, "do nothing");
+      ["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      );
     let proposalId = await gov.latestProposalIds(actor.address);
     await advanceBlocks(1);
     await gov.connect(actor).castVote(proposalId, false);
@@ -215,7 +239,13 @@ describe("CompoundVotingMachine#States", () => {
     await advanceBlocks(1);
     await gov
       .connect(actor)
-      .propose(targets, values, signatures, callDatas, "do nothing");
+      ["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      );
     let proposalId = await gov.latestProposalIds(actor.address);
     await advanceBlocks(1);
     await gov.connect(actor).castVote(proposalId, true);
@@ -249,9 +279,15 @@ describe("CompoundVotingMachine#States", () => {
   it("Game changer extends eta", async () => {
     let gameChangerPeriod = await gov
       .gameChangerPeriod()
-      .then((_) => _.toNumber());
+      .then(_ => _.toNumber());
     await advanceBlocks(1);
-    await gov.propose(targets, values, signatures, callDatas, "do nothing");
+    await gov["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "do nothing"
+    );
     let proposalId = await gov.latestProposalIds(root.address);
     await advanceBlocks(1);
     await gov.connect(acct).castVote(proposalId, false);
@@ -272,11 +308,17 @@ describe("CompoundVotingMachine#States", () => {
   });
 
   it("can be executed after short activetimelock period when passed with absolute majority", async () => {
-    let fastQueuePeriod = await gov.fastQueuePeriod().then((_) => _.toNumber());
+    let fastQueuePeriod = await gov.fastQueuePeriod().then(_ => _.toNumber());
     await advanceBlocks(1);
     await gov
       .connect(signers[0])
-      .propose(targets, values, signatures, callDatas, "do nothing");
+      ["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      );
     let proposalId = await gov.proposalCount();
     await advanceBlocks(1);
 

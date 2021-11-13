@@ -188,7 +188,13 @@ describe("CompoundVotingMachine#DAOScheme", () => {
       encodeParameters(["uint256[9]"], [[1, 20000, 2000, 4, 5, 6, 7, 8, 9]])
     ];
 
-    await gov.propose(targets, values, signatures, callDatas, "change params");
+    await gov["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "change params"
+    );
     let proposalBlock = +(await ethers.provider.getBlockNumber());
     let proposalId = await gov.latestProposalIds(root.address);
     await advanceBlocks(1);
@@ -235,7 +241,13 @@ describe("CompoundVotingMachine#DAOScheme", () => {
       )
     ];
 
-    await gov.propose(targets, values, signatures, callDatas, "mint rep");
+    await gov["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "mint rep"
+    );
     let proposalBlock = +(await ethers.provider.getBlockNumber());
     let proposalId = await gov.latestProposalIds(root.address);
     await advanceBlocks(1);
@@ -258,7 +270,13 @@ describe("CompoundVotingMachine#DAOScheme", () => {
     let signatures = ["rec()"];
     let callDatas = ["0x00"];
 
-    await gov.propose(targets, values, signatures, callDatas, "send eth");
+    await gov["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "send eth"
+    );
     let proposalBlock = +(await ethers.provider.getBlockNumber());
     let proposalId = await gov.latestProposalIds(root.address);
     await advanceBlocks(1);
@@ -287,7 +305,13 @@ describe("CompoundVotingMachine#DAOScheme", () => {
     let signatures = ["unregisterSelf(address)"];
     let callDatas = [encodeParameters(["address"], [avatar])];
 
-    await gov.propose(targets, values, signatures, callDatas, "send eth");
+    await gov["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "send eth"
+    );
     let proposalBlock = +(await ethers.provider.getBlockNumber());
     let proposalId = await gov.latestProposalIds(root.address);
     await advanceBlocks(1);

@@ -176,7 +176,13 @@ describe("CompoundVotingMachine#Guardian", () => {
 
     await gov
       .connect(signers[4])
-      .propose(targets, values, signatures, callDatas, "do nothing");
+      ["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      );
     let proposalId = await gov.latestProposalIds(signers[4].address);
     await advanceBlocks(1);
 
@@ -187,7 +193,6 @@ describe("CompoundVotingMachine#Guardian", () => {
     await gov.connect(signers[1]).cancel(proposalId);
     expect(states[await gov.state(proposalId)]).to.equal("Canceled");
     await grep.delegateTo(root.address); //delegate back our votes
-
   });
 
   it("Should be able to pass proposal to change guardian", async () => {
@@ -205,7 +210,13 @@ describe("CompoundVotingMachine#Guardian", () => {
 
     await gov
       .connect(root)
-      .propose(targets, values, signatures, callDatas, "set guardian");
+      ["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "set guardian"
+      );
     let proposalBlock = +(await ethers.provider.getBlockNumber());
     let proposalId = await gov.latestProposalIds(root.address);
     await advanceBlocks(1);

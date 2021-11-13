@@ -433,3 +433,7 @@ interface IGoodStaking {
 		uint256 blockEnd
 	) external returns (uint256);
 }
+
+interface IHasRouter {
+	function getRouter() external view returns (Uniswap);
+}
