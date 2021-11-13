@@ -227,6 +227,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		uint256 interestInCdai;
 		address reserveAddress;
 		{
+			require(
+				block.timestamp >= lastCollectedInterest + 1 days,
+				"collectInterest: only once a day"
+			);
 			//prevent stack too deep
 			cERC20 iToken = cERC20(nameService.getAddress("CDAI"));
 			ERC20 daiToken = ERC20(nameService.getAddress("DAI"));
