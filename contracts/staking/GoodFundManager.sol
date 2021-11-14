@@ -27,20 +27,20 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	uint256 public collectInterestTimeThreshold;
 	// to allow keeper to collect interest, total interest collected should be interestMultiplier*gas costs
 	uint8 public interestMultiplier;
+	//min amount of days between interest collection
+	uint8 public minCollectInterestIntervalDays;
 	//address of the active staking contracts
 	address[] public activeContracts;
-	event GasCostSet(uint256 timestamp, uint256 newGasCost);
+
+	event GasCostSet(uint256 newGasCost);
 	event CollectInterestTimeThresholdSet(
-		uint256 timestamp,
 		uint256 newCollectInterestTimeThreshold
 	);
-	event InterestMultiplierSet(uint256 timestamp, uint8 newInterestMultiplier);
+	event InterestMultiplierSet(uint8 newInterestMultiplier);
 	event GasCostExceptInterestCollectSet(
-		uint256 timestamp,
 		uint256 newGasCostExceptInterestCollect
 	);
 	event StakingRewardSet(
-		uint256 timestamp,
 		uint32 _rewardsPerBlock,
 		address _stakingAddress,
 		uint32 _blockStart,
@@ -106,9 +106,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	function initialize(INameService _ns) public virtual initializer {
 		setDAO(_ns);
 		gdMintGasCost = 250000; // While testing highest amount was 240k so put 250k to be safe
-		collectInterestTimeThreshold = 5184000; // 5184000 is 2 months in seconds
+		collectInterestTimeThreshold = 60 days;
 		interestMultiplier = 4;
 		gasCostExceptInterestCollect = 850000; //while testing highest amount was 800k so put 850k to be safe
+		minCollectInterestIntervalDays = 7;
 	}
 
 	/**
@@ -118,7 +119,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	function setGasCost(uint256 _gasAmount) public {
 		_onlyAvatar();
 		gdMintGasCost = _gasAmount;
-		emit GasCostSet(block.timestamp, _gasAmount);
+		emit GasCostSet(_gasAmount);
 	}
 
 	/**
@@ -129,7 +130,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	function setCollectInterestTimeThreshold(uint256 _timeThreshold) public {
 		_onlyAvatar();
 		collectInterestTimeThreshold = _timeThreshold;
-		emit CollectInterestTimeThresholdSet(block.timestamp, _timeThreshold);
+		emit CollectInterestTimeThresholdSet(_timeThreshold);
 	}
 
 	/**
@@ -138,7 +139,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	function setInterestMultiplier(uint8 _newMultiplier) public {
 		_onlyAvatar();
 		interestMultiplier = _newMultiplier;
-		emit InterestMultiplierSet(block.timestamp, _newMultiplier);
+		emit InterestMultiplierSet(_newMultiplier);
 	}
 
 	/**
@@ -149,7 +150,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	function setGasCostExceptInterestCollect(uint256 _gasAmount) public {
 		_onlyAvatar();
 		gasCostExceptInterestCollect = _gasAmount;
-		emit GasCostExceptInterestCollectSet(block.timestamp, _gasAmount);
+		emit GasCostExceptInterestCollectSet(_gasAmount);
 	}
 
 	/**
@@ -200,7 +201,6 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			activeContracts.push(_stakingAddress);
 		}
 		emit StakingRewardSet(
-			block.timestamp,
 			_rewardsPerBlock,
 			_stakingAddress,
 			_blockStart,
@@ -227,10 +227,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		uint256 interestInCdai;
 		address reserveAddress;
 		{
-			require(
-				block.timestamp >= lastCollectedInterest + 1 days,
-				"collectInterest: only once a day"
-			);
+			// require(
+			// 	block.timestamp >= lastCollectedInterest + minCollectedInterestIntervalDays * days,
+			// 	"collectInterest: collect interval not passed"
+			// );
 			//prevent stack too deep
 			cERC20 iToken = cERC20(nameService.getAddress("CDAI"));
 			ERC20 daiToken = ERC20(nameService.getAddress("DAI"));

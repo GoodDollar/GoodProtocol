@@ -57,6 +57,7 @@
     "@openzeppelin/contracts-upgradeable": "^4.3.2",
     "@typechain/hardhat": "^2.2.0",
     "async-promise-pool": "^1.0.4",
+    "ethers-multicall": "^0.2.1",
     "openzeppelin-solidity": "^4.3.2",
     "patch-package": "latest",
     "truffle-plugin-verify": "^0.5.11"
@@ -68,9 +69,9 @@
     "@babel/register": "*",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-etherscan": "^2.1.3",
-    "@nomiclabs/hardhat-waffle": "*",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@openzeppelin/hardhat-upgrades": "1.7.0",
-    "@typechain/ethers-v5": "*",
+    "@typechain/ethers-v5": "^8.0.2",
     "@types/mocha": "*",
     "@types/node": "*",
     "@uniswap/v2-core": "*",
@@ -99,9 +100,9 @@
     "solidity-coverage": "^0.7.17",
     "truffle": "^5.3.12",
     "truffle-hdwallet-provider": "*",
-    "ts-generator": "*",
+    "ts-generator": "^0.1.1",
     "ts-node": "^9.0.0",
-    "typechain": "*",
+    "typechain": "^6.0.2",
     "typescript": "*"
   }
 }
