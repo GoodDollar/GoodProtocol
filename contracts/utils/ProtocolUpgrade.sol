@@ -143,7 +143,7 @@ contract ProtocolUpgrade {
 
 			AddressUpgradeable.sendValue(donationStaking, eth);
 		}
-		IDonationStaking(donationStaking).stakeDonations(0);
+		IDonationStaking(donationStaking).stakeDonations();
 
 		(ok, result) = controller.genericCall(
 			oldSimpleDAIStaking,

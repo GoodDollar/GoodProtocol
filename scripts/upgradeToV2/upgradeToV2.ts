@@ -36,7 +36,7 @@ import { keccak256 } from "@ethersproject/keccak256";
 const GAS_SETTINGS = {
   maxPriorityFeePerGas: ethers.utils.parseUnits("1", "gwei"),
   maxFeePerGas: ethers.utils.parseUnits("50", "gwei"),
-  gasLimit: 30000000
+  gasLimit: process.env.CODE_COVERAGE ? 12450000 : 30000000
 };
 
 let totalGas = 0;
@@ -833,6 +833,7 @@ export const main = async (
     }
 
     console.log("deploying donation staking");
+    console.log(`release ${release}`);
     const deployedDonationsStaking = await deployDeterministic(
       {
         network: "mainnet",
@@ -842,8 +843,18 @@ export const main = async (
       [
         release.NameService,
         deployed[0][0],
-        protocolSettings.donationsStaking.ethToStakingTokenSwapPath,
-        protocolSettings.donationsStaking.stakingTokenToEthSwapPath
+        isCoverage || isTest
+          ? [
+              "0x0000000000000000000000000000000000000000",
+              get(protocolSettings, "compound.dai", dao.DAI)
+            ]
+          : protocolSettings.donationsStaking.ethToStakingTokenSwapPath,
+        isCoverage || isTest
+          ? [
+              get(protocolSettings, "compound.dai", dao.DAI),
+              "0x0000000000000000000000000000000000000000"
+            ]
+          : protocolSettings.donationsStaking.stakingTokenToEthSwapPath
       ],
       { libraries: { UniswapV2SwapHelper: release["UniswapV2SwapHelper"] } }
     );
@@ -917,7 +928,10 @@ export const main = async (
     !isMainnet && (await performUpgradeFuse(release));
     console.log("upgraded contracts", { totalGas });
   }
-  await verifyContracts(release);
+  if (!isTest && !isCoverage) {
+    await verifyContracts(release);
+  }
+
   await releaser(release, networkName);
   return release;
   // await proveNewRep();

@@ -366,7 +366,7 @@ interface ILendingPool {
 }
 
 interface IDonationStaking {
-	function stakeDonations(uint256 _minDAIAmount) external payable;
+	function stakeDonations() external payable;
 }
 
 interface INameService {
