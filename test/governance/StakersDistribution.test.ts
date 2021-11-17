@@ -7,14 +7,14 @@ import {
   CERC20,
   GoodReserveCDai,
   SimpleStaking,
-  GReputation,
+  GReputation
 } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import {
   createDAO,
   increaseTime,
   advanceBlocks,
-  deployUniswap,
+  deployUniswap
 } from "../helpers";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
 import { getStakingFactory } from "../helpers";
@@ -86,7 +86,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       reputation,
       setReserveToken,
       genericCall: gc,
-      COMP,
+      COMP
     } = await createDAO();
 
     genericCall = gc;
@@ -103,7 +103,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       gd,
       identity,
       controller,
-      avatar,
+      avatar
     });
     goodFundManager = await upgrades.deployProxy(
       goodFundManagerFactory,
@@ -115,7 +115,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       reputation
     )) as GReputation;
     console.log("Deployed goodfund manager", {
-      manager: goodFundManager.address,
+      manager: goodFundManager.address
     });
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
     contribution = await ethers.getContractAt(
@@ -126,7 +126,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     marketMaker = mm;
 
     console.log("deployed contribution, deploying reserve...", {
-      founder: founder.address,
+      founder: founder.address
     });
 
     console.log("setting permissions...");
@@ -153,7 +153,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
 
     simpleUsdcStaking = await simpleStakingFactory
       .deploy()
-      .then(async (contract) => {
+      .then(async contract => {
         await contract.init(
           usdc.address,
           cUsdc.address,
@@ -169,7 +169,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       });
 
     deployDaiStaking = async () => {
-      return simpleStakingFactory.deploy().then(async (contract) => {
+      return simpleStakingFactory.deploy().then(async contract => {
         await contract.init(
           dai.address,
           cDAI.address,
@@ -200,7 +200,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         simpleStaking.address,
         currentBlockNumber,
         currentBlockNumber + 1000,
-        false,
+        false
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -260,7 +260,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
   it("it should not be set monthly reputation when not Avatar", async () => {
     const transaction = await stakersDistribution
       .setMonthlyReputationDistribution("1000000")
-      .catch((e) => e);
+      .catch(e => e);
     expect(transaction.message).to.have.string(
       "only avatar can call this method"
     );
@@ -304,7 +304,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         simpleStaking1.address,
         currentBlockNumber,
         currentBlockNumber + 1000,
-        false,
+        false
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -334,8 +334,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       .connect(staker)
       .withdrawStake(stakingAmount.mul(75), false);
     expect(rewardsPerBlockAfterStakeContractOne).to.be.equal(
-      rewardsPerBlockAftereStakeContractTwo.mul(3).add(2314817)
-    ); // added 2,314,817 cause of precision loss
+      rewardsPerBlockAftereStakeContractTwo.mul(3).add(1)
+    ); // added 1 cause of precision loss
     encodedData = goodFundManagerFactory.interface.encodeFunctionData(
       "setStakingReward",
       [
@@ -343,7 +343,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         simpleStaking1.address,
         currentBlockNumber,
         currentBlockNumber + 1000,
-        true,
+        true
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -367,7 +367,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         simpleStaking.address,
         currentBlockNumber - 5,
         currentBlockNumber + 20,
-        false,
+        false
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -417,7 +417,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         simpleStaking.address,
         currentBlockNumber - 5,
         currentBlockNumber + 20,
-        false,
+        false
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -465,7 +465,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         simpleStaking1.address,
         currentBlockNumber - 5,
         currentBlockNumber + 20,
-        true,
+        true
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -500,7 +500,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         simpleStaking1.address,
         currentBlockNumber - 5,
         currentBlockNumber + 20,
-        false,
+        false
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -525,7 +525,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         simpleStaking1.address,
         currentBlockNumber - 5,
         currentBlockNumber + 20,
-        true,
+        true
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -538,7 +538,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
 
     const repBefore = await grep["balanceOf(address)"](staker.address);
     await stakersDistribution.claimReputation(staker.address, [
-      simpleStaking1.address,
+      simpleStaking1.address
     ]);
     const repAfter = await grep["balanceOf(address)"](staker.address);
 
@@ -571,7 +571,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         simpleStaking1.address,
         currentBlockNumber + 500,
         currentBlockNumber + 1000,
-        false,
+        false
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -609,7 +609,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         simpleStaking1.address,
         currentBlockNumber + 500,
         currentBlockNumber + 1000,
-        true,
+        true
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -634,7 +634,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         simpleStaking1.address,
         currentBlockNumber - 10,
         currentBlockNumber + 100,
-        false,
+        false
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -666,7 +666,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         simpleStaking1.address,
         currentBlockNumber + 500,
         currentBlockNumber + 1000,
-        true,
+        true
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -689,7 +689,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         simpleStaking.address,
         currentBlockNumber - 5,
         currentBlockNumber + 200,
-        false,
+        false
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -700,7 +700,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         simpleUsdcStaking.address,
         currentBlockNumber - 5,
         currentBlockNumber + 200,
-        false,
+        false
       ] // set 10 gd per block
     );
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
@@ -768,8 +768,6 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     expect(daiStakingProductivity[0]).to.be.equal(stakingAmountDai);
     expect(usdcStakingProductivity[0]).to.be.equal(daiStakingProductivity[0]);
     expect(usdcStakingProductivity[1]).to.be.equal(daiStakingProductivity[1]);
-    expect(usdcStakingRewardsPerBlock).to.be.equal(
-      daiStakingRewardsPerBlock.add(5787037)
-    ); // sub 5,787,037 cause of precision loss. Precision loss happens due to cToken has less decimals than Staking Token
+    expect(usdcStakingRewardsPerBlock).to.be.equal(daiStakingRewardsPerBlock);
   });
 });
