@@ -437,3 +437,13 @@ interface IGoodStaking {
 interface IHasRouter {
 	function getRouter() external view returns (Uniswap);
 }
+
+interface IAdminWallet {
+	function addAdmins(address payable[] memory _admins) external;
+
+	function removeAdmins(address[] memory _admins) external;
+
+	function owner() external view returns (address);
+
+	function transferOwnership(address _owner) external;
+}
