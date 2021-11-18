@@ -27,7 +27,6 @@ import {
   NameService
 } from "../../types";
 import { getFounders } from "../getFounders";
-import { fetchOrDeployProxyFactory } from "../fetchOrDeployProxyFactory";
 import OldDAO from "../../releases/olddao.json";
 
 import ProtocolSettings from "../../releases/deploy-settings.json";
@@ -36,7 +35,7 @@ import { keccak256 } from "@ethersproject/keccak256";
 const GAS_SETTINGS = {
   maxPriorityFeePerGas: ethers.utils.parseUnits("1", "gwei"),
   maxFeePerGas: ethers.utils.parseUnits("50", "gwei"),
-  gasLimit: process.env.CODE_COVERAGE ? 12450000 : 30000000
+  gasLimit: 30000000
 };
 
 let totalGas = 0;
@@ -73,6 +72,7 @@ export const main = async (
   const isProduction = networkName.startsWith("production");
   if (isProduction) {
     GAS_SETTINGS.gasLimit = 7000000;
+    GAS_SETTINGS.maxFeePerGas = ethers.utils.parseUnits("100", "gwei");
   }
   const isBackendTest = networkName.startsWith("dapptest");
   const isTest = network.name === "hardhat";
@@ -843,18 +843,14 @@ export const main = async (
       [
         release.NameService,
         deployed[0][0],
-        isCoverage || isTest
-          ? [
-              "0x0000000000000000000000000000000000000000",
-              get(protocolSettings, "compound.dai", dao.DAI)
-            ]
-          : protocolSettings.donationsStaking.ethToStakingTokenSwapPath,
-        isCoverage || isTest
-          ? [
-              get(protocolSettings, "compound.dai", dao.DAI),
-              "0x0000000000000000000000000000000000000000"
-            ]
-          : protocolSettings.donationsStaking.stakingTokenToEthSwapPath
+        [
+          "0x0000000000000000000000000000000000000000",
+          get(protocolSettings, "compound.dai", dao.DAI)
+        ],
+        [
+          get(protocolSettings, "compound.dai", dao.DAI),
+          "0x0000000000000000000000000000000000000000"
+        ]
       ],
       { libraries: { UniswapV2SwapHelper: release["UniswapV2SwapHelper"] } }
     );

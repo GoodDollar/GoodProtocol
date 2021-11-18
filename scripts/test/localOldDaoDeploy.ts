@@ -26,9 +26,9 @@ import DonationsStaking from "@gooddollar/goodcontracts/upgradables/build/contra
 import AdminWalletABI from "@gooddollar/goodcontracts/build/contracts/AdminWallet.json";
 import OTPABI from "@gooddollar/goodcontracts/build/contracts/OneTimePayments.json";
 
-import releaser from "../scripts/releaser";
-import { increaseTime, deployUniswap } from "../test/helpers";
-import ProtocolSettings from "../releases/deploy-settings.json";
+import releaser from "../releaser";
+import { increaseTime, deployUniswap } from "../../test/helpers";
+import ProtocolSettings from "../../releases/deploy-settings.json";
 
 const { name } = network;
 
@@ -184,7 +184,7 @@ const deploy3rdParty = async dao => {
 
 export const deployKovanOldDAO = async () => {
   let { dai, cdai, comp } = ProtocolSettings[network.name].compound || {};
-  console.log("dao deploying...");
+  console.log("kovan dao deploying...");
   const dao = await createOldDAO(dai, cdai, comp);
   console.log("dao deployed");
 
@@ -646,16 +646,21 @@ export const deployUBI = async deployedDAO => {
 
   console.log("set firstclaim,ubischeme as scheme and starting...");
   await setSchemes([firstClaim.address, ubiScheme.address]);
-  await increaseTime(1000); //make sure period start has reached
-  console.log(
-    "ubischeme start:",
-    now.timestamp,
-    await ubiScheme.periodStart(),
-    await ubiScheme.periodEnd()
-  );
+  const lastBlock = await ethers.provider.getBlock("latest");
+  const periodStart = await ubiScheme.periodStart().then(_ => _.toNumber());
+  const diff = periodStart - lastBlock.timestamp;
+  await increaseTime(diff); //make sure period start has reached
+  console.log("ubischeme start:", {
+    now: now.timestamp,
+    blockTime: lastBlock.timestamp,
+    periodStart: await ubiScheme.periodStart().then(_ => _.toString()),
+    periodEnd: await ubiScheme.periodEnd().then(_ => _.toString()),
+    diff
+  });
   const tx = await firstClaim.start();
+  console.log("firstclaim started");
   await ubiScheme.start();
-
+  console.log("ubischeme started");
   await increaseTime(10000); //make sure period end of ubischeme has reached
   return { firstClaim, ubiScheme };
 };

@@ -4,7 +4,7 @@ import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
 import { networkNames } from "@openzeppelin/upgrades-core";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { deploy } from "../localOldDaoDeploy";
+import { deploy } from "../../scripts/test/localOldDaoDeploy";
 import deploySettings from "../../releases/deploy-settings.json";
 import GoodReserveCDai from "@gooddollar/goodcontracts/stakingModel/build/contracts/GoodReserveCDai.json";
 import MarketMaker from "@gooddollar/goodcontracts/stakingModel/build/contracts/GoodMarketMaker.json";
@@ -87,7 +87,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       Identity,
       FundManager,
       DAIStaking,
-      Avatar,
+      Avatar
     } = await deploy("test-mainnet"); // deploy old dao locally
 
     identity = Identity;
@@ -102,7 +102,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       Controller: fuseCtrl,
       SchemeRegistrar: schemeRegistrarAddressFuse,
       UpgradeScheme: upgradeSchemeAddressFuse,
-      Identity: FuseIdentity,
+      Identity: FuseIdentity
     } = await deploy("test"); //deploy sidechain old dao localally
 
     avatar = Avatar;
@@ -166,7 +166,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     );
 
     const {
-      main: performUpgrade,
+      main: performUpgrade
     } = require("../../scripts/upgradeToV2/upgradeToV2");
 
     console.log("running upgrades...");
@@ -248,7 +248,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       reserve: oldReserve.address,
       oldFundManager,
       oldDAIStaking,
-      formula,
+      formula
     });
     expect(await controller.isSchemeRegistered(identity, avatar)).to.be.true;
     expect(await controller.getSchemePermissions(identity, avatar)).to.equal(
@@ -274,7 +274,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     console.log({
       fuseIdentity,
       oldUBIScheme,
-      formula,
+      formula
     });
 
     expect(await fuseController.isSchemeRegistered(oldUBIScheme, fuseAvatar)).to

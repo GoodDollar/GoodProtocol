@@ -2,7 +2,7 @@ import fse from "fs-extra";
 import { ethers, network as networkData } from "hardhat";
 import settings from "../releases/deploy-settings.json";
 import deployment from "../releases/deployment.json";
-import { increaseTime, advanceBlocks } from "./helpers";
+import { increaseTime, advanceBlocks } from "../test/helpers";
 
 /**
  * helper script to simulate enough days of interest transfer and claiming
@@ -60,7 +60,7 @@ const simulate = async function () {
     console.log("transfering cdai to staking day:", { day, cdaiBalance });
 
     await waitTX(
-      cDAI.transfer(simpleStaking, ethers.utils.parseUnits("30", "gwei")) //300 cdai
+      cDAI.transfer(simpleStaking, ethers.utils.parseUnits("30000", "gwei")) //300 cdai
     );
     let stakingBalance = await cDAI
       .balanceOf(simpleStaking)

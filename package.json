@@ -12,11 +12,11 @@
     "postinstall": "patch-package",
     "compile": "hardhat compile",
     "daoUpgrade": "hardhat run scripts/upgradeToV2/upgradeToV2.ts",
-    "deployOldDAO": "hardhat run test/localOldDaoDeploy.ts",
+    "deployOldDAO": "hardhat run scripts/test/localOldDaoDeploy.ts",
     "runNode": "hardhat node &",
     "testDAOUpgrade": "yarn runNode && yarn compile && yarn deployOldDAO --network develop-mainnet && yarn daoUpgrade --network develop-mainnet",
     "testDAOUpgradeFuse": "yarn runNode && yarn compile && yarn deployOldDAO --network develop && yarn daoUpgrade --network develop",
-    "deployTest": "yarn runNode && yarn compile && hardhat run test/singleOldDaoDeploy.ts --network dapptest && yarn daoUpgrade --network dapptest && yarn daoUpgrade --network dapptest-mainnet && hardhat run test/simulateInterest.ts --network dapptest"
+    "deployTest": "yarn runNode && yarn compile && hardhat run scripts/test/singleOldDaoDeploy.ts --network dapptest && yarn daoUpgrade --network dapptest && yarn daoUpgrade --network dapptest-mainnet && hardhat run scripts/test/simulateInterest.ts --network dapptest"
   },
   "files": [
     "artifacts/contracts",
@@ -60,7 +60,8 @@
     "ethers-multicall": "^0.2.1",
     "openzeppelin-solidity": "^4.3.2",
     "patch-package": "latest",
-    "truffle-plugin-verify": "^0.5.11"
+    "truffle-plugin-verify": "^0.5.11",
+    "truffle-source-verify": "^0.0.6"
   },
   "devDependencies": {
     "@babel/core": "*",

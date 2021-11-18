@@ -15112,6 +15112,19 @@ sol-merger@3.0.1:
     glob "^7.1.2"
     strip-json-comments "^3.0.1"
 
+sol-merger@3.1.0:
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/sol-merger/-/sol-merger-3.1.0.tgz#547b282a616d106c0fa8869e0a275fd7db0213d8"
+  integrity sha512-4/JELeFlB8bcyqttRZ7pE/EGpevft9Q7IPjMaKLKMrj1exmdyt+1qSfuSXxueFXRZQxSd21u6DjEedDkOtQ5yQ==
+  dependencies:
+    antlr4ts "^0.5.0-alpha.3"
+    cli-color "^1.4.0"
+    commander "^4.0.1"
+    debug "^4.1.1"
+    fs-extra "^8.0.1"
+    glob "^7.1.2"
+    strip-json-comments "^3.0.1"
+
 solc@0.7.3:
   version "0.7.3"
   resolved "https://registry.yarnpkg.com/solc/-/solc-0.7.3.tgz#04646961bd867a744f63d2b4e3c0701ffdc7d78a"
@@ -16175,6 +16188,17 @@ truffle-safe-hdwallet-provider@0.0.7:
     ethereumjs-wallet "^0.6.0"
     web3 "^0.18.2"
     web3-provider-engine "^8.4.0"
+
+truffle-source-verify@^0.0.6:
+  version "0.0.6"
+  resolved "https://registry.yarnpkg.com/truffle-source-verify/-/truffle-source-verify-0.0.6.tgz#2840a62b19784457078d8fcbdd7af232b1d50055"
+  integrity sha512-32hKFBAkMvw9H7c53mpGalBxereCdVqDucLUiZlQE8lqDmmgltqoRa7c9+rFMLN1w/1YskiKfkMZp7tXtkEVlg==
+  dependencies:
+    axios "0.19.2"
+    cli-logger "0.5.40"
+    delay "4.3.0"
+    querystring "0.2.0"
+    sol-merger "3.1.0"
 
 truffle@^5.3.12:
   version "5.4.2"
