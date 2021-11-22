@@ -135,6 +135,11 @@ jobs:
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
+      #some mnemonic is requried in .env for hardhat config to compile
+      - name: Create env file
+        run: |
+          touch .env
+          echo MNEMONIC="dasdasds" >> .env
       - name: "build"
         run: |
           yarn
