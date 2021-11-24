@@ -235,6 +235,21 @@ contract GReputation is Reputation {
 	}
 
 	/**
+	 be compatible with compound 
+	 */
+	function getCurrentVotes(address _user) public view returns (uint256) {
+		return getVotesAt(_user, true, block.number);
+	}
+
+	function getPriorVotes(address _user, uint256 _block)
+		public
+		view
+		returns (uint256)
+	{
+		return getVotesAt(_user, true, _block);
+	}
+
+	/**
 	 * @notice returns aggregated active votes in all blockchains and delegated at specific block
 	 * @param _user user to get active votes for
 	 * @param _blockNumber get votes state at specific block
