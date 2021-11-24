@@ -243,12 +243,10 @@ contract UBIScheme is DAOUpgradeableContract {
 		if (currentDay != lastWithdrawDay) {
 			IGoodDollar token = nativeToken();
 			uint256 currentBalance = token.balanceOf(address(this));
-			uint256 currentCycleStartingBalance = dailyCyclePool * currentCycleLength;
-			//we start a new cycle earlier if we got some significant funds deposited (currentBalance > 1.3 * openBalance[prevDay]) and currentBalance > 80% of prev cycle starting balance
-			uint256 prevDayBalance = dailyUBIHistory[currentDay - 1].openAmount;
-			bool shouldStartEarlyCycle = currentBalance >=
-				(prevDayBalance * 130) / 100 &&
-				currentBalance > (currentCycleStartingBalance * 80) / 100;
+			//start early cycle if we can increase the daily UBI pool
+			bool shouldStartEarlyCycle = currentBalance / cycleLength >
+				dailyCyclePool;
+
 			if (
 				currentDayInCycle() >= currentCycleLength || shouldStartEarlyCycle
 			) //start of cycle or first time

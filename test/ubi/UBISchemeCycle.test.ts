@@ -23,14 +23,8 @@ describe("UBIScheme cycle", () => {
     ubiScheme: UBIScheme;
 
   before(async () => {
-    [
-      root,
-      acct,
-      claimer1,
-      claimer2,
-      claimer3,
-      ...signers
-    ] = await ethers.getSigners();
+    [root, acct, claimer1, claimer2, claimer3, ...signers] =
+      await ethers.getSigners();
 
     const deployedDAO = await createDAO();
     let {
@@ -149,7 +143,7 @@ describe("UBIScheme cycle", () => {
     expect(cycleEvent.args.dailyUBIPool).to.be.equal(117187); //pool balance: (1000000 - 62500 given to first claimer) divided by 8 days - only first claimer got 62500 in first cycle
   });
 
-  it("should calculate cycle early if  (currentBalance > 1.3 * openBalance[prevDay]) and currentBalance > 80% of current cycle starting balance", async () => {
+  it("should calculate cycle early if we can increase current daily pool", async () => {
     //increase ubi pool balance
     let encoded = goodDollar.interface.encodeFunctionData("mint", [
       ubiScheme.address,
@@ -158,73 +152,40 @@ describe("UBIScheme cycle", () => {
     await genericCall(goodDollar.address, encoded);
     let balance = await goodDollar.balanceOf(ubiScheme.address);
 
+    const cycleLength = await ubiScheme.cycleLength();
+    const curDailyPool = await ubiScheme.dailyCyclePool();
+    console.log({ balance, cycleLength, curDailyPool });
+
+    //verify new daily pool IS gonna be larger than current
+    expect(balance.div(cycleLength)).to.be.gt(curDailyPool);
+
     await increaseTime(ONE_DAY); //make sure
     let transaction = await (await ubiScheme.connect(claimer1).claim()).wait();
-    let cycleLength = await ubiScheme.cycleLength();
-    let currentCycle = await ubiScheme.currentCycleLength();
+
     const cycleEvent = transaction.events.find(
       e => e.event === "UBICycleCalculated"
     );
+
+    expect(cycleEvent).to.be.not.empty;
     expect(cycleEvent.args.day.toNumber()).to.be.a("number");
     expect(cycleEvent.args.pool).to.be.equal(balance);
     expect(cycleEvent.args.cycleLength).to.be.equal(cycleLength);
     expect(cycleEvent.args.dailyUBIPool).to.be.equal(balance.div(cycleLength));
   });
 
-  it("should not calculate cycle early if only currentBalance > 80% of current cycle starting balanc", async () => {
+  it("should not calculate cycle early if not possible to increase daily ubi pool", async () => {
     //increase ubi pool balance
     let encoded = goodDollar.interface.encodeFunctionData("mint", [
       ubiScheme.address,
-      100000
+      1000
     ]);
     await genericCall(goodDollar.address, encoded);
     let balance = await goodDollar.balanceOf(ubiScheme.address);
-    const curCycleLen = await ubiScheme.currentCycleLength();
-    const curDailyUbi = await ubiScheme.dailyUbi();
-    const cycleStartingBalance = curCycleLen.mul(curDailyUbi);
-
-    //pass one condition
-    expect(balance).to.be.gt(cycleStartingBalance.mul(80).div(100));
-
-    //dont pass other condition
-    const curCycle = await ubiScheme.dailyUBIHistory(
-      await ubiScheme.currentDay()
-    );
-    expect(balance).to.be.lt(curCycle.openAmount.mul(130).div(100));
-
-    await increaseTime(ONE_DAY); //make sure
-    let transaction = await (await ubiScheme.connect(claimer1).claim()).wait();
-    const cycleEvent = transaction.events.find(
-      e => e.event === "UBICycleCalculated"
-    );
-    expect(cycleEvent).to.be.undefined;
-  });
-
-  it("should not calculate cycle early if  only currentBalance > 1.3 * openBalance[prevDay])", async () => {
-    for (let i = 0; i < 13; i++) {
-      await increaseTime(ONE_DAY); //make sure
-      await ubiScheme.connect(claimer1).claim();
-      await ubiScheme.connect(claimer2).claim();
-    }
-    //increase ubi pool balance
-    let encoded = goodDollar.interface.encodeFunctionData("mint", [
-      ubiScheme.address,
-      55000
-    ]);
-    await genericCall(goodDollar.address, encoded);
-    let balance = await goodDollar.balanceOf(ubiScheme.address);
-    const curCycle = await ubiScheme.dailyUBIHistory(
-      await ubiScheme.currentDay()
-    );
-
-    //verify we pass 1 condition for early cycle
-    expect(balance).to.be.gt(curCycle.openAmount.mul(130).div(100));
-
-    //dont pass second condition
-    const curCycleLen = await ubiScheme.currentCycleLength();
-    const curDailyUbi = await ubiScheme.dailyUbi();
-    const cycleStartingBalance = curCycleLen.mul(curDailyUbi);
-    expect(balance).to.be.lt(cycleStartingBalance.mul(80).div(100));
+    const curCycleLen = await ubiScheme.cycleLength();
+    const curDailyPool = await ubiScheme.dailyCyclePool();
+    console.log({ balance, curCycleLen, curDailyPool });
+    //verify new daily pool is not gonna be larger than current
+    expect(balance.div(curCycleLen)).to.be.lt(curDailyPool);
 
     await increaseTime(ONE_DAY); //make sure
     let transaction = await (await ubiScheme.connect(claimer1).claim()).wait();
