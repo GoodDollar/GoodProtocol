@@ -24,15 +24,15 @@
   },
   "develop": {
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
     }
   },
   "develop-mainnet": {
-    "gdxAirdrop": "0x87db9fa52d55498bbf1e6005603afe05cb194c13e8ac4907282f4ea2717d0921",
+    "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 86040
     },
@@ -44,30 +44,30 @@
   },
   "dapptest": {
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
     }
   },
   "dapptest-mainnet": {
-    "gdxAirdrop": "0x87db9fa52d55498bbf1e6005603afe05cb194c13e8ac4907282f4ea2717d0921",
+    "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 86040
     }
   },
   "test": {
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
     }
   },
   "test-mainnet": {
-    "gdxAirdrop": "0x87db9fa52d55498bbf1e6005603afe05cb194c13e8ac4907282f4ea2717d0921",
+    "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 86040
     },
@@ -79,15 +79,15 @@
   },
   "fuse": {
     "governance": {
-      "gdaoAirdrop": "0x9bf0fb0be13c4e1ab1da89850b23ab7919116fb9fc60ad08ec06bbca58516d11",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
     }
   },
   "fuse-mainnet": {
-    "gdxAirdrop": "0x79acf6e79283bda8d4ddb210e54a739ce9b56b85aaa07a4f6c1f5f3f20bca433",
+    "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
     "governance": {
-      "gdaoAirdrop": "0x9bf0fb0be13c4e1ab1da89850b23ab7919116fb9fc60ad08ec06bbca58516d11",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
     },
@@ -118,15 +118,15 @@
   },
   "staging": {
     "governance": {
-      "gdaoAirdrop": "0x9bf0fb0be13c4e1ab1da89850b23ab7919116fb9fc60ad08ec06bbca58516d11",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
     }
   },
   "staging-mainnet": {
-    "gdxAirdrop": "0x79acf6e79283bda8d4ddb210e54a739ce9b56b85aaa07a4f6c1f5f3f20bca433",
+    "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
     "governance": {
-      "gdaoAirdrop": "0x9bf0fb0be13c4e1ab1da89850b23ab7919116fb9fc60ad08ec06bbca58516d11",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 80640
     },
@@ -156,9 +156,9 @@
     }
   },
   "kovan-mainnet": {
-    "gdxAirdrop": "0x87db9fa52d55498bbf1e6005603afe05cb194c13e8ac4907282f4ea2717d0921",
+    "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 80640
     },
