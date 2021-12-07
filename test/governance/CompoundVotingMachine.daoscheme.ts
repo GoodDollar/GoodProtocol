@@ -59,15 +59,6 @@ describe("CompoundVotingMachine#DAOScheme", () => {
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
 
-    // const GReputation = await ethers.getContractFactory("GReputation");
-    const CompoundVotingMachine = await ethers.getContractFactory(
-      "CompoundVotingMachine"
-    );
-
-    // grep = (await upgrades.deployProxy(GReputation, [root.address], {
-    //   unsafeAllowCustomTypes: true
-    // })) as GReputation;
-
     let {
       daoCreator,
       controller,

@@ -215,8 +215,8 @@ export const main = async (
       name: "CompoundVotingMachine",
       args: [
         () => get(release, "NameService", newdao.NameService),
-        protocolSettings.governance.proposalVotingPeriod
-        protocolSettings.governance.guardian
+        protocolSettings.governance.proposalVotingPeriod,
+        protocolSettings.governance.guardian || root.address
       ]
     },
     {
@@ -477,7 +477,7 @@ export const main = async (
       await releaser(release, networkName, "deployment", false);
     }
 
-    if (get(release, "StakingContracts", []).length == 0) {
+    if (!isProduction || get(release, "StakingContracts", []).length == 0) {
       const { DonationsStaking, StakingContracts } =
         isMainnet && (await deployStakingContracts(release));
       release["StakingContracts"] = StakingContracts;

@@ -206,7 +206,8 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 
 	function initialize(
 		INameService ns_, // the DAO avatar
-		uint256 votingPeriodBlocks_ //number of blocks a proposal is open for voting before expiring
+		uint256 votingPeriodBlocks_, //number of blocks a proposal is open for voting before expiring
+		address guardian_
 	) public initializer {
 		foundationGuardianRelease = 1672531200; //01/01/2023
 		setDAO(ns_);
@@ -223,7 +224,7 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 			3 days //grace period
 		];
 		_setVotingParameters(params);
-		guardian = _msgSender();
+		guardian = guardian_;
 	}
 
 	///@notice set the different voting parameters, value of 0 is ignored

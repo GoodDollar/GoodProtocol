@@ -22,9 +22,6 @@ describe("CompoundVotingMachine#propose", () => {
 
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
-    const CompoundVotingMachine = await ethers.getContractFactory(
-      "CompoundVotingMachine"
-    );
 
     let { avatar, reputation, setDAOAddress, nameService, votingMachine } =
       await createDAO();

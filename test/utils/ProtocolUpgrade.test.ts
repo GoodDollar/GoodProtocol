@@ -17,6 +17,7 @@ export const BLOCK_INTERVAL = 1;
 describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
   let avatar,
     fuseAvatar,
+    deployment,
     dai,
     cDAI,
     signers,
@@ -186,7 +187,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       oldDonationsStaking
     );
     const fse = require("fs-extra");
-    const deployment = await fse.readJson("releases/deployment.json");
+    deployment = await fse.readJson("releases/deployment.json");
     console.log("got deployment json file");
     cdaiBalanceOfNewReserve = await cDAI.balanceOf(
       deployment["test-mainnet"].GoodReserveCDai
@@ -399,6 +400,23 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     expect(isUpgradeSchemeRegisteredAfterUpgradeFuse).to.be.equal(false);
     expect(isCompoundVotingMachineRegisteredFuse).to.be.equal(true);
   });
+  it("should set guardian from settings", async () => {
+    const cvm = await ethers.getContractAt(
+      "CompoundVotingMachine",
+      deployment["test-mainnet"].CompoundVotingMachine
+    );
+    expect(await cvm.guardian()).to.equal(
+      "0x914dA3B2508634998d244059dAb5488D9bA1814f"
+    );
+    const fuseCVM = await ethers.getContractAt(
+      "CompoundVotingMachine",
+      deployment["test"].CompoundVotingMachine
+    );
+    expect(await fuseCVM.guardian()).to.equal(
+      "0x914dA3B2508634998d244059dAb5488D9bA1814f"
+    );
+  });
+
   it("it should set fuse nameservice variables properly", async () => {
     const fse = require("fs-extra");
     const deployment = await fse.readJson("releases/deployment.json");

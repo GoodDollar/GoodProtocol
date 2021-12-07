@@ -50,10 +50,6 @@ describe("CompoundVotingMachine#Guardian", () => {
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
 
-    const CompoundVotingMachine = await ethers.getContractFactory(
-      "CompoundVotingMachine"
-    );
-
     let {
       daoCreator,
       controller,
@@ -92,6 +88,15 @@ describe("CompoundVotingMachine#Guardian", () => {
     let mockABI = ["function rec() payable"];
     mock = await deployMockContract(root, mockABI);
     mock.mock.rec.returns();
+  });
+
+  it("should set guardian from initializer", async () => {
+    const votingMachine = (await upgrades.deployProxy(
+      await ethers.getContractFactory("CompoundVotingMachine"),
+      [nameService.address, 5760, signers[2].address],
+      { kind: "uups" }
+    )) as unknown as CompoundVotingMachine;
+    expect(await votingMachine.guardian()).to.equal(signers[2].address);
   });
 
   it("Should have deployer as guardian", async () => {
@@ -146,7 +151,7 @@ describe("CompoundVotingMachine#Guardian", () => {
 
     const gov2 = (await upgrades.deployProxy(
       CompoundVotingMachine,
-      [nameService.address, 5760],
+      [nameService.address, 5760, root.address],
       { kind: "uups" }
     )) as CompoundVotingMachine;
 

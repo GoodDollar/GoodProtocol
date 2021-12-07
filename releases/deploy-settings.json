@@ -61,7 +61,8 @@
     "governance": {
       "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
-      "proposalVotingPeriod": 241920
+      "proposalVotingPeriod": 241920,
+      "guardian": "0x914dA3B2508634998d244059dAb5488D9bA1814f"
     }
   },
   "test-mainnet": {
@@ -69,7 +70,8 @@
     "governance": {
       "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
-      "proposalVotingPeriod": 86040
+      "proposalVotingPeriod": 86040,
+      "guardian": "0x914dA3B2508634998d244059dAb5488D9bA1814f"
     },
     "chainlink": {
       "gasPrice": "0xF8161973a556bf5fEbb3BaCe573262FCd3b33973",
@@ -189,7 +191,8 @@
     "governance": {
       "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "96000000000000000000000000",
-      "proposalVotingPeriod": 241920
+      "proposalVotingPeriod": 241920,
+      "guardian": "0x914dA3B2508634998d244059dAb5488D9bA1814f"
     }
   },
   "production-mainnet": {
@@ -197,7 +200,8 @@
     "governance": {
       "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "96000000000000000000000000",
-      "proposalVotingPeriod": 80640
+      "proposalVotingPeriod": 80640,
+      "guardian": "0xF0652a820dd39EC956659E0018Da022132f2f40a"
     },
     "bancor": "0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a",
     "compound": {

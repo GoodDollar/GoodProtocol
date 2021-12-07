@@ -22,9 +22,6 @@ describe("CompoundVotingMachine#CastVote", () => {
 
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
-    const CompoundVotingMachine = await ethers.getContractFactory(
-      "CompoundVotingMachine"
-    );
 
     let {
       daoCreator,
