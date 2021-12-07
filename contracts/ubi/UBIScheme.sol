@@ -366,6 +366,25 @@ contract UBIScheme is DAOUpgradeableContract {
 		}
 	}
 
+	function estimateNextDailyUBI() public view returns (uint256) {
+		uint256 currentBalance = nativeToken().balanceOf(address(this));
+		//start early cycle if we can increase the daily UBI pool
+		bool shouldStartEarlyCycle = currentBalance / cycleLength > dailyCyclePool;
+
+		uint256 _dailyCyclePool = dailyCyclePool;
+		uint256 _dailyUbi;
+		if (
+			currentDayInCycle() >= currentCycleLength || shouldStartEarlyCycle
+		) //start of cycle or first time
+		{
+			_dailyCyclePool = currentBalance / cycleLength;
+		}
+		if (activeUsersCount > 0) {
+			_dailyUbi = _dailyCyclePool / activeUsersCount;
+		}
+		return _dailyUbi;
+	}
+
 	/**
 	 * @dev Checks the amount which the sender address is eligible to claim for,
 	 * regardless if they have been whitelisted or not. In case the user is
@@ -384,10 +403,7 @@ contract UBIScheme is DAOUpgradeableContract {
 		if (currentDay == (block.timestamp - periodStart) / (1 days)) {
 			return hasClaimed(msg.sender) ? 0 : dailyUbi;
 		}
-		// the current day has not updated yet
-		IGoodDollar token = nativeToken();
-		uint256 currentBalance = token.balanceOf(address(this));
-		return currentBalance / activeUsersCount;
+		return estimateNextDailyUBI();
 	}
 
 	/**

@@ -154,18 +154,18 @@ describe("UBIScheme cycle", () => {
 
     const cycleLength = await ubiScheme.cycleLength();
     const curDailyPool = await ubiScheme.dailyCyclePool();
-    console.log({ balance, cycleLength, curDailyPool });
 
     //verify new daily pool IS gonna be larger than current
     expect(balance.div(cycleLength)).to.be.gt(curDailyPool);
 
+    const estimated = await ubiScheme.estimateNextDailyUBI();
     await increaseTime(ONE_DAY); //make sure
     let transaction = await (await ubiScheme.connect(claimer1).claim()).wait();
-
     const cycleEvent = transaction.events.find(
       e => e.event === "UBICycleCalculated"
     );
-
+    const dailyUBI = await ubiScheme.dailyUbi();
+    expect(dailyUBI).to.eq(estimated); //the estimated before actual calculation should be correct, ie equal to actual dailyUBI calculated after first claim.
     expect(cycleEvent).to.be.not.empty;
     expect(cycleEvent.args.day.toNumber()).to.be.a("number");
     expect(cycleEvent.args.pool).to.be.equal(balance);
@@ -183,7 +183,6 @@ describe("UBIScheme cycle", () => {
     let balance = await goodDollar.balanceOf(ubiScheme.address);
     const curCycleLen = await ubiScheme.cycleLength();
     const curDailyPool = await ubiScheme.dailyCyclePool();
-    console.log({ balance, curCycleLen, curDailyPool });
     //verify new daily pool is not gonna be larger than current
     expect(balance.div(curCycleLen)).to.be.lt(curDailyPool);
 
