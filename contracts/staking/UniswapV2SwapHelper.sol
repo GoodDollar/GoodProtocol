@@ -3,7 +3,6 @@
 pragma solidity >=0.8.0;
 import "../utils/DAOContract.sol";
 import "../Interfaces.sol";
-import "./SimpleStaking.sol";
 
 library UniswapV2SwapHelper {
 	/**

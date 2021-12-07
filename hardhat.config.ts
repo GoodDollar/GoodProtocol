@@ -18,6 +18,7 @@ import { verify } from "./scripts/verify";
 config();
 
 const mnemonic = process.env.MNEMONIC;
+const deployerPrivateKey = process.env.PRIVATE_KEY;
 const infura_api = process.env.INFURA_API;
 const alchemy_key = process.env.ALCHEMY_KEY;
 const etherscan_key = process.env.ETHERSCAN_KEY;
@@ -98,6 +99,13 @@ const hhconfig: HardhatUserConfig = {
       url: "https://rpc.fuse.io/",
       chainId: 122
     },
+    fusespark: {
+      accounts: { mnemonic },
+      url: "https://rpc.fusespark.io/",
+      gas: 3000000,
+      gasPrice: 1000000000,
+      chainId: 123
+    },
     "fuse-mainnet": {
       accounts: { mnemonic },
       url: "https://ropsten.infura.io/v3/" + infura_api,
@@ -117,14 +125,14 @@ const hhconfig: HardhatUserConfig = {
       chainId: 3
     },
     production: {
-      accounts: { mnemonic },
+      accounts: [deployerPrivateKey],
       url: "https://rpc.fuse.io/",
       gas: 3000000,
       gasPrice: 1000000000,
       chainId: 122
     },
     "production-mainnet": {
-      accounts: { mnemonic },
+      accounts: [deployerPrivateKey],
       url: "https://mainnet.infura.io/v3/" + infura_api,
       gas: 3000000,
       gasPrice: 25000000000,

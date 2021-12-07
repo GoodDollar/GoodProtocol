@@ -11,6 +11,7 @@ import { network, ethers, upgrades, run } from "hardhat";
 import { networkNames } from "@openzeppelin/upgrades-core";
 import { isFunction, get, omitBy } from "lodash";
 import { getImplementationAddress } from "@openzeppelin/upgrades-core";
+// import pressAnyKey from "press-any-key";
 import {
   AaveStakingFactory,
   CompoundStakingFactory,
@@ -32,7 +33,7 @@ import OldDAO from "../../releases/olddao.json";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import { keccak256 } from "@ethersproject/keccak256";
 
-const GAS_SETTINGS = {
+let GAS_SETTINGS: any = {
   maxPriorityFeePerGas: ethers.utils.parseUnits("1", "gwei"),
   maxFeePerGas: ethers.utils.parseUnits("50", "gwei"),
   gasLimit: 30000000
@@ -70,10 +71,17 @@ export const main = async (
   }
 
   const isProduction = networkName.startsWith("production");
-  if (isProduction) {
-    GAS_SETTINGS.gasLimit = 7000000;
-    GAS_SETTINGS.maxFeePerGas = ethers.utils.parseUnits("100", "gwei");
+  if (isProduction && networkName.includes("mainnet")) {
+    GAS_SETTINGS.gasLimit = 6000000;
+    GAS_SETTINGS.maxFeePerGas = ethers.utils.parseUnits("80", "gwei");
+  } else if (!networkName.includes("mainnet")) {
+    //case we are on fusefuse
+    GAS_SETTINGS = {
+      gasLimit: 6000000,
+      gasPrice: ethers.utils.parseUnits("1", "gwei")
+    };
   }
+
   const isBackendTest = networkName.startsWith("dapptest");
   const isTest = network.name === "hardhat";
   const isCoverage = process.env.CODE_COVERAGE;
@@ -132,7 +140,7 @@ export const main = async (
     }
   ];
 
-  let release: { [key: string]: any } = {};
+  let release: { [key: string]: any } = newdao;
 
   const toDeployUpgradable = [
     {
@@ -208,6 +216,7 @@ export const main = async (
       args: [
         () => get(release, "NameService", newdao.NameService),
         protocolSettings.governance.proposalVotingPeriod
+        protocolSettings.governance.guardian
       ]
     },
     {
@@ -303,14 +312,20 @@ export const main = async (
   let proxyFactory: ProxyFactory1967;
   const getProxyFactory = async () => {
     if (isDevelop === false && newdao.ProxyFactory) {
-      console.info("deploying ProxyFactory1967");
-      return (proxyFactory = ethers.getContractAt(
+      return (proxyFactory = (await ethers.getContractAt(
         "ProxyFactory1967",
         newdao.ProxyFactory
-      ) as unknown as ProxyFactory1967);
+      )) as unknown as ProxyFactory1967);
     } else {
+      console.info(
+        "deploying ProxyFactory1967",
+        isDevelop,
+        newdao.ProxyFactory
+      );
+      // await pressAnyKey();
+
       const pf = await (
-        await ethers.getContractFactory("ProxyFactory1967", proxyDeployer)
+        await ethers.getContractFactory("ProxyFactory1967", root)
       ).deploy(GAS_SETTINGS);
       await pf.deployed();
       await releaser(
@@ -446,6 +461,7 @@ export const main = async (
         // release
         // pf: ProxyFactory.factory.address
       });
+      // await pressAnyKey();
       let opts = {};
       if (contract.libraries) {
         let libraries = {};
@@ -457,12 +473,21 @@ export const main = async (
       let deployed = await deployDeterministic(contract, args, opts);
 
       console.log(`${contract.name} deployed to: ${deployed.address}`);
-      await releaser(release, networkName, "deployment", false);
       release[contract.name] = deployed.address;
+      await releaser(release, networkName, "deployment", false);
     }
 
-    const { DonationsStaking, StakingContracts } =
-      isMainnet && (await deployStakingContracts(release));
+    if (get(release, "StakingContracts", []).length == 0) {
+      const { DonationsStaking, StakingContracts } =
+        isMainnet && (await deployStakingContracts(release));
+      release["StakingContracts"] = StakingContracts;
+      release["DonationsStaking"] = DonationsStaking;
+      console.log("staking contracts result:", {
+        StakingContracts,
+        DonationsStaking
+      });
+    }
+
     release["network"] = networkName;
     release["networkId"] = network.config.chainId || 4447;
     if (!isMainnet) {
@@ -475,8 +500,7 @@ export const main = async (
       release["ForeignBridge"] = dao.ForeignBridge;
       release["Contribution"] = dao.Contribution;
     }
-    release["StakingContracts"] = StakingContracts;
-    release["DonationsStaking"] = DonationsStaking;
+
     release["Identity"] = dao.Identity;
     release["GoodDollar"] = dao.GoodDollar;
     release["Controller"] = dao.Controller;
@@ -489,10 +513,6 @@ export const main = async (
     release["cDAI"] = get(protocolSettings, "compound.cdai", dao.cDAI);
     release["COMP"] = get(protocolSettings, "compound.comp", dao.COMP);
 
-    console.log("staking contracts result:", {
-      StakingContracts,
-      DonationsStaking
-    });
     release = omitBy(release, _ => _ === undefined);
     let res = Object.assign(newdao, release);
     await releaser(release, networkName);
@@ -775,7 +795,8 @@ export const main = async (
           protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
           token.usdOracle,
           token.compUsdOracle,
-          token.swapPath
+          token.swapPath,
+          GAS_SETTINGS
         )
       ).wait();
       await countTotalGas(tx, "deploy comp staking");
@@ -813,7 +834,8 @@ export const main = async (
               dao.AaveIncentiveController
             ),
             token.aaveUsdOracle,
-            token.swapPath
+            token.swapPath,
+            GAS_SETTINGS
           )
         ).wait();
         await countTotalGas(tx, "deploy aave staking");
@@ -873,22 +895,17 @@ export const main = async (
       ) {
         console.log(
           contract,
-          " Skipping non mainnet/sidechain contract:",
+          " Skipping verification non mainnet/sidechain contract:",
           contract.network,
           contract.name
         );
         continue;
       }
-      if (isDevelop === false && newdao[contract.name]) {
-        console.log(
-          contract.name,
-          " Skipping deployed contract at:",
-          newdao[contract.name],
-          "upgrading:",
-          !!process.env.UPGRADE
-        );
-        continue;
-      }
+      console.log(
+        "Running contract verification:",
+        { contract },
+        release[contract.name]
+      );
       if (contract.isUpgradable !== false) {
         const implementationAddress = await getImplementationAddress(
           network.provider,
@@ -905,7 +922,10 @@ export const main = async (
         try {
           await run("verify:verify", {
             address: release[contract.name],
-            constructorArguments: contract.args
+            constructorArguments: contract.args,
+            libraries: {
+              UniswapV2SwapHelper: release["UniswapV2SwapHelper"]
+            }
           });
         } catch (err) {
           console.log("err", err);
@@ -933,7 +953,7 @@ export const main = async (
   // await proveNewRep();
 };
 if (network.name !== "hardhat") {
-  main(name)
+  main(name, false)
     .catch(e => {
       console.log(e);
       throw e;
