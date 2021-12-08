@@ -15,10 +15,12 @@ import { config } from "dotenv";
 import { airdrop } from "./scripts/governance/airdropCalculation";
 import { airdrop as gdxAirdrop } from "./scripts/gdx/gdxAirdropCalculation";
 import { verify } from "./scripts/verify";
+import { ethers } from "ethers";
 config();
 
 const mnemonic = process.env.MNEMONIC;
-const deployerPrivateKey = process.env.PRIVATE_KEY;
+const deployerPrivateKey =
+  process.env.PRIVATE_KEY || ethers.utils.hexZeroPad("0x11", 32);
 const infura_api = process.env.INFURA_API;
 const alchemy_key = process.env.ALCHEMY_KEY;
 const etherscan_key = process.env.ETHERSCAN_KEY;
