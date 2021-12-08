@@ -227,6 +227,13 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		guardian = guardian_;
 	}
 
+	//upgrade to fix bad guardian deployment
+	function fixGuardian(address _guardian) public {
+		if (guardian == address(0x4659176E962763e7C8A4eF965ecfD0fdf9f52057)) {
+			guardian = _guardian;
+		}
+	}
+
 	///@notice set the different voting parameters, value of 0 is ignored
 	///cell 0 - votingPeriod blocks, 1 - quoromPercentage, 2 - proposalPercentage,3 - proposalMaxOperations, 4 - voting delay blocks, 5 - queuePeriod time
 	///6 - fastQueuePeriod time, 7 - gameChangerPeriod time, 8 - gracePeriod	time
