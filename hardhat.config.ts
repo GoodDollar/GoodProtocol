@@ -53,10 +53,13 @@ const hhconfig: HardhatUserConfig = {
     hardhat: {
       chainId: 4447,
       allowUnlimitedContractSize: true,
-      blockGasLimit: 0x1fffffffffffff,
       accounts: {
         accountsBalance: "10000000000000000000000000"
       }
+    },
+    test: {
+      allowUnlimitedContractSize: true,
+      url: "http://127.0.0.1:8545/"
     },
     develop: {
       gasPrice: 1000000000, //1 gwei
