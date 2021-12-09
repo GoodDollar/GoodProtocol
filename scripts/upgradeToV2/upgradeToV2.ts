@@ -74,7 +74,7 @@ export const main = async (
   if (isProduction && networkName.includes("mainnet")) {
     GAS_SETTINGS.gasLimit = 6000000;
     GAS_SETTINGS.maxFeePerGas = ethers.utils.parseUnits("80", "gwei");
-  } else if (!networkName.includes("mainnet")) {
+  } else if (isProduction && !networkName.includes("mainnet")) {
     //case we are on fusefuse
     GAS_SETTINGS = {
       gasLimit: 6000000,
@@ -355,6 +355,7 @@ export const main = async (
 
       if (contract.isUpgradable !== false) {
         if (isCoverage) {
+          console.log("Deploying:", contract.name, "using proxy");
           //coverage has large contracts doesnt work with proxy factory
           const tx = await upgrades.deployProxy(Contract, args, {
             initializer: contract.initializer,
@@ -364,6 +365,7 @@ export const main = async (
           await countTotalGas(tx, contract.name);
           return tx;
         }
+        console.log("Deploying:", contract.name, "using proxyfactory");
         const encoded = Contract.interface.encodeFunctionData(
           contract.initializer || "initialize",
           args
@@ -394,6 +396,7 @@ export const main = async (
       } else {
         //for some reason deploying with link library via proxy doesnt work on hardhat test env
         if (isTest === false) {
+          console.log("Deploying:", contract.name, "using proxyfactory code");
           const constructor = Contract.interface.encodeDeploy(args);
           const bytecode = ethers.utils.solidityPack(
             ["bytes", "bytes"],
@@ -411,6 +414,7 @@ export const main = async (
             )
           );
         } else {
+          console.log("Deploying:", contract.name, "using regular");
           const tx = await Contract.deploy(...args, GAS_SETTINGS);
           await countTotalGas(tx, contract.name);
           const impl = await tx.deployed();
