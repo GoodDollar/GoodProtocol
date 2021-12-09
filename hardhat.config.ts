@@ -53,6 +53,7 @@ const hhconfig: HardhatUserConfig = {
     hardhat: {
       chainId: 4447,
       allowUnlimitedContractSize: true,
+      blockGasLimit: 0x1fffffffffffff,
       accounts: {
         accountsBalance: "10000000000000000000000000"
       }
