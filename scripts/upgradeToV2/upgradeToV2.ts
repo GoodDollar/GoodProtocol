@@ -948,7 +948,7 @@ export const main = async (
     !isMainnet && (await performUpgradeFuse(release));
     console.log("upgraded contracts", { totalGas });
   }
-  if (!isTest && !isCoverage) {
+  if (isMainnet && !isTest && !isCoverage) {
     await verifyContracts(release);
   }
 
@@ -956,7 +956,7 @@ export const main = async (
   return release;
   // await proveNewRep();
 };
-if (network.name !== "hardhat") {
+if (network.name !== "hardhat" && process.argv[1].includes("upgradeToV2.ts")) {
   main(name, false)
     .catch(e => {
       console.log(e);
