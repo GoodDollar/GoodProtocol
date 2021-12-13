@@ -175,7 +175,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
   //   // await goodDollar.addMinter(goodReserve.address);
   // });
 
-  xit("should mint UBI correctly for 18 decimals precision and no interest", async () => {
+  it("should mint UBI correctly for 18 decimals precision and no interest", async () => {
     let reserveToken = await marketMaker.reserveTokens(cDAI.address);
     let reserveBalanceBefore = reserveToken.reserveSupply;
     let supplyBefore = reserveToken.gdSupply;
@@ -191,7 +191,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
 
     await dai["mint(address,uint256)"](goodReserve.address, daiAmount);
     const tx = await (
-      await goodReserve.mintUBI(1, ethers.utils.parseEther("0.1"), cDAI.address)
+      await goodReserve.mintUBI(daiAmount, 0, cDAI.address)
     ).wait();
     const gdBalanceFund = await goodDollar.balanceOf(founder.address);
     const gdPriceAfter = await goodReserve["currentPrice()"]();
@@ -228,114 +228,16 @@ describe("GoodReserve - staking with cDAI mocks", () => {
         .toString()
     );
   });
-  /*
-  it("should mint UBI correctly for 18 decimals precision and partial interest", async () => {
-    let reserveToken = await marketMaker.reserveTokens(cDAI.address);
-    let reserveBalanceBefore = reserveToken.reserveSupply;
-    let supplyBefore = reserveToken.gdSupply;
-    const gdBalanceFundBefore = await goodDollar.balanceOf(founder.address);
-    const gdBalanceAvatarBefore = await goodDollar.balanceOf(avatar);
-    const gdPriceBefore = await goodReserve["currentPrice()"]();
-    const tx = await (
-      await goodReserve.mintInterestAndUBI(
-        cDAI.address,
-        ethers.utils.parseUnits("10000", "gwei"),
-        "10000"
-      )
-    ).wait(); // interest is 0.0001 cDai which equal to 1 gd
-    const gdBalanceFundAfter = await goodDollar.balanceOf(founder.address);
-    const gdBalanceAvatarAfter = await goodDollar.balanceOf(avatar);
-    const gdPriceAfter = await goodReserve["currentPrice()"]();
-    reserveToken = await marketMaker.reserveTokens(cDAI.address);
-    let reserveBalanceAfter = reserveToken.reserveSupply;
-    let supplyAfter = reserveToken.gdSupply;
-    let rrAfter = reserveToken.reserveRatio;
-    let et = BN.from(ethers.utils.parseUnits("10000", "gwei"));
-    console.log(
-      gdPriceBefore.toNumber(),
-      supplyAfter.toNumber(),
-      supplyBefore.toNumber()
-    );
-    const mintEvent = tx.events.find(_ => _.event === "UBIMinted");
-    const toMint = mintEvent.args.gdInterestMinted.add(
-      mintEvent.args.gdExpansionMinted
-    );
-    expect(reserveBalanceAfter.toString()).to.be.equal(
-      et.add(reserveBalanceBefore).toString(),
-      "reserve balance has changed"
-    );
-    expect(supplyAfter.toString()).to.be.equal(
-      toMint.add(supplyBefore).toString(),
-      "supply has changed"
-    );
-    expect(gdPriceAfter.toString()).to.be.equal(
-      gdPriceBefore.toString(),
-      "price has changed"
-    );
-    expect(
-      (gdBalanceAvatarAfter - gdBalanceAvatarBefore).toString()
-    ).to.be.equal("0"); // 1 gd
-    expect(gdBalanceFundAfter.sub(gdBalanceFundBefore)).to.be.equal(
-      toMint,
-      "ubi minted mismatch"
-    );
-    expect(rrAfter.toString()).to.be.equal("999388");
-  });
-  */
-  // it("should not mint UBI if the reserve is not cDAI", async () => {
-  //   let error = await goodReserve
-  //     .mintInterestAndUBI(dai.address, ethers.utils.parseEther("1"), "0")
-  //     .catch(e => e);
-  //   expect(error.message).not.to.be.empty;
-  // });
 
-  xit("should not mint UBI if the caller is not the fund manager", async () => {
-    let tx = goodReserve
-      .connect(staker)
-      .mintUBI(1, ethers.utils.parseEther("1"), cDAI.address);
+  it("should not mint UBI if the reserve is not cDAI", async () => {
+    let error = await goodReserve.mintUBI(1, 0, dai.address).catch(e => e);
+    expect(error.message).not.to.be.empty;
+  });
+
+  it("should not mint UBI if the caller is not the fund manager", async () => {
+    let tx = goodReserve.connect(staker).mintUBI(0, 0, cDAI.address);
     await expect(tx).to.be.revertedWith("GoodReserve: not a minter");
   });
-
-  // it("should set block interval by avatar", async () => {
-  //   let encodedCall = web3.eth.abi.encodeFunctionCall(
-  //     {
-  //       name: "setBlockInterval",
-  //       type: "function",
-  //       inputs: [
-  //         {
-  //           type: "uint256",
-  //           name: "_blockInterval"
-  //         }
-  //       ]
-  //     },
-  //     [100]
-  //   );
-  //   await controller.genericCall(
-  //     goodReserve.address,
-  //     encodedCall,
-  //     avatar,
-  //     0
-  //   );
-  //   const newBI = await goodReserve.blockInterval();
-  //   expect(newBI.toString()).to.be.equal("100");
-  // });
-
-  // it("should not mint UBI if not in the interval", async () => {
-  //   const gdBalanceFundBefore = await goodDollar.balanceOf(founder.address);
-  //   const gdBalanceAvatarBefore = await goodDollar.balanceOf(avatar);
-  //   const error = await goodReserve
-  //     .mintInterestAndUBI(
-  //       cDAI.address,
-  //       ethers.utils.parseUnits("10000", "gwei"),
-  //       "10000"
-  //     )
-  //     .catch(e => e);
-  //   const gdBalanceFundAfter = await goodDollar.balanceOf(founder.address);
-  //   const gdBalanceAvatarAfter = await goodDollar.balanceOf(avatar);
-  //   expect(error.message).to.have.string("wait for the next interval");
-  //   expect(gdBalanceFundAfter).to.be.equal(gdBalanceFundBefore);
-  //   expect(gdBalanceAvatarAfter).to.be.equal(gdBalanceAvatarBefore);
-  // });
 
   it("should be able to buy gd with DAI", async () => {
     let daiAmount = ethers.utils.parseEther("100");
@@ -1086,8 +988,8 @@ describe("GoodReserve - staking with cDAI mocks", () => {
         (1 - amount.toNumber() / parseInt(supply.toString())) **
           (1000000 / reserveToken.reserveRatio));
 
-    // expected = Math.ceil((0.8 * expected) / 100) * 100; //deduct 20% contribution, allow 2 points precission mismatch (due to bancor pow estimation?), match solidity no floating point
-    expected = Math.floor(0.8 * expected);
+    expected = Math.ceil((0.8 * expected) / 100) * 100; //deduct 20% contribution, allow 5 points precission mismatch (due to bancor pow estimation?), match solidity no floating point
+    //expected = Math.floor(0.8 * expected);
     expect(cDAIBalanceAfter.sub(cDAIBalanceBefore)).to.be.equal(expected);
     expect(cDAIBalanceReserveBefore.sub(cDAIBalanceReserveAfter)).to.be.equal(
       expected
