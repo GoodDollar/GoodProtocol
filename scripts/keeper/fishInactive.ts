@@ -1,10 +1,6 @@
-import { get, range, chunk, flatten, mergeWith, sortBy, uniq } from "lodash";
-import coreContracts from "../../releases/deployment.json";
+import { range, chunk } from "lodash";
 import { ethers as Ethers } from "hardhat";
 import fetch from "node-fetch";
-import { request, gql } from "graphql-request";
-import { Retrier } from "@jsier/retrier";
-import PromisePool from "async-promise-pool";
 
 const ONE_DAY = 24 * 60 * 60;
 
@@ -21,9 +17,9 @@ const main = async () => {
   const daysAgo: number[] = range(0, 180, 1);
   let curDay = twoWeeksAgo;
   for (let day of daysAgo) {
-    const query = gql`
-    {
-      walletStats(first:1000, where: { lastClaimed_lt: ${curDay},lastClaimed_gt: ${
+    const query = `
+      { 
+        walletStats(first:1000, where: { lastClaimed_lt: ${curDay},lastClaimed_gt: ${
       curDay - 24 * 60 * 60
     } isActiveUser: true }) {
         id        
@@ -31,11 +27,20 @@ const main = async () => {
     }
   `;
 
-    console.log("fetching inactive users since:", { curDay, day });
-    const { walletStats } = await request(
-      "https://api.thegraph.com/subgraphs/name/gooddollar/gooddollarfuse",
-      query
+    console.log(
+      "fetching inactive users since:",
+      { curDay, day },
+      JSON.stringify({ query })
     );
+    const { walletStats } = await fetch(
+      "https://api.thegraph.com/subgraphs/name/gooddollar/gooddollarfuse",
+      {
+        method: "post",
+        body: JSON.stringify({ query }),
+        headers: { "Content-Type": "application/json" }
+      }
+    ).then(_ => _.json());
+
     console.log("got inactive wallets:", walletStats.length);
     const accounts = walletStats.map(_ => _.id);
     for (let tofish of chunk(accounts, 50)) {
