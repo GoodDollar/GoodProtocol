@@ -21,10 +21,21 @@ import releaser from "../scripts/releaser";
 import ProtocolSettings from "../releases/deploy-settings.json";
 import dao from "../releases/deployment.json";
 import { main as deployV2 } from "./upgradeToV2/upgradeToV2";
+import { TransactionResponse } from "@ethersproject/providers";
+
 const { name } = network;
 
-const printDeploy = (c: Contract): Contract => {
-  console.log("deployed to: ", c.address);
+const printDeploy = async (
+  c: Contract | TransactionResponse
+): Promise<Contract | TransactionResponse> => {
+  if (c instanceof Contract) {
+    await c.deployed();
+    console.log("deployed to: ", c.address);
+  }
+  if (c.wait) {
+    await c.wait();
+    console.log("tx done:", c.hash);
+  }
   return c;
 };
 
@@ -44,7 +55,6 @@ export const createDAO = async () => {
       .then(_ => _.toString())
   });
 
-  console.log("deployed erc20 tokens");
   const DAOCreatorFactory = new ethers.ContractFactory(
     DAOCreatorABI.abi,
     DAOCreatorABI.bytecode,
@@ -67,48 +77,49 @@ export const createDAO = async () => {
     root
   );
 
-  const BancorFormula = await (
+  const BancorFormula = (await (
     await ethers.getContractFactory("BancorFormula")
-  ).deploy();
+  ).deploy()) as Contract;
 
-  const AddFounders = await AddFoundersFactory.deploy().then(printDeploy);
+  const AddFounders = (await AddFoundersFactory.deploy().then(
+    printDeploy
+  )) as Contract;
   // const AddFounders = await ethers.getContractAt(
   //   AddFoundersABI.abi,
   //   "0x6F1BAbfF5E119d61F0c6d8653d84E8B284B87091"
   // );
 
-  const Identity = await IdentityFactory.deploy().then(printDeploy);
+  const Identity = (await IdentityFactory.deploy().then(
+    printDeploy
+  )) as Contract;
   // const Identity = await ethers.getContractAt(
   //   IdentityABI.abi,
   //   "0x77Bd4D825F4df162BDdda73a7E295c27e09E289f"
   // );
 
-  const daoCreator = await DAOCreatorFactory.deploy(AddFounders.address).then(
+  const daoCreator = (await DAOCreatorFactory.deploy(AddFounders.address).then(
     printDeploy
-  );
-  // const daoCreator = await ethers.getContractAt(
-  //   DAOCreatorABI.abi,
-  //   "0xfD1eFFDed0EE8739dF61B580F24bCd6585d0c6B4"
-  // );
+  )) as Contract;
 
-  const FeeFormula = await FeeFormulaFactory.deploy(0).then(printDeploy);
-  // const FeeFormula = await ethers.getContractAt(
-  //   FeeFormulaABI.abi,
-  //   "0x85b146AAa910aF4ab1D64cD81ab6f804aDf3053c"
-  // );
+  const FeeFormula = (await FeeFormulaFactory.deploy(0).then(
+    printDeploy
+  )) as Contract;
 
-  await Identity.setAuthenticationPeriod(365);
-  await daoCreator.forgeOrg(
-    "GoodDollar",
-    "G$",
-    0,
-    FeeFormula.address,
-    Identity.address,
-    [root.address, signers[0].address, signers[1].address],
-    1000,
-    [100000, 100000, 100000]
-  );
-
+  await Identity.setAuthenticationPeriod(365).then(printDeploy);
+  console.log("setAuthPeriod");
+  await daoCreator
+    .forgeOrg(
+      "GoodDollar",
+      "G$",
+      0,
+      FeeFormula.address,
+      Identity.address,
+      [root.address, signers[0].address, signers[1].address],
+      1000,
+      [100000, 100000, 100000]
+    )
+    .then(printDeploy);
+  console.log("forgeOrg done ");
   const Avatar = new ethers.Contract(
     await daoCreator.avatar(),
     [
@@ -118,7 +129,7 @@ export const createDAO = async () => {
     root
   );
 
-  await Identity.setAvatar(Avatar.address);
+  await Identity.setAvatar(Avatar.address).then(printDeploy);
 
   console.log("Done deploying DAO, setting schemes permissions");
 
@@ -130,13 +141,15 @@ export const createDAO = async () => {
 
   console.log("setting schemes", schemes);
 
-  await daoCreator.setSchemes(
-    Avatar.address,
-    schemes,
-    schemes.map(_ => ethers.constants.HashZero),
-    ["0x0000001F", "0x00000001"],
-    ""
-  );
+  await daoCreator
+    .setSchemes(
+      Avatar.address,
+      schemes,
+      schemes.map(_ => ethers.constants.HashZero),
+      ["0x0000001F", "0x00000001"],
+      ""
+    )
+    .then(printDeploy);
 
   let { setSchemes, genericCall, addWhitelisted } = await getHelperFunctions(
     Identity,
@@ -162,10 +175,12 @@ export const createDAO = async () => {
     );
     schemes.push(sidechain.OneTimePayments.address);
     const adminWallet = await deployAdminWallet(Identity.address);
-    await root.sendTransaction({
-      to: adminWallet.address,
-      value: ethers.utils.parseUnits("0.1", "ether")
-    });
+    await root
+      .sendTransaction({
+        to: adminWallet.address,
+        value: ethers.utils.parseUnits("0.1", "ether")
+      })
+      .then(printDeploy);
     Object.entries(sidechain).forEach(([k, v]) => (release[k] = v.address));
     release["AdminWallet"] = adminWallet.address;
   }
@@ -198,7 +213,7 @@ export const createDAO = async () => {
     SchemeRegistrar: ethers.constants.AddressZero,
     UpgradeScheme: ethers.constants.AddressZero
   });
-  release = { ...release, ...v2 };
+  release = { ...v2, ...release };
 
   if (isMainnet) {
     await setSchemes([release.ProtocolUpgrade]);
@@ -261,18 +276,19 @@ const deployBridge = async (Avatar, gd, setSchemes, isMainnet) => {
     isMainnet,
     isAlreadyMinter
   });
-  const scheme = await bridgeFactory.deploy(
-    Avatar.address,
-    BridgeFactoryContract
-  );
+  const scheme = (await bridgeFactory
+    .deploy(Avatar.address, BridgeFactoryContract)
+    .then(printDeploy)) as Contract;
   await setSchemes([scheme.address]);
 
   if (network.name.includes("develop")) {
-    const mockBridge = await new ethers.ContractFactory(
+    const mockBridge = (await new ethers.ContractFactory(
       BridgeMock.abi,
       BridgeMock.bytecode,
       root
-    ).deploy();
+    )
+      .deploy()
+      .then(printDeploy)) as Contract;
     console.log("deployed mock bridge for develop mode:", mockBridge.address);
     return isMainnet
       ? { ForeignBridge: mockBridge.address }
@@ -284,11 +300,12 @@ const deployBridge = async (Avatar, gd, setSchemes, isMainnet) => {
       ? scheme.setBridge()
       : scheme.setBridge(isAlreadyMinter === false))
   ).wait();
-  console.log("deployed bridge:", tx.events[0].args);
+  const bridgeEvent = tx.events.find(_ => _.event?.includes("Bridge"));
+  console.log("deployed bridge:", bridgeEvent);
   console.log(tx.events, tx);
   return isMainnet
-    ? { ForeignBridge: tx.events[0].args._foreignBridge }
-    : { HomeBridge: tx.events[0].args._homeBridge };
+    ? { ForeignBridge: bridgeEvent.args._foreignBridge }
+    : { HomeBridge: bridgeEvent.args._homeBridge };
 };
 
 const deployMainnet = async (Avatar, Identity) => {
@@ -303,15 +320,15 @@ const deployMainnet = async (Avatar, Identity) => {
 
   let dai = daiAddr
     ? await ethers.getContractAt("DAIMock", daiAddr)
-    : await daiFactory.deploy();
+    : ((await daiFactory.deploy().then(printDeploy)) as Contract);
 
   let COMP = COMPAddr
     ? await ethers.getContractAt("DAIMock", COMPAddr)
-    : await daiFactory.deploy();
+    : ((await daiFactory.deploy().then(printDeploy)) as Contract);
 
   let cDAI = cdaiAddr
     ? await ethers.getContractAt("DAIMock", cdaiAddr)
-    : await cdaiFactory.deploy(dai.address);
+    : ((await cdaiFactory.deploy(dai.address).then(printDeploy)) as Contract);
 
   const ccFactory = new ethers.ContractFactory(
     ContributionCalculation.abi,
@@ -319,9 +336,9 @@ const deployMainnet = async (Avatar, Identity) => {
     root
   );
 
-  const contribution = await ccFactory
+  const contribution = (await ccFactory
     .deploy(Avatar.address, 0, 1e15)
-    .then(printDeploy);
+    .then(printDeploy)) as Contract;
   // const contribution = await ethers.getContractAt(
   //   ContributionCalculation.abi,
   //   "0xc3171409dB6827A68294B3A0D40a31310E83eD6B"
@@ -374,7 +391,9 @@ export const deploySidechain = async (
     identity
   });
 
-  const firstClaim = await fcFactory.deploy(avatar, identity, 1000);
+  const firstClaim = (await fcFactory
+    .deploy(avatar, identity, 1000)
+    .then(printDeploy)) as Contract;
 
   let encoded = (
     await ethers.getContractAt("IGoodDollar", gd)
@@ -384,21 +403,22 @@ export const deploySidechain = async (
 
   console.log("deploying OneTimePayments");
 
-  const otp = await otpf.deploy(avatar, identity).then(printDeploy);
+  const otp = (await otpf
+    .deploy(avatar, identity)
+    .then(printDeploy)) as Contract;
 
   console.log("deploying OneTimePayments invites");
-  const invites = await upgrades.deployProxy(invitesf, [
-    avatar,
-    identity,
-    gd,
-    10000
-  ]);
+  const invites = (await upgrades
+    .deployProxy(invitesf, [avatar, identity, gd, 10000])
+    .then(printDeploy)) as Contract;
 
-  const faucet = await upgrades.deployProxy(faucetf, [identity]);
+  const faucet = (await upgrades
+    .deployProxy(faucetf, [identity])
+    .then(printDeploy)) as Contract;
 
   console.log("setting firstclaim and otp schemes...");
   await setSchemes([firstClaim.address, otp.address]);
-  const tx = await firstClaim.start();
+  await firstClaim.start().then(printDeploy);
 
   return {
     FirstClaimPool: firstClaim,
@@ -415,24 +435,28 @@ const deployAdminWallet = async identity => {
     hdNode.derivePath(`m/44'/60'/0'/0/${i + 1}`)
   );
 
-  const adminWallet = await new ethers.ContractFactory(
+  const adminWallet = (await new ethers.ContractFactory(
     AdminWalletABI.abi,
     AdminWalletABI.bytecode,
     root
-  ).deploy(
-    admins.slice(0, 20).map(_ => _.address),
-    ethers.utils.parseUnits("1000000", "gwei"),
-    4,
-    identity
-  );
+  )
+    .deploy(
+      admins.slice(0, 20).map(_ => _.address),
+      ethers.utils.parseUnits("1000000", "gwei"),
+      4,
+      identity
+    )
+    .then(printDeploy)) as Contract;
 
   const id = await ethers.getContractAt("IIdentity", identity);
-  await id.addIdentityAdmin(adminWallet.address);
-  await root.sendTransaction({
-    to: adminWallet.address,
-    value: ethers.utils.parseEther("10")
-  });
-  await adminWallet["topAdmins(uint256)"](0);
+  await id.addIdentityAdmin(adminWallet.address).then(printDeploy);
+  await root
+    .sendTransaction({
+      to: adminWallet.address,
+      value: ethers.utils.parseEther("1")
+    })
+    .then(printDeploy);
+  await adminWallet["topAdmins(uint256)"](0).then(printDeploy);
   console.log(
     "deployAdminWallet admins:",
     admins.map(_ => _.address),
@@ -457,17 +481,19 @@ const getHelperFunctions = async (Identity, Avatar, schemeMock) => {
         params[i] || ethers.constants.HashZero,
         "0x0000001F",
         Avatar.address
-      );
+      ).then(printDeploy);
     }
   };
 
   const genericCall = (target, encodedFunc) => {
-    return Controller.genericCall(target, encodedFunc, Avatar.address, 0);
+    return Controller.genericCall(target, encodedFunc, Avatar.address, 0).then(
+      printDeploy
+    );
   };
 
   const addWhitelisted = (addr, did, isContract = false) => {
     if (isContract) return Identity.addContract(addr);
-    return Identity.addWhitelistedWithDID(addr, did);
+    return Identity.addWhitelistedWithDID(addr, did).then(printDeploy);
   };
 
   return { setSchemes, addWhitelisted, genericCall };
@@ -480,39 +506,43 @@ const performUpgradeFuse = async release => {
   );
 
   console.log("performing protocol v2 upgrade on Fuse...", { release });
-  await upgrade.upgrade(
-    release.NameService,
-    //old contracts
-    [
-      ethers.constants.AddressZero,
-      ethers.constants.AddressZero,
-      ethers.constants.AddressZero,
-      release.FirstClaimPool
-    ],
-    release.UBIScheme,
-    [
-      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
-      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
-      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBISCHEME")),
-      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKING")),
-      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_CLAIMERS"))
-    ],
-    [
-      release.GReputation,
-      release.HomeBridge || ethers.constants.AddressZero,
+  await upgrade
+    .upgrade(
+      release.NameService,
+      //old contracts
+      [
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        release.FirstClaimPool
+      ],
       release.UBIScheme,
-      release.GovernanceStaking,
-      release.ClaimersDistribution
-    ]
-  );
+      [
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBISCHEME")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKING")),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_CLAIMERS"))
+      ],
+      [
+        release.GReputation,
+        release.HomeBridge || ethers.constants.AddressZero,
+        release.UBIScheme,
+        release.GovernanceStaking,
+        release.ClaimersDistribution
+      ]
+    )
+    .then(printDeploy);
 
   console.log("upgrading governance...");
 
-  await upgrade.upgradeGovernance(
-    ethers.constants.AddressZero,
-    ethers.constants.AddressZero,
-    release.CompoundVotingMachine
-  );
+  await upgrade
+    .upgradeGovernance(
+      ethers.constants.AddressZero,
+      ethers.constants.AddressZero,
+      release.CompoundVotingMachine
+    )
+    .then(printDeploy);
 };
 
 const performUpgrade = async (release, ubiScheme) => {
@@ -563,21 +593,25 @@ const performUpgrade = async (release, ubiScheme) => {
       release.COMP
     ]
   });
-  tx = await upgrade.upgradeReserve(
-    release.NameService,
-    ethers.constants.AddressZero,
-    ethers.constants.AddressZero,
-    ethers.constants.AddressZero,
-    release.COMP
-  );
+  tx = await upgrade
+    .upgradeReserve(
+      release.NameService,
+      ethers.constants.AddressZero,
+      ethers.constants.AddressZero,
+      ethers.constants.AddressZero,
+      release.COMP
+    )
+    .then(printDeploy);
 
   console.log("upgrading governance...");
 
-  tx = await upgrade.upgradeGovernance(
-    ethers.constants.AddressZero,
-    ethers.constants.AddressZero,
-    release.CompoundVotingMachine
-  );
+  tx = await upgrade
+    .upgradeGovernance(
+      ethers.constants.AddressZero,
+      ethers.constants.AddressZero,
+      release.CompoundVotingMachine
+    )
+    .then(printDeploy);
 };
 
 const main = async () => {

@@ -74,7 +74,7 @@ export const main = async (
   if (isProduction && networkName.includes("mainnet")) {
     GAS_SETTINGS.gasLimit = 6000000;
     GAS_SETTINGS.maxFeePerGas = ethers.utils.parseUnits("80", "gwei");
-  } else if (isProduction && !networkName.includes("mainnet")) {
+  } else if (network.config.chainId === 122) {
     //case we are on fusefuse
     GAS_SETTINGS = {
       gasLimit: 6000000,
@@ -107,6 +107,10 @@ export const main = async (
   let repStateId = isMainnet ? "fuse" : "rootState";
 
   const founders = await getFounders(networkName);
+
+  console.log(
+    `root: ${root.address} founders: ${founders.map(_ => _.address)}`
+  );
 
   const compoundTokens = [
     {

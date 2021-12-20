@@ -103,7 +103,9 @@ const hhconfig: HardhatUserConfig = {
     fuse: {
       accounts: { mnemonic },
       url: "https://rpc.fuse.io/",
-      chainId: 122
+      chainId: 122,
+      gas: 6000000,
+      gasPrice: 1000000000
     },
     fusespark: {
       accounts: { mnemonic },
