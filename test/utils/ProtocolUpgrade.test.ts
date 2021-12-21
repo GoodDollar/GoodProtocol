@@ -417,6 +417,14 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     );
   });
 
+  it("should initialize reputation address", async () => {
+    const cvm = await ethers.getContractAt(
+      "CompoundVotingMachine",
+      deployment["test-mainnet"].CompoundVotingMachine
+    );
+    expect(await cvm.rep()).to.equal(deployment["test-mainnet"].GReputation);
+  });
+
   it("it should set fuse nameservice variables properly", async () => {
     const fse = require("fs-extra");
     const deployment = await fse.readJson("releases/deployment.json");

@@ -220,7 +220,8 @@ export const main = async (
       args: [
         () => get(release, "NameService", newdao.NameService),
         protocolSettings.governance.proposalVotingPeriod,
-        protocolSettings.governance.guardian || root.address
+        protocolSettings.governance.guardian || root.address,
+        () => get(release, "GReputation", newdao.GReputation)
       ]
     },
     {

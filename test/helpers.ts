@@ -14,15 +14,8 @@ import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
 import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
-import {
-  Controller,
-  GoodMarketMaker,
-  CompoundVotingMachine,
-  GoodCompoundStaking,
-  GoodAaveStaking
-} from "../types";
-import { Contract } from "@ethersproject/contracts";
-import { BigNumber } from "@ethersproject/bignumber";
+import { GoodMarketMaker, CompoundVotingMachine } from "../types";
+import { Contract } from "ethers";
 
 export const getStakingFactory = async (
   factory: "GoodCompoundStaking" | "GoodAaveStaking" | "GoodCompoundStakingTest"
@@ -285,7 +278,7 @@ export const createDAO = async () => {
   );
   const votingMachine = (await upgrades.deployProxy(
     await ethers.getContractFactory("CompoundVotingMachine"),
-    [nameService.address, 5760, root.address],
+    [nameService.address, 5760, root.address, reputation.address],
     { kind: "uups" }
   )) as unknown as CompoundVotingMachine;
   return {

@@ -2,7 +2,7 @@ import { default as hre, ethers, upgrades } from "hardhat";
 import { expect } from "chai";
 import { GoodMarketMaker, CERC20, GoodReserveCDai } from "../../types";
 import { createDAO, increaseTime, advanceBlocks } from "../helpers";
-import { Contract } from "@ethersproject/contracts";
+import { Contract } from "ethers";
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;

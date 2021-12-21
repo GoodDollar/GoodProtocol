@@ -62,10 +62,6 @@ describe("CompoundVotingMachine#Delegation", () => {
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
 
-    const CompoundVotingMachine = await ethers.getContractFactory(
-      "CompoundVotingMachine"
-    );
-
     let {
       daoCreator,
       reputation,

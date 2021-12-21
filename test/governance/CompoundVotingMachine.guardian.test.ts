@@ -93,7 +93,7 @@ describe("CompoundVotingMachine#Guardian", () => {
   it("should set guardian from initializer", async () => {
     const votingMachine = (await upgrades.deployProxy(
       await ethers.getContractFactory("CompoundVotingMachine"),
-      [nameService.address, 5760, signers[2].address],
+      [nameService.address, 5760, signers[2].address, NULL_ADDRESS],
       { kind: "uups" }
     )) as unknown as CompoundVotingMachine;
     expect(await votingMachine.guardian()).to.equal(signers[2].address);
@@ -151,7 +151,7 @@ describe("CompoundVotingMachine#Guardian", () => {
 
     const gov2 = (await upgrades.deployProxy(
       CompoundVotingMachine,
-      [nameService.address, 5760, root.address],
+      [nameService.address, 5760, root.address, NULL_ADDRESS],
       { kind: "uups" }
     )) as CompoundVotingMachine;
 

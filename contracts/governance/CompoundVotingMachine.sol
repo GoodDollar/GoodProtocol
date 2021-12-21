@@ -207,11 +207,13 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 	function initialize(
 		INameService ns_, // the DAO avatar
 		uint256 votingPeriodBlocks_, //number of blocks a proposal is open for voting before expiring
-		address guardian_
+		address guardian_,
+		address reputation_
 	) public initializer {
 		foundationGuardianRelease = 1672531200; //01/01/2023
 		setDAO(ns_);
-		rep = ReputationInterface(ns_.getAddress("REPUTATION"));
+		rep = ReputationInterface(reputation_);
+
 		uint256[9] memory params = [
 			votingPeriodBlocks_,
 			30000, //3% quorum
@@ -232,6 +234,10 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		if (guardian == address(0x4659176E962763e7C8A4eF965ecfD0fdf9f52057)) {
 			guardian = _guardian;
 		}
+	}
+
+	function updateRep() public {
+		rep = ReputationInterface(nameService.getAddress("REPUTATION"));
 	}
 
 	///@notice set the different voting parameters, value of 0 is ignored
