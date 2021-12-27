@@ -214,7 +214,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     // expected that the new reserve balance will include
     // the new 1e18 cdai which transferred
     expect(reserveBalanceAfter).to.be.equal(
-      reserveBalanceBefore.add(BN.from("10").pow(17))
+      reserveBalanceBefore.add(BN.from("10").pow(17)).sub(1)
     );
     // the new reserve ratio should be effected from the mintExpansion by:
     // the daily change that was set up in the constructor (999388834642296)
