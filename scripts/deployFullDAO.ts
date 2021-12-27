@@ -22,6 +22,7 @@ import ProtocolSettings from "../releases/deploy-settings.json";
 import dao from "../releases/deployment.json";
 import { main as deployV2 } from "./upgradeToV2/upgradeToV2";
 import { TransactionResponse } from "@ethersproject/providers";
+import pressAnyKey from "press-any-key";
 
 const { name } = network;
 
@@ -41,6 +42,7 @@ const printDeploy = async (
 
 export const createDAO = async () => {
   const fusedao = dao[network.name.split("-")[0]];
+  let release: { [key: string]: any } = {}; //dao[network.name];
   let [root, ...signers] = await ethers.getSigners();
   //generic call permissions
   let schemeMock = root;
@@ -94,7 +96,7 @@ export const createDAO = async () => {
   )) as Contract;
   // const Identity = await ethers.getContractAt(
   //   IdentityABI.abi,
-  //   "0x77Bd4D825F4df162BDdda73a7E295c27e09E289f"
+  //   release.Identity
   // );
 
   const daoCreator = (await DAOCreatorFactory.deploy(AddFounders.address).then(
@@ -129,6 +131,15 @@ export const createDAO = async () => {
     root
   );
 
+  // const Avatar = new ethers.Contract(
+  //   release.Avatar,
+  //   [
+  //     "function owner() view returns (address)",
+  //     "function nativeToken() view returns (address)"
+  //   ],
+  //   root
+  // );
+
   await Identity.setAvatar(Avatar.address).then(printDeploy);
 
   console.log("Done deploying DAO, setting schemes permissions");
@@ -158,13 +169,22 @@ export const createDAO = async () => {
   );
 
   let mainnet: { [key: string]: Contract } = {};
+  release = {
+    ...release,
+    Avatar: Avatar.address,
+    Controller: controller,
+    GoodDollar: gd,
+    Identity: Identity.address,
+    FeeFormula: FeeFormula.address
+  };
 
   if (isMainnet) {
     mainnet = await deployMainnet(Avatar, Identity);
+    Object.entries(mainnet).forEach(([k, v]) => (release[k] = v.address));
   }
 
   let sidechain: { [key: string]: any } = {};
-  let release: { [key: string]: any } = {};
+
   if (false === isMainnet) {
     sidechain = await deploySidechain(
       setSchemes,
@@ -175,25 +195,24 @@ export const createDAO = async () => {
     );
     schemes.push(sidechain.OneTimePayments.address);
     const adminWallet = await deployAdminWallet(Identity.address);
-    await root
-      .sendTransaction({
-        to: adminWallet.address,
-        value: ethers.utils.parseUnits("0.1", "ether")
-      })
-      .then(printDeploy);
     Object.entries(sidechain).forEach(([k, v]) => (release[k] = v.address));
     release["AdminWallet"] = adminWallet.address;
   }
 
+  await releaser(release, network.name);
+
+  await pressAnyKey();
   const bridgeRelease = await deployBridge(Avatar, gd, setSchemes, isMainnet);
   release = { ...release, ...bridgeRelease };
+  await releaser(release, network.name);
 
-  //deploy v2 mainnet/sidechain contracts, returns their addresses
+  await pressAnyKey();
+  // deploy v2 mainnet/sidechain contracts, returns their addresses
   const v2 = await deployV2(network.name, false, {
-    FirstClaimPool: sidechain?.FirstClaimPool?.address,
-    BancorFormula: BancorFormula.address,
-    Avatar: Avatar.address,
-    Controller: controller,
+    FirstClaimPool: release.FirstClaimPool,
+    BancorFormula: release.BancorFormula,
+    Avatar: release.Avatar,
+    Controller: release.Controller,
     DAIUsdOracle: ethers.constants.AddressZero,
     COMPUsdOracle: ethers.constants.AddressZero,
     USDCUsdOracle: ethers.constants.AddressZero,
@@ -201,20 +220,22 @@ export const createDAO = async () => {
     AaveLendingPool: ethers.constants.AddressZero,
     AaveIncentiveController: ethers.constants.AddressZero,
     GasPriceOracle: ethers.constants.AddressZero,
-    cDAI: mainnet?.cDAI?.address || ethers.constants.AddressZero,
-    DAI: mainnet?.dai?.address || ethers.constants.AddressZero,
-    COMP: mainnet?.COMP?.address || ethers.constants.AddressZero,
+    cDAI: release.cDAI || ethers.constants.AddressZero,
+    DAI: release.DAI || ethers.constants.AddressZero,
+    COMP: release.COMP || ethers.constants.AddressZero,
     USDC: ethers.constants.AddressZero,
-    Identity: Identity.address,
-    GoodDollar: gd,
-    Contribution: mainnet?.contribution?.address,
+    Identity: release.Identity,
+    GoodDollar: release.GoodDollar,
+    Contribution: release.Contribution,
     UniswapRouter: "0x0000000000000000000000000000000000000001",
-    ...bridgeRelease,
+    HomeBridge: release.HomeBridge,
+    ForeignBridge: release.ForeignBridge,
     SchemeRegistrar: ethers.constants.AddressZero,
     UpgradeScheme: ethers.constants.AddressZero
   });
   release = { ...v2, ...release };
-
+  await releaser(release, network.name);
+  await pressAnyKey();
   if (isMainnet) {
     await setSchemes([release.ProtocolUpgrade]);
     await performUpgrade(release, fusedao.UBIScheme);
@@ -233,28 +254,16 @@ export const createDAO = async () => {
 
   if (false === isMainnet) {
     let encoded = (
-      await ethers.getContractAt("IGoodDollar", gd)
+      await ethers.getContractAt("IGoodDollar", release.GoodDollar)
     ).interface.encodeFunctionData("mint", [release.UBIScheme, 1000000]);
 
-    await genericCall(gd, encoded);
+    await genericCall(release.GoodDollar, encoded);
 
     await setSchemes([release.ProtocolUpgradeFuse]);
     await performUpgradeFuse(release);
   }
 
   await releaser(release, network.name);
-
-  return {
-    ...mainnet,
-    ...sidechain,
-    daoCreator,
-    controller,
-    avatar: await daoCreator.avatar(),
-    gd: await Avatar.nativeToken(),
-    identity: Identity.address,
-    bancorFormula: BancorFormula.address
-    // bridge: Bridge.address,
-  };
 };
 
 const deployBridge = async (Avatar, gd, setSchemes, isMainnet) => {
@@ -318,7 +327,7 @@ const deployMainnet = async (Avatar, Identity) => {
   const cdaiAddr = ProtocolSettings[network.name]?.compound?.cdai;
   const COMPAddr = ProtocolSettings[network.name]?.compound?.comp;
 
-  let dai = daiAddr
+  let DAI = daiAddr
     ? await ethers.getContractAt("DAIMock", daiAddr)
     : ((await daiFactory.deploy().then(printDeploy)) as Contract);
 
@@ -328,7 +337,7 @@ const deployMainnet = async (Avatar, Identity) => {
 
   let cDAI = cdaiAddr
     ? await ethers.getContractAt("DAIMock", cdaiAddr)
-    : ((await cdaiFactory.deploy(dai.address).then(printDeploy)) as Contract);
+    : ((await cdaiFactory.deploy(DAI.address).then(printDeploy)) as Contract);
 
   const ccFactory = new ethers.ContractFactory(
     ContributionCalculation.abi,
@@ -336,7 +345,7 @@ const deployMainnet = async (Avatar, Identity) => {
     root
   );
 
-  const contribution = (await ccFactory
+  const Contribution = (await ccFactory
     .deploy(Avatar.address, 0, 1e15)
     .then(printDeploy)) as Contract;
   // const contribution = await ethers.getContractAt(
@@ -345,8 +354,8 @@ const deployMainnet = async (Avatar, Identity) => {
   // );
 
   return {
-    contribution,
-    dai,
+    Contribution,
+    DAI,
     COMP,
     cDAI
   };
@@ -415,6 +424,13 @@ export const deploySidechain = async (
   const faucet = (await upgrades
     .deployProxy(faucetf, [identity])
     .then(printDeploy)) as Contract;
+
+  await root
+    .sendTransaction({
+      to: faucet.address,
+      value: ethers.utils.parseEther("5")
+    })
+    .then(printDeploy);
 
   console.log("setting firstclaim and otp schemes...");
   await setSchemes([firstClaim.address, otp.address]);
@@ -554,10 +570,35 @@ const performUpgrade = async (release, ubiScheme) => {
   console.log("performing protocol v2 upgrade on Mainnet...", {
     release
   });
-  console.log("upgrading nameservice + staking rewards...");
+  console.log(
+    "upgrading nameservice + staking rewards...",
+    release.NameService,
+    [
+      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("RESERVE")),
+      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MARKET_MAKER")),
+      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("FUND_MANAGER")),
+      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
+      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKERS")),
+      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
+      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBI_RECIPIENT")),
+      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("EXCHANGE_HELPER"))
+    ],
+    [
+      release.GoodReserveCDai,
+      release.GoodMarketMaker,
+      release.GoodFundManager,
+      release.GReputation,
+      release.StakersDistribution,
+      release.ForeignBridge || ethers.constants.AddressZero,
+      ubiScheme,
+      release.ExchangeHelper
+    ],
+    release.StakingContracts.map((_: any) => _[0]),
+    release.StakingContracts.map((_: any) => _[1])
+  );
   let tx;
-  tx = await (
-    await upgrade.upgradeBasic(
+  tx = await upgrade
+    .upgradeBasic(
       release.NameService,
       [
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("RESERVE")),
@@ -582,7 +623,7 @@ const performUpgrade = async (release, ubiScheme) => {
       release.StakingContracts.map((_: any) => _[0]),
       release.StakingContracts.map((_: any) => _[1])
     )
-  ).wait();
+    .then(printDeploy);
 
   console.log("upgrading reserve...", {
     params: [

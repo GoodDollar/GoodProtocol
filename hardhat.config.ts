@@ -117,7 +117,8 @@ const hhconfig: HardhatUserConfig = {
     "fuse-mainnet": {
       accounts: { mnemonic },
       url: "https://ropsten.infura.io/v3/" + infura_api,
-
+      gasPrice: 20000000000,
+      gas: 5000000,
       chainId: 3
     },
     staging: {
@@ -143,7 +144,7 @@ const hhconfig: HardhatUserConfig = {
       accounts: [deployerPrivateKey],
       url: "https://mainnet.infura.io/v3/" + infura_api,
       gas: 3000000,
-      gasPrice: 25000000000,
+      gasPrice: 50000000000,
       chainId: 1
     }
   },

@@ -60,6 +60,7 @@
     "ethers-multicall": "^0.2.1",
     "openzeppelin-solidity": "^4.3.2",
     "patch-package": "latest",
+    "press-any-key": "^0.1.1",
     "truffle-plugin-verify": "^0.5.11",
     "truffle-source-verify": "^0.0.6"
   },

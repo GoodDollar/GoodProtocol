@@ -11,7 +11,7 @@ import { network, ethers, upgrades, run } from "hardhat";
 import { networkNames } from "@openzeppelin/upgrades-core";
 import { isFunction, get, omitBy } from "lodash";
 import { getImplementationAddress } from "@openzeppelin/upgrades-core";
-// import pressAnyKey from "press-any-key";
+import pressAnyKey from "press-any-key";
 import {
   AaveStakingFactory,
   CompoundStakingFactory,
@@ -79,6 +79,12 @@ export const main = async (
     GAS_SETTINGS = {
       gasLimit: 6000000,
       gasPrice: ethers.utils.parseUnits("1", "gwei")
+    };
+  } else {
+    GAS_SETTINGS = {
+      maxPriorityFeePerGas: ethers.utils.parseUnits("1", "gwei"),
+      maxFeePerGas: ethers.utils.parseUnits("10", "gwei"),
+      gasLimit: 6000000
     };
   }
 
@@ -619,7 +625,7 @@ export const main = async (
         dao.Reserve,
         dao.MarketMaker,
         dao.FundManager,
-        dao.COMP
+        release.COMP
       ]
     });
     tx = await upgrade.upgradeReserve(
@@ -627,7 +633,8 @@ export const main = async (
       dao.Reserve,
       dao.MarketMaker,
       dao.FundManager,
-      dao.COMP
+      release.COMP,
+      GAS_SETTINGS
     );
     await countTotalGas(tx, "call upgrade reserve");
     console.log("upgrading donationstaking...", {
@@ -641,7 +648,8 @@ export const main = async (
       release.NameService,
       dao.DonationsStaking, //old
       release.DonationsStaking, //new
-      dao.DAIStaking
+      dao.DAIStaking,
+      GAS_SETTINGS
     );
     await countTotalGas(tx, "call upgrade donations");
     console.log("Donation staking upgraded");
@@ -671,31 +679,34 @@ export const main = async (
     )) as unknown as ProtocolUpgradeFuse;
 
     console.log("performing protocol v2 upgrade on Fuse...", { release, dao });
-    await upgrade.upgrade(
-      release.NameService,
-      //old contracts
-      [
-        dao.SchemeRegistrar,
-        dao.UpgradeScheme,
-        dao.UBIScheme,
-        dao.FirstClaimPool
-      ],
-      release.UBIScheme,
-      [
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBISCHEME")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKING")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_CLAIMERS"))
-      ],
-      [
-        release.GReputation,
-        dao.HomeBridge,
+    await upgrade
+      .upgrade(
+        release.NameService,
+        //old contracts
+        [
+          dao.SchemeRegistrar || ethers.constants.AddressZero,
+          dao.UpgradeScheme,
+          dao.UBIScheme,
+          dao.FirstClaimPool
+        ],
         release.UBIScheme,
-        release.GovernanceStaking,
-        release.ClaimersDistribution
-      ]
-    );
+        [
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("BRIDGE_CONTRACT")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UBISCHEME")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_STAKING")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GDAO_CLAIMERS"))
+        ],
+        [
+          release.GReputation,
+          dao.HomeBridge,
+          release.UBIScheme,
+          release.GovernanceStaking,
+          release.ClaimersDistribution
+        ],
+        GAS_SETTINGS
+      )
+      .then(_ => countTotalGas(_, "fuse basic upgrade"));
 
     if (isProduction || isBackendTest) {
       console.log(
@@ -707,7 +718,8 @@ export const main = async (
       await upgrade.upgradeGovernance(
         dao.SchemeRegistrar,
         dao.UpgradeScheme,
-        release.CompoundVotingMachine
+        release.CompoundVotingMachine,
+        GAS_SETTINGS
       );
     }
   };
@@ -757,10 +769,13 @@ export const main = async (
       founders
     });
     await Promise.all(
-      founders.slice(0, Math.ceil(founders.length / 2)).map(f =>
+      founders.slice(1).map(f =>
         absoluteVote
           .connect(f)
-          .vote(proposalId, 1, 0, f.address, { gasLimit: 300000 })
+          .vote(proposalId, 1, 0, f.address, {
+            ...GAS_SETTINGS,
+            gasLimit: 300000
+          })
           .then(_ => countTotalGas(_.wait(), "vote"))
           .catch(e => console.log("founder vote failed:", f.address, e.message))
       )
@@ -946,8 +961,10 @@ export const main = async (
   await deployContracts();
 
   if (isPerformUpgrade) {
-    console.log("deployed contracts", { totalGas });
+    console.log("deployed contracts", { totalGas, dao, release });
+    await pressAnyKey();
     await voteProtocolUpgrade(release);
+    await pressAnyKey();
     console.log("voted contracts", { totalGas });
     isMainnet && (await performUpgrade(release));
     !isMainnet && (await performUpgradeFuse(release));
