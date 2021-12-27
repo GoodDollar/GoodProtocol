@@ -962,9 +962,9 @@ export const main = async (
 
   if (isPerformUpgrade) {
     console.log("deployed contracts", { totalGas, dao, release });
-    await pressAnyKey();
+    if (isTest === false) await pressAnyKey();
     await voteProtocolUpgrade(release);
-    await pressAnyKey();
+    if (isTest === false) await pressAnyKey();
     console.log("voted contracts", { totalGas });
     isMainnet && (await performUpgrade(release));
     !isMainnet && (await performUpgradeFuse(release));

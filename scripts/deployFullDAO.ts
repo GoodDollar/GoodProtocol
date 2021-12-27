@@ -81,7 +81,9 @@ export const createDAO = async () => {
 
   const BancorFormula = (await (
     await ethers.getContractFactory("BancorFormula")
-  ).deploy()) as Contract;
+  )
+    .deploy()
+    .then(printDeploy)) as Contract;
 
   const AddFounders = (await AddFoundersFactory.deploy().then(
     printDeploy
