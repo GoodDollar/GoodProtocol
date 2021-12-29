@@ -80,7 +80,7 @@ export const main = async (
       gasLimit: 6000000,
       gasPrice: ethers.utils.parseUnits("1", "gwei")
     };
-  } else {
+  } else if (network.config.chainId === 3 || network.config.chainId === 42) {
     GAS_SETTINGS = {
       maxPriorityFeePerGas: ethers.utils.parseUnits("1", "gwei"),
       maxFeePerGas: ethers.utils.parseUnits("10", "gwei"),
