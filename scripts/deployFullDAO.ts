@@ -42,7 +42,9 @@ const printDeploy = async (
 
 export const createDAO = async () => {
   const fusedao = dao[network.name.split("-")[0]];
-  let release: { [key: string]: any } = {}; //dao[network.name];
+  let release: { [key: string]: any } = {};
+  // let release: { [key: string]: any } = dao[network.name];
+
   let [root, ...signers] = await ethers.getSigners();
   //generic call permissions
   let schemeMock = root;
@@ -203,7 +205,6 @@ export const createDAO = async () => {
 
   await releaser(release, network.name);
 
-  await pressAnyKey();
   const bridgeRelease = await deployBridge(Avatar, gd, setSchemes, isMainnet);
   release = { ...release, ...bridgeRelease };
   await releaser(release, network.name);

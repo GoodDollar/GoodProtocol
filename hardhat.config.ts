@@ -124,13 +124,15 @@ const hhconfig: HardhatUserConfig = {
     staging: {
       accounts: { mnemonic },
       url: "https://rpc.fuse.io/",
-
-      chainId: 122
+      chainId: 122,
+      gas: 6000000,
+      gasPrice: 1000000000
     },
     "staging-mainnet": {
       accounts: { mnemonic },
       url: "https://ropsten.infura.io/v3/" + infura_api,
-
+      gasPrice: 20000000000,
+      gas: 5000000,
       chainId: 3
     },
     production: {
