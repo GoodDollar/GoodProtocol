@@ -1,8 +1,8 @@
 import fse from "fs-extra";
 import { ethers, network as networkData } from "hardhat";
-import settings from "../releases/deploy-settings.json";
-import deployment from "../releases/deployment.json";
-import { increaseTime, advanceBlocks } from "../test/helpers";
+import settings from "../../releases/deploy-settings.json";
+import deployment from "../../releases/deployment.json";
+import { increaseTime, advanceBlocks } from "../../test/helpers";
 
 /**
  * helper script to simulate enough days of interest transfer and claiming

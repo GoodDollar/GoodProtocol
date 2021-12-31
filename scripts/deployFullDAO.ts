@@ -293,7 +293,7 @@ const deployBridge = async (Avatar, gd, setSchemes, isMainnet) => {
     .then(printDeploy)) as Contract;
   await setSchemes([scheme.address]);
 
-  if (network.name.includes("develop")) {
+  if (network.name.includes("develop") || network.name.includes("dapptest")) {
     const mockBridge = (await new ethers.ContractFactory(
       BridgeMock.abi,
       BridgeMock.bytecode,
