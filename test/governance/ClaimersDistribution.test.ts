@@ -197,7 +197,7 @@ describe("ClaimersDistribution", () => {
     expect(endCount).to.be.equal(startCount.add(2));
   });
 
-  it("should not cost alot of gas to claim with reputation distribution", async () => {
+  it("should not cost alot of gas to claim with reputation distribution [@skip-on-coverage]", async () => {
     let totalGas = 0;
     for (let i = 0; i < 31; i++) {
       await increaseTime(60 * 60 * 24);
@@ -205,6 +205,6 @@ describe("ClaimersDistribution", () => {
       totalGas += tx.gasUsed.toNumber();
       console.log({ totalGas }, tx.gasUsed.toNumber());
     }
-    expect(totalGas / 30).lt(300000);
+    expect(totalGas / 30).lt(310000);
   });
 });
