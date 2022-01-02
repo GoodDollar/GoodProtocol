@@ -494,7 +494,7 @@ const deployAdminWallet = async identity => {
   const root = (await ethers.getSigners())[0];
   const hdNode = ethers.utils.HDNode.fromMnemonic(process.env.ADMIN_MNEMONIC);
   const admins = range(0, 50).map(i =>
-    hdNode.derivePath(`m/44'/60'/0'/0/${i + 1}`)
+    hdNode.derivePath(`m/44'/60'/0'/0/${i}`)
   );
 
   const adminWallet = (await new ethers.ContractFactory(
