@@ -14,12 +14,11 @@ const waitTX = async tx => {
 };
 const simulate = async function () {
   const network = networkData.name;
-  const networkSettings = { ...settings["default"], ...settings[network] };
   const accounts = await ethers.getSigners();
 
   let addresses = deployment[network];
   let mainnetAddresses = deployment[`${network}-mainnet`];
-  console.log({ addresses, network });
+  console.log({ addresses, mainnetAddresses, network });
   const identity = await ethers.getContractAt("IIdentity", addresses.Identity);
   await Promise.all(
     accounts.slice(0, 10).map(a =>
@@ -66,7 +65,11 @@ const simulate = async function () {
       .balanceOf(simpleStaking)
       .then(_ => _.toString());
 
-    console.log("collecting interest...", { stakingBalance });
+    console.log("collecting interest...", {
+      stakingBalance,
+      gfm: goodFundManager.address,
+      simpleStaking
+    });
 
     await goodFundManager.collectInterest([simpleStaking], false);
 

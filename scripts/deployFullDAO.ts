@@ -179,12 +179,15 @@ export const createDAO = async () => {
     Controller: controller,
     GoodDollar: gd,
     Identity: Identity.address,
-    FeeFormula: FeeFormula.address
+    FeeFormula: FeeFormula.address,
+    BancorFormula: BancorFormula.address
   };
 
   if (isMainnet) {
     mainnet = await deployMainnet(Avatar, Identity);
-    Object.entries(mainnet).forEach(([k, v]) => (release[k] = v.address));
+    Object.entries(mainnet)
+      .filter(([k, v]) => v)
+      .forEach(([k, v]) => (release[k] = v.address));
   }
 
   let sidechain: { [key: string]: any } = {};
@@ -209,24 +212,26 @@ export const createDAO = async () => {
   release = { ...release, ...bridgeRelease };
   await releaser(release, network.name);
 
-  await pressAnyKey();
+  // await pressAnyKey();
   // deploy v2 mainnet/sidechain contracts, returns their addresses
-  const v2 = await deployV2(network.name, false, {
+  const olddao = {
     FirstClaimPool: release.FirstClaimPool,
     BancorFormula: release.BancorFormula,
     Avatar: release.Avatar,
     Controller: release.Controller,
-    DAIUsdOracle: ethers.constants.AddressZero,
-    COMPUsdOracle: ethers.constants.AddressZero,
-    USDCUsdOracle: ethers.constants.AddressZero,
-    AAVEUsdOracle: ethers.constants.AddressZero,
+    DAIUsdOracle: release.DAIUsdOracle || ethers.constants.AddressZero,
+    COMPUsdOracle: release.COMPUsdOracle || ethers.constants.AddressZero,
+    USDCUsdOracle: release.USDCUsdOracle || ethers.constants.AddressZero,
+    AAVEUsdOracle: release.AAVEUsdOracle || ethers.constants.AddressZero,
     AaveLendingPool: ethers.constants.AddressZero,
     AaveIncentiveController: ethers.constants.AddressZero,
-    GasPriceOracle: ethers.constants.AddressZero,
+    GasPriceOracle: release.GasPriceOracle || ethers.constants.AddressZero,
     cDAI: release.cDAI || ethers.constants.AddressZero,
     DAI: release.DAI || ethers.constants.AddressZero,
     COMP: release.COMP || ethers.constants.AddressZero,
     USDC: ethers.constants.AddressZero,
+    DAIEthOracle: release.DAIEthOracle || ethers.constants.AddressZero,
+    ETHUsdOracle: release.ETHUsdOracle || ethers.constants.AddressZero,
     Identity: release.Identity,
     GoodDollar: release.GoodDollar,
     Contribution: release.Contribution,
@@ -235,10 +240,12 @@ export const createDAO = async () => {
     ForeignBridge: release.ForeignBridge,
     SchemeRegistrar: ethers.constants.AddressZero,
     UpgradeScheme: ethers.constants.AddressZero
-  });
+  };
+
+  const v2 = await deployV2(network.name, false, olddao);
   release = { ...v2, ...release };
   await releaser(release, network.name);
-  await pressAnyKey();
+  // await pressAnyKey();
   if (isMainnet) {
     await setSchemes([release.ProtocolUpgrade]);
     await performUpgrade(release, fusedao.UBIScheme);
@@ -329,6 +336,27 @@ const deployMainnet = async (Avatar, Identity) => {
   const daiAddr = ProtocolSettings[network.name]?.compound?.dai;
   const cdaiAddr = ProtocolSettings[network.name]?.compound?.cdai;
   const COMPAddr = ProtocolSettings[network.name]?.compound?.comp;
+  const daiEthOracleAddr = ProtocolSettings[network.name]?.chainlink?.dai_eth;
+  const ethUsdOracleAddr = ProtocolSettings[network.name]?.chainlink?.eth_usd;
+
+  let DAIUsdOracle, COMPUsdOracle, USDCUsdOracle, AAVEUsdOracle, GasPriceOracle;
+  if (name.includes("test")) {
+    const tokenUsdOracleFactory = await ethers.getContractFactory(
+      "BatUSDMockOracle"
+    );
+    DAIUsdOracle = await tokenUsdOracleFactory.deploy();
+    USDCUsdOracle = await tokenUsdOracleFactory.deploy();
+
+    COMPUsdOracle = await (
+      await ethers.getContractFactory("CompUSDMockOracle")
+    ).deploy();
+    AAVEUsdOracle = await (
+      await ethers.getContractFactory("AaveUSDMockOracle")
+    ).deploy();
+    GasPriceOracle = await (
+      await ethers.getContractFactory("GasPriceMockOracle")
+    ).deploy();
+  }
 
   let DAI = daiAddr
     ? await ethers.getContractAt("DAIMock", daiAddr)
@@ -351,16 +379,31 @@ const deployMainnet = async (Avatar, Identity) => {
   const Contribution = (await ccFactory
     .deploy(Avatar.address, 0, 1e15)
     .then(printDeploy)) as Contract;
-  // const contribution = await ethers.getContractAt(
-  //   ContributionCalculation.abi,
-  //   "0xc3171409dB6827A68294B3A0D40a31310E83eD6B"
-  // );
+
+  let DAIEthOracle = daiEthOracleAddr
+    ? await ethers.getContractAt("DaiEthPriceMockOracle", daiEthOracleAddr)
+    : ((await (await ethers.getContractFactory("DaiEthPriceMockOracle"))
+        .deploy()
+        .then(printDeploy)) as Contract);
+
+  let ETHUsdOracle = ethUsdOracleAddr
+    ? await ethers.getContractAt("EthUSDMockOracle", ethUsdOracleAddr)
+    : ((await (await ethers.getContractFactory("EthUSDMockOracle"))
+        .deploy()
+        .then(printDeploy)) as Contract);
 
   return {
     Contribution,
     DAI,
     COMP,
-    cDAI
+    cDAI,
+    ETHUsdOracle,
+    DAIEthOracle,
+    DAIUsdOracle,
+    COMPUsdOracle,
+    USDCUsdOracle,
+    AAVEUsdOracle,
+    GasPriceOracle
   };
 };
 

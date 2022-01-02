@@ -89,7 +89,7 @@ export const main = async (
   }
 
   const isBackendTest = networkName.startsWith("dapptest");
-  const isTest = network.name === "hardhat";
+  const isTest = network.name === "hardhat" || isBackendTest;
   const isCoverage = process.env.CODE_COVERAGE;
   const isDevelop = !isProduction;
   const isMainnet = networkName.includes("mainnet");
@@ -97,7 +97,13 @@ export const main = async (
     ...ProtocolSettings["default"],
     ...ProtocolSettings[networkName]
   };
-  console.log(`networkName ${networkName}`);
+  console.log(`networkName ${networkName}`, {
+    isTest,
+    isBackendTest,
+    isCoverage,
+    isMainnet,
+    isDevelop
+  });
   const dao = olddao || OldDAO[networkName];
   const fse = require("fs-extra");
   const ProtocolAddresses = await fse.readJson("releases/deployment.json");
@@ -656,7 +662,7 @@ export const main = async (
     //extract just the addresses without the rewards
     // release.StakingContracts = release.StakingContracts.map((_) => _[0]);
 
-    if (isProduction || isBackendTest) {
+    if (isProduction) {
       console.log(
         "SKIPPING GOVERNANCE UPGRADE FOR PRODUCTION. RUN IT MANUALLY"
       );
@@ -708,7 +714,7 @@ export const main = async (
       )
       .then(_ => countTotalGas(_, "fuse basic upgrade"));
 
-    if (isProduction || isBackendTest) {
+    if (isProduction) {
       console.log(
         "SKIPPING GOVERNANCE UPGRADE FOR PRODUCTION. RUN IT MANUALLY"
       );
