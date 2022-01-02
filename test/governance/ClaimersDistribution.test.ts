@@ -17,14 +17,8 @@ describe("ClaimersDistribution", () => {
     cd: ClaimersDistribution;
 
   before(async () => {
-    [
-      root,
-      acct,
-      claimer1,
-      claimer2,
-      claimer3,
-      ...signers
-    ] = await ethers.getSigners();
+    [root, acct, claimer1, claimer2, claimer3, ...signers] =
+      await ethers.getSigners();
 
     const deployedDAO = await createDAO();
     let {
@@ -201,5 +195,16 @@ describe("ClaimersDistribution", () => {
     const endCount = await ubiScheme.totalClaimsPerUser(claimer3.address);
 
     expect(endCount).to.be.equal(startCount.add(2));
+  });
+
+  it("should not cost alot of gas to claim with reputation distribution", async () => {
+    let totalGas = 0;
+    for (let i = 0; i < 31; i++) {
+      await increaseTime(60 * 60 * 24);
+      const tx = await (await ubiScheme.connect(claimer3).claim()).wait();
+      totalGas += tx.gasUsed.toNumber();
+      console.log({ totalGas }, tx.gasUsed.toNumber());
+    }
+    expect(totalGas / 30).lt(300000);
   });
 });
