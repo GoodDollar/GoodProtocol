@@ -282,8 +282,11 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * since start of contract.
 	 */
 	function setDay() public {
-		currentDay = (block.timestamp - periodStart) / (1 days);
-		emit DaySet(currentDay);
+		uint256 day = (block.timestamp - periodStart) / (1 days);
+		if (day > currentDay) {
+			currentDay = day;
+			emit DaySet(day);
+		}
 	}
 
 	/**
@@ -345,22 +348,24 @@ contract UBIScheme is DAOUpgradeableContract {
 		bool _isFirstTime
 	) internal {
 		// updates the stats
-		Day storage day = claimDay[currentDay];
-		day.amountOfClaimers += 1;
-		day.hasClaimed[_account] = true;
-		lastClaimed[_account] = block.timestamp;
-		totalClaimsPerUser[_account] += 1;
+		if (_isClaimed || _isFirstTime) {
+			//in case of fishing dont update stats
+			claimDay[currentDay].amountOfClaimers += 1;
+			claimDay[currentDay].hasClaimed[_account] = true;
+			lastClaimed[_account] = block.timestamp;
+			totalClaimsPerUser[_account] += 1;
+		}
 
 		// awards a new user or a fished user
 		if (_isFirstTime) {
 			uint256 awardAmount = firstClaimPool.awardUser(_account);
-			day.claimAmount += awardAmount;
+			claimDay[currentDay].claimAmount += awardAmount;
 			emit UBIClaimed(_account, awardAmount);
 		} else {
-			day.claimAmount += _amount;
 			IGoodDollar token = nativeToken();
 			require(token.transfer(_account, _amount), "claim transfer failed");
 			if (_isClaimed) {
+				claimDay[currentDay].claimAmount += _amount;
 				emit UBIClaimed(_account, _amount);
 			}
 		}
