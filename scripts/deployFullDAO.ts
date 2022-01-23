@@ -478,6 +478,17 @@ export const deploySidechain = async (
     })
     .then(printDeploy);
 
+  let encoded = (
+    await ethers.getContractAt("IGoodDollar", gd)
+  ).interface.encodeFunctionData("mint", [firstClaim.address, 1000000]);
+  await genericCall(gd, encoded);
+
+  encoded = (
+    await ethers.getContractAt("IGoodDollar", gd)
+  ).interface.encodeFunctionData("mint", [invites.address, 1000000]);
+
+  await genericCall(gd, encoded);
+
   console.log("setting firstclaim and otp schemes...");
   await setSchemes([firstClaim.address, otp.address]);
   await firstClaim.start().then(printDeploy);
