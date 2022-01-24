@@ -362,12 +362,12 @@ contract UBIScheme is DAOUpgradeableContract {
 			claimDay[currentDay].claimAmount += awardAmount;
 			emit UBIClaimed(_account, awardAmount);
 		} else {
-			IGoodDollar token = nativeToken();
-			require(token.transfer(_account, _amount), "claim transfer failed");
 			if (_isClaimed) {
 				claimDay[currentDay].claimAmount += _amount;
 				emit UBIClaimed(_account, _amount);
 			}
+			IGoodDollar token = nativeToken();
+			require(token.transfer(_account, _amount), "claim transfer failed");
 		}
 	}
 
