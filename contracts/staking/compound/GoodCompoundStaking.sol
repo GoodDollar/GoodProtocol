@@ -20,9 +20,9 @@ contract GoodCompoundStaking is SimpleStaking {
 	address public compUsdOracle;
 
 	// Gas cost to collect interest from this staking contract
-	uint32 public collectInterestGasCost = 250000;
+	uint32 public collectInterestGasCost;
 	// Gas cost to collect COMP rewards
-	uint32 public compCollectGasCost = 150000;
+	uint32 public compCollectGasCost;
 
 	address[] public tokenToDaiSwapPath;
 
@@ -75,7 +75,8 @@ contract GoodCompoundStaking is SimpleStaking {
 		tokenToDaiSwapPath = _tokenToDaiSwapPath;
 		comp = ERC20(nameService.getAddress("COMP"));
 		uniswapContract = Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
-
+		collectInterestGasCost = 250000;
+		compCollectGasCost = 150000;
 		_approveTokens();
 	}
 

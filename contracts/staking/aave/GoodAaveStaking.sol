@@ -27,9 +27,9 @@ contract GoodAaveStaking is SimpleStaking {
 	//address of the AAVE/USD oracle
 	address public aaveUSDOracle;
 	// Gas cost to collect interest from this staking contract
-	uint32 public collectInterestGasCost = 250000;
+	uint32 public collectInterestGasCost;
 	// Gas cost to claim stkAave rewards
-	uint32 stkAaveClaimGasCost = 50000;
+	uint32 stkAaveClaimGasCost;
 
 	address[] public tokenToDaiSwapPath;
 
@@ -78,7 +78,8 @@ contract GoodAaveStaking is SimpleStaking {
 		tokenUsdOracle = _tokenUsdOracle;
 		incentiveController = _incentiveController;
 		aaveUSDOracle = _aaveUSDOracle;
-
+		collectInterestGasCost = 250000;
+		stkAaveClaimGasCost = 50000;
 		_approveTokens();
 	}
 
