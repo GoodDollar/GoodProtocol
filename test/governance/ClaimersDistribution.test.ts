@@ -132,7 +132,7 @@ describe("ClaimersDistribution", () => {
       "GReputation",
       reputation
     )) as GReputation;
-    expect(await rep.balanceOf(claimer2.address)).to.equal(
+    expect(await rep.balanceOfLocal(claimer2.address)).to.equal(
       ethers.utils.parseEther("2000000")
     ); //half of reputation since he claimed once out of 2 claims
   });
@@ -149,7 +149,7 @@ describe("ClaimersDistribution", () => {
       "GReputation",
       reputation
     )) as GReputation;
-    expect(await rep.balanceOf(claimer1.address)).to.equal(
+    expect(await rep.balanceOfLocal(claimer1.address)).to.equal(
       ethers.utils.parseEther("2000000")
     ); //half of reputation since he claimed once out of 2 claims
   });
@@ -167,9 +167,9 @@ describe("ClaimersDistribution", () => {
       "GReputation",
       reputation
     )) as GReputation;
-    const startrep = await rep.balanceOf(claimer1.address);
+    const startrep = await rep.balanceOfLocal(claimer1.address);
     await expect(cd.claimReputation(claimer1.address)).to.not.reverted;
-    const endrep = await rep.balanceOf(claimer1.address);
+    const endrep = await rep.balanceOfLocal(claimer1.address);
     expect(startrep).to.equal(endrep);
   });
 
@@ -183,7 +183,7 @@ describe("ClaimersDistribution", () => {
       "GReputation",
       reputation
     )) as GReputation;
-    expect(await rep.balanceOf(claimer3.address)).to.equal(0);
+    expect(await rep.balanceOfLocal(claimer3.address)).to.equal(0);
   });
 
   it("should be able to claim every day", async () => {

@@ -249,7 +249,7 @@ describe("CompoundVotingMachine#DAOScheme", () => {
     expect(states[await gov.state(proposalId)]).to.equal("Executed");
 
     //acct should now have 1M after proposal minted rep
-    expect(await grep.balanceOf(acct.address)).to.equal(
+    expect(await grep.balanceOfLocal(acct.address)).to.equal(
       ethers.BigNumber.from("1000000")
     );
   });

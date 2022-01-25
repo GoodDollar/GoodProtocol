@@ -25,8 +25,8 @@ const identityContract = new Contract(IDENTITY_FUSE, Identity.abi);
 
 const getDonations = async recipient => {
   const filter = gd.filters.Transfer(null, recipient);
-  const events = await gd.queryFilter(filter, 14300689, 14800689);
-  console.log("events found:", events.length);
+  const events = await gd.queryFilter(filter, 14192693, 14800689);
+  console.log("events found:", recipient, events.length);
   const agg = {};
   events.forEach(e => {
     const { from, amount } = e.args;
@@ -45,11 +45,10 @@ const main = async () => {
     "0x834f750aaab09d14a1101a15b185121f9a1475b2",
     "0x956e72df332ee17ecb3d641fca1f600ea19d1d09",
     "0x13dfefdc4713b98c07abdd9f7d93d2b8db716e6c",
-    "0xbbc680560a88cf06c9ae8a36b209288577d9a143",
     "0x626c86ff4749043df4dd5e9dce650325955a4e6d",
     "0x82a92d1949498d494189152a040aeb0ef0175730",
-    "0x27fb119b81b26104c0865435b741b6031bb35bb6",
-    "0x6214D6b492528fc5517f57499c436A5FF72B6D5B"
+    "0x6214D6b492528fc5517f57499c436A5FF72B6D5B",
+    "0x9E4eA5385272ba430Ab905081A4dA90738706e4c"
   ];
   const results = await Promise.all(recipients.map(r => getDonations(r)));
 

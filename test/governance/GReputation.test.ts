@@ -7,6 +7,7 @@ import { expect } from "chai";
 import { GReputation } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { advanceBlocks, createDAO, increaseTime } from "../helpers";
+import { TextDecoder } from "util";
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
@@ -130,7 +131,7 @@ describe("GReputation", () => {
   });
 
   it("should get balanceOf", async () => {
-    const repBalance = await grep.balanceOf(founder);
+    const repBalance = await grep.balanceOfLocal(founder);
     expect(repBalance.toNumber()).to.be.equal(0);
   });
 
@@ -162,7 +163,7 @@ describe("GReputation", () => {
       await grep.proveBalanceOfAtBlockchain("rootState", rep1, 1, proof, 1);
 
       //root states changes the core balance
-      const newRep = await grep.balanceOf(rep1);
+      const newRep = await grep.balanceOfLocal(rep1);
       expect(newRep.toNumber()).to.be.equal(1);
 
       const newVotes = await grep.getVotes(rep1);
@@ -199,10 +200,12 @@ describe("GReputation", () => {
 
   describe("delegation", async () => {
     it("should allow delegation", async () => {
-      expect(await grep.balanceOf(rep3)).to.be.eq(BN.from(0));
+      expect(await grep.balanceOfLocal(rep3)).to.be.eq(BN.from(0));
       await grep.connect(signers[2]).delegateTo(rep3); //rep1 -> rep3
 
-      expect(await grep.getVotes(rep3)).to.be.eq(await grep.balanceOf(rep1)); //with delegation
+      expect(await grep.getVotes(rep3)).to.be.eq(
+        await grep.balanceOfLocal(rep1)
+      ); //with delegation
       expect(
         await grep.getVotes(rep1),
         "delegator should now have 0 votes"
@@ -238,7 +241,7 @@ describe("GReputation", () => {
     });
 
     it("should allow to change delegate", async () => {
-      expect(await grep.balanceOf(rep1)).to.be.eq(BN.from(1)); //proof was submitted
+      expect(await grep.balanceOfLocal(rep1)).to.be.eq(BN.from(1)); //proof was submitted
       await grep.connect(signers[3]).delegateTo(rep1); //rep2 -> rep1
       expect(await grep.getVotes(rep3)).to.be.eq(BN.from(1)); //previous delegate should now be 1 bcause it has only rep1
       expect(await grep.getVotes(rep1)).to.be.eq(
@@ -251,10 +254,10 @@ describe("GReputation", () => {
 
     it("should allow undelegation", async () => {
       await grep.connect(signers[2]).undelegate(); //rep1 -> remove delegattion to rep3
-      expect(await grep.balanceOf(rep3)).to.be.eq(BN.from(0));
+      expect(await grep.balanceOfLocal(rep3)).to.be.eq(BN.from(0));
       expect(await grep.getVotes(rep3)).to.be.eq(BN.from(0));
       expect(await grep.getVotes(rep1)).to.be.eq(BN.from(3)); //rep2 delegating to rep1 + rep1 votes
-      expect(await grep.balanceOf(rep1)).to.be.eq(BN.from(1));
+      expect(await grep.balanceOfLocal(rep1)).to.be.eq(BN.from(1));
 
       expect(await grep.delegates(rep1)).to.be.eq(rep1);
     });
@@ -409,20 +412,30 @@ describe("GReputation", () => {
         ["fuse", "0x" + merkleRoot.toString("hex"), 200]
       );
 
+      const totalSupply = await grep.totalSupply();
       await expect(avatarGenericCall(grep.address, encodedCall)).to.not.be
         .reverted;
+      const totalAfterSupply = await grep.totalSupply();
+      expect(totalAfterSupply).to.eq(totalSupply.add(200));
+    });
+
+    it("should modify only local totalSupply on burn mint", async () => {
+      const totalSupply = await grep.totalSupply();
+      await grepWithOwner["mint(address,uint256)"](founder, 155);
+      const totalSupplyAfter = await grep.totalSupply();
+      expect(totalSupplyAfter).to.eq(totalSupply.add(155));
     });
 
     it("should not reset core balance", async () => {
       //before proving new rep in new root balance should be 0
-      const newRep = await grep.balanceOf(rep1);
+      const newRep = await grep.balanceOfLocal(rep1);
       expect(newRep.toNumber()).to.be.gt(0);
-      const newRep2 = await grep.balanceOf(rep2);
+      const newRep2 = await grep.balanceOfLocal(rep2);
       expect(newRep2.toNumber()).to.be.gt(0);
     });
 
     it("should prove balance in new state", async () => {
-      const prevRep = await grep.balanceOf(rep2);
+      const prevRep = await grep.balanceOfLocal(rep2);
       const prevVotes = await grep.getVotes(rep2);
       const { proof } = getMerkleAndProof(
         [
@@ -435,17 +448,29 @@ describe("GReputation", () => {
       );
 
       await grep.proveBalanceOfAtBlockchain("fuse", rep2, 200, proof, 2);
-      const newRep = await grep.balanceOf(rep2);
+      const newRep = await grep.balanceOfLocal(rep2);
       expect(newRep).to.be.equal(prevRep); //core rep should not change
       const newVotes = await grep.getVotes(rep2);
 
       expect(newVotes).to.be.equal(prevVotes.add(200));
     });
 
-    it("should allow delegation of new state balance", async () => {
+    it("should keep active votes (local balance) correctly after mint/burn", async () => {
+      await grep.connect(signers[3]).undelegate();
+      const totalSupply = await grep.getCurrentVotes(rep2);
+      const tx = await grepWithOwner["mint(address,uint256)"](rep2, 155);
+      const result = await tx.wait();
+      const totalSupplyAfter = await grep.getVotes(rep2);
+      expect(totalSupplyAfter).to.eq(totalSupply.add(155));
+    });
+
+    it("should only delegate core balance and not new state balance", async () => {
       expect(await grep.getVotes(rep3)).to.be.eq(BN.from(0));
       await grep.connect(signers[3]).delegateTo(rep3); //rep2=signers[3]
-      expect(await grep.getVotes(rep3)).to.be.eq(await grep.balanceOf(rep2));
+      expect(await grep.getVotes(rep3)).to.be.eq(
+        await grep.balanceOfLocal(rep2)
+      );
+      expect(await grep.getVotes(rep3)).to.be.lt(await grep.getVotes(rep2));
     });
 
     it("should not effect delegate balance after new state hash", async () => {
@@ -680,12 +705,18 @@ describe("GReputation", () => {
 
     it("it should be able to get totalSupply for particular block", async () => {
       let currentSupply = await grep["totalSupply()"]();
+      let localSupply = await grep.totalSupplyLocalAt(
+        await ethers.provider.getBlockNumber()
+      );
       await grepWithOwner["mint(address,uint256)"](
         founder,
         ethers.utils.parseEther("1")
       );
       let currentBlock = await ethers.provider.getBlockNumber();
-      let totalSupply = await grep.totalSupplyLocal(currentBlock);
+      let totalSupply = await grep.totalSupplyAt(currentBlock);
+      expect(await grep.totalSupplyLocalAt(currentBlock)).to.equal(
+        localSupply.add(ethers.utils.parseEther("1"))
+      );
       expect(
         totalSupply
           .sub(currentSupply)
@@ -785,11 +816,11 @@ describe("GReputation", () => {
       await grep.connect(signers[4]).setReputationRecipient(repTarget);
       expect(await grep.reputationRecipients(rep3)).to.equal(repTarget);
       await grepWithOwner.mint(rep3, 111);
-      expect(await grep.balanceOf(repTarget)).to.equal(111);
+      expect(await grep.balanceOfLocal(repTarget)).to.equal(111);
     });
 
     it("user should be able to unset recipient", async () => {
-      const startBalance = await grep.balanceOf(rep3);
+      const startBalance = await grep.balanceOfLocal(rep3);
       await grep
         .connect(signers[4])
         .setReputationRecipient(ethers.constants.AddressZero);
@@ -797,8 +828,8 @@ describe("GReputation", () => {
         ethers.constants.AddressZero
       );
       await grepWithOwner.mint(rep3, 111);
-      expect(await grep.balanceOf(repTarget)).to.equal(111);
-      expect(await grep.balanceOf(rep3)).to.equal(startBalance.add(111));
+      expect(await grep.balanceOfLocal(repTarget)).to.equal(111);
+      expect(await grep.balanceOfLocal(rep3)).to.equal(startBalance.add(111));
     });
   });
 });

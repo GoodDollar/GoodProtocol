@@ -115,7 +115,7 @@ contract GReputation is Reputation {
 			delegates[repTarget] = repTarget;
 			delegator = repTarget;
 		}
-		uint256 previousVotes = getVotes(delegator);
+		uint256 previousVotes = getVotesAt(delegator, false, block.number);
 
 		_updateDelegateVotes(
 			delegator,
@@ -139,7 +139,8 @@ contract GReputation is Reputation {
 		address delegator = delegates[_user];
 		delegator = delegator != address(0) ? delegator : _user;
 		delegates[_user] = delegator;
-		uint256 previousVotes = getVotes(delegator);
+
+		uint256 previousVotes = getVotesAt(delegator, false, block.number);
 
 		_updateDelegateVotes(
 			delegator,
@@ -178,7 +179,7 @@ contract GReputation is Reputation {
 		//dont consider rootState as blockchain,  it is a special state hash
 		bool isRootState = idHash == ROOT_STATE;
 		require(
-			!isRootState || super.totalSupplyAt(block.number) == 0,
+			!isRootState || totalSupplyLocalAt(block.number) == 0,
 			"rootState already created"
 		);
 		uint256 i = 0;
@@ -235,7 +236,14 @@ contract GReputation is Reputation {
 	}
 
 	/**
-	 be compatible with compound 
+	 * @notice same as getVotes, be compatible with metamask
+	 */
+	function balanceOf(address _user) public view returns (uint256 balance) {
+		return getVotesAt(_user, block.number);
+	}
+
+	/**
+	 same as getVotes be compatible with compound 
 	 */
 	function getCurrentVotes(address _user) public view returns (uint256) {
 		return getVotesAt(_user, true, block.number);
@@ -264,7 +272,7 @@ contract GReputation is Reputation {
 	}
 
 	/**
-	 * @notice returns total supply in current blockchain (super.balanceOfAt)
+	 * @notice returns total supply in current blockchain
 	 * @param _blockNumber get total supply at specific block
 	 * @return the totaly supply
 	 */
@@ -273,7 +281,7 @@ contract GReputation is Reputation {
 		view
 		returns (uint256)
 	{
-		return super.totalSupplyAt(_blockNumber);
+		return totalSupplyLocalAt(_blockNumber);
 	}
 
 	/**
@@ -281,13 +289,8 @@ contract GReputation is Reputation {
 	 * @param _blockNumber get total supply at specific block
 	 * @return the totaly supply
 	 */
-	function totalSupplyAt(uint256 _blockNumber)
-		public
-		view
-		override
-		returns (uint256)
-	{
-		uint256 startingSupply = super.totalSupplyAt(_blockNumber);
+	function totalSupplyAt(uint256 _blockNumber) public view returns (uint256) {
+		uint256 startingSupply = totalSupplyLocalAt(_blockNumber);
 		for (uint256 i = 0; i < activeBlockchains.length; i++) {
 			startingSupply += totalSupplyAtBlockchain(
 				activeBlockchains[i],
@@ -295,6 +298,12 @@ contract GReputation is Reputation {
 			);
 		}
 		return startingSupply;
+	}
+
+	/// @dev This function makes it easy to get the total number of reputation
+	/// @return The total number of reputation
+	function totalSupply() public view returns (uint256) {
+		return totalSupplyAt(block.number);
 	}
 
 	/// @notice get the number of active votes a user holds after delegation in specific blockchain
@@ -480,7 +489,7 @@ contract GReputation is Reputation {
 		delegates[_user] = _delegate;
 
 		// remove votes from current delegator
-		uint256 coreBalance = balanceOf(_user);
+		uint256 coreBalance = balanceOfLocalAt(_user, block.number);
 		//redundant check - should not be possible to have address 0 as delegator
 		if (curDelegator != address(0)) {
 			uint256 removeVotes = getVotesAt(curDelegator, false, block.number);
@@ -566,5 +575,35 @@ contract GReputation is Reputation {
 
 	function setReputationRecipient(address _target) public {
 		reputationRecipients[msg.sender] = _target;
+	}
+
+	function fix1() public {
+		if (
+			getVotes(0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF) ==
+			1008145362854518632309 &&
+			getVotes(0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4) ==
+			587905678906424942728383 &&
+			getVotes(0x1D5096665E79585019c448259D944090F28702E3) ==
+			3421532080040613840050
+		) {
+			_updateDelegateVotes(
+				0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF,
+				0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF,
+				1008145362854518632309,
+				balanceOfLocal(0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF)
+			);
+			_updateDelegateVotes(
+				0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4,
+				0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4,
+				587905678906424942728383,
+				balanceOfLocal(0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4)
+			);
+			_updateDelegateVotes(
+				0x1D5096665E79585019c448259D944090F28702E3,
+				0x1D5096665E79585019c448259D944090F28702E3,
+				3421532080040613840050,
+				balanceOfLocal(0x1D5096665E79585019c448259D944090F28702E3)
+			);
+		}
 	}
 }

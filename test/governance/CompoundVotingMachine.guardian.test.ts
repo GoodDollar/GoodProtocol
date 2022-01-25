@@ -205,7 +205,7 @@ describe("CompoundVotingMachine#Guardian", () => {
       grep.address,
       await grep.totalSupply().then(_ => _.toString()),
       await (await grep.getVotes(root.address)).toString(),
-      await (await grep.balanceOf(root.address)).toString(),
+      await (await grep.balanceOfLocal(root.address)).toString(),
       await gov.rep()
     );
     let targets = [gov.address];

@@ -381,18 +381,22 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await simpleStaking.connect(staker).stake(stakingAmount, 0, false);
     await advanceBlocks(40);
     await increaseTime(86700 * 30); // Increase one month
-    const stakerGDAOBalanceBeforeStake = await grep.balanceOf(staker.address);
+    const stakerGDAOBalanceBeforeStake = await grep.balanceOfLocal(
+      staker.address
+    );
     await simpleStaking.connect(staker).stake(stakingAmount, 0, false);
-    const stakerGDAOBalanceAfterStake = await grep.balanceOf(staker.address);
+    const stakerGDAOBalanceAfterStake = await grep.balanceOfLocal(
+      staker.address
+    );
     await simpleStaking.connect(staker).withdrawRewards();
 
     const rewardsPerBlockAfterStake = await stakersDistribution.rewardsPerBlock(
       simpleStaking.address
     );
-    const GDAOBalanceBeforeWithdraw = await grep.balanceOf(staker.address);
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(staker.address);
     await advanceBlocks(10);
     await simpleStaking.connect(staker).withdrawStake(stakingAmount, false);
-    const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address);
+    const GDAOBalanceAfterWithdraw = await grep.balanceOfLocal(staker.address);
     expect(rewardsPerBlockAfterStake).to.be.equal(rewardsPerBlockBeforeStake); // Should not update rewards per block since simplestaking blockend passed
     expect(GDAOBalanceBeforeWithdraw).to.be.equal(GDAOBalanceAfterWithdraw); // Should not earn any GDAO since simplestaking blockend passed
     expect(stakerGDAOBalanceAfterStake.gt(stakerGDAOBalanceBeforeStake)).to.be
@@ -432,10 +436,10 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const blockNumberOfStake = (await ethers.provider.getBlockNumber()) + 1;
     await simpleStaking.connect(staker).stake(stakingAmount, 0, false);
     await advanceBlocks(30);
-    const GDAOBalanceBeforeWithdraw = await grep.balanceOf(staker.address);
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(staker.address);
     await simpleStaking.connect(staker).withdrawStake(stakingAmount, false);
 
-    const GDAOBalanceAfterWithdraw = await grep.balanceOf(staker.address);
+    const GDAOBalanceAfterWithdraw = await grep.balanceOfLocal(staker.address);
     expect(GDAOBalanceAfterWithdraw).to.be.gt(GDAOBalanceBeforeWithdraw);
 
     expect(GDAOBalanceAfterWithdraw).to.be.equal(
@@ -750,12 +754,12 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     const daiStakingRewardsPerBlock = await stakersDistribution.rewardsPerBlock(
       simpleStaking.address
     );
-    const gdaoBalanceBeforeWithdraw = await grep.balanceOf(staker.address);
+    const gdaoBalanceBeforeWithdraw = await grep.balanceOfLocal(staker.address);
     await simpleUsdcStaking
       .connect(staker)
       .withdrawStake(stakingAmountUsdc, false);
     await simpleStaking.connect(staker).withdrawStake(stakingAmountDai, false);
-    const gdaoBalanceAfterWithdraw = await grep.balanceOf(staker.address);
+    const gdaoBalanceAfterWithdraw = await grep.balanceOfLocal(staker.address);
     expect(gdaoBalanceAfterWithdraw.sub(gdaoBalanceBeforeWithdraw)).to.be.equal(
       UserPendingGdaos.add(usdcStakingRewardsPerBlock).add(
         daiStakingRewardsPerBlock.mul(2)

@@ -121,7 +121,7 @@ describe("CompoundVotingMachine#CastVote", () => {
 
         await grep.mint(actor.address, ethers.BigNumber.from("100001"));
         console.log(
-          await grep.balanceOf(actor.address).then(_ => _.toString())
+          await grep.balanceOfLocal(actor.address).then(_ => _.toString())
         );
         let tx = await gov
           .connect(actor)
