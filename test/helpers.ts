@@ -18,7 +18,11 @@ import { GoodMarketMaker, CompoundVotingMachine } from "../types";
 import { Contract } from "ethers";
 
 export const getStakingFactory = async (
-  factory: "GoodCompoundStaking" | "GoodAaveStaking" | "GoodCompoundStakingTest"
+  factory:
+    | "GoodCompoundStaking"
+    | "GoodAaveStaking"
+    | "GoodCompoundStakingTest"
+    | "GoodAaveStakingV2"
 ) => {
   let swapHelper = await ethers
     .getContractFactory("UniswapV2SwapHelper")
