@@ -478,7 +478,7 @@ export const deploySidechain = async (
     })
     .then(printDeploy);
 
-  let encoded = (
+  encoded = (
     await ethers.getContractAt("IGoodDollar", gd)
   ).interface.encodeFunctionData("mint", [firstClaim.address, 1000000]);
   await genericCall(gd, encoded);
