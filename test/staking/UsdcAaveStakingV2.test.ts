@@ -8,7 +8,7 @@ import { createDAO, deployUniswap, getStakingFactory } from "../helpers";
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 
-describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
+describe("UsdcAaveStakingV2 - staking with USDC mocks to AAVE interface", () => {
   let dai: Contract;
   let usdc: Contract;
   let pair: Contract, uniswapRouter: Contract;
@@ -29,7 +29,6 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     lendingPool,
     setDAOAddress,
     genericCall,
-    goodReserve,
     goodAaveStakingFactory;
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
@@ -39,7 +38,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    goodAaveStakingFactory = await getStakingFactory("GoodAaveStaking");
+    goodAaveStakingFactory = await getStakingFactory("GoodAaveStakingV2");
 
     const lendingPoolFactory = await ethers.getContractFactory(
       "LendingPoolMock"
@@ -56,10 +55,8 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
       marketMaker: mm,
       daiAddress,
       genericCall: gc,
-      COMP,
-      reserve
+      COMP
     } = await createDAO();
-    goodReserve = reserve;
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     avatar = av;
     controller = ctrl;
@@ -240,7 +237,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     expect(gdBalanceAfterCollectInterest.gt(gdBalanceBeforeCollectInterest));
   });
 
-  it("it should collectRewards while collecting interest from aToken if there some earned reward as stkAAVE", async () => {
+  it("it should not collect stkAAVE when collecting interest", async () => {
     const stakingAmount = ethers.utils.parseUnits("100", 6);
     await goodAaveStaking.stake(stakingAmount, "0", false);
     const currentGainsAfterStake = await goodAaveStaking.currentGains(
@@ -278,7 +275,7 @@ describe("UsdcAaveStaking - staking with USDC mocks to AAVE interface", () => {
     );
     expect(currentGainsAfterEarnRewards[4]).to.be.equal(0); // stkAAVE rewards shouldnt count as gain
     expect(currentGainsAfterCollectInterest[4]).to.be.equal("0");
-    expect(await aave.balanceOf(goodReserve.address)).gt(0);
+    expect(await aave.balanceOf(avatar)).gt(0);
   });
   async function addLiquidity(
     token0: Contract,
