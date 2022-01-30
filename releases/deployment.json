@@ -416,7 +416,7 @@
         "ProtocolUpgrade": "0xfc918F32D89b7592Fbda5a0FbC7Eaa0c9a0d5d4a",
         "UniswapV2SwapHelper": "0x62305662fA7c4BC442803b940d9192DbDC92D710",
         "CompoundStakingFactory": "0x2C89e77d53C31ED6b331a19207799B3C11Db07eA",
-        "AaveStakingFactory": "0xa9Ec98203296ED5BC3985490058575e49c40300a",
+        "AaveStakingFactory": "0xc6a6bdAD97248f92096f9D62a2EE413D438B97f4",
         "network": "production-mainnet",
         "networkId": 1,
         "ForeignBridge": "0xD5D11eE582c8931F336fbcd135e98CEE4DB8CCB0",
@@ -427,7 +427,7 @@
                 13888
             ],
             [
-                "0x589ceb6cA1112f7aCCA19930b47871c5A259B0fC",
+                "0x3bF213f102928A0E7F07a8c5086322a028D7ee14",
                 6944
             ]
         ],
