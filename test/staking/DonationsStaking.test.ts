@@ -57,7 +57,9 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    goodCompoundStakingFactory = await getStakingFactory("GoodCompoundStaking");
+    goodCompoundStakingFactory = await getStakingFactory(
+      "GoodCompoundStakingV2"
+    );
 
     const daiFactory = await ethers.getContractFactory("DAIMock");
     let {

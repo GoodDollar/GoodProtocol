@@ -277,6 +277,23 @@ describe("UsdcAaveStakingV2 - staking with USDC mocks to AAVE interface", () => 
     expect(currentGainsAfterCollectInterest[4]).to.be.equal("0");
     expect(await aave.balanceOf(avatar)).gt(0);
   });
+
+  it("should be able to transfer staked tokens", async () => {
+    const stakingAmount = ethers.utils.parseUnits("100", 6);
+
+    await goodAaveStaking.connect(staker).stake(stakingAmount, 0, false);
+
+    await lendingPool.giveInterestToUser("1500", goodAaveStaking.address); // increase interest by calling giveInterestToUser
+
+    await expect(
+      goodAaveStaking
+        .connect(staker)
+        .transfer(signers[0].address, stakingAmount)
+    ).not.reverted;
+    expect(await goodAaveStaking.balanceOf(signers[0].address)).to.eq(
+      stakingAmount
+    );
+  });
   async function addLiquidity(
     token0: Contract,
     token1: Contract,

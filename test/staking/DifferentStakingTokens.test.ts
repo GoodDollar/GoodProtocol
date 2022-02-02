@@ -90,7 +90,9 @@ describe("Different decimals staking token", () => {
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
 
     tokenUsdOracleFactory = await ethers.getContractFactory("BatUSDMockOracle");
-    goodCompoundStakingFactory = await getStakingFactory("GoodCompoundStaking");
+    goodCompoundStakingFactory = await getStakingFactory(
+      "GoodCompoundStakingV2"
+    );
 
     tokenFactory = await ethers.getContractFactory("DecimalsMock");
     cTokenFactory = await ethers.getContractFactory("cDecimalsMock");

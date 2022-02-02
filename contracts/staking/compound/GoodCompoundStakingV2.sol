@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity >=0.8.0;
-import "../SimpleStaking.sol";
+import "../SimpleStakingV2.sol";
 import "../../Interfaces.sol";
 import "../UniswapV2SwapHelper.sol";
 
@@ -11,24 +11,32 @@ import "../UniswapV2SwapHelper.sol";
  * or withdraw their stake in Token
  * the contracts buy cToken and can transfer the daily interest to the  DAO
  */
-contract GoodCompoundStaking is SimpleStaking {
+contract GoodCompoundStakingV2 is SimpleStakingV2 {
 	using UniswapV2SwapHelper for IHasRouter;
 
 	// Address of the TOKEN/USD oracle from chainlink
-	address public tokenUsdOracle;
+	address tokenUsdOracle;
 	//Address of the COMP/USD oracle from chianlink
-	address public compUsdOracle;
+	address compUsdOracle;
 
 	// Gas cost to collect interest from this staking contract
-	uint32 public collectInterestGasCost;
+	uint32 collectInterestGasCost;
 	// Gas cost to collect COMP rewards
-	uint32 public compCollectGasCost;
+	uint32 compCollectGasCost;
 
-	address[] public tokenToDaiSwapPath;
+	address[] tokenToDaiSwapPath;
 
-	ERC20 public comp;
+	ERC20 comp;
 
-	Uniswap public uniswapContract;
+	Uniswap uniswapContract;
+
+	function getSettings()
+		external
+		view
+		returns (uint32 _collectInterestGasCost, uint32 _compCollectGasCost)
+	{
+		return (collectInterestGasCost, compCollectGasCost);
+	}
 
 	/**
 	 * @param _token Token to swap DEFI token
@@ -66,7 +74,7 @@ contract GoodCompoundStaking is SimpleStaking {
 			_token == dai ||
 				(_tokenToDaiSwapPath[0] == _token &&
 					_tokenToDaiSwapPath[_tokenToDaiSwapPath.length - 1] == dai),
-			"invalid path"
+			"path"
 		);
 
 		//above  initialize going  to revert on second call, so this is safe
@@ -77,7 +85,9 @@ contract GoodCompoundStaking is SimpleStaking {
 		uniswapContract = Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 		collectInterestGasCost = 250000;
 		compCollectGasCost = 150000;
-		_approveTokens();
+		comp.approve(address(uniswapContract), type(uint256).max);
+		token.approve(address(uniswapContract), type(uint256).max);
+		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
 	}
 
 	/**
@@ -85,10 +95,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @param _amount of Token to stake
 	 */
 	function mintInterestToken(uint256 _amount) internal override {
-		require(
-			cERC20(address(iToken)).mint(_amount) == 0,
-			"Minting cToken failed, funds returned"
-		);
+		require(cERC20(address(iToken)).mint(_amount) == 0, "minting");
 	}
 
 	/**
@@ -96,10 +103,7 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @param _amount of token to redeem in Token
 	 */
 	function redeem(uint256 _amount) internal override {
-		require(
-			cERC20(address(iToken)).redeemUnderlying(_amount) == 0,
-			"Failed to redeem cToken"
-		);
+		require(cERC20(address(iToken)).redeemUnderlying(_amount) == 0, "redeem");
 	}
 
 	/**
@@ -145,7 +149,7 @@ contract GoodCompoundStaking is SimpleStaking {
 		//in case of cdai there's no need to swap to DAI, we send cdai to reserve directly
 		actualTokenGains = iTokenWorthInToken(_amount);
 		if (address(iToken) == nameService.getAddress("CDAI")) {
-			require(iToken.transfer(_recipient, _amount), "collect transfer failed");
+			require(iToken.transfer(_recipient, _amount), "collect");
 			return (
 				actualTokenGains,
 				actualRewardTokenGains,
@@ -167,10 +171,7 @@ contract GoodCompoundStaking is SimpleStaking {
 			_amount = tokenWorthIniToken(actualTokenGains);
 		}
 
-		require(
-			cERC20(address(iToken)).redeem(_amount) == 0,
-			"Failed to redeem cToken"
-		);
+		require(cERC20(address(iToken)).redeem(_amount) == 0, "iredeem");
 
 		actualTokenGains = token.balanceOf(address(this));
 
@@ -190,16 +191,14 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @dev returns decimals of token.
 	 */
 	function tokenDecimal() internal view override returns (uint256) {
-		ERC20 token = ERC20(address(token));
-		return uint256(token.decimals());
+		return uint256(ERC20(address(token)).decimals());
 	}
 
 	/**
 	 * @dev returns decimals of interest token.
 	 */
 	function iTokenDecimal() internal view override returns (uint256) {
-		ERC20 cToken = ERC20(address(iToken));
-		return uint256(cToken.decimals());
+		return uint256(ERC20(address(iToken)).decimals());
 	}
 
 	/**
@@ -268,13 +267,12 @@ contract GoodCompoundStaking is SimpleStaking {
 	 * @return Worth of given amount of token in Token
 	 */
 	function iTokenWorthInToken(uint256 _amount)
-		public
+		internal
 		view
 		override
 		returns (uint256)
 	{
-		cERC20 cToken = cERC20(address(iToken));
-		uint256 er = cToken.exchangeRateStored();
+		uint256 er = cERC20(address(iToken)).exchangeRateStored();
 		(uint256 decimalDifference, bool caseType) = tokenDecimalPrecision();
 		uint256 mantissa = 18 + tokenDecimal() - iTokenDecimal();
 		uint256 tokenWorth = caseType == true
@@ -313,12 +311,5 @@ contract GoodCompoundStaking is SimpleStaking {
 		_onlyAvatar();
 		collectInterestGasCost = _collectInterestGasCost;
 		compCollectGasCost = _rewardTokenCollectCost;
-	}
-
-	function _approveTokens() internal {
-		address uniswapRouter = address(uniswapContract);
-		comp.approve(uniswapRouter, type(uint256).max);
-		token.approve(uniswapRouter, type(uint256).max);
-		token.approve(address(iToken), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas
 	}
 }

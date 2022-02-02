@@ -2,7 +2,7 @@
 
 pragma solidity >=0.8.0;
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
-import "./GoodCompoundStaking.sol";
+import "./GoodCompoundStakingV2.sol";
 import "../../Interfaces.sol";
 
 /**
@@ -14,19 +14,19 @@ import "../../Interfaces.sol";
 contract CompoundStakingFactory {
 	using ClonesUpgradeable for address;
 
-	address impl = address(new GoodCompoundStaking());
+	address impl = address(new GoodCompoundStakingV2());
 
 	event Deployed(address proxy, address cToken);
 
 	function clone(cERC20 cToken, bytes32 paramsHash)
 		public
-		returns (GoodCompoundStaking)
+		returns (GoodCompoundStakingV2)
 	{
 		address deployed = address(impl).cloneDeterministic(
 			keccak256(abi.encodePacked(address(cToken), paramsHash))
 		);
 		emit Deployed(deployed, address(cToken));
-		return GoodCompoundStaking(deployed);
+		return GoodCompoundStakingV2(deployed);
 	}
 
 	/**
@@ -45,7 +45,7 @@ contract CompoundStakingFactory {
 		address _compUsdOracle,
 		address[] memory _tokenToDaiSwapPath
 	) public {
-		GoodCompoundStaking deployed = clone(
+		GoodCompoundStakingV2 deployed = clone(
 			cToken,
 			keccak256(
 				abi.encodePacked(
@@ -60,7 +60,7 @@ contract CompoundStakingFactory {
 			cToken.underlying(),
 			address(cToken),
 			_ns,
-			string(abi.encodePacked("GoodCompoundStaking ", cToken.name())),
+			string(abi.encodePacked("GoodCompoundStakingV2 ", cToken.name())),
 			string(abi.encodePacked("g", cToken.symbol())),
 			_maxRewardThreshold,
 			_tokenUsdOracle,

@@ -83,7 +83,7 @@ describe("UBIScheme - network e2e tests", () => {
       "GoodFundManager"
     );
     const goodCompoundStakingFactory = await getStakingFactory(
-      "GoodCompoundStaking"
+      "GoodCompoundStakingV2"
     );
     const deployedDAO = await createDAO();
     let {

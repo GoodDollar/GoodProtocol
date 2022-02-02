@@ -262,7 +262,7 @@ contract GoodAaveStaking is SimpleStaking {
 		return _amount; // since aToken is peg to Token 1:1 return exact amount
 	}
 
-	function _approveTokens() internal override {
+	function _approveTokens() internal {
 		address uniswapRouter = nameService.getAddress("UNISWAP_ROUTER");
 		token.approve(uniswapRouter, type(uint256).max);
 		token.approve(address(lendingPool), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas

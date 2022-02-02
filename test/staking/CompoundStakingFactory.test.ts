@@ -4,7 +4,7 @@ import { expect } from "chai";
 import {
   CERC20,
   GoodCompoundStaking,
-  CompoundStakingFactory,
+  CompoundStakingFactory
 } from "../../types";
 import { createDAO, deployUniswap } from "../helpers";
 import { Contract } from "ethers";
@@ -46,20 +46,20 @@ describe("CompoundStakingFactory", () => {
     await dao.setDAOAddress("UNISWAP_ROUTER", router.address);
     let swapHelper = await ethers
       .getContractFactory("UniswapV2SwapHelper")
-      .then((_) => _.deploy());
+      .then(_ => _.deploy());
 
     stakingFactory = (await ethers
       .getContractFactory("CompoundStakingFactory", {
-        libraries: { UniswapV2SwapHelper: swapHelper.address },
+        libraries: { UniswapV2SwapHelper: swapHelper.address }
       })
-      .then((_) => _.deploy())) as CompoundStakingFactory;
+      .then(_ => _.deploy())) as CompoundStakingFactory;
   });
 
   it("should create proxy clone", async () => {
     const res = await (
       await stakingFactory.clone(cdai, ethers.constants.HashZero)
     ).wait();
-    const log = res.events.find((_) => _.event === "Deployed");
+    const log = res.events.find(_ => _.event === "Deployed");
     const detAddress = await stakingFactory.predictAddress(
       cdai,
       ethers.constants.HashZero
@@ -81,7 +81,7 @@ describe("CompoundStakingFactory", () => {
         []
       )
     ).wait();
-    const log = res.events.find((_) => _.event === "Deployed");
+    const log = res.events.find(_ => _.event === "Deployed");
     const detAddress = await stakingFactory.predictAddress(
       cdai,
       ethers.utils.solidityKeccak256(
@@ -95,12 +95,12 @@ describe("CompoundStakingFactory", () => {
 
     //check initialization
     const staking: GoodCompoundStaking = (await ethers.getContractAt(
-      "GoodCompoundStaking",
+      "GoodCompoundStakingV2",
       detAddress
     )) as GoodCompoundStaking;
     expect(await staking.iToken()).to.equal(cdai);
     expect(await staking.token()).to.equal(dai);
-    expect(await staking.name()).to.equal("GoodCompoundStaking Compound DAI");
+    expect(await staking.name()).to.equal("GoodCompoundStakingV2 Compound DAI");
     expect(await staking.symbol()).to.equal("gcDAI");
   });
 });

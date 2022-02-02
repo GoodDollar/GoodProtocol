@@ -1,7 +1,7 @@
 import { ethers, upgrades } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
-import { GoodMarketMaker, GoodCompoundStaking } from "../../types";
+import { GoodMarketMaker } from "../../types";
 import {
   createDAO,
   increaseTime,
@@ -56,7 +56,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
-    goodCompoundStakingFactory = await getStakingFactory("GoodCompoundStaking");
+    goodCompoundStakingFactory = await getStakingFactory(
+      "GoodCompoundStakingV2"
+    );
     goodCompoundStakingTestFactory = await getStakingFactory(
       "GoodCompoundStakingTest"
     );
@@ -307,11 +309,13 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await dai
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
-    const totalEffectiveStakesBeforeStake =
-      await goodCompoundStaking.totalEffectiveStakes();
+    const totalEffectiveStakesBeforeStake = await goodCompoundStaking
+      .getStats()
+      .then(_ => _[3]);
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 100, false);
-    const totalEffectiveStakesAfterStake =
-      await goodCompoundStaking.totalEffectiveStakes();
+    const totalEffectiveStakesAfterStake = await goodCompoundStaking
+      .getStats()
+      .then(_ => _[3]);
     await goodCompoundStaking
       .connect(staker)
       .withdrawStake(stakingAmount, false);
@@ -326,11 +330,13 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await dai
       .connect(staker)
       .approve(goodCompoundStaking.address, stakingAmount);
-    const totalEffectiveStakesBeforeStake =
-      await goodCompoundStaking.totalEffectiveStakes();
+    const totalEffectiveStakesBeforeStake = await goodCompoundStaking
+      .getStats()
+      .then(_ => _[3]);
     await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
-    const totalEffectiveStakesAfterStake =
-      await goodCompoundStaking.totalEffectiveStakes();
+    const totalEffectiveStakesAfterStake = await goodCompoundStaking
+      .getStats()
+      .then(_ => _[3]);
     await goodCompoundStaking
       .connect(staker)
       .withdrawStake(stakingAmount, false);
@@ -1452,7 +1458,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(activeContractsCount).to.be.equal(activeContractsCountAfterRemoved);
   });
   it("it should distribute rewards correctly when there is multiple stakers", async () => {
-    const simpleStaking1 = (await goodCompoundStakingTestFactory.deploy(
+    const simpleStaking1 = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
       nameService.address,
@@ -1462,7 +1468,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       batUsdOracle.address,
       compUsdOracle.address,
       [bat.address, dai.address]
-    )) as GoodCompoundStaking;
+    );
     const currentBlock = await ethers.provider.getBlockNumber();
     const rewardsPerBlock = BN.from("1000");
     let encodedData = goodFundManager.interface.encodeFunctionData(
@@ -1624,7 +1630,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
   });
   it("it should get staking reward even reward amount is too low", async () => {
-    const simpleStaking1 = (await goodCompoundStakingTestFactory.deploy(
+    const simpleStaking1 = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
       nameService.address,
@@ -1634,7 +1640,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       batUsdOracle.address,
       compUsdOracle.address,
       [bat.address, dai.address]
-    )) as GoodCompoundStaking;
+    );
 
     const currentBlock = await ethers.provider.getBlockNumber();
     const rewardsPerBlock = BN.from("100");

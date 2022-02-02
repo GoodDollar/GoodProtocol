@@ -247,7 +247,7 @@ contract GoodAaveStakingV2 is SimpleStakingV2 {
 	 * @return Worth of given amount of token in Token
 	 */
 	function iTokenWorthInToken(uint256 _amount)
-		public
+		internal
 		view
 		override
 		returns (uint256)
@@ -255,7 +255,7 @@ contract GoodAaveStakingV2 is SimpleStakingV2 {
 		return _amount; // since aToken is peg to Token 1:1 return exact amount
 	}
 
-	function _approveTokens() internal override {
+	function _approveTokens() internal {
 		address uniswapRouter = nameService.getAddress("UNISWAP_ROUTER");
 		token.approve(uniswapRouter, type(uint256).max);
 		token.approve(address(lendingPool), type(uint256).max); // approve the transfers to defi protocol as much as possible in order to save gas

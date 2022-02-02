@@ -197,7 +197,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       deployment["test-mainnet"].GoodReserveCDai
     );
     newStakingContract = await ethers.getContractAt(
-      "GoodCompoundStaking",
+      "GoodCompoundStakingV2",
       deployment["test-mainnet"].StakingContracts[0][0]
     );
     stakingAmountOfNewDonationStaking =

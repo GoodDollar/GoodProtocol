@@ -23,6 +23,7 @@ export const getStakingFactory = async (
     | "GoodAaveStaking"
     | "GoodCompoundStakingTest"
     | "GoodAaveStakingV2"
+    | "GoodCompoundStakingV2"
 ) => {
   let swapHelper = await ethers
     .getContractFactory("UniswapV2SwapHelper")

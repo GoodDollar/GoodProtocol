@@ -1,26 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 import "../Interfaces.sol";
-import "openzeppelin-solidity/contracts/utils/math/Math.sol";
-import "../utils/DSMath.sol";
 
-contract BaseShareFieldV2 is DSMath {
+contract BaseShareFieldV2 {
 	// rewards claimed by users
-	uint128 public mintedRewards;
-	// number of blocks before reaching the max rewards multiplier (starting at 0.5 reaching 1 after maxMultiplierThreshold)
-	uint64 public maxMultiplierThreshold;
-	// Staking contracts accepts Tokens with max 18 decimals so this variable holds decimal difference between 18 and Token's decimal in order to make calculations
-	uint8 public tokenDecimalDifference;
+	uint128 mintedRewards;
 	// total staked for shares calculation
-	uint128 public totalProductivity;
+	uint128 totalProductivity;
 	// total staked that earns rewards (some stakers can donate their rewards)
-	uint128 public totalEffectiveStakes;
+	uint128 totalEffectiveStakes;
 	// rewards accumulated for distribution
-	uint128 public accumulatedRewards;
+	uint128 accumulatedRewards;
 	// block of last rewards accumulation
-	uint128 public lastRewardBlock;
+	uint128 lastRewardBlock;
+	// number of blocks before reaching the max rewards multiplier (starting at 0.5 reaching 1 after maxMultiplierThreshold)
+	uint64 maxMultiplierThreshold;
+	// Staking contracts accepts Tokens with max 18 decimals so this variable holds decimal difference between 18 and Token's decimal in order to make calculations
+	uint8 tokenDecimalDifference;
+
 	// accumulated rewards per share in 27 decimals precision
-	uint256 public accAmountPerShare;
+	uint256 accAmountPerShare;
 
 	//status of user rewards. everything is in 18 decimals
 	struct UserInfo {
@@ -33,6 +32,32 @@ contract BaseShareFieldV2 is DSMath {
 		uint64 multiplierResetTime; // Reset time of multiplier
 	}
 	mapping(address => UserInfo) public users;
+
+	function getStats()
+		external
+		view
+		returns (
+			uint256 _accAmountPerShare,
+			uint128 _mintedRewards,
+			uint128 _totalProductivity,
+			uint128 _totalEffectiveStakes,
+			uint128 _accumulatedRewards,
+			uint128 _lastRewardBlock,
+			uint64 _maxMultiplierThreshold,
+			uint8 _tokenDecimalDifference
+		)
+	{
+		return (
+			accAmountPerShare,
+			mintedRewards,
+			totalProductivity,
+			totalEffectiveStakes,
+			accumulatedRewards,
+			lastRewardBlock,
+			maxMultiplierThreshold,
+			tokenDecimalDifference
+		);
+	}
 
 	/**
 	 * @dev Helper function to check if caller is fund manager
@@ -159,10 +184,10 @@ contract BaseShareFieldV2 is DSMath {
 	{
 		uint256 blocksPaid = _userInfo.lastRewardTime -
 			_userInfo.multiplierResetTime; // lastRewardTime is always >= multiplierResetTime
-		uint256 blocksPassedFirstMonth = Math.min(
-			maxMultiplierThreshold,
+		uint256 blocksPassedFirstMonth = maxMultiplierThreshold <
 			block.number - _userInfo.multiplierResetTime
-		);
+			? maxMultiplierThreshold
+			: block.number - _userInfo.multiplierResetTime;
 		// blocks which is after first month
 		uint256 blocksToPay = block.number - _userInfo.lastRewardTime; // blocks passed since last payment
 		uint256 firstMonthBlocksToPay = blocksPaid >= maxMultiplierThreshold
@@ -292,13 +317,12 @@ contract BaseShareFieldV2 is DSMath {
 		uint256 blockStart,
 		uint256 blockEnd
 	) public returns (uint256) {
-		UserInfo storage userInfo = users[user];
 		_canMintRewards();
 		_update(rewardsPerBlock, blockStart, blockEnd);
-		_audit(user, userInfo.amount, 1); // donationPer variable should be something different than zero so called with 1
-		uint128 amount = userInfo.rewardEarn;
-		userInfo.rewardEarn = 0;
-		userInfo.rewardMinted += amount;
+		_audit(user, users[user].amount, 1); // donationPer variable should be something different than zero so called with 1
+		uint128 amount = users[user].rewardEarn;
+		users[user].rewardEarn = 0;
+		users[user].rewardMinted += amount;
 		mintedRewards = mintedRewards + amount;
 		amount = amount / 1e16; // change decimal of mint amount to GD decimals
 		return amount;

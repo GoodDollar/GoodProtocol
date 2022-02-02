@@ -46,7 +46,9 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const swapHelperTestFactory = await ethers.getContractFactory(
       "SwapHelperTest"
     );
-    goodCompoundStakingFactory = await getStakingFactory("GoodCompoundStaking");
+    goodCompoundStakingFactory = await getStakingFactory(
+      "GoodCompoundStakingV2"
+    );
     goodCompoundStakingTestFactory = await getStakingFactory(
       "GoodCompoundStakingTest"
     );
@@ -210,6 +212,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
       ["100", simpleStaking.address, 0, 10000, true]
     );
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
+    console.log({ redeemedAmount, safeAmount });
     expect(reserve[0].sub(currentReserve[0])).to.be.lt(currentGains[1]);
     expect(currentReserve[0].sub(reserve[0])).to.be.equal(redeemedAmount);
   });

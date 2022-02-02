@@ -97,7 +97,9 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
     compUsdOracle = await compUsdOracleFactory.deploy();
 
-    goodCompoundStakingFactory = await getStakingFactory("GoodCompoundStaking");
+    goodCompoundStakingFactory = await getStakingFactory(
+      "GoodCompoundStakingV2"
+    );
 
     deployStaking = async (token, itoken) => {
       return goodCompoundStakingFactory.deploy().then(async contract => {
@@ -1254,16 +1256,6 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     expect(stakerCdaiBalanceBeforeWithdraw.add("664893617")).to.be.equal(
       stakerCdaiBalanceAfterWithdraw
     );
-  });
-
-  it("should not withdraw interest if the recipient specified by the owner is the staking contract", async () => {
-    await advanceBlocks(BLOCK_INTERVAL);
-    await setDAOAddress("FUND_MANAGER", founder.address);
-    const error = await goodCompoundStaking
-      .collectUBIInterest(goodCompoundStaking.address)
-      .catch(e => e);
-    await setDAOAddress("FUND_MANAGER", goodFundManager.address);
-    expect(error.message).to.be.not.empty;
   });
 
   it("should pause the contract", async () => {
