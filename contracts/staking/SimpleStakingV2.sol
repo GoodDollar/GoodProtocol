@@ -83,10 +83,7 @@ abstract contract SimpleStakingV2 is
 		token = ERC20(_token);
 		iToken = ERC20(_iToken);
 		__ERC20_init(_tokenName, _tokenSymbol);
-		require(
-			token.decimals() <= 18,
-			"Token decimals should be less than 18 decimals"
-		);
+		require(token.decimals() <= 18, "decimals");
 		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;
 	}
@@ -102,7 +99,7 @@ abstract contract SimpleStakingV2 is
 	 * @return Worth of given amount of iToken in Token
 	 */
 	function iTokenWorthInToken(uint256 _amount)
-		public
+		internal
 		view
 		virtual
 		returns (uint256);
@@ -175,11 +172,6 @@ abstract contract SimpleStakingV2 is
 		);
 
 	/**
-	 * @dev Approve infinite tokens to defi protocols in order to save gas
-	 */
-	function _approveTokens() internal virtual;
-
-	/**
 	 * @dev Allows a staker to deposit Tokens. Notice that `approve` is
 	 * needed to be executed before the execution of this method.
 	 * Can be executed only when the contract is not paused.
@@ -193,18 +185,15 @@ abstract contract SimpleStakingV2 is
 		bool _inInterestToken
 	) external virtual nonReentrant {
 		require(isPaused == false, "Staking is paused");
-		require(
-			_donationPer == 0 || _donationPer == 100,
-			"Donation percentage should be 0 or 100"
-		);
-		require(_amount > 0, "You need to stake a positive token amount");
+		require(_donationPer == 0 || _donationPer == 100, "donationPer");
+		require(_amount > 0, "amount");
 		require(
 			(_inInterestToken ? iToken : token).transferFrom(
 				_msgSender(),
 				address(this),
 				_amount
 			),
-			"transferFrom failed, make sure you approved token transfer"
+			"approve"
 		);
 		_amount = _inInterestToken ? iTokenWorthInToken(_amount) : _amount;
 		if (_inInterestToken == false) {
@@ -255,10 +244,7 @@ abstract contract SimpleStakingV2 is
 
 		if (_inInterestToken) {
 			uint256 tokenWorth = iTokenWorthInToken(_amount);
-			require(
-				iToken.transfer(_msgSender(), _amount),
-				"withdraw transfer failed"
-			);
+			require(iToken.transfer(_msgSender(), _amount), "iWithdraw");
 			tokenWithdraw = _amount = tokenWorth;
 		} else {
 			tokenWithdraw = _amount;
@@ -269,10 +255,7 @@ abstract contract SimpleStakingV2 is
 			if (tokenActual < tokenWithdraw) {
 				tokenWithdraw = tokenActual;
 			}
-			require(
-				token.transfer(_msgSender(), tokenWithdraw),
-				"withdraw transfer failed"
-			);
+			require(token.transfer(_msgSender(), tokenWithdraw), "withdraw");
 		}
 
 		GoodFundManager fm = GoodFundManager(
@@ -344,7 +327,6 @@ abstract contract SimpleStakingV2 is
 		uint256 _value
 	) internal override {
 		super._transfer(_from, _to, _value);
-
 		StakersDistribution sd = StakersDistribution(
 			nameService.getAddress("GDAO_STAKERS")
 		);
@@ -368,8 +350,6 @@ abstract contract SimpleStakingV2 is
 		);
 
 		if (address(sd) != address(0)) {
-			address[] memory contracts;
-			contracts[0] = (address(this));
 			sd.userWithdraw(_from, _value);
 			sd.userStaked(_to, _value);
 		}
@@ -403,11 +383,6 @@ abstract contract SimpleStakingV2 is
 		)
 	{
 		_canMintRewards();
-		// otherwise fund manager has to wait for the next interval
-		require(
-			_recipient != address(this),
-			"Recipient cannot be the staking contract"
-		);
 
 		(uint256 iTokenGains, uint256 tokenGains, , , ) = currentGains(
 			false,
@@ -449,15 +424,9 @@ abstract contract SimpleStakingV2 is
 
 		// recover left iToken(stakers token) only when all stakes have been withdrawn
 		if (address(_token) == address(iToken)) {
-			require(
-				totalProductivity == 0 && isPaused,
-				"can recover iToken only when stakes have been withdrawn"
-			);
+			require(totalProductivity == 0 && isPaused, "recover");
 		}
-		require(
-			_token.transfer(address(avatar), toWithdraw),
-			"recover transfer failed"
-		);
+		require(_token.transfer(address(avatar), toWithdraw), "transfer");
 	}
 
 	/**
@@ -478,10 +447,7 @@ abstract contract SimpleStakingV2 is
 	}
 
 	function _canMintRewards() internal view override {
-		require(
-			_msgSender() == nameService.getAddress("FUND_MANAGER"),
-			"Only FundManager can call this method"
-		);
+		require(_msgSender() == nameService.getAddress("FUND_MANAGER"), "fund");
 	}
 
 	function decimals() public view virtual override returns (uint8) {

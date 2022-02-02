@@ -175,11 +175,6 @@ abstract contract SimpleStaking is
 		);
 
 	/**
-	 * @dev Approve infinite tokens to defi protocols in order to save gas
-	 */
-	function _approveTokens() internal virtual;
-
-	/**
 	 * @dev Allows a staker to deposit Tokens. Notice that `approve` is
 	 * needed to be executed before the execution of this method.
 	 * Can be executed only when the contract is not paused.
@@ -368,8 +363,6 @@ abstract contract SimpleStaking is
 		);
 
 		if (address(sd) != address(0)) {
-			address[] memory contracts;
-			contracts[0] = (address(this));
 			sd.userWithdraw(_from, _value);
 			sd.userStaked(_to, _value);
 		}
