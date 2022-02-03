@@ -429,7 +429,9 @@
             [
                 "0xD33bA17C8A644C585089145e86E282fada6F3bfd",
                 310
-            ],
+            ]
+        ],
+        "StakingContractsV2": [
             [
                 "0x02416eb83cff1f19163f21010149c3867f3261e1",
                 13888
