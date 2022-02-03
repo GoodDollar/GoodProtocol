@@ -819,7 +819,9 @@ export const main = async (
         ]
       });
       const tx = await (
-        await compfactory.cloneAndInit(
+        await compfactory[
+          "cloneAndInit(address,address,uint64,address,address,address[])"
+        ](
           token.address,
           release.NameService,
           protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
@@ -841,7 +843,7 @@ export const main = async (
     //   Promise.resolve(["0x9999c40c8b88c740076b15d2e708db6a7a071b53", 13888])
     // ];
     let deployed;
-    if (!isRopsten && !isDevelop) {
+    if (!isRopsten || isTest) {
       const aaveps = aaveTokens.map(async token => {
         let rewardsPerBlock = (protocolSettings.staking.rewardsPerBlock / 2) //aave gets half of the rewards
           .toFixed(0);
@@ -851,7 +853,9 @@ export const main = async (
           rewardsPerBlock
         });
         const tx = await (
-          await aavefactory.cloneAndInit(
+          await aavefactory[
+            "cloneAndInit(address,address,address,uint64,address,address,address,address[])"
+          ](
             token.address,
             get(protocolSettings, "aave.lendingPool", dao.AaveLendingPool),
             release.NameService,

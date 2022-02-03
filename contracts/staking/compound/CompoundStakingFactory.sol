@@ -14,23 +14,44 @@ import "../../Interfaces.sol";
 contract CompoundStakingFactory {
 	using ClonesUpgradeable for address;
 
-	address impl = address(new GoodCompoundStakingV2());
+	address public impl = address(new GoodCompoundStakingV2());
 
-	event Deployed(address proxy, address cToken);
+	event Deployed(address proxy, address cToken, address impl);
 
-	function clone(cERC20 cToken, bytes32 paramsHash)
-		public
-		returns (GoodCompoundStakingV2)
-	{
-		address deployed = address(impl).cloneDeterministic(
+	function clone(
+		address _impl,
+		cERC20 cToken,
+		bytes32 paramsHash
+	) internal returns (GoodCompoundStakingV2) {
+		address deployed = address(_impl).cloneDeterministic(
 			keccak256(abi.encodePacked(address(cToken), paramsHash))
 		);
-		emit Deployed(deployed, address(cToken));
+		emit Deployed(deployed, address(cToken), _impl);
 		return GoodCompoundStakingV2(deployed);
+	}
+
+	function cloneAndInit(
+		cERC20 _cToken,
+		INameService _ns,
+		uint64 _maxRewardThreshold,
+		address _tokenUsdOracle,
+		address _compUsdOracle,
+		address[] memory _tokenToDaiSwapPath
+	) public {
+		cloneAndInit(
+			impl,
+			_cToken,
+			_ns,
+			_maxRewardThreshold,
+			_tokenUsdOracle,
+			_compUsdOracle,
+			_tokenToDaiSwapPath
+		);
 	}
 
 	/**
 	@dev Function to clone Staking contract and initialize new one with new ctoken
+	@param _impl address of contract to clone
 	@param cToken Staking cToken to use in staking contract
 	@param _ns NameService that holds whole necessary addresses
 	@param _maxRewardThreshold Block numbers that need to pass in order to user would get their rewards with 1x multiplier instead of 0.5x
@@ -38,6 +59,7 @@ contract CompoundStakingFactory {
 	@param _compUsdOracle address of the AAVE/USD oracle
 	 */
 	function cloneAndInit(
+		address _impl,
 		cERC20 cToken,
 		INameService _ns,
 		uint64 _maxRewardThreshold,
@@ -46,6 +68,7 @@ contract CompoundStakingFactory {
 		address[] memory _tokenToDaiSwapPath
 	) public {
 		GoodCompoundStakingV2 deployed = clone(
+			_impl,
 			cToken,
 			keccak256(
 				abi.encodePacked(
@@ -69,13 +92,13 @@ contract CompoundStakingFactory {
 		);
 	}
 
-	function predictAddress(cERC20 cToken, bytes32 paramsHash)
-		public
-		view
-		returns (address)
-	{
+	function predictAddress(
+		address _impl,
+		cERC20 cToken,
+		bytes32 paramsHash
+	) public view returns (address) {
 		return
-			address(impl).predictDeterministicAddress(
+			address(_impl).predictDeterministicAddress(
 				keccak256(abi.encodePacked(address(cToken), paramsHash))
 			);
 	}
