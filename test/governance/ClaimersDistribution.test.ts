@@ -17,14 +17,8 @@ describe("ClaimersDistribution", () => {
     cd: ClaimersDistribution;
 
   before(async () => {
-    [
-      root,
-      acct,
-      claimer1,
-      claimer2,
-      claimer3,
-      ...signers
-    ] = await ethers.getSigners();
+    [root, acct, claimer1, claimer2, claimer3, ...signers] =
+      await ethers.getSigners();
 
     const deployedDAO = await createDAO();
     let {
@@ -38,7 +32,15 @@ describe("ClaimersDistribution", () => {
     nameService = ns;
     genericCall = gn;
     reputation = rep;
+    const currentTime = (await ethers.provider.getBlock("latest")).timestamp;
+    if (currentTime % 2592000 > 2505600) {
+      await increaseTime(60 * 60 * 24);
+    }
 
+    if (currentTime % 86400 <= 43200) {
+      const increaseAmount = 50000 - (currentTime % 86400); // make sure that it passes noon
+      await increaseTime(increaseAmount);
+    }
     let ubi = await deployUBI(deployedDAO);
     cd = (await upgrades.deployProxy(
       await ethers.getContractFactory("ClaimersDistribution"),
@@ -50,6 +52,8 @@ describe("ClaimersDistribution", () => {
     setDAOAddress("GDAO_CLAIMERS", cd.address);
     addWhitelisted(claimer1.address, "claimer1");
     await addWhitelisted(claimer2.address, "claimer2");
+    await addWhitelisted(claimer3.address, "claimer3");
+
     await increaseTime(60 * 60 * 24);
   });
 
@@ -128,7 +132,7 @@ describe("ClaimersDistribution", () => {
       "GReputation",
       reputation
     )) as GReputation;
-    expect(await rep.balanceOf(claimer2.address)).to.equal(
+    expect(await rep.balanceOfLocal(claimer2.address)).to.equal(
       ethers.utils.parseEther("2000000")
     ); //half of reputation since he claimed once out of 2 claims
   });
@@ -145,7 +149,7 @@ describe("ClaimersDistribution", () => {
       "GReputation",
       reputation
     )) as GReputation;
-    expect(await rep.balanceOf(claimer1.address)).to.equal(
+    expect(await rep.balanceOfLocal(claimer1.address)).to.equal(
       ethers.utils.parseEther("2000000")
     ); //half of reputation since he claimed once out of 2 claims
   });
@@ -158,27 +162,49 @@ describe("ClaimersDistribution", () => {
     await expect(ubiScheme.connect(claimer1).claim()).to.not.reverted;
   });
 
-  it("should not be able to claim reputation if already distributed", async () => {
-    await expect(cd.claimReputation(claimer1.address)).to.revertedWith(
-      "already claimed"
-    );
-    await expect(cd.claimReputation(claimer2.address)).to.revertedWith(
-      "already claimed"
-    );
+  it("should not be able to double claim reputation if already distributed", async () => {
+    const rep = (await ethers.getContractAt(
+      "GReputation",
+      reputation
+    )) as GReputation;
+    const startrep = await rep.balanceOfLocal(claimer1.address);
+    await expect(cd.claimReputation(claimer1.address)).to.not.reverted;
+    const endrep = await rep.balanceOfLocal(claimer1.address);
+    expect(startrep).to.equal(endrep);
   });
 
   it("should be able to claim reputation if never claimed but get 0 reputation", async () => {
     await cd.claimReputation(claimer3.address);
 
     const curmonth = await cd.currentMonth();
-    expect(await cd.lastMonthClaimed(claimer3.address)).to.equal(
-      curmonth.sub(1)
-    );
+    expect(await cd.lastMonthClaimed(claimer3.address)).to.equal(0);
 
     const rep = (await ethers.getContractAt(
       "GReputation",
       reputation
     )) as GReputation;
-    expect(await rep.balanceOf(claimer3.address)).to.equal(0);
+    expect(await rep.balanceOfLocal(claimer3.address)).to.equal(0);
+  });
+
+  it("should be able to claim every day", async () => {
+    const startCount = await ubiScheme.totalClaimsPerUser(claimer3.address);
+    await increaseTime(60 * 60 * 24);
+    await ubiScheme.connect(claimer3).claim();
+    await increaseTime(60 * 60 * 24);
+    await ubiScheme.connect(claimer3).claim();
+    const endCount = await ubiScheme.totalClaimsPerUser(claimer3.address);
+
+    expect(endCount).to.be.equal(startCount.add(2));
+  });
+
+  it("should not cost alot of gas to claim with reputation distribution [@skip-on-coverage]", async () => {
+    let totalGas = 0;
+    for (let i = 0; i < 31; i++) {
+      await increaseTime(60 * 60 * 24);
+      const tx = await (await ubiScheme.connect(claimer3).claim()).wait();
+      totalGas += tx.gasUsed.toNumber();
+      console.log({ totalGas }, tx.gasUsed.toNumber());
+    }
+    expect(totalGas / 30).lt(310000);
   });
 });

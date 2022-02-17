@@ -7,17 +7,23 @@ pragma experimental ABIEncoderV2;
 import "../Interfaces.sol";
 import "./SimpleStaking.sol";
 import "../utils/DAOUpgradeableContract.sol";
+import "./UniswapV2SwapHelper.sol";
 
 /**
  * @title DonationStaking contract that receives funds in ETH/StakingToken
  * and stake them in the SimpleStaking contract
  */
-contract DonationsStaking is DAOUpgradeableContract {
+contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
+	using UniswapV2SwapHelper for IHasRouter;
 	SimpleStaking public stakingContract;
 	ERC20 public stakingToken;
 	Uniswap public uniswap;
 	bool public active;
 	uint256 public totalETHDonated;
+	//max percentage of token/dai pool liquidity to swap to DAI when collecting interest out of 100000
+	uint24 public maxLiquidityPercentageSwap;
+	address[] public ethToStakingTokenSwapPath;
+	address[] public stakingTokenToEthSwapPath;
 	mapping(address => uint256) public totalStakingTokensDonated;
 	event DonationStaked(
 		address caller,
@@ -33,31 +39,32 @@ contract DonationsStaking is DAOUpgradeableContract {
 
 	receive() external payable {}
 
-	function initialize(INameService _ns, address _stakingContract)
-		public
-		initializer
-	{
+	function initialize(
+		INameService _ns,
+		address _stakingContract,
+		address[] memory _ethToStakingTokenSwapPath,
+		address[] memory _stakingTokenToEthSwapPath
+	) public initializer {
 		setDAO(_ns);
 		uniswap = Uniswap(_ns.getAddress("UNISWAP_ROUTER"));
 		stakingContract = SimpleStaking(_stakingContract);
 		stakingToken = stakingContract.token();
+		maxLiquidityPercentageSwap = 300; //0.3%
 		stakingToken.approve(address(stakingContract), type(uint256).max); //we trust the staking contract
+		stakingToken.approve(address(uniswap), type(uint256).max); // we trust uniswap router
 		active = true;
+		ethToStakingTokenSwapPath = _ethToStakingTokenSwapPath;
+		stakingTokenToEthSwapPath = _stakingTokenToEthSwapPath;
 	}
 
 	/**
 	 * @dev stake available funds. It
 	 * take balance in eth and buy stakingToken from uniswap then stake outstanding StakingToken balance.
 	 * anyone can call this.
-	 * @param _minStakingTokenAmount enforce expected return from uniswap when converting eth balance to StakingToken
 	 */
-	function stakeDonations(uint256 _minStakingTokenAmount)
-		public
-		payable
-		isActive
-	{
+	function stakeDonations() public payable isActive {
 		uint256 stakingTokenDonated = stakingToken.balanceOf(address(this));
-		uint256 ethDonated = _buyStakingToken(_minStakingTokenAmount);
+		uint256 ethDonated = _buyStakingToken();
 
 		uint256 stakingTokenBalance = stakingToken.balanceOf(address(this));
 		require(stakingTokenBalance > 0, "no stakingToken to stake");
@@ -78,31 +85,29 @@ contract DonationsStaking is DAOUpgradeableContract {
 	 * @return Staking Token value staked
 	 */
 	function totalStaked() public view returns (uint256) {
-		(uint256 stakingAmount, ) =
-			stakingContract.getProductivity(address(this));
+		(uint256 stakingAmount, ) = stakingContract.getProductivity(address(this));
 		return stakingAmount;
 	}
 
 	/**
 	 * @dev internal method to buy stakingToken from uniswap
-	 * @param _minStakingTokenAmount enforce expected return from uniswap when converting eth balance to StakingToken
 	 * @return eth value converted
 	 */
-	function _buyStakingToken(uint256 _minStakingTokenAmount)
-		internal
-		returns (uint256)
-	{
+	function _buyStakingToken() internal returns (uint256) {
 		//buy from uniwasp
 		uint256 ethBalance = address(this).balance;
 		if (ethBalance == 0) return 0;
-		address[] memory path = new address[](2);
-		path[0] = uniswap.WETH();
-		path[1] = address(stakingToken);
-		uniswap.swapExactETHForTokens{ value: ethBalance }(
-			_minStakingTokenAmount,
-			path,
-			address(this),
-			block.timestamp
+		uint256 safeAmount = IHasRouter(this).maxSafeTokenAmount(
+			address(0x0),
+			address(stakingToken),
+			ethBalance,
+			maxLiquidityPercentageSwap
+		);
+		IHasRouter(this).swap(
+			ethToStakingTokenSwapPath,
+			safeAmount,
+			0,
+			address(this)
 		);
 		return ethBalance;
 	}
@@ -112,6 +117,11 @@ contract DonationsStaking is DAOUpgradeableContract {
 		active = _active;
 	}
 
+	function setMaxLiquidityPercentageSwap(uint24 _maxPercentage) public virtual {
+		_onlyAvatar();
+		maxLiquidityPercentageSwap = _maxPercentage;
+	}
+
 	/**
 	 * @dev withdraws all stakes and then transfer all balances to avatar
 	 * this can also be called by owner(Foundation) but it is safe as funds are transfered to avatar
@@ -119,10 +129,8 @@ contract DonationsStaking is DAOUpgradeableContract {
 	 */
 	function withdraw() public returns (uint256, uint256) {
 		_onlyAvatar();
-		(uint256 stakingAmount, ) =
-			stakingContract.getProductivity(address(this));
-		if (stakingAmount > 0)
-			stakingContract.withdrawStake(stakingAmount, false);
+		(uint256 stakingAmount, ) = stakingContract.getProductivity(address(this));
+		if (stakingAmount > 0) stakingContract.withdrawStake(stakingAmount, false);
 		uint256 stakingTokenBalance = stakingToken.balanceOf(address(this));
 		uint256 ethBalance = address(this).balance;
 		stakingToken.transfer(avatar, stakingTokenBalance);
@@ -138,19 +146,85 @@ contract DonationsStaking is DAOUpgradeableContract {
 	/**
 	 * @dev Function to set staking contract and withdraw previous stakings and send it to avatar
 	 */
-	function setStakingContract(address _stakingContract) external {
-		_onlyAvatar();
-		(uint256 stakingAmount, ) =
-			stakingContract.getProductivity(address(this));
-		if (stakingAmount > 0)
-			stakingContract.withdrawStake(stakingAmount, false);
+	function setStakingContract(
+		address _stakingContract,
+		address[] memory _ethToStakingTokenSwapPath
+	) external {
+		require(
+			_ethToStakingTokenSwapPath.length >= 2 &&
+				_ethToStakingTokenSwapPath[0] == address(0x0) &&
+				_ethToStakingTokenSwapPath[_ethToStakingTokenSwapPath.length - 1] ==
+				address(SimpleStaking(_stakingContract).token()),
+			"Invalid Path"
+		);
+		(uint256 stakingAmount, ) = stakingContract.getProductivity(address(this));
+		if (stakingAmount > 0) stakingContract.withdrawStake(stakingAmount, false);
 		uint256 stakingTokenBalance = stakingToken.balanceOf(address(this));
-		uint256 ethBalance = address(this).balance;
-		stakingToken.transfer(avatar, stakingTokenBalance);
-		address payable receiver = payable(avatar);
-		receiver.transfer(ethBalance);
+		uint256 safeAmount = IHasRouter(this).maxSafeTokenAmount(
+			address(stakingToken),
+			address(0x0),
+			stakingTokenBalance,
+			maxLiquidityPercentageSwap
+		);
+		if (safeAmount > 0)
+			IHasRouter(this).swap(
+				stakingTokenToEthSwapPath,
+				safeAmount,
+				0,
+				address(this)
+			);
+		uint256 remainingStakingTokenBalance = stakingToken.balanceOf(
+			address(this)
+		);
+		if (remainingStakingTokenBalance > 0)
+			stakingToken.transfer(avatar, remainingStakingTokenBalance);
 		stakingContract = SimpleStaking(_stakingContract);
 		stakingToken = stakingContract.token();
 		stakingToken.approve(address(stakingContract), type(uint256).max); //we trust the staking contract
+		stakingToken.approve(address(uniswap), type(uint256).max); // we trust uniswap router
+		ethToStakingTokenSwapPath = _ethToStakingTokenSwapPath;
+		address[] memory tempStakingToEthSwapPath = new address[](
+			_ethToStakingTokenSwapPath.length
+		);
+		uint256 k = 0;
+		for (uint256 i = _ethToStakingTokenSwapPath.length; i > 0; --i) {
+			tempStakingToEthSwapPath[k] = _ethToStakingTokenSwapPath[i - 1];
+			k += 1;
+		}
+		stakingTokenToEthSwapPath = tempStakingToEthSwapPath;
+	}
+
+	function getRouter() public view override returns (Uniswap) {
+		return Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
+	}
+
+	/**
+	 * @dev Function to set swap paths from eth to staking and staking to eth
+	 */
+	function setSwapPaths(address[] memory _ethToStakingTokenSwapPath)
+		external
+		returns (bool)
+	{
+		require(
+			_ethToStakingTokenSwapPath.length >= 2 &&
+				_ethToStakingTokenSwapPath.length >= 2 &&
+				_ethToStakingTokenSwapPath[0] == address(0x0) &&
+				_ethToStakingTokenSwapPath[_ethToStakingTokenSwapPath.length - 1] ==
+				address(stakingToken),
+			"Invalid path"
+		);
+		_onlyAvatar();
+		address[] memory tempStakingToEthSwapPath = new address[](
+			_ethToStakingTokenSwapPath.length
+		);
+		uint256 k = 0;
+		for (uint256 i = _ethToStakingTokenSwapPath.length; i > 0; --i) {
+			tempStakingToEthSwapPath[k] = _ethToStakingTokenSwapPath[i - 1];
+			k += 1;
+		}
+		ethToStakingTokenSwapPath = _ethToStakingTokenSwapPath;
+		stakingTokenToEthSwapPath = tempStakingToEthSwapPath;
+
+		return true;
 	}
 }

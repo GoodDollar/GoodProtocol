@@ -58,9 +58,6 @@ describe("CompoundVotingMachine#States", () => {
 
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
-    const CompoundVotingMachine = await ethers.getContractFactory(
-      "CompoundVotingMachine"
-    );
 
     let {
       setSchemes,
@@ -94,7 +91,13 @@ describe("CompoundVotingMachine#States", () => {
       grep.interface.encodeFunctionData("balanceOf", [acct.address])
     ];
 
-    await gov.propose(targets, values, signatures, callDatas, "do nothing");
+    await gov["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "do nothing"
+    );
     proposalBlock = +(await ethers.provider.getBlockNumber());
     proposalId = await gov.latestProposalIds(root.address);
     trivialProposal = await gov.proposals(proposalId);
@@ -107,7 +110,7 @@ describe("CompoundVotingMachine#States", () => {
 
   it("Invalid for proposal not found", async () => {
     await expect(gov.state(5)).to.revertedWith(
-      "revert CompoundVotingMachine::state: invalid proposal id"
+      "CompoundVotingMachine::state: invalid proposal id"
     );
   });
 
@@ -126,7 +129,13 @@ describe("CompoundVotingMachine#States", () => {
     await grep.delegateTo(actor.address);
     await gov
       .connect(actor)
-      .propose(targets, values, signatures, callDatas, "do nothing");
+      ["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      );
     let newProposalId = await gov.proposalCount();
 
     // send away the delegates
@@ -147,7 +156,13 @@ describe("CompoundVotingMachine#States", () => {
     let proposalId;
     before(async () => {
       await advanceBlocks(1);
-      await gov.propose(targets, values, signatures, callDatas, "do nothing");
+      await gov["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      );
       proposalId = await gov.latestProposalIds(root.address);
       await advanceBlocks(1);
     });
@@ -196,7 +211,13 @@ describe("CompoundVotingMachine#States", () => {
     await advanceBlocks(1);
     await gov
       .connect(actor)
-      .propose(targets, values, signatures, callDatas, "do nothing");
+      ["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      );
     let proposalId = await gov.latestProposalIds(actor.address);
     await advanceBlocks(1);
     await gov.connect(actor).castVote(proposalId, false);
@@ -215,7 +236,13 @@ describe("CompoundVotingMachine#States", () => {
     await advanceBlocks(1);
     await gov
       .connect(actor)
-      .propose(targets, values, signatures, callDatas, "do nothing");
+      ["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      );
     let proposalId = await gov.latestProposalIds(actor.address);
     await advanceBlocks(1);
     await gov.connect(actor).castVote(proposalId, true);
@@ -251,7 +278,13 @@ describe("CompoundVotingMachine#States", () => {
       .gameChangerPeriod()
       .then(_ => _.toNumber());
     await advanceBlocks(1);
-    await gov.propose(targets, values, signatures, callDatas, "do nothing");
+    await gov["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "do nothing"
+    );
     let proposalId = await gov.latestProposalIds(root.address);
     await advanceBlocks(1);
     await gov.connect(acct).castVote(proposalId, false);
@@ -276,7 +309,13 @@ describe("CompoundVotingMachine#States", () => {
     await advanceBlocks(1);
     await gov
       .connect(signers[0])
-      .propose(targets, values, signatures, callDatas, "do nothing");
+      ["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      );
     let proposalId = await gov.proposalCount();
     await advanceBlocks(1);
 

@@ -3,6 +3,8 @@ pragma solidity >=0.8.0;
 
 import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+
 interface OldMarketMaker {
 	struct ReserveToken {
 		// Determines the reserve token balance
@@ -35,9 +37,9 @@ contract ProtocolUpgrade {
 		_;
 	}
 
-	constructor(Controller _controller) {
+	constructor(Controller _controller, address _owner) {
 		controller = _controller;
-		owner = msg.sender;
+		owner = _owner;
 		avatar = address(controller.avatar());
 	}
 
@@ -53,14 +55,33 @@ contract ProtocolUpgrade {
 		uint256[] calldata monthlyRewards
 	) external onlyOwner {
 		require(nameHash.length == nameAddress.length, "length mismatch");
-		require(
-			staking.length == monthlyRewards.length,
-			"staking length mismatch"
-		);
+		require(staking.length == monthlyRewards.length, "staking length mismatch");
 
 		_setNameServiceContracts(ns, nameHash, nameAddress);
 
 		_setStakingRewards(ns, staking, monthlyRewards);
+
+		//identity has no need for special permissions, just needs to be registered
+		require(
+			controller.registerScheme(
+				ns.getAddress("IDENTITY"),
+				bytes32(0x0),
+				bytes4(0x00000001),
+				avatar
+			),
+			"registering Identity failed"
+		);
+
+		//formula has no need to be a registered scheme
+		address formula = IGoodDollar(ns.getAddress("GOODDOLLAR")).formula();
+		if (controller.isSchemeRegistered(formula, avatar))
+			require(
+				controller.unregisterScheme(
+					IGoodDollar(ns.getAddress("GOODDOLLAR")).formula(),
+					avatar
+				),
+				"unregistering formula failed"
+			);
 	}
 
 	/**
@@ -71,11 +92,19 @@ contract ProtocolUpgrade {
 		INameService ns,
 		address oldReserve,
 		address oldMarketMaker,
+		address oldFundManager,
 		address COMP
 	) external onlyOwner {
 		_setReserveSoleMinter(ns);
 
-		_setNewReserve(ns, oldReserve, oldMarketMaker, COMP);
+		if (oldReserve != address(0)) {
+			_setNewReserve(ns, oldReserve, oldMarketMaker, COMP);
+
+			require(
+				controller.unregisterScheme(oldFundManager, avatar),
+				"unregistering old FundManager failed"
+			);
+		}
 	}
 
 	/**
@@ -84,21 +113,21 @@ contract ProtocolUpgrade {
 	function upgradeDonationStaking(
 		INameService ns,
 		address oldDonationStaking,
-		address payable donationStaking
+		address payable donationStaking,
+		address oldSimpleDAIStaking
 	) public onlyOwner {
 		bool ok;
 		bytes memory result;
+
 		(ok, result) = controller.genericCall(
 			oldDonationStaking,
-			abi.encodeWithSignature("end()", 0, 0, false),
+			abi.encodeWithSignature("end()"),
 			avatar,
 			0
 		);
 
 		require(ok, "Calling oldDonationStaking end failed");
-
 		(uint256 dai, uint256 eth) = abi.decode(result, (uint256, uint256));
-
 		ok = controller.externalTokenTransfer(
 			ns.getAddress("DAI"),
 			donationStaking,
@@ -107,15 +136,31 @@ contract ProtocolUpgrade {
 		);
 
 		require(ok, "Calling DAI externalTokenTransfer failed");
-
 		if (eth > 0) {
-			ok = controller.sendEther(eth, donationStaking, avatar);
+			ok = controller.sendEther(eth, payable(this), avatar);
 
 			require(ok, "Calling  sendEther failed");
-		}
 
-		IDonationStaking(donationStaking).stakeDonations(0);
+			AddressUpgradeable.sendValue(donationStaking, eth);
+		}
+		IDonationStaking(donationStaking).stakeDonations();
+
+		(ok, result) = controller.genericCall(
+			oldSimpleDAIStaking,
+			abi.encodeWithSignature("end()"),
+			avatar,
+			0
+		);
+
+		require(ok, "Calling old SimpleDAIStaking end failed");
+
+		require(
+			controller.unregisterScheme(oldSimpleDAIStaking, avatar),
+			"unregistering old SimpleDAIStaking failed"
+		);
 	}
+
+	receive() external payable {}
 
 	/**
 	 * 6. upgrade to new DAO and relinquish control
@@ -128,14 +173,18 @@ contract ProtocolUpgrade {
 		address upgradeScheme,
 		address compoundVotingMachine
 	) public onlyOwner {
-		require(
-			controller.unregisterScheme(schemeRegistrar, avatar),
-			"unregistering schemeRegistrar failed"
-		);
-		require(
-			controller.unregisterScheme(upgradeScheme, avatar),
-			"unregistering upgradeScheme failed"
-		);
+		if (schemeRegistrar != address(0))
+			require(
+				controller.unregisterScheme(schemeRegistrar, avatar),
+				"unregistering schemeRegistrar failed"
+			);
+
+		if (upgradeScheme != address(0))
+			require(
+				controller.unregisterScheme(upgradeScheme, avatar),
+				"unregistering upgradeScheme failed"
+			);
+
 		require(
 			controller.registerScheme(
 				compoundVotingMachine,
@@ -146,6 +195,20 @@ contract ProtocolUpgrade {
 			"registering compoundVotingMachine failed"
 		);
 
+		require(
+			controller.registerScheme(
+				owner,
+				bytes32(0x0),
+				bytes4(0x0000001F),
+				avatar
+			),
+			"registering governance failsafe failed"
+		);
+
+		require(
+			controller.unregisterSelf(avatar),
+			"unregistering protocolupgrade failed"
+		);
 		selfdestruct(payable(owner));
 	}
 
@@ -156,10 +219,7 @@ contract ProtocolUpgrade {
 		bool ok;
 		(ok, ) = controller.genericCall(
 			ns.getAddress("GOODDOLLAR"),
-			abi.encodeWithSignature(
-				"addMinter(address)",
-				ns.getAddress("RESERVE")
-			),
+			abi.encodeWithSignature("addMinter(address)", ns.getAddress("RESERVE")),
 			avatar,
 			0
 		);
@@ -191,15 +251,18 @@ contract ProtocolUpgrade {
 		address oldMarketMaker,
 		address COMP
 	) internal {
-		(bool ok, ) =
-			controller.genericCall(
+		bool ok;
+		if (COMP != address(0x0)) {
+			(ok, ) = controller.genericCall(
 				oldReserve,
 				abi.encodeWithSignature("recover(address)", COMP),
 				avatar,
 				0
 			);
 
-		require(ok, "calling Reserve comp recover failed");
+			require(ok, "calling Reserve comp recover failed");
+		}
+
 		address cdai = ns.getAddress("CDAI");
 		uint256 oldReserveCdaiBalance = ERC20(cdai).balanceOf(oldReserve);
 		(ok, ) = controller.genericCall(
@@ -211,9 +274,8 @@ contract ProtocolUpgrade {
 
 		require(ok, "calling Reserve end failed");
 
-		
-		OldMarketMaker.ReserveToken memory rToken =
-			OldMarketMaker(oldMarketMaker).reserveTokens(cdai);
+		OldMarketMaker.ReserveToken memory rToken = OldMarketMaker(oldMarketMaker)
+			.reserveTokens(cdai);
 		ok = controller.externalTokenTransfer(
 			cdai,
 			ns.getAddress("RESERVE"),
@@ -237,6 +299,11 @@ contract ProtocolUpgrade {
 		);
 
 		require(ok, "calling marketMaker initializeToken failed");
+
+		require(
+			controller.unregisterScheme(oldReserve, avatar),
+			"unregistering old reserve failed"
+		);
 	}
 
 	//set contracts in nameservice that are deployed after INameService is created
@@ -246,17 +313,16 @@ contract ProtocolUpgrade {
 		bytes32[] memory names,
 		address[] memory addresses
 	) internal {
-		(bool ok, ) =
-			controller.genericCall(
-				address(ns),
-				abi.encodeWithSignature(
-					"setAddresses(bytes32[],address[])",
-					names,
-					addresses
-				),
-				avatar,
-				0
-			);
+		(bool ok, ) = controller.genericCall(
+			address(ns),
+			abi.encodeWithSignature(
+				"setAddresses(bytes32[],address[])",
+				names,
+				addresses
+			),
+			avatar,
+			0
+		);
 		require(ok, "Calling setNameServiceContracts failed");
 	}
 
@@ -267,20 +333,19 @@ contract ProtocolUpgrade {
 		uint256[] memory rewards
 	) internal {
 		for (uint256 i = 0; i < contracts.length; i++) {
-			(bool ok, ) =
-				controller.genericCall(
-					ns.getAddress("FUND_MANAGER"),
-					abi.encodeWithSignature(
-						"setStakingReward(uint32,address,uint32,uint32,bool)",
-						rewards[i],
-						contracts[i],
-						0,
-						0,
-						false
-					),
-					avatar,
-					0
-				);
+			(bool ok, ) = controller.genericCall(
+				ns.getAddress("FUND_MANAGER"),
+				abi.encodeWithSignature(
+					"setStakingReward(uint32,address,uint32,uint32,bool)",
+					rewards[i],
+					contracts[i],
+					0,
+					0,
+					false
+				),
+				avatar,
+				0
+			);
 			require(ok, "Calling setStakingRewards failed");
 		}
 	}

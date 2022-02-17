@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
-
 import "./Reputation.sol";
 import "../Interfaces.sol";
 
@@ -117,7 +115,7 @@ contract GReputation is Reputation {
 			delegates[repTarget] = repTarget;
 			delegator = repTarget;
 		}
-		uint256 previousVotes = getVotes(delegator);
+		uint256 previousVotes = getVotesAt(delegator, false, block.number);
 
 		_updateDelegateVotes(
 			delegator,
@@ -141,7 +139,8 @@ contract GReputation is Reputation {
 		address delegator = delegates[_user];
 		delegator = delegator != address(0) ? delegator : _user;
 		delegates[_user] = delegator;
-		uint256 previousVotes = getVotes(delegator);
+
+		uint256 previousVotes = getVotesAt(delegator, false, block.number);
 
 		_updateDelegateVotes(
 			delegator,
@@ -180,7 +179,7 @@ contract GReputation is Reputation {
 		//dont consider rootState as blockchain,  it is a special state hash
 		bool isRootState = idHash == ROOT_STATE;
 		require(
-			!isRootState || super.totalSupplyAt(block.number) == 0,
+			!isRootState || totalSupplyLocalAt(block.number) == 0,
 			"rootState already created"
 		);
 		uint256 i = 0;
@@ -237,6 +236,28 @@ contract GReputation is Reputation {
 	}
 
 	/**
+	 * @notice same as getVotes, be compatible with metamask
+	 */
+	function balanceOf(address _user) public view returns (uint256 balance) {
+		return getVotesAt(_user, block.number);
+	}
+
+	/**
+	 same as getVotes be compatible with compound 
+	 */
+	function getCurrentVotes(address _user) public view returns (uint256) {
+		return getVotesAt(_user, true, block.number);
+	}
+
+	function getPriorVotes(address _user, uint256 _block)
+		public
+		view
+		returns (uint256)
+	{
+		return getVotesAt(_user, true, _block);
+	}
+
+	/**
 	 * @notice returns aggregated active votes in all blockchains and delegated at specific block
 	 * @param _user user to get active votes for
 	 * @param _blockNumber get votes state at specific block
@@ -251,7 +272,7 @@ contract GReputation is Reputation {
 	}
 
 	/**
-	 * @notice returns total supply in current blockchain (super.balanceOfAt)
+	 * @notice returns total supply in current blockchain
 	 * @param _blockNumber get total supply at specific block
 	 * @return the totaly supply
 	 */
@@ -260,7 +281,7 @@ contract GReputation is Reputation {
 		view
 		returns (uint256)
 	{
-		return super.totalSupplyAt(_blockNumber);
+		return totalSupplyLocalAt(_blockNumber);
 	}
 
 	/**
@@ -268,13 +289,8 @@ contract GReputation is Reputation {
 	 * @param _blockNumber get total supply at specific block
 	 * @return the totaly supply
 	 */
-	function totalSupplyAt(uint256 _blockNumber)
-		public
-		view
-		override
-		returns (uint256)
-	{
-		uint256 startingSupply = super.totalSupplyAt(_blockNumber);
+	function totalSupplyAt(uint256 _blockNumber) public view returns (uint256) {
+		uint256 startingSupply = totalSupplyLocalAt(_blockNumber);
 		for (uint256 i = 0; i < activeBlockchains.length; i++) {
 			startingSupply += totalSupplyAtBlockchain(
 				activeBlockchains[i],
@@ -282,6 +298,12 @@ contract GReputation is Reputation {
 			);
 		}
 		return startingSupply;
+	}
+
+	/// @dev This function makes it easy to get the total number of reputation
+	/// @return The total number of reputation
+	function totalSupply() public view returns (uint256) {
+		return totalSupplyAt(block.number);
 	}
 
 	/// @notice get the number of active votes a user holds after delegation in specific blockchain
@@ -333,26 +355,30 @@ contract GReputation is Reputation {
 	/**
 	 * @notice prove user balance in a specific blockchain state hash
 	 * @dev "rootState" is a special state that can be supplied once, and actually mints reputation on the current blockchain
+	 * we use non sorted merkle tree, as sorting while preparing merkle tree is heavy
 	 * @param _id the string id of the blockchain we supply proof for
 	 * @param _user the user to prove his balance
 	 * @param _balance the balance we are prooving
 	 * @param _proof array of byte32 with proof data (currently merkle tree path)
+ 	 * @param _nodeIndex index of node in the tree (for unsorted merkle tree proof)
+
 	 * @return true if proof is valid
 	 */
 	function proveBalanceOfAtBlockchain(
 		string memory _id,
 		address _user,
 		uint256 _balance,
-		bytes32[] memory _proof
+		bytes32[] memory _proof,
+		uint256 _nodeIndex
 	) public returns (bool) {
 		bytes32 idHash = keccak256(bytes(_id));
 		require(
 			blockchainStates[idHash].length > 0,
 			"no state found for given _id"
 		);
-		bytes32 stateHash =
-			blockchainStates[idHash][blockchainStates[idHash].length - 1]
-				.stateHash;
+		bytes32 stateHash = blockchainStates[idHash][
+			blockchainStates[idHash].length - 1
+		].stateHash;
 
 		//this is specifically important for rootState that should update real balance only once
 		require(
@@ -360,8 +386,14 @@ contract GReputation is Reputation {
 			"stateHash already proved"
 		);
 
-		(, bool isProofValid) =
-			_checkMerkleProof(_user, _balance, stateHash, _proof);
+		bytes32 leafHash = keccak256(abi.encode(_user, _balance));
+		bool isProofValid = checkProofOrdered(
+			_proof,
+			stateHash,
+			leafHash,
+			_nodeIndex
+		);
+
 		require(isProofValid, "invalid merkle proof");
 
 		//if initiial state then set real balance
@@ -412,23 +444,20 @@ contract GReputation is Reputation {
 		bytes32 _r,
 		bytes32 _s
 	) public {
-		bytes32 domainSeparator =
-			keccak256(
-				abi.encode(
-					DOMAIN_TYPEHASH,
-					keccak256(bytes(name)),
-					getChainId(),
-					address(this)
-				)
-			);
-		bytes32 structHash =
-			keccak256(
-				abi.encode(DELEGATION_TYPEHASH, _delegate, _nonce, _expiry)
-			);
-		bytes32 digest =
-			keccak256(
-				abi.encodePacked("\x19\x01", domainSeparator, structHash)
-			);
+		bytes32 domainSeparator = keccak256(
+			abi.encode(
+				DOMAIN_TYPEHASH,
+				keccak256(bytes(name)),
+				getChainId(),
+				address(this)
+			)
+		);
+		bytes32 structHash = keccak256(
+			abi.encode(DELEGATION_TYPEHASH, _delegate, _nonce, _expiry)
+		);
+		bytes32 digest = keccak256(
+			abi.encodePacked("\x19\x01", domainSeparator, structHash)
+		);
 		address signatory = ecrecover(digest, _v, _r, _s);
 		require(
 			signatory != address(0),
@@ -460,7 +489,7 @@ contract GReputation is Reputation {
 		delegates[_user] = _delegate;
 
 		// remove votes from current delegator
-		uint256 coreBalance = balanceOf(_user);
+		uint256 coreBalance = balanceOfLocalAt(_user, block.number);
 		//redundant check - should not be possible to have address 0 as delegator
 		if (curDelegator != address(0)) {
 			uint256 removeVotes = getVotesAt(curDelegator, false, block.number);
@@ -474,12 +503,7 @@ contract GReputation is Reputation {
 
 		//move votes to new delegator
 		uint256 addVotes = getVotesAt(_delegate, false, block.number);
-		_updateDelegateVotes(
-			_delegate,
-			_user,
-			addVotes,
-			addVotes + coreBalance
-		);
+		_updateDelegateVotes(_delegate, _user, addVotes, addVotes + coreBalance);
 	}
 
 	/// @notice internal function to update delegated votes, emits event with changes
@@ -497,16 +521,46 @@ contract GReputation is Reputation {
 		emit DelegateVotesChanged(_delegate, _delegator, _oldVotes, _newVotes);
 	}
 
-	/// @notice helper function to check merkle proof using openzeppelin
-	/// @return leafHash isProofValid tuple (byte32, bool) with the hash of the leaf data we prove and true if proof is valid
-	function _checkMerkleProof(
-		address _user,
-		uint256 _balance,
+	// from StorJ -- https://github.com/nginnever/storj-audit-verifier/blob/master/contracts/MerkleVerifyv3.sol
+	/**
+	 * @dev non sorted merkle tree proof check
+	 */
+	function checkProofOrdered(
+		bytes32[] memory _proof,
 		bytes32 _root,
-		bytes32[] memory _proof
-	) internal pure returns (bytes32 leafHash, bool isProofValid) {
-		leafHash = keccak256(abi.encode(_user, _balance));
-		isProofValid = MerkleProofUpgradeable.verify(_proof, _root, leafHash);
+		bytes32 _hash,
+		uint256 _index
+	) public pure returns (bool) {
+		// use the index to determine the node ordering
+		// index ranges 1 to n
+
+		bytes32 proofElement;
+		bytes32 computedHash = _hash;
+		uint256 remaining;
+
+		for (uint256 j = 0; j < _proof.length; j++) {
+			proofElement = _proof[j];
+
+			// calculate remaining elements in proof
+			remaining = _proof.length - j;
+
+			// we don't assume that the tree is padded to a power of 2
+			// if the index is odd then the proof will start with a hash at a higher
+			// layer, so we have to adjust the index to be the index at that layer
+			while (remaining > 0 && _index % 2 == 1 && _index > 2**remaining) {
+				_index = _index / 2 + 1;
+			}
+
+			if (_index % 2 == 0) {
+				computedHash = keccak256(abi.encodePacked(proofElement, computedHash));
+				_index = _index / 2;
+			} else {
+				computedHash = keccak256(abi.encodePacked(computedHash, proofElement));
+				_index = _index / 2 + 1;
+			}
+		}
+
+		return computedHash == _root;
 	}
 
 	/// @notice helper function to get current chain id
@@ -521,5 +575,35 @@ contract GReputation is Reputation {
 
 	function setReputationRecipient(address _target) public {
 		reputationRecipients[msg.sender] = _target;
+	}
+
+	function fix1() public {
+		if (
+			getVotes(0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF) ==
+			1008145362854518632309 &&
+			getVotes(0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4) ==
+			587905678906424942728383 &&
+			getVotes(0x1D5096665E79585019c448259D944090F28702E3) ==
+			3421532080040613840050
+		) {
+			_updateDelegateVotes(
+				0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF,
+				0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF,
+				1008145362854518632309,
+				balanceOfLocal(0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF)
+			);
+			_updateDelegateVotes(
+				0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4,
+				0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4,
+				587905678906424942728383,
+				balanceOfLocal(0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4)
+			);
+			_updateDelegateVotes(
+				0x1D5096665E79585019c448259D944090F28702E3,
+				0x1D5096665E79585019c448259D944090F28702E3,
+				3421532080040613840050,
+				balanceOfLocal(0x1D5096665E79585019c448259D944090F28702E3)
+			);
+		}
 	}
 }

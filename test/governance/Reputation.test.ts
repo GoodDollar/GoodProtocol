@@ -31,7 +31,7 @@ describe("Reputation", () => {
     let value;
     await reputation.mint(acct.address, 3131);
 
-    value = await reputation.balanceOf(acct.address);
+    value = await reputation.balanceOfLocal(acct.address);
     expect(value).to.equal(3131);
   });
 
@@ -50,10 +50,10 @@ describe("Reputation", () => {
     await expect(reputation.connect(signers[2]).mint(signers[2], 1000)).to
       .reverted;
 
-    let account0Rep = await reputation.balanceOf(signers[0].address);
-    let account1Rep = await reputation.balanceOf(signers[1].address);
-    let account2Rep = await reputation.balanceOf(signers[2].address);
-    let totalRep = await reputation.totalSupply();
+    let account0Rep = await reputation.balanceOfLocal(signers[0].address);
+    let account1Rep = await reputation.balanceOfLocal(signers[1].address);
+    let account2Rep = await reputation.balanceOfLocal(signers[2].address);
+    let totalRep = await reputation.totalSupplyLocal();
 
     expect(account1Rep).to.equal(1000, "account 1 reputation should be 1000");
     expect(account2Rep).to.equal(0, "account 2 reputation should be 0");
@@ -71,9 +71,9 @@ describe("Reputation", () => {
     await reputation.mint(signers[2].address, 3000);
 
     // this tx should have no effect
-    let account0Rep = await reputation.balanceOf(signers[0].address);
-    let account1Rep = await reputation.balanceOf(signers[1].address);
-    let account2Rep = await reputation.balanceOf(signers[2].address);
+    let account0Rep = await reputation.balanceOfLocal(signers[0].address);
+    let account1Rep = await reputation.balanceOfLocal(signers[1].address);
+    let account2Rep = await reputation.balanceOfLocal(signers[2].address);
 
     // expect(account0Rep, 2001, "account 0 reputation should be 2000");
     expect(account1Rep).to.equal(
@@ -82,7 +82,7 @@ describe("Reputation", () => {
     );
     expect(account2Rep).to.equal(3000, "account 2 reputation should be 3000");
 
-    let totalRep = await reputation.totalSupply();
+    let totalRep = await reputation.totalSupplyLocal();
 
     expect(totalRep).to.equal(
       account0Rep.add(account1Rep).add(account2Rep),
@@ -96,23 +96,22 @@ describe("Reputation", () => {
       .catch(e => e);
     expect(tx.message).to.have.string("Reputation: need minter role");
   });
-  it("user should be able to burn their own reputation",async()=>{
-    await reputation.connect(signers[0]).burn(signers[0].address, ethers.utils.parseEther("1"))
-  })
+  it("user should be able to burn their own reputation", async () => {
+    await reputation
+      .connect(signers[0])
+      .burn(signers[0].address, ethers.utils.parseEther("1"));
+  });
   it("check total reputation overflow", async () => {
     let BigNumber = ethers.BigNumber;
-    let bigNum = BigNumber.from(2)
-      .pow(128)
-      .sub(1)
-      .toString();
+    let bigNum = BigNumber.from(2).pow(128).sub(1).toString();
 
     await reputation.mint(signers[0].address, bigNum);
 
-    let totalRepBefore = await reputation.totalSupply();
+    let totalRepBefore = await reputation.totalSupplyLocal();
 
     await expect(reputation.mint(signers[1].address, 1)).to.reverted;
 
-    let totalRepAfter = await reputation.totalSupply();
+    let totalRepAfter = await reputation.totalSupplyLocal();
 
     expect(totalRepBefore).to.equal(totalRepAfter);
   });
@@ -122,15 +121,15 @@ describe("Reputation", () => {
     await reputation.mint(signers[1].address, 1500);
     await reputation.burn(signers[1].address, 500);
 
-    value = await reputation.balanceOf(signers[1].address);
-    let totalRepSupply = await reputation.totalSupply();
+    value = await reputation.balanceOfLocal(signers[1].address);
+    let totalRepSupply = await reputation.totalSupplyLocal();
 
     expect(value).to.equal(1000);
     expect(totalRepSupply).to.equal(1000);
   });
 
   it("totalSupply is 0 on init", async () => {
-    const totalSupply = await reputation.totalSupply();
+    const totalSupply = await reputation.totalSupplyLocal();
 
     expect(totalSupply).to.equal(0);
   });
@@ -163,12 +162,12 @@ describe("Reputation", () => {
 
   it("mint (plus) should be reflected in totalSupply", async () => {
     await reputation.mint(signers[1].address, 1000);
-    let totalSupply = await reputation.totalSupply();
+    let totalSupply = await reputation.totalSupplyLocal();
 
     expect(totalSupply).to.equal(1000);
 
     await reputation.mint(signers[2].address, 500);
-    totalSupply = await reputation.totalSupply();
+    totalSupply = await reputation.totalSupplyLocal();
 
     expect(totalSupply).to.equal(1500);
   });
@@ -176,22 +175,22 @@ describe("Reputation", () => {
   it("mint (plus) should be reflected in balances", async () => {
     await reputation.mint(signers[1].address, 1000);
 
-    const amount = await reputation.balanceOf(signers[1].address);
+    const amount = await reputation.balanceOfLocal(signers[1].address);
 
     expect(amount).to.equal(1000);
   });
 
   it("mint (minus) should be reflected in totalSupply", async () => {
     await reputation.mint(signers[1].address, 1000);
-    let totalSupply = await reputation.totalSupply();
+    let totalSupply = await reputation.totalSupplyLocal();
     expect(totalSupply).to.equal(1000);
 
     await reputation.burn(signers[1].address, 500);
-    totalSupply = await reputation.totalSupply();
+    totalSupply = await reputation.totalSupplyLocal();
     expect(totalSupply).to.equal(500);
 
     await reputation.burn(signers[1].address, 700);
-    totalSupply = await reputation.totalSupply();
+    totalSupply = await reputation.totalSupplyLocal();
     expect(totalSupply).to.equal(0);
   });
 
@@ -199,31 +198,31 @@ describe("Reputation", () => {
     await reputation.mint(signers[1].address, 1000);
     await reputation.burn(signers[1].address, 500);
 
-    let amount = await reputation.balanceOf(signers[1].address);
+    let amount = await reputation.balanceOfLocal(signers[1].address);
 
     expect(amount).to.equal(500);
 
     await reputation.burn(signers[1].address, 700);
-    amount = await reputation.balanceOf(signers[1].address);
+    amount = await reputation.balanceOfLocal(signers[1].address);
     expect(amount).to.equal(0);
   });
 
   it("account balance cannot be negative", async () => {
     await reputation.mint(signers[1].address, 1);
 
-    let amount = await reputation.balanceOf(signers[1].address);
+    let amount = await reputation.balanceOfLocal(signers[1].address);
     expect(amount).to.equal(1);
     await reputation.burn(signers[1].address, 2);
-    let rep = await reputation.balanceOf(signers[1].address);
+    let rep = await reputation.balanceOfLocal(signers[1].address);
     expect(rep).to.equal(0);
   });
 
   it("totalSupply cannot be negative", async () => {
     await reputation.mint(signers[1].address, 1);
-    let amount = await reputation.totalSupply();
+    let amount = await reputation.totalSupplyLocal();
     expect(amount).to.equal(1);
     await reputation.burn(signers[1].address, 2);
-    let rep = await reputation.totalSupply();
+    let rep = await reputation.totalSupplyLocal();
     expect(rep).to.equal(0);
   });
 
@@ -236,9 +235,9 @@ describe("Reputation", () => {
     await reputation.mint(signers[2].address, rep2);
     await reputation.mint(signers[3].address, rep3);
 
-    const balanceOf1 = await reputation.balanceOf(signers[1].address);
-    const balanceOf2 = await reputation.balanceOf(signers[2].address);
-    const balanceOf3 = await reputation.balanceOf(signers[3].address);
+    const balanceOf1 = await reputation.balanceOfLocal(signers[1].address);
+    const balanceOf2 = await reputation.balanceOfLocal(signers[2].address);
+    const balanceOf3 = await reputation.balanceOfLocal(signers[3].address);
 
     expect(balanceOf1).to.equal(rep1);
     expect(balanceOf2).to.equal(rep2);
@@ -250,19 +249,21 @@ describe("Reputation", () => {
     await reputation.mint(signers[1].address, rep1);
     var tx = await (await reputation.mint(signers[1].address, rep1)).wait();
     await reputation.mint(signers[3].address, rep1);
-    expect(await reputation.totalSupply()).to.equal(rep1 + rep1 + rep1);
-    expect(await reputation.totalSupplyAt(tx.blockNumber)).to.equal(
+    expect(await reputation.totalSupplyLocal()).to.equal(rep1 + rep1 + rep1);
+    expect(await reputation.totalSupplyLocalAt(tx.blockNumber)).to.equal(
       rep1 + rep1
     );
-    expect(await reputation.totalSupplyAt(tx.blockNumber - 1)).to.equal(rep1);
+    expect(await reputation.totalSupplyLocalAt(tx.blockNumber - 1)).to.equal(
+      rep1
+    );
     expect(
-      await reputation.balanceOfAt(signers[1].address, tx.blockNumber)
+      await reputation.balanceOfLocalAt(signers[1].address, tx.blockNumber)
     ).to.equal(rep1 + rep1);
     expect(
-      await reputation.balanceOfAt(signers[1].address, tx.blockNumber - 1)
+      await reputation.balanceOfLocalAt(signers[1].address, tx.blockNumber - 1)
     ).to.equal(rep1);
     expect(
-      await reputation.balanceOfAt(signers[3].address, tx.blockNumber)
+      await reputation.balanceOfLocalAt(signers[3].address, tx.blockNumber)
     ).to.equal(0);
   });
 
@@ -281,28 +282,28 @@ describe("Reputation", () => {
     var times = 3;
 
     await reputationTestHelper.multipleMint(signers[1].address, rep, times);
-    expect(await reputation.totalSupply()).to.equal(rep * times);
-    expect(await reputation.balanceOf(signers[1].address)).to.equal(
+    expect(await reputation.totalSupplyLocal()).to.equal(rep * times);
+    expect(await reputation.balanceOfLocal(signers[1].address)).to.equal(
       rep * times
     );
 
     await reputationTestHelper.multipleBurn(signers[1].address, rep, 2);
-    expect(await reputation.totalSupply()).to.equal(rep);
-    expect(await reputation.balanceOf(signers[1].address)).to.equal(rep);
+    expect(await reputation.totalSupplyLocal()).to.equal(rep);
+    expect(await reputation.balanceOfLocal(signers[1].address)).to.equal(rep);
   });
 
   it("balanceOfAt before first mint should be 0 ", async () => {
     const rep1 = Math.floor(Math.random() * 1e6);
     var tx = await (await reputation.mint(signers[1].address, rep1)).wait();
-    expect(await reputation.totalSupply()).to.equal(rep1);
-    expect(await reputation.totalSupplyAt(tx.blockNumber)).to.equal(rep1);
-    expect(await reputation.totalSupplyAt(tx.blockNumber - 1)).to.equal(0);
+    expect(await reputation.totalSupplyLocal()).to.equal(rep1);
+    expect(await reputation.totalSupplyLocalAt(tx.blockNumber)).to.equal(rep1);
+    expect(await reputation.totalSupplyLocalAt(tx.blockNumber - 1)).to.equal(0);
 
     expect(
-      await reputation.balanceOfAt(signers[1].address, tx.blockNumber)
+      await reputation.balanceOfLocalAt(signers[1].address, tx.blockNumber)
     ).to.equal(rep1);
     expect(
-      await reputation.balanceOfAt(signers[1].address, tx.blockNumber - 1)
+      await reputation.balanceOfLocalAt(signers[1].address, tx.blockNumber - 1)
     ).to.equal(0);
   });
 });

@@ -3,6 +3,8 @@
     "governance": {
       "proposalVotingPeriod": 241920
     },
+    "compound": {},
+    "aave": {},
     "expansionRatio": {
       "nom": 999388834642296,
       "denom": 1e15
@@ -22,15 +24,15 @@
   },
   "develop": {
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
     }
   },
   "develop-mainnet": {
-    "gdxAirdrop": "0x0000000000000000000000000000000000000000000000000000000000000002",
+    "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 86040
     },
@@ -40,16 +42,54 @@
       "eth_usd": "0x30B5068156688f818cEa0874B580206dFe081a03"
     }
   },
+  "dapptest": {
+    "governance": {
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
+      "gdaoTotalSupply": "24000000000000000000000000",
+      "proposalVotingPeriod": 241920
+    }
+  },
+  "dapptest-mainnet": {
+    "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
+    "governance": {
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
+      "gdaoTotalSupply": "24000000000000000000000000",
+      "proposalVotingPeriod": 86040
+    }
+  },
+  "test": {
+    "governance": {
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
+      "gdaoTotalSupply": "24000000000000000000000000",
+      "proposalVotingPeriod": 241920,
+      "guardian": "0x914dA3B2508634998d244059dAb5488D9bA1814f"
+    }
+  },
+  "test-mainnet": {
+    "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
+    "governance": {
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
+      "gdaoTotalSupply": "24000000000000000000000000",
+      "proposalVotingPeriod": 86040,
+      "guardian": "0x914dA3B2508634998d244059dAb5488D9bA1814f"
+    },
+    "chainlink": {
+      "gasPrice": "0xF8161973a556bf5fEbb3BaCe573262FCd3b33973",
+      "dai_eth": "0x24959556020AE5D39e5bAEC2bd6Bf12420C25aB5",
+      "eth_usd": "0x30B5068156688f818cEa0874B580206dFe081a03"
+    }
+  },
   "fuse": {
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
     }
   },
   "fuse-mainnet": {
+    "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
     },
@@ -66,18 +106,29 @@
       "dai_eth": "0x24959556020AE5D39e5bAEC2bd6Bf12420C25aB5",
       "eth_usd": "0x30B5068156688f818cEa0874B580206dFe081a03"
     },
-    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    "donationsStaking": {
+      "ethToStakingTokenSwapPath": [
+        "0x0000000000000000000000000000000000000000",
+        "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd"
+      ],
+      "stakingTokenToEthSwapPath": [
+        "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
+        "0x0000000000000000000000000000000000000000"
+      ]
+    }
   },
   "staging": {
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
     }
   },
   "staging-mainnet": {
+    "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 80640
     },
@@ -94,20 +145,31 @@
       "dai_eth": "0x24959556020AE5D39e5bAEC2bd6Bf12420C25aB5",
       "eth_usd": "0x30B5068156688f818cEa0874B580206dFe081a03"
     },
-    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    "donationsStaking": {
+      "ethToStakingTokenSwapPath": [
+        "0x0000000000000000000000000000000000000000",
+        "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd"
+      ],
+      "stakingTokenToEthSwapPath": [
+        "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
+        "0x0000000000000000000000000000000000000000"
+      ]
+    }
   },
   "kovan-mainnet": {
+    "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
     "governance": {
-      "gdaoAirdrop": "0x2bc5d079ee076bebadc354ad388aff81fb0ade0b3fbb663d5ce45ec63bec31a2",
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 80640
     },
     "bancor": "0x8c1255c46B3a04686eA0FfD3B71d7cB391091a58",
     "compound": {
-      "cdai": "0x5d3a536e4d6dbd6114cc1ead35777bab948e3643",
-      "dai": "0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa ",
+      "cdai": "0xf0d0eb522cfa50b716b3b1604c4f0fa6f04376ad",
+      "dai": "0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa",
       "comp": "0x61460874a7196d6a22d1ee4922473664b3e95270",
-      "daiUsdOracle": "0xb27bc5473c9c18e9860f520e6a554e23bb675eba",
+      "daiUsdOracle": "0x777A68032a88E5A84678A77Af2CD65A7b3c0775a",
       "compUsdOracle": "0xECF93D14d25E02bA2C13698eeDca9aA98348EFb6"
     },
     "aave": {
@@ -115,7 +177,7 @@
       "lendingPool": "0xE0fBa4Fc209b4948668006B2bE61711b7f465bAe",
       "incentiveController": "0x54502350fb61b7752fFFA36690ecA43c6562fd5C",
       "usdc": "0xe22da380ee6B445bb8273C81944ADEB6E8450422",
-      "usdcUsdOracle": "0xd9f98271d60345737fd3fb7cd015aa0474dfd458",
+      "usdcUsdOracle": "0x9211c6b3BF41A10F78539810Cf5c64e1BB78Ec60",
       "aaveUsdOracle": "0xDE1af8A8442290e13C0451fb7Fd60bD2725e6Afc"
     },
     "chainlink": {
@@ -125,9 +187,21 @@
     },
     "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
   },
-  "production-mainnet": {
+  "production": {
     "governance": {
-      "proposalVotingPeriod": 80640
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
+      "gdaoTotalSupply": "96000000000000000000000000",
+      "proposalVotingPeriod": 241920,
+      "guardian": "0x914dA3B2508634998d244059dAb5488D9bA1814f"
+    }
+  },
+  "production-mainnet": {
+    "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
+    "governance": {
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
+      "gdaoTotalSupply": "96000000000000000000000000",
+      "proposalVotingPeriod": 80640,
+      "guardian": "0xF0652a820dd39EC956659E0018Da022132f2f40a"
     },
     "bancor": "0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a",
     "compound": {

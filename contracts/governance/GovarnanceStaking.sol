@@ -37,7 +37,7 @@ contract GovernanceStaking is
 	constructor(INameService _ns) {
 		setDAO(_ns);
 		token = ERC20(nameService.getAddress("GOODDOLLAR"));
-		__ERC20_init("GDAO Staking", "sGDAO");
+		__ERC20_init("G$ Staking For GOOD", "sG$");
 		rewardsPerBlock[address(this)] = (2 ether * 1e6) / FUSE_MONTHLY_BLOCKS; // (2M monthly GDAO as specified in specs, divided by blocks in month )
 	}
 
@@ -75,8 +75,7 @@ contract GovernanceStaking is
 	 * @dev Withdraws the sender staked Token.
 	 */
 	function withdrawStake(uint256 _amount) external nonReentrant {
-		(uint256 userProductivity, ) =
-			getProductivity(address(this), _msgSender());
+		(uint256 userProductivity, ) = getProductivity(address(this), _msgSender());
 		if (_amount == 0) _amount = userProductivity;
 		require(_amount > 0, "Should withdraw positive amount");
 		require(userProductivity >= _amount, "Not enough token staked");
@@ -112,8 +111,7 @@ contract GovernanceStaking is
 	 */
 
 	function _mintRewards(address user) internal returns (uint256) {
-		uint256 amount =
-			_issueEarnedRewards(address(this), user, 0, block.number);
+		uint256 amount = _issueEarnedRewards(address(this), user, 0, block.number);
 		if (amount > 0) {
 			ERC20(nameService.getAddress("REPUTATION")).mint(user, amount);
 			emit ReputationEarned(_msgSender(), amount);

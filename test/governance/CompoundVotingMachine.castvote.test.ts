@@ -15,18 +15,13 @@ const encodeParameters = (types, values) =>
   ethers.utils.defaultAbiCoder.encode(types, values);
 
 describe("CompoundVotingMachine#CastVote", () => {
-  let gov: CompoundVotingMachine,
-    root: SignerWithAddress,
-    acct: SignerWithAddress;
+  let gov: any, root: SignerWithAddress, acct: SignerWithAddress;
 
   let trivialProposal, targets, values, signatures, callDatas;
   let proposalBlock, proposalId, voteDelay, votePeriod;
 
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
-    const CompoundVotingMachine = await ethers.getContractFactory(
-      "CompoundVotingMachine"
-    );
 
     let {
       daoCreator,
@@ -51,7 +46,13 @@ describe("CompoundVotingMachine#CastVote", () => {
     signatures = ["getBalanceOf(address)"];
     callDatas = [encodeParameters(["address"], [acct.address])];
 
-    await gov.propose(targets, values, signatures, callDatas, "do nothing");
+    await gov["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "do nothing"
+    );
     proposalBlock = +(await ethers.provider.getBlockNumber());
     proposalId = await gov.latestProposalIds(root.address);
     trivialProposal = await gov.proposals(proposalId);
@@ -63,7 +64,7 @@ describe("CompoundVotingMachine#CastVote", () => {
   describe("We must revert if:", () => {
     it("There does not exist a proposal with matching proposal id where the current block number is between the proposal's start block (exclusive) and end block (inclusive)", async () => {
       await expect(gov.castVote(proposalId, true)).to.revertedWith(
-        "revert CompoundVotingMachine::_castVote: voting is closed"
+        "CompoundVotingMachine::_castVote: voting is closed"
       );
     });
 
@@ -72,7 +73,7 @@ describe("CompoundVotingMachine#CastVote", () => {
       await expect(
         gov.connect(signers[0]).castVote(proposalId, true)
       ).to.revertedWith(
-        "revert CompoundVotingMachine::_castVote: voter already voted"
+        "CompoundVotingMachine::_castVote: voter already voted"
       );
     });
   });
@@ -95,7 +96,13 @@ describe("CompoundVotingMachine#CastVote", () => {
 
         await gov
           .connect(actor)
-          .propose(targets, values, signatures, callDatas, "do nothing");
+          ["propose(address[],uint256[],string[],bytes[],string)"](
+            targets,
+            values,
+            signatures,
+            callDatas,
+            "do nothing"
+          );
         await ethers.provider.send("evm_mine", []);
         await ethers.provider.send("evm_mine", []);
         let proposalId = await gov.latestProposalIds(actor.address);
@@ -114,11 +121,17 @@ describe("CompoundVotingMachine#CastVote", () => {
 
         await grep.mint(actor.address, ethers.BigNumber.from("100001"));
         console.log(
-          await grep.balanceOf(actor.address).then(_ => _.toString())
+          await grep.balanceOfLocal(actor.address).then(_ => _.toString())
         );
         let tx = await gov
           .connect(actor)
-          .propose(targets, values, signatures, callDatas, "do nothing");
+          ["propose(address[],uint256[],string[],bytes[],string)"](
+            targets,
+            values,
+            signatures,
+            callDatas,
+            "do nothing"
+          );
         await ethers.provider.send("evm_mine", []);
         await ethers.provider.send("evm_mine", []);
         let proposalId = await gov.latestProposalIds(actor.address);
@@ -154,7 +167,7 @@ describe("CompoundVotingMachine#CastVote", () => {
               ethers.utils.hexZeroPad("0xbada", 32)
             )
           ).to.revertedWith(
-            "revert CompoundVotingMachine::castVoteBySig: invalid signature"
+            "CompoundVotingMachine::castVoteBySig: invalid signature"
           );
         });
 
@@ -172,7 +185,13 @@ describe("CompoundVotingMachine#CastVote", () => {
             await grep.mint(actor.address, ethers.BigNumber.from("100001"));
             await gov
               .connect(actor)
-              .propose(targets, values, signatures, callDatas, "do nothing");
+              ["propose(address[],uint256[],string[],bytes[],string)"](
+                targets,
+                values,
+                signatures,
+                callDatas,
+                "do nothing"
+              );
             let proposalId = await gov.latestProposalIds(actor.address);
 
             const signature = await wallet._signTypedData(
@@ -215,7 +234,13 @@ describe("CompoundVotingMachine#CastVote", () => {
           await grep.mint(actor.address, ethers.BigNumber.from("100001"));
           await gov
             .connect(actor)
-            .propose(targets, values, signatures, callDatas, "do nothing");
+            ["propose(address[],uint256[],string[],bytes[],string)"](
+              targets,
+              values,
+              signatures,
+              callDatas,
+              "do nothing"
+            );
           let proposalId = await gov.latestProposalIds(actor.address);
 
           const sigsFor = [];

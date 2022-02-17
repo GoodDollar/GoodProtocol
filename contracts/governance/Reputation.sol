@@ -52,7 +52,7 @@ contract Reputation is DAOUpgradeableContract, AccessControlUpgradeable {
 	function __Reputation_init(INameService _ns) internal {
 		decimals = 18;
 		name = "GoodDAO";
-		symbol = "GDAO";
+		symbol = "GOOD";
 		__Context_init_unchained();
 		__ERC165_init_unchained();
 		__AccessControl_init_unchained();
@@ -63,10 +63,7 @@ contract Reputation is DAOUpgradeableContract, AccessControlUpgradeable {
 	}
 
 	function _canMint() internal view virtual {
-		require(
-			hasRole(MINTER_ROLE, _msgSender()),
-			"Reputation: need minter role"
-		);
+		require(hasRole(MINTER_ROLE, _msgSender()), "Reputation: need minter role");
 	}
 
 	/// @notice Generates `_amount` reputation that are assigned to `_owner`
@@ -84,8 +81,8 @@ contract Reputation is DAOUpgradeableContract, AccessControlUpgradeable {
 		virtual
 		returns (uint256)
 	{
-		uint256 curTotalSupply = totalSupply();
-		uint256 previousBalanceTo = balanceOf(_user);
+		uint256 curTotalSupply = totalSupplyLocalAt(block.number);
+		uint256 previousBalanceTo = balanceOfLocalAt(_user, block.number);
 
 		updateValueAtNow(totalSupplyHistory, curTotalSupply + _amount);
 		updateValueAtNow(balances[_user], previousBalanceTo + _amount);
@@ -109,9 +106,9 @@ contract Reputation is DAOUpgradeableContract, AccessControlUpgradeable {
 		virtual
 		returns (uint256)
 	{
-		uint256 curTotalSupply = totalSupply();
+		uint256 curTotalSupply = totalSupplyLocalAt(block.number);
 		uint256 amountBurned = _amount;
-		uint256 previousBalanceFrom = balanceOf(_user);
+		uint256 previousBalanceFrom = balanceOfLocalAt(_user, block.number);
 		if (previousBalanceFrom < amountBurned) {
 			amountBurned = previousBalanceFrom;
 		}
@@ -121,28 +118,15 @@ contract Reputation is DAOUpgradeableContract, AccessControlUpgradeable {
 		return amountBurned;
 	}
 
-	/// @dev This function makes it easy to get the total number of reputation
-	/// @return The total number of reputation
-	function totalSupply() public view returns (uint256) {
-		return totalSupplyAt(block.number);
-	}
-
-	////////////////
-	// Query balance and totalSupply in History
-	////////////////
-	/**
-	 * @dev return the reputation amount of a given owner
-	 * @param _owner an address of the owner which we want to get his reputation
-	 */
-	function balanceOf(address _owner) public view returns (uint256 balance) {
-		return balanceOfAt(_owner, block.number);
+	function balanceOfLocal(address _owner) public view returns (uint256) {
+		return balanceOfLocalAt(_owner, block.number);
 	}
 
 	/// @dev Queries the balance of `_owner` at a specific `_blockNumber`
 	/// @param _owner The address from which the balance will be retrieved
 	/// @param _blockNumber The block number when the balance is queried
 	/// @return The balance at `_blockNumber`
-	function balanceOfAt(address _owner, uint256 _blockNumber)
+	function balanceOfLocalAt(address _owner, uint256 _blockNumber)
 		public
 		view
 		virtual
@@ -159,10 +143,14 @@ contract Reputation is DAOUpgradeableContract, AccessControlUpgradeable {
 		}
 	}
 
+	function totalSupplyLocal() public view virtual returns (uint256) {
+		return totalSupplyLocalAt(block.number);
+	}
+
 	/// @notice Total amount of reputation at a specific `_blockNumber`.
 	/// @param _blockNumber The block number when the totalSupply is queried
 	/// @return The total amount of reputation at `_blockNumber`
-	function totalSupplyAt(uint256 _blockNumber)
+	function totalSupplyLocalAt(uint256 _blockNumber)
 		public
 		view
 		virtual

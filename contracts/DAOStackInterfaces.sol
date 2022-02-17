@@ -11,6 +11,9 @@ interface Avatar {
 }
 
 interface Controller {
+	event RegisterScheme(address indexed _sender, address indexed _scheme);
+	event UnregisterScheme(address indexed _sender, address indexed _scheme);
+
 	function genericCall(
 		address _contract,
 		bytes calldata _data,
@@ -23,6 +26,8 @@ interface Controller {
 	function unregisterScheme(address _scheme, address _avatar)
 		external
 		returns (bool);
+
+	function unregisterSelf(address _avatar) external returns (bool);
 
 	function registerScheme(
 		address _scheme,
@@ -68,7 +73,11 @@ interface Controller {
 }
 
 interface GlobalConstraintInterface {
-	enum CallPhase { Pre, Post, PreAndPost }
+	enum CallPhase {
+		Pre,
+		Post,
+		PreAndPost
+	}
 
 	function pre(
 		address _scheme,

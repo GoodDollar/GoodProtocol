@@ -21,57 +21,44 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 	uint64 public foundationGuardianRelease;
 
 	/// @notice the number of blocks a proposal is open for voting (before passing quorum)
-	uint256 public votingPeriodBlocks;
+	uint256 public votingPeriod;
 
 	/// @notice The number of votes in support of a proposal required in order for a quorum to be reached and for a vote to succeed
+	uint256 public quoromPercentage;
+
 	function quorumVotes() public view returns (uint256) {
-		return (rep.totalSupply() * 3) / 100;
+		return (rep.totalSupply() * quoromPercentage) / 1000000;
 	} //3%
 
 	/// @notice The number of votes required in order for a voter to become a proposer
+	uint256 public proposalPercentage;
+
 	function proposalThreshold(uint256 blockNumber)
 		public
 		view
 		returns (uint256)
 	{
-		return (rep.totalSupplyAt(blockNumber) * 1) / 100; //1%
+		return (rep.totalSupplyAt(blockNumber) * proposalPercentage) / 1000000; //0.25%
 	}
 
 	/// @notice The maximum number of actions that can be included in a proposal
-	function proposalMaxOperations() public pure returns (uint256) {
-		return 10;
-	} // 10 actions
+	uint256 public proposalMaxOperations; //10
 
-	/// @notice The delay before voting on a proposal may take place, once proposed
-	function votingDelay() public pure returns (uint256) {
-		return 1;
-	} // 1 block
-
-	/// @notice The duration of voting on a proposal, in blocks
-	function votingPeriod() public view returns (uint256) {
-		return votingPeriodBlocks;
-	} // ~14 days in blocks (assuming 15s blocks)
+	/// @notice The delay in blocks before voting on a proposal may take place, once proposed
+	uint256 public votingDelay; //1 block
 
 	/// @notice The duration of time after proposal passed thershold before it can be executed
-	function queuePeriod() public pure returns (uint256) {
-		return 2 days;
-	} // 2 days
+	uint256 public queuePeriod; // 2 days
 
 	/// @notice The duration of time after proposal passed with absolute majority before it can be executed
-	function fastQueuePeriod() public pure returns (uint256) {
-		return 1 days / 8;
-	} // 3 hours
+	uint256 public fastQueuePeriod; //1 days/8 = 3hours
 
-	/// @notice During the queue period if vote decision has changed, we extend queue period so
+	/// @notice During the queue period if vote decision has changed, we extend queue period time duration so
 	/// that at least gameChangerPeriod is left
-	function gameChangerPeriod() public pure returns (uint256) {
-		return 1 days;
-	} // 1 day
+	uint256 public gameChangerPeriod; //1 day
 
-	/// @notice the time a succeeded proposal has to be executed on the blockchain
-	function gracePeriod() public pure returns (uint256) {
-		return 3 days;
-	} //3 days
+	/// @notice the duration of time a succeeded proposal has to be executed on the blockchain
+	uint256 public gracePeriod; // 3days
 
 	/// @notice The address of the DAO reputation token
 	ReputationInterface public rep;
@@ -113,6 +100,8 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		mapping(address => Receipt) receipts;
 		// quorom required at time of proposing
 		uint256 quoromRequired;
+		// support proposal voting bridge
+		uint256 forBlockchain;
 	}
 
 	/// @notice Ballot receipt record for a voter
@@ -167,6 +156,25 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		string description
 	);
 
+	/// @notice An event emitted when using blockchain proposal bridge
+	event ProposalSucceeded(
+		uint256 id,
+		address proposer,
+		address[] targets,
+		uint256[] values,
+		string[] signatures,
+		bytes[] calldatas,
+		uint256 startBlock,
+		uint256 endBlock,
+		uint256 forBlockchain,
+		uint256 eta,
+		uint256 forVotes,
+		uint256 againstVotes
+	);
+
+	/// @notice event when proposal made for a different blockchain
+	event ProposalBridge(uint256 id, uint256 indexed forBlockchain);
+
 	/// @notice An event emitted when a vote has been cast on a proposal
 	event VoteCast(
 		address voter,
@@ -194,15 +202,76 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 
 	event GuardianSet(address newGuardian);
 
+	event ParametersSet(uint256[9] params);
+
 	function initialize(
 		INameService ns_, // the DAO avatar
-		uint256 votingPeriodBlocks_ //number of blocks a proposal is open for voting before expiring
+		uint256 votingPeriodBlocks_, //number of blocks a proposal is open for voting before expiring
+		address guardian_,
+		address reputation_
 	) public initializer {
 		foundationGuardianRelease = 1672531200; //01/01/2023
 		setDAO(ns_);
-		rep = ReputationInterface(ns_.getAddress("REPUTATION"));
-		votingPeriodBlocks = votingPeriodBlocks_;
-		guardian = _msgSender();
+		rep = ReputationInterface(reputation_);
+
+		uint256[9] memory params = [
+			votingPeriodBlocks_,
+			30000, //3% quorum
+			2500, //0.25% proposing threshold
+			10, //max operations
+			1, //voting delay blocks
+			2 days, //queue period
+			1 days / 8, //fast queue period
+			1 days, //game change period
+			3 days //grace period
+		];
+		_setVotingParameters(params);
+		guardian = guardian_;
+	}
+
+	//upgrade to fix bad guardian deployment
+	function fixGuardian(address _guardian) public {
+		if (guardian == address(0x4659176E962763e7C8A4eF965ecfD0fdf9f52057)) {
+			guardian = _guardian;
+		}
+	}
+
+	function updateRep() public {
+		rep = ReputationInterface(nameService.getAddress("REPUTATION"));
+	}
+
+	///@notice set the different voting parameters, value of 0 is ignored
+	///cell 0 - votingPeriod blocks, 1 - quoromPercentage, 2 - proposalPercentage,3 - proposalMaxOperations, 4 - voting delay blocks, 5 - queuePeriod time
+	///6 - fastQueuePeriod time, 7 - gameChangerPeriod time, 8 - gracePeriod	time
+	function setVotingParameters(uint256[9] calldata _newParams) external {
+		_onlyAvatar();
+		_setVotingParameters(_newParams);
+	}
+
+	function _setVotingParameters(uint256[9] memory _newParams) internal {
+		require(
+			(quoromPercentage == 0 || _newParams[1] <= quoromPercentage * 2) &&
+				_newParams[1] < 1000000,
+			"percentage should not double"
+		);
+		require(
+			(proposalPercentage == 0 || _newParams[2] <= proposalPercentage * 2) &&
+				_newParams[2] < 1000000,
+			"percentage should not double"
+		);
+		votingPeriod = _newParams[0] > 0 ? _newParams[0] : votingPeriod;
+		quoromPercentage = _newParams[1] > 0 ? _newParams[1] : quoromPercentage;
+		proposalPercentage = _newParams[2] > 0 ? _newParams[2] : proposalPercentage;
+		proposalMaxOperations = _newParams[3] > 0
+			? _newParams[3]
+			: proposalMaxOperations;
+		votingDelay = _newParams[4] > 0 ? _newParams[4] : votingDelay;
+		queuePeriod = _newParams[5] > 0 ? _newParams[5] : queuePeriod;
+		fastQueuePeriod = _newParams[6] > 0 ? _newParams[6] : fastQueuePeriod;
+		gameChangerPeriod = _newParams[7] > 0 ? _newParams[7] : gameChangerPeriod;
+		gracePeriod = _newParams[8] > 0 ? _newParams[8] : gracePeriod;
+
+		emit ParametersSet(_newParams);
 	}
 
 	/// @notice make a proposal to be voted on
@@ -217,6 +286,31 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		string[] memory signatures,
 		bytes[] memory calldatas,
 		string memory description
+	) public returns (uint256) {
+		return
+			propose(
+				targets,
+				values,
+				signatures,
+				calldatas,
+				description,
+				getChainId()
+			);
+	}
+
+	/// @notice make a proposal to be voted on
+	/// @param targets list of contracts to be excuted on
+	/// @param values list of eth value to be used in each contract call
+	/// @param signatures the list of functions to execute
+	/// @param calldatas the list of parameters to pass to each function
+	/// @return uint256 proposal id
+	function propose(
+		address[] memory targets,
+		uint256[] memory values,
+		string[] memory signatures,
+		bytes[] memory calldatas,
+		string memory description,
+		uint256 forBlockchain
 	) public returns (uint256) {
 		require(
 			rep.getVotesAt(_msgSender(), true, block.number - 1) >
@@ -234,19 +328,17 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 			"CompoundVotingMachine::propose: must provide actions"
 		);
 		require(
-			targets.length <= proposalMaxOperations(),
+			targets.length <= proposalMaxOperations,
 			"CompoundVotingMachine::propose: too many actions"
 		);
 
 		uint256 latestProposalId = latestProposalIds[_msgSender()];
 
 		if (latestProposalId != 0) {
-			ProposalState proposersLatestProposalState =
-				state(latestProposalId);
+			ProposalState proposersLatestProposalState = state(latestProposalId);
 			require(
 				proposersLatestProposalState != ProposalState.Active &&
-					proposersLatestProposalState !=
-					ProposalState.ActiveTimelock,
+					proposersLatestProposalState != ProposalState.ActiveTimelock,
 				"CompoundVotingMachine::propose: one live proposal per proposer, found an already active proposal"
 			);
 			require(
@@ -255,8 +347,8 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 			);
 		}
 
-		uint256 startBlock = block.number + votingDelay();
-		uint256 endBlock = startBlock + votingPeriod();
+		uint256 startBlock = block.number + votingDelay;
+		uint256 endBlock = startBlock + votingPeriod;
 
 		proposalCount++;
 		Proposal storage newProposal = proposals[proposalCount];
@@ -274,7 +366,7 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		newProposal.canceled = false;
 		newProposal.executed = false;
 		newProposal.quoromRequired = quorumVotes();
-
+		newProposal.forBlockchain = forBlockchain;
 		latestProposalIds[newProposal.proposer] = newProposal.id;
 
 		emit ProposalCreated(
@@ -288,6 +380,11 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 			endBlock,
 			description
 		);
+
+		if (getChainId() != forBlockchain) {
+			emit ProposalBridge(proposalCount, forBlockchain);
+		}
+
 		return newProposal.id;
 	}
 
@@ -295,23 +392,21 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 	/// @dev also extends the ETA in case of a game changer in vote decision
 	/// @param proposal the proposal to set the eta
 	/// @param hasVoteChanged did the current vote changed the decision
-	function _updateETA(Proposal storage proposal, bool hasVoteChanged)
-		internal
-	{
+	function _updateETA(Proposal storage proposal, bool hasVoteChanged) internal {
 		//if absolute majority allow to execute quickly
 		if (proposal.forVotes > rep.totalSupplyAt(proposal.startBlock) / 2) {
-			proposal.eta = block.timestamp + fastQueuePeriod();
+			proposal.eta = block.timestamp + fastQueuePeriod;
 		}
 		//first time we have a quorom we ask for a no change in decision period
 		else if (proposal.eta == 0) {
-			proposal.eta = block.timestamp + queuePeriod();
+			proposal.eta = block.timestamp + queuePeriod;
 		}
 		//if we have a gamechanger then we extend current eta to have at least gameChangerPeriod left
 		else if (hasVoteChanged) {
 			uint256 timeLeft = proposal.eta - block.timestamp;
-			proposal.eta += timeLeft > gameChangerPeriod()
+			proposal.eta += timeLeft > gameChangerPeriod
 				? 0
-				: gameChangerPeriod() - timeLeft;
+				: gameChangerPeriod - timeLeft;
 		} else {
 			return;
 		}
@@ -326,6 +421,11 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 			"CompoundVotingMachine::execute: proposal can only be executed if it is succeeded"
 		);
 
+		require(
+			proposals[proposalId].forBlockchain == getChainId(),
+			"CompoundVotingMachine::execute: proposal for wrong blockchain"
+		);
+
 		proposals[proposalId].executed = true;
 		address[] memory _targets = proposals[proposalId].targets;
 		uint256[] memory _values = proposals[proposalId].values;
@@ -333,13 +433,12 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		bytes[] memory _calldatas = proposals[proposalId].calldatas;
 
 		for (uint256 i = 0; i < _targets.length; i++) {
-			(bool ok, bytes memory result) =
-				_executeTransaction(
-					_targets[i],
-					_values[i],
-					_signatures[i],
-					_calldatas[i]
-				);
+			(bool ok, bytes memory result) = _executeTransaction(
+				_targets[i],
+				_values[i],
+				_signatures[i],
+				_calldatas[i]
+			);
 			emit ProposalExecutionResult(proposalId, i, ok, result);
 		}
 		emit ProposalExecuted(proposalId);
@@ -358,10 +457,7 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		if (bytes(signature).length == 0) {
 			callData = data;
 		} else {
-			callData = abi.encodePacked(
-				bytes4(keccak256(bytes(signature))),
-				data
-			);
+			callData = abi.encodePacked(bytes4(keccak256(bytes(signature))), data);
 		}
 
 		bool ok;
@@ -371,12 +467,7 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 			(ok, result) = target.call{ value: value }(callData);
 		} else {
 			if (value > 0) payable(address(avatar)).transfer(value); //make sure avatar have the funds to pay
-			(ok, result) = dao.genericCall(
-				target,
-				callData,
-				address(avatar),
-				value
-			);
+			(ok, result) = dao.genericCall(target, callData, address(avatar), value);
 		}
 		require(
 			ok,
@@ -464,7 +555,7 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		) {
 			return ProposalState.Defeated;
 		} else if (
-			proposal.eta > 0 && block.timestamp >= proposal.eta + gracePeriod()
+			proposal.eta > 0 && block.timestamp >= proposal.eta + gracePeriod
 		) {
 			//expired if not executed gracePeriod after eta
 			return ProposalState.Expired;
@@ -583,21 +674,20 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		bytes32 r,
 		bytes32 s
 	) public {
-		bytes32 domainSeparator =
-			keccak256(
-				abi.encode(
-					DOMAIN_TYPEHASH,
-					keccak256(bytes(name)),
-					getChainId(),
-					address(this)
-				)
-			);
-		bytes32 structHash =
-			keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, support));
-		bytes32 digest =
-			keccak256(
-				abi.encodePacked("\x19\x01", domainSeparator, structHash)
-			);
+		bytes32 domainSeparator = keccak256(
+			abi.encode(
+				DOMAIN_TYPEHASH,
+				keccak256(bytes(name)),
+				getChainId(),
+				address(this)
+			)
+		);
+		bytes32 structHash = keccak256(
+			abi.encode(BALLOT_TYPEHASH, proposalId, support)
+		);
+		bytes32 digest = keccak256(
+			abi.encodePacked("\x19\x01", domainSeparator, structHash)
+		);
 		address signatory = ecrecover(digest, v, r, s);
 		require(
 			signatory != address(0),
@@ -659,10 +749,7 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 	}
 
 	function renounceGuardian() public {
-		require(
-			_msgSender() == guardian,
-			"CompoundVotingMachine: not guardian"
-		);
+		require(_msgSender() == guardian, "CompoundVotingMachine: not guardian");
 		guardian = address(0);
 		foundationGuardianRelease = 0;
 		emit GuardianSet(guardian);
@@ -675,12 +762,39 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		);
 
 		require(
-			_msgSender() == guardian ||
-				block.timestamp > foundationGuardianRelease,
+			_msgSender() == guardian || block.timestamp > foundationGuardianRelease,
 			"CompoundVotingMachine: foundation expiration not reached"
 		);
 
 		guardian = _guardian;
 		emit GuardianSet(guardian);
+	}
+
+	/// @notice allow anyone to emit details about proposal that passed. can be used for cross-chain proposals using blockheader proofs
+	function emitSucceeded(uint256 _proposalId) public {
+		require(
+			state(_proposalId) == ProposalState.Succeeded,
+			"CompoundVotingMachine: not Succeeded"
+		);
+		Proposal storage proposal = proposals[_proposalId];
+		//also mark in storage as executed for cross chain voting. can be used by storage proofs, to verify proposal passed
+		if (proposal.forBlockchain != getChainId()) {
+			proposal.executed = true;
+		}
+
+		emit ProposalSucceeded(
+			_proposalId,
+			proposal.proposer,
+			proposal.targets,
+			proposal.values,
+			proposal.signatures,
+			proposal.calldatas,
+			proposal.startBlock,
+			proposal.endBlock,
+			proposal.forBlockchain,
+			proposal.eta,
+			proposal.forVotes,
+			proposal.againstVotes
+		);
 	}
 }

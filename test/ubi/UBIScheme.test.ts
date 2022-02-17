@@ -478,10 +478,7 @@ describe("UBIScheme", () => {
     await ubi.connect(claimer2).claim();
     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer2.address);
     expect(
-      ubiBalance
-        .add(avatarBalance)
-        .div(activeUsersCount)
-        .toNumber()
+      ubiBalance.add(avatarBalance).div(activeUsersCount).toNumber()
     ).to.be.equal(
       claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
     );
@@ -498,18 +495,12 @@ describe("UBIScheme", () => {
     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer2.address);
     let dailyUbi = await ubi.dailyUbi();
     expect(
-      ubiBalance
-        .add(avatarBalance)
-        .div(activeUsersCount)
-        .toNumber()
+      ubiBalance.add(avatarBalance).div(activeUsersCount).toNumber()
     ).to.be.equal(
       claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
     );
     expect(
-      ubiBalance
-        .add(avatarBalance)
-        .div(activeUsersCount)
-        .toNumber()
+      ubiBalance.add(avatarBalance).div(activeUsersCount).toNumber()
     ).to.be.equal(dailyUbi.toNumber());
   });
 
@@ -553,16 +544,14 @@ describe("UBIScheme", () => {
     expect(res).to.be.true;
   });
 
-  it("should return the reward value for entitlement user", async () => {
+  it("should return the estimated claim value for entitlement user before anyone claimed", async () => {
     await increaseTime(ONE_DAY);
     await ubi.connect(claimer1).claim();
     await increaseTime(ONE_DAY);
     let amount = await ubi.connect(claimer1).checkEntitlement();
     let balance2 = await goodDollar.balanceOf(ubi.address);
-    let activeUsersCount = await ubi.activeUsersCount();
-    expect(amount.toString()).to.be.equal(
-      balance2.div(activeUsersCount).toString()
-    );
+    let estimated = await ubi.estimateNextDailyUBI();
+    expect(amount).to.be.equal(estimated);
   });
 
   it("should set the ubi claim amount by avatar", async () => {
@@ -585,121 +574,4 @@ describe("UBIScheme", () => {
     const shouldWithdrawFromDAO = await ubi.shouldWithdrawFromDAO();
     expect(shouldWithdrawFromDAO).to.be.equal(false);
   });
-
-  //it("should not be able to destroy the ubi contract if not avatar", async () => {
-  //  await increaseTime(10 * ONE_DAY);
-  //  let avatarBalanceBefore = await goodDollar.balanceOf(avatar);
-  //  let contractBalanceBefore = await goodDollar.balanceOf(ubi.address);
-  //  let error = await ubi.end().catch(e => e);
-  //  expect(error.message).to.have.string("only Avatar can call this method");
-  //  let avatarBalanceAfter = await goodDollar.balanceOf(avatar);
-  //  let contractBalanceAfter = await goodDollar.balanceOf(ubi.address);
-  //  //let isActive = await ubi.isActive();
-  //  expect((avatarBalanceAfter - avatarBalanceBefore).toString()).to.be.equal(
-  //    "0"
-  //  );
-  //  expect(contractBalanceAfter.toString()).to.be.equal(
-  //    contractBalanceBefore.toString()
-  //  );
-  //  //expect(isActive.toString()).to.be.equal("true");
-  //});
-
-  // it("should destroy the ubi contract and transfer funds to the avatar", async () => {
-  //   let avatarBalanceBefore = await goodDollar.balanceOf(avatar.address);
-  //   let contractBalanceBefore = await goodDollar.balanceOf(ubi.address);
-  //   let encodedCall = web3.eth.abi.encodeFunctionCall(
-  //     {
-  //       name: "end",
-  //       type: "function",
-  //       inputs: []
-  //     },
-  //     []
-  //   );
-  //   await controller.genericCall(ubi.address, encodedCall, avatar.address, 0);
-  //   let avatarBalanceAfter = await goodDollar.balanceOf(avatar.address);
-  //   let contractBalanceAfter = await goodDollar.balanceOf(ubi.address);
-  //   let code = await web3.eth.getCode(ubi.address);
-  //   expect((avatarBalanceAfter - avatarBalanceBefore).toString()).to.be.equal(
-  //     contractBalanceBefore.toString()
-  //   );
-  //   expect(contractBalanceAfter.toString()).to.be.equal("0");
-  //   expect(code.toString()).to.be.equal("0x");
-  // });
-
-  // it("should be able to destroy an empty pool contract", async () => {
-  //   let firstClaimPool1 = await FirstClaimPool.new(
-  //     avatar.address,
-  //     identity.address,
-  //     100
-  //   );
-  //   await firstClaimPool1.start();
-  //   let encodedCall = web3.eth.abi.encodeFunctionCall(
-  //     {
-  //       name: "end",
-  //       type: "function",
-  //       inputs: []
-  //     },
-  //     []
-  //   );
-  //   await controller.genericCall(
-  //     firstClaimPool1.address,
-  //     encodedCall,
-  //     avatar.address,
-  //     0
-  //   );
-  //   let code = await web3.eth.getCode(firstClaimPool1.address);
-  //   expect(code.toString()).to.be.equal("0x");
-  // });
-
-  // it("should not be able to destroy the first claim pool contract if not avatar", async () => {
-  //   let avatarBalanceBefore = await goodDollar.balanceOf(avatar.address);
-  //   let contractBalanceBefore = await goodDollar.balanceOf(
-  //     firstClaimPool.address
-  //   );
-  //   let error = await firstClaimPool.end().catch(e => e);
-  //   expect(error.message).to.have.string("only Avatar can call this method");
-  //   let avatarBalanceAfter = await goodDollar.balanceOf(avatar.address);
-  //   let contractBalanceAfter = await goodDollar.balanceOf(
-  //     firstClaimPool.address
-  //   );
-  //   let isActive = await firstClaimPool.isActive();
-  //   expect((avatarBalanceAfter - avatarBalanceBefore).toString()).to.be.equal(
-  //     "0"
-  //   );
-  //   expect(contractBalanceAfter.toString()).to.be.equal(
-  //     contractBalanceBefore.toString()
-  //   );
-  //   expect(isActive.toString()).to.be.equal("true");
-  // });
-
-  // it("should destroy the first claim pool contract and transfer funds to the avatar", async () => {
-  //   let avatarBalanceBefore = await goodDollar.balanceOf(avatar.address);
-  //   let contractBalanceBefore = await goodDollar.balanceOf(
-  //     firstClaimPool.address
-  //   );
-  //   let encodedCall = web3.eth.abi.encodeFunctionCall(
-  //     {
-  //       name: "end",
-  //       type: "function",
-  //       inputs: []
-  //     },
-  //     []
-  //   );
-  //   await controller.genericCall(
-  //     firstClaimPool.address,
-  //     encodedCall,
-  //     avatar.address,
-  //     0
-  //   );
-  //   let avatarBalanceAfter = await goodDollar.balanceOf(avatar.address);
-  //   let contractBalanceAfter = await goodDollar.balanceOf(
-  //     firstClaimPool.address
-  //   );
-  //   let code = await web3.eth.getCode(firstClaimPool.address);
-  //   expect((avatarBalanceAfter - avatarBalanceBefore).toString()).to.be.equal(
-  //     contractBalanceBefore.toString()
-  //   );
-  //   expect(contractBalanceAfter.toString()).to.be.equal("0");
-  //   expect(code.toString()).to.be.equal("0x");
-  // });
 });

@@ -62,10 +62,6 @@ describe("CompoundVotingMachine#Delegation", () => {
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
 
-    const CompoundVotingMachine = await ethers.getContractFactory(
-      "CompoundVotingMachine"
-    );
-
     let {
       daoCreator,
       reputation,
@@ -93,7 +89,13 @@ describe("CompoundVotingMachine#Delegation", () => {
     signatures = ["getBalanceOf(address)"];
     callDatas = [encodeParameters(["address"], [acct.address])];
 
-    await gov.propose(targets, values, signatures, callDatas, "do nothing");
+    await gov["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "do nothing"
+    );
     proposalBlock = +(await ethers.provider.getBlockNumber());
     proposalId = await gov.latestProposalIds(root.address);
     trivialProposal = await gov.proposals(proposalId);
@@ -123,7 +125,13 @@ describe("CompoundVotingMachine#Delegation", () => {
 
     await gov
       .connect(signers[4])
-      .propose(targets, values, signatures, callDatas, "do nothing");
+      ["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      );
     let proposalId = await gov.latestProposalIds(signers[4].address);
     await advanceBlocks(1);
     await grep.undelegate();
@@ -134,7 +142,13 @@ describe("CompoundVotingMachine#Delegation", () => {
   it("should not count delegatees that voted", async () => {
     await gov
       .connect(acct)
-      .propose(targets, values, signatures, callDatas, "do nothing");
+      ["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      );
     let proposalId = await gov.latestProposalIds(acct.address);
     await advanceBlocks(1);
     await gov.castVote(proposalId, false);

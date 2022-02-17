@@ -2,7 +2,7 @@
 
 pragma solidity >=0.8.0;
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
-import "./GoodAaveStaking.sol";
+import "./GoodAaveStakingV2.sol";
 import "../../Interfaces.sol";
 
 /**
@@ -14,20 +14,45 @@ import "../../Interfaces.sol";
 contract AaveStakingFactory {
 	using ClonesUpgradeable for address;
 
-	address impl = address(new GoodAaveStaking());
+	address public impl = address(new GoodAaveStakingV2());
 
-	event Deployed(address proxy, address token);
+	event Deployed(address proxy, address token, address impl);
 
-	function clone(ERC20 token, bytes32 paramsHash)
-		public
-		returns (GoodAaveStaking)
-	{
-		address deployed = address(impl).cloneDeterministic(
+	function clone(
+		address _impl,
+		ERC20 token,
+		bytes32 paramsHash
+	) internal returns (GoodAaveStakingV2) {
+		address deployed = address(_impl).cloneDeterministic(
 			keccak256(abi.encodePacked(address(token), paramsHash))
 		);
-		emit Deployed(deployed, address(token));
-		return GoodAaveStaking(deployed);
+		emit Deployed(deployed, address(token), _impl);
+		return GoodAaveStakingV2(deployed);
 	}
+
+	function cloneAndInit(
+		ERC20 token,
+		address _lendingPool,
+		INameService _ns,
+		uint64 _maxRewardThreshold,
+		address _tokenUsdOracle,
+		IAaveIncentivesController _incentiveController,
+		address _aaveUSDOracle,
+		address[] memory _tokenToDaiSwapPath
+	) public {
+		cloneAndInit(
+			impl,
+			token,
+			_lendingPool,
+			_ns,
+			_maxRewardThreshold,
+			_tokenUsdOracle,
+			_incentiveController,
+			_aaveUSDOracle,
+			_tokenToDaiSwapPath
+		);
+	}
+
 	/**
 	@dev Function to clone Staking contract and initialize new one with new token
 	@param token Staking token to use in staking contract
@@ -39,15 +64,18 @@ contract AaveStakingFactory {
 	@param _aaveUSDOracle address of the AAVE/USD oracle
 	 */
 	function cloneAndInit(
+		address _impl,
 		ERC20 token,
 		address _lendingPool,
 		INameService _ns,
 		uint64 _maxRewardThreshold,
 		address _tokenUsdOracle,
 		IAaveIncentivesController _incentiveController,
-		address _aaveUSDOracle
+		address _aaveUSDOracle,
+		address[] memory _tokenToDaiSwapPath
 	) public {
-		GoodAaveStaking deployed = clone(
+		GoodAaveStakingV2 deployed = clone(
+			_impl,
 			token,
 			keccak256(
 				abi.encodePacked(
@@ -65,22 +93,23 @@ contract AaveStakingFactory {
 			address(token),
 			address(_lendingPool),
 			_ns,
-			string(abi.encodePacked("GoodAaveStaking ", token.name())),
-			string(abi.encodePacked("g", token.symbol())),
+			string(abi.encodePacked("GoodAaveStakingV2 ", token.name())),
+			string(abi.encodePacked("ga", token.symbol())),
 			_maxRewardThreshold,
 			_tokenUsdOracle,
 			_incentiveController,
-			_aaveUSDOracle
+			_aaveUSDOracle,
+			_tokenToDaiSwapPath
 		);
 	}
 
-	function predictAddress(ERC20 token, bytes32 paramsHash)
-		public
-		view
-		returns (address)
-	{
+	function predictAddress(
+		address _impl,
+		ERC20 token,
+		bytes32 paramsHash
+	) public view returns (address) {
 		return
-			address(impl).predictDeterministicAddress(
+			address(_impl).predictDeterministicAddress(
 				keccak256(abi.encodePacked(address(token), paramsHash))
 			);
 	}

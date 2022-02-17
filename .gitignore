@@ -109,4 +109,4 @@ cache/*
 types/*
 
 artifacts/*
-
+build/*

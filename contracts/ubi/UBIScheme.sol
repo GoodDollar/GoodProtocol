@@ -124,6 +124,9 @@ contract UBIScheme is DAOUpgradeableContract {
 	);
 
 	event UBIClaimed(address indexed claimer, uint256 amount);
+	event CycleLengthSet(uint256 newCycleLength);
+	event DaySet(uint256 newDay);
+	event ShouldWithdrawFromDAOSet(bool ShouldWithdrawFromDAO);
 
 	/**
 	 * @dev Constructor
@@ -169,11 +172,7 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * @dev function that gets count of claimers and amount claimed for the current day
 	 * @return the count of claimers and the amount claimed.
 	 */
-	function getDailyStats()
-		public
-		view
-		returns (uint256, uint256)
-	{
+	function getDailyStats() public view returns (uint256, uint256) {
 		uint256 today = (block.timestamp - periodStart) / 1 days;
 		return (getClaimerCount(today), getClaimAmount(today));
 	}
@@ -221,6 +220,7 @@ contract UBIScheme is DAOUpgradeableContract {
 		_onlyAvatar();
 		require(_newLength > 0, "cycle must be at least 1 day long");
 		cycleLength = _newLength;
+		emit CycleLengthSet(_newLength);
 	}
 
 	/**
@@ -243,16 +243,12 @@ contract UBIScheme is DAOUpgradeableContract {
 		if (currentDay != lastWithdrawDay) {
 			IGoodDollar token = nativeToken();
 			uint256 currentBalance = token.balanceOf(address(this));
-			uint256 currentCycleStartingBalance =
-				dailyCyclePool * currentCycleLength;
-			//we start a new cycle earlier if we got some significant funds deposited (currentBalance > 1.3 * openBalance[prevDay]) and currentBalance > 80% of prev cycle starting balance
-			uint256 prevDayBalance = dailyUBIHistory[currentDay - 1].openAmount;
-			bool shouldStartEarlyCycle =
-				currentBalance >= (prevDayBalance * 130) / 100 &&
-					currentBalance > (currentCycleStartingBalance * 80) / 100;
+			//start early cycle if we can increase the daily UBI pool
+			bool shouldStartEarlyCycle = currentBalance / cycleLength >
+				dailyCyclePool;
+
 			if (
-				currentDayInCycle() >= currentCycleLength ||
-				shouldStartEarlyCycle
+				currentDayInCycle() >= currentCycleLength || shouldStartEarlyCycle
 			) //start of cycle or first time
 			{
 				if (shouldWithdrawFromDAO) _withdrawFromDao();
@@ -286,7 +282,11 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * since start of contract.
 	 */
 	function setDay() public {
-		currentDay = (block.timestamp - periodStart) / (1 days);
+		uint256 day = (block.timestamp - periodStart) / (1 days);
+		if (day > currentDay) {
+			currentDay = day;
+			emit DaySet(day);
+		}
 	}
 
 	/**
@@ -323,8 +323,7 @@ contract UBIScheme is DAOUpgradeableContract {
 	function isActiveUser(address _account) public view returns (bool) {
 		uint256 _lastClaimed = lastClaimed[_account];
 		if (isNotNewUser(_account)) {
-			uint256 daysSinceLastClaim =
-				(block.timestamp - _lastClaimed) / (1 days);
+			uint256 daysSinceLastClaim = (block.timestamp - _lastClaimed) / (1 days);
 			if (daysSinceLastClaim < maxInactiveDays) {
 				// active user
 				return true;
@@ -349,25 +348,46 @@ contract UBIScheme is DAOUpgradeableContract {
 		bool _isFirstTime
 	) internal {
 		// updates the stats
-		Day storage day = claimDay[currentDay];
-		day.amountOfClaimers += 1;
-		day.hasClaimed[_account] = true;
-		lastClaimed[_account] = block.timestamp;
-		totalClaimsPerUser[_account] += 1;
+		if (_isClaimed || _isFirstTime) {
+			//in case of fishing dont update stats
+			claimDay[currentDay].amountOfClaimers += 1;
+			claimDay[currentDay].hasClaimed[_account] = true;
+			lastClaimed[_account] = block.timestamp;
+			totalClaimsPerUser[_account] += 1;
+		}
 
 		// awards a new user or a fished user
 		if (_isFirstTime) {
 			uint256 awardAmount = firstClaimPool.awardUser(_account);
-			day.claimAmount += awardAmount;
+			claimDay[currentDay].claimAmount += awardAmount;
 			emit UBIClaimed(_account, awardAmount);
 		} else {
-			day.claimAmount += _amount;
-			IGoodDollar token = nativeToken();
-			require(token.transfer(_account, _amount), "claim transfer failed");
 			if (_isClaimed) {
+				claimDay[currentDay].claimAmount += _amount;
 				emit UBIClaimed(_account, _amount);
 			}
+			IGoodDollar token = nativeToken();
+			require(token.transfer(_account, _amount), "claim transfer failed");
 		}
+	}
+
+	function estimateNextDailyUBI() public view returns (uint256) {
+		uint256 currentBalance = nativeToken().balanceOf(address(this));
+		//start early cycle if we can increase the daily UBI pool
+		bool shouldStartEarlyCycle = currentBalance / cycleLength > dailyCyclePool;
+
+		uint256 _dailyCyclePool = dailyCyclePool;
+		uint256 _dailyUbi;
+		if (
+			currentDayInCycle() >= currentCycleLength || shouldStartEarlyCycle
+		) //start of cycle or first time
+		{
+			_dailyCyclePool = currentBalance / cycleLength;
+		}
+		if (activeUsersCount > 0) {
+			_dailyUbi = _dailyCyclePool / activeUsersCount;
+		}
+		return _dailyUbi;
 	}
 
 	/**
@@ -388,10 +408,7 @@ contract UBIScheme is DAOUpgradeableContract {
 		if (currentDay == (block.timestamp - periodStart) / (1 days)) {
 			return hasClaimed(msg.sender) ? 0 : dailyUbi;
 		}
-		// the current day has not updated yet
-		IGoodDollar token = nativeToken();
-		uint256 currentBalance = token.balanceOf(address(this));
-		return currentBalance / activeUsersCount;
+		return estimateNextDailyUBI();
 	}
 
 	/**
@@ -435,9 +452,7 @@ contract UBIScheme is DAOUpgradeableContract {
 	 */
 	function claim() public requireStarted returns (bool) {
 		require(
-			IIdentity(nameService.getAddress("IDENTITY")).isWhitelisted(
-				msg.sender
-			),
+			IIdentity(nameService.getAddress("IDENTITY")).isWhitelisted(msg.sender),
 			"UBIScheme: not whitelisted"
 		);
 		bool didClaim = _claim(msg.sender);
@@ -512,5 +527,6 @@ contract UBIScheme is DAOUpgradeableContract {
 	function setShouldWithdrawFromDAO(bool _shouldWithdraw) public {
 		_onlyAvatar();
 		shouldWithdrawFromDAO = _shouldWithdraw;
+		emit ShouldWithdrawFromDAOSet(shouldWithdrawFromDAO);
 	}
 }

@@ -13,16 +13,15 @@ contract ProtocolUpgradeFuse {
 	address owner;
 	address avatar;
 
-	constructor(Controller _controller) {
+	constructor(Controller _controller, address _owner) {
 		controller = _controller;
-		owner = msg.sender;
+		owner = _owner;
 		avatar = address(controller.avatar());
 	}
 
 	function upgrade(
 		INameService ns,
 		address[] memory oldContracts, //schemeRegistrar,upgradeScheme, old ubi, firstclaim
-		address compoundVotingMachine,
 		address ubiScheme,
 		bytes32[] calldata nameHash,
 		address[] calldata nameAddress
@@ -35,13 +34,28 @@ contract ProtocolUpgradeFuse {
 		upgradeUBI(oldContracts[2], ubiScheme, oldContracts[3]);
 		setNameServiceContracts(ns, nameHash, nameAddress);
 
-		upgradeGovernance(
-			oldContracts[0],
-			oldContracts[1],
-			compoundVotingMachine
+		//identity has no need for special permissions, just needs to be registered
+		require(
+			controller.registerScheme(
+				ns.getAddress("IDENTITY"),
+				bytes32(0x0),
+				bytes4(0x00000001),
+				avatar
+			),
+			"registering Identity failed"
 		);
 
-		selfdestruct(payable(owner));
+		//if we are really doing an upgrade and not deploying dev env which will not have formula
+		if (oldContracts[0] != address(0)) {
+			//formula has no need to be a registered scheme
+			require(
+				controller.unregisterScheme(
+					IGoodDollar(ns.getAddress("GOODDOLLAR")).formula(),
+					avatar
+				),
+				"unregistering formula failed"
+			);
+		}
 	}
 
 	function upgradeUBI(
@@ -61,14 +75,21 @@ contract ProtocolUpgradeFuse {
 		);
 		require(ok, "setUBIScheme failed");
 
-		// transfer funds from old scheme here
-		(ok, ) = controller.genericCall(
-			oldUBI,
-			abi.encodeWithSignature("end()"),
-			address(avatar),
-			0
-		);
-		require(ok, "old ubischeme end failed");
+		if (oldUBI != address(0)) {
+			// transfer funds from old scheme here
+			(ok, ) = controller.genericCall(
+				oldUBI,
+				abi.encodeWithSignature("end()"),
+				address(avatar),
+				0
+			);
+			require(ok, "old ubischeme end failed");
+
+			require(
+				controller.unregisterScheme(oldUBI, avatar),
+				"unregistering old UBIScheme failed"
+			);
+		}
 
 		if (ubiBalance > 0) {
 			ok = controller.externalTokenTransfer(
@@ -89,15 +110,21 @@ contract ProtocolUpgradeFuse {
 		address schemeRegistrar,
 		address upgradeScheme,
 		address compoundVotingMachine
-	) internal {
-		require(
-			controller.unregisterScheme(schemeRegistrar, avatar),
-			"unregistering schemeRegistrar failed"
-		);
-		require(
-			controller.unregisterScheme(upgradeScheme, avatar),
-			"unregistering upgradeScheme failed"
-		);
+	) public {
+		require(msg.sender == owner, "only owner");
+
+		if (schemeRegistrar != address(0))
+			require(
+				controller.unregisterScheme(schemeRegistrar, avatar),
+				"unregistering schemeRegistrar failed"
+			);
+
+		if (upgradeScheme != address(0))
+			require(
+				controller.unregisterScheme(upgradeScheme, avatar),
+				"unregistering upgradeScheme failed"
+			);
+
 		require(
 			controller.registerScheme(
 				compoundVotingMachine,
@@ -107,6 +134,23 @@ contract ProtocolUpgradeFuse {
 			),
 			"registering compoundVotingMachine failed"
 		);
+
+		require(
+			controller.registerScheme(
+				owner,
+				bytes32(0x0),
+				bytes4(0x0000001F),
+				avatar
+			),
+			"registering gov failsafe failed"
+		);
+
+		require(
+			controller.unregisterSelf(avatar),
+			"unregistering ProtocolUpgradeFuse failed"
+		);
+
+		selfdestruct(payable(owner));
 	}
 
 	//set contracts in nameservice that are deployed after INameService is created

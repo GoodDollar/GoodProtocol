@@ -49,11 +49,7 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 	);
 
 	// Emits when the ratio changed. The caller should be the Avatar by definition
-	event ReserveRatioUpdated(
-		address indexed caller,
-		uint256 nom,
-		uint256 denom
-	);
+	event ReserveRatioUpdated(address indexed caller, uint256 nom, uint256 denom);
 
 	// Defines the daily change in the reserve ratio in RAY precision.
 	// In the current release, only global ratio expansion is supported.
@@ -73,7 +69,7 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		uint256 _nom,
 		uint256 _denom
 	) public virtual initializer {
-		reserveRatioDailyExpansion = rdiv(_nom, _denom);
+		reserveRatioDailyExpansion = (_nom * 1e27) / _denom;
 		decimals = 2;
 		setDAO(_ns);
 	}
@@ -103,12 +99,11 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 	 * @param _nom The numerator to calculate the global `reserveRatioDailyExpansion` from
 	 * @param _denom The denominator to calculate the global `reserveRatioDailyExpansion` from
 	 */
-	function setReserveRatioDailyExpansion(uint256 _nom, uint256 _denom)
-		public
-	{
+	function setReserveRatioDailyExpansion(uint256 _nom, uint256 _denom) public {
 		_onlyReserveOrAvatar();
 		require(_denom > 0, "denominator must be above 0");
-		reserveRatioDailyExpansion = rdiv(_nom, _denom);
+		reserveRatioDailyExpansion = (_nom * 1e27) / _denom;
+		require(reserveRatioDailyExpansion < 1e27, "Invalid nom or denom value");
 		emit ReserveRatioUpdated(msg.sender, _nom, _denom);
 	}
 
@@ -145,11 +140,7 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 	 * @param _token The reserve token to calculate the reserve ratio for
 	 * @return The new reserve ratio
 	 */
-	function calculateNewReserveRatio(ERC20 _token)
-		public
-		view
-		returns (uint32)
-	{
+	function calculateNewReserveRatio(ERC20 _token) public view returns (uint32) {
 		ReserveToken memory reserveToken = reserveTokens[address(_token)];
 		uint256 ratio = uint256(reserveToken.reserveRatio);
 		if (ratio == 0) {
@@ -157,10 +148,10 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		}
 		ratio *= 1e21; //expand to e27 precision
 
-		uint256 daysPassed =
-			(block.timestamp - reserveToken.lastExpansion) / 1 days;
+		uint256 daysPassed = (block.timestamp - reserveToken.lastExpansion) /
+			1 days;
 		for (uint256 i = 0; i < daysPassed; i++) {
-			ratio = rmul(ratio, reserveRatioDailyExpansion);
+			ratio = (ratio * reserveRatioDailyExpansion) / 1e27;
 		}
 
 		return uint32(ratio / 1e21); // return to e6 precision
@@ -258,7 +249,7 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 
 	/**
 	 * @dev Updates the bonding curve params. Decrease RR to in order to mint gd in the amount of provided
-	 * new RR = Reserve supply / (gd supply + gd mint amount) * price
+	 * new RR = Reserve supply / ((gd supply + gd mint amount) * price)
 	 * @param _gdAmount Amount of gd to add reserveParams
 	 * @param _token The reserve token which is currently active
 	 */
@@ -270,10 +261,8 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		uint256 priceBeforeGdSupplyChange = currentPrice(_token);
 		rtoken.gdSupply += _gdAmount;
 		rtoken.reserveRatio = uint32(
-			rdiv(
-				rtoken.reserveSupply,
-				(rtoken.gdSupply * priceBeforeGdSupplyChange)
-			) / 10**reserveDecimalsDiff
+			((rtoken.reserveSupply * 1e27) /
+				(rtoken.gdSupply * priceBeforeGdSupplyChange)) / 10**reserveDecimalsDiff
 		); // Divide it decimal diff to bring it proper decimal
 	}
 
@@ -299,7 +288,7 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		);
 		ReserveToken storage rtoken = reserveTokens[address(_token)];
 		require(
-			rtoken.gdSupply > _gdAmount,
+			rtoken.gdSupply >= _gdAmount,
 			"GD amount is higher than the total supply"
 		);
 
@@ -355,7 +344,8 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		uint256 decimalsDiff = uint256(27) - decimals;
 		//resulting amount is in RAY precision
 		//we divide by decimalsdiff to get precision in GD (2 decimals)
-		return rdiv(_addTokenSupply, currentPrice(_token)) / (10**decimalsDiff);
+		return
+			((_addTokenSupply * 1e27) / currentPrice(_token)) / (10**decimalsDiff);
 	}
 
 	/**
@@ -389,25 +379,18 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 	 * @param _token The reserve token
 	 * @return How much to mint in order to keep price in bonding curve the same
 	 */
-	function calculateMintExpansion(ERC20 _token)
-		public
-		view
-		returns (uint256)
-	{
+	function calculateMintExpansion(ERC20 _token) public view returns (uint256) {
 		ReserveToken memory reserveToken = reserveTokens[address(_token)];
 		uint32 newReserveRatio = calculateNewReserveRatio(_token); // new reserve ratio
 		uint256 reserveDecimalsDiff = uint256(27) - _token.decimals(); // //result is in RAY precision
-		uint256 denom =
-			rmul(
-				uint256(newReserveRatio) * 1e21,
-				currentPrice(_token) * (10**reserveDecimalsDiff)
-			); // (newreserveratio * currentprice) in RAY precision
+		uint256 denom = (uint256(newReserveRatio) *
+			1e21 *
+			currentPrice(_token) *
+			(10**reserveDecimalsDiff)) / 1e27; // (newreserveratio * currentprice) in RAY precision
 		uint256 gdDecimalsDiff = uint256(27) - decimals;
-		uint256 toMint =
-			rdiv(
-				reserveToken.reserveSupply * (10**reserveDecimalsDiff), // reservebalance in RAY precision
-				denom
-			) / (10**gdDecimalsDiff); // return to gd precision
+		uint256 toMint = ((reserveToken.reserveSupply *
+			(10**reserveDecimalsDiff) *
+			1e27) / denom) / (10**gdDecimalsDiff); // reservebalance in RAY precision // return to gd precision
 		return toMint - reserveToken.gdSupply;
 	}
 

@@ -32,51 +32,64 @@ describe("CompoundStakingFactory", () => {
       "CompUSDMockOracle"
     );
     compUsdOracle = await compUsdOracleFactory.deploy();
-    comp = await (await ethers.getContractFactory("DAIMock")).deploy();
-    const uniswap = await deployUniswap();
-    const router = uniswap.router;
-    await dao.setDAOAddress("UNISWAP_ROUTER", router.address);
+    comp = dao.COMP;
+
     await dao.setDAOAddress("COMP", comp.address);
     dai = dao.daiAddress;
     cdai = dao.cdaiAddress;
+
+    const uniswap = await deployUniswap(
+      comp,
+      await ethers.getContractAt("DAIMock", dai)
+    );
+    const router = uniswap.router;
+    await dao.setDAOAddress("UNISWAP_ROUTER", router.address);
+    let swapHelper = await ethers
+      .getContractFactory("UniswapV2SwapHelper")
+      .then(_ => _.deploy());
+
     stakingFactory = (await ethers
-      .getContractFactory("CompoundStakingFactory")
+      .getContractFactory("CompoundStakingFactory", {
+        libraries: { UniswapV2SwapHelper: swapHelper.address }
+      })
       .then(_ => _.deploy())) as CompoundStakingFactory;
   });
 
-  it("should create proxy clone", async () => {
-    const res = await (
-      await stakingFactory.clone(cdai, ethers.constants.HashZero)
-    ).wait();
-    const log = res.events.find(_ => _.event === "Deployed");
-    const detAddress = await stakingFactory.predictAddress(
-      cdai,
-      ethers.constants.HashZero
-    );
-    expect(log).to.not.empty;
-    expect(log.args.proxy).to.equal(detAddress);
-    expect(log.args.cToken).to.equal(cdai);
-  });
+  // it("should create proxy clone", async () => {
+  //   const res = await (
+  //     await stakingFactory.clone(cdai, ethers.constants.HashZero)
+  //   ).wait();
+  //   const log = res.events.find(_ => _.event === "Deployed");
+  //   const detAddress = await stakingFactory.predictAddress(
+  //     cdai,
+  //     ethers.constants.HashZero
+  //   );
+  //   expect(log).to.not.empty;
+  //   expect(log.args.proxy).to.equal(detAddress);
+  //   expect(log.args.cToken).to.equal(cdai);
+  // });
 
   it("should create and initialize clone", async () => {
-    const ns = await ethers
-      .getContractFactory("NameService")
-      .then(_ => _.deploy());
+    console.log(await dao.nameService.getAddress("UNISWAP_ROUTER"));
     const res = await (
-      await stakingFactory.cloneAndInit(
+      await stakingFactory[
+        "cloneAndInit(address,address,uint64,address,address,address[])"
+      ](
         cdai,
         dao.nameService.address,
         5760,
         stakingFactory.address,
-        compUsdOracle.address
+        compUsdOracle.address,
+        []
       )
     ).wait();
     const log = res.events.find(_ => _.event === "Deployed");
     const detAddress = await stakingFactory.predictAddress(
+      await stakingFactory.impl(),
       cdai,
       ethers.utils.solidityKeccak256(
-        ["address", "uint64", "address"],
-        [dao.nameService.address, 5760, stakingFactory.address]
+        ["address", "uint64", "address", "address[]"],
+        [dao.nameService.address, 5760, stakingFactory.address, []]
       )
     );
     expect(log).to.not.empty;
@@ -85,12 +98,12 @@ describe("CompoundStakingFactory", () => {
 
     //check initialization
     const staking: GoodCompoundStaking = (await ethers.getContractAt(
-      "GoodCompoundStaking",
+      "GoodCompoundStakingV2",
       detAddress
     )) as GoodCompoundStaking;
     expect(await staking.iToken()).to.equal(cdai);
     expect(await staking.token()).to.equal(dai);
-    expect(await staking.name()).to.equal("GoodCompoundStaking Compound DAI");
+    expect(await staking.name()).to.equal("GoodCompoundStakingV2 Compound DAI");
     expect(await staking.symbol()).to.equal("gcDAI");
   });
 });

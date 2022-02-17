@@ -33,6 +33,12 @@ interface ERC20 {
 	function symbol() external view returns (string memory);
 
 	event Transfer(address indexed from, address indexed to, uint256 amount);
+	event Transfer(
+		address indexed from,
+		address indexed to,
+		uint256 amount,
+		bytes data
+	);
 }
 
 interface cERC20 is ERC20 {
@@ -67,6 +73,8 @@ interface IGoodDollar is ERC20 {
 		uint256 value,
 		bytes calldata data
 	) external returns (bool);
+
+	function formula() external view returns (address);
 }
 
 interface IERC2917 is ERC20 {
@@ -215,6 +223,14 @@ interface UniswapPair {
 		);
 
 	function kLast() external view returns (uint256);
+
+	function token0() external view returns (address);
+
+	function token1() external view returns (address);
+
+	function totalSupply() external view returns (uint256);
+
+	function balanceOf(address owner) external view returns (uint256);
 }
 
 interface Reserve {
@@ -235,6 +251,10 @@ interface IIdentity {
 	function addIdentityAdmin(address account) external returns (bool);
 
 	function setAvatar(address _avatar) external;
+
+	function isIdentityAdmin(address account) external view returns (bool);
+
+	function owner() external view returns (address);
 
 	event WhitelistedAdded(address user);
 }
@@ -346,7 +366,7 @@ interface ILendingPool {
 }
 
 interface IDonationStaking {
-	function stakeDonations(uint256 _minDAIAmount) external payable;
+	function stakeDonations() external payable;
 }
 
 interface INameService {
@@ -412,4 +432,18 @@ interface IGoodStaking {
 		uint256 blockStart,
 		uint256 blockEnd
 	) external returns (uint256);
+}
+
+interface IHasRouter {
+	function getRouter() external view returns (Uniswap);
+}
+
+interface IAdminWallet {
+	function addAdmins(address payable[] memory _admins) external;
+
+	function removeAdmins(address[] memory _admins) external;
+
+	function owner() external view returns (address);
+
+	function transferOwnership(address _owner) external;
 }

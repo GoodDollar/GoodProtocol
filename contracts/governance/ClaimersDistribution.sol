@@ -69,7 +69,7 @@ contract ClaimersDistribution is DAOUpgradeableContract {
 			//update new month
 			currentMonth = month;
 			months[currentMonth]
-				.monthlyDistribution = monthlyReputationDistribution;
+			.monthlyDistribution = monthlyReputationDistribution;
 		}
 	}
 
@@ -113,24 +113,25 @@ contract ClaimersDistribution is DAOUpgradeableContract {
 	 */
 	function claimReputation(address _claimer) public {
 		uint256 prevMonth = currentMonth - 1;
-		require(
-			lastMonthClaimed[_claimer] < prevMonth,
-			"ClaimersDistribution: already claimed"
-		);
-		if (months[prevMonth].monthlyDistribution > 0) {
+		uint256 monthlyDist = months[prevMonth].monthlyDistribution;
+		uint256 userClaims = months[prevMonth].claims[_claimer];
+		if (
+			lastMonthClaimed[_claimer] < prevMonth &&
+			userClaims > 0 &&
+			monthlyDist > 0
+		) {
 			lastMonthClaimed[_claimer] = prevMonth;
-			uint256 userShare =
-				(months[prevMonth].monthlyDistribution *
-					months[prevMonth].claims[_claimer]) /
-					months[prevMonth].totalClaims;
+			uint256 userShare = (monthlyDist * userClaims) /
+				months[prevMonth].totalClaims;
 			if (userShare > 0) {
-				GReputation grep =
-					GReputation(nameService.getAddress("REPUTATION"));
+				GReputation grep = GReputation(
+					nameService.getAddress("REPUTATION")
+				);
 				grep.mint(_claimer, userShare);
 				emit ReputationEarned(
 					_claimer,
 					prevMonth,
-					months[prevMonth].claims[_claimer],
+					userClaims,
 					userShare
 				);
 			}

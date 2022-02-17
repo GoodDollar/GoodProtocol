@@ -50,10 +50,6 @@ describe("CompoundVotingMachine#Guardian", () => {
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
 
-    const CompoundVotingMachine = await ethers.getContractFactory(
-      "CompoundVotingMachine"
-    );
-
     let {
       daoCreator,
       controller,
@@ -92,6 +88,15 @@ describe("CompoundVotingMachine#Guardian", () => {
     let mockABI = ["function rec() payable"];
     mock = await deployMockContract(root, mockABI);
     mock.mock.rec.returns();
+  });
+
+  it("should set guardian from initializer", async () => {
+    const votingMachine = (await upgrades.deployProxy(
+      await ethers.getContractFactory("CompoundVotingMachine"),
+      [nameService.address, 5760, signers[2].address, NULL_ADDRESS],
+      { kind: "uups" }
+    )) as unknown as CompoundVotingMachine;
+    expect(await votingMachine.guardian()).to.equal(signers[2].address);
   });
 
   it("Should have deployer as guardian", async () => {
@@ -146,7 +151,7 @@ describe("CompoundVotingMachine#Guardian", () => {
 
     const gov2 = (await upgrades.deployProxy(
       CompoundVotingMachine,
-      [nameService.address, 5760],
+      [nameService.address, 5760, root.address, NULL_ADDRESS],
       { kind: "uups" }
     )) as CompoundVotingMachine;
 
@@ -176,15 +181,57 @@ describe("CompoundVotingMachine#Guardian", () => {
 
     await gov
       .connect(signers[4])
-      .propose(targets, values, signatures, callDatas, "do nothing");
+      ["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "do nothing"
+      );
     let proposalId = await gov.latestProposalIds(signers[4].address);
     await advanceBlocks(1);
 
     await expect(gov.cancel(proposalId)).to.be.revertedWith(
-      "revert CompoundVotingMachine::cancel: proposer above threshold"
+      "CompoundVotingMachine::cancel: proposer above threshold"
     ); //should not be cancelable by anyone else buy guardian
 
     await gov.connect(signers[1]).cancel(proposalId);
     expect(states[await gov.state(proposalId)]).to.equal("Canceled");
+    await grep.delegateTo(root.address); //delegate back our votes
+  });
+
+  it("Should be able to pass proposal to change guardian", async () => {
+    console.log(
+      grep.address,
+      await grep.totalSupply().then(_ => _.toString()),
+      await (await grep.getVotes(root.address)).toString(),
+      await (await grep.balanceOfLocal(root.address)).toString(),
+      await gov.rep()
+    );
+    let targets = [gov.address];
+    let values = ["0"];
+    let signatures = ["setGuardian(address)"];
+    let callDatas = [encodeParameters(["address"], [signers[1].address])];
+
+    await gov
+      .connect(root)
+      ["propose(address[],uint256[],string[],bytes[],string)"](
+        targets,
+        values,
+        signatures,
+        callDatas,
+        "set guardian"
+      );
+    let proposalBlock = +(await ethers.provider.getBlockNumber());
+    let proposalId = await gov.latestProposalIds(root.address);
+    await advanceBlocks(1);
+    await gov.connect(root).castVote(proposalId, true);
+    await increaseTime(queuePeriod);
+    expect(states[await gov.state(proposalId)]).to.equal("Succeeded");
+    await gov.execute(proposalId);
+    expect(states[await gov.state(proposalId)]).to.equal("Executed");
+
+    //acct should now have 1M after proposal minted rep
+    expect(await gov.guardian()).to.equal(signers[1].address);
   });
 });

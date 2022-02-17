@@ -4,7 +4,7 @@ import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
 import { networkNames } from "@openzeppelin/upgrades-core";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { deploy } from "../localOldDaoDeploy";
+import { deploy } from "../../scripts/test/localOldDaoDeploy";
 import deploySettings from "../../releases/deploy-settings.json";
 import GoodReserveCDai from "@gooddollar/goodcontracts/stakingModel/build/contracts/GoodReserveCDai.json";
 import MarketMaker from "@gooddollar/goodcontracts/stakingModel/build/contracts/GoodMarketMaker.json";
@@ -15,19 +15,25 @@ export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 1;
 
 describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
-  let nameService,
+  let avatar,
+    fuseAvatar,
+    deployment,
     dai,
     cDAI,
     signers,
-    protocolUpgrade,
     oldReserve,
+    oldFundManager,
+    oldDAIStaking,
+    identity,
+    fuseIdentity,
     oldMarketMaker,
     oldDonationsStaking,
-    marketMaker,
     cDaiBalanceOfOldReserveBeforeUpgrade,
     cDaiBalanceOfOldReserveAfterUpgrade,
     stakingAmountOfOldDonationsStakingBeforeUpgrade,
     stakingAmountOfOldDonationsStakingAfterUpgrade,
+    ethBalanceOfOldDonationsStakingBeforeUpgrade,
+    ethBalanceOfOldDonationsStakingAfterUpgrade,
     stakingAmountOfNewDonationStaking,
     oldReserveSupply,
     newReserveSupply,
@@ -57,6 +63,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     bancorFormula,
     newStakingContract,
     controller,
+    fuseController,
     goodReserve;
   const { name: networkName } = network;
   networkNames[1] = networkName;
@@ -65,6 +72,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
   before(async () => {
     [founder, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
+    const prov = ethers.provider;
     let {
       Reserve: oldRes,
       MarketMaker: oldMm,
@@ -77,20 +85,32 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       Controller: ctrl,
       SchemeRegistrar: schemeRegistrarAddress,
       UpgradeScheme: upgradeSchemeAddress,
-      Avatar: avatar
-    } = await deploy("develop-mainnet"); // deploy old dao locally
+      Identity,
+      FundManager,
+      DAIStaking,
+      Avatar
+    } = await deploy("test-mainnet"); // deploy old dao locally
+
+    identity = Identity;
+    oldFundManager = FundManager;
+    oldDAIStaking = DAIStaking;
+
+    console.log("deployed old mainnet dao");
     let {
       UBIScheme: oldUBISc,
       GoodDollar: fuseGd,
-      Avatar: fuseAvatar,
+      Avatar: FuseAvatar,
       Controller: fuseCtrl,
       SchemeRegistrar: schemeRegistrarAddressFuse,
-      UpgradeScheme: upgradeSchemeAddressFuse
-    } = await deploy("develop"); //deploy sidechain old dao localally
+      UpgradeScheme: upgradeSchemeAddressFuse,
+      Identity: FuseIdentity
+    } = await deploy("test"); //deploy sidechain old dao localally
 
-    const {
-      main: performUpgrade
-    } = require("../../scripts/upgradeToV2/upgradeToV2");
+    avatar = Avatar;
+    fuseAvatar = FuseAvatar;
+    fuseIdentity = FuseIdentity;
+    console.log("deployed old sidechain dao");
+
     oldMarketMaker = oldMm;
     oldDonationsStaking = oldDonations;
     cDAI = await ethers.getContractAt("cDAIMock", cDAIAddress);
@@ -101,7 +121,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     );
     comp = await ethers.getContractAt("DAIMock", compAddress);
     controller = await ethers.getContractAt("Controller", ctrl);
-    const fuseController = await ethers.getContractAt("Controller", fuseCtrl);
+    fuseController = await ethers.getContractAt("Controller", fuseCtrl);
     //add some funds to reserve so we can test upgrade transfer
     oldReserve = await ethers.getContractAt(GoodReserveCDai.abi, oldRes);
     const oldMmContract = await ethers.getContractAt(MarketMaker.abi, oldMm);
@@ -120,9 +140,8 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     fuseGoodDollar = await ethers.getContractAt("IGoodDollar", fuseGd);
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
     //this will be non zero since it is initialized in localOldDaoDeploy.ts
-    stakingAmountOfOldDonationsStakingBeforeUpgrade = await oldDaiStaking.stakers(
-      oldDonations
-    );
+    stakingAmountOfOldDonationsStakingBeforeUpgrade =
+      await oldDaiStaking.stakers(oldDonations);
     oldUBIScheme = oldUBISc;
     gdBalanceOfOldUBISchemeBeforeUpgrade = await fuseGoodDollar.balanceOf(
       oldUBIScheme
@@ -143,69 +162,134 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       upgradeSchemeAddressFuse,
       fuseAvatar
     );
-    await performUpgrade("develop");
-    await performUpgrade("develop-mainnet");
+    ethBalanceOfOldDonationsStakingBeforeUpgrade = await prov.getBalance(
+      oldDonationsStaking
+    );
+
+    const {
+      main: performUpgrade
+    } = require("../../scripts/upgradeToV2/upgradeToV2");
+
+    console.log("running upgrades...");
+    await performUpgrade("test");
+    console.log("done sidechain upgrades...");
+    await performUpgrade("test-mainnet");
+    console.log("done mainnet upgrades...");
     gdBalanceOfOldUBISchemeAfterUpgrade = await fuseGoodDollar.balanceOf(
       oldUBIScheme
     );
     cDaiBalanceOfOldReserveAfterUpgrade = await cDAI.balanceOf(
       oldReserve.address
     );
-    stakingAmountOfOldDonationsStakingAfterUpgrade = await oldDaiStaking.stakers(
-      oldDonations
+    stakingAmountOfOldDonationsStakingAfterUpgrade =
+      await oldDaiStaking.stakers(oldDonations);
+    ethBalanceOfOldDonationsStakingAfterUpgrade = await prov.getBalance(
+      oldDonationsStaking
     );
-
-    const deployment = require("../../releases/deployment.json");
+    const fse = require("fs-extra");
+    deployment = await fse.readJson("releases/deployment.json");
+    console.log("got deployment json file");
     cdaiBalanceOfNewReserve = await cDAI.balanceOf(
-      deployment["develop-mainnet"].GoodReserveCDai
+      deployment["test-mainnet"].GoodReserveCDai
     );
     newReserve = await ethers.getContractAt(
       "GoodReserveCDai",
-      deployment["develop-mainnet"].GoodReserveCDai
+      deployment["test-mainnet"].GoodReserveCDai
     );
     newStakingContract = await ethers.getContractAt(
-      "GoodCompoundStaking",
-      deployment["develop-mainnet"].StakingContracts[0]
+      "GoodCompoundStakingV2",
+      deployment["test-mainnet"].StakingContracts[0][0]
     );
-    stakingAmountOfNewDonationStaking = await newStakingContract.getProductivity(
-      deployment["develop-mainnet"].DonationsStaking
-    );
+    stakingAmountOfNewDonationStaking =
+      await newStakingContract.getProductivity(
+        deployment["test-mainnet"].DonationsStaking
+      );
     newFundManager = await ethers.getContractAt(
       "GoodFundManager",
-      deployment["develop-mainnet"].GoodFundManager
+      deployment["test-mainnet"].GoodFundManager
     );
     const newMM = await ethers.getContractAt(
       "GoodMarketMaker",
-      deployment["develop-mainnet"].GoodMarketMaker
+      deployment["test-mainnet"].GoodMarketMaker
     );
-    newUBIScheme = deployment["develop"].UBIScheme;
+    newUBIScheme = deployment["test"].UBIScheme;
     const newReserveToken = await newMM.reserveTokens(cDAI.address);
     newReserveSupply = newReserveToken.reserveSupply;
-    isSchemeRegistrarRegisteredAfterUpgrade = await controller.isSchemeRegistered(
-      schemeRegistrarAddress,
-      avatar
-    );
-    isSchemeRegistrarRegisteredAfterUpgradeFuse = await fuseController.isSchemeRegistered(
-      schemeRegistrarAddressFuse,
-      fuseAvatar
-    );
+    isSchemeRegistrarRegisteredAfterUpgrade =
+      await controller.isSchemeRegistered(schemeRegistrarAddress, avatar);
+    isSchemeRegistrarRegisteredAfterUpgradeFuse =
+      await fuseController.isSchemeRegistered(
+        schemeRegistrarAddressFuse,
+        fuseAvatar
+      );
     isUpgradeSchemeRegisteredAfterUpgrade = await controller.isSchemeRegistered(
       upgradeSchemeAddress,
       avatar
     );
-    isUpgradeSchemeRegisteredAfterUpgradeFuse = await fuseController.isSchemeRegistered(
-      upgradeSchemeAddressFuse,
-      fuseAvatar
-    );
+    isUpgradeSchemeRegisteredAfterUpgradeFuse =
+      await fuseController.isSchemeRegistered(
+        upgradeSchemeAddressFuse,
+        fuseAvatar
+      );
     isCompoundVotingMachineRegistered = await controller.isSchemeRegistered(
-      deployment["develop-mainnet"].CompoundVotingMachine,
+      deployment["test-mainnet"].CompoundVotingMachine,
       avatar
     );
-    isCompoundVotingMachineRegisteredFuse = await fuseController.isSchemeRegistered(
-      deployment["develop"].CompoundVotingMachine,
-      fuseAvatar
-    );
+    isCompoundVotingMachineRegisteredFuse =
+      await fuseController.isSchemeRegistered(
+        deployment["test"].CompoundVotingMachine,
+        fuseAvatar
+      );
   });
+
+  it("should unregister old fundmanager, reserve, daistaking, identity, formula", async () => {
+    const formula = await goodDollar.formula();
+    console.log({
+      identity,
+      reserve: oldReserve.address,
+      oldFundManager,
+      oldDAIStaking,
+      formula
+    });
+    expect(await controller.isSchemeRegistered(identity, avatar)).to.be.true;
+    expect(await controller.getSchemePermissions(identity, avatar)).to.equal(
+      "0x00000001"
+    );
+
+    expect(await controller.isSchemeRegistered(oldReserve.address, avatar)).to
+      .be.false;
+    expect(await controller.isSchemeRegistered(oldFundManager, avatar)).to.be
+      .false;
+    expect(await controller.isSchemeRegistered(oldDAIStaking, avatar)).to.be
+      .false;
+    expect(await controller.isSchemeRegistered(formula, avatar)).to.be.false;
+    const stakingContract = await ethers.getContractAt(
+      ["function paused() view returns(bool)"],
+      oldDAIStaking
+    );
+    expect(await stakingContract.paused()).to.be.true;
+  });
+
+  it("should unregister old fuse ubi, identity, formula", async () => {
+    const formula = await fuseGoodDollar.formula();
+    console.log({
+      fuseIdentity,
+      oldUBIScheme,
+      formula
+    });
+
+    expect(await fuseController.isSchemeRegistered(oldUBIScheme, fuseAvatar)).to
+      .be.false;
+    expect(await fuseController.isSchemeRegistered(formula, fuseAvatar)).to.be
+      .false;
+
+    expect(await fuseController.isSchemeRegistered(fuseIdentity, fuseAvatar)).to
+      .be.true;
+    expect(
+      await fuseController.getSchemePermissions(fuseIdentity, fuseAvatar)
+    ).to.equal("0x00000001");
+  });
+
   it("it should update reserve and transfer old funds ", async () => {
     expect(cDaiBalanceOfOldReserveBeforeUpgrade).to.be.gt(0);
     expect(cDaiBalanceOfOldReserveAfterUpgrade).to.be.equal(0);
@@ -219,6 +303,8 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     expect(stakingAmountOfOldDonationsStakingBeforeUpgrade[0]).to.be.gt(0);
     expect(stakingAmountOfOldDonationsStakingAfterUpgrade[0]).to.be.equal(0);
     expect(stakingAmountOfNewDonationStaking[0]).to.be.gt(0);
+    expect(ethBalanceOfOldDonationsStakingBeforeUpgrade).to.be.gt(0);
+    expect(ethBalanceOfOldDonationsStakingAfterUpgrade).to.be.equal(0);
   });
   it("it should set staking rewards per block properly for staking contract", async () => {
     const rewardsPerBlock = await newFundManager.rewardsForStakingContract(
@@ -254,11 +340,12 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     );
   });
   it("it should set nameservice variables properly", async () => {
-    const deployment = require("../../releases/deployment.json");
-    const oldDao = require("../../releases/oldDao.json");
+    const fse = require("fs-extra");
+    const deployment = await fse.readJson("releases/deployment.json");
+    const oldDao = await fse.readJson("releases/olddao.json");
     const nameServiceContract = await ethers.getContractAt(
       "NameService",
-      deployment["develop-mainnet"].NameService
+      deployment["test-mainnet"].NameService
     );
     const reserveAddress = await nameServiceContract.getAddress("RESERVE");
     const marketMakerAddress = await nameServiceContract.getAddress(
@@ -280,22 +367,24 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       "UBI_RECIPIENT"
     );
     expect(reserveAddress).to.be.equal(
-      deployment["develop-mainnet"].GoodReserveCDai
+      deployment["test-mainnet"].GoodReserveCDai
     );
     expect(marketMakerAddress).to.be.equal(
-      deployment["develop-mainnet"].GoodMarketMaker
+      deployment["test-mainnet"].GoodMarketMaker
     );
     expect(fundManagerAddress).to.be.equal(
-      deployment["develop-mainnet"].GoodFundManager
+      deployment["test-mainnet"].GoodFundManager
     );
     expect(reputationAddress).to.be.equal(
-      deployment["develop-mainnet"].GReputation
+      deployment["test-mainnet"].GReputation
     );
     expect(stakersDistributionAddress).to.be.equal(
-      deployment["develop-mainnet"].StakersDistribution
+      deployment["test-mainnet"].StakersDistribution
     );
-    expect(bridgeContractAddress).to.be.equal(oldDao["develop-mainnet"].Bridge);
-    expect(ubiRecipientAddress).to.be.equal(deployment["develop"].UBIScheme);
+    expect(bridgeContractAddress).to.be.equal(
+      oldDao["test-mainnet"].ForeignBridge
+    );
+    expect(ubiRecipientAddress).to.be.equal(deployment["test"].UBIScheme);
   });
   it("it should delete schemes after protocolupgrade and register new compoundvotingmachine", async () => {
     expect(isSchemeRegistrarRegistered).to.be.equal(true);
@@ -311,12 +400,38 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     expect(isUpgradeSchemeRegisteredAfterUpgradeFuse).to.be.equal(false);
     expect(isCompoundVotingMachineRegisteredFuse).to.be.equal(true);
   });
+  it("should set guardian from settings", async () => {
+    const cvm = await ethers.getContractAt(
+      "CompoundVotingMachine",
+      deployment["test-mainnet"].CompoundVotingMachine
+    );
+    expect(await cvm.guardian()).to.equal(
+      "0x914dA3B2508634998d244059dAb5488D9bA1814f"
+    );
+    const fuseCVM = await ethers.getContractAt(
+      "CompoundVotingMachine",
+      deployment["test"].CompoundVotingMachine
+    );
+    expect(await fuseCVM.guardian()).to.equal(
+      "0x914dA3B2508634998d244059dAb5488D9bA1814f"
+    );
+  });
+
+  it("should initialize reputation address", async () => {
+    const cvm = await ethers.getContractAt(
+      "CompoundVotingMachine",
+      deployment["test-mainnet"].CompoundVotingMachine
+    );
+    expect(await cvm.rep()).to.equal(deployment["test-mainnet"].GReputation);
+  });
+
   it("it should set fuse nameservice variables properly", async () => {
-    const deployment = require("../../releases/deployment.json");
-    const oldDao = require("../../releases/oldDao.json");
+    const fse = require("fs-extra");
+    const deployment = await fse.readJson("releases/deployment.json");
+    const oldDao = await fse.readJson("releases/olddao.json");
     const nameServiceContract = await ethers.getContractAt(
       "NameService",
-      deployment["develop"].NameService
+      deployment["test"].NameService
     );
     const reputationAddress = await nameServiceContract.getAddress(
       "REPUTATION"
@@ -331,14 +446,40 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     const gdaoClaimersAddress = await nameServiceContract.getAddress(
       "GDAO_CLAIMERS"
     );
-    expect(reputationAddress).to.be.equal(deployment["develop"].GReputation);
-    expect(bridgeContractAddress).to.be.equal(oldDao["develop"].Bridge);
-    expect(ubiSchemeAddress).to.be.equal(deployment["develop"].UBIScheme);
+    expect(reputationAddress).to.be.equal(deployment["test"].GReputation);
+    expect(bridgeContractAddress).to.be.equal(oldDao["test"].ForeignBridge);
+    expect(ubiSchemeAddress).to.be.equal(deployment["test"].UBIScheme);
     expect(gdaoStakingAddress).to.be.equal(
-      deployment["develop"].GovernanceStaking
+      deployment["test"].GovernanceStaking
     );
     expect(gdaoClaimersAddress).to.be.equal(
-      deployment["develop"].ClaimersDistribution
+      deployment["test"].ClaimersDistribution
     );
+  });
+  it("it should be able to buy GD with exchangeHelper", async () => {
+    const fse = require("fs-extra");
+    const deployment = await fse.readJson("releases/deployment.json");
+    const exchangeHelper = await ethers.getContractAt(
+      "ExchangeHelper",
+      deployment["test-mainnet"].ExchangeHelper
+    );
+    await cDAI["mint(address,uint256)"](
+      founder.address,
+      ethers.utils.parseUnits("1000", 8)
+    );
+    await cDAI.approve(
+      exchangeHelper.address,
+      ethers.utils.parseUnits("1000", 8)
+    );
+    const gdBalanceBeforeBuy = await goodDollar.balanceOf(founder.address);
+    await exchangeHelper.buy(
+      [cDAI.address],
+      ethers.utils.parseUnits("1000", 8),
+      0,
+      0,
+      ethers.constants.AddressZero
+    );
+    const gdBalanceAfterBuy = await goodDollar.balanceOf(founder.address);
+    expect(gdBalanceAfterBuy).to.be.gt(gdBalanceBeforeBuy);
   });
 });

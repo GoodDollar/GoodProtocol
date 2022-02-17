@@ -1,0 +1,321 @@
+{
+  "manifestVersion": "3.2",
+  "admin": {
+    "address": "0x83EEE673ba91ff49b7e608E761e7Bda93bBB5900",
+    "txHash": "0x5edcc3b2bef087a5fed598fc4383991cc95e6656c51b12d976cbce029b132ed2"
+  },
+  "proxies": [
+    {
+      "address": "0x763b49F901DC894F2dEc1c7d19e46250B4452679",
+      "txHash": "0x9ddd26547dcb28bcb6f58c0801600de078d3646a8215ec747691fd05a43e18a8",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x70f361EDB97B245E8A68573637A31886A427fe2a",
+      "txHash": "0x3563647da7d2e7ae513b27de2d7c815f58e8b171a87369a3794e05920388cbed",
+      "kind": "transparent"
+    }
+  ],
+  "impls": {
+    "0062f3ee9b234833746c7df4a515956cd6aa6cd9d72380f135851f03326f9e08": {
+      "address": "0xc2194Ec501E1812381f55dad5445EdA64f432660",
+      "txHash": "0xf77afcc72e4645ad1a92c5e13062f4767abcd34670f4f090bcfcde2690b1030c",
+      "layout": {
+        "storage": [
+          {
+            "contract": "Initializable",
+            "label": "_initialized",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:21"
+          },
+          {
+            "contract": "Initializable",
+            "label": "_initializing",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:26"
+          },
+          {
+            "contract": "InvitesV1",
+            "label": "codeToUser",
+            "type": "t_mapping(t_bytes32,t_address)",
+            "src": "contracts/unaudited-foundation/InvitesV1.sol:46"
+          },
+          {
+            "contract": "InvitesV1",
+            "label": "users",
+            "type": "t_mapping(t_address,t_struct(User)23414_storage)",
+            "src": "contracts/unaudited-foundation/InvitesV1.sol:47"
+          },
+          {
+            "contract": "InvitesV1",
+            "label": "avatar",
+            "type": "t_address_payable",
+            "src": "contracts/unaudited-foundation/InvitesV1.sol:48"
+          },
+          {
+            "contract": "InvitesV1",
+            "label": "levels",
+            "type": "t_mapping(t_uint256,t_struct(Level)23425_storage)",
+            "src": "contracts/unaudited-foundation/InvitesV1.sol:50"
+          },
+          {
+            "contract": "InvitesV1",
+            "label": "owner",
+            "type": "t_address",
+            "src": "contracts/unaudited-foundation/InvitesV1.sol:52"
+          },
+          {
+            "contract": "InvitesV1",
+            "label": "identity",
+            "type": "t_contract(IIdentity)4961",
+            "src": "contracts/unaudited-foundation/InvitesV1.sol:53"
+          },
+          {
+            "contract": "InvitesV1",
+            "label": "goodDollar",
+            "type": "t_contract(cERC20)4585",
+            "src": "contracts/unaudited-foundation/InvitesV1.sol:54"
+          },
+          {
+            "contract": "InvitesV1",
+            "label": "active",
+            "type": "t_bool",
+            "src": "contracts/unaudited-foundation/InvitesV1.sol:55"
+          },
+          {
+            "contract": "InvitesV1",
+            "label": "stats",
+            "type": "t_struct(Stats)23387_storage",
+            "src": "contracts/unaudited-foundation/InvitesV1.sol:56"
+          },
+          {
+            "contract": "InvitesV1",
+            "label": "levelExpirationEnabled",
+            "type": "t_bool",
+            "src": "contracts/unaudited-foundation/InvitesV1.sol:58"
+          }
+        ],
+        "types": {
+          "t_mapping(t_bytes32,t_address)": {
+            "label": "mapping(bytes32 => address)"
+          },
+          "t_bytes32": {
+            "label": "bytes32"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_mapping(t_address,t_struct(User)23414_storage)": {
+            "label": "mapping(address => struct InvitesV1.User)"
+          },
+          "t_struct(User)23414_storage": {
+            "label": "struct InvitesV1.User",
+            "members": [
+              {
+                "label": "invitedBy",
+                "type": "t_address"
+              },
+              {
+                "label": "inviteCode",
+                "type": "t_bytes32"
+              },
+              {
+                "label": "bountyPaid",
+                "type": "t_bool"
+              },
+              {
+                "label": "invitees",
+                "type": "t_array(t_address)dyn_storage"
+              },
+              {
+                "label": "pending",
+                "type": "t_array(t_address)dyn_storage"
+              },
+              {
+                "label": "level",
+                "type": "t_uint256"
+              },
+              {
+                "label": "levelStarted",
+                "type": "t_uint256"
+              },
+              {
+                "label": "totalApprovedInvites",
+                "type": "t_uint256"
+              },
+              {
+                "label": "totalEarned",
+                "type": "t_uint256"
+              },
+              {
+                "label": "joinedAt",
+                "type": "t_uint256"
+              },
+              {
+                "label": "__reserevedSpace",
+                "type": "t_array(t_uint256)5_storage"
+              }
+            ]
+          },
+          "t_bool": {
+            "label": "bool"
+          },
+          "t_array(t_address)dyn_storage": {
+            "label": "address[]"
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_array(t_uint256)5_storage": {
+            "label": "uint256[5]"
+          },
+          "t_address_payable": {
+            "label": "address payable"
+          },
+          "t_mapping(t_uint256,t_struct(Level)23425_storage)": {
+            "label": "mapping(uint256 => struct InvitesV1.Level)"
+          },
+          "t_struct(Level)23425_storage": {
+            "label": "struct InvitesV1.Level",
+            "members": [
+              {
+                "label": "toNext",
+                "type": "t_uint256"
+              },
+              {
+                "label": "bounty",
+                "type": "t_uint256"
+              },
+              {
+                "label": "daysToComplete",
+                "type": "t_uint256"
+              },
+              {
+                "label": "__reserevedSpace",
+                "type": "t_array(t_uint256)5_storage"
+              }
+            ]
+          },
+          "t_contract(IIdentity)4961": {
+            "label": "contract IIdentity"
+          },
+          "t_contract(cERC20)4585": {
+            "label": "contract cERC20"
+          },
+          "t_struct(Stats)23387_storage": {
+            "label": "struct InvitesV1.Stats",
+            "members": [
+              {
+                "label": "totalApprovedInvites",
+                "type": "t_uint256"
+              },
+              {
+                "label": "totalBountiesPaid",
+                "type": "t_uint256"
+              },
+              {
+                "label": "totalInvited",
+                "type": "t_uint256"
+              },
+              {
+                "label": "__reserevedSpace",
+                "type": "t_array(t_uint256)5_storage"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "af0c2ad8a119e6f64832365eec24a172719be6451711c184705243455f0eeabb": {
+      "address": "0x3aF7fBAbe9c8266B2cC3FD8b642F72831F0a579B",
+      "txHash": "0x2d906bbc5a27d89583d66dc8a5f52adc84faec0ca51b018065f310f4328f23e2",
+      "layout": {
+        "storage": [
+          {
+            "contract": "Initializable",
+            "label": "_initialized",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:21"
+          },
+          {
+            "contract": "Initializable",
+            "label": "_initializing",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:26"
+          },
+          {
+            "contract": "FuseFaucet",
+            "label": "perDayRoughLimit",
+            "type": "t_uint256",
+            "src": "contracts/unaudited-foundation/FuseFaucet.sol:17"
+          },
+          {
+            "contract": "FuseFaucet",
+            "label": "toppingAmount",
+            "type": "t_uint256",
+            "src": "contracts/unaudited-foundation/FuseFaucet.sol:18"
+          },
+          {
+            "contract": "FuseFaucet",
+            "label": "gasRefund",
+            "type": "t_uint256",
+            "src": "contracts/unaudited-foundation/FuseFaucet.sol:19"
+          },
+          {
+            "contract": "FuseFaucet",
+            "label": "startTime",
+            "type": "t_uint256",
+            "src": "contracts/unaudited-foundation/FuseFaucet.sol:20"
+          },
+          {
+            "contract": "FuseFaucet",
+            "label": "currentDay",
+            "type": "t_uint256",
+            "src": "contracts/unaudited-foundation/FuseFaucet.sol:21"
+          },
+          {
+            "contract": "FuseFaucet",
+            "label": "identity",
+            "type": "t_contract(IIdentity)4961",
+            "src": "contracts/unaudited-foundation/FuseFaucet.sol:23"
+          },
+          {
+            "contract": "FuseFaucet",
+            "label": "toppings",
+            "type": "t_mapping(t_uint256,t_mapping(t_address,t_uint256))",
+            "src": "contracts/unaudited-foundation/FuseFaucet.sol:25"
+          },
+          {
+            "contract": "FuseFaucet",
+            "label": "notFirstTime",
+            "type": "t_mapping(t_address,t_bool)",
+            "src": "contracts/unaudited-foundation/FuseFaucet.sol:26"
+          }
+        ],
+        "types": {
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_contract(IIdentity)4961": {
+            "label": "contract IIdentity"
+          },
+          "t_mapping(t_uint256,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(uint256 => mapping(address => uint256))"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)"
+          },
+          "t_bool": {
+            "label": "bool"
+          }
+        }
+      }
+    }
+  }
+}
