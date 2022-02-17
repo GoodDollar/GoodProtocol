@@ -213,7 +213,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await setDAOAddress("GDAO_STAKERS", stakersDistribution.address);
   });
 
-  xit("it should have 2M monthly Reputation distribution", async () => {
+  it("it should have 2M monthly Reputation distribution", async () => {
     const monthlyReputationDistribution =
       await stakersDistribution.monthlyReputationDistribution();
     expect(monthlyReputationDistribution).to.be.equal(
@@ -221,14 +221,14 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     );
   });
 
-  xit("it should have 0 monthly rewards since staking amount was zero while initializing stakersDistribution", async () => {
+  it("it should have 0 monthly rewards since staking amount was zero while initializing stakersDistribution", async () => {
     const rewardsPerBlock = await stakersDistribution.rewardsPerBlock(
       simpleStaking.address
     );
     expect(rewardsPerBlock).to.be.equal(0);
   });
 
-  xit("It should update monthly rewards according to staking amount of staking contract after one month passed from initialized", async () => {
+  it("It should update monthly rewards according to staking amount of staking contract after one month passed from initialized", async () => {
     const stakingAmount = ethers.utils.parseEther("1000");
     const rewardsPerBlockBeforeStake =
       await stakersDistribution.rewardsPerBlock(simpleStaking.address);
@@ -257,7 +257,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     expect(rewardsPerBlockAfterStake).to.be.equal(rewardsPerBlockAfterWithdraw);
   });
 
-  xit("it should not be set monthly reputation when not Avatar", async () => {
+  it("it should not be set monthly reputation when not Avatar", async () => {
     const transaction = await stakersDistribution
       .setMonthlyReputationDistribution("1000000")
       .catch(e => e);
@@ -266,7 +266,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     );
   });
 
-  xit("it should set monthly reputation when Avatar", async () => {
+  it("it should set monthly reputation when Avatar", async () => {
     let encoded = stakersDistribution.interface.encodeFunctionData(
       "setMonthlyReputationDistribution",
       [ethers.utils.parseEther("1000000")]
@@ -284,7 +284,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await genericCall(stakersDistribution.address, encoded);
   });
 
-  xit("it should distribute monthly rewards according to staking amount of contracts so in this particular case simpleStaking contract should get %75 of the monthly rewards ", async () => {
+  it("it should distribute monthly rewards according to staking amount of contracts so in this particular case simpleStaking contract should get %75 of the monthly rewards ", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -349,7 +349,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
   });
 
-  xit("It should not update monthly rewards if staking contract's blockEnd Passed", async () => {
+  it("It should not update monthly rewards if staking contract's blockEnd Passed", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -403,7 +403,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       .true;
   });
 
-  xit("it should give distribute if blockend passed but some of the rewards during reward period was not distributed", async () => {
+  it("it should give distribute if blockend passed but some of the rewards during reward period was not distributed", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -449,7 +449,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     );
   });
 
-  xit("it should not increaseProductivity of staking contract which is blacklisted", async () => {
+  it("it should not increaseProductivity of staking contract which is blacklisted", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -484,7 +484,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     expect(productivityOfStaker[0]).to.be.equal(0);
   });
 
-  xit("it should not decreaseProductivity of staking contract which is blacklisted", async () => {
+  it("it should not decreaseProductivity of staking contract which is blacklisted", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -555,7 +555,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     expect(pendingGDAO).equal(0); //should have 0 pending after contract was blacklisted
   });
 
-  xit("it should not earn rewards when current block < startBlock", async () => {
+  it("it should not earn rewards when current block < startBlock", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -619,7 +619,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
   });
 
-  xit("Accumulated per share has enough precision when reward << totalproductivity", async () => {
+  it("Accumulated per share has enough precision when reward << totalproductivity", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
@@ -676,7 +676,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
   });
 
-  xit("it should distribute rewards properly when staking contract's token is different decimals than 18", async () => {
+  it("it should distribute rewards properly when staking contract's token is different decimals than 18", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
     );
