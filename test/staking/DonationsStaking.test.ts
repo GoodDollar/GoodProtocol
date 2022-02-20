@@ -218,6 +218,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(totalStakedBeforeStake).to.be.equal(0);
     expect(totalStakedAfterStake).to.be.gt(totalStakedBeforeStake);
   });
+
   it("it should stake donations with DAI", async () => {
     let stakeAmount = ethers.utils.parseEther("10");
     await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
@@ -228,6 +229,13 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       stakeAmount
     );
   });
+
+  it("it should reverted when there is no token to stake", async () => {
+    await expect(donationsStaking.stakeDonations()).to.be.revertedWith(
+      "no stakingToken to stake"
+    );
+  });
+
   it("it should stake donations with ETH according to 0.3% of pool", async () => {
     let stakeAmount = ethers.utils.parseEther("20");
     const pairContract = await ethers.getContractAt(
@@ -263,6 +271,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(stakeAmount).to.be.gt(maxAmount);
     expect(stakeAmount.sub(maxAmount)).to.be.equal(ethBalanceAfterStake); // check leftover ETH in contract
   });
+
   it("withdraw should reverted if caller not avatar", async () => {
     const tx = await donationsStaking
       .connect(staker)
@@ -270,6 +279,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       .catch(e => e);
     expect(tx.message).to.have.string("only avatar can call this method");
   });
+
   it("it should withdraw donationStaking when caller is avatar and return funds to avatar", async () => {
     const totalStakedBeforeEnd = await donationsStaking.totalStaked();
     const avatarDaiBalanceBeforeEnd = await dai.balanceOf(avatar);
@@ -305,16 +315,9 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
 
     expect(totalStakedAfterEnd).to.be.equal(0);
   });
+
   it("it should set stakingContract when avatar call it ", async () => {
     let stakeAmount = ethers.utils.parseEther("6000"); // Max swap amount is around 5964 with current liquidity level so we should set it to higher number in order to test functionality
-    const donationsStakingFactory = await ethers.getContractFactory(
-      "DonationsStaking",
-      {
-        libraries: {
-          UniswapV2SwapHelper: swapHelper.address
-        }
-      }
-    );
 
     await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
     await donationsStaking.stakeDonations();
@@ -386,51 +389,6 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(stakingAmountBeforeSet).to.be.gt(safeAmount); // maxSafeAmount must be smaller than actualstaking amount so we can verify that we hit the limit for transaction amount at once
   });
 
-  it("it should reverted when there is no token to stake", async () => {
-    await expect(donationsStaking.stakeDonations(0)).to.be.revertedWith(
-      "no stakingToken to stake"
-    );
-  });
-  it("when it changes stakingContract of donationsStaking it should transfer old funds to avatar", async () => {
-    const donationsStakingFactory = await ethers.getContractFactory(
-      "DonationsStaking"
-    );
-    const goodCompoundStakingFactory = await ethers.getContractFactory(
-      "GoodCompoundStaking"
-    );
-    let stakeAmount = ethers.utils.parseEther("100");
-    await bat["mint(address,uint256)"](donationsStaking.address, stakeAmount);
-    await donationsStaking.stakeDonations(0);
-    const avatarBatBalanceBeforeChangeStakingContract = await bat.balanceOf(
-      avatar
-    );
-    const simpleStaking = await goodCompoundStakingFactory
-      .deploy()
-      .then(async contract => {
-        await contract.init(
-          dai.address,
-          cDAI.address,
-          nameService.address,
-          "Good DAI",
-          "gDAI",
-          "172800",
-          daiUsdOracle.address,
-          compUsdOracle.address
-        );
-        return contract;
-      });
-    let encodedData = donationsStakingFactory.interface.encodeFunctionData(
-      "setStakingContract",
-      [simpleStaking.address]
-    );
-    await genericCall(donationsStaking.address, encodedData);
-    const avatarBatBalanceAfterChangeStakingContract = await bat.balanceOf(
-      avatar
-    );
-    expect(avatarBatBalanceAfterChangeStakingContract).to.be.gt(
-      avatarBatBalanceBeforeChangeStakingContract
-    );
-  });
   it("it should return version of DonationsStaking properly", async () => {
     const version = await donationsStaking.getVersion();
     expect(version).to.be.equal("2.0.0");
