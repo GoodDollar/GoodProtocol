@@ -199,7 +199,6 @@ contract BaseShareFieldV2 {
 
 	/**
 	 * @dev This function increase user's productivity and updates the global productivity.
-	 * This function increase user's productivity and updates the global productivity.
 	 * the users' actual share percentage will calculated by:
 	 * Formula:     user_productivity / global_productivity
 	 * @param user the user to update

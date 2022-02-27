@@ -1,7 +1,7 @@
 import { default as hre, ethers, upgrades } from "hardhat";
 import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
-import { CERC20, GoodAaveStaking, AaveStakingFactory } from "../../types";
+import { CERC20, GoodAaveStaking, GoodAaveStakingV2, AaveStakingFactory } from "../../types";
 import { createDAO, deployUniswap } from "../helpers";
 import { Contract } from "ethers";
 
@@ -121,5 +121,40 @@ describe("AaveStakingFactory", () => {
     expect(await staking.token()).to.equal(usdc.address);
     expect(await staking.name()).to.equal("GoodAaveStakingV2 USDC");
     expect(await staking.symbol()).to.equal("gaUSDC");
+  });
+  
+  it("should revert implementation on invalid initialization", async () => {
+    const goodAaveStakingV2 = (await ethers.getContractAt(
+      "GoodAaveStakingV2",
+      await stakingFactory.impl()
+    )) as GoodAaveStakingV2;
+    await expect(goodAaveStakingV2.init(
+      usdc.address,
+      lendingPool.address,
+      dao.nameService.address,
+      "USDC",
+      "USDC",
+      5760,
+      stakingFactory.address,
+      incentiveController.address,
+      aaveUsdOracle.address,
+      [cdai, dai]           // violates tokenToDaiSwapPath[0] == _token (cdai != usdc)
+    )).to.be.revertedWith(
+      "invalid _tokenToDaiSwapPath"
+    );
+    await expect(goodAaveStakingV2.init(
+      usdc.address,
+      lendingPool.address,
+      dao.nameService.address,
+      "USDC",
+      "USDC",
+      5760,
+      stakingFactory.address,
+      incentiveController.address,
+      aaveUsdOracle.address,
+      [usdc.address, cdai]  // violates _tokenToDaiSwapPath[] path leading to dai
+    )).to.be.revertedWith(
+      "invalid _tokenToDaiSwapPath"
+    );
   });
 });
