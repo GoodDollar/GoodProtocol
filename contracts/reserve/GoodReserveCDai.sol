@@ -134,6 +134,11 @@ contract GoodReserveCDai is
 		gdxAirdrop = _gdxAirdrop;
 	}
 
+	function setGDXAirdrop(bytes32 _airdrop) external {
+		_onlyAvatar();
+		gdxAirdrop = _airdrop;
+	}
+
 	/// @dev GDX decimals
 	function decimals() public pure override returns (uint8) {
 		return 2;

@@ -131,7 +131,7 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 			gdSupply: _gdSupply,
 			reserveSupply: _tokenSupply,
 			reserveRatio: _reserveRatio,
-			lastExpansion: _lastExpansion
+			lastExpansion: _lastExpansion == 0 ? block.timestamp : _lastExpansion
 		});
 	}
 

@@ -225,7 +225,7 @@ export const createDAO = async () => {
   const setReserveToken = async (token, gdReserve, tokenReserve, RR) => {
     const encoded = marketMaker.interface.encodeFunctionData(
       "initializeToken",
-      [token, gdReserve, tokenReserve, RR]
+      [token, gdReserve, tokenReserve, RR, 0]
     );
 
     await ictrl.genericCall(marketMaker.address, encoded, Avatar.address, 0);

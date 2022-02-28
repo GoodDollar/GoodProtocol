@@ -407,7 +407,7 @@
         "FuseFaucet": "0x01ab5966C1d742Ae0CFF7f14cC0F4D85156e83d9",
         "FuseStaking": "0xA199F0C353E25AdF022378B0c208D600f39a6505"
     },
-    "production-mainnet": {
+    "production-mainnet-bug": {
         "ProxyFactory": "0x4659176E962763e7C8A4eF965ecfD0fdf9f52057",
         "NameService": "0xe26867DDd22F9342d9F0D566D182f2c960683971",
         "GReputation": "0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf",
@@ -451,5 +451,44 @@
         "DAI": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
         "cDAI": "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
         "COMP": "0xc00e94cb662c3520282e6f5717214004a7f26888"
+    },
+    "production-mainnet": {
+        "ProxyFactory": "0xDa85fceD9Bd193526b7667F2AD1fD4A0F900d3A7",
+        "NameService": "0xec6dcE387B1616a0c44fF2E4fA9E90E53Cf14eb0",
+        "GoodMarketMaker": "0xDAC6A0c973Ba7cF3526dE456aFfA43AB421f659F",
+        "GoodReserveCDai": "0xa150a825d425B36329D8294eeF8bD0fE68f8F6E0",
+        "ExchangeHelper": "0x98FA532Dd5C3a6b66fbf370813803192DE4e0abd",
+        "ProtocolUpgradeRecover": "0x6f1b4dFDd7156FC5752541Ef35EDF57B48E74475",
+        "network": "production-mainnet",
+        "networkId": 1,
+        "ForeignBridge": "0xD5D11eE582c8931F336fbcd135e98CEE4DB8CCB0",
+        "Contribution": "0x8eEC64bb6807c0178f96277cCE6a334B4e565E5C",
+        "Identity": "0x76e76e10Ac308A1D54a00f9df27EdCE4801F288b",
+        "GoodDollar": "0x67C5870b4A41D4Ebef24d2456547A03F1f3e094B",
+        "Controller": "0x95C0d9dCEA1E243ED696F34CAc5e6559C3c128a3",
+        "Avatar": "0x1ecFD1afb601C406fF0e13c3485f2d75699b6817",
+        "ProxyAdmin": "0xA2db14C68aB35e620fEA5bF07d65e9bff84c994C",
+        "BancorFormula": "0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a",
+        "DAI": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+        "cDAI": "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
+        "COMP": "0xc00e94cb662c3520282e6f5717214004a7f26888",
+        "StakingContracts": [
+            [
+                "0xD33bA17C8A644C585089145e86E282fada6F3bfd",
+                310
+            ]
+        ],
+        "StakingContractsV2": [
+            [
+                "0x02416eb83cff1f19163f21010149c3867f3261e1",
+                13888
+            ],
+            [
+                "0xf4c34bed7dd779485692bb1857acf9c561b45010",
+                6944
+            ]
+        ],
+        "GReputation": "0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf",
+        "GoodFundManager": "0x3F55BD3B432EDC73Bbb704Fa5a29CC08dc1aDBEB"
     }
 }
