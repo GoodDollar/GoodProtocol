@@ -12,6 +12,7 @@ contract ERC1967Proxy is Proxy, ERC1967Upgrade {
 	 * function call, and allows initializating the storage of the proxy like a Solidity constructor.
 	 */
 	function initialize(address _logic, bytes calldata _data) external payable {
+		require(_getImplementation() == address(0), "initialized");
 		assert(
 			_IMPLEMENTATION_SLOT ==
 				bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1)
