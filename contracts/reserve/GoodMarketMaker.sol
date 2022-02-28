@@ -123,14 +123,15 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		ERC20 _token,
 		uint256 _gdSupply,
 		uint256 _tokenSupply,
-		uint32 _reserveRatio
+		uint32 _reserveRatio,
+		uint256 _lastExpansion
 	) public {
 		_onlyReserveOrAvatar();
 		reserveTokens[address(_token)] = ReserveToken({
 			gdSupply: _gdSupply,
 			reserveSupply: _tokenSupply,
 			reserveRatio: _reserveRatio,
-			lastExpansion: block.timestamp
+			lastExpansion: _lastExpansion
 		});
 	}
 
