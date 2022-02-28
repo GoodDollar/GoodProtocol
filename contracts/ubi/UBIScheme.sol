@@ -139,12 +139,21 @@ contract UBIScheme is DAOUpgradeableContract {
 		IFirstClaimPool _firstClaimPool,
 		uint256 _maxInactiveDays
 	) public initializer {
+		_initialize_ubischeme(_ns, _firstClaimPool, _maxInactiveDays, 90);
+	}
+
+	function _initialize_ubischeme(
+		INameService _ns,
+		IFirstClaimPool _firstClaimPool,
+		uint256 _maxInactiveDays,
+		uint256 _cycleLength
+	) internal {
 		require(_maxInactiveDays > 0, "Max inactive days cannot be zero");
 		setDAO(_ns);
 		maxInactiveDays = _maxInactiveDays;
 		firstClaimPool = _firstClaimPool;
 		shouldWithdrawFromDAO = false;
-		cycleLength = 90; //90 days
+		cycleLength = _cycleLength; //90 days
 		iterationGasLimit = 150000;
 		periodStart = (block.timestamp / (1 days)) * 1 days + 12 hours; //set start time to GMT noon
 		startOfCycle = periodStart;
@@ -236,7 +245,7 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * the daily balance is determined by dividing current pool by the cycle length
 	 * @return The amount of GoodDollar the user can claim
 	 */
-	function distributionFormula() internal returns (uint256) {
+	function distributionFormula() internal virtual returns (uint256) {
 		setDay();
 		// on first day or once in 24 hrs calculate distribution
 		//on day 0 all users receive from firstclaim pool
@@ -358,8 +367,11 @@ contract UBIScheme is DAOUpgradeableContract {
 
 		// awards a new user or a fished user
 		if (_isFirstTime) {
-			uint256 awardAmount = firstClaimPool.awardUser(_account);
-			claimDay[currentDay].claimAmount += awardAmount;
+			uint256 awardAmount;
+			if (address(firstClaimPool) != address(0)) {
+				awardAmount = firstClaimPool.awardUser(_account);
+				claimDay[currentDay].claimAmount += awardAmount;
+			}
 			emit UBIClaimed(_account, awardAmount);
 		} else {
 			if (_isClaimed) {
@@ -371,7 +383,7 @@ contract UBIScheme is DAOUpgradeableContract {
 		}
 	}
 
-	function estimateNextDailyUBI() public view returns (uint256) {
+	function estimateNextDailyUBI() public view virtual returns (uint256) {
 		uint256 currentBalance = nativeToken().balanceOf(address(this));
 		//start early cycle if we can increase the daily UBI pool
 		bool shouldStartEarlyCycle = currentBalance / cycleLength > dailyCyclePool;
@@ -397,7 +409,13 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * or fish has already been executed today.
 	 * @return The amount of GD tokens the address can claim.
 	 */
-	function checkEntitlement() public view requireStarted returns (uint256) {
+	function checkEntitlement()
+		public
+		view
+		virtual
+		requireStarted
+		returns (uint256)
+	{
 		// new user or inactive should recieve the first claim reward
 		if (!isNotNewUser(msg.sender) || fishedUsersAddresses[msg.sender]) {
 			return firstClaimPool.claimAmount();
@@ -418,7 +436,7 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * @param _account The claimer account
 	 * @return A bool indicating if UBI was claimed
 	 */
-	function _claim(address _account) internal returns (bool) {
+	function _claim(address _account) internal virtual returns (bool) {
 		// calculats the formula up today ie on day 0 there are no active users, on day 1 any user
 		// (new or active) will trigger the calculation with the active users count of the day before
 		// and so on. the new or inactive users that will become active today, will not take into account
@@ -450,7 +468,7 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * to the caller. Emits the address of caller and amount claimed.
 	 * @return A bool indicating if UBI was claimed
 	 */
-	function claim() public requireStarted returns (bool) {
+	function claim() public virtual requireStarted returns (bool) {
 		require(
 			IIdentity(nameService.getAddress("IDENTITY")).isWhitelisted(msg.sender),
 			"UBIScheme: not whitelisted"
@@ -528,5 +546,11 @@ contract UBIScheme is DAOUpgradeableContract {
 		_onlyAvatar();
 		shouldWithdrawFromDAO = _shouldWithdraw;
 		emit ShouldWithdrawFromDAOSet(shouldWithdrawFromDAO);
+	}
+
+	function end() public {
+		_onlyAvatar();
+		IGoodDollar token = nativeToken();
+		token.transfer(avatar, token.balanceOf(address(this)));
 	}
 }
