@@ -344,7 +344,7 @@ abstract contract SimpleStakingV2 is
 		);
 
 		if (address(sd) != address(0)) {
-			uint256 _convertedValue = _convertValue(_value);
+			uint256 _convertedValue = _convertValueTo18Decimals(_value);
 			sd.userWithdraw(_from, _convertedValue);
 			sd.userStaked(_to, _convertedValue);
 		}
