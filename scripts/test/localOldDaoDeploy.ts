@@ -391,7 +391,8 @@ export const createOldDAO = async (daiAddr, cdaiAddr, COMPAddr) => {
     cDAI.address,
     "100", //1gd
     "10000", //0.0001 cDai
-    "1000000" //100% rr
+    "1000000", //100% rr
+    "0"
   );
   console.log("deploying reserve...");
 
