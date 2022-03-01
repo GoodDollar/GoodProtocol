@@ -489,7 +489,9 @@
             ]
         ],
         "StakersDistribution": "0x12D15EfC3c9661AD68209CD197D416BFd9B145f5",
-        "GoodFundManager": "0x3F55BD3B432EDC73Bbb704Fa5a29CC08dc1aDBEB"
+        "GoodFundManager": "0x3F55BD3B432EDC73Bbb704Fa5a29CC08dc1aDBEB",
+        "GReputation": "0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf",
+        "CompoundVotingMachine": "0xc2Ff55b896e3c42f9e1c2f7467C51b93F1C23dFD"
     },
     "production": {
         "NameService": "0xec6dcE387B1616a0c44fF2E4fA9E90E53Cf14eb0",
