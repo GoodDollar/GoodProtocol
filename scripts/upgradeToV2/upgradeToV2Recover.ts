@@ -25,7 +25,7 @@ import {
   SchemeRegistrar,
   CompoundVotingMachine,
   ProtocolUpgradeRecover,
-  ProtocolUpgradeFuse,
+  ProtocolUpgradeFuseRecover,
   NameService
 } from "../../types";
 import OldDAO from "../../releases/olddao.json";
@@ -198,6 +198,7 @@ export const main = async (
     {
       network: "fuse",
       name: "NameService",
+      skip: true,
       args: [
         controller,
         [
@@ -217,15 +218,15 @@ export const main = async (
       initializer: "initialize(address, string, bytes32, uint256)",
       args: [
         () => get(release, "NameService", newdao.NameService),
-        repStateId,
-        protocolSettings.governance.gdaoAirdrop, //should fail on real deploy if not set
-        protocolSettings.governance.gdaoTotalSupply //should fail on real deploy if not set
+        "",
+        ethers.constants.HashZero, //should fail on real deploy if not set
+        0 //should fail on real deploy if not set
       ]
     },
     {
       network: "both",
-      skip: true,
       name: "CompoundVotingMachine",
+      skip: true,
       args: [
         () => get(release, "NameService", newdao.NameService),
         protocolSettings.governance.proposalVotingPeriod,
@@ -274,8 +275,8 @@ export const main = async (
     },
     {
       network: "fuse",
-      skip: true,
       name: "ClaimersDistribution",
+      skip: true,
       args: [() => get(release, "NameService", newdao.NameService)]
     },
     {
@@ -287,8 +288,8 @@ export const main = async (
     },
     {
       network: "fuse",
-      skip: true,
       name: "UBIScheme",
+      skip: true,
       initializer: "initialize(address, address, uint256)",
       args: [
         () => get(release, "NameService", newdao.NameService),
@@ -662,22 +663,16 @@ export const main = async (
   };
 
   const performUpgradeFuse = async release => {
-    const upgrade: ProtocolUpgradeFuse = (await ethers.getContractAt(
-      "ProtocolUpgradeFuse",
-      release.ProtocolUpgradeFuse
-    )) as unknown as ProtocolUpgradeFuse;
+    const upgrade: ProtocolUpgradeFuseRecover = (await ethers.getContractAt(
+      "ProtocolUpgradeFuseRecover",
+      release.ProtocolUpgradeFuseRecover
+    )) as unknown as ProtocolUpgradeFuseRecover;
 
     console.log("performing protocol v2 upgrade on Fuse...", { release, dao });
     await upgrade
       .upgrade(
         release.NameService,
-        //old contracts
-        [
-          dao.SchemeRegistrar || ethers.constants.AddressZero,
-          dao.UpgradeScheme,
-          dao.UBIScheme,
-          dao.FirstClaimPool
-        ],
+        dao.FirstClaimPool,
         release.UBIScheme,
         [
           ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
@@ -921,9 +916,9 @@ export const main = async (
   if (isPerformUpgrade) {
     console.log("deployed contracts", { totalGas, dao, release });
     console.log("registering updrade scheme...");
-    // await pressAnyKey();
-    // await voteProtocolUpgrade(release);
-    // await pressAnyKey();
+    await pressAnyKey();
+    await voteProtocolUpgrade(release);
+    await pressAnyKey();
     console.log("voted contracts", { totalGas });
     isMainnet && (await performUpgrade(release));
     !isMainnet && (await performUpgradeFuse(release));

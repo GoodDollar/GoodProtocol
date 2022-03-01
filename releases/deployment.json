@@ -382,7 +382,7 @@
         "cDAI": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
         "COMP": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
     },
-    "production": {
+    "production-bug": {
         "ProxyFactory": "0x4659176E962763e7C8A4eF965ecfD0fdf9f52057",
         "NameService": "0xe26867DDd22F9342d9F0D566D182f2c960683971",
         "GReputation": "0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf",
@@ -488,7 +488,31 @@
                 6944
             ]
         ],
-        "GReputation": "0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf",
+        "StakersDistribution": "0x12D15EfC3c9661AD68209CD197D416BFd9B145f5",
         "GoodFundManager": "0x3F55BD3B432EDC73Bbb704Fa5a29CC08dc1aDBEB"
+    },
+    "production": {
+        "NameService": "0xec6dcE387B1616a0c44fF2E4fA9E90E53Cf14eb0",
+        "GReputation": "0x603B8C0F110E037b51A381CBCacAbb8d6c6E4543",
+        "CompoundVotingMachine": "0x57Ee6Ceff51CB30Ecb1245934a882c500Fbec1e9",
+        "ClaimersDistribution": "0x1aE4929090258A9D5000D98Cfb8A27174d345834",
+        "GovernanceStaking": "0x280226A143b7Dfdf84645006e32F899B531C2F98",
+        "UBIScheme": "0xd253A5203817225e9768C05E5996d642fb96bA86",
+        "ProtocolUpgradeFuseRecover": "0xBE43eCb37Af7F7C4A8606E672c504BE55Fc6226B",
+        "network": "production",
+        "networkId": 122,
+        "HomeBridge": "0xD39021DB018E2CAEadb4B2e6717D31550e7918D0",
+        "SignupBonus": "0x0000000000000000000000000000000000000000",
+        "OneTimePayments": "0xd9Aa86e0Ddb932bD78ab8c71C1B98F83cF610Bd4",
+        "Invites": "0xCa2F09c3ccFD7aD5cB9276918Bd1868f2b922ea0",
+        "AdminWallet": "0x9F75dAcB77419b87f568d417eBc84346e134144E",
+        "Identity": "0xFa8d865A962ca8456dF331D78806152d3aC5B84F",
+        "GoodDollar": "0x495d133B938596C9984d462F007B676bDc57eCEC",
+        "Controller": "0xBcE053b99e22158f8B62f4DBFbEdE1f936b2D4e4",
+        "Avatar": "0xf96dADc6D71113F6500e97590760C924dA1eF70e",
+        "FirstClaimPool": "0x18BcdF79A724648bF34eb06701be81bD072A2384",
+        "ProxyAdmin": "0x57179b2A8eB019157b0C3E761cdB26c82C982a3B",
+        "FuseFaucet": "0x01ab5966C1d742Ae0CFF7f14cC0F4D85156e83d9",
+        "FuseStaking": "0xA199F0C353E25AdF022378B0c208D600f39a6505"
     }
 }

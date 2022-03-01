@@ -406,7 +406,7 @@ contract UBIScheme is DAOUpgradeableContract {
 		return _dailyUbi;
 	}
 
-	function checkEntitlement() public view requireStarted returns (uint256) {
+	function checkEntitlement() public view returns (uint256) {
 		return checkEntitlement(msg.sender);
 	}
 
@@ -417,12 +417,8 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * or fish has already been executed today.
 	 * @return The amount of GD tokens the address can claim.
 	 */
-	function checkEntitlement(address _member)
-		public
-		view
-		requireStarted
-		returns (uint256)
-	{
+	function checkEntitlement(address _member) public view returns (uint256) {
+		if (block.timestamp < periodStart) return 0; //not started
 		// new user or inactive should recieve the first claim reward
 		if (
 			useFirstClaimPool &&
