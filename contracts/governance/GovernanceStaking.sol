@@ -109,7 +109,6 @@ contract GovernanceStaking is
 	 * @param user Receipent address of the rewards
 	 * @return Returns amount of the minted rewards
 	 */
-
 	function _mintRewards(address user) internal returns (uint256) {
 		uint256 amount = _issueEarnedRewards(address(this), user, 0, block.number);
 		if (amount > 0) {
@@ -123,7 +122,7 @@ contract GovernanceStaking is
 	 * @dev Returns the number of decimals used to get its user representation.
 	 */
 	function decimals() public view virtual override returns (uint8) {
-		return 2;
+		return 18;
 	}
 
 	/**

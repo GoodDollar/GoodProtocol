@@ -17,7 +17,7 @@ const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 30;
 
-describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
+describe.only("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
   let dai: Contract;
   let cDAI: Contract;
   let goodReserve: GoodReserveCDai;
@@ -33,6 +33,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     founder,
     staker,
     staker2,
+    staker3,
     schemeMock,
     signers,
     nameService,
@@ -40,7 +41,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     setDAOAddress;
 
   before(async () => {
-    [founder, staker, staker2, ...signers] = await ethers.getSigners();
+    [founder, staker, staker2, staker3, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
     const cdaiFactory = await ethers.getContractFactory("cDAIMock");
     const goodFundManagerFactory = await ethers.getContractFactory(
@@ -566,9 +567,9 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await setDAOAddress("GDAO_STAKING", governanceStaking.address);
   });
 
-  it("Staking tokens should be 2 decimals", async () => {
+  it("Staking tokens should be 18 decimals", async () => {
     const decimals = await governanceStaking.decimals();
-    expect(decimals.toString()).to.be.equal("2");
+    expect(decimals.toString()).to.be.equal("18");
   });
 
   it("Stake amount should be positive", async () => {
@@ -821,6 +822,45 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
 
     await setDAOAddress("GDAO_STAKING", governanceStaking.address);
   });
+
+  it("it should", async () => {
+    const governanceStakingFactory = await ethers.getContractFactory(
+      "GovernanceStaking"
+    );
+    const simpleGovernanceStaking = await governanceStakingFactory.deploy(
+      nameService.address
+    );
+    await setDAOAddress("GDAO_STAKING", simpleGovernanceStaking.address);
+    await goodDollar.mint(staker3.address, "100");
+    await goodDollar.connect(staker3).approve(simpleGovernanceStaking.address, "200");
+
+    await simpleGovernanceStaking.connect(staker3).stake("200");
+
+    const balanceOfStakerLP = await simpleGovernanceStaking.balanceOf(staker3.address);
+    console.log(balanceOfStakerLP.toString());
+
+    await advanceBlocks(100);
+    await simpleGovernanceStaking.withdrawRewards();
+    const goodBalanceAfterStake = await grep.balanceOfLocal(staker3.address);
+
+    const rewardsPerBlock = await simpleGovernanceStaking.getRewardsPerBlock();
+    console.log(rewardsPerBlock.toString());
+
+    console.log(goodBalanceAfterStake.toString());
+
+    // const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
+    // const GDAOBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
+    // const withdrawRewardsBlockNumber = await ethers.provider.getBlockNumber();
+
+    // expect(GDAOBalanceAfterWithdraw).to.be.equal(
+    //   GDAOBalanceAfterStake.add(
+    //     rewardsPerBlock.mul(withdrawRewardsBlockNumber - stakeBlockNumber)
+    //   )
+    // );
+
+    await setDAOAddress("GDAO_STAKING", governanceStaking.address);
+  });
+
   it("it should not overmint rewards when staker withdraw their rewards", async () => {
     const governanceStakingFactory = await ethers.getContractFactory(
       "GovernanceStaking"
