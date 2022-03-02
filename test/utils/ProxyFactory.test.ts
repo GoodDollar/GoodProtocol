@@ -146,4 +146,5 @@ describe("proxyfactory", () => {
       .proxy;
     proxy = await ethers.getContractAt("UpgradableMock", proxyAddr);
     expect(await proxy.owner()).to.eq(signers[2].address);
+    });
 });
