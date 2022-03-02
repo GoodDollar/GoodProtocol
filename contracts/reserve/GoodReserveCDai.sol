@@ -134,6 +134,11 @@ contract GoodReserveCDai is
 		gdxAirdrop = _gdxAirdrop;
 	}
 
+	function setGDXAirdrop(bytes32 _airdrop) external {
+		_onlyAvatar();
+		gdxAirdrop = _airdrop;
+	}
+
 	/// @dev GDX decimals
 	function decimals() public pure override returns (uint8) {
 		return 2;
@@ -180,14 +185,10 @@ contract GoodReserveCDai is
 		address exchangeHelper = nameService.getAddress("EXCHANGE_HELPER");
 		if (msg.sender != exchangeHelper)
 			require(
-				buyWith.transferFrom(msg.sender, address(this), _tokenAmount) ==
-					true,
+				buyWith.transferFrom(msg.sender, address(this), _tokenAmount) == true,
 				"transferFrom failed, make sure you approved input token transfer"
 			);
-		require(
-			gdReturn >= _minReturn,
-			"GD return must be above the minReturn"
-		);
+		require(gdReturn >= _minReturn, "GD return must be above the minReturn");
 		_mintGoodDollars(_targetAddress, gdReturn, true);
 		//mint GDX
 		_mintGDX(_targetAddress, gdReturn);
@@ -257,12 +258,12 @@ contract GoodReserveCDai is
 			contributionAmount = ContributionCalc(
 				nameService.getAddress("CONTRIBUTION_CALCULATION")
 			).calculateContribution(
-				mm,
-				this,
-				_seller,
-				ERC20(cDaiAddress),
-				gdAmountTemp - discount
-			);
+					mm,
+					this,
+					_seller,
+					ERC20(cDaiAddress),
+					gdAmountTemp - discount
+				);
 
 		uint256 tokenReturn = mm.sellWithContribution(
 			ERC20(cDaiAddress),
@@ -350,9 +351,7 @@ contract GoodReserveCDai is
 			_interestToken,
 			interestInCdai
 		);
-		uint256 gdExpansionToMint = getMarketMaker().mintExpansion(
-			_interestToken
-		);
+		uint256 gdExpansionToMint = getMarketMaker().mintExpansion(_interestToken);
 		uint256 gdUBI = gdInterestToMint + gdExpansionToMint;
 		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
 		_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), gdUBI, false);
@@ -376,9 +375,7 @@ contract GoodReserveCDai is
 	 * @param _nom The numerator to calculate the global `reserveRatioDailyExpansion` from
 	 * @param _denom The denominator to calculate the global `reserveRatioDailyExpansion` from
 	 */
-	function setReserveRatioDailyExpansion(uint256 _nom, uint256 _denom)
-		public
-	{
+	function setReserveRatioDailyExpansion(uint256 _nom, uint256 _denom) public {
 		_onlyAvatar();
 		getMarketMaker().setReserveRatioDailyExpansion(_nom, _denom);
 	}
@@ -390,12 +387,19 @@ contract GoodReserveCDai is
 	function end() public {
 		_onlyAvatar();
 		// remaining cDAI tokens in the current reserve contract
-		recover(ERC20(cDaiAddress));
+		if (ERC20(cDaiAddress).balanceOf(address(this)) > 0) {
+			require(
+				ERC20(cDaiAddress).transfer(
+					address(avatar),
+					ERC20(cDaiAddress).balanceOf(address(this))
+				),
+				"recover transfer failed"
+			);
+		}
 
 		//restore minting to avatar, so he can re-delegate it
 		IGoodDollar gd = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
-		if (gd.isMinter(address(avatar)) == false)
-			gd.addMinter(address(avatar));
+		if (gd.isMinter(address(avatar)) == false) gd.addMinter(address(avatar));
 
 		IGoodDollar(nameService.getAddress("GOODDOLLAR")).renounceMinter();
 	}

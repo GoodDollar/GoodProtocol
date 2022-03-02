@@ -150,6 +150,7 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 		address _stakingContract,
 		address[] memory _ethToStakingTokenSwapPath
 	) external {
+		_onlyAvatar();
 		require(
 			_ethToStakingTokenSwapPath.length >= 2 &&
 				_ethToStakingTokenSwapPath[0] == address(0x0) &&

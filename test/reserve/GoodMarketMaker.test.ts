@@ -55,7 +55,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       marketMaker: mm,
       setSchemes,
       setReserveToken,
-      setDAOAddress,
+      setDAOAddress
     } = await createDAO();
     avatar = av;
     marketMaker = mm.connect(fakeReserve);
@@ -144,7 +144,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     expect(
       await marketMaker
         .reserveTokens(cdai)
-        .then((_) => _["reserveRatio"].toString())
+        .then(_ => _["reserveRatio"].toString())
     ).to.be.equal("994511"); // 998777 * 0.999388834642296000000000000^7
   });
 
@@ -165,13 +165,14 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     const marketMaker1 = await upgrades.deployProxy(MM, [
       await marketMaker.nameService(),
       999388834642296,
-      1e15,
+      1e15
     ]);
     await marketMaker1.initializeToken(
       dai,
       "100", //1gd
       ethers.utils.parseEther("0.0001"),
-      "800000" //80% rr
+      "800000", //80% rr,
+      0
     );
     const res = marketMaker1.sellWithContribution(
       dai,
@@ -188,7 +189,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     await marketMaker.mintInterest(cdai, BN.from(1e8));
     expect(
       Math.floor(
-        (await marketMaker.currentPrice(cdai).then((_) => _.toNumber())) / 100
+        (await marketMaker.currentPrice(cdai).then(_ => _.toNumber())) / 100
       ).toString()
     ).to.be.equal(Math.floor(priceBefore.toNumber() / 100).toString());
   });

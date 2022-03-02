@@ -281,7 +281,7 @@ describe("UBIScheme", () => {
   });
 
   it("should return the reward value for entitlement user", async () => {
-    let amount = await ubi.connect(claimer4).checkEntitlement();
+    let amount = await ubi.connect(claimer4)["checkEntitlement()"]();
     let claimAmount = await firstClaimPool.claimAmount();
     expect(amount.toString()).to.be.equal(claimAmount.toString());
   });
@@ -324,13 +324,13 @@ describe("UBIScheme", () => {
   it("should return the daily ubi for entitlement user", async () => {
     // claimer3 hasn't claimed during that interval so that user
     // may have the dailyUbi
-    let amount = await ubi.connect(claimer3).checkEntitlement();
+    let amount = await ubi.connect(claimer3)["checkEntitlement()"]();
     let dailyUbi = await ubi.dailyUbi();
     expect(amount.toString()).to.be.equal(dailyUbi.toString());
   });
   it("should return 0 for entitlement if the user has already claimed for today", async () => {
     await ubi.connect(claimer4).claim();
-    let amount = await ubi.connect(claimer4).checkEntitlement();
+    let amount = await ubi.connect(claimer4)["checkEntitlement()"]();
     expect(amount.toString()).to.be.equal("0");
   });
 
@@ -548,7 +548,7 @@ describe("UBIScheme", () => {
     await increaseTime(ONE_DAY);
     await ubi.connect(claimer1).claim();
     await increaseTime(ONE_DAY);
-    let amount = await ubi.connect(claimer1).checkEntitlement();
+    let amount = await ubi.connect(claimer1)["checkEntitlement()"]();
     let balance2 = await goodDollar.balanceOf(ubi.address);
     let estimated = await ubi.estimateNextDailyUBI();
     expect(amount).to.be.equal(estimated);

@@ -100,6 +100,37 @@ describe("proxyfactory", () => {
     expect(await proxy.owner()).to.eq(signers[2].address);
   });
 
+  it("should not be able to re-initialize proxy", async () => {
+    const c1 = await (
+      await ethers.getContractFactory("UpgradableMock")
+    ).deploy();
+    const encoded = c1.interface.encodeFunctionData("initialize", [
+      signers[2].address
+    ]);
+
+    const deployTX = await (
+      await factory.deployProxy(4, c1.address, encoded)
+    ).wait();
+    const proxyAddr = deployTX.events.find(_ => _.event === "ProxyCreated").args
+      .proxy;
+    let proxy = await ethers.getContractAt("ERC1967Proxy", proxyAddr);
+
+    const c2 = await (
+      await ethers.getContractFactory("UpgradableMock")
+    ).deploy();
+
+    const encoded2 = c1.interface.encodeFunctionData("initialize", [
+      signers[3].address
+    ]);
+
+    await expect(
+      proxy["initialize(address,bytes)"](c2.address, encoded)
+    ).revertedWith("initialized");
+
+    let orgproxy = await ethers.getContractAt("UpgradableMock", proxyAddr);
+    expect(await orgproxy.owner()).to.eq(signers[2].address);
+  });
+
   it("should use deploy minimal to deploy proxy with impl and initialize it", async () => {
     const c1 = await (
       await ethers.getContractFactory("UpgradableMock")
@@ -115,5 +146,4 @@ describe("proxyfactory", () => {
       .proxy;
     proxy = await ethers.getContractAt("UpgradableMock", proxyAddr);
     expect(await proxy.owner()).to.eq(signers[2].address);
-  });
 });
