@@ -252,7 +252,7 @@ contract UBIScheme is DAOUpgradeableContract {
 		setDay();
 		// on first day or once in 24 hrs calculate distribution
 		//on day 0 all users receive from firstclaim pool
-		if (currentDay != lastWithdrawDay) {
+		if (currentDay != lastWithdrawDay || dailyUbi == 0) {
 			IGoodDollar token = nativeToken();
 			uint256 currentBalance = token.balanceOf(address(this));
 			//start early cycle if we can increase the daily UBI pool
@@ -429,7 +429,9 @@ contract UBIScheme is DAOUpgradeableContract {
 
 		// current day has already been updated which means
 		// that the dailyUbi has been updated
-		if (currentDay == (block.timestamp - periodStart) / (1 days)) {
+		if (
+			currentDay == (block.timestamp - periodStart) / (1 days) && dailyUbi > 0
+		) {
 			return hasClaimed(_member) ? 0 : dailyUbi;
 		}
 		return estimateNextDailyUBI();
@@ -464,7 +466,7 @@ contract UBIScheme is DAOUpgradeableContract {
 			if (useFirstClaimPool) {
 				_transferTokens(_account, 0, false, true);
 			} else {
-				_transferTokens(_account, 0, true, false);
+				_transferTokens(_account, newDistribution, true, false);
 			}
 			emit ActivatedUser(_account);
 			return true;
