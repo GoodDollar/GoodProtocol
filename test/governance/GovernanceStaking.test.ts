@@ -823,40 +823,29 @@ describe.only("GovernanceStaking - staking with GD  and get Rewards in GDAO", ()
     await setDAOAddress("GDAO_STAKING", governanceStaking.address);
   });
 
-  it("it should", async () => {
+  it("it should transfer LP tokens of the contract and make use of decimals", async () => {
     const governanceStakingFactory = await ethers.getContractFactory(
       "GovernanceStaking"
     );
     const simpleGovernanceStaking = await governanceStakingFactory.deploy(
       nameService.address
     );
+
     await setDAOAddress("GDAO_STAKING", simpleGovernanceStaking.address);
-    await goodDollar.mint(staker3.address, "100");
-    await goodDollar.connect(staker3).approve(simpleGovernanceStaking.address, "200");
+    await goodDollar.mint(founder.address, "200");
 
-    await simpleGovernanceStaking.connect(staker3).stake("200");
+    await goodDollar.approve(simpleGovernanceStaking.address, "200");
+    await simpleGovernanceStaking.stake("200");
 
-    const balanceOfStakerLP = await simpleGovernanceStaking.balanceOf(staker3.address);
-    console.log(balanceOfStakerLP.toString());
+    const rewardsPerBlockBefore = await simpleGovernanceStaking.getRewardsPerBlock();
 
-    await advanceBlocks(100);
-    await simpleGovernanceStaking.withdrawRewards();
-    const goodBalanceAfterStake = await grep.balanceOfLocal(staker3.address);
+    const balanceOfStakerLP = await simpleGovernanceStaking.balanceOf(founder.address);
+    const simpleGovernanceStakingDecimals = await simpleGovernanceStaking.decimals();
 
-    const rewardsPerBlock = await simpleGovernanceStaking.getRewardsPerBlock();
-    console.log(rewardsPerBlock.toString());
+    const expectedFormattedBalance = "0.0000000000000002";
 
-    console.log(goodBalanceAfterStake.toString());
-
-    // const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
-    // const GDAOBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
-    // const withdrawRewardsBlockNumber = await ethers.provider.getBlockNumber();
-
-    // expect(GDAOBalanceAfterWithdraw).to.be.equal(
-    //   GDAOBalanceAfterStake.add(
-    //     rewardsPerBlock.mul(withdrawRewardsBlockNumber - stakeBlockNumber)
-    //   )
-    // );
+    expect(ethers.utils.formatUnits(balanceOfStakerLP, simpleGovernanceStakingDecimals))
+      .to.be.equal(expectedFormattedBalance);
 
     await setDAOAddress("GDAO_STAKING", governanceStaking.address);
   });
