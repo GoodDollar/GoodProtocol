@@ -107,7 +107,8 @@ describe("CompoundStakingFactory", () => {
     expect(await staking.name()).to.equal("GoodCompoundStakingV2 Compound DAI");
     expect(await staking.symbol()).to.equal("gcDAI");
   });
-  it("should get exact gas cost for interest transfer", async () => {
+
+  it("should get correct gas cost settings", async () => {
     const goodCompoundStakingV2 = (await ethers.getContractAt(
       "GoodCompoundStakingV2",
       await stakingFactory.impl()
@@ -125,8 +126,15 @@ describe("CompoundStakingFactory", () => {
       []
     );
 
-    const INITIAL_GAS_COST = 250000;
+    const INITIAL_COLLECT_INTEREST_GAS_COST = 250000;
+    const INITIAL_COLLECT_COMP_GAS_COST = 150000;
     const gasCostForInterestTransfer = await goodCompoundStakingV2.getGasCostForInterestTransfer();
-    expect(gasCostForInterestTransfer).to.equal(INITIAL_GAS_COST);
+    expect(gasCostForInterestTransfer).to.equal(INITIAL_COLLECT_INTEREST_GAS_COST);
+
+    const settings = await goodCompoundStakingV2.getSettings();
+    const collectInteresetGasCost = settings[0];
+    const compCollectGasCost = settings[1];
+    expect(collectInteresetGasCost).to.equal(INITIAL_COLLECT_INTEREST_GAS_COST);
+    expect(compCollectGasCost).to.equal(INITIAL_COLLECT_COMP_GAS_COST);
     });
 });
