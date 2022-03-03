@@ -17,7 +17,7 @@ const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 30;
 
-describe.only("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
+describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
   let dai: Contract;
   let cDAI: Contract;
   let goodReserve: GoodReserveCDai;
@@ -882,31 +882,4 @@ describe.only("GovernanceStaking - staking with GD  and get Rewards in GDAO", ()
   function rdiv(x: BigNumber, y: BigNumber) {
     return x.mul(BN.from("10").pow(27)).add(y.div(2)).div(y);
   }
-
-  it("it should transfer LP tokens of the contract and make use of decimals", async () => {
-    const governanceStakingFactory = await ethers.getContractFactory(
-      "GovernanceStaking"
-    );
-    const simpleGovernanceStaking = await governanceStakingFactory.deploy(
-      nameService.address
-    );
-
-    await setDAOAddress("GDAO_STAKING", simpleGovernanceStaking.address);
-    await goodDollar.mint(founder.address, "200");
-
-    await goodDollar.approve(simpleGovernanceStaking.address, "200");
-    await simpleGovernanceStaking.stake("200");
-
-    const rewardsPerBlockBefore = await simpleGovernanceStaking.getRewardsPerBlock();
-
-    const balanceOfStakerLP = await simpleGovernanceStaking.balanceOf(founder.address);
-    const simpleGovernanceStakingDecimals = await simpleGovernanceStaking.decimals();
-
-    const expectedFormattedBalance = "0.0000000000000002";
-
-    expect(ethers.utils.formatUnits(balanceOfStakerLP, simpleGovernanceStakingDecimals))
-      .to.be.equal(expectedFormattedBalance);
-
-    await setDAOAddress("GDAO_STAKING", governanceStaking.address);
-  });
 });

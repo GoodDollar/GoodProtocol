@@ -122,7 +122,7 @@ contract GovernanceStaking is
 	 * @dev Returns the number of decimals used to get its user representation.
 	 */
 	function decimals() public view virtual override returns (uint8) {
-		return 18;
+		return 2;
 	}
 
 	/**
