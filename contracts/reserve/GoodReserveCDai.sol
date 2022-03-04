@@ -250,7 +250,8 @@ contract GoodReserveCDai is
 		uint256 discount = gdx <= _gdAmount ? gdx : _gdAmount;
 
 		//burn gdx used for discount
-		_burn(_seller, discount);
+		if (discount > 0)
+			_burn(_seller, discount);
 
 		uint256 contributionAmount = 0;
 		uint256 gdAmountTemp = _gdAmount; // to prevent stack too deep errors
