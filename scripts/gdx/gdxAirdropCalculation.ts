@@ -198,3 +198,180 @@ export const airdrop = (ethers: typeof Ethers, ethSnapshotBlock) => {
 
   return { buildMerkleTree, collectAirdropData, getProof };
 };
+
+export const airdropNew = (ethers: typeof Ethers, ethSnapshotBlock) => {
+  const getBuyingAddresses = async (addresses = {}, isContracts = {}) => {
+    const provider = new ethers.providers.InfuraProvider();
+
+    let newReserve = await ethers.getContractAt(
+      [
+        "event TokenPurchased(address indexed caller,address indexed inputToken,uint256 inputAmount,uint256 actualReturn,address indexed receiverAddress)",
+        "event TokenSold(address indexed caller,address indexed outputToken,uint256 gdAmount,uint256 contributionAmount,uint256 actualReturn,address indexed receiverAddress)"
+      ],
+      // stakingContracts["production-mainnet-bug"].Reserve
+      "0x6C35677206ae7FF1bf753877649cF57cC30D1c42"
+    );
+
+    newReserve = newReserve.connect(provider);
+
+    const step = 100000;
+    // const snapshotBlock = parseInt(ethSnapshotBlock || ETH_SNAPSHOT_BLOCK);
+    const START_BLOCK = 13683748; // Reserve was created
+    const END_BLOCK = 14296271;   // Following reserve created
+    const blocks = range(START_BLOCK, END_BLOCK, step);
+    const filter = newReserve.filters.TokenPurchased();
+    const swapFilter = newReserve.filters.TokenSold();
+    // console.log({ snapshotBlock });
+    for (let blockChunk of chunk(blocks, 10)) {
+      // Get the filter (the second null could be omitted)
+      const ps = blockChunk.map(async bc => {
+        // Query the filter (the latest could be omitted)
+        const logs = await newReserve
+          .queryFilter(filter, bc, Math.min(bc + step - 1, END_BLOCK))
+          .catch(e => {
+            console.log("block transfer logs failed retrying...", bc);
+            return newReserve.queryFilter(
+              filter,
+              bc,
+              Math.min(bc + step - 1, END_BLOCK)
+            );
+          });
+        
+        console.log({logs});
+
+        const swapLogs = await newReserve
+          .queryFilter(swapFilter, bc, Math.min(bc + step - 1, END_BLOCK))
+          .catch(e => {
+            console.log("block swaphelper logs failed retrying...", bc);
+            return newReserve.queryFilter(
+              swapFilter,
+              bc,
+              Math.min(bc + step - 1, END_BLOCK)
+            );
+          });
+        
+        console.log({swapLogs});
+        
+        console.log(
+          "found transfer logs in block:",
+          { bc },
+          { reserve: logs.length, swaphelper: swapLogs.length }
+        );
+        // Print out all the values:
+        const ps = logs.map(async log => {
+          let isContract =
+            (await newReserve.provider
+              .getCode(log.args.caller)
+              .catch(e => "0x")) !== "0x";
+          let balance = addresses[log.args.caller] || 0;
+          console.log({balance});
+          console.log(`actualReturn: ${log.args.actualReturn.toNumber()}`);
+          addresses[log.args.caller] =
+            balance + log.args.actualReturn.toNumber();
+          isContracts[log.args.caller] = isContract;
+        });
+        const swapps = swapLogs
+          // .filter(_ => _.args.action == "buy")
+          .map(async log => {
+            let isContract =
+              (await newReserve.provider
+                .getCode(log.args.caller)
+                .catch(e => "0x")) !== "0x";
+            let balance = addresses[log.args.from] || 0;
+            addresses[log.args.from] = balance - log.args.gd.toNumber();
+            isContracts[log.args.from] = isContract;
+          });
+
+        await Promise.all([...ps, ...swapps]);
+      });
+      await Promise.all(ps);
+    }
+
+    // delete addresses["0xE28dBcCE95764dC379f45e61D609356010595fd1"]; //delete swaphelper
+    console.log({ addresses, isContracts });
+    return { addresses, isContracts: isContracts };
+  };
+
+  const collectAirdropData = async () => {
+    return getBuyingAddresses().then(r =>
+      fs.writeFileSync("airdrop/buyBalancesNew.json", JSON.stringify(r))
+    );
+  };
+
+  const buildMerkleTree = () => {
+    const { addresses, isContracts } = JSON.parse(
+      fs.readFileSync("airdrop/buyBalancesNew.json").toString()
+      // fs.readFileSync("test/gdx_airdrop_test.json").toString()
+    );
+    let toTree: Array<[string, number]> = Object.entries(addresses).map(
+      ([addr, gdx]) => {
+        return [addr, gdx as number];
+      }
+    );
+
+    toTree = sortBy(toTree, "1").reverse();
+    const totalGDX = toTree.reduce((acc, v) => acc + v[1], 0);
+    console.log({
+      isContracts,
+      toTree,
+      numberOfAccounts: toTree.length,
+      totalGDX
+    });
+
+    const sorted = toTree.map(_ => _[1]);
+    console.log("GDX Distribution\n");
+    [0.001, 0.01, 0.1, 0.5].forEach(q =>
+      console.log({
+        precentile: q * 100 + "%",
+        gdx: quantile(sorted, q)
+      })
+    );
+
+    const treeData = {};
+    const elements = toTree.map(e => {
+      const hash = ethers.utils.keccak256(
+        ethers.utils.defaultAbiCoder.encode(
+          ["address", "uint256"],
+          [e[0], e[1]]
+        )
+      );
+      treeData[e[0]] = {
+        gdx: e[1],
+        hash
+      };
+      return Buffer.from(hash.slice(2), "hex");
+    });
+
+    console.log(elements);
+    const merkleTree = new MerkleTree(elements, false);
+    // get the merkle root
+    // returns 32 byte buffer
+    const merkleRoot = merkleTree.getRoot().toString("hex");
+    // generate merkle proof
+    // returns array of 32 byte buffers
+    const proof = merkleTree.getProof(elements[0]).map(_ => _.toString("hex"));
+    console.log({ merkleRoot, proof, sampleProofFor: toTree[0] });
+    fs.writeFileSync(
+      "airdrop/gdxairdropNew.json",
+      JSON.stringify({ treeData, merkleRoot })
+    );
+  };
+
+  const getProof = addr => {
+    const { treeData, merkleRoot } = JSON.parse(
+      fs.readFileSync("airdrop/gdxairdropNew.json").toString()
+    );
+
+    const elements = Object.entries(treeData as Tree).map(e =>
+      Buffer.from(e[1].hash.slice(2), "hex")
+    );
+
+    const merkleTree = new MerkleTree(elements, false);
+    const proof = merkleTree
+      .getProof(Buffer.from(treeData[addr].hash.slice(2), "hex"))
+      .map(_ => "0x" + _.toString("hex"));
+    console.log({ proof, [addr]: treeData[addr] });
+  };
+
+  return { buildMerkleTree, collectAirdropData, getProof };
+};

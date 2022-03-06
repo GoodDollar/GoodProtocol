@@ -13,7 +13,7 @@ import { task, types } from "hardhat/config";
 import { sha3 } from "web3-utils";
 import { config } from "dotenv";
 import { airdrop } from "./scripts/governance/airdropCalculation";
-import { airdrop as gdxAirdrop } from "./scripts/gdx/gdxAirdropCalculation";
+import { airdrop as gdxAirdrop, airdropNew as gdxAirdropNew} from "./scripts/gdx/gdxAirdropCalculation";
 import { verify } from "./scripts/verify";
 import { ethers } from "ethers";
 config();
@@ -185,6 +185,24 @@ task("gdxAirdrop", "Calculates airdrop data")
   .addOptionalParam("ethsnapshotblock", "eth block for calculate")
   .setAction(async (taskArgs, hre) => {
     const actions = gdxAirdrop(hre.ethers, taskArgs.ethsnapshotblock);
+    switch (taskArgs.action) {
+      case "calculate":
+        return actions.collectAirdropData();
+      case "tree":
+        return actions.buildMerkleTree();
+      case "proof":
+        return actions.getProof(taskArgs.address);
+      default:
+        console.log("unknown action use calculate or tree");
+    }
+  });
+
+task("gdxAirdropNew", "Calculates new airdrop data")
+  .addParam("action", "calculate/tree/proof")
+  .addOptionalPositionalParam("address", "proof for address")
+  .addOptionalParam("ethsnapshotblock", "eth block for calculate")
+  .setAction(async (taskArgs, hre) => {
+    const actions = gdxAirdropNew(hre.ethers, taskArgs.ethsnapshotblock);
     switch (taskArgs.action) {
       case "calculate":
         return actions.collectAirdropData();
