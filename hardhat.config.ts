@@ -26,6 +26,8 @@ const alchemy_key = process.env.ALCHEMY_KEY;
 const etherscan_key = process.env.ETHERSCAN_KEY;
 const ethplorer_key = process.env.ETHPLORER_KEY;
 
+const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
+
 // console.log({ mnemonic: sha3(mnemonic) });
 const hhconfig: HardhatUserConfig = {
   solidity: {
@@ -144,7 +146,7 @@ const hhconfig: HardhatUserConfig = {
     },
     "production-mainnet": {
       accounts: [deployerPrivateKey],
-      url: "https://mainnet.infura.io/v3/" + infura_api,
+      url: MAINNET_URL,
       gas: 3000000,
       gasPrice: 50000000000,
       chainId: 1

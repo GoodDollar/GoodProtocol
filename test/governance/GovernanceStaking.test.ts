@@ -33,6 +33,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     founder,
     staker,
     staker2,
+    staker3,
     schemeMock,
     signers,
     nameService,
@@ -40,7 +41,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     setDAOAddress;
 
   before(async () => {
-    [founder, staker, staker2, ...signers] = await ethers.getSigners();
+    [founder, staker, staker2, staker3, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
     const cdaiFactory = await ethers.getContractFactory("cDAIMock");
     const goodFundManagerFactory = await ethers.getContractFactory(
@@ -821,6 +822,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
 
     await setDAOAddress("GDAO_STAKING", governanceStaking.address);
   });
+
   it("it should not overmint rewards when staker withdraw their rewards", async () => {
     const governanceStakingFactory = await ethers.getContractFactory(
       "GovernanceStaking"
