@@ -192,14 +192,14 @@ contract GoodReserveCDai is
 		_mintGoodDollars(_targetAddress, gdReturn, true);
 		//mint GDX
 		_mintGDX(_targetAddress, gdReturn);
-		if (msg.sender != exchangeHelper)
-			emit TokenPurchased(
-				msg.sender,
-				cDaiAddress,
-				_tokenAmount,
-				gdReturn,
-				_targetAddress
-			);
+
+		emit TokenPurchased(
+			msg.sender != exchangeHelper ? msg.sender : tx.origin,
+			cDaiAddress,
+			_tokenAmount,
+			gdReturn,
+			_targetAddress
+		);
 		return gdReturn;
 	}
 
@@ -250,8 +250,7 @@ contract GoodReserveCDai is
 		uint256 discount = gdx <= _gdAmount ? gdx : _gdAmount;
 
 		//burn gdx used for discount
-		if (discount > 0)
-			_burn(_seller, discount);
+		if (discount > 0) _burn(_seller, discount);
 
 		uint256 contributionAmount = 0;
 		uint256 gdAmountTemp = _gdAmount; // to prevent stack too deep errors
@@ -276,15 +275,16 @@ contract GoodReserveCDai is
 			"Token return must be above the minReturn"
 		);
 		cERC20(cDaiAddress).transfer(_target, tokenReturn);
-		if (_seller == msg.sender)
-			emit TokenSold(
-				msg.sender,
-				cDaiAddress,
-				_gdAmount,
-				contributionAmount,
-				tokenReturn,
-				_target
-			);
+
+		emit TokenSold(
+			_seller,
+			cDaiAddress,
+			_gdAmount,
+			contributionAmount,
+			tokenReturn,
+			_target
+		);
+
 		return (tokenReturn, contributionAmount);
 	}
 
