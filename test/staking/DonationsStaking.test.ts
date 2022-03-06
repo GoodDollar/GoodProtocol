@@ -357,10 +357,20 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
         return contract;
       });
 
-    await donationsStaking.setStakingContract(simpleStaking.address, [
-      NULL_ADDRESS,
-      bat.address
-    ]);
+    //not avatar
+    await expect(
+      donationsStaking.setStakingContract(simpleStaking.address, [
+        NULL_ADDRESS,
+        bat.address
+      ])
+    ).to.be.reverted;
+
+    let encodedData = donationsStaking.interface.encodeFunctionData(
+      "setStakingContract",
+      [simpleStaking.address, [NULL_ADDRESS, bat.address]]
+    );
+    await genericCall(donationsStaking.address, encodedData);
+
     const avatarDaiBalanceAfterSet = await dai.balanceOf(avatar);
     const stakingAmountAfterSet = await goodCompoundStaking.balanceOf(
       donationsStaking.address

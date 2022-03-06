@@ -256,7 +256,8 @@ export const createDAO = async () => {
       release.cDAI,
       "100",
       "10000",
-      "1000000"
+      "1000000",
+      "0"
     ]);
 
     await genericCall(release.GoodMarketMaker, encoded);

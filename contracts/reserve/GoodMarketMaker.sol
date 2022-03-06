@@ -23,7 +23,7 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		// How many GD tokens have been minted
 		// against that reserve token
 		uint256 gdSupply;
-		//last time reserve ratio was expanded
+		// Last time reserve ratio was expanded
 		uint256 lastExpansion;
 	}
 
@@ -118,19 +118,21 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 	 * @param _gdSupply Initial supply of GD to set the price
 	 * @param _tokenSupply Initial supply of reserve token to set the price
 	 * @param _reserveRatio The starting reserve ratio
+	 * @param _lastExpansion Last time reserve ratio was expanded
 	 */
 	function initializeToken(
 		ERC20 _token,
 		uint256 _gdSupply,
 		uint256 _tokenSupply,
-		uint32 _reserveRatio
+		uint32 _reserveRatio,
+		uint256 _lastExpansion
 	) public {
 		_onlyReserveOrAvatar();
 		reserveTokens[address(_token)] = ReserveToken({
 			gdSupply: _gdSupply,
 			reserveSupply: _tokenSupply,
 			reserveRatio: _reserveRatio,
-			lastExpansion: block.timestamp
+			lastExpansion: _lastExpansion == 0 ? block.timestamp : _lastExpansion
 		});
 	}
 

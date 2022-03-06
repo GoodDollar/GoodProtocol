@@ -1,0 +1,127 @@
+{
+  "manifestVersion": "3.2",
+  "proxies": [],
+  "impls": {
+    "a5ef7c51995e6c047142691b405cf6038e51e2f4a50730cd53b3db2082b28c58": {
+      "address": "0xb3FF03C8a42506ba58B1127Cd4b5928C7ed70a03",
+      "txHash": "0xa8575e5159a9131220194f221373349f7c4f38f68045a51e1f865e0c0cd91177",
+      "layout": {
+        "storage": [
+          {
+            "contract": "Initializable",
+            "label": "_initialized",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:21"
+          },
+          {
+            "contract": "Initializable",
+            "label": "_initializing",
+            "type": "t_bool",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:26"
+          },
+          {
+            "contract": "ERC1967UpgradeUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)50_storage",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol:214"
+          },
+          {
+            "contract": "UUPSUpgradeable",
+            "label": "__gap",
+            "type": "t_array(t_uint256)50_storage",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol:80"
+          },
+          {
+            "contract": "DAOContract",
+            "label": "dao",
+            "type": "t_contract(Controller)4219",
+            "src": "contracts/utils/DAOContract.sol:13"
+          },
+          {
+            "contract": "DAOContract",
+            "label": "avatar",
+            "type": "t_address",
+            "src": "contracts/utils/DAOContract.sol:15"
+          },
+          {
+            "contract": "DAOContract",
+            "label": "nameService",
+            "type": "t_contract(INameService)5108",
+            "src": "contracts/utils/DAOContract.sol:17"
+          },
+          {
+            "contract": "DAOContract",
+            "label": "gap",
+            "type": "t_array(t_uint256)50_storage",
+            "src": "contracts/utils/DAOContract.sol:40"
+          },
+          {
+            "contract": "GoodMarketMaker",
+            "label": "reserveTokens",
+            "type": "t_mapping(t_address,t_struct(ReserveToken)14929_storage)",
+            "src": "contracts/reserve/GoodMarketMaker.sol:31"
+          },
+          {
+            "contract": "GoodMarketMaker",
+            "label": "reserveRatioDailyExpansion",
+            "type": "t_uint256",
+            "src": "contracts/reserve/GoodMarketMaker.sol:57"
+          },
+          {
+            "contract": "GoodMarketMaker",
+            "label": "decimals",
+            "type": "t_uint256",
+            "src": "contracts/reserve/GoodMarketMaker.sol:60"
+          }
+        ],
+        "types": {
+          "t_mapping(t_address,t_struct(ReserveToken)14929_storage)": {
+            "label": "mapping(address => struct GoodMarketMaker.ReserveToken)"
+          },
+          "t_address": {
+            "label": "address"
+          },
+          "t_struct(ReserveToken)14929_storage": {
+            "label": "struct GoodMarketMaker.ReserveToken",
+            "members": [
+              {
+                "label": "reserveSupply",
+                "type": "t_uint256"
+              },
+              {
+                "label": "reserveRatio",
+                "type": "t_uint32"
+              },
+              {
+                "label": "gdSupply",
+                "type": "t_uint256"
+              },
+              {
+                "label": "lastExpansion",
+                "type": "t_uint256"
+              }
+            ]
+          },
+          "t_uint256": {
+            "label": "uint256"
+          },
+          "t_uint32": {
+            "label": "uint32"
+          },
+          "t_contract(Controller)4219": {
+            "label": "contract Controller"
+          },
+          "t_contract(INameService)5108": {
+            "label": "contract INameService"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]"
+          },
+          "t_bool": {
+            "label": "bool"
+          }
+        }
+      }
+    }
+  }
+}
