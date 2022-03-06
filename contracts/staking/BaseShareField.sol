@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 import "../Interfaces.sol";
-import "openzeppelin-solidity/contracts/utils/math/Math.sol";
-import "../utils/DSMath.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
-contract BaseShareField is DSMath {
+contract BaseShareField {
 	// total staked for shares calculation
 	uint256 public totalProductivity;
 	// total staked that earns rewards (some stakers can donate their rewards)

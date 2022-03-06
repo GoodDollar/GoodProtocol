@@ -55,6 +55,7 @@
   "dependencies": {
     "@gooddollar/goodcontracts": "^2.6.2",
     "@jsier/retrier": "^1.2.4",
+    "@openzeppelin/contracts": "^4.5.0",
     "@openzeppelin/contracts-upgradeable": "^4.3.2",
     "@typechain/hardhat": "^2.2.0",
     "async-promise-pool": "^1.0.4",

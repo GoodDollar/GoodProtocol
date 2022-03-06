@@ -76,13 +76,13 @@ contract GReputation is Reputation {
 	 */
 	function initialize(
 		INameService _ns,
-		string calldata stateId,
-		bytes32 stateHash,
-		uint256 totalSupply
+		string calldata _stateId,
+		bytes32 _stateHash,
+		uint256 _totalSupply
 	) external initializer {
 		__Reputation_init(_ns);
-		if (totalSupply > 0)
-			_setBlockchainStateHash(stateId, stateHash, totalSupply);
+		if (_totalSupply > 0)
+			_setBlockchainStateHash(_stateId, _stateHash, _totalSupply);
 	}
 
 	function _canMint() internal view override {
