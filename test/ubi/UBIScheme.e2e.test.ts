@@ -226,7 +226,7 @@ describe("UBIScheme - network e2e tests", () => {
   it("should award a new user with the award amount on first time execute claim", async () => {
     await increaseTime(86400);
     let claimerBalance1 = await goodDollar.balanceOf(claimer.address);
-    let ce = await ubi.connect(claimer).checkEntitlement();
+    let ce = await ubi.connect(claimer)["checkEntitlement()"]();
     await ubi.connect(claimer).claim();
     let claimerBalance2 = await goodDollar.balanceOf(claimer.address);
     expect(claimerBalance2.sub(claimerBalance1).toNumber()).to.be.equal(

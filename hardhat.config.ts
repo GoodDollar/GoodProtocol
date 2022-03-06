@@ -53,10 +53,7 @@ const hhconfig: HardhatUserConfig = {
 
   networks: {
     hardhat: {
-      forking: {
-        url: MAINNET_URL
-      },
-      // chainId: 4447,
+      chainId: 4447,
       allowUnlimitedContractSize: true,
       accounts: {
         accountsBalance: "10000000000000000000000000"

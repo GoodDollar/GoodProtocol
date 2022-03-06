@@ -567,9 +567,9 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     await setDAOAddress("GDAO_STAKING", governanceStaking.address);
   });
 
-  it("Staking tokens should be 18 decimals", async () => {
+  it("Staking tokens should be 2 decimals", async () => {
     const decimals = await governanceStaking.decimals();
-    expect(decimals.toString()).to.be.equal("18");
+    expect(decimals.toString()).to.be.equal("2");
   });
 
   it("Stake amount should be positive", async () => {

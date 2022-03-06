@@ -66,6 +66,11 @@ contract UBIScheme is DAOUpgradeableContract {
 	//should be 0 for starters so distributionFormula detects new cycle on first day claim
 	uint256 public currentCycleLength;
 
+	//dont use first claim, and give ubi as usual
+	bool public useFirstClaimPool;
+
+	uint256 public defaultDailyUbi;
+
 	// A pool of GD to give to activated users,
 	// since they will enter the UBI pool
 	// calculations only in the next day,
@@ -148,6 +153,13 @@ contract UBIScheme is DAOUpgradeableContract {
 		iterationGasLimit = 150000;
 		periodStart = (block.timestamp / (1 days)) * 1 days + 12 hours; //set start time to GMT noon
 		startOfCycle = periodStart;
+		useFirstClaimPool = true;
+		defaultDailyUbi = 5000;
+	}
+
+	function setUseFirstClaimPool(bool _use) public {
+		_onlyAvatar();
+		useFirstClaimPool = _use;
 	}
 
 	/**
@@ -240,7 +252,7 @@ contract UBIScheme is DAOUpgradeableContract {
 		setDay();
 		// on first day or once in 24 hrs calculate distribution
 		//on day 0 all users receive from firstclaim pool
-		if (currentDay != lastWithdrawDay) {
+		if (currentDay != lastWithdrawDay || dailyUbi == 0) {
 			IGoodDollar token = nativeToken();
 			uint256 currentBalance = token.balanceOf(address(this));
 			//start early cycle if we can increase the daily UBI pool
@@ -270,6 +282,8 @@ contract UBIScheme is DAOUpgradeableContract {
 			funds.openAmount = currentBalance;
 			if (activeUsersCount > 0) {
 				dailyUbi = dailyCyclePool / activeUsersCount;
+			} else if (useFirstClaimPool == false) {
+				dailyUbi = defaultDailyUbi;
 			}
 			emit UBICalculated(currentDay, dailyUbi, block.number);
 		}
@@ -386,8 +400,14 @@ contract UBIScheme is DAOUpgradeableContract {
 		}
 		if (activeUsersCount > 0) {
 			_dailyUbi = _dailyCyclePool / activeUsersCount;
+		} else if (useFirstClaimPool == false) {
+			_dailyUbi = defaultDailyUbi;
 		}
 		return _dailyUbi;
+	}
+
+	function checkEntitlement() public view returns (uint256) {
+		return checkEntitlement(msg.sender);
 	}
 
 	/**
@@ -397,16 +417,22 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * or fish has already been executed today.
 	 * @return The amount of GD tokens the address can claim.
 	 */
-	function checkEntitlement() public view requireStarted returns (uint256) {
+	function checkEntitlement(address _member) public view returns (uint256) {
+		if (block.timestamp < periodStart) return 0; //not started
 		// new user or inactive should recieve the first claim reward
-		if (!isNotNewUser(msg.sender) || fishedUsersAddresses[msg.sender]) {
+		if (
+			useFirstClaimPool &&
+			(!isNotNewUser(_member) || fishedUsersAddresses[_member])
+		) {
 			return firstClaimPool.claimAmount();
 		}
 
 		// current day has already been updated which means
 		// that the dailyUbi has been updated
-		if (currentDay == (block.timestamp - periodStart) / (1 days)) {
-			return hasClaimed(msg.sender) ? 0 : dailyUbi;
+		if (
+			currentDay == (block.timestamp - periodStart) / (1 days) && dailyUbi > 0
+		) {
+			return hasClaimed(_member) ? 0 : dailyUbi;
 		}
 		return estimateNextDailyUBI();
 	}
@@ -437,7 +463,11 @@ contract UBIScheme is DAOUpgradeableContract {
 			// a unregistered or fished user
 			activeUsersCount += 1;
 			fishedUsersAddresses[_account] = false;
-			_transferTokens(_account, 0, false, true);
+			if (useFirstClaimPool) {
+				_transferTokens(_account, 0, false, true);
+			} else {
+				_transferTokens(_account, newDistribution, true, false);
+			}
 			emit ActivatedUser(_account);
 			return true;
 		}
