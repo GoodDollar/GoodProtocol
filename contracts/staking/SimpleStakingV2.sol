@@ -37,6 +37,8 @@ abstract contract SimpleStakingV2 is
 	//max percentage of token/dai pool liquidity to swap to DAI when collecting interest out of 100000
 	uint24 public maxLiquidityPercentageSwap = 300; //0.3%
 
+	uint256 public lockedUSDValue;
+
 	/**
 	 * @dev Emitted when `staker` stake `value` tokens of `token`
 	 */
@@ -216,6 +218,9 @@ abstract contract SimpleStakingV2 is
 			_donationPer
 		);
 
+		(, , , uint256 lockedValueInUSD, ) = currentGains(true, false);
+		lockedUSDValue = lockedValueInUSD;
+
 		//notify GDAO distrbution for stakers
 		StakersDistribution sd = StakersDistribution(
 			nameService.getAddress("GDAO_STAKERS")
@@ -258,6 +263,9 @@ abstract contract SimpleStakingV2 is
 		GoodFundManager fm = GoodFundManager(
 			nameService.getAddress("FUND_MANAGER")
 		);
+
+		(, , , uint256 lockedValueInUSD, ) = currentGains(true, false);
+		lockedUSDValue = lockedValueInUSD;
 
 		//this will revert in case user doesnt have enough productivity to withdraw _amount, as productivity=staking tokens amount
 		_burn(msg.sender, _amount); // burn their staking tokens
@@ -350,7 +358,11 @@ abstract contract SimpleStakingV2 is
 		}
 	}
 
-	function _convertValueTo18Decimals(uint256 _amount) internal view returns(uint256 amountInEighteenDecimals) {
+	function _convertValueTo18Decimals(uint256 _amount)
+		internal
+		view
+		returns (uint256 amountInEighteenDecimals)
+	{
 		amountInEighteenDecimals = token.decimals() == 18
 			? _amount
 			: _amount * 10**(18 - token.decimals());

@@ -7,7 +7,7 @@ import "../Interfaces.sol";
 import "../governance/GReputation.sol";
 import "../governance/MultiBaseGovernanceShareField.sol";
 import "../staking/GoodFundManager.sol";
-import "../staking/SimpleStaking.sol";
+import "../staking/SimpleStakingV2.sol";
 
 /**
  * Staking contracts will update this contract with staker token stake amount
@@ -34,7 +34,6 @@ contract StakersDistribution is
 	function initialize(INameService _ns) public initializer {
 		monthlyReputationDistribution = 2000000 ether; //2M as specified in specs
 		setDAO(_ns);
-		_updateMonth();
 	}
 
 	/**
@@ -58,12 +57,8 @@ contract StakersDistribution is
 	/**
 	 * @dev internal function to switch to new month. records for new month the current monthlyReputationDistribution
 	 */
-	function _updateMonth() internal {
-		uint256 month = block.timestamp / 30 days;
-		if (
-			nameService.getAddress("FUND_MANAGER") != address(0) &&
-			month != currentMonth
-		) {
+	function _updateRewards() internal {
+		if (nameService.getAddress("FUND_MANAGER") != address(0)) {
 			//read active staking contracts set pro rate monthly share
 			GoodFundManager gfm = GoodFundManager(
 				nameService.getAddress("FUND_MANAGER")
@@ -83,9 +78,8 @@ contract StakersDistribution is
 				(, uint64 blockStart, uint64 blockEnd, ) = gfm
 					.rewardsForStakingContract(activeStakingList[i]);
 				if (blockStart <= block.number && blockEnd > block.number) {
-					(, , , uint256 lockedValueInUSD, ) = SimpleStaking(
-						activeStakingList[i]
-					).currentGains(true, false);
+					uint256 lockedValueInUSD = SimpleStakingV2(activeStakingList[i])
+						.lockedUSDValue();
 					contractLockedValue[i] = lockedValueInUSD;
 					totalLockedValue += contractLockedValue[i];
 				}
@@ -101,9 +95,6 @@ contract StakersDistribution is
 					_setMonthlyRewards(activeStakingList[i], contractShare);
 				}
 			}
-
-			//update new month
-			currentMonth = month;
 		}
 	}
 
@@ -137,7 +128,7 @@ contract StakersDistribution is
 
 		_claimReputation(_staker, contracts);
 
-		_updateMonth(); //previous calls will use previous month reputation
+		_updateRewards();
 	}
 
 	/**
@@ -168,7 +159,7 @@ contract StakersDistribution is
 		address[] memory contracts = new address[](1);
 		contracts[0] = stakingContract;
 		_claimReputation(_staker, contracts);
-		_updateMonth(); //previous calls will use previous month reputation
+		_updateRewards();
 	}
 
 	/**
@@ -181,13 +172,11 @@ contract StakersDistribution is
 		address[] calldata _stakingContracts
 	) external {
 		_claimReputation(_staker, _stakingContracts);
-		_updateMonth(); //previous calls will use previous month reputation
 	}
 
-	function _claimReputation(
-		address _staker,
-		address[] memory _stakingContracts
-	) internal {
+	function _claimReputation(address _staker, address[] memory _stakingContracts)
+		internal
+	{
 		uint256 totalRep;
 		GoodFundManager gfm = GoodFundManager(
 			nameService.getAddress("FUND_MANAGER")
@@ -206,10 +195,7 @@ contract StakersDistribution is
 				);
 		}
 		if (totalRep > 0) {
-			GReputation(nameService.getAddress("REPUTATION")).mint(
-				_staker,
-				totalRep
-			);
+			GReputation(nameService.getAddress("REPUTATION")).mint(_staker, totalRep);
 			emit ReputationEarned(_staker, _stakingContracts, totalRep);
 		}
 	}
