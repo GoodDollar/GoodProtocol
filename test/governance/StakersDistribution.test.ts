@@ -800,8 +800,6 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     );
     expect(await simpleUsdcStaking.balanceOf(staker.address)).to.eq(0);
 
-    console.log(await simpleStaking.queryFilter(simpleStaking.filters.LogGasUsed(null, null, null)));
-
     // await expect(
     //   simpleStaking
     //     .connect(staker)
