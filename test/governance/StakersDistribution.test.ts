@@ -44,6 +44,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     controller,
     founder,
     staker,
+    sender,
+    receiver,
     schemeMock,
     signers,
     nameService,
@@ -58,7 +60,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     deployDaiStaking;
 
   before(async () => {
-    [founder, staker, ...signers] = await ethers.getSigners();
+    [founder, staker, sender, receiver, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
     const cdaiFactory = await ethers.getContractFactory("cDAIMock");
     const cUsdcFactory = await ethers.getContractFactory("cUSDCMock");
@@ -802,5 +804,52 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     //     .connect(staker)
     //     .transfer(signers[1].address, ethers.utils.parseEther("10000"))
     // ).to.not.reverted;
+  });
+
+  it("it should distribute rewards properly when transeferring a staking contract's token that's different decimals than 18 decimals", async () => {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        simpleUsdcStaking.address,
+        currentBlockNumber - 5,
+        currentBlockNumber + 200,
+        false
+      ] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+    const stakingAmountUsdc = ethers.utils.parseUnits("10000", 6);
+    await usdc["mint(address,uint256)"](sender.address, stakingAmountUsdc);
+    await usdc
+      .connect(sender)
+      .approve(simpleUsdcStaking.address, stakingAmountUsdc);
+    await increaseTime(86700 * 30); // Increase one month
+    await simpleUsdcStaking.connect(sender).stake(stakingAmountUsdc, 0, false);
+    await simpleUsdcStaking.connect(sender).transfer(receiver.address, stakingAmountUsdc);
+    await advanceBlocks(10);
+    const UserPendingGdaos = await stakersDistribution.getUserPendingRewards(
+      [simpleUsdcStaking.address],
+      receiver.address
+    );
+    expect(UserPendingGdaos).to.be.gt(0);
+    expect(UserPendingGdaos.toString().length).to.be.gt(18);
+    const usdcStakingPendingGdaos =
+      await stakersDistribution.getUserPendingReward(
+        simpleUsdcStaking.address,
+        currentBlockNumber - 5,
+        currentBlockNumber + 200,
+        receiver.address
+      );
+    expect(usdcStakingPendingGdaos).to.be.gt(0);
+    expect(usdcStakingPendingGdaos.toString().length).to.be.gt(18);
   });
 });

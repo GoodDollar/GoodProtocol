@@ -199,7 +199,7 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 		return pending;
 	}
 
-	/** 
+	/**
     @dev Calculate earned rewards of the user and update their reward info
 	* @param _contract address of the contract for accounting
     * @param _user address of the user that will be accounted
@@ -227,7 +227,6 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 	/**
 	 * @return Returns how much productivity a user has and total productivity.
 	 */
-
 	function getProductivity(address _contract, address _user)
 		public
 		view

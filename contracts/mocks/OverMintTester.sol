@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity >=0.8.0;
-import "../governance/GovarnanceStaking.sol";
+import "../governance/GovernanceStaking.sol";
 
 contract OverMintTester {
     ERC20 public stakingToken;
@@ -16,7 +16,7 @@ contract OverMintTester {
     }
 
     function stake()external{
-       
+
         uint256 tokenBalance = stakingToken.balanceOf(address(this));
         stakingToken.approve(address(stakingContract),tokenBalance);
         stakingContract.stake(tokenBalance);
@@ -30,5 +30,5 @@ contract OverMintTester {
         uint256 tokenBalanceAfterSecondClaim = rewardToken.balanceOf(address(this));
         require (tokenBalance == tokenBalanceAfterSecondClaim,"It should not overmint rewards");
     }
-    
+
 }
