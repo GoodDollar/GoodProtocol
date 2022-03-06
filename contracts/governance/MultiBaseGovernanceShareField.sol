@@ -22,10 +22,10 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 	mapping(address => uint256) public rewardsPerBlock;
 
 	struct UserInfo {
-		uint256 amount; // How many tokens the user has staked.
-		uint256 rewardDebt; // Rewards that accounted already so should be substracted while calculating rewards of staker
-		uint256 rewardEarn; // Reward earn and not minted
-		uint256 rewardMinted; // rewards sent to the user
+		uint128 amount; // How many tokens the user has staked.
+		uint128 rewardDebt; // Rewards that accounted already so should be substracted while calculating rewards of staker
+		uint128 rewardEarn; // Reward earn and not minted
+		uint128 rewardMinted; // rewards sent to the user
 	}
 
 	mapping(address => mapping(address => UserInfo)) public contractToUsers;
@@ -115,15 +115,15 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 			uint256 pending = (userInfo.amount * accAmountPerShare[_contract]) /
 				1e27 -
 				userInfo.rewardDebt; // Divide 1e27(because userinfo.amount in 18 decimals and accAmountPerShare is in 27decimals) since rewardDebt in 18 decimals so we can calculate how much reward earned in that cycle
-			userInfo.rewardEarn = userInfo.rewardEarn + pending; // Add user's earned rewards to user's account so it can be minted later
+			userInfo.rewardEarn = userInfo.rewardEarn + uint128(pending); // Add user's earned rewards to user's account so it can be minted later
 			totalRewardsAccumulated[_contract] =
 				totalRewardsAccumulated[_contract] +
 				pending;
 		}
-		userInfo.amount = _updatedAmount;
-		userInfo.rewardDebt =
-			(_updatedAmount * accAmountPerShare[_contract]) /
-			1e27; // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is in 27 decimals and amount is 18 decimals
+		userInfo.amount = uint128(_updatedAmount);
+		userInfo.rewardDebt = uint128(
+			(_updatedAmount * accAmountPerShare[_contract]) / 1e27
+		); // Divide to 1e27 to keep rewardDebt in 18 decimals since accAmountPerShare is in 27 decimals and amount is 18 decimals
 	}
 
 	/**
@@ -216,10 +216,9 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 	) internal returns (uint256) {
 		_update(_contract, _blockStart, _blockEnd);
 		_audit(_contract, _user, contractToUsers[_contract][_user].amount);
-		UserInfo storage userInfo = contractToUsers[_contract][_user];
-		uint256 amount = userInfo.rewardEarn;
-		userInfo.rewardEarn = 0;
-		userInfo.rewardMinted += amount;
+		uint128 amount = contractToUsers[_contract][_user].rewardEarn;
+		contractToUsers[_contract][_user].rewardMinted += amount;
+		contractToUsers[_contract][_user].rewardEarn = 0;
 		rewardsMintedSoFar[_contract] = rewardsMintedSoFar[_contract] + amount;
 		return amount;
 	}
