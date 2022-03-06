@@ -778,32 +778,55 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
   });
 
   it("should be able to transfer staking token when using stakersdistribution", async () => {
+
     const stakingAmountDai = ethers.utils.parseEther("10000");
     const stakingAmountUsdc = ethers.utils.parseUnits("10000", 6);
+
     await dai["mint(address,uint256)"](staker.address, stakingAmountDai);
     await dai.connect(staker).approve(simpleStaking.address, stakingAmountDai);
+
     await usdc["mint(address,uint256)"](staker.address, stakingAmountUsdc);
-    await usdc
-      .connect(staker)
-      .approve(simpleUsdcStaking.address, stakingAmountUsdc);
+    await usdc.connect(staker).approve(simpleUsdcStaking.address, stakingAmountUsdc);
+
     await simpleStaking.connect(staker).stake(stakingAmountDai, 0, false);
     await increaseTime(86700 * 30); // Increase one month
     await simpleUsdcStaking.connect(staker).stake(stakingAmountUsdc, 0, false);
     await advanceBlocks(10);
 
-    await simpleUsdcStaking
-      .connect(staker)
-      .transfer(signers[1].address, stakingAmountUsdc);
+    await simpleUsdcStaking.connect(staker).transfer(signers[1].address, stakingAmountUsdc);
 
     expect(await simpleUsdcStaking.balanceOf(signers[1].address)).to.eq(
       stakingAmountUsdc
     );
     expect(await simpleUsdcStaking.balanceOf(staker.address)).to.eq(0);
+
+    console.log(await simpleStaking.queryFilter(simpleStaking.filters.LogGasUsed(null, null, null)));
+
     // await expect(
     //   simpleStaking
     //     .connect(staker)
     //     .transfer(signers[1].address, ethers.utils.parseEther("10000"))
     // ).to.not.reverted;
+  });
+
+  xit('it should measure the gas costs for stake, withdraw and transfer', async () => {
+    const stakingAmountDai = ethers.utils.parseEther("2");
+    const transferAmountLP = ethers.utils.parseEther("1");
+    await dai["mint(address,uint256)"](staker.address, stakingAmountDai);
+    await dai.connect(staker).approve(simpleStaking.address, stakingAmountDai);
+
+    const logFilter = stakersDistribution.filters.LogGasUsed();
+
+    await simpleStaking.connect(staker).stake(stakingAmountDai, 0, false);
+    const stakeQueryFilterResults = (await stakersDistribution.queryFilter(logFilter))[1];
+
+    await simpleStaking.connect(staker).transfer(founder.address, transferAmountLP);
+    const transferQueryFilterResults = (await stakersDistribution.queryFilter(logFilter))[3];
+
+    await simpleStaking.connect(staker).withdrawStake(transferAmountLP, false);
+    const withdrawQueryFilterResults = (await stakersDistribution.queryFilter(logFilter))[2];
+
+    console.log(await stakersDistribution.queryFilter(logFilter));
   });
 
   it("it should distribute rewards properly when transeferring a staking contract's token that's different decimals than 18 decimals", async () => {
