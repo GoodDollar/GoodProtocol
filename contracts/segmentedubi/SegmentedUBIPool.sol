@@ -1,13 +1,40 @@
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8;
+
 import "../ubi/UBIScheme.sol";
 
 contract SegmentedUBIPool is UBIScheme {
 	uint256 public dailyCap;
 
+	address public owner;
+
+	bool public isDAOOwned;
+
+	bool public canWithdrawFunds;
+
+	/**
+		initializer for beaconproxy
+	 */
+	function initializeBeacon(address beacon, bytes memory data) public payable {
+		require(_getBeacon() == address(0), "initialized");
+
+		assert(
+			_BEACON_SLOT == bytes32(uint256(keccak256("eip1967.proxy.beacon")) - 1)
+		);
+		_upgradeBeaconToAndCall(beacon, data, false);
+	}
+
 	function initialize(
 		INameService _ns,
 		uint256 _maxInactiveDays,
-		uint256 _dailyCap
+		uint256 _dailyCap,
+		bool _isDAOOwned,
+		address _owner,
+		bool _canWithdrawFunds
 	) public initializer {
+		isDAOOwned = _isDAOOwned;
+		canWithdrawFunds = isDAOOwned ? true : canWithdrawFunds;
+		owner = _owner;
 		dailyCap = _dailyCap;
 		_initialize_ubischeme(
 			_ns,
@@ -17,8 +44,20 @@ contract SegmentedUBIPool is UBIScheme {
 		);
 	}
 
+	function _onlyAvatar() internal view override {
+		require(
+			(isDAOOwned == true && address(dao.avatar()) == msg.sender) ||
+				owner == msg.sender,
+			"only avatar can call this method"
+		);
+	}
+
 	function claim() public override requireStarted returns (bool) {
-		//todo:check iswhitelisted in segmentedidentity then _claim
+		require(
+			ISegmentedIdentity(nameService.getAddress("SEGMENTED_IDENTITY"))
+				.isWhitelisted(address(this), msg.sender),
+			"UBIScheme: not whitelisted"
+		);
 		return _claim(msg.sender);
 	}
 
@@ -144,5 +183,15 @@ contract SegmentedUBIPool is UBIScheme {
 		}
 
 		return dailyUbi;
+	}
+
+	function setShouldWithdrawFromDAO(bool _shouldWithdraw) public override {}
+
+	function end() public override {
+		_onlyAvatar();
+		require(canWithdrawFunds, "SegmentedUBIPool: withdraw not allowed");
+		IGoodDollar token = nativeToken();
+		address to = owner != address(0) ? owner : avatar;
+		token.transfer(to, token.balanceOf(address(this)));
 	}
 }

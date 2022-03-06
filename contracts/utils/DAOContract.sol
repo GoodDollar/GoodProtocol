@@ -16,7 +16,7 @@ contract DAOContract {
 
 	INameService public nameService;
 
-	function _onlyAvatar() internal view {
+	function _onlyAvatar() internal view virtual {
 		require(
 			address(dao.avatar()) == msg.sender,
 			"only avatar can call this method"
@@ -28,7 +28,7 @@ contract DAOContract {
 		updateAvatar();
 	}
 
-	function updateAvatar() public {
+	function updateAvatar() public virtual {
 		dao = Controller(nameService.getAddress("CONTROLLER"));
 		avatar = dao.avatar();
 	}

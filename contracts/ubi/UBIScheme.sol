@@ -542,13 +542,13 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * @dev Sets whether to also withdraw GD from avatar for UBI
 	 * @param _shouldWithdraw boolean if to withdraw
 	 */
-	function setShouldWithdrawFromDAO(bool _shouldWithdraw) public {
+	function setShouldWithdrawFromDAO(bool _shouldWithdraw) public virtual {
 		_onlyAvatar();
 		shouldWithdrawFromDAO = _shouldWithdraw;
 		emit ShouldWithdrawFromDAOSet(shouldWithdrawFromDAO);
 	}
 
-	function end() public {
+	function end() public virtual {
 		_onlyAvatar();
 		IGoodDollar token = nativeToken();
 		token.transfer(avatar, token.balanceOf(address(this)));

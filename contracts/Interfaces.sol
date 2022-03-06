@@ -241,6 +241,13 @@ interface Reserve {
 	) external returns (uint256);
 }
 
+interface ISegmentedIdentity {
+	function isWhitelisted(address pool, address user)
+		external
+		view
+		returns (bool);
+}
+
 interface IIdentity {
 	function isWhitelisted(address user) external view returns (bool);
 
