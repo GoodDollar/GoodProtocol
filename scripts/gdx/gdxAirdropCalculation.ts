@@ -3,6 +3,7 @@ import fs from "fs";
 import MerkleTree from "merkle-tree-solidity";
 import stakingContracts from "@gooddollar/goodcontracts/stakingModel/releases/deployment.json";
 import { ethers as Ethers } from "hardhat";
+import { BigNumber } from "ethereum-waffle/node_modules/ethers";
 
 type Tree = {
   [key: string]: {
@@ -203,7 +204,7 @@ export const airdropNew = (ethers: typeof Ethers) => {
 
   const ZERO = ethers.BigNumber.from("0");
 
-  const getHoldersInformation = async (addresses = {}, isContracts = {}) => {
+  const getHoldersInformation = async (newAddresses = {}, newIsContracts = {}) => {
     const provider = new ethers.providers.InfuraProvider();
 
     const eventsABI = [
@@ -271,19 +272,19 @@ export const airdropNew = (ethers: typeof Ethers) => {
 
           // Print out all the values:
           const purchasedEventsMapped = purchaseEvents.map(async log => {
-            let balance = addresses[log.args.receiverAddress] || ZERO;
+            let balance = newAddresses[log.args.receiverAddress] || ZERO;
             // console.log({balance});
             // console.log(`actualReturn: ${log.args.actualReturn.toString()}`);
-            addresses[log.args.receiverAddress] =
+            newAddresses[log.args.receiverAddress] =
               balance.add(log.args.actualReturn);
-            isContracts[log.args.receiverAddress] = await isContract(
+            newIsContracts[log.args.receiverAddress] = await isContract(
               log, "receiverAddress"
             );
           });
           const soldEventsMapped = soldEvents.map(async log => {
-            let balance = addresses[log.args.caller] || ZERO;
-            addresses[log.args.caller] = balance.sub(log.args.gdAmount);
-            isContracts[log.args.caller] = await isContract(
+            let balance = newAddresses[log.args.caller] || ZERO;
+            newAddresses[log.args.caller] = balance.sub(log.args.gdAmount);
+            newIsContracts[log.args.caller] = await isContract(
               log, "caller"
             );
           });
@@ -297,17 +298,18 @@ export const airdropNew = (ethers: typeof Ethers) => {
     await populateListOfAddressesAndBalances(newReserve, reserveTokenPurchasedFilter, reserveTokenSoldFilter);
     await populateListOfAddressesAndBalances(exchangeHelper, exchangeHelperTokenSoldFilter, exchangeHelperTokenSoldFilter);
 
-    delete addresses[exchangeHelper.address];
+    delete newAddresses[exchangeHelper.address];
 
-    console.log({ addresses, isContracts });
-    return { addresses, isContracts };
+    // console.log({ newAddresses, newIsContracts });
+    return { newAddresses, newIsContracts };
   };
 
   const buildMerkleTree = () => {
-    const { addresses, isContracts } = JSON.parse(
-      fs.readFileSync("airdrop/buyBalancesNew.json").toString()
+    const { addressesCombined, isContracts } = JSON.parse(
+      fs.readFileSync("airdrop/buyBalancesCombined.json").toString()
     );
-    let toTree: Array<[string, number]> = Object.entries(addresses).map(
+
+    let toTree: Array<[string, number]> = Object.entries(addressesCombined).map(
       ([addr, gdx]) => {
         return [addr, gdx as number];
       }
@@ -365,46 +367,20 @@ export const airdropNew = (ethers: typeof Ethers) => {
     const { addresses, isContracts } = JSON.parse(
       fs.readFileSync("airdrop/buyBalances.json").toString()
     );
-
-    // let oldAddressesTree: Array<[string, number]> = Object.entries(addresses).map(
-    //   ([addr, gdx]) => {
-    //     return [addr, gdx as number];
-    //   }
-    // );
-    //
-    // let oldContractChecksTree: Array<[string, boolean]> = Object.entries(isContract).map(
-    //   ([addr, status]) => {
-    //     return [addr, status as boolean];
-    //   }
-    // );
-
-    const newHoldersInfo = await getHoldersInformation();
-
-    let newAddressesTree: Array<[string, number]> = Object.entries(newHoldersInfo.addresses).map(
-      ([addr, gdx]) => {
-        return [addr, gdx as number];
-      }
-    );
-
-    let newContractChecksTree: Array<[string, boolean]> = Object.entries(newHoldersInfo.isContracts).map(
-      ([addr, status]) => {
-        return [addr, status as boolean];
-      }
-    );
-
-    for (const item in newAddressesTree) {
-      console.log(item);
-      addresses[item[0]] = ethers.BigNumber.from(item[1]);
-        // .add(
-        //   ethers.BigNumber.from(addresses[item[0]].toString() || "0")
-        // ).toString();
+    const addressesCombined = {}
+    for (const [address, balance] of Object.entries(addresses)) {
+      addressesCombined[address] = BigNumber.from(balance);
     }
 
-    // for (const [k: string, v: bool] of Object.entries(newHoldersInfo.isContracts)) {
-    //   isContracts[k] = v;
-    // }
+    const { newAddresses, newIsContracts }  = await getHoldersInformation();
 
-    fs.writeFileSync("airdrop/buyBalancesNew.json", JSON.stringify({ addresses, isContracts }));
+    // Unite previous airdrop with current information 
+    for (const [address, balance] of Object.entries(newAddresses)) {
+      addressesCombined[address] = ethers.BigNumber.from(addressesCombined[address] || 0).add(balance.toString());
+      isContracts[address] = newIsContracts[address];
+    }
+
+    fs.writeFileSync("airdrop/buyBalancesCombined.json", JSON.stringify({ addressesCombined, isContracts }));
   };
 
   return { buildMerkleTree, addCalculationsToPreviousData };
