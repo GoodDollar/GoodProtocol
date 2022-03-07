@@ -202,14 +202,12 @@ task("gdxAirdropNew", "Calculates new airdrop data")
   .addOptionalPositionalParam("address", "proof for address")
   .addOptionalParam("ethsnapshotblock", "eth block for calculate")
   .setAction(async (taskArgs, hre) => {
-    const actions = gdxAirdropNew(hre.ethers, taskArgs.ethsnapshotblock);
+    const actions = gdxAirdropNew(hre.ethers);
     switch (taskArgs.action) {
-      case "calculate":
-        return actions.collectAirdropData();
+      case "addition":
+        return actions.addCalculationsToPreviousData();
       case "tree":
         return actions.buildMerkleTree();
-      case "proof":
-        return actions.getProof(taskArgs.address);
       default:
         console.log("unknown action use calculate or tree");
     }

@@ -199,109 +199,113 @@ export const airdrop = (ethers: typeof Ethers, ethSnapshotBlock) => {
   return { buildMerkleTree, collectAirdropData, getProof };
 };
 
-export const airdropNew = (ethers: typeof Ethers, ethSnapshotBlock) => {
-  const getBuyingAddresses = async (addresses = {}, isContracts = {}) => {
+export const airdropNew = (ethers: typeof Ethers) => {
+
+  const ZERO = ethers.BigNumber.from("0");
+
+  const getHoldersInformation = async (addresses = {}, isContracts = {}) => {
     const provider = new ethers.providers.InfuraProvider();
 
-    let newReserve = await ethers.getContractAt(
-      [
-        "event TokenPurchased(address indexed caller,address indexed inputToken,uint256 inputAmount,uint256 actualReturn,address indexed receiverAddress)",
-        "event TokenSold(address indexed caller,address indexed outputToken,uint256 gdAmount,uint256 contributionAmount,uint256 actualReturn,address indexed receiverAddress)"
-      ],
-      // stakingContracts["production-mainnet-bug"].Reserve
-      "0x6C35677206ae7FF1bf753877649cF57cC30D1c42"
-    );
+    const eventsABI = [
+      "event TokenPurchased(address indexed caller,address indexed inputToken,uint256 inputAmount,uint256 actualReturn,address indexed receiverAddress)",
+      "event TokenSold(address indexed caller,address indexed outputToken,uint256 gdAmount,uint256 contributionAmount,uint256 actualReturn,address indexed receiverAddress)"
+    ];
 
+    let newReserve = await ethers.getContractAt(eventsABI, "0x6C35677206ae7FF1bf753877649cF57cC30D1c42");
+    let exchangeHelper = await ethers.getContractAt(eventsABI, "0x0a8c6bB832801454F6CC21761D0A293Caa003296");
+
+    exchangeHelper = exchangeHelper.connect(provider);
     newReserve = newReserve.connect(provider);
 
     const step = 100000;
-    // const snapshotBlock = parseInt(ethSnapshotBlock || ETH_SNAPSHOT_BLOCK);
     const START_BLOCK = 13683748; // Reserve was created
     const END_BLOCK = 14296271;   // Following reserve created
     const blocks = range(START_BLOCK, END_BLOCK, step);
-    const filter = newReserve.filters.TokenPurchased();
-    const swapFilter = newReserve.filters.TokenSold();
-    // console.log({ snapshotBlock });
-    for (let blockChunk of chunk(blocks, 10)) {
-      // Get the filter (the second null could be omitted)
-      const ps = blockChunk.map(async bc => {
-        // Query the filter (the latest could be omitted)
-        const logs = await newReserve
-          .queryFilter(filter, bc, Math.min(bc + step - 1, END_BLOCK))
-          .catch(e => {
-            console.log("block transfer logs failed retrying...", bc);
-            return newReserve.queryFilter(
-              filter,
-              bc,
-              Math.min(bc + step - 1, END_BLOCK)
-            );
-          });
-        
-        console.log({logs});
 
-        const swapLogs = await newReserve
-          .queryFilter(swapFilter, bc, Math.min(bc + step - 1, END_BLOCK))
-          .catch(e => {
-            console.log("block swaphelper logs failed retrying...", bc);
-            return newReserve.queryFilter(
-              swapFilter,
-              bc,
-              Math.min(bc + step - 1, END_BLOCK)
+    const reserveTokenPurchasedFilter = newReserve.filters.TokenPurchased();
+    const reserveTokenSoldFilter = newReserve.filters.TokenSold();
+
+    const exchangeHelperTokenPurchasedFilter = exchangeHelper.filters.TokenPurchased();
+    const exchangeHelperTokenSoldFilter = exchangeHelper.filters.TokenSold();
+
+    const populateListOfAddressesAndBalances = async (contractInstance, purchaseFilter, soldFilter) => {
+      for (let blockChunk of chunk(blocks, 10)) {
+        // Get the filter (the second null could be omitted)
+        const processedChunks = blockChunk.map(async bc => {
+          // Query the filter (the latest could be omitted)
+          const purchaseEvents = await contractInstance
+            .queryFilter(purchaseFilter, bc, Math.min(bc + step - 1, END_BLOCK))
+            .catch(e => {
+              console.log("block transfer logs failed retrying...", bc);
+              return contractInstance.queryFilter(
+                purchaseFilter,
+                bc,
+                Math.min(bc + step - 1, END_BLOCK)
+              );
+            });
+
+          // console.log({purchaseEvents});
+
+          const soldEvents = await contractInstance
+            .queryFilter(soldFilter, bc, Math.min(bc + step - 1, END_BLOCK))
+            .catch(e => {
+              console.log("block swaphelper logs failed retrying...", bc);
+              return contractInstance.queryFilter(
+                soldFilter,
+                bc,
+                Math.min(bc + step - 1, END_BLOCK)
+              );
+            });
+
+          // console.log(
+          //   "found transfer logs in block:",
+          //   { bc },
+          //   { purchaseEvents: purchaseEvents.length, soldEvents: soldEvents.length }
+          // );
+
+          const isContract = async (log, role) => {
+            const possibleCodeStateOfAddress = await contractInstance.provider.getCode(log.args[role])
+              .catch(e => "0x");
+            return possibleCodeStateOfAddress !== "0x";
+          };
+
+          // Print out all the values:
+          const purchasedEventsMapped = purchaseEvents.map(async log => {
+            let balance = addresses[log.args.receiverAddress] || ZERO;
+            // console.log({balance});
+            // console.log(`actualReturn: ${log.args.actualReturn.toString()}`);
+            addresses[log.args.receiverAddress] =
+              balance.add(log.args.actualReturn);
+            isContracts[log.args.receiverAddress] = await isContract(
+              log, "receiverAddress"
             );
           });
-        
-        console.log({swapLogs});
-        
-        console.log(
-          "found transfer logs in block:",
-          { bc },
-          { reserve: logs.length, swaphelper: swapLogs.length }
-        );
-        // Print out all the values:
-        const ps = logs.map(async log => {
-          let isContract =
-            (await newReserve.provider
-              .getCode(log.args.caller)
-              .catch(e => "0x")) !== "0x";
-          let balance = addresses[log.args.caller] || 0;
-          console.log({balance});
-          console.log(`actualReturn: ${log.args.actualReturn.toNumber()}`);
-          addresses[log.args.caller] =
-            balance + log.args.actualReturn.toNumber();
-          isContracts[log.args.caller] = isContract;
+          const soldEventsMapped = soldEvents.map(async log => {
+            let balance = addresses[log.args.caller] || ZERO;
+            addresses[log.args.caller] = balance.sub(log.args.gdAmount);
+            isContracts[log.args.caller] = await isContract(
+              log, "caller"
+            );
+          });
+
+          await Promise.all([...purchasedEventsMapped, ...soldEventsMapped]);
         });
-        const swapps = swapLogs
-          // .filter(_ => _.args.action == "buy")
-          .map(async log => {
-            let isContract =
-              (await newReserve.provider
-                .getCode(log.args.caller)
-                .catch(e => "0x")) !== "0x";
-            let balance = addresses[log.args.from] || 0;
-            addresses[log.args.from] = balance - log.args.gd.toNumber();
-            isContracts[log.args.from] = isContract;
-          });
+        await Promise.all(processedChunks);
+      }
+    };
 
-        await Promise.all([...ps, ...swapps]);
-      });
-      await Promise.all(ps);
-    }
+    await populateListOfAddressesAndBalances(newReserve, reserveTokenPurchasedFilter, reserveTokenSoldFilter);
+    await populateListOfAddressesAndBalances(exchangeHelper, exchangeHelperTokenSoldFilter, exchangeHelperTokenSoldFilter);
 
-    // delete addresses["0xE28dBcCE95764dC379f45e61D609356010595fd1"]; //delete swaphelper
+    delete addresses[exchangeHelper.address];
+
     console.log({ addresses, isContracts });
-    return { addresses, isContracts: isContracts };
-  };
-
-  const collectAirdropData = async () => {
-    return getBuyingAddresses().then(r =>
-      fs.writeFileSync("airdrop/buyBalancesNew.json", JSON.stringify(r))
-    );
+    return { addresses, isContracts };
   };
 
   const buildMerkleTree = () => {
     const { addresses, isContracts } = JSON.parse(
       fs.readFileSync("airdrop/buyBalancesNew.json").toString()
-      // fs.readFileSync("test/gdx_airdrop_test.json").toString()
     );
     let toTree: Array<[string, number]> = Object.entries(addresses).map(
       ([addr, gdx]) => {
@@ -357,21 +361,51 @@ export const airdropNew = (ethers: typeof Ethers, ethSnapshotBlock) => {
     );
   };
 
-  const getProof = addr => {
-    const { treeData, merkleRoot } = JSON.parse(
-      fs.readFileSync("airdrop/gdxairdropNew.json").toString()
+  const addCalculationsToPreviousData = async () => {
+    const { addresses, isContracts } = JSON.parse(
+      fs.readFileSync("airdrop/buyBalances.json").toString()
     );
 
-    const elements = Object.entries(treeData as Tree).map(e =>
-      Buffer.from(e[1].hash.slice(2), "hex")
+    // let oldAddressesTree: Array<[string, number]> = Object.entries(addresses).map(
+    //   ([addr, gdx]) => {
+    //     return [addr, gdx as number];
+    //   }
+    // );
+    //
+    // let oldContractChecksTree: Array<[string, boolean]> = Object.entries(isContract).map(
+    //   ([addr, status]) => {
+    //     return [addr, status as boolean];
+    //   }
+    // );
+
+    const newHoldersInfo = await getHoldersInformation();
+
+    let newAddressesTree: Array<[string, number]> = Object.entries(newHoldersInfo.addresses).map(
+      ([addr, gdx]) => {
+        return [addr, gdx as number];
+      }
     );
 
-    const merkleTree = new MerkleTree(elements, false);
-    const proof = merkleTree
-      .getProof(Buffer.from(treeData[addr].hash.slice(2), "hex"))
-      .map(_ => "0x" + _.toString("hex"));
-    console.log({ proof, [addr]: treeData[addr] });
+    let newContractChecksTree: Array<[string, boolean]> = Object.entries(newHoldersInfo.isContracts).map(
+      ([addr, status]) => {
+        return [addr, status as boolean];
+      }
+    );
+
+    for (const item in newAddressesTree) {
+      console.log(item);
+      addresses[item[0]] = ethers.BigNumber.from(item[1]);
+        // .add(
+        //   ethers.BigNumber.from(addresses[item[0]].toString() || "0")
+        // ).toString();
+    }
+
+    // for (const [k: string, v: bool] of Object.entries(newHoldersInfo.isContracts)) {
+    //   isContracts[k] = v;
+    // }
+
+    fs.writeFileSync("airdrop/buyBalancesNew.json", JSON.stringify({ addresses, isContracts }));
   };
 
-  return { buildMerkleTree, collectAirdropData, getProof };
+  return { buildMerkleTree, addCalculationsToPreviousData };
 };
