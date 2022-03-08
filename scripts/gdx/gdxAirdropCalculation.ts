@@ -22,6 +22,17 @@ const quantile = (sorted, q) => {
   return sum;
 };
 
+const quantileBN = (sorted, q) => {
+  const pos = (sorted.length - 1) * q;
+  const base = Math.floor(pos);
+  
+  let sum = BigNumber.from("0");
+  for (let i = 0; i < base; i++) 
+    sum = BigNumber.from(sum).add(BigNumber.from(sorted[i]));
+
+  return sum.toString();
+};
+
 let ETH_SNAPSHOT_BLOCK = 13320531; //first blocka after 12pm Sep-29-2021 12:00:20 PM +UTC
 
 export const airdrop = (ethers: typeof Ethers, ethSnapshotBlock) => {
@@ -308,28 +319,37 @@ export const airdropNew = (ethers: typeof Ethers) => {
     const { addressesCombined, isContracts } = JSON.parse(
       fs.readFileSync("airdrop/buyBalancesCombined.json").toString()
     );
-
-    let toTree: Array<[string, number]> = Object.entries(addressesCombined).map(
+    
+    let toTree: Array<[string, BigNumber]> = Object.entries(addressesCombined).map(
       ([addr, gdx]) => {
-        return [addr, gdx as number];
+        return [addr, gdx as BigNumber];
       }
     );
+    
+    // console.log(`Before sorting`);
+    // toTree.forEach((a,_) => { console.log(`${a[0].toString()}:${ethers.BigNumber.from(a[1]).toString()}\n`)}); 
+    
+    toTree.sort((a, b) => BigNumber.from(a[1]).sub(b[1]) < ZERO ? 0 : -1 );
 
-    toTree = sortBy(toTree, "1").reverse();
-    const totalGDX = toTree.reduce((acc, v) => acc + v[1], 0);
+    // console.log(`After sorting`);
+    // toTree.forEach((a,_) => { console.log(`${a[0].toString()}:${ethers.BigNumber.from(a[1]).toString()}\n`)}); 
+
+    let totalGDX = ZERO;
+    toTree.forEach((a,_) => totalGDX = totalGDX.add(a[1]))
     console.log({
       isContracts,
-      toTree,
+      toTree: toTree.forEach((a,_) => console.log({address: a[0].toString(), balance: BigNumber.from(a[1]).toString()})),
       numberOfAccounts: toTree.length,
-      totalGDX
+      TotalGDX: totalGDX.toString()
     });
 
+    // Print statistics
     const sorted = toTree.map(_ => _[1]);
     console.log("GDX Distribution\n");
     [0.001, 0.01, 0.1, 0.5].forEach(q =>
       console.log({
         precentile: q * 100 + "%",
-        gdx: quantile(sorted, q)
+        gdx: quantileBN(sorted, q)
       })
     );
 
