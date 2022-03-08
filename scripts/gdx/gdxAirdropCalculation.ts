@@ -307,7 +307,7 @@ export const airdropNew = (ethers: typeof Ethers) => {
     };
 
     await populateListOfAddressesAndBalances(newReserve, reserveTokenPurchasedFilter, reserveTokenSoldFilter);
-    await populateListOfAddressesAndBalances(exchangeHelper, exchangeHelperTokenSoldFilter, exchangeHelperTokenSoldFilter);
+    await populateListOfAddressesAndBalances(exchangeHelper, exchangeHelperTokenPurchasedFilter, exchangeHelperTokenSoldFilter);
 
     delete newAddresses[exchangeHelper.address];
 
@@ -333,7 +333,9 @@ export const airdropNew = (ethers: typeof Ethers) => {
 
     // console.log(`After sorting`);
     // toTree.forEach((a,_) => { console.log(`${a[0].toString()}:${ethers.BigNumber.from(a[1]).toString()}\n`)}); 
-
+    
+    // toTree.forEach((a,_) => console.log(`${a[0].toString()},${BigNumber.from(a[1]).toString()}`));
+    
     let totalGDX = ZERO;
     toTree.forEach((a,_) => totalGDX = totalGDX.add(a[1]))
     console.log({
@@ -384,6 +386,7 @@ export const airdropNew = (ethers: typeof Ethers) => {
   };
 
   const addCalculationsToPreviousData = async () => {
+    // get previous airdrop and turn it into BigNumbers
     const { addresses, isContracts } = JSON.parse(
       fs.readFileSync("airdrop/buyBalances.json").toString()
     );
@@ -392,14 +395,37 @@ export const airdropNew = (ethers: typeof Ethers) => {
       addressesCombined[address] = BigNumber.from(balance);
     }
 
+    // get new holders info and turn into array
     const { newAddresses, newIsContracts }  = await getHoldersInformation();
 
+    let newAddressesArray: Array<[string, BigNumber]> = Object.entries(newAddresses).map(
+      ([addr, gdx]) => {
+        return [addr, gdx as BigNumber];
+      }
+    );
+
+    // Convert minuses to 0
+    newAddressesArray.forEach((a,_) => { a[1] = (a[1] < ZERO) ? ZERO : a[1]});
+
+    // console.log(`Before sorting`);
+    // newAddressesArray.forEach((a,_) => { console.log(`${a[0].toString()}:${ethers.BigNumber.from(a[1]).toString()}\n`)}); 
+    newAddressesArray.sort((a, b) => BigNumber.from(a[1]).sub(b[1]) < ZERO ? 0 : -1 );
+      // console.log(`After sorting`);
+    // newAddressesArray.forEach((a,_) => { console.log(`${a[0].toString()}:${ethers.BigNumber.from(a[1]).toString()}\n`)});
+
     // Unite previous airdrop with current information 
-    for (const [address, balance] of Object.entries(newAddresses)) {
-      addressesCombined[address] = ethers.BigNumber.from(addressesCombined[address] || 0).add(balance.toString());
+    for (const newAddressEntry of newAddressesArray) {
+      const address = newAddressEntry[0];
+      const addition = newAddressEntry[1];
+      // console.log({address})
+      // console.log({before: BigNumber.from(addressesCombined[address] || "0").toString() })
+      // console.log({addition: addition.toString()})
+      addressesCombined[address] = ethers.BigNumber.from(addressesCombined[address] || 0).add(addition.toString());
+      // console.log({total: addressesCombined[address].toString()})
+      // console.log(`\n`);
       isContracts[address] = newIsContracts[address];
     }
-
+    
     fs.writeFileSync("airdrop/buyBalancesCombined.json", JSON.stringify({ addressesCombined, isContracts }));
   };
 
