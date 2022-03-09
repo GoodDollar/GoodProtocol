@@ -13,6 +13,7 @@ import { task, types } from "hardhat/config";
 import { sha3 } from "web3-utils";
 import { config } from "dotenv";
 import { airdrop } from "./scripts/governance/airdropCalculation";
+import { airdrop as repAirdropRecover } from "./scripts/governance/airdropCalculationRecover";
 import { airdrop as gdxAirdrop } from "./scripts/gdx/gdxAirdropCalculation";
 import { verify } from "./scripts/verify";
 import { ethers } from "ethers";
@@ -170,6 +171,26 @@ task("repAirdrop", "Calculates airdrop data and merkle tree")
           taskArgs.fusesnapshotblock,
           taskArgs.ethsnapshotblock
         );
+      case "tree":
+        return actions.buildMerkleTree();
+      case "proof":
+        return actions.getProof(taskArgs.address);
+      default:
+        console.log("unknown action use calculate or tree");
+    }
+  });
+
+task(
+  "repAirdropRecover",
+  "Calculates airdrop data and merkle tree after critical bug"
+)
+  .addParam("action", "calculate/tree/proof")
+  .addOptionalPositionalParam("address", "proof for address")
+  .setAction(async (taskArgs, hre) => {
+    const actions = repAirdropRecover(hre.ethers, ethplorer_key, etherscan_key);
+    switch (taskArgs.action) {
+      case "calculate":
+        return actions.collectAirdropData();
       case "tree":
         return actions.buildMerkleTree();
       case "proof":
