@@ -69,7 +69,11 @@ contract GReputation is Reputation {
 
 	event StateHash(string blockchain, bytes32 merkleRoot, uint256 totalSupply);
 
-	event StateHashProof(string blockchain, address user, uint256 repBalance);
+	event StateHashProof(
+		string blockchain,
+		address indexed user,
+		uint256 repBalance
+	);
 
 	/**
 	 * @dev initialize
@@ -182,6 +186,9 @@ contract GReputation is Reputation {
 			!isRootState || totalSupplyLocalAt(block.number) == 0,
 			"rootState already created"
 		);
+		if (isRootState) {
+			updateValueAtNow(totalSupplyHistory, _totalSupply);
+		}
 		uint256 i = 0;
 		for (; !isRootState && i < activeBlockchains.length; i++) {
 			if (activeBlockchains[i] == idHash) break;
@@ -398,7 +405,9 @@ contract GReputation is Reputation {
 
 		//if initiial state then set real balance
 		if (idHash == ROOT_STATE) {
+			uint256 curTotalSupply = totalSupplyLocalAt(block.number);
 			_mint(_user, _balance);
+			updateValueAtNow(totalSupplyHistory, curTotalSupply); // we undo the totalsupply, as we alredy set the totalsupply of the airdrop
 		}
 
 		//if proof is valid then set balances
@@ -577,33 +586,31 @@ contract GReputation is Reputation {
 		reputationRecipients[msg.sender] = _target;
 	}
 
-	function fix1() public {
-		if (
-			getVotes(0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF) ==
-			1008145362854518632309 &&
-			getVotes(0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4) ==
-			587905678906424942728383 &&
-			getVotes(0x1D5096665E79585019c448259D944090F28702E3) ==
-			3421532080040613840050
-		) {
-			_updateDelegateVotes(
-				0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF,
-				0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF,
-				1008145362854518632309,
-				balanceOfLocal(0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF)
-			);
-			_updateDelegateVotes(
-				0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4,
-				0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4,
-				587905678906424942728383,
-				balanceOfLocal(0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4)
-			);
-			_updateDelegateVotes(
-				0x1D5096665E79585019c448259D944090F28702E3,
-				0x1D5096665E79585019c448259D944090F28702E3,
-				3421532080040613840050,
-				balanceOfLocal(0x1D5096665E79585019c448259D944090F28702E3)
-			);
+	function restoreState(
+		bytes32 _fuseStateHash,
+		uint256 _totalSupply,
+		address[] calldata _accounts,
+		uint256[] calldata _stateValue,
+		uint256[] calldata _mintValue
+	) public {
+		require(activeBlockchains.length == 0, "too late");
+		_setBlockchainStateHash("fuse", _fuseStateHash, _totalSupply);
+		for (uint256 i = 0; i < _accounts.length; i++) {
+			address account = _accounts[i];
+			if (_stateValue[i] > 0) {
+				stateHashBalances[_fuseStateHash][account] = _stateValue[i];
+				emit StateHashProof("fuse", account, _stateValue[i]);
+			}
+			reputationRecipients[account] = GReputation(
+				address(0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf)
+			).reputationRecipients(account);
+			if (_mintValue[i] > 0) _mint(account, _mintValue[i]);
+		}
+		for (uint256 i = 0; i < _accounts.length; i++) {
+			address delegatee = GReputation(
+				address(0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf)
+			).delegateOf(_accounts[i]);
+			if (delegatee != address(0)) _delegateTo(_accounts[i], delegatee);
 		}
 	}
 }
