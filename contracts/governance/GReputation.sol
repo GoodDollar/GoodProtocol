@@ -610,7 +610,8 @@ contract GReputation is Reputation {
 			address delegatee = GReputation(
 				address(0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf)
 			).delegateOf(_accounts[i]);
-			if (delegatee != address(0)) _delegateTo(_accounts[i], delegatee);
+			if (delegatee != address(0) && delegatee != _accounts[i])
+				_delegateTo(_accounts[i], delegatee);
 		}
 	}
 }
