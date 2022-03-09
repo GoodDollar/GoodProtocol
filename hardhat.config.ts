@@ -13,7 +13,7 @@ import { task, types } from "hardhat/config";
 import { sha3 } from "web3-utils";
 import { config } from "dotenv";
 import { airdrop } from "./scripts/governance/airdropCalculation";
-import { airdrop as gdxAirdrop, airdropNew as gdxAirdropNew} from "./scripts/gdx/gdxAirdropCalculation";
+import { airdrop as gdxAirdrop, airdropRecover as gdxAirdropRecover} from "./scripts/gdx/gdxAirdropCalculation";
 import { verify } from "./scripts/verify";
 import { ethers } from "ethers";
 config();
@@ -197,12 +197,12 @@ task("gdxAirdrop", "Calculates airdrop data")
     }
   });
 
-task("gdxAirdropNew", "Calculates new airdrop data")
+task("gdxAirdropRecover", "Calculates new airdrop data for recovery")
   .addParam("action", "calculate/tree/proof")
   .addOptionalPositionalParam("address", "proof for address")
   .addOptionalParam("ethsnapshotblock", "eth block for calculate")
   .setAction(async (taskArgs, hre) => {
-    const actions = gdxAirdropNew(hre.ethers);
+    const actions = gdxAirdropRecover(hre.ethers);
     switch (taskArgs.action) {
       case "addition":
         return actions.addCalculationsToPreviousData();

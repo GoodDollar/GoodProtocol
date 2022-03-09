@@ -211,7 +211,7 @@ export const airdrop = (ethers: typeof Ethers, ethSnapshotBlock) => {
   return { buildMerkleTree, collectAirdropData, getProof };
 };
 
-export const airdropNew = (ethers: typeof Ethers) => {
+export const airdropRecover = (ethers: typeof Ethers) => {
 
   const ZERO = ethers.BigNumber.from("0");
 
@@ -309,14 +309,12 @@ export const airdropNew = (ethers: typeof Ethers) => {
     await populateListOfAddressesAndBalances(newReserve, reserveTokenPurchasedFilter, reserveTokenSoldFilter);
     await populateListOfAddressesAndBalances(exchangeHelper, exchangeHelperTokenPurchasedFilter, exchangeHelperTokenSoldFilter);
 
-    delete newAddresses[exchangeHelper.address];
-
     // console.log({ newAddresses, newIsContracts });
     return { newAddresses, newIsContracts };
   };
 
   const buildMerkleTree = () => {
-    const { addressesCombined, isContracts } = JSON.parse(
+    const { addressesCombined } = JSON.parse(
       fs.readFileSync("airdrop/buyBalancesCombined.json").toString()
     );
     
@@ -329,17 +327,14 @@ export const airdropNew = (ethers: typeof Ethers) => {
     // console.log(`Before sorting`);
     // toTree.forEach((a,_) => { console.log(`${a[0].toString()}:${ethers.BigNumber.from(a[1]).toString()}\n`)}); 
     
-    toTree.sort((a, b) => BigNumber.from(a[1]).sub(b[1]) < ZERO ? 0 : -1 );
+    toTree.sort((a, b) => BigNumber.from(b[1]).gt(a[1]) ? 0 : -1 );
 
     // console.log(`After sorting`);
     // toTree.forEach((a,_) => { console.log(`${a[0].toString()}:${ethers.BigNumber.from(a[1]).toString()}\n`)}); 
     
-    // toTree.forEach((a,_) => console.log(`${a[0].toString()},${BigNumber.from(a[1]).toString()}`));
-    
     let totalGDX = ZERO;
     toTree.forEach((a,_) => totalGDX = totalGDX.add(a[1]))
     console.log({
-      isContracts,
       toTree: toTree.forEach((a,_) => console.log({address: a[0].toString(), balance: BigNumber.from(a[1]).toString()})),
       numberOfAccounts: toTree.length,
       TotalGDX: totalGDX.toString()
@@ -380,23 +375,23 @@ export const airdropNew = (ethers: typeof Ethers) => {
     const proof = merkleTree.getProof(elements[0]).map(_ => _.toString("hex"));
     console.log({ merkleRoot, proof, sampleProofFor: toTree[0] });
     fs.writeFileSync(
-      "airdrop/gdxairdropNew.json",
+      "airdrop/gdxAirdropRecovery.json",
       JSON.stringify({ treeData, merkleRoot })
     );
   };
 
   const addCalculationsToPreviousData = async () => {
     // get previous airdrop and turn it into BigNumbers
-    const { addresses, isContracts } = JSON.parse(
-      fs.readFileSync("airdrop/buyBalances.json").toString()
+    const gdxAirdropData = JSON.parse(
+      fs.readFileSync("airdrop/gdxairdrop.json").toString()
     );
     const addressesCombined = {}
-    for (const [address, balance] of Object.entries(addresses)) {
-      addressesCombined[address] = BigNumber.from(balance);
+    for (const [address, balance] of Object.entries(gdxAirdropData.treeData)) {
+      addressesCombined[address] = BigNumber.from(balance['gdx']);
     }
 
     // get new holders info and turn into array
-    const { newAddresses, newIsContracts }  = await getHoldersInformation();
+    const { newAddresses, }  = await getHoldersInformation();
 
     let newAddressesArray: Array<[string, BigNumber]> = Object.entries(newAddresses).map(
       ([addr, gdx]) => {
@@ -404,29 +399,24 @@ export const airdropNew = (ethers: typeof Ethers) => {
       }
     );
 
-    // Convert minuses to 0
-    newAddressesArray.forEach((a,_) => { a[1] = (a[1] < ZERO) ? ZERO : a[1]});
-
-    // console.log(`Before sorting`);
-    // newAddressesArray.forEach((a,_) => { console.log(`${a[0].toString()}:${ethers.BigNumber.from(a[1]).toString()}\n`)}); 
-    newAddressesArray.sort((a, b) => BigNumber.from(a[1]).sub(b[1]) < ZERO ? 0 : -1 );
-      // console.log(`After sorting`);
-    // newAddressesArray.forEach((a,_) => { console.log(`${a[0].toString()}:${ethers.BigNumber.from(a[1]).toString()}\n`)});
 
     // Unite previous airdrop with current information 
     for (const newAddressEntry of newAddressesArray) {
       const address = newAddressEntry[0];
       const addition = newAddressEntry[1];
+      
+      if (addition<=ZERO)
+        continue;
+
       // console.log({address})
       // console.log({before: BigNumber.from(addressesCombined[address] || "0").toString() })
       // console.log({addition: addition.toString()})
-      addressesCombined[address] = ethers.BigNumber.from(addressesCombined[address] || 0).add(addition.toString());
+      addressesCombined[address] = ethers.BigNumber.from(addressesCombined[address] || 0).add(addition.toString()).toString();
       // console.log({total: addressesCombined[address].toString()})
       // console.log(`\n`);
-      isContracts[address] = newIsContracts[address];
     }
     
-    fs.writeFileSync("airdrop/buyBalancesCombined.json", JSON.stringify({ addressesCombined, isContracts }));
+    fs.writeFileSync("airdrop/buyBalancesCombined.json", JSON.stringify({ addressesCombined }));
   };
 
   return { buildMerkleTree, addCalculationsToPreviousData };
