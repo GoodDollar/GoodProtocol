@@ -585,33 +585,4 @@ contract GReputation is Reputation {
 	function setReputationRecipient(address _target) public {
 		reputationRecipients[msg.sender] = _target;
 	}
-
-	function restoreState(
-		bytes32 _fuseStateHash,
-		uint256 _totalSupply,
-		address[] calldata _accounts,
-		uint256[] calldata _stateValue,
-		uint256[] calldata _mintValue
-	) public {
-		require(activeBlockchains.length == 0, "too late");
-		_setBlockchainStateHash("fuse", _fuseStateHash, _totalSupply);
-		for (uint256 i = 0; i < _accounts.length; i++) {
-			address account = _accounts[i];
-			if (_stateValue[i] > 0) {
-				stateHashBalances[_fuseStateHash][account] = _stateValue[i];
-				emit StateHashProof("fuse", account, _stateValue[i]);
-			}
-			reputationRecipients[account] = GReputation(
-				address(0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf)
-			).reputationRecipients(account);
-			if (_mintValue[i] > 0) _mint(account, _mintValue[i]);
-		}
-		for (uint256 i = 0; i < _accounts.length; i++) {
-			address delegatee = GReputation(
-				address(0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf)
-			).delegateOf(_accounts[i]);
-			if (delegatee != address(0) && delegatee != _accounts[i])
-				_delegateTo(_accounts[i], delegatee);
-		}
-	}
 }
