@@ -219,7 +219,7 @@ task("gdxAirdrop", "Calculates airdrop data")
   });
 
 task("gdxAirdropRecover", "Calculates new airdrop data for recovery")
-  .addParam("action", "calculate/tree/proof")
+  .addParam("action", "addition/tree")
   .addOptionalPositionalParam("address", "proof for address")
   .addOptionalParam("ethsnapshotblock", "eth block for calculate")
   .setAction(async (taskArgs, hre) => {
@@ -230,7 +230,7 @@ task("gdxAirdropRecover", "Calculates new airdrop data for recovery")
       case "tree":
         return actions.buildMerkleTree();
       default:
-        console.log("unknown action use calculate or tree");
+        console.log("unknown action use addition or tree");
     }
   });
 
