@@ -26,9 +26,19 @@ contract GovernanceStaking is
 	ERC20 token;
 
 	/**
-	 * @dev Emitted when `staker` withdraws their rewards `value` tokens
+	 * @dev Emitted when `staker` earns an `amount` of GOOD tokens
 	 */
-	event ReputationEarned(address indexed staker, uint256 value);
+	event ReputationEarned(address indexed staker, uint256 amount);
+	
+	/**
+	 * @dev Emitted when `staker` stakes an `amount` of GoodDollars
+	 */
+	event Staked(address indexed staker, uint256 amount);
+
+	/**
+	 * @dev Emitted when `staker` withdraws an `amount` of staked GoodDollars
+	 */
+	event StakeWithdraw(address indexed staker, uint256 amount);
 
 	/**
 	 * @dev Constructor
@@ -69,6 +79,7 @@ contract GovernanceStaking is
 		);
 		_mint(_msgSender(), _amount); // mint Staking token for staker
 		_mintRewards(_msgSender());
+		emit Staked(_msgSender(), _amount);
 	}
 
 	/**
@@ -95,6 +106,7 @@ contract GovernanceStaking is
 			token.transfer(_msgSender(), tokenWithdraw),
 			"withdraw transfer failed"
 		);
+		emit StakeWithdraw(_msgSender(), _amount);
 	}
 
 	/**
@@ -108,6 +120,7 @@ contract GovernanceStaking is
 	 * @dev Mint rewards of the staker
 	 * @param user Receipent address of the rewards
 	 * @return Returns amount of the minted rewards
+	 * emits 'ReputationEarned' event for staker earned GOOD amount
 	 */
 	function _mintRewards(address user) internal returns (uint256) {
 		uint256 amount = _issueEarnedRewards(address(this), user, 0, block.number);
