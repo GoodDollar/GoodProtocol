@@ -7,7 +7,6 @@ import MerkleTree, {
 import coreContracts from "@gooddollar/goodcontracts/releases/deployment.json";
 import stakingContracts from "@gooddollar/goodcontracts/stakingModel/releases/deployment.json";
 import upgradablesContracts from "@gooddollar/goodcontracts/upgradables/releases/deployment.json";
-import GReputationABI from "../../artifacts/contracts/governance/GReputation.sol/GReputation.json";
 import { ethers as Ethers } from "hardhat";
 import { BigNumber } from "ethers";
 type Balances = {
@@ -109,24 +108,26 @@ export const airdrop = (
 
   console.log({ systemContracts });
 
-  const goodMainnet = new ethers.Contract(
-    "0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf",
-    GReputationABI.abi,
-    new ethers.providers.InfuraProvider()
-  );
-
-  const goodFuse = new ethers.Contract(
-    "0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf",
-    GReputationABI.abi,
-    fuseGDProvider
-  );
-
   const LAST_BLOCK_ETH = 14296865;
   const LAST_BLOCK_FUSE = 14296865;
   const START_BLOCK_FUSE = 14149729;
   const START_BLOCK_ETH = 13683492;
 
   const collectAirdropData = async () => {
+    const goodMainnet = await ethers
+      .getContractAt(
+        "GReputation",
+        "0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf"
+      )
+      .then(_ => _.connect(new ethers.providers.InfuraProvider()));
+
+    const goodFuse = await ethers
+      .getContractAt(
+        "GReputation",
+        "0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf"
+      )
+      .then(_ => _.connect(fuseGDProvider));
+
     console.log({
       LAST_BLOCK_ETH,
       LAST_BLOCK_FUSE
