@@ -14,7 +14,6 @@ import { sha3 } from "web3-utils";
 import { config } from "dotenv";
 import { airdrop } from "./scripts/governance/airdropCalculation";
 import { airdrop as gdxAirdrop, airdropRecover as gdxAirdropRecover} from "./scripts/gdx/gdxAirdropCalculation";
-import { stakersGdRewards} from "./scripts/staking/stakersGdRewardsCalculation";
 import { verify } from "./scripts/verify";
 import { ethers } from "ethers";
 config();
@@ -199,7 +198,9 @@ task("gdxAirdrop", "Calculates airdrop data")
   });
 
 task("gdxAirdropRecover", "Calculates new airdrop data for recovery")
-  .addParam("action", "addition/tree")
+  .addParam("action", "calculate/tree/proof")
+  .addOptionalPositionalParam("address", "proof for address")
+  .addOptionalParam("ethsnapshotblock", "eth block for calculate")
   .setAction(async (taskArgs, hre) => {
     const actions = gdxAirdropRecover(hre.ethers);
     switch (taskArgs.action) {
@@ -208,7 +209,7 @@ task("gdxAirdropRecover", "Calculates new airdrop data for recovery")
       case "tree":
         return actions.buildMerkleTree();
       default:
-        console.log("unknown action use addition or tree");
+        console.log("unknown action use calculate or tree");
     }
   });
 
@@ -218,15 +219,3 @@ task("verifyjson", "verify contracts on etherscan").setAction(
   }
 );
 export default hhconfig;
-
-task("stakersGdRewards", "Calculates airdrop data")
-  .addParam("action", "TBD")
-  .setAction(async (taskArgs, hre) => {
-    const actions = stakersGdRewards(hre.ethers);
-    switch (taskArgs.action) {
-      case "calculate":
-        return actions.doStuff();
-      default:
-        console.log("unknown action use calculate or tree");
-    }
-  });
