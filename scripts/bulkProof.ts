@@ -118,4 +118,90 @@ export const bulkProof = async () => {
   }
 };
 
-bulkProof().catch(console.log);
+export const bulkProofGDX = async () => {
+  const signers = await ethers.getSigners();
+  console.log("signer", await ethers.getSigners());
+  //   const signer = signers[0].connect(new ethers.providers.InfuraProvider());
+  const reserve = await ethers.getContractAt(
+    "GoodReserveCDai",
+    "0xa150a825d425B36329D8294eeF8bD0fE68f8F6E0"
+  );
+
+  const { treeData, merkleRoot } = JSON.parse(
+    fs.readFileSync("airdrop/gdxAirdropRecovery.json").toString()
+  );
+
+  let entries = Object.entries(treeData);
+
+  let elements = entries.map((e: any) =>
+    Buffer.from(e[1].hash.slice(2), "hex")
+  );
+
+  let addrs = Object.keys(treeData);
+
+  console.log("creating merkletree...", elements.length, addrs);
+  const merkleTree = new MerkleTree(elements, false);
+
+  const calcMerkleRoot = merkleTree.getRoot().toString("hex");
+  console.log("merkleroots:", {
+    fromFile: merkleRoot,
+    calculated: calcMerkleRoot
+  });
+
+  const proofs = addrs => {
+    return addrs.map(addr => {
+      if (!addr) {
+        console.log("missing", addr);
+        return;
+      }
+      const addrData = treeData[addr] || treeData[addr.toLowerCase()];
+      const proofFor = Buffer.from(addrData.hash.slice(2), "hex");
+
+      const proof = merkleTree.getProof(proofFor);
+
+      // console.log(
+      //   "checkProof:",
+      //   checkProofOrdered(proof, merkleTree.getRoot(), proofFor, proofIndex)
+      // );
+
+      const hexProof = proof.map(_ => "0x" + _.toString("hex"));
+      // console.log({
+      //   proofIndex,
+      //   rep: BigNumber.from(addrData.rep).toString(),
+      //   //   hexProof,
+      //   addr
+      // });
+
+      return {
+        balance: BigNumber.from(addrData.gdx).toString(),
+        proof: hexProof,
+        account: addr
+      };
+    });
+  };
+
+  const bulkProofContract = await ethers.getContractAt(
+    "BulkProof",
+    "0xDB8563287ecF1484228951804eC6bf241f884099"
+  );
+  for (let addrChunk of chunk(addrs, 60)) {
+    const proofsChunk = proofs(addrChunk);
+    console.log("calling bulk proof");
+    const tx = await bulkProofContract.callStatic.bulkProof(proofsChunk, {
+      gasLimit: 5000000,
+      maxPriorityFeePerGas: 1000000000,
+      maxFeePerGas: 40000000000
+    });
+    console.log(tx);
+    await (
+      await bulkProofContract.bulkProof(proofsChunk, {
+        gasLimit: 5000000,
+        maxPriorityFeePerGas: 1000000000,
+        maxFeePerGas: 40000000000
+      })
+    ).wait();
+  }
+};
+
+// bulkProof().catch(console.log);
+bulkProofGDX().catch(console.log);
