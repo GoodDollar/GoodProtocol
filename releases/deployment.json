@@ -511,7 +511,7 @@
         "CompoundVotingMachine": "0x57Ee6Ceff51CB30Ecb1245934a882c500Fbec1e9",
         "ClaimersDistribution": "0x1aE4929090258A9D5000D98Cfb8A27174d345834",
         "GovernanceStaking": "0xFAF457Fb4A978Be059506F6CD41f9B30fCa753b0",
-        "GovernanceStakingV2": "0x280226A143b7Dfdf84645006e32F899B531C2F98",
+        "GovernanceStakingV2": "0xB7C3e738224625289C573c54d402E9Be46205546",
         "UBIScheme": "0xd253A5203817225e9768C05E5996d642fb96bA86",
         "ProtocolUpgradeFuseRecover": "0xBE43eCb37Af7F7C4A8606E672c504BE55Fc6226B",
         "network": "production",
