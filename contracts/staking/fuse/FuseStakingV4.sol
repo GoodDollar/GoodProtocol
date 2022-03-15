@@ -14,6 +14,11 @@ import "./IUBIScheme.sol";
 contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 	using SafeMathUpgradeable for uint256;
 
+	struct Lock {
+		uint256 lockedAmount;
+		uint256 unlockTime;
+	}
+
 	mapping(address => uint256) public stakers;
 	address[] public validators;
 
@@ -45,6 +50,9 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 	PegSwap pegSwap;
 
 	mapping(address => mapping(address => uint256)) public allowance;
+
+	uint256 public lockDuration = 7 days;
+	mapping(address => Lock) public locks;
 
 	event Transfer(address indexed from, address indexed to, uint256 value);
 	event Approval(address indexed owner, address indexed spender, uint256 value);
@@ -79,64 +87,6 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 	modifier onlyGuardian() {
 		require(msg.sender == guardian, "not guardian");
 		_;
-	}
-
-	function upgrade0() public {
-		if (RATIO_BASE == 0) {
-			stakeBackRatio = 33333; //%33
-			communityPoolRatio = 33333; //%33
-			maxSlippageRatio = 3000; //3%
-			keeperFeeRatio = 30; //0.03%
-			RATIO_BASE = 100000; //100%
-		}
-	}
-
-	function upgrade1(
-		address _gd,
-		address _ubischeme,
-		address _uniswap
-	) public {
-		if (address(uniswapPair) == address(0)) {
-			uniswap = Uniswap(
-				_uniswap == address(0)
-					? 0xFB76e9E7d88E308aB530330eD90e84a952570319
-					: _uniswap
-			);
-			GD = IGoodDollar(_gd);
-			ubischeme = IUBIScheme(_ubischeme);
-
-			uniswapFactory = UniswapFactory(uniswap.factory());
-			uniswapPair = UniswapPair(
-				uniswapFactory.getPair(uniswap.WETH(), _gd)
-			);
-			upgrade0();
-		}
-	}
-
-	function upgrade2() public {
-		if (USDC == address(0)) {
-			USDC = address(0x620fd5fa44BE6af63715Ef4E65DDFA0387aD13F5);
-			fUSD = address(0x249BE57637D8B013Ad64785404b24aeBaE9B098B);
-		}
-	}
-
-	function upgrade3() public {
-		if (guardian == address(0)) {
-			paused = true;
-			guardian = address(0x5128E3C1f8846724cc1007Af9b4189713922E4BB);
-		}
-	}
-
-	function upgrade4() public {
-		if (address(pegSwap) == address(0)) {
-			pegSwap = PegSwap(0xdfE016328E7BcD6FA06614fE3AF3877E931F7e0a);
-			paused = false;
-		}
-	}
-
-	function upgrade5() public {
-		cERC20(fUSD).approve(address(pegSwap), type(uint256).max);
-		cERC20(USDC).approve(address(uniswap), type(uint256).max);
 	}
 
 	function setContracts(address _gd, address _ubischeme) public onlyOwner {
@@ -234,7 +184,7 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
     }
   }
 
-	function _withdraw(address _from, address _to, uint256 _value) internal returns (uint256) {
+	function _requestWithdrawal(address _from, address _to, uint256 _value) internal returns (uint256) {
 		uint256 effectiveBalance = balance(); //use only undelegated funds
 		uint256 toWithdraw = _value == 0 ? stakers[_from] : _value;
 		uint256 toCollect = toWithdraw;
@@ -267,12 +217,26 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 		}
 
 		stakers[_from] = stakers[_from].sub(toWithdraw);
-		if (toWithdraw > 0 && _to != address(this)) payable(_to).transfer(toWithdraw);
+		if (toWithdraw > 0 && _to != address(this)) _registerWithdrawal(_from, toWithdraw); //payable(_to).transfer(toWithdraw);
 		return toWithdraw;
 	}
 
-	function withdraw(uint256 _value) public returns (uint256) {
-		return _withdraw(msg.sender, msg.sender, _value);
+	function setLockDuration(uint256 _newLockDuration) external onlyOwner {
+		lockDuration = _newLockDuration;
+	}
+
+	function _registerWithdrawal(address _user, uint256 _amount) internal {
+		locks[_user].lockedAmount += _amount;
+		locks[_user].unlockTime = block.timestamp + lockDuration;
+	}
+
+	function performWithdrawal() external onlyOwner {
+		require(block.timestamp >= locks[_user].unlockTime, "withdrawalIsLockedYet");
+		payable(msg.sender).transfer(locks[_user].lockedAmount);
+	}
+
+	function requestWithdrawal(uint256 _value) public returns (uint256) {
+		return _requestWithdrawal(msg.sender, msg.sender, _value);
 	}
 
 	function stakeNextValidator(uint256 _value, address _validator)
@@ -544,43 +508,6 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 		maxToken = (r_token * maxSlippageRatio) / RATIO_BASE;
 		maxToken = maxToken < _value ? maxToken : _value;
 		tokenOut = getAmountOut(maxToken, r_token, r_gd);
-		// uint256 start = 0;
-		// uint256 end = _value.div(1e18); //save iterations by moving precision to whole Fuse quantity
-		// // uint256 curPriceWei = uint256(1e18).mul(r_gd) / r_token; //uniswap quote  formula UniswapV2Library.sol
-		// uint256 gdForQuantity = getAmountOut(1e18, r_token, r_gd);
-		// uint256 priceForQuantityWei = rdiv(1e18, gdForQuantity.mul(1e16)).div(
-		// 	1e9
-		// );
-		// uint256 maxPriceWei = priceForQuantityWei
-		// .mul(RATIO_BASE.add(maxSlippageRatio))
-		// .div(RATIO_BASE);
-		// // console.log(
-		// // 	"curPrice: %s, maxPrice %s",
-		// // 	priceForQuantityWei,
-		// // 	maxPriceWei
-		// // );
-		// fuseAmount = _value;
-		// tokenOut;
-		// //Iterate while start not meets end
-		// while (start <= end) {
-		// 	// Find the mid index
-		// 	uint256 midQuantityWei = start.add(end).mul(1e18).div(2); //restore quantity precision
-		// 	if (midQuantityWei == 0) break;
-		// 	gdForQuantity = getAmountOut(midQuantityWei, r_token, r_gd);
-		// 	priceForQuantityWei = rdiv(midQuantityWei, gdForQuantity.mul(1e16))
-		// 	.div(1e9);
-		// 	// console.log(
-		// 	// 	"gdForQuantity: %s, priceForQuantity: %s, midQuantity: %s",
-		// 	// 	gdForQuantity,
-		// 	// 	priceForQuantityWei,
-		// 	// 	midQuantityWei
-		// 	// );
-		// 	if (priceForQuantityWei <= maxPriceWei) {
-		// 		start = midQuantityWei.div(1e18) + 1; //reduce precision to whole quantity div 1e18
-		// 		fuseAmount = midQuantityWei;
-		// 		tokenOut = gdForQuantity;
-		// 	} else end = midQuantityWei.div(1e18) - 1; //reduce precision to whole quantity div 1e18
-		// }
 	}
 
 	function undelegateWithCatch(address _validator, uint256 _amount)
