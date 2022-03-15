@@ -15,6 +15,17 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 	using SafeMathUpgradeable for uint256;
 
 	mapping(address => uint256) public stakers;
+	
+	struct GivebackData {
+  		// Total amount of fuse staked
+		uint256 totalStaked;
+		// Average giveback ratio for the total amount
+  		uint256 avgRatio;
+	}
+
+	mapping(address => GivebackData) stakersGivebacks;
+	GivebackData globalGivebacks;
+	
 	address[] public validators;
 
 	IConsensus public consensus;
@@ -28,11 +39,11 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 	uint256 public lastDayCollected; //ubi day from ubischeme
 
 	uint256 public stakeBackRatio;
-	uint256 public constant DEFAULT_GIVEBACK_RATIO = 33333;
 	uint256 public maxSlippageRatio; //actually its max price impact ratio
 	uint256 public keeperFeeRatio;
 	uint256 public RATIO_BASE;
 	uint256 public communityPoolRatio; //out of G$ bought how much should goto pool
+	uint256 public minGivebackRatio;
 
 	uint256 communityPoolBalance;
 	uint256 pendingFuseEarnings; //earnings not  used because of slippage
@@ -89,6 +100,7 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 			maxSlippageRatio = 3000; //3%
 			keeperFeeRatio = 30; //0.03%
 			RATIO_BASE = 100000; //100%
+			minGivebackRatio = 10000;
 		}
 	}
 
@@ -149,16 +161,8 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 		}
 	}
 
-	function stake() public payable returns (bool) {
-		return stake(address(0));
-	}
-
 	function stake(uint _giveBackRatio) public payable returns (bool) {
-		return stake(address(0), DEFAULT_GIVEBACK_RATIO);
-	}
-
-	function stake(address _validator) public payable returns (bool) {
-		return stake(_validator, DEFAULT_GIVEBACK_RATIO);
+		return stake(address(0), _giveBackRatio);
 	}
 
 	function stake(address _validator, uint256 _giveBackRatio) public payable returns (bool) {
@@ -184,12 +188,26 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 			"validator not in approved list"
 		);
 
-		require(_giveBackRatio >= 10000, "giveback should be higher or equal to 10 percent");
+		require(_giveBackRatio >= minGivebackRatio, "giveback should be higher or equal to minimum");
 		bool staked = stakeNextValidator(_amount, _validator);
-		stakers[_to] += _amount;
-		// insert mapping new giveback mapping
+		updateStakersGivebacks(_to, _amount, _giveBackRatio);
 
 		return staked;
+	}
+
+	function updateStakersGivebacks(address _to, uint256 _amount, uint256 _giveBackRatio) internal{		
+		if(stakersGivebacks[_to].totalStaked > 0){
+			uint256 prevEffectiveGiveback = stakersGivebacks[_to].totalStaked.mul(stakersGivebacks[_to].avgRatio);
+			uint256 newEffectiveGiveback = _amount.mul(_giveBackRatio);
+
+			stakersGivebacks[_to].totalStaked += _amount;
+			uint256 denominator = stakersGivebacks[_to].totalStaked.mul(RATIO_BASE);
+			stakersGivebacks[_to].avgRatio = prevEffectiveGiveback.add(newEffectiveGiveback).div(denominator);
+		}
+		else {
+			stakersGivebacks[_to].totalStaked = _amount;
+			stakersGivebacks[_to].avgRatio = _giveBackRatio;
+		}
 	}
 
 	function balanceOf(address _owner) public view returns (uint256) {
@@ -229,7 +247,8 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
     uint256 amount
   ) internal virtual {
 		_withdraw(from, address(this), amount);
-		_stake(to, address(0), amount);
+		// to be replaced with: receiver giveback ratio if he staked already, otherwise use sender
+		_stake(to, address(0), amount, 33333);
 	}
 
 	function _spendAllowance(
