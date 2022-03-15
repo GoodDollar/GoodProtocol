@@ -28,6 +28,7 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 	uint256 public lastDayCollected; //ubi day from ubischeme
 
 	uint256 public stakeBackRatio;
+	uint256 public constant DEFAULT_GIVEBACK_RATIO = 33333;
 	uint256 public maxSlippageRatio; //actually its max price impact ratio
 	uint256 public keeperFeeRatio;
 	uint256 public RATIO_BASE;
@@ -152,7 +153,20 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 		return stake(address(0));
 	}
 
-	function _stake(address _to, address _validator, uint256 _amount) internal returns (bool) {
+	function stake(uint _giveBackRatio) public payable returns (bool) {
+		return stake(address(0), DEFAULT_GIVEBACK_RATIO);
+	}
+
+	function stake(address _validator) public payable returns (bool) {
+		return stake(_validator, DEFAULT_GIVEBACK_RATIO);
+	}
+
+	function stake(address _validator, uint256 _giveBackRatio) public payable returns (bool) {
+		require(msg.value > 0, "stake must be > 0");
+		return _stake(msg.sender, _validator, msg.value, _giveBackRatio);
+	}
+
+	function _stake(address _to, address _validator, uint256 _amount, uint256 _giveBackRatio) internal returns (bool) {
 		require(validators.length > 0, "no approved validators");
 		bool found;
 		for (
@@ -170,14 +184,12 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 			"validator not in approved list"
 		);
 
+		require(_giveBackRatio >= 10000, "giveback should be higher or equal to 10 percent");
 		bool staked = stakeNextValidator(_amount, _validator);
 		stakers[_to] += _amount;
-		return staked;
-	}
+		// insert mapping new giveback mapping
 
-	function stake(address _validator) public payable returns (bool) {
-		require(msg.value > 0, "stake must be > 0");
-		return _stake(msg.sender, _validator, msg.value);
+		return staked;
 	}
 
 	function balanceOf(address _owner) public view returns (uint256) {
@@ -375,7 +387,7 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 			.mul(communityPoolRatio)
 			.div(RATIO_BASE); //subtract fee // * ommunityPoolRatio // = G$ after fee * communityPoolRatio%
 
-		uint256 ubiAfterFeeAndPool = gdBought.sub(communityPoolContribution);
+		uint256 ubiAfterFeeAndPool = gdBought.sub(communityPoolContribution).sub(keeperFee);
 
 		GD.transfer(address(ubischeme), ubiAfterFeeAndPool); //transfer to ubischeme
 		communityPoolBalance += communityPoolContribution;
