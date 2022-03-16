@@ -14,11 +14,6 @@ import "./IUBIScheme.sol";
 contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 	using SafeMathUpgradeable for uint256;
 
-	struct Lock {
-		uint256 lockedAmount;
-		uint256 unlockTime;
-	}
-
 	mapping(address => uint256) public stakers;
 	address[] public validators;
 
@@ -50,9 +45,6 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 	PegSwap pegSwap;
 
 	mapping(address => mapping(address => uint256)) public allowance;
-
-	uint256 public lockDuration = 7 days;
-	mapping(address => Lock) public locks;
 
 	event Transfer(address indexed from, address indexed to, uint256 value);
 	event Approval(address indexed owner, address indexed spender, uint256 value);
@@ -184,7 +176,7 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
     }
   }
 
-	function _requestWithdrawal(address _from, address _to, uint256 _value) internal returns (uint256) {
+	function _withdraw(address _from, address _to, uint256 _value) internal returns (uint256) {
 		uint256 effectiveBalance = balance(); //use only undelegated funds
 		uint256 toWithdraw = _value == 0 ? stakers[_from] : _value;
 		uint256 toCollect = toWithdraw;
@@ -217,26 +209,8 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 		}
 
 		stakers[_from] = stakers[_from].sub(toWithdraw);
-		if (toWithdraw > 0 && _to != address(this)) _registerWithdrawal(_from, toWithdraw); //payable(_to).transfer(toWithdraw);
+		if (toWithdraw > 0 && _to != address(this)) payable(_to).transfer(toWithdraw);
 		return toWithdraw;
-	}
-
-	function setLockDuration(uint256 _newLockDuration) external onlyOwner {
-		lockDuration = _newLockDuration;
-	}
-
-	function _registerWithdrawal(address _user, uint256 _amount) internal {
-		locks[_user].lockedAmount += _amount;
-		locks[_user].unlockTime = block.timestamp + lockDuration;
-	}
-
-	function performWithdrawal() external onlyOwner {
-		require(block.timestamp >= locks[_user].unlockTime, "withdrawalIsLockedYet");
-		payable(msg.sender).transfer(locks[_user].lockedAmount);
-	}
-
-	function requestWithdrawal(uint256 _value) public returns (uint256) {
-		return _requestWithdrawal(msg.sender, msg.sender, _value);
 	}
 
 	function stakeNextValidator(uint256 _value, address _validator)
@@ -331,6 +305,7 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 		stakeNextValidator(stakeBack, address(0)); //stake back the rest of the earnings
 
 		uint256 gdBought = fuseswapResult[fuseswapResult.length - 1];
+
 		uint256 keeperFee = gdBought.mul(keeperFeeRatio).div(RATIO_BASE);
 		if (keeperFee > 0) GD.transfer(msg.sender, keeperFee);
 
@@ -339,7 +314,7 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 			.mul(communityPoolRatio)
 			.div(RATIO_BASE); //subtract fee // * ommunityPoolRatio // = G$ after fee * communityPoolRatio%
 
-		uint256 ubiAfterFeeAndPool = gdBought.sub(communityPoolContribution);
+		uint256 ubiAfterFeeAndPool = gdBought.sub(communityPoolContribution).sub(keeperFee);
 
 		GD.transfer(address(ubischeme), ubiAfterFeeAndPool); //transfer to ubischeme
 		communityPoolBalance += communityPoolContribution;
