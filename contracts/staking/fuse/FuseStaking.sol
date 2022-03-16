@@ -14,15 +14,7 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 
 	mapping(address => uint256) public stakers;
 
-	struct GivebackData {
-  		// Total amount of fuse staked
-		uint256 totalStaked;
-		// Average giveback ratio for the total amount
-  	uint256 avgRatio;
-	}
-
-	mapping(address => GivebackData) stakersGivebacks;
-	GivebackData globalGiveback;
+	mapping(address => uint256) stakersGivebackRatios;
 
 	address[] public validators;
 
@@ -42,6 +34,8 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 	uint256 public RATIO_BASE;
 	uint256 public communityPoolRatio; //out of G$ bought how much should goto pool
 	uint256 public minGivebackRatio;
+	uint256 public globallyStaked;
+	uint256 public globalGivebackRatio;
 
 	uint256 communityPoolBalance;
 	uint256 pendingFuseEarnings; //earnings not  used because of slippage
@@ -125,26 +119,17 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 
 		require(_giveBackRatio >= minGivebackRatio, "giveback should be higher or equal to minimum");
 		bool staked = stakeNextValidator(_amount, _validator);
-		stakers[_to] += _amount;
-		updateStakersGivebacks(_to, _amount, _giveBackRatio);
+		updateStakersAndGivebacks(_to, _amount, _giveBackRatio);
 
 		return staked;
 	}
 
-	function updateStakersGivebacks(address _to, uint256 _amount, uint256 _giveBackRatio) internal{
-		if(stakersGivebacks[_to].totalStaked > 0){
-			stakersGivebacks[_to].avgRatio =
-				weightedAverage(stakersGivebacks[_to].avgRatio, stakersGivebacks[_to].totalStaked, _giveBackRatio, _amount);
-			stakersGivebacks[_to].totalStaked += _amount;
-		}
-		else {
-			stakersGivebacks[_to].totalStaked = _amount;
-			stakersGivebacks[_to].avgRatio = _giveBackRatio;
-		}
-
-		globalGiveback.avgRatio =
-			weightedAverage(globalGiveback.avgRatio, globalGiveback.totalStaked, _giveBackRatio, _amount);
-		globalGiveback.totalStaked += _amount;
+	function updateStakersAndGivebacks(address _to, uint256 _amount, uint256 _giveBackRatio) internal {		
+		stakersGivebackRatios[_to] = weightedAverage(stakersGivebackRatios[_to], stakers[_to], _giveBackRatio, _amount);
+		globalGivebackRatio = weightedAverage(globalGivebackRatio, globallyStaked, _giveBackRatio, _amount);
+		
+		stakers[_to] += _amount;
+		globallyStaked += _amount;
 	}
 
 	/**
@@ -211,10 +196,10 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 	 * @return receiver average giveback ratio if he has one, otherwise sender giveback ratio
 	 */
 	function getTransferGivebackRatio(address to, address from) internal view returns (uint256){
-		return stakersGivebacks[to].avgRatio > 0 ?
-					stakersGivebacks[to].avgRatio :
-					stakersGivebacks[from].avgRatio > 0 ?
-						stakersGivebacks[from].avgRatio :
+		return stakersGivebackRatios[to] > 0 ?
+					stakersGivebackRatios[to] :
+					stakersGivebackRatios[from] > 0 ?
+						stakersGivebackRatios[from] :
 						minGivebackRatio;
 	}
 
@@ -265,7 +250,10 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 		}
 
 		stakers[_from] = stakers[_from] - toWithdraw;
-		if (toWithdraw > 0 && _to != address(this)) payable(_to).transfer(toWithdraw);
+		globallyStaked -= toWithdraw;
+
+		if (toWithdraw > 0 && _to != address(this)) 
+			payable(_to).transfer(toWithdraw);
 		return toWithdraw;
 	}
 
