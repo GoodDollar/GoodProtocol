@@ -15,6 +15,17 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 	using SafeMathUpgradeable for uint256;
 
 	mapping(address => uint256) public stakers;
+	
+	struct GivebackData {
+  		// Total amount of fuse staked
+		uint256 totalStaked;
+		// Average giveback ratio for the total amount
+  		uint256 avgRatio;
+	}
+
+	mapping(address => GivebackData) stakersGivebacks;
+	GivebackData globalGiveback;
+	
 	address[] public validators;
 
 	IConsensus public consensus;
@@ -32,6 +43,7 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 	uint256 public keeperFeeRatio;
 	uint256 public RATIO_BASE;
 	uint256 public communityPoolRatio; //out of G$ bought how much should goto pool
+	uint256 public minGivebackRatio;
 
 	uint256 communityPoolBalance;
 	uint256 pendingFuseEarnings; //earnings not  used because of slippage
@@ -90,11 +102,16 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 		}
 	}
 
-	function stake() public payable returns (bool) {
-		return stake(address(0));
+	function stake(uint _giveBackRatio) public payable returns (bool) {
+		return stake(address(0), _giveBackRatio);
 	}
 
-	function _stake(address _to, address _validator, uint256 _amount) internal returns (bool) {
+	function stake(address _validator, uint256 _giveBackRatio) public payable returns (bool) {
+		require(msg.value > 0, "stake must be > 0");
+		return _stake(msg.sender, _validator, msg.value, _giveBackRatio);
+	}
+
+	function _stake(address _to, address _validator, uint256 _amount, uint256 _giveBackRatio) internal returns (bool) {
 		require(validators.length > 0, "no approved validators");
 		bool found;
 		for (
@@ -112,15 +129,45 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 			"validator not in approved list"
 		);
 
+		require(_giveBackRatio >= minGivebackRatio, "giveback should be higher or equal to minimum");
 		bool staked = stakeNextValidator(_amount, _validator);
 		stakers[_to] += _amount;
+		updateStakersGivebacks(_to, _amount, _giveBackRatio);
+
 		return staked;
 	}
 
-	function stake(address _validator) public payable returns (bool) {
-		require(msg.value > 0, "stake must be > 0");
-		return _stake(msg.sender, _validator, msg.value);
+	function updateStakersGivebacks(address _to, uint256 _amount, uint256 _giveBackRatio) internal{		
+		if(stakersGivebacks[_to].totalStaked > 0){
+			stakersGivebacks[_to].avgRatio = 
+				weightedAverage(stakersGivebacks[_to].avgRatio, stakersGivebacks[_to].totalStaked, _giveBackRatio, _amount);
+			stakersGivebacks[_to].totalStaked += _amount;
+		}
+		else {
+			stakersGivebacks[_to].totalStaked = _amount;
+			stakersGivebacks[_to].avgRatio = _giveBackRatio;
+		}
+
+		globalGiveback.avgRatio = 
+			weightedAverage(globalGiveback.avgRatio, globalGiveback.totalStaked, _giveBackRatio, _amount);
+		globalGiveback.totalStaked += _amount;
 	}
+
+	/**
+     * @dev Calculates the weighted average of two values based on their weights.
+     * @param valueA The amount for value A
+     * @param weightA The weight to use for value A
+     * @param valueB The amount for value B
+     * @param weightB The weight to use for value B
+     */
+    function weightedAverage(
+        uint256 valueA,
+        uint256 weightA,
+        uint256 valueB,
+        uint256 weightB
+    ) internal pure returns (uint256) {
+        return valueA.mul(weightA).add(valueB.mul(weightB)).div(weightA.add(weightB));
+    }
 
 	function balanceOf(address _owner) public view returns (uint256) {
 		return stakers[_owner];
@@ -159,7 +206,22 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
     uint256 amount
   ) internal virtual {
 		_withdraw(from, address(this), amount);
-		_stake(to, address(0), amount);
+		uint256 givebackRatio = getTransferGivebackRatio(to, from);
+		_stake(to, address(0), amount, givebackRatio);
+	}
+
+	/**
+	 * @dev determines the giveback ratio of a transferred stake
+	 * @param to the receiver
+	 * @param from the sender
+	 * @return receiver average giveback ratio if he has one, otherwise sender giveback ratio
+	 */
+	function getTransferGivebackRatio(address to, address from) internal view returns (uint256){
+		return stakersGivebacks[to].avgRatio > 0 ?
+					stakersGivebacks[to].avgRatio :
+					stakersGivebacks[from].avgRatio > 0 ?
+						stakersGivebacks[from].avgRatio :
+						minGivebackRatio;
 	}
 
 	function _spendAllowance(
