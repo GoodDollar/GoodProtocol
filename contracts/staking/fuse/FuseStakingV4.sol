@@ -24,7 +24,7 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 	}
 
 	mapping(address => GivebackData) stakersGivebacks;
-	GivebackData globalGivebacks;
+	GivebackData globalGiveback;
 	
 	address[] public validators;
 
@@ -44,6 +44,7 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 	uint256 public RATIO_BASE;
 	uint256 public communityPoolRatio; //out of G$ bought how much should goto pool
 	uint256 public minGivebackRatio;
+	uint256 public constant DEFAULT_GIVEBACK_RATIO = 33333; //shouldn't be used, giveback ratio is explicit by staker
 
 	uint256 communityPoolBalance;
 	uint256 pendingFuseEarnings; //earnings not  used because of slippage
@@ -197,18 +198,35 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
 
 	function updateStakersGivebacks(address _to, uint256 _amount, uint256 _giveBackRatio) internal{		
 		if(stakersGivebacks[_to].totalStaked > 0){
-			uint256 prevEffectiveGiveback = stakersGivebacks[_to].totalStaked.mul(stakersGivebacks[_to].avgRatio);
-			uint256 newEffectiveGiveback = _amount.mul(_giveBackRatio);
-
+			stakersGivebacks[_to].avgRatio = 
+				weightedAverage(stakersGivebacks[_to].avgRatio, stakersGivebacks[_to].totalStaked, _giveBackRatio, _amount);
 			stakersGivebacks[_to].totalStaked += _amount;
-			uint256 denominator = stakersGivebacks[_to].totalStaked.mul(RATIO_BASE);
-			stakersGivebacks[_to].avgRatio = prevEffectiveGiveback.add(newEffectiveGiveback).div(denominator);
 		}
 		else {
 			stakersGivebacks[_to].totalStaked = _amount;
 			stakersGivebacks[_to].avgRatio = _giveBackRatio;
 		}
+
+		globalGiveback.avgRatio = 
+			weightedAverage(globalGiveback.avgRatio, globalGiveback.totalStaked, _giveBackRatio, _amount);
+		globalGiveback.totalStaked += _amount;
 	}
+
+	/**
+     * @dev Calculates the weighted average of two values based on their weights.
+     * @param valueA The amount for value A
+     * @param weightA The weight to use for value A
+     * @param valueB The amount for value B
+     * @param weightB The weight to use for value B
+     */
+    function weightedAverage(
+        uint256 valueA,
+        uint256 weightA,
+        uint256 valueB,
+        uint256 weightB
+    ) internal pure returns (uint256) {
+        return valueA.mul(weightA).add(valueB.mul(weightB)).div(weightA.add(weightB));
+    }
 
 	function balanceOf(address _owner) public view returns (uint256) {
 		return stakers[_owner];
@@ -247,8 +265,22 @@ contract FuseStakingV4 is Initializable, OwnableUpgradeable, DSMath {
     uint256 amount
   ) internal virtual {
 		_withdraw(from, address(this), amount);
-		// to be replaced with: receiver giveback ratio if he staked already, otherwise use sender
-		_stake(to, address(0), amount, 33333);
+		uint256 givebackRatio = getTransferGivebackRatio(to, from);
+		_stake(to, address(0), amount, givebackRatio);
+	}
+
+	/**
+	 * @dev determines the giveback ratio of a transferred stake
+	 * @param to the receiver
+	 * @param from the sender
+	 * @return receiver average giveback ratio if he has one, otherwise sender giveback ratio
+	 */
+	function getTransferGivebackRatio(address to, address from) internal view returns (uint256){
+		return stakersGivebacks[to].avgRatio > 0 ?
+					stakersGivebacks[to].avgRatio :
+					stakersGivebacks[from].avgRatio > 0 ?
+						stakersGivebacks[from].avgRatio :
+						DEFAULT_GIVEBACK_RATIO;
 	}
 
 	function _spendAllowance(
