@@ -233,7 +233,6 @@ contract BaseShareFieldV2 {
 	 * @param blockStart block from which contract starts earning rewards
 	 * @param blockEnd block from which contract stops earning rewards
 	 */
-
 	function _decreaseProductivity(
 		address user,
 		uint256 value,

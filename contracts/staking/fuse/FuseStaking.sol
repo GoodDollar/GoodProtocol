@@ -1,569 +1,571 @@
 // SPDX-License-Identifier: MIT
-
-pragma solidity 0.8.11;
+pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 
-contract FuseStaking is ERC20, Pausable, ReentrancyGuard, Ownable {
-    using SafeERC20 for IERC20;
+import "../../utils/DAOUpgradeableContract.sol";
+import "../../utils/DSMath.sol";
+import "../../Interfaces.sol";
+import "./IConsensus.sol";
+import "./PegSwap.sol";
+import "./IUBIScheme.sol";
 
-    struct UserInfo {
-        uint256 amount; // Amount of staked tokens
-        int256[] rewardDebts;   // Reward debts for all reward tokens
+contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
+
+	mapping(address => uint256) public stakers;
+
+	struct GivebackData {
+  		// Total amount of fuse staked
+		uint256 totalStaked;
+		// Average giveback ratio for the total amount
+  	uint256 avgRatio;
+	}
+
+	mapping(address => GivebackData) stakersGivebacks;
+	GivebackData globalGiveback;
+
+	address[] public validators;
+
+	IConsensus public consensus;
+
+	Uniswap public uniswap;
+	IGoodDollar public GD;
+	IUBIScheme public ubischeme;
+	UniswapFactory public uniswapFactory;
+	UniswapPair public uniswapPair;
+
+	uint256 public lastDayCollected; //ubi day from ubischeme
+
+	uint256 public stakeBackRatio;
+	uint256 public maxSlippageRatio; //actually its max price impact ratio
+	uint256 public keeperFeeRatio;
+	uint256 public RATIO_BASE;
+	uint256 public communityPoolRatio; //out of G$ bought how much should goto pool
+	uint256 public minGivebackRatio;
+
+	uint256 communityPoolBalance;
+	uint256 pendingFuseEarnings; //earnings not  used because of slippage
+
+	address public USDC;
+	address public fUSD;
+
+	bool public paused;
+	address public guardian;
+
+	PegSwap pegSwap;
+
+	mapping(address => mapping(address => uint256)) public allowance;
+
+	event Transfer(address indexed from, address indexed to, uint256 value);
+	event Approval(address indexed owner, address indexed spender, uint256 value);
+
+	event UBICollected(
+		uint256 indexed currentDay,
+		uint256 ubi, //G$ sent to ubischeme
+		uint256 communityPool, //G$ added to pool
+		uint256 gdBought, //actual G$ we got out of swapping stakingRewards + pendingFuseEarnings
+		uint256 stakingRewards, //rewards earned since previous collection,
+		uint256 pendingFuseEarnings, //new balance of fuse pending to be swapped for G$
+		address keeper,
+		uint256 keeperGDFee
+	);
+
+	function initialize() public initializer {
+		consensus = IConsensus(
+			address(0x3014ca10b91cb3D0AD85fEf7A3Cb95BCAc9c0f79)
+		);
+		validators.push(address(0xcb876A393F05a6677a8a029f1C6D7603B416C0A6));
+	}
+
+	modifier notPaused() {
+		require(!paused, "ubi collection is pauased");
+		_;
+	}
+
+	modifier onlyGuardian() {
+		require(msg.sender == guardian, "not guardian");
+		_;
+	}
+
+	function setContracts(address _gd, address _ubischeme) public onlyOwner {
+		if (_gd != address(0)) {
+			GD = IGoodDollar(_gd);
+		}
+		if (_ubischeme != address(0)) {
+			ubischeme = IUBIScheme(_ubischeme);
+		}
+	}
+
+	function stake(uint _giveBackRatio) public payable returns (bool) {
+		return stake(address(0), _giveBackRatio);
+	}
+
+	function stake(address _validator, uint256 _giveBackRatio) public payable returns (bool) {
+		require(msg.value > 0, "stake must be > 0");
+		return _stake(msg.sender, _validator, msg.value, _giveBackRatio);
+	}
+
+	function _stake(address _to, address _validator, uint256 _amount, uint256 _giveBackRatio) internal returns (bool) {
+		require(validators.length > 0, "no approved validators");
+		bool found;
+		for (
+			uint256 i = 0;
+			_validator != address(0) && i < validators.length;
+			i++
+		) {
+			if (validators[i] != _validator) {
+				found = true;
+				break;
+			}
+		}
+		require(
+			_validator == address(0) || found,
+			"validator not in approved list"
+		);
+
+		require(_giveBackRatio >= minGivebackRatio, "giveback should be higher or equal to minimum");
+		bool staked = stakeNextValidator(_amount, _validator);
+		stakers[_to] += _amount;
+		updateStakersGivebacks(_to, _amount, _giveBackRatio);
+
+		return staked;
+	}
+
+	function updateStakersGivebacks(address _to, uint256 _amount, uint256 _giveBackRatio) internal{
+		if(stakersGivebacks[_to].totalStaked > 0){
+			stakersGivebacks[_to].avgRatio =
+				weightedAverage(stakersGivebacks[_to].avgRatio, stakersGivebacks[_to].totalStaked, _giveBackRatio, _amount);
+			stakersGivebacks[_to].totalStaked += _amount;
+		}
+		else {
+			stakersGivebacks[_to].totalStaked = _amount;
+			stakersGivebacks[_to].avgRatio = _giveBackRatio;
+		}
+
+		globalGiveback.avgRatio =
+			weightedAverage(globalGiveback.avgRatio, globalGiveback.totalStaked, _giveBackRatio, _amount);
+		globalGiveback.totalStaked += _amount;
+	}
+
+	/**
+     * @dev Calculates the weighted average of two values based on their weights.
+     * @param valueA The amount for value A
+     * @param weightA The weight to use for value A
+     * @param valueB The amount for value B
+     * @param weightB The weight to use for value B
+     */
+    function weightedAverage(
+        uint256 valueA,
+        uint256 weightA,
+        uint256 valueB,
+        uint256 weightB
+    ) internal pure returns (uint256) {
+				return (valueA * weightA + valueB * weightB) / (weightA + weightB);
     }
 
-    struct Reward {
-        address rewardToken;    // Reward token address
-        uint128 accRewardPerShare;  // Accumulated reward per share
-        uint256 lastBalance;    // Balance of this contract at the last moment when pool was updated
-        uint256 payedRewardForPeriod;   // Reward amount payed for all the period
+	function balanceOf(address _owner) public view returns (uint256) {
+		return stakers[_owner];
+	}
+
+	function transfer(address to, uint256 amount) external returns (bool) {
+		_transfer(msg.sender, to, amount);
+	}
+
+	function approve(address spender, uint256 amount) external returns (bool) {
+		_approve(msg.sender, spender, amount);
+		return true;
+  }
+
+	function _approve(address owner, address spender, uint256 amount) internal {
+		require(owner != address(0), "FuseStakingV4: approve from the zero address");
+		require(spender != address(0), "FuseStakingV4: approve to the zero address");
+    allowance[msg.sender][spender] = amount;
+    emit Approval(msg.sender, spender, amount);
+	}
+
+	function transferFrom(
+    address from,
+    address to,
+    uint256 amount
+  ) public returns (bool) {
+    address spender = _msgSender();
+    _spendAllowance(from, spender, amount);
+    _transfer(from, to, amount);
+    return true;
+  }
+
+	function _transfer(
+    address from,
+    address to,
+    uint256 amount
+  ) internal virtual {
+		_withdraw(from, address(this), amount);
+		uint256 givebackRatio = getTransferGivebackRatio(to, from);
+		_stake(to, address(0), amount, givebackRatio);
+	}
+
+	/**
+	 * @dev determines the giveback ratio of a transferred stake
+	 * @param to the receiver
+	 * @param from the sender
+	 * @return receiver average giveback ratio if he has one, otherwise sender giveback ratio
+	 */
+	function getTransferGivebackRatio(address to, address from) internal view returns (uint256){
+		return stakersGivebacks[to].avgRatio > 0 ?
+					stakersGivebacks[to].avgRatio :
+					stakersGivebacks[from].avgRatio > 0 ?
+						stakersGivebacks[from].avgRatio :
+						minGivebackRatio;
+	}
+
+	function _spendAllowance(
+    address owner,
+    address spender,
+    uint256 amount
+  ) internal virtual {
+    uint256 currentAllowance = allowance[owner][spender];
+    if (currentAllowance != type(uint256).max) {
+      require(currentAllowance >= amount, "FuseStakingV4: insufficient allowance");
+      unchecked {
+        _approve(owner, spender, currentAllowance - amount);
+      }
     }
-
-    struct FeeReceiver {
-        address receiver;   // Address of fee receiver
-        uint256 bps; // Amount of reward token for the receiver (in BPs)
-        mapping(address => bool) isTokenAllowedToBeChargedOfFees;   // Map if fee will be charged on this token
-    }
-
-    uint256 public totalStaked; // Total amount of staked tokens
-    uint256 public startTime;   // Timestamp when the vault was configured
-    IERC20 public immutable stakeToken;   // Stake token address
-
-    Reward[] public rewards;    // Array of reward tokens addresses
-
-    mapping(uint256 => FeeReceiver) public feeReceivers;  // Reward token receivers
-    uint256 public feeReceiversLength;  // Reward token receivers count
-
-    mapping(address => UserInfo) public userInfo;  // User address -> User info
-
-    uint256 private constant ACC_REWARD_PRECISION = 1e12;
-
-    event Deposit(address indexed user, uint256 amount, address indexed to);
-    event Withdraw(address indexed user, uint256 amount, address indexed to);
-    event Staked(address indexed user, uint256 amount, address indexed to);
-
-    /**
-    * @param _rewardToken reward token (XBF)
-    * @param _stakeToken stake token (LP)
-    * @param _xbfInflation XBFInflation address
-    * @param _name LP Vault token name
-    * @param _symbol LP Vault token symbol
-    * @param _referralProgramAddress Referral program contract address
-    * @param _gaugeAddress Gauge contract address (can be zero address)
-    */
-    constructor(
-        address _rewardToken,
-        IERC20 _stakeToken,
-        string memory _name,
-        string memory _symbol,
-    ) ERC20(_name, _symbol) {
-        rewards.push(Reward(_rewardToken, 0, 0, 0));
-        stakeToken = _stakeToken;
-        _pause();
-    }
-
-    /**
-    * @notice Deletes all fee receivers
-    * @dev Can be called only by owner
-    */
-    function deleteAllFeeReceivers() external onlyOwner {
-        feeReceiversLength = 0;
-    }
-
-    /**
-    * @notice Adds fee receiver
-    * @dev Can be called only by owner
-    * @param _receiver New receiver address
-    * @param _bps Amount of BPs for the new receiver
-    * @param _isFeeReceivingCallNeeded Flag if feeReceiving() call needed
-    * @param _rewardsTokens Reward token addresses
-    * @param _statuses Flags if vault should pay fee on this token or not
-    * @return feeReceiverIndex Index of the new added receiver
-    */
-    function addFeeReceiver(
-        address _receiver,
-        uint256 _bps,
-        address[] calldata _rewardsTokens,
-        bool[] calldata _statuses
-    )
-        external
-        onlyOwner
-        returns(uint256 feeReceiverIndex)
-    {
-        feeReceiverIndex = feeReceiversLength++;
-        FeeReceiver storage feeReceiver = feeReceivers[feeReceiverIndex];
-        feeReceiver.receiver = _receiver;
-        feeReceiver.bps = _bps;
-        feeReceiver.isFeeReceivingCallNeeded = _isFeeReceivingCallNeeded;
-        for (uint256 i; i < _rewardsTokens.length; i++) {
-            _setFeeReceiversTokensToBeChargedOfFees(feeReceiverIndex, _rewardsTokens[i], _statuses[i]);
-        }
-    }
-
-    /**
-    * @notice Returns reward token array length
-    */
-    function rewardsCount() external view returns(uint256) {
-        return rewards.length;
-    }
-
-    /**
-    * @notice Sets fee receiver address
-    * @dev Can be called only by owner
-    * @param _index Receiver index
-    * @param _receiver New receiver address
-    */
-    function setFeeReceiverAddress(uint256 _index, address _receiver) external onlyOwner {
-        feeReceivers[_index].receiver = _receiver;
-    }
-
-    /**
-    * @notice Sets BPs for fee receiver
-    * @dev Can be called only by owner
-    * @param _index Receiver index
-    * @param _bps New receiver BPs
-    */
-    function setFeeReceiverBps(uint256 _index, uint256 _bps) external onlyOwner {
-        feeReceivers[_index].bps = _bps;
-    }
-
-    /**
-    * @notice Sets isFeeReceivingCallNeeded flag for fee receiver
-    * @dev Can be called only by owner
-    * @param _index Receiver index
-    * @param _isFeeReceivingCallNeeded New flag
-    */
-    function setFeeReceiversCallNeeded(uint256 _index, bool _isFeeReceivingCallNeeded) external onlyOwner {
-        feeReceivers[_index].isFeeReceivingCallNeeded = _isFeeReceivingCallNeeded;
-    }
-
-    /**
-    * @notice Sets isTokenAllowedToBeChargedOfFees flag for specified token at specified fee receiver
-    * @dev Can be called only by owner
-    * @param _index Receiver index
-    * @param _rewardsToken Reward token address to change isTokenAllowedToBeChargedOfFees status
-    * @param _status New status for isTokenAllowedToBeChargedOfFees flag
-    */
-    function setFeeReceiversTokensToBeChargedOfFees(uint256 _index, address _rewardsToken, bool _status) external onlyOwner {
-        _setFeeReceiversTokensToBeChargedOfFees(_index, _rewardsToken, _status);
-    }
-
-    /**
-    * @notice Sets isTokenAllowedToBeChargedOfFees flags for several fee receivers
-    * @dev Can be called only by owner
-    * @param _indices Receivers indices
-    * @param _rewardsTokens Reward tokens addresses to change isTokenAllowedToBeChargedOfFees statuses
-    * @param _statuses New statuses for isTokenAllowedToBeChargedOfFees flags
-    */
-    function setFeeReceiversTokensToBeChargedOfFeesMulti(
-        uint256[] calldata _indices,
-        address[] calldata _rewardsTokens,
-        bool[] calldata _statuses
-    ) external onlyOwner {
-        for (uint256 i; i < _indices.length; i++) {
-            _setFeeReceiversTokensToBeChargedOfFees(_indices[i], _rewardsTokens[i], _statuses[i]);
-        }
-    }
-
-    /**
-    * @notice Sets XBF Inflation contract address
-    * @dev can be called only by owner
-    * @param _xbfInflation new XBF Inflation contract address
-    */
-    function setXbfInflation(address _xbfInflation) external onlyOwner {
-        xbfInflation = _xbfInflation;
-    }
-
-    /**
-    * @notice Sets gauge
-    * @dev Can be called only by owner
-    * @param _gauge New gauge address
-    */
-    function setGauge(address _gauge, address[] memory _gaugeRewardTokens) external onlyOwner {
-        gaugeAddress = _gauge;
-        IGauge gauge = IGauge(_gauge);
-        Reward memory xbfInfo = rewards[0];
-        delete rewards;
-        // we should keep current reward parameters for XBF
-        rewards.push(
-            Reward(
-                IXBFInflation(xbfInflation).token(),
-                xbfInfo.accRewardPerShare,
-                xbfInfo.lastBalance,
-                xbfInfo.payedRewardForPeriod
-                )
-            );
-        for (uint256 i; i < _gaugeRewardTokens.length; i++) {
-            rewards.push(Reward(_gaugeRewardTokens[i], 0, 0, 0));
-        }
-    }
-
-    /**
-    * @notice Sets Referral program contract address
-    * @dev Can be called only by owner
-    * @param _refProgram New Referral program contract address
-    */
-    function setReferralProgram(address _refProgram) external onlyOwner {
-        referralProgram = IReferralProgram(_refProgram);
-    }
-
-    /**
-    * @notice Sets VSR contract address
-    * @dev Can be called only by owner
-    * @param _vsr New VSR contract address
-    */
-    function setVotingStakingRewards(address _vsr) external onlyOwner {
-        votingStakingRewards = IAutoStakeFor(_vsr);
-    }
-
-    /**
-    * @notice Sets the flag if fee on getting reward is claimed or not
-    * @dev Can be called only by owner
-    * @param _isEnabled New onGetRewardFeesEnabled status
-    */
-    function setOnGetRewardFeesEnabled(bool _isEnabled) external onlyOwner {
-        isGetRewardFeesEnabled = _isEnabled;
-    }
-
-    /**
-    * @notice Sets deposit fee BPs
-    * @dev can be called only by owner
-    * @param _bps New deposit fee BPs
-    */
-    function setDepositFeeBps(uint256 _bps) external onlyOwner {
-        depositFeeBps = _bps;
-    }
-
-    /**
-    * @notice Sets deposit fee receiver
-    * @dev can be called only by owner
-    * @param _receiver New deposit fee receiver
-    */
-    function setDepositFeeReceiver(address _receiver) external onlyOwner {
-        depositFeeReceiver = _receiver;
-    }
-
-    /**
-    * @notice Configures Vault
-    * @dev can be called only by XBF Inflation
-    */
-    function configure() external onlyXBFInflation whenPaused {
-        _unpause();
-        _depositFor(1 wei, owner());
-        startTime = block.timestamp;
-    }
-
-    /**
-    * @notice Returns user's reward debt
-    * @param _account User's address
-    * @param _index Index of reward token
-    */
-    function getRewardDebt(address _account, uint256 _index) external view returns(int256) {
-        if (_index < userInfo[_account].rewardDebts.length) return userInfo[_account].rewardDebts[_index];
-        return 0;
-    }
-
-    /**
-    * @notice Adds reward token
-    * @dev Can be called only by owner
-    * @param _newToken New reward token
-    */
-
-    function addRewardToken(address _newToken) external onlyOwner {
-        rewards.push(Reward(_newToken, 0, 0, 0));
-        updatePool();
-        emit NewRewardToken(_newToken);
-    }
-
-    /**
-    * @notice Returns user's earned reward
-    * @param _user User's address
-    * @param _index Index of reward token
-    * @return pending Amount of pending reward
-    */
-    function earned(address _user, uint256 _index) external view returns (uint256 pending) {
-        UserInfo storage user = userInfo[_user];
-        Reward[] memory _rewards = rewards;
-        require(_index < _rewards.length, "index exceeds amount of reward tokens");
-        uint256 accRewardPerShare_ = _rewards[_index].accRewardPerShare;
-        uint256 lpSupply = totalStaked;
-        address gauge = gaugeAddress;
-        uint256 vaultEarned;
-        if (_index == 0) {
-            uint256 target = IXBFInflation(xbfInflation).targetMinted();
-            uint256 weigth = IXBFInflation(xbfInflation).weights(address(this));
-            uint256 sumWeight = IXBFInflation(xbfInflation).sumWeight();
-
-            uint256 periodsToPay = (block.timestamp - startTime) / IXBFInflation(xbfInflation).periodDuration();
-            uint256 mintForPeriods = periodsToPay * IXBFInflation(xbfInflation).periodicEmission();
-            uint256 plannedToMint = mintForPeriods > target ? target : mintForPeriods;
-            vaultEarned = (plannedToMint - IXBFInflation(xbfInflation).totalMinted()) * weigth / sumWeight;
-
-        } else if (_index > 0 && gauge != address(0) && _index < IGauge(gauge).rewardsListLength() + 1) {
-            vaultEarned = IGauge(gauge).earned(_rewards[_index].rewardToken, address(this));
-        }
-        uint256 balance = IERC20(_rewards[_index].rewardToken).balanceOf(address(this));
-        uint256 rewardForPeriod = balance + vaultEarned - (_rewards[_index].lastBalance - _rewards[_index].payedRewardForPeriod);
-        if (lpSupply != 0) {
-            uint256 reward = rewardForPeriod;
-            accRewardPerShare_ += reward * ACC_REWARD_PRECISION / lpSupply;
-        }
-        if (_index < user.rewardDebts.length) {
-            pending = uint256(int256(user.amount * accRewardPerShare_ / ACC_REWARD_PRECISION) - user.rewardDebts[_index]);
-        } else {
-            pending = user.amount * accRewardPerShare_ / ACC_REWARD_PRECISION;
-        }
-    }
-
-    /**
-    * @notice Updates pool
-    * @dev Mints XBF if available, claims all reward from the gauge
-    */
-    function updatePool() public whenNotPaused {
-        Reward[] memory _rewards = rewards;
-        uint256 length = _rewards.length;
-        address[] memory rewardTokens = new address[](length - 1);
-        for (uint256 i; i < length - 1; i++) {   // skip 0th
-            rewardTokens[i] = _rewards[i + 1].rewardToken;
-        }
-        address gauge = gaugeAddress;
-        if (gauge != address(0)) IGauge(gauge).getReward(address(this), rewardTokens);
-        IXBFInflation(xbfInflation).mintForContracts();
-        uint256[] memory rewardsForPeriod = new uint256[](length);
-        uint256 lpSupply = totalStaked;
-        uint256 multiplier = ACC_REWARD_PRECISION;
-        for (uint256 i; i < length; i++) {
-            uint256 balance = IERC20(_rewards[i].rewardToken).balanceOf(address(this)); // get the balance after claim/mint
-            rewardsForPeriod[i] = balance - (_rewards[i].lastBalance - _rewards[i].payedRewardForPeriod);   // calculate how much reward came from the last time
-            rewards[i].lastBalance = balance;
-            rewards[i].payedRewardForPeriod = 0;
-            if (lpSupply > 0) rewards[i].accRewardPerShare += uint128(rewardsForPeriod[i] * multiplier / lpSupply);
-        }
-
-        emit LogUpdatePool(lpSupply, rewardsForPeriod);
-    }
-
-    /**
-    * @notice Deposits stake tokens for user for reward allocation
-    * @param _amount Amount of tokens to deposit
-    * @param _to Address of a beneficiary
-    */
-    function depositFor(uint256 _amount, address _to) public nonReentrant whenNotPaused {
-        address sender = _msgSender();
-
-        _amount = _chargeFeesOnDeposit(_amount);
-
-        _depositFor(_amount, _to);
-        _mint(address(this), _amount);
-        IERC20 stake = stakeToken;
-        address gauge = gaugeAddress;
-        IReferralProgram referral = referralProgram;
-        stake.safeTransferFrom(sender, address(this), _amount);
-        if (gauge != address(0)){
-            stake.safeApprove(gauge, _amount);
-            IGauge(gauge).deposit(_amount, 0);
-        }
-
-        if(!referral.users(_to).exists) {
-            address rootAddress = referral.rootAddress();
-            referral.registerUser(rootAddress, _to);
-        }
-
-        emit Deposit(sender, _amount, _to);
-        emit Wrapped(sender, _amount, _to);
-    }
-
-    /**
-    * @notice Stakes Vault LP tokens for user for reward allocation
-    * @param _amount Amount of Vault LP tokens to stake
-    * @param _to Address of a beneficiary
-    */
-    function stakeFor(uint256 _amount, address _to) public nonReentrant whenNotPaused {
-        _depositFor(_amount, _to);
-
-        address gauge = gaugeAddress;
-        if (gauge != address(0)) {
-            stakeToken.safeApprove(gauge, _amount);
-            IGauge(gauge).deposit(_amount, 0);
-        }
-
-        _transfer(_msgSender(), address(this), _amount);
-        emit Staked(_msgSender(), _amount, _to);
-    }
-
-    /**
-    * @notice Unwraps Vault LP token to underlying LP tokens.
-    * @dev Burns Vault LP tokens
-    * @param _amount Vault LP token amount to unwrap.
-    * @param _to The receiver of underlying LP tokens.
-    */
-    function unwrap(uint256 _amount, address _to) public nonReentrant whenNotPaused {
-        address sender = _msgSender();
-        _burn(sender, _amount);
-        stakeToken.safeTransfer(_to, _amount);
-        emit Unwrapped(sender, _amount, _to);
-    }
-
-
-    /**
-    * @notice Withdraw Vault LP tokens.
-    * @dev Withdraws underlying tokens from Gauge, transfers Vault LP to 'to' address
-    * @param _amount Vault LP token amount to unwrap.
-    * @param _to The receiver of underlying LP tokens.
-    */
-    function withdraw(uint256 _amount, address _to) public nonReentrant whenNotPaused {
-        _withdraw(_amount);
-
-        address gauge = gaugeAddress;
-        if (gauge != address(0)) IGauge(gauge).withdraw(_amount);
-        _transfer(address(this), _to, _amount);
-        emit Withdraw(_msgSender(), _amount, _to);
-    }
-
-    /**
-    * @notice Harvest all available reward for the user.
-    * @param _to The receiver of the reward tokens.
-    */
-    function getReward(address _to) public nonReentrant whenNotPaused {
-        updatePool();
-        address sender = _msgSender();
-        UserInfo storage user = userInfo[sender];
-        Reward[] memory _rewards = rewards;
-        uint256 rewardsLength = _rewards.length;
-        uint256[] memory _pendingRewards = new uint256[](rewardsLength);
-        uint256 multiplier = ACC_REWARD_PRECISION;
-
-        // Interactions
-        for (uint256 i; i < rewardsLength; i++) {
-            int256 accumulatedReward = int256(user.amount * _rewards[i].accRewardPerShare / multiplier);
-            if (i >= user.rewardDebts.length) user.rewardDebts.push(0);
-            _pendingRewards[i] = uint256(accumulatedReward - user.rewardDebts[i]);
-
-            user.rewardDebts[i] = accumulatedReward;
-            if (_pendingRewards[i] > 0) {
-                address rewardTokenAddress = _rewards[i].rewardToken;
-                uint256 rewardsAmountWithFeesTaken = _chargeFees(sender, rewardTokenAddress, _pendingRewards[i]);
-                _autoStakeForOrSendTo(rewardTokenAddress, rewardsAmountWithFeesTaken, _to);
-                rewards[i].payedRewardForPeriod += _pendingRewards[i];
-                _pendingRewards[i] = rewardsAmountWithFeesTaken;
-            }
-        }
-
-        emit Harvest(sender, _pendingRewards);
-    }
-
-    /**
-    * @notice Withdraw tokens from Vault and harvest reward for transaction sender to `_to`
-    * @param _amount LP token amount to withdraw
-    * @param _to Receiver of the LP tokens and rewards
-    */
-    function withdrawAndHarvest(uint256 _amount, address _to) public nonReentrant whenNotPaused {
-        updatePool();
-        address sender = _msgSender();
-        UserInfo storage user = userInfo[_msgSender()];
-        Reward[] memory _rewards = rewards;
-        uint256 multiplier = ACC_REWARD_PRECISION;
-        // Effects
-        user.amount -= _amount;
-        totalStaked -= _amount;
-
-        uint256 rewardsLength = _rewards.length;
-        uint256[] memory _pendingRewards = new uint256[](rewardsLength);
-
-
-        for (uint256 i; i < rewardsLength; i++) {
-            if (i >= user.rewardDebts.length) {
-                user.rewardDebts.push(-int256(_amount * _rewards[i].accRewardPerShare / multiplier));
-            } else {
-                user.rewardDebts[i] -= int256(_amount * _rewards[i].accRewardPerShare / multiplier);
-            }
-            int256 accumulatedReward = int256(user.amount * _rewards[i].accRewardPerShare / multiplier);
-            _pendingRewards[i] = uint256(accumulatedReward - user.rewardDebts[i]);
-
-            user.rewardDebts[i] = accumulatedReward;
-            if (_pendingRewards[i] > 0) {
-                address rewardTokenAddress = _rewards[i].rewardToken;
-                uint256 rewardsAmountWithFeesTaken = _chargeFees(sender, rewardTokenAddress, _pendingRewards[i]);
-                _autoStakeForOrSendTo(rewardTokenAddress, rewardsAmountWithFeesTaken, _to);
-                rewards[i].payedRewardForPeriod += _pendingRewards[i];
-                _pendingRewards[i] = rewardsAmountWithFeesTaken;
-            }
-        }
-
-        address gauge = gaugeAddress;
-        if(gauge != address(0)) IGauge(gauge).withdraw(_amount);
-        _transfer(address(this), _to, _amount);
-
-        emit Harvest(sender, _pendingRewards);
-        emit Withdraw(_msgSender(), _amount, _to);
-
-
-    }
-
-    function _depositFor(uint256 _amount, address _to) internal {
-        updatePool();
-        UserInfo storage user = userInfo[_to];
-        Reward[] memory _rewards = rewards;
-        // Effects
-        uint256 multiplier = ACC_REWARD_PRECISION;
-
-        user.amount += _amount;
-        for (uint256 i; i < _rewards.length; i++) {
-            if (i >= user.rewardDebts.length) {
-                user.rewardDebts.push(int256(_amount * _rewards[i].accRewardPerShare / multiplier));
-            } else {
-                user.rewardDebts[i] += int256(_amount * _rewards[i].accRewardPerShare / multiplier);
-            }
-        }
-        totalStaked += _amount;
-
-    }
-
-    function _withdraw(uint256 _amount) internal {
-        updatePool();
-        UserInfo storage user = userInfo[_msgSender()];
-        Reward[] memory _rewards = rewards;
-        uint256 multiplier = ACC_REWARD_PRECISION;
-        // Effects
-        for (uint256 i; i < _rewards.length; i++) {
-            if (i >= user.rewardDebts.length) {
-                user.rewardDebts.push(-int256(_amount * _rewards[i].accRewardPerShare / multiplier));
-            } else {
-                user.rewardDebts[i] -= int256(_amount * _rewards[i].accRewardPerShare / multiplier);
-            }
-        }
-        user.amount -= _amount;
-        totalStaked -= _amount;
-
-    }
-
-    function _chargeFees(
-        address _sender,
-        address _rewardToken,
-        uint256 _amount
-    ) internal returns (uint256) {
-        if (!isGetRewardFeesEnabled) {
-            return _amount;
-        }
-        uint256 fee;
-        uint256 amountAfterFee = _amount;
-        for (uint256 i = 0; i < feeReceiversLength; i++) {
-            FeeReceiver storage _feeReceiver = feeReceivers[i];
-            if (_feeReceiver.isTokenAllowedToBeChargedOfFees[_rewardToken]) {
-                fee = _feeReceiver.bps * _amount / 10000;
-                IERC20(_rewardToken).safeTransfer(_feeReceiver.receiver, fee);
-                amountAfterFee -= fee;
-            }
-        }
-        return amountAfterFee;
-    }
-
-    function _setFeeReceiversTokensToBeChargedOfFees(uint256 _index, address _rewardsToken, bool _status) internal {
-        feeReceivers[_index].isTokenAllowedToBeChargedOfFees[_rewardsToken] = _status;
-    }
-
+  }
+
+	function _withdraw(address _from, address _to, uint256 _value) internal returns (uint256) {
+		uint256 effectiveBalance = balance(); //use only undelegated funds
+		uint256 toWithdraw = _value == 0 ? stakers[_from] : _value;
+		uint256 toCollect = toWithdraw;
+		require(
+			toWithdraw > 0 && toWithdraw <= stakers[_from],
+			"invalid withdraw amount"
+		);
+		uint256 perValidator = _value / validators.length;
+		for (uint256 i = 0; i < validators.length; i++) {
+			uint256 cur = consensus.delegatedAmount(
+				address(this),
+				validators[i]
+			);
+			if (cur == 0) continue;
+			if (cur <= perValidator) {
+				undelegateWithCatch(validators[i], cur);
+				toCollect = toCollect - cur;
+			} else {
+				undelegateWithCatch(validators[i], perValidator);
+				toCollect = toCollect - perValidator;
+			}
+			if (toCollect == 0) break;
+		}
+
+		effectiveBalance = balance() - effectiveBalance; //use only undelegated funds
+
+		// in case some funds where not withdrawn
+		if (toWithdraw > effectiveBalance) {
+			toWithdraw = effectiveBalance;
+		}
+
+		stakers[_from] = stakers[_from] - toWithdraw;
+		if (toWithdraw > 0 && _to != address(this)) payable(_to).transfer(toWithdraw);
+		return toWithdraw;
+	}
+
+	function stakeNextValidator(uint256 _value, address _validator)
+		internal
+		returns (bool)
+	{
+		if (validators.length == 0) return false;
+		if (_validator != address(0)) {
+			consensus.delegate{ value: _value }(_validator);
+			return true;
+		}
+
+		uint256 perValidator = (totalDelegated() + _value) / validators.length;
+		uint256 left = _value;
+		for (uint256 i = 0; i < validators.length && left > 0; i++) {
+			uint256 cur = consensus.delegatedAmount(
+				address(this),
+				validators[i]
+			);
+
+			if (cur < perValidator) {
+				uint256 toDelegate = perValidator - cur;
+				toDelegate = toDelegate < left ? toDelegate : left;
+				consensus.delegate{ value: toDelegate }(validators[i]);
+				left = left - toDelegate;
+			}
+		}
+
+		return true;
+	}
+
+	function addValidator(address _v) public onlyOwner {
+		validators.push(_v);
+	}
+
+	function totalDelegated() public view returns (uint256) {
+		uint256 total = 0;
+		for (uint256 i = 0; i < validators.length; i++) {
+			uint256 cur = consensus.delegatedAmount(
+				address(this),
+				validators[i]
+			);
+			total += cur;
+		}
+		return total;
+	}
+
+	function removeValidator(address _validator) public onlyOwner {
+		uint256 delegated = consensus.delegatedAmount(
+			address(this),
+			_validator
+		);
+		if (delegated > 0) {
+			uint256 prevBalance = balance();
+			undelegateWithCatch(_validator, delegated);
+
+			// wasnt withdrawn because validator needs to be taken of active validators
+			if (balance() == prevBalance) {
+				// pendingValidators.push(_validator);
+				return;
+			}
+		}
+
+		for (uint256 i = 0; i < validators.length; i++) {
+			if (validators[i] == _validator) {
+				if (i < validators.length - 1)
+					validators[i] = validators[validators.length - 1];
+				validators.pop();
+				break;
+			}
+		}
+	}
+
+	function getReward() public notPaused {
+		uint256 curDay = ubischeme.currentDay();
+		require(
+			curDay != lastDayCollected,
+			"can collect only once in a ubi cycle"
+		);
+
+		uint256 earnings = balance() - pendingFuseEarnings;
+		require(pendingFuseEarnings + earnings > 0, "no earnings to collect");
+
+		lastDayCollected = curDay;
+		uint256 fuseUBI = (earnings * (RATIO_BASE - stakeBackRatio)) / RATIO_BASE;
+		uint256 stakeBack = earnings - fuseUBI;
+
+		uint256[] memory fuseswapResult = _buyGD(fuseUBI + pendingFuseEarnings); //buy GD with X% of earnings
+		pendingFuseEarnings = fuseUBI + pendingFuseEarnings - fuseswapResult[0];
+		stakeNextValidator(stakeBack, address(0)); //stake back the rest of the earnings
+
+		uint256 gdBought = fuseswapResult[fuseswapResult.length - 1];
+
+		uint256 keeperFee = gdBought * keeperFeeRatio / RATIO_BASE;
+		if (keeperFee > 0) GD.transfer(msg.sender, keeperFee);
+
+		uint256 communityPoolContribution = (gdBought - keeperFee) * communityPoolRatio / RATIO_BASE;
+
+		uint256 ubiAfterFeeAndPool = gdBought - communityPoolContribution - keeperFee;
+
+		GD.transfer(address(ubischeme), ubiAfterFeeAndPool); //transfer to ubischeme
+		communityPoolBalance += communityPoolContribution;
+
+		emit UBICollected(
+			curDay,
+			ubiAfterFeeAndPool,
+			communityPoolContribution,
+			gdBought,
+			earnings,
+			pendingFuseEarnings,
+			msg.sender,
+			keeperFee
+		);
+	}
+
+	/**
+	 * @dev internal method to buy GD from fuseswap
+	 * @param _value fuse to be sold
+	 * @return uniswap coversion results uint256[2]
+	 */
+	function _buyGD(uint256 _value) internal returns (uint256[] memory) {
+		//buy from uniwasp
+		require(_value > 0, "buy value should be > 0");
+		(uint256 maxFuse, uint256 fuseGDOut) = calcMaxFuseWithPriceImpact(
+			_value
+		);
+		(
+			uint256 maxFuseUSDC,
+			uint256 usdcGDOut
+		) = calcMaxFuseUSDCWithPriceImpact(_value);
+		address[] memory path;
+		if (maxFuse >= maxFuseUSDC) {
+			path = new address[](2);
+			path[1] = address(GD);
+			path[0] = uniswap.WETH();
+			return
+				uniswap.swapExactETHForTokens{ value: maxFuse }(
+					(fuseGDOut * 95) / 100,
+					path,
+					address(this),
+					block.timestamp
+				);
+		} else {
+			(uint256 usdcAmount, uint256 usedFuse) = _buyUSDC(maxFuseUSDC);
+			path = new address[](2);
+			path[1] = address(GD);
+			path[0] = USDC;
+
+			uint256[] memory result = uniswap.swapExactTokensForTokens(
+				usdcAmount,
+				(usdcGDOut * 95) / 100,
+				path,
+				address(this),
+				block.timestamp
+			);
+			//buyGD should return how much fuse was used in [0] and how much G$ we got in [1]
+			result[0] = usedFuse;
+			return result;
+		}
+	}
+
+	/**
+	 * @dev internal method to buy USDC via fuse->fusd
+	 * @param _fuseIn fuse to be sold
+	 * @return usdcAmount and usedFuse how much usdc we got and how much fuse was used
+	 */
+
+	function _buyUSDC(uint256 _fuseIn)
+		internal
+		returns (uint256 usdcAmount, uint256 usedFuse)
+	{
+		//buy from uniwasp
+		require(_fuseIn > 0, "buy value should be > 0");
+		UniswapPair uniswapFUSEfUSDPair = UniswapPair(
+			uniswapFactory.getPair(uniswap.WETH(), fUSD)
+		); //fusd is pegged 1:1 to usdc
+		(uint256 r_fuse, uint256 r_fusd, ) = uniswapFUSEfUSDPair.getReserves();
+
+		(uint256 maxFuse, uint256 tokenOut) = calcMaxTokenWithPriceImpact(
+			r_fuse,
+			r_fusd,
+			_fuseIn
+		); //expect r_token to be in 18 decimals
+
+		address[] memory path = new address[](2);
+		path[1] = fUSD;
+		path[0] = uniswap.WETH();
+		uint256[] memory result = uniswap.swapExactETHForTokens{
+			value: maxFuse
+		}((tokenOut * 95) / 100, path, address(this), block.timestamp);
+
+		pegSwap.swap(result[1], fUSD, USDC);
+		usedFuse = result[0];
+		usdcAmount = result[1] / 1e12; //convert fusd from 1e18 to usdc 1e6
+	}
+
+	function calcMaxFuseWithPriceImpact(uint256 _value)
+		public
+		view
+		returns (uint256 fuseAmount, uint256 tokenOut)
+	{
+		(uint256 r_fuse, uint256 r_gd, ) = uniswapPair.getReserves();
+
+		return calcMaxTokenWithPriceImpact(r_fuse, r_gd, _value);
+	}
+
+	function calcMaxFuseUSDCWithPriceImpact(uint256 _value)
+		public
+		view
+		returns (uint256 maxFuse, uint256 gdOut)
+	{
+		UniswapPair uniswapFUSEfUSDPair = UniswapPair(
+			uniswapFactory.getPair(uniswap.WETH(), fUSD)
+		); //fusd is pegged 1:1 to usdc
+		UniswapPair uniswapGDUSDCPair = UniswapPair(
+			uniswapFactory.getPair(address(GD), USDC)
+		);
+		(uint256 rg_gd, uint256 rg_usdc, ) = uniswapGDUSDCPair.getReserves();
+		(uint256 r_fuse, uint256 r_fusd, ) = uniswapFUSEfUSDPair.getReserves();
+		uint256 fusdPriceInFuse = r_fuse * 1e18 / r_fusd; //fusd is 1e18 so to keep in original 1e18 precision we first multiply by 1e18
+		// console.log(
+		// 	"rgd: %s rusdc:%s usdcPriceInFuse: %s",
+		// 	rg_gd,
+		// 	rg_usdc,
+		// 	fusdPriceInFuse
+		// );
+		// console.log("rfuse: %s rusdc:%s", r_fuse, r_fusd);
+
+		//how many fusd we can get for fuse
+		uint256 fuseValueInfUSD = _value * 1e18 / fusdPriceInFuse; //value and usdPriceInFuse are in 1e18, we mul by 1e18 to keep 18 decimals precision
+		// console.log("fuse fusd value: %s", fuseValueInfUSD);
+
+		(uint256 maxUSDC, uint256 tokenOut) = calcMaxTokenWithPriceImpact(
+			rg_usdc * 1e12,
+			rg_gd,
+			fuseValueInfUSD
+		); //expect r_token to be in 18 decimals
+		// console.log("max USDC: %s", maxUSDC);
+		gdOut = tokenOut;
+		maxFuse = maxUSDC * fusdPriceInFuse / 1e18; //both are in 1e18 precision, div by 1e18 to keep precision
+	}
+
+	/**
+	 * uniswap amountOut helper
+	 */
+	function getAmountOut(
+		uint256 _amountIn,
+		uint256 _reserveIn,
+		uint256 _reserveOut
+	) internal pure returns (uint256 amountOut) {
+		uint256 amountInWithFee = _amountIn * 997;
+		uint256 numerator = amountInWithFee * _reserveOut;
+		uint256 denominator = _reserveIn * 1000 + amountInWithFee;
+		amountOut = numerator / denominator;
+	}
+
+	/**
+	 * @dev use binary search to find quantity that will result with price impact < maxPriceImpactRatio
+	 */
+	function calcMaxTokenWithPriceImpact(
+		uint256 r_token,
+		uint256 r_gd,
+		uint256 _value
+	) public view returns (uint256 maxToken, uint256 tokenOut) {
+		maxToken = (r_token * maxSlippageRatio) / RATIO_BASE;
+		maxToken = maxToken < _value ? maxToken : _value;
+		tokenOut = getAmountOut(maxToken, r_token, r_gd);
+	}
+
+	function undelegateWithCatch(address _validator, uint256 _amount)
+		internal
+		returns (bool)
+	{
+		try consensus.withdraw(_validator, _amount) {
+			return true;
+		} catch Error(
+			string memory /*reason*/
+		) {
+			// This is executed in case
+			// revert was called inside getData
+			// and a reason string was provided.
+			return false;
+		} catch (
+			bytes memory /*lowLevelData*/
+		) {
+			// This is executed in case revert() was used
+			// or there was a failing assertion, division
+			// by zero, etc. inside getData.
+			return false;
+		}
+	}
+
+	function balance() internal view returns (uint256) {
+		return payable(address(this)).balance;
+	}
+
+	function setPaused(bool _paused) public onlyGuardian {
+		paused = _paused;
+	}
+
+	receive() external payable {}
 }
