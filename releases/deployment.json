@@ -463,6 +463,7 @@
         "StakersDistribution": "0x5766cf4b2fdb09d986eb1783d276013c224e28c8",
         "GoodFundManager": "0x0c6c80d2061afa35e160f3799411d83bdeea0a5a",
         "GReputation": "0x603b8c0f110e037b51a381cbcacabb8d6c6e4543",
+        "CompoundVotingMachine": "0x57ee6ceff51cb30ecb1245934a882c500fbec1e9",
         "ProtocolUpgradeRecover": "0x6f1b4dFDd7156FC5752541Ef35EDF57B48E74475",
         "network": "production-mainnet",
         "networkId": 1,
@@ -502,8 +503,7 @@
                 "0x3ff2d8eb2573819a9ef7167d2ba6fd6d31b17f4f",
                 6944
             ]
-        ],
-        "CompoundVotingMachine": "0xc2Ff55b896e3c42f9e1c2f7467C51b93F1C23dFD"
+        ]
     },
     "production": {
         "NameService": "0xec6dcE387B1616a0c44fF2E4fA9E90E53Cf14eb0",
