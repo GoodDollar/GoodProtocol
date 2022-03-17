@@ -2,6 +2,8 @@
 pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
 import "../../utils/DAOUpgradeableContract.sol";
 import "../../utils/DSMath.sol";
@@ -10,43 +12,41 @@ import "./IConsensus.sol";
 import "./PegSwap.sol";
 import "./IUBIScheme.sol";
 
-contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
+contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath {
 
-	mapping(address => uint256) public stakers;
+	bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
 
-	mapping(address => uint256) stakersGivebackRatios;
+	mapping(address => uint256) public pendingStakes;
+	mapping(address => uint256) public stakersGivebackRatios;
 
 	address[] public validators;
 
 	IConsensus public consensus;
 
 	Uniswap public uniswap;
-	IGoodDollar public GD;
-	IUBIScheme public ubischeme;
+	IGoodDollar public goodDollar;
+	IUBIScheme public ubiScheme;
 	UniswapFactory public uniswapFactory;
 	UniswapPair public uniswapPair;
 
-	uint256 public lastDayCollected; //ubi day from ubischeme
+	uint256 public lastDayCollected; //ubi day from ubiScheme
 
-	uint256 public stakeBackRatio;
+	uint256 public immutable ratioBase;
+	uint256 public totalPendingStakes;
+
 	uint256 public maxSlippageRatio; //actually its max price impact ratio
 	uint256 public keeperFeeRatio;
-	uint256 public RATIO_BASE;
 	uint256 public communityPoolRatio; //out of G$ bought how much should goto pool
 	uint256 public minGivebackRatio;
-	uint256 public globallyStaked;
 	uint256 public globalGivebackRatio;
 
-	uint256 communityPoolBalance;
-	uint256 pendingFuseEarnings; //earnings not  used because of slippage
+	uint256 public communityPoolBalance;
+	uint256 public pendingFuseEarnings; //earnings not  used because of slippage
 
 	address public USDC;
 	address public fUSD;
 
-	bool public paused;
-	address public guardian;
-
-	PegSwap pegSwap;
+	PegSwap public pegSwap;
 
 	mapping(address => mapping(address => uint256)) public allowance;
 
@@ -55,7 +55,7 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 
 	event UBICollected(
 		uint256 indexed currentDay,
-		uint256 ubi, //G$ sent to ubischeme
+		uint256 ubi, //G$ sent to ubiScheme
 		uint256 communityPool, //G$ added to pool
 		uint256 gdBought, //actual G$ we got out of swapping stakingRewards + pendingFuseEarnings
 		uint256 stakingRewards, //rewards earned since previous collection,
@@ -64,29 +64,21 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 		uint256 keeperGDFee
 	);
 
-	function initialize() public initializer {
+	function initialize(address _owner) public initializer {
 		consensus = IConsensus(
 			address(0x3014ca10b91cb3D0AD85fEf7A3Cb95BCAc9c0f79)
 		);
 		validators.push(address(0xcb876A393F05a6677a8a029f1C6D7603B416C0A6));
+		_setupRole(DEFAULT_ADMIN_ROLE, _owner);
+		_setupRole(GUARDIAN_ROLE, _owner);
 	}
 
-	modifier notPaused() {
-		require(!paused, "ubi collection is pauased");
-		_;
-	}
-
-	modifier onlyGuardian() {
-		require(msg.sender == guardian, "not guardian");
-		_;
-	}
-
-	function setContracts(address _gd, address _ubischeme) public onlyOwner {
+	function setContracts(address _gd, address _ubischeme) public onlyRole(DEFAULT_ADMIN_ROLE, msg.sender) {
 		if (_gd != address(0)) {
-			GD = IGoodDollar(_gd);
+			goodDollar = IGoodDollar(_gd);
 		}
 		if (_ubischeme != address(0)) {
-			ubischeme = IUBIScheme(_ubischeme);
+			ubiScheme = IUBIScheme(_ubischeme);
 		}
 	}
 
@@ -99,8 +91,7 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 		return _stake(msg.sender, _validator, msg.value, _giveBackRatio);
 	}
 
-	function _stake(address _to, address _validator, uint256 _amount, uint256 _giveBackRatio) internal returns (bool) {
-		require(validators.length > 0, "no approved validators");
+	function _requireValidValidator(address _validator) internal {
 		bool found;
 		for (
 			uint256 i = 0;
@@ -116,40 +107,45 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 			_validator == address(0) || found,
 			"validator not in approved list"
 		);
+	}
+
+	function _stake(address _to, address _validator, uint256 _amount, uint256 _giveBackRatio) internal returns (bool) {
+		require(validators.length > 0, "no approved validators");
+		_requireValidValidator(_validator);
 
 		require(_giveBackRatio >= minGivebackRatio, "giveback should be higher or equal to minimum");
-		bool staked = stakeNextValidator(_amount, _validator);
-		updateStakersAndGivebacks(_to, _amount, _giveBackRatio);
+		bool staked = _stakeNextValidator(_amount, _validator);
+		_updateStakersAndGivebacks(_to, _amount, _giveBackRatio);
 
 		return staked;
 	}
 
-	function updateStakersAndGivebacks(address _to, uint256 _amount, uint256 _giveBackRatio) internal {		
-		stakersGivebackRatios[_to] = weightedAverage(stakersGivebackRatios[_to], stakers[_to], _giveBackRatio, _amount);
-		globalGivebackRatio = weightedAverage(globalGivebackRatio, globallyStaked, _giveBackRatio, _amount);
-		
-		stakers[_to] += _amount;
-		globallyStaked += _amount;
+	function _updateStakersAndGivebacks(address _to, uint256 _amount, uint256 _giveBackRatio) internal {
+		stakersGivebackRatios[_to] = weightedAverage(stakersGivebackRatios[_to], pendingStakes[_to], _giveBackRatio, _amount);
+		globalGivebackRatio = weightedAverage(globalGivebackRatio, totalPendingStakes, _giveBackRatio, _amount);
+
+		pendingStakes[_to] += _amount;
+		totalPendingStakes += _amount;
 	}
 
 	/**
-     * @dev Calculates the weighted average of two values based on their weights.
-     * @param valueA The amount for value A
-     * @param weightA The weight to use for value A
-     * @param valueB The amount for value B
-     * @param weightB The weight to use for value B
-     */
-    function weightedAverage(
-        uint256 valueA,
-        uint256 weightA,
-        uint256 valueB,
-        uint256 weightB
-    ) internal pure returns (uint256) {
-				return (valueA * weightA + valueB * weightB) / (weightA + weightB);
-    }
+   * @dev Calculates the weighted average of two values based on their weights.
+   * @param valueA The amount for value A
+   * @param weightA The weight to use for value A
+   * @param valueB The amount for value B
+   * @param weightB The weight to use for value B
+   */
+  function weightedAverage(
+      uint256 valueA,
+      uint256 weightA,
+      uint256 valueB,
+      uint256 weightB
+  ) internal pure returns (uint256) {
+			return (valueA * weightA + valueB * weightB) / (weightA + weightB);
+  }
 
 	function balanceOf(address _owner) public view returns (uint256) {
-		return stakers[_owner];
+		return pendingStakes[_owner];
 	}
 
 	function transfer(address to, uint256 amount) external returns (bool) {
@@ -219,10 +215,10 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 
 	function _withdraw(address _from, address _to, uint256 _value) internal returns (uint256) {
 		uint256 effectiveBalance = balance(); //use only undelegated funds
-		uint256 toWithdraw = _value == 0 ? stakers[_from] : _value;
+		uint256 toWithdraw = _value == 0 ? pendingStakes[_from] : _value;
 		uint256 toCollect = toWithdraw;
 		require(
-			toWithdraw > 0 && toWithdraw <= stakers[_from],
+			toWithdraw > 0 && toWithdraw <= pendingStakes[_from],
 			"invalid withdraw amount"
 		);
 		uint256 perValidator = _value / validators.length;
@@ -233,10 +229,10 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 			);
 			if (cur == 0) continue;
 			if (cur <= perValidator) {
-				undelegateWithCatch(validators[i], cur);
+				_safeUndelegate(validators[i], cur);
 				toCollect = toCollect - cur;
 			} else {
-				undelegateWithCatch(validators[i], perValidator);
+				_safeUndelegate(validators[i], perValidator);
 				toCollect = toCollect - perValidator;
 			}
 			if (toCollect == 0) break;
@@ -249,15 +245,15 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 			toWithdraw = effectiveBalance;
 		}
 
-		stakers[_from] = stakers[_from] - toWithdraw;
-		globallyStaked -= toWithdraw;
+		pendingStakes[_from] = pendingStakes[_from] - toWithdraw;
+		totalPendingStakes -= toWithdraw;
 
-		if (toWithdraw > 0 && _to != address(this)) 
+		if (toWithdraw > 0 && _to != address(this))
 			payable(_to).transfer(toWithdraw);
 		return toWithdraw;
 	}
 
-	function stakeNextValidator(uint256 _value, address _validator)
+	function _stakeNextValidator(uint256 _value, address _validator)
 		internal
 		returns (bool)
 	{
@@ -286,7 +282,7 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 		return true;
 	}
 
-	function addValidator(address _v) public onlyOwner {
+	function addValidator(address _v) public onlyRole(DEFAULT_ADMIN_ROLE, msg.sender) {
 		validators.push(_v);
 	}
 
@@ -302,14 +298,14 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 		return total;
 	}
 
-	function removeValidator(address _validator) public onlyOwner {
+	function removeValidator(address _validator) public onlyRole(DEFAULT_ADMIN_ROLE, msg.sender) {
 		uint256 delegated = consensus.delegatedAmount(
 			address(this),
 			_validator
 		);
 		if (delegated > 0) {
 			uint256 prevBalance = balance();
-			undelegateWithCatch(_validator, delegated);
+			_safeUndelegate(_validator, delegated);
 
 			// wasnt withdrawn because validator needs to be taken of active validators
 			if (balance() == prevBalance) {
@@ -328,8 +324,8 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 		}
 	}
 
-	function getReward() public notPaused {
-		uint256 curDay = ubischeme.currentDay();
+	function collectUBIInterest() public whenNotPaused {
+		uint256 curDay = ubiScheme.currentDay();
 		require(
 			curDay != lastDayCollected,
 			"can collect only once in a ubi cycle"
@@ -339,23 +335,23 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 		require(pendingFuseEarnings + earnings > 0, "no earnings to collect");
 
 		lastDayCollected = curDay;
-		uint256 fuseUBI = (earnings * (RATIO_BASE - stakeBackRatio)) / RATIO_BASE;
+		uint256 fuseUBI = (earnings * (ratioBase - globalGivebackRatio)) / ratioBase;
 		uint256 stakeBack = earnings - fuseUBI;
 
-		uint256[] memory fuseswapResult = _buyGD(fuseUBI + pendingFuseEarnings); //buy GD with X% of earnings
+		uint256[] memory fuseswapResult = _buyGD(fuseUBI + pendingFuseEarnings); //buy goodDollar with X% of earnings
 		pendingFuseEarnings = fuseUBI + pendingFuseEarnings - fuseswapResult[0];
-		stakeNextValidator(stakeBack, address(0)); //stake back the rest of the earnings
+		_stakeNextValidator(stakeBack, address(0)); //stake back the rest of the earnings
 
 		uint256 gdBought = fuseswapResult[fuseswapResult.length - 1];
 
-		uint256 keeperFee = gdBought * keeperFeeRatio / RATIO_BASE;
-		if (keeperFee > 0) GD.transfer(msg.sender, keeperFee);
+		uint256 keeperFee = gdBought * keeperFeeRatio / ratioBase;
+		if (keeperFee > 0) goodDollar.transfer(msg.sender, keeperFee);
 
-		uint256 communityPoolContribution = (gdBought - keeperFee) * communityPoolRatio / RATIO_BASE;
+		uint256 communityPoolContribution = (gdBought - keeperFee) * communityPoolRatio / ratioBase;
 
 		uint256 ubiAfterFeeAndPool = gdBought - communityPoolContribution - keeperFee;
 
-		GD.transfer(address(ubischeme), ubiAfterFeeAndPool); //transfer to ubischeme
+		goodDollar.transfer(address(ubiScheme), ubiAfterFeeAndPool); //transfer to ubiScheme
 		communityPoolBalance += communityPoolContribution;
 
 		emit UBICollected(
@@ -371,7 +367,7 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 	}
 
 	/**
-	 * @dev internal method to buy GD from fuseswap
+	 * @dev internal method to buy goodDollar from fuseswap
 	 * @param _value fuse to be sold
 	 * @return uniswap coversion results uint256[2]
 	 */
@@ -388,7 +384,7 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 		address[] memory path;
 		if (maxFuse >= maxFuseUSDC) {
 			path = new address[](2);
-			path[1] = address(GD);
+			path[1] = address(goodDollar);
 			path[0] = uniswap.WETH();
 			return
 				uniswap.swapExactETHForTokens{ value: maxFuse }(
@@ -400,7 +396,7 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 		} else {
 			(uint256 usdcAmount, uint256 usedFuse) = _buyUSDC(maxFuseUSDC);
 			path = new address[](2);
-			path[1] = address(GD);
+			path[1] = address(goodDollar);
 			path[0] = USDC;
 
 			uint256[] memory result = uniswap.swapExactTokensForTokens(
@@ -470,7 +466,7 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 			uniswapFactory.getPair(uniswap.WETH(), fUSD)
 		); //fusd is pegged 1:1 to usdc
 		UniswapPair uniswapGDUSDCPair = UniswapPair(
-			uniswapFactory.getPair(address(GD), USDC)
+			uniswapFactory.getPair(address(goodDollar), USDC)
 		);
 		(uint256 rg_gd, uint256 rg_usdc, ) = uniswapGDUSDCPair.getReserves();
 		(uint256 r_fuse, uint256 r_fusd, ) = uniswapFUSEfUSDPair.getReserves();
@@ -500,7 +496,7 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 	/**
 	 * uniswap amountOut helper
 	 */
-	function getAmountOut(
+	function _getAmountOut(
 		uint256 _amountIn,
 		uint256 _reserveIn,
 		uint256 _reserveOut
@@ -519,12 +515,12 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 		uint256 r_gd,
 		uint256 _value
 	) public view returns (uint256 maxToken, uint256 tokenOut) {
-		maxToken = (r_token * maxSlippageRatio) / RATIO_BASE;
+		maxToken = (r_token * maxSlippageRatio) / ratioBase;
 		maxToken = maxToken < _value ? maxToken : _value;
-		tokenOut = getAmountOut(maxToken, r_token, r_gd);
+		tokenOut = _getAmountOut(maxToken, r_token, r_gd);
 	}
 
-	function undelegateWithCatch(address _validator, uint256 _amount)
+	function _safeUndelegate(address _validator, uint256 _amount)
 		internal
 		returns (bool)
 	{
@@ -551,8 +547,12 @@ contract FuseStaking is DAOUpgradeableContract, Ownable, DSMath {
 		return payable(address(this)).balance;
 	}
 
-	function setPaused(bool _paused) public onlyGuardian {
-		paused = _paused;
+	function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE, msg.sender) {
+		if (paused()) {
+			_unpause();
+		} else {
+			_pause();
+		}
 	}
 
 	receive() external payable {}
