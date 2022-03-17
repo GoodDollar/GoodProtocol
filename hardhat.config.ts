@@ -14,7 +14,11 @@ import { sha3 } from "web3-utils";
 import { config } from "dotenv";
 import { airdrop } from "./scripts/governance/airdropCalculation";
 import { airdrop as repAirdropRecover } from "./scripts/governance/airdropCalculationRecover";
-import { airdrop as gdxAirdrop, airdropRecover as gdxAirdropRecover} from "./scripts/gdx/gdxAirdropCalculation";
+import {
+  airdrop as gdxAirdrop,
+  airdropRecover as gdxAirdropRecover
+} from "./scripts/gdx/gdxAirdropCalculation";
+import { sumStakersGdRewards } from "./scripts/staking/stakersGdRewardsCalculation";
 import { verify } from "./scripts/verify";
 import { ethers } from "ethers";
 config();
@@ -220,8 +224,6 @@ task("gdxAirdrop", "Calculates airdrop data")
 
 task("gdxAirdropRecover", "Calculates new airdrop data for recovery")
   .addParam("action", "addition/tree")
-  .addOptionalPositionalParam("address", "proof for address")
-  .addOptionalParam("ethsnapshotblock", "eth block for calculate")
   .setAction(async (taskArgs, hre) => {
     const actions = gdxAirdropRecover(hre.ethers);
     switch (taskArgs.action) {
@@ -240,3 +242,10 @@ task("verifyjson", "verify contracts on etherscan").setAction(
   }
 );
 export default hhconfig;
+
+task("sumStakersGdRewards", "Sums the GoodDollar reward for each staker")
+  .setAction(async (taskArgs, hre) => {
+    const actions = sumStakersGdRewards(hre.ethers);
+        return actions.getStakersGdRewards();
+    }
+);
