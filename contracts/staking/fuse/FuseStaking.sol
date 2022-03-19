@@ -431,6 +431,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 						globalStakingVariablesHistory[i].totalFinalizedSupply
 					);
 			}
+			return rewardPerTokenPerUser;
 		} else {
 			return 0;
 		}
