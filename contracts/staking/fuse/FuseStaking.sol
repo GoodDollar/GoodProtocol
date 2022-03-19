@@ -11,6 +11,7 @@ import "../../Interfaces.sol";
 import "./IConsensus.sol";
 import "./PegSwap.sol";
 import "./IUBIScheme.sol";
+import "./ISpendingRateOracle.sol";
 
 contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath {
 
@@ -102,9 +103,6 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	// 	updateRewardTimeInterval[1] = _newTime;
 	// }
 	//
-	// function _getLastRewardPerTokenStored() internal view returns(uint256) {
-	// 	return rewardPerTokenStoredAt[rewardPerTokenStoredAt.length > 0 ? rewardPerTokenStoredAt.length - 1 : 0];
-	// }
 	//
 	// function getReward() public nonReentrant {
 	// 		uint256 reward = rewards[msg.sender];
@@ -123,6 +121,9 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	// 				_getLastRewardPerTokenStored() + ((updateRewardTimeInterval[1] - updateRewardTimeInterval[0]) * rewardRate * 1e18 / totalSupply);
 	// }
 
+	// function _getLastRewardPerTokenStored() internal view returns(uint256) {
+	// 	return rewardPerTokenStoredAt[rewardPerTokenStoredAt.length > 0 ? rewardPerTokenStoredAt.length - 1 : 0];
+	// }
 	// function earned(address account) public view returns (uint256) {
 	// 		return _pendingStakes[account] * (rewardPerToken() - userRewardPerTokenPaid[account]) / 1e18 + rewards[account];
 	// }
@@ -385,32 +386,62 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 
 	uint256[] public rewardPerTokenAt;
 	uint256 public constant PRECISION = 1e18;
+	uint256 public rewardRate;
+	ISpendingRateOracle public spendingRateOracle;
 
-	function collectUBIInterest() public whenNotPaused {
+	function _getLastRewardPerToken() internal view returns(uint256) {
+		return rewardPerTokenAt[rewardPerTokenAt.length > 0 ? rewardPerTokenAt.length - 1 : 0];
+	}
+
+	function earned(address account) public view returns (uint256) {
+			return _pendingStakes[account] * (_getLastRewardPerToken() - userRewardPerTokenPaid[account]) / 1e18 + rewards[account];
+	}
+
+	function _updateReward() internal {
+		rewards[msg.sender] = earned(msg.sender);
+	}
+
+	function getReward() public nonReentrant {
+			uint256 reward = rewards[msg.sender];
+			if (reward > 0) {
+					rewards[msg.sender] = 0;
+					payable(msg.sender).transfer(reward);
+					emit RewardPaid(msg.sender, reward);
+			}
+	}
+
+	function collectUBIInterest() public nonReentrant whenNotPaused onlyRole(GUARDIAN_ROLE, msg.sender) {
 		uint256 curDay = _checkIfCalledOnceInDayAndReturnDay();
 
 		totalSupply += totalPendingStakes;
 
-		// uint256 contractBalance = balance();
-		// require(contractBalance > 0, "no earnings to collect");
-		// uint256 earnings = contractBalance - totalPendingStakes;
+		uint256 contractBalance = balance();
+		require(contractBalance > 0, "no earnings to collect");
+		uint256 earnings = contractBalance - totalPendingStakes;
 
 		uint256 fuseAmountForUBI = (earnings * (ratioBase - globalGivebackRatio)) / ratioBase;
 		uint256 stakeBackAmount = earnings - fuseAmountForUBI;
 
-		uint256 lastCollectUBIInterestCallTime = collectUBIInterestCallTimes[
-			collectUBIInterestCallTimes.length > 0 ? collectUBIInterestCallTimes.length - 1 : 0
-		];
-		uint256 lastRewardPerToken = rewardPerTokenAt[
-			rewardPerTokenAt.length > 0 ? rewardPerTokenAt.length - 1 : 0
-		];
+		uint256 lastCollectUBIInterestCallTime = collectUBIInterestCallTimes.length > 0
+			? collectUBIInterestCallTimes[collectUBIInterestCallTimes.length - 1]
+			: 0;
+
+		uint256 lastRewardPerToken = rewardPerTokenAt.length > 0 ? rewardPerTokenAt[rewardPerTokenAt.length - 1] : 0;
 
 		collectUBIInterestCallTimes.push(block.timestamp);
+		uint256 latestCollectUBIInterestTimeDuration = block.timestamp - lastCollectUBIInterestCallTime;
+		rewardRate = fuseAmountForUBI / latestCollectUBIInterestTimeDuration;
 		rewardPerTokenAt.push(
-			lastRewardPerToken + (block.timestamp - lastCollectUBIInterestCallTime) * rewardRate * PRECISION / totalSupply
+			lastRewardPerToken + latestCollectUBIInterestTimeDuration * rewardRate * PRECISION / totalSupply
 		);
 
-
+		// rewards[msg.sender] = earned(account);
+		// userRewardPerTokenPaid[msg.sender] = rewardPerTokenStored;
+		// uint256 reward = rewards[msg.sender];
+		//
+		// rewards[msg.sender] = 0;
+		// payable(msg.sender).transfer(reward);
+		// userRewardPerTokenPaid[] += reward;
 
 		// uint256 ubiAndPendingStakes = fuseUBI + totalPendingStakes;
 		// uint256[] memory fuseswapResult = _buyGD(ubiAndPendingStakes); //buy goodDollar with X% of earnings
