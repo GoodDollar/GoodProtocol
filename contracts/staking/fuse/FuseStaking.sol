@@ -158,7 +158,17 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	}
 
 	uint256[] public collectUBIInterestCallTimes;
-	mapping(uint256 => mapping(address => uint256)) public collectUBIInterestCallTimeIdxToUserStakeTime;
+
+	struct CallTimeIdxToTimestamp {
+		uint256 callTimeIdx;
+		uint256 stakeTimestamp;
+	}
+	
+	struct UserStakeMetaInfo {
+		CallTimeIdxToTimestamp[] data;
+	}
+
+	mapping(address => UserStakeMetaInfo) public collectUBIInterestCallTimeIdxToUserStakeTime;
 
 	function _updateStakerBalanceAndGiveback(address _to, uint256 _amount, uint256 _giveBackRatio) internal {
 		stakersGivebackRatios[_to] = weightedAverage(stakersGivebackRatios[_to], pendingStakes[_to], _giveBackRatio, _amount);
@@ -167,8 +177,12 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		pendingStakes[_to] += _amount;
 		totalPendingStakes += _amount;
 
+		UserStakeMetaInfo storage userMetaInfo = collectUBIInterestCallTimeIdxToUserStakeTime[_to];
 		uint256 callTimeIdx = collectUBIInterestCallTimes.length > 0 ? collectUBIInterestCallTimes.length - 1 : 0;
-		collectUBIInterestCallTimeIdxToUserStakeTime[callTimeIdx][_to] = block.timestamp;
+		userMetaInfo.data.push(CallTimeIdxToTimestamp({
+			callTimeIdx: callTimeIdx,
+			stakeTimestamp: block.timestamp
+		}));
 	}
 
 	/**
@@ -186,6 +200,10 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
   ) internal pure returns (uint256) {
 			return (valueA * weightA + valueB * weightB) / (weightA + weightB);
   }
+
+	uint8 public decimals = 18;
+	string public symbol = "GF";
+	string public name = "gFuse";
 
 	function totalSupply() public view returns (uint256) {
 			return totalFinalizedSupply;
@@ -280,7 +298,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	}
 
 	function _withdraw(address _from, address _to, uint256 _value) internal returns (uint256) {
-		uint256 effectiveBalance = balance(); //use only undelegated funds
+		uint256 effectiveBalance = _balance(); //use only undelegated funds
 		uint256 toWithdraw = _value == 0 ? pendingStakes[_from] : _value;
 		uint256 toCollect = toWithdraw;
 
@@ -291,7 +309,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 
 		_gatherFuseFromValidators(_value);
 
-		effectiveBalance = balance() - effectiveBalance; //use only undelegated funds
+		effectiveBalance = _balance() - effectiveBalance; //use only undelegated funds
 
 		// in case some funds where not withdrawn
 		if (toWithdraw > effectiveBalance) {
@@ -358,11 +376,11 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 			_validator
 		);
 		if (delegated > 0) {
-			uint256 prevBalance = balance();
+			uint256 prevBalance = _balance();
 			_safeUndelegate(_validator, delegated);
 
 			// wasnt withdrawn because validator needs to be taken of active validators
-			if (balance() == prevBalance) {
+			if (_balance() == prevBalance) {
 				// pendingValidators.push(_validator);
 				return;
 			}
@@ -415,17 +433,27 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 			}
 	}
 
-	function _collectUBIInterest() internal {
+	function _distributeGiveback(uint256 _amount) internal {
+
+	}
+
+	function _collectUBIInterest(bool _isEarningsCheckEnabled) internal {
 		uint256 curDay = _checkIfCalledOnceInDayAndReturnDay();
 
 		totalFinalizedSupply += totalPendingStakes;
 
-		uint256 contractBalance = balance();
-		require(contractBalance > 0, "no earnings to collect");
-		uint256 earnings = contractBalance - totalPendingStakes;
+		uint256 contractBalance;
+		uint256 earnings;
+		if (_isEarningsCheckEnabled) {
+			contractBalance = _balance();
+			require(contractBalance > 0, "no earnings to collect");
+			earnings = contractBalance - totalPendingStakes;
+		}
 
 		uint256 fuseAmountForUBI = (earnings * (ratioBase - globalGivebackRatio)) / ratioBase;
 		uint256 stakeBackAmount = earnings - fuseAmountForUBI;
+
+		_distributeGiveback(stakeBackAmount);
 
 		uint256 lastCollectUBIInterestCallTime = collectUBIInterestCallTimes.length > 0
 			? collectUBIInterestCallTimes[collectUBIInterestCallTimes.length - 1]
@@ -481,7 +509,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	}
 
 	function collectUBIInterest() public nonReentrant whenNotPaused onlyRole(GUARDIAN_ROLE, msg.sender) {
-		_collectUBIInterest();
+		_collectUBIInterest(true); // check if contract earned something - true
 	}
 
 	/**
@@ -661,7 +689,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		}
 	}
 
-	function balance() internal view returns (uint256) {
+	function _balance() internal view returns (uint256) {
 		return payable(address(this)).balance;
 	}
 
