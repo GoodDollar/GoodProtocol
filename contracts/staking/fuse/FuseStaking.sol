@@ -34,7 +34,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 
 	uint256 public immutable ratioBase;
 	uint256 public totalPendingStakes;
-	uint256 public totalSupply;
+	uint256 public totalFinalizedSupply;
 
 	uint256 public maxSlippageRatio; //actually its max price impact ratio
 	uint256 public keeperFeeRatio;
@@ -114,11 +114,11 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	// }
 
 	// function rewardPerToken() public view returns (uint256) {
-	// 		if (totalSupply == 0) {
+	// 		if (totalFinalizedSupply == 0) {
 	// 				return _getLastRewardPerTokenStored();
 	// 		}
 	// 		return
-	// 				_getLastRewardPerTokenStored() + ((updateRewardTimeInterval[1] - updateRewardTimeInterval[0]) * rewardRate * 1e18 / totalSupply);
+	// 				_getLastRewardPerTokenStored() + ((updateRewardTimeInterval[1] - updateRewardTimeInterval[0]) * rewardRate * 1e18 / totalFinalizedSupply);
 	// }
 
 	// function _getLastRewardPerTokenStored() internal view returns(uint256) {
@@ -186,6 +186,10 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
   ) internal pure returns (uint256) {
 			return (valueA * weightA + valueB * weightB) / (weightA + weightB);
   }
+
+	function totalSupply() public view returns (uint256) {
+			return totalFinalizedSupply;
+	}
 
 	function balanceOf(address _owner) public view returns (uint256) {
 		return pendingStakes[_owner];
@@ -394,11 +398,12 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	}
 
 	function earned(address account) public view returns (uint256) {
-			return _pendingStakes[account] * (_getLastRewardPerToken() - userRewardPerTokenPaid[account]) / 1e18 + rewards[account];
+		return pendingStakes[account] * (_getLastRewardPerToken() - userRewardPerTokenPaid[account]) / 1e18 + rewards[account];
 	}
 
 	function _updateReward() internal {
 		rewards[msg.sender] = earned(msg.sender);
+		userRewardPerTokenPaid[msg.sender] = _getLastRewardPerToken();
 	}
 
 	function getReward() public nonReentrant {
@@ -410,10 +415,10 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 			}
 	}
 
-	function collectUBIInterest() public nonReentrant whenNotPaused onlyRole(GUARDIAN_ROLE, msg.sender) {
+	function _collectUBIInterest() internal {
 		uint256 curDay = _checkIfCalledOnceInDayAndReturnDay();
 
-		totalSupply += totalPendingStakes;
+		totalFinalizedSupply += totalPendingStakes;
 
 		uint256 contractBalance = balance();
 		require(contractBalance > 0, "no earnings to collect");
@@ -424,15 +429,15 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 
 		uint256 lastCollectUBIInterestCallTime = collectUBIInterestCallTimes.length > 0
 			? collectUBIInterestCallTimes[collectUBIInterestCallTimes.length - 1]
-			: 0;
+			: block.timestamp;
 
 		uint256 lastRewardPerToken = rewardPerTokenAt.length > 0 ? rewardPerTokenAt[rewardPerTokenAt.length - 1] : 0;
 
 		collectUBIInterestCallTimes.push(block.timestamp);
 		uint256 latestCollectUBIInterestTimeDuration = block.timestamp - lastCollectUBIInterestCallTime;
-		rewardRate = fuseAmountForUBI / latestCollectUBIInterestTimeDuration;
+		rewardRate = latestCollectUBIInterestTimeDuration > 0 ? fuseAmountForUBI / latestCollectUBIInterestTimeDuration : 0;
 		rewardPerTokenAt.push(
-			lastRewardPerToken + latestCollectUBIInterestTimeDuration * rewardRate * PRECISION / totalSupply
+			lastRewardPerToken + latestCollectUBIInterestTimeDuration * rewardRate * PRECISION / totalFinalizedSupply
 		);
 
 		// rewards[msg.sender] = earned(account);
@@ -473,6 +478,10 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		// 	msg.sender,
 		// 	keeperFee
 		// );
+	}
+
+	function collectUBIInterest() public nonReentrant whenNotPaused onlyRole(GUARDIAN_ROLE, msg.sender) {
+		_collectUBIInterest();
 	}
 
 	/**
@@ -664,14 +673,14 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		}
 	}
 
-	modifier updateReward(address account) {
-		rewardPerTokenStored = rewardPerToken();
-		lastUpdateTime = lastTimeRewardApplicable();
-		if (account != address(0)) {
-		    rewards[account] = earned(account);
-		    userRewardPerTokenPaid[account] = rewardPerTokenStored;
-		}
-	}
+	// modifier updateReward(address account) {
+	// 	rewardPerTokenStored = rewardPerToken();
+	// 	lastUpdateTime = lastTimeRewardApplicable();
+	// 	if (account != address(0)) {
+	// 	    rewards[account] = earned(account);
+	// 	    userRewardPerTokenPaid[account] = rewardPerTokenStored;
+	// 	}
+	// }
 
 	receive() external payable {}
 }
