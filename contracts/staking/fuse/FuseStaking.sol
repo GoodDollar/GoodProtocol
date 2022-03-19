@@ -444,7 +444,6 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	function _getReward() internal {
 		uint256 reward = earned(msg.sender);
 		if (reward > 0) {
-				rewards[msg.sender] = reward;
 				userRewardPerTokenPaid[msg.sender] = _getLastRewardPerTokenPerUser(account);
 				payable(msg.sender).transfer(reward);
 				emit RewardPaid(msg.sender, reward);
