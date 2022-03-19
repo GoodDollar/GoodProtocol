@@ -4,6 +4,7 @@ pragma solidity >=0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/struct/EnumerableSet.sol";
 
 import "../../utils/DAOUpgradeableContract.sol";
 import "../../utils/DSMath.sol";
@@ -14,6 +15,7 @@ import "./IUBIScheme.sol";
 import "./ISpendingRateOracle.sol";
 
 contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath {
+	using EnumerableSet for EnumerableSet.UintSet;
 
 	bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
 
@@ -34,7 +36,6 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 
 	uint256 public immutable ratioBase;
 	uint256 public totalPendingStakes;
-	uint256 public totalFinalizedSupply;
 
 	uint256 public maxSlippageRatio; //actually its max price impact ratio
 	uint256 public keeperFeeRatio;
@@ -159,16 +160,8 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 
 	uint256[] public collectUBIInterestCallTimes;
 
-	struct CallTimeIdxToTimestamp {
-		uint256 callTimeIdx;
-		uint256 stakeTimestamp;
-	}
-	
-	struct UserStakeMetaInfo {
-		CallTimeIdxToTimestamp[] data;
-	}
-
-	mapping(address => UserStakeMetaInfo) public collectUBIInterestCallTimeIdxToUserStakeTime;
+	mapping(uint256 => mapping(address => uint256)) public collectUBIInterestCallTimeIdxToUserStakeTime;
+	// mapping(address => EnumerableSet.UintSet) internal _userToCollectUBIInterestCallTimeIndicies;
 
 	function _updateStakerBalanceAndGiveback(address _to, uint256 _amount, uint256 _giveBackRatio) internal {
 		stakersGivebackRatios[_to] = weightedAverage(stakersGivebackRatios[_to], pendingStakes[_to], _giveBackRatio, _amount);
@@ -177,12 +170,9 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		pendingStakes[_to] += _amount;
 		totalPendingStakes += _amount;
 
-		UserStakeMetaInfo storage userMetaInfo = collectUBIInterestCallTimeIdxToUserStakeTime[_to];
 		uint256 callTimeIdx = collectUBIInterestCallTimes.length > 0 ? collectUBIInterestCallTimes.length - 1 : 0;
-		userMetaInfo.data.push(CallTimeIdxToTimestamp({
-			callTimeIdx: callTimeIdx,
-			stakeTimestamp: block.timestamp
-		}));
+		// _userTocollectUBIInterestCallTimeIndicies[_to].add(callTimeIdx);
+		collectUBIInterestCallTimeIdxToUserStakeTime[callTimeIdx][_to] = block.timestamp;
 	}
 
 	/**
@@ -406,41 +396,87 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		return curDay;
 	}
 
-	uint256[] public rewardPerTokenAt;
+	struct GlobalStakingVariables {
+		uint256 rewardPerToken;
+		uint256 rewardRate;
+		uint256 totalFinalizedSupply;
+	}
+
+	GlobalStakingVariables[] internal globalStakingVariablesHistory;
+
 	uint256 public constant PRECISION = 1e18;
-	uint256 public rewardRate;
 	ISpendingRateOracle public spendingRateOracle;
 
 	function _getLastRewardPerToken() internal view returns(uint256) {
-		return rewardPerTokenAt[rewardPerTokenAt.length > 0 ? rewardPerTokenAt.length - 1 : 0];
+		return globalStakingVariablesHistory.length > 0 ? globalStakingVariablesHistory[globalStakingVariablesHistory.length - 1].rewardPerToken : 0;
+	}
+
+	function _getLastRewardRate() internal view returns(uint256) {
+		return globalStakingVariablesHistory.length > 0 ? globalStakingVariablesHistory[globalStakingVariablesHistory.length - 1].rewardRate : 0;
+	}
+
+	function _getLastTotalFinalizedSupply() internal view returns(uint256) {
+		return globalStakingVariablesHistory.length > 0 ? globalStakingVariablesHistory[globalStakingVariablesHistory.length - 1].rewardRate : 0;
+	}
+
+	function _getLastRewardPerTokenPerUser(address _account) internal view returns(uint256) {
+		if (collectUBIInterestCallTimes.length > 0) {
+			for (uint256 i = 1; i < collectUBIInterestCallTimes.length; i++) {
+				uint256 localRewardPerTokenPerUser =
+					_rewardPerToken(
+						rewardPerTokenAt[i - 1],
+						collectUBIInterestCallTimes[i] - collectUBIInterestCallTimeIdxToUserStakeTime[i][_account],
+						rewardRates[i],
+
+					)
+			}
+		} else {
+
+		}
+
+		uint256 lastRewardPerToken = _getLastRewardPerToken();
+		return lastRewardPerToken -
 	}
 
 	function earned(address account) public view returns (uint256) {
-		return pendingStakes[account] * (_getLastRewardPerToken() - userRewardPerTokenPaid[account]) / 1e18 + rewards[account];
+		return pendingStakes[account] * (_getLastRewardPerTokenPerUser(account) - userRewardPerTokenPaid[account]) / 1e18;
 	}
 
-	function _updateReward() internal {
-		rewards[msg.sender] = earned(msg.sender);
-		userRewardPerTokenPaid[msg.sender] = _getLastRewardPerToken();
+	function _getReward() internal {
+		uint256 reward = earned(msg.sender);
+		if (reward > 0) {
+				rewards[msg.sender] = reward;
+				userRewardPerTokenPaid[msg.sender] = _getLastRewardPerTokenPerUser(account);
+				payable(msg.sender).transfer(reward);
+				emit RewardPaid(msg.sender, reward);
+		}
 	}
 
-	function getReward() public nonReentrant {
-			uint256 reward = rewards[msg.sender];
-			if (reward > 0) {
-					rewards[msg.sender] = 0;
-					payable(msg.sender).transfer(reward);
-					emit RewardPaid(msg.sender, reward);
-			}
+	function getReward() external nonReentrant {
+			_getReward();
 	}
 
-	function _distributeGiveback(uint256 _amount) internal {
+	function _distributeGivebackAndQueryOracles(uint256 _amount) internal {
+		if (_amount == 0) return;
+	}
 
+	function _rewardPerToken(
+		uint256 _lastRewardPerToken,
+		uint256 _duration
+		uint256 _rewardRate,
+		uint256 _totalSupply
+	)
+		internal
+		view
+		returns(uint256)
+	{
+		return _lastRewardPerToken + _duration * _rewardRate * PRECISION / _totalSupply;
 	}
 
 	function _collectUBIInterest(bool _isEarningsCheckEnabled) internal {
 		uint256 curDay = _checkIfCalledOnceInDayAndReturnDay();
 
-		totalFinalizedSupply += totalPendingStakes;
+		totalFinalizedSupply = totalPendingStakes;
 
 		uint256 contractBalance;
 		uint256 earnings;
@@ -451,9 +487,9 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		}
 
 		uint256 fuseAmountForUBI = (earnings * (ratioBase - globalGivebackRatio)) / ratioBase;
-		uint256 stakeBackAmount = earnings - fuseAmountForUBI;
+		uint256 givebackAmount = earnings > 0 ? earnings - fuseAmountForUBI : 0;
 
-		_distributeGiveback(stakeBackAmount);
+		_distributeGivebackAndQueryOracles(givebackAmount);
 
 		uint256 lastCollectUBIInterestCallTime = collectUBIInterestCallTimes.length > 0
 			? collectUBIInterestCallTimes[collectUBIInterestCallTimes.length - 1]
@@ -463,9 +499,9 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 
 		collectUBIInterestCallTimes.push(block.timestamp);
 		uint256 latestCollectUBIInterestTimeDuration = block.timestamp - lastCollectUBIInterestCallTime;
-		rewardRate = latestCollectUBIInterestTimeDuration > 0 ? fuseAmountForUBI / latestCollectUBIInterestTimeDuration : 0;
+		rewardRates.push(latestCollectUBIInterestTimeDuration > 0 ? fuseAmountForUBI / latestCollectUBIInterestTimeDuration : 0);
 		rewardPerTokenAt.push(
-			lastRewardPerToken + latestCollectUBIInterestTimeDuration * rewardRate * PRECISION / totalFinalizedSupply
+			_rewardPerToken(lastRewardPerToken, latestCollectUBIInterestTimeDuration, rewardRate, totalFinalizedSupply)
 		);
 
 		// rewards[msg.sender] = earned(account);
