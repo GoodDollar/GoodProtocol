@@ -157,7 +157,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	}
 
 	uint256[] public collectUBIInterestCallTimes;
-	mapping(uint256 => uint256) public collectUBIInterestCallTimeIdxToUserStakeTime;
+	mapping(uint256 => mapping(address => uint256)) public collectUBIInterestCallTimeIdxToUserStakeTime;
 
 	function _updateStakerBalanceAndGiveback(address _to, uint256 _amount, uint256 _giveBackRatio) internal {
 		stakersGivebackRatios[_to] = weightedAverage(stakersGivebackRatios[_to], pendingStakes[_to], _giveBackRatio, _amount);
@@ -167,7 +167,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		totalPendingStakes += _amount;
 
 		uint256 callTimeIdx = collectUBIInterestCallTimes.length > 0 ? collectUBIInterestCallTimes.length - 1 : 0;
-		collectUBIInterestCallTimeIdxToUserStakeTime[callTimeIdx] = block.timestamp;
+		collectUBIInterestCallTimeIdxToUserStakeTime[callTimeIdx][_to] = block.timestamp;
 	}
 
 	/**
@@ -255,14 +255,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
     }
   }
 
-	function _withdraw(address _from, address _to, uint256 _value) internal returns (uint256) {
-		uint256 effectiveBalance = balance(); //use only undelegated funds
-		uint256 toWithdraw = _value == 0 ? pendingStakes[_from] : _value;
-		uint256 toCollect = toWithdraw;
-		require(
-			toWithdraw > 0 && toWithdraw <= pendingStakes[_from],
-			"invalid withdraw amount"
-		);
+	function _gatherFuseFromValidators(uint256 _value) internal {
 		uint256 perValidator = _value / validators.length;
 		for (uint256 i = 0; i < validators.length; i++) {
 			uint256 cur = consensus.delegatedAmount(
@@ -279,6 +272,19 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 			}
 			if (toCollect == 0) break;
 		}
+	}
+
+	function _withdraw(address _from, address _to, uint256 _value) internal returns (uint256) {
+		uint256 effectiveBalance = balance(); //use only undelegated funds
+		uint256 toWithdraw = _value == 0 ? pendingStakes[_from] : _value;
+		uint256 toCollect = toWithdraw;
+
+		require(
+			toWithdraw > 0 && toWithdraw <= pendingStakes[_from],
+			"invalid withdraw amount"
+		);
+
+		_gatherFuseFromValidators(_value);
 
 		effectiveBalance = balance() - effectiveBalance; //use only undelegated funds
 
@@ -341,7 +347,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		return total;
 	}
 
-	function removeValidator(address _validator) public onlyRole(DEFAULT_ADMIN_ROLE, msg.sender) {
+	function removeValidator(address _validator) external onlyRole(DEFAULT_ADMIN_ROLE, msg.sender) {
 		uint256 delegated = consensus.delegatedAmount(
 			address(this),
 			_validator
@@ -377,47 +383,65 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		return curDay;
 	}
 
-	function collectUBIInterest() public whenNotPaused {
+	uint256[] public rewardPerTokenAt;
+	uint256 public constant PRECISION = 1e18;
 
+	function collectUBIInterest() public whenNotPaused {
 		uint256 curDay = _checkIfCalledOnceInDayAndReturnDay();
 
-		uint256 contractBalance = balance();
-		require(contractBalance > 0, "no earnings to collect");
-		uint256 earnings = contractBalance - totalPendingStakes;
+		totalSupply += totalPendingStakes;
+
+		// uint256 contractBalance = balance();
+		// require(contractBalance > 0, "no earnings to collect");
+		// uint256 earnings = contractBalance - totalPendingStakes;
 
 		uint256 fuseAmountForUBI = (earnings * (ratioBase - globalGivebackRatio)) / ratioBase;
-		uint256 stakeBack = earnings - fuseAmountForUBI;
+		uint256 stakeBackAmount = earnings - fuseAmountForUBI;
 
-		uint256 ubiAndPendingStakes = fuseUBI + totalPendingStakes;
-		uint256[] memory fuseswapResult = _buyGD(ubiAndPendingStakes); //buy goodDollar with X% of earnings
+		uint256 lastCollectUBIInterestCallTime = collectUBIInterestCallTimes[
+			collectUBIInterestCallTimes.length > 0 ? collectUBIInterestCallTimes.length - 1 : 0
+		];
+		uint256 lastRewardPerToken = rewardPerTokenAt[
+			rewardPerTokenAt.length > 0 ? rewardPerTokenAt.length - 1 : 0
+		];
+
+		collectUBIInterestCallTimes.push(block.timestamp);
+		rewardPerTokenAt.push(
+			lastRewardPerToken + (block.timestamp - lastCollectUBIInterestCallTime) * rewardRate * PRECISION / totalSupply
+		);
+
+
+
+		// uint256 ubiAndPendingStakes = fuseUBI + totalPendingStakes;
+		// uint256[] memory fuseswapResult = _buyGD(ubiAndPendingStakes); //buy goodDollar with X% of earnings
 
 		// pendingFuseEarnings = ubiAndPendingStakes - fuseswapResult[0];
 		// _stakeNextValidator(stakeBack, address(0)); //stake back the rest of the earnings
 
 		// send to the faucets
 
-		uint256 gdBought = fuseswapResult[fuseswapResult.length - 1];
-
-		uint256 keeperFee = gdBought * keeperFeeRatio / ratioBase;
-		if (keeperFee > 0) goodDollar.transfer(msg.sender, keeperFee);
-
-		uint256 communityPoolContribution = (gdBought - keeperFee) * communityPoolRatio / ratioBase;
-
-		uint256 ubiAfterFeeAndPool = gdBought - communityPoolContribution - keeperFee;
-
-		goodDollar.transfer(address(ubiScheme), ubiAfterFeeAndPool); //transfer to ubiScheme
-		communityPoolBalance += communityPoolContribution;
-
-		emit UBICollected(
-			curDay,
-			ubiAfterFeeAndPool,
-			communityPoolContribution,
-			gdBought,
-			earnings,
-			pendingFuseEarnings,
-			msg.sender,
-			keeperFee
-		);
+		// uint256 gdBought = fuseswapResult[fuseswapResult.length - 1];
+		//
+		// uint256 keeperFee = gdBought * keeperFeeRatio / ratioBase;
+		// if (keeperFee > 0) goodDollar.transfer(msg.sender, keeperFee);
+		//
+		// uint256 communityPoolContribution = (gdBought - keeperFee) * communityPoolRatio / ratioBase;
+		//
+		// uint256 ubiAfterFeeAndPool = gdBought - communityPoolContribution - keeperFee;
+		//
+		// goodDollar.transfer(address(ubiScheme), ubiAfterFeeAndPool); //transfer to ubiScheme
+		// communityPoolBalance += communityPoolContribution;
+		//
+		// emit UBICollected(
+		// 	curDay,
+		// 	ubiAfterFeeAndPool,
+		// 	communityPoolContribution,
+		// 	gdBought,
+		// 	earnings,
+		// 	pendingFuseEarnings,
+		// 	msg.sender,
+		// 	keeperFee
+		// );
 	}
 
 	/**
