@@ -416,26 +416,24 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	}
 
 	function _getLastTotalFinalizedSupply() internal view returns(uint256) {
-		return globalStakingVariablesHistory.length > 0 ? globalStakingVariablesHistory[globalStakingVariablesHistory.length - 1].rewardRate : 0;
+		return globalStakingVariablesHistory.length > 0 ? globalStakingVariablesHistory[globalStakingVariablesHistory.length - 1].totalFinalizedSupply : 0;
 	}
 
 	function _getLastRewardPerTokenPerUser(address _account) internal view returns(uint256) {
 		if (collectUBIInterestCallTimes.length > 0) {
+			uint256 rewardPerTokenPerUser = 0;
 			for (uint256 i = 1; i < collectUBIInterestCallTimes.length; i++) {
-				uint256 localRewardPerTokenPerUser =
+				rewardPerTokenPerUser +=
 					_rewardPerToken(
-						rewardPerTokenAt[i - 1],
+						globalStakingVariablesHistory[i - 1].rewardPerToken,
 						collectUBIInterestCallTimes[i] - collectUBIInterestCallTimeIdxToUserStakeTime[i][_account],
-						rewardRates[i],
-
-					)
+						globalStakingVariablesHistory[i].rewardRate,
+						globalStakingVariablesHistory[i].totalFinalizedSupply
+					);
 			}
 		} else {
-
+			return 0;
 		}
-
-		uint256 lastRewardPerToken = _getLastRewardPerToken();
-		return lastRewardPerToken -
 	}
 
 	function earned(address account) public view returns (uint256) {
@@ -476,8 +474,6 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	function _collectUBIInterest(bool _isEarningsCheckEnabled) internal {
 		uint256 curDay = _checkIfCalledOnceInDayAndReturnDay();
 
-		totalFinalizedSupply = totalPendingStakes;
-
 		uint256 contractBalance;
 		uint256 earnings;
 		if (_isEarningsCheckEnabled) {
@@ -494,16 +490,20 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		uint256 lastCollectUBIInterestCallTime = collectUBIInterestCallTimes.length > 0
 			? collectUBIInterestCallTimes[collectUBIInterestCallTimes.length - 1]
 			: block.timestamp;
-
-		uint256 lastRewardPerToken = rewardPerTokenAt.length > 0 ? rewardPerTokenAt[rewardPerTokenAt.length - 1] : 0;
-
 		collectUBIInterestCallTimes.push(block.timestamp);
-		uint256 latestCollectUBIInterestTimeDuration = block.timestamp - lastCollectUBIInterestCallTime;
-		rewardRates.push(latestCollectUBIInterestTimeDuration > 0 ? fuseAmountForUBI / latestCollectUBIInterestTimeDuration : 0);
-		rewardPerTokenAt.push(
-			_rewardPerToken(lastRewardPerToken, latestCollectUBIInterestTimeDuration, rewardRate, totalFinalizedSupply)
-		);
 
+		uint256 latestCollectUBIInterestTimeDuration = block.timestamp - lastCollectUBIInterestCallTime;
+
+		globalStakingVariablesHistory.push(GlobalStakingVariables({
+			rewardPerToken: _rewardPerToken(
+				_getLastRewardPerToken(),
+				latestCollectUBIInterestTimeDuration,
+				_getLastRewardRate(),
+				_getLastTotalFinalizedSupply()
+			),
+			rewardRate: latestCollectUBIInterestTimeDuration > 0 ? fuseAmountForUBI / latestCollectUBIInterestTimeDuration : 0,
+			totalFinalizedSupply: totalPendingStakes
+		}));
 		// rewards[msg.sender] = earned(account);
 		// userRewardPerTokenPaid[msg.sender] = rewardPerTokenStored;
 		// uint256 reward = rewards[msg.sender];
