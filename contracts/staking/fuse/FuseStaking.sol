@@ -279,7 +279,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 			toWithdraw = effectiveBalance;
 		}
 
-		_getReward();
+		_getReward(_from);
 
 		pendingStakes[_from] = pendingStakes[_from] - toWithdraw;
 		totalPendingStakes -= toWithdraw;
@@ -414,7 +414,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	}
 
 	function getReward() external nonReentrant {
-			_getReward();
+			_getReward(msg.sender);
 	}
 
 	function _distributeGivebackAndQueryOracles(uint256 _amount) internal {
