@@ -279,6 +279,8 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 			toWithdraw = effectiveBalance;
 		}
 
+		_getReward();
+
 		pendingStakes[_from] = pendingStakes[_from] - toWithdraw;
 		totalPendingStakes -= toWithdraw;
 
