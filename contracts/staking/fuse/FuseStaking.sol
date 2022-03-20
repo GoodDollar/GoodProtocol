@@ -92,6 +92,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		validators.push(address(0xcb876A393F05a6677a8a029f1C6D7603B416C0A6));
 		_setupRole(DEFAULT_ADMIN_ROLE, _owner);
 		_setupRole(GUARDIAN_ROLE, _owner);
+		_collectUBIInterest(false); // initialize history of staking variables
 	}
 
 	function setContracts(address _gd, address _ubischeme) public onlyRole(DEFAULT_ADMIN_ROLE, msg.sender) {
@@ -383,16 +384,16 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		return globalStakingVariablesHistory.length > 0 ? globalStakingVariablesHistory[globalStakingVariablesHistory.length - 1].totalFinalizedSupply : 0;
 	}
 
-	function _getLastRewardPerTokenPerUser(address _account) internal view returns(uint256) {
+	function _getRewardPerTokenPerUser(address _account) internal view returns(uint256) {
 		if (collectUBIInterestCallTimes.length > 0) {
 			uint256 rewardPerTokenPerUser = 0;
 			for (uint256 i = 1; i < collectUBIInterestCallTimes.length; i++) {
 				rewardPerTokenPerUser +=
 					_rewardPerToken(
 						globalStakingVariablesHistory[i - 1].rewardPerToken,
-						collectUBIInterestCallTimes[i] - collectUBIInterestCallTimeIdxToUserStakeTime[i][_account],
-						globalStakingVariablesHistory[i].rewardRate,
-						globalStakingVariablesHistory[i].totalFinalizedSupply
+						collectUBIInterestCallTimeIdxToUserStakeTime[i][_account] - collectUBIInterestCallTimes[i - 1],
+						globalStakingVariablesHistory[i - 1].rewardRate,
+						globalStakingVariablesHistory[i - 1].totalFinalizedSupply
 					);
 			}
 			return rewardPerTokenPerUser;
@@ -402,13 +403,13 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	}
 
 	function earned(address account) public view returns (uint256) {
-		return pendingStakes[account] * (_getLastRewardPerTokenPerUser(account) - userRewardPerTokenPaid[account]) / PRECISION;
+		return pendingStakes[account] * (_getRewardPerTokenPerUser(account) - userRewardPerTokenPaid[account]) / PRECISION;
 	}
 
 	function _getReward(address _to) internal {
 		uint256 reward = earned(_to);
 		if (reward > 0) {
-				userRewardPerTokenPaid[_to] = _getLastRewardPerTokenPerUser(_to);
+				userRewardPerTokenPaid[_to] = _getRewardPerTokenPerUser(_to);
 				payable(_to).transfer(reward);
 		}
 	}
