@@ -3,6 +3,7 @@ pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 import "../../utils/DAOUpgradeableContract.sol";
@@ -13,7 +14,7 @@ import "./PegSwap.sol";
 import "./IUBIScheme.sol";
 import "./ISpendingRateOracle.sol";
 
-contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath {
+contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath, ReentrancyGuard {
 
 	struct GlobalStakingVariables {
 		uint256 rewardPerToken;
@@ -22,6 +23,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	}
 
 	bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
+	uint256 public constant RATIO_BASE = 10000;
 
 	mapping(address => uint256) public pendingStakes;
 	mapping(address => uint256) public stakersGivebackRatios;
@@ -30,15 +32,14 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 
 	IConsensus public consensus;
 
-	Uniswap public uniswap;
+	Uniswap public uniswapV2Router;
 	IGoodDollar public goodDollar;
 	IUBIScheme public ubiScheme;
 	UniswapFactory public uniswapFactory;
-	UniswapPair public uniswapPair;
+	UniswapPair public uniswapGoodDollarFusePair;
 
 	uint256 public lastDayCollected; //ubi day from ubiScheme
 
-	uint256 public immutable ratioBase;
 	uint256 public totalPendingStakes;
 
 	uint256 public maxSlippageRatio; //actually its max price impact ratio
@@ -47,8 +48,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	uint256 public minGivebackRatio;
 	uint256 public globalGivebackRatio;
 
-	uint256 public communityPoolBalance;
-	uint256 public pendingFuseEarnings; //earnings not  used because of slippage
+	// uint256 public pendingFuseEarnings; //earnings not  used because of slippage
 
 	address public USDC;
 	address public fUSD;
@@ -85,22 +85,88 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		uint256 keeperGDFee
 	);
 
-	function initialize(address _owner) public initializer {
+	function initialize(
+		address _owner,
+		address _spendingRateOracle,
+		address _uniswapV2Router,
+		address _goodDollar,
+		address _ubiScheme,
+		address _uniswapGoodDollarFusePair,
+		uint256 _maxSlippageRatio, //actually its max price impact ratio
+		uint256 _keeperFeeRatio,
+		uint256 _communityPoolRatio, //out of G$ bought how much should goto pool
+		uint256 _minGivebackRatio,
+		address _USDC,
+		address _fUSD
+	) public initializer {
 		consensus = IConsensus(
 			address(0x3014ca10b91cb3D0AD85fEf7A3Cb95BCAc9c0f79)
 		);
 		validators.push(address(0xcb876A393F05a6677a8a029f1C6D7603B416C0A6));
+
 		_setupRole(DEFAULT_ADMIN_ROLE, _owner);
 		_setupRole(GUARDIAN_ROLE, _owner);
+
+		spendingRateOracle = ISpendingRateOracle(_spendingRateOracle);
+		uniswapV2Router = Uniswap(_uniswapV2Router);
+		goodDollar = IGoodDollar(_goodDollar);
+		ubiScheme = IUBIScheme(_ubiScheme);
+		uniswapGoodDollarFusePair = UniswapPair(_uniswapGoodDollarFusePair);
+
+		maxSlippageRatio = _maxSlippageRatio;
+		keeperFeeRatio = _keeperFeeRatio;
+		communityPoolRatio = _communityPoolRatio;
+		minGivebackRatio = _minGivebackRatio;
+		USDC = _USDC;
+		fUSD = _fUSD;
+
 		_collectUBIInterest(false); // initialize history of staking variables
 	}
 
-	function setContracts(address _gd, address _ubischeme) public onlyRole(DEFAULT_ADMIN_ROLE, msg.sender) {
+	function setContracts(address _gd, address _ubischeme) public onlyRole(DEFAULT_ADMIN_ROLE) {
 		if (_gd != address(0)) {
 			goodDollar = IGoodDollar(_gd);
 		}
 		if (_ubischeme != address(0)) {
 			ubiScheme = IUBIScheme(_ubischeme);
+		}
+	}
+
+	function addValidator(address _v) public onlyRole(DEFAULT_ADMIN_ROLE) {
+		validators.push(_v);
+	}
+
+	function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+		if (paused()) {
+			_unpause();
+		} else {
+			_pause();
+		}
+	}
+
+	function removeValidator(address _validator) external onlyRole(DEFAULT_ADMIN_ROLE) {
+		uint256 delegated = consensus.delegatedAmount(
+			address(this),
+			_validator
+		);
+		if (delegated > 0) {
+			uint256 prevBalance = _balance();
+			_safeUndelegate(_validator, delegated);
+
+			// wasnt withdrawn because validator needs to be taken of active validators
+			if (_balance() == prevBalance) {
+				// pendingValidators.push(_validator);
+				return;
+			}
+		}
+
+		for (uint256 i = 0; i < validators.length; i++) {
+			if (validators[i] == _validator) {
+				if (i < validators.length - 1)
+					validators[i] = validators[validators.length - 1];
+				validators.pop();
+				break;
+			}
 		}
 	}
 
@@ -170,7 +236,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
   }
 
 	function totalSupply() public view returns (uint256) {
-			return totalFinalizedSupply;
+			return _getLastTotalFinalizedSupply();
 	}
 
 	function balanceOf(address _owner) public view returns (uint256) {
@@ -243,6 +309,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
   }
 
 	function _gatherFuseFromValidators(uint256 _value) internal {
+		uint256 toCollect = _value;
 		uint256 perValidator = _value / validators.length;
 		for (uint256 i = 0; i < validators.length; i++) {
 			uint256 cur = consensus.delegatedAmount(
@@ -264,14 +331,13 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	function _withdraw(address _from, address _to, uint256 _value) internal returns (uint256) {
 		uint256 effectiveBalance = _balance(); //use only undelegated funds
 		uint256 toWithdraw = _value == 0 ? pendingStakes[_from] : _value;
-		uint256 toCollect = toWithdraw;
 
 		require(
 			toWithdraw > 0 && toWithdraw <= pendingStakes[_from],
 			"invalid withdraw amount"
 		);
 
-		_gatherFuseFromValidators(_value);
+		_gatherFuseFromValidators(toWithdraw);
 
 		effectiveBalance = _balance() - effectiveBalance; //use only undelegated funds
 
@@ -320,10 +386,6 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		return true;
 	}
 
-	function addValidator(address _v) public onlyRole(DEFAULT_ADMIN_ROLE, msg.sender) {
-		validators.push(_v);
-	}
-
 	function totalDelegated() public view returns (uint256) {
 		uint256 total = 0;
 		for (uint256 i = 0; i < validators.length; i++) {
@@ -334,32 +396,6 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 			total += cur;
 		}
 		return total;
-	}
-
-	function removeValidator(address _validator) external onlyRole(DEFAULT_ADMIN_ROLE, msg.sender) {
-		uint256 delegated = consensus.delegatedAmount(
-			address(this),
-			_validator
-		);
-		if (delegated > 0) {
-			uint256 prevBalance = _balance();
-			_safeUndelegate(_validator, delegated);
-
-			// wasnt withdrawn because validator needs to be taken of active validators
-			if (_balance() == prevBalance) {
-				// pendingValidators.push(_validator);
-				return;
-			}
-		}
-
-		for (uint256 i = 0; i < validators.length; i++) {
-			if (validators[i] == _validator) {
-				if (i < validators.length - 1)
-					validators[i] = validators[validators.length - 1];
-				validators.pop();
-				break;
-			}
-		}
 	}
 
 	function _checkIfCalledOnceInDayAndReturnDay() internal returns(uint256) {
@@ -385,7 +421,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	}
 
 	function _getRewardPerTokenPerUser(address _account) internal view returns(uint256) {
-		if (collectUBIInterestCallTimes.length > 0) {
+		if (collectUBIInterestCallTimes.length > 1) {
 			uint256 rewardPerTokenPerUser = 0;
 			for (uint256 i = 1; i < collectUBIInterestCallTimes.length; i++) {
 				rewardPerTokenPerUser +=
@@ -425,7 +461,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 
 	function _rewardPerToken(
 		uint256 _lastRewardPerToken,
-		uint256 _duration
+		uint256 _duration,
 		uint256 _rewardRate,
 		uint256 _totalSupply
 	)
@@ -447,7 +483,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 			earnings = contractBalance - totalPendingStakes;
 		}
 
-		uint256 fuseAmountForUBI = (earnings * (ratioBase - globalGivebackRatio)) / ratioBase;
+		uint256 fuseAmountForUBI = (earnings * (RATIO_BASE - globalGivebackRatio)) / RATIO_BASE;
 		uint256 givebackAmount = earnings > 0 ? earnings - fuseAmountForUBI : 0;
 
 		_distributeGivebackAndQueryOracles(givebackAmount);
@@ -471,21 +507,19 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		}));
 	}
 
-	function collectUBIInterest() public nonReentrant whenNotPaused onlyRole(GUARDIAN_ROLE, msg.sender) {
+	function collectUBIInterest() external whenNotPaused nonReentrant onlyRole(GUARDIAN_ROLE) {
 		_collectUBIInterest(true); // check if contract earned something - true
 	}
 
 	/**
 	 * @dev internal method to buy goodDollar from fuseswap
 	 * @param _value fuse to be sold
-	 * @return uniswap coversion results uint256[2]
+	 * @return uniswapV2Router coversion results uint256[2]
 	 */
 	function _buyGD(uint256 _value) internal returns (uint256[] memory) {
 		//buy from uniwasp
 		require(_value > 0, "buy value should be > 0");
-		(uint256 maxFuse, uint256 fuseGDOut) = calcMaxFuseWithPriceImpact(
-			_value
-		);
+		(uint256 maxFuse, uint256 fuseGDOut) = calcMaxFuseWithPriceImpact(_value);
 		(
 			uint256 maxFuseUSDC,
 			uint256 usdcGDOut
@@ -494,9 +528,9 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		if (maxFuse >= maxFuseUSDC) {
 			path = new address[](2);
 			path[1] = address(goodDollar);
-			path[0] = uniswap.WETH();
+			path[0] = uniswapV2Router.WETH();
 			return
-				uniswap.swapExactETHForTokens{ value: maxFuse }(
+				uniswapV2Router.swapExactETHForTokens{ value: maxFuse }(
 					(fuseGDOut * 95) / 100,
 					path,
 					address(this),
@@ -508,7 +542,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 			path[1] = address(goodDollar);
 			path[0] = USDC;
 
-			uint256[] memory result = uniswap.swapExactTokensForTokens(
+			uint256[] memory result = uniswapV2Router.swapExactTokensForTokens(
 				usdcAmount,
 				(usdcGDOut * 95) / 100,
 				path,
@@ -534,7 +568,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		//buy from uniwasp
 		require(_fuseIn > 0, "buy value should be > 0");
 		UniswapPair uniswapFUSEfUSDPair = UniswapPair(
-			uniswapFactory.getPair(uniswap.WETH(), fUSD)
+			uniswapFactory.getPair(uniswapV2Router.WETH(), fUSD)
 		); //fusd is pegged 1:1 to usdc
 		(uint256 r_fuse, uint256 r_fusd, ) = uniswapFUSEfUSDPair.getReserves();
 
@@ -546,8 +580,8 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 
 		address[] memory path = new address[](2);
 		path[1] = fUSD;
-		path[0] = uniswap.WETH();
-		uint256[] memory result = uniswap.swapExactETHForTokens{
+		path[0] = uniswapV2Router.WETH();
+		uint256[] memory result = uniswapV2Router.swapExactETHForTokens{
 			value: maxFuse
 		}((tokenOut * 95) / 100, path, address(this), block.timestamp);
 
@@ -561,7 +595,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		view
 		returns (uint256 fuseAmount, uint256 tokenOut)
 	{
-		(uint256 r_fuse, uint256 r_gd, ) = uniswapPair.getReserves();
+		(uint256 r_fuse, uint256 r_gd, ) = uniswapGoodDollarFusePair.getReserves();
 
 		return calcMaxTokenWithPriceImpact(r_fuse, r_gd, _value);
 	}
@@ -572,7 +606,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		returns (uint256 maxFuse, uint256 gdOut)
 	{
 		UniswapPair uniswapFUSEfUSDPair = UniswapPair(
-			uniswapFactory.getPair(uniswap.WETH(), fUSD)
+			uniswapFactory.getPair(uniswapV2Router.WETH(), fUSD)
 		); //fusd is pegged 1:1 to usdc
 		UniswapPair uniswapGDUSDCPair = UniswapPair(
 			uniswapFactory.getPair(address(goodDollar), USDC)
@@ -603,7 +637,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 	}
 
 	/**
-	 * uniswap amountOut helper
+	 * uniswapV2Router amountOut helper
 	 */
 	function _getAmountOut(
 		uint256 _amountIn,
@@ -624,7 +658,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		uint256 r_gd,
 		uint256 _value
 	) public view returns (uint256 maxToken, uint256 tokenOut) {
-		maxToken = (r_token * maxSlippageRatio) / ratioBase;
+		maxToken = (r_token * maxSlippageRatio) / RATIO_BASE;
 		maxToken = maxToken < _value ? maxToken : _value;
 		tokenOut = _getAmountOut(maxToken, r_token, r_gd);
 	}
@@ -654,14 +688,6 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 
 	function _balance() internal view returns (uint256) {
 		return payable(address(this)).balance;
-	}
-
-	function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE, msg.sender) {
-		if (paused()) {
-			_unpause();
-		} else {
-			_pause();
-		}
 	}
 
 	receive() external payable {}
