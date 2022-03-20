@@ -405,12 +405,11 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath 
 		return pendingStakes[account] * (_getLastRewardPerTokenPerUser(account) - userRewardPerTokenPaid[account]) / PRECISION;
 	}
 
-	function _getReward() internal {
-		uint256 reward = earned(msg.sender);
+	function _getReward(address _to) internal {
+		uint256 reward = earned(_to);
 		if (reward > 0) {
-				userRewardPerTokenPaid[msg.sender] = _getLastRewardPerTokenPerUser(account);
-				payable(msg.sender).transfer(reward);
-				emit RewardPaid(msg.sender, reward);
+				userRewardPerTokenPaid[_to] = _getLastRewardPerTokenPerUser(_to);
+				payable(_to).transfer(reward);
 		}
 	}
 
