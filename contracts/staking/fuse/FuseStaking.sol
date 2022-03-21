@@ -461,6 +461,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 	function _distributeGivebackAndQueryOracles(uint256 _amount) internal {
 		if (_amount == 0) return;
 		// todo oracle query and distrubution
+		
 	}
 
 	function _distributeToUBIAndCommunityPool(uint256 _ubiAmount, uint256 _communityPoolAmount) internal {
