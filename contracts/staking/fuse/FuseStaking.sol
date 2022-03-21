@@ -464,6 +464,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 	}
 
 	function _distributeToUBIAndCommunityPool(uint256 _ubiAmount, uint256 _communityPoolAmount) internal {
+		if (_ubiAmount == 0 || _communityPoolAmount == 0) return;
 		communityPoolBalance += _communityPoolAmount;
 		spendingRateOracle.queryBalance(
 			address(this),
