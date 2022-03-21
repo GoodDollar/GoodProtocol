@@ -459,6 +459,10 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 		// todo oracle query and distrubution
 	}
 
+	function _distributeToUBIAndCommunityPool(uint256 _ubiAmount, uint256 _communityPoolAmount) internal {
+		// todo sending
+	}
+
 	function _rewardPerToken(
 		uint256 _lastRewardPerToken,
 		uint256 _duration,
@@ -484,9 +488,13 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 		}
 
 		uint256 fuseAmountForUBI = (earnings * (RATIO_BASE - globalGivebackRatio)) / RATIO_BASE;
+
 		uint256 givebackAmount = earnings > 0 ? earnings - fuseAmountForUBI : 0;
+		uint256 keeperAmount = fuseAmountForUBI > 0 ? fuseAmountForUBI - (fuseAmountForUBI * (RATIO_BASE - keeperFeeRatio)) / RATIO_BASE : 0;
+		uint256 communityPoolAmount = keeperAmount > 0 ? keeperAmount - (keeperAmount * (RATIO_BASE - communityPoolRatio)) / RATIO_BASE : 0;
 
 		_distributeGivebackAndQueryOracles(givebackAmount);
+		_distributeToUBIAndCommunityPool(keeperAmount, communityPoolAmount);
 
 		uint256 lastCollectUBIInterestCallTime = collectUBIInterestCallTimes.length > 0
 			? collectUBIInterestCallTimes[collectUBIInterestCallTimes.length - 1]
