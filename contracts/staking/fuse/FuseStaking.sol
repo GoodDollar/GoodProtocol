@@ -428,12 +428,13 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 		if (collectUBIInterestCallTimes.length > 1) {
 			uint256 rewardPerTokenPerUser = 0;
 			for (uint256 i = 1; i < collectUBIInterestCallTimes.length; i++) {
+				if (collectUBIInterestCallTimeIdxToUserStakeTime[i][_account] == 0) continue;
 				rewardPerTokenPerUser +=
 					_rewardPerToken(
-						globalStakingVariablesHistory[i - 1].rewardPerToken,
-						collectUBIInterestCallTimeIdxToUserStakeTime[i][_account] - collectUBIInterestCallTimes[i - 1],
-						globalStakingVariablesHistory[i - 1].rewardRate,
-						globalStakingVariablesHistory[i - 1].totalFinalizedSupply
+						globalStakingVariablesHistory[i].rewardPerToken,
+						collectUBIInterestCallTimes[i] - collectUBIInterestCallTimeIdxToUserStakeTime[i - 1][_account],
+						globalStakingVariablesHistory[i].rewardRate,
+						globalStakingVariablesHistory[i].totalFinalizedSupply
 					);
 			}
 			return rewardPerTokenPerUser;
@@ -461,7 +462,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 	function _distributeGivebackAndQueryOracles(uint256 _amount) internal {
 		if (_amount == 0) return;
 		// todo oracle query and distrubution
-		
+
 	}
 
 	function _distributeToUBIAndCommunityPool(uint256 _ubiAmount, uint256 _communityPoolAmount) internal {
