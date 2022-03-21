@@ -43,8 +43,12 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 	uint256 public totalPendingStakes;
 
 	uint256 public maxSlippageRatio; //actually its max price impact ratio
+
 	uint256 public keeperFeeRatio;
-	uint256 public communityPoolRatio; //out of G$ bought how much should goto pool
+
+	uint256 public communityPoolRatio; //out of G$ bought how much should go to pool
+	uint256 public communityPoolBalance;
+
 	uint256 public minGivebackRatio;
 	uint256 public globalGivebackRatio;
 
@@ -460,7 +464,20 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 	}
 
 	function _distributeToUBIAndCommunityPool(uint256 _ubiAmount, uint256 _communityPoolAmount) internal {
-		// todo sending
+		communityPoolBalance += _communityPoolAmount;
+		spendingRateOracle.queryBalance(
+			address(this),
+			communityPoolBalance,
+			address(0);
+		);
+
+		address ubiSchemeAddress = address(ubiScheme);
+		require(goodDollar.transfer(ubiSchemeAddress, _ubiAmount));
+		spendingRateOracle.queryBalance(
+			ubiSchemeAddress,
+			goodDollar.balanceOf(ubiSchemeAddress),
+			address(goodDollar);
+		);
 	}
 
 	function _rewardPerToken(
