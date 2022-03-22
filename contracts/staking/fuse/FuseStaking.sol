@@ -44,9 +44,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 
 	uint256 public maxSlippageRatio; //actually its max price impact ratio
 
-	uint256 public keeperFeeRatio;
-
-	uint256 public communityPoolRatio; //out of G$ bought how much should go to pool
+	uint256 public keeperAndCommunityPoolRatio;
 	uint256 public communityPoolBalance;
 
 	uint256 public minGivebackRatio;
@@ -97,8 +95,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 		address _ubiScheme,
 		address _uniswapGoodDollarFusePair,
 		uint256 _maxSlippageRatio, //actually its max price impact ratio
-		uint256 _keeperFeeRatio,
-		uint256 _communityPoolRatio, //out of G$ bought how much should goto pool
+		uint256 _keeperAndCommunityPoolFeeRatio,
 		uint256 _minGivebackRatio,
 		address _USDC,
 		address _fUSD
@@ -118,8 +115,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 		uniswapGoodDollarFusePair = UniswapPair(_uniswapGoodDollarFusePair);
 
 		maxSlippageRatio = _maxSlippageRatio;
-		keeperFeeRatio = _keeperFeeRatio;
-		communityPoolRatio = _communityPoolRatio;
+		keeperAndCommunityPoolRatio = _keeperAndCommunityPoolFeeRatio;
 		minGivebackRatio = _minGivebackRatio;
 		USDC = _USDC;
 		fUSD = _fUSD;
@@ -127,7 +123,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 		_collectUBIInterest(false); // initialize history of staking variables
 	}
 
-	function setContracts(address _gd, address _ubischeme) public onlyRole(DEFAULT_ADMIN_ROLE) {
+	function setContracts(address _gd, address _ubischeme) public onlyRole(GUARDIAN_ROLE) {
 		if (_gd != address(0)) {
 			goodDollar = IGoodDollar(_gd);
 		}
@@ -136,11 +132,11 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 		}
 	}
 
-	function addValidator(address _v) public onlyRole(DEFAULT_ADMIN_ROLE) {
+	function addValidator(address _v) public onlyRole(GUARDIAN_ROLE) {
 		validators.push(_v);
 	}
 
-	function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+	function togglePause() external onlyRole(GUARDIAN_ROLE) {
 		if (paused()) {
 			_unpause();
 		} else {
@@ -148,7 +144,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 		}
 	}
 
-	function removeValidator(address _validator) external onlyRole(DEFAULT_ADMIN_ROLE) {
+	function removeValidator(address _validator) external onlyRole(GUARDIAN_ROLE) {
 		uint256 delegated = consensus.delegatedAmount(
 			address(this),
 			_validator
@@ -510,8 +506,8 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 		uint256 fuseAmountForUBI = (earnings * (RATIO_BASE - globalGivebackRatio)) / RATIO_BASE;
 
 		uint256 givebackAmount = earnings > 0 ? earnings - fuseAmountForUBI : 0;
-		uint256 keeperAmount = fuseAmountForUBI > 0 ? fuseAmountForUBI - (fuseAmountForUBI * (RATIO_BASE - keeperFeeRatio)) / RATIO_BASE : 0;
-		uint256 communityPoolAmount = keeperAmount > 0 ? keeperAmount - (keeperAmount * (RATIO_BASE - communityPoolRatio)) / RATIO_BASE : 0;
+		uint256 keeperAmount = fuseAmountForUBI > 0 ? fuseAmountForUBI - (fuseAmountForUBI * (RATIO_BASE - keeperAndCommunityPoolRatio)) / RATIO_BASE : 0;
+		uint256 communityPoolAmount = fuseAmountForUBI > 0 ? fuseAmountForUBI - (fuseAmountForUBI * keeperAndCommunityPoolRatio) / RATIO_BASE : 0;
 
 		_distributeGivebackAndQueryOracles(givebackAmount);
 		_distributeToUBIAndCommunityPool(keeperAmount, communityPoolAmount);
