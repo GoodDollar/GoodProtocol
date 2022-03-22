@@ -455,13 +455,14 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 			_getReward(msg.sender);
 	}
 
-	function _distributeGivebackAndQueryOracles(uint256 _amount) internal {
+	function _distributeGivebackAndQueryOracle(uint256 _amount) internal {
 		if (_amount == 0) return;
 		// todo oracle query and distrubution
-
+		uint256[] memory faucetAddresses = spendingRateOracle.getFaucets();
+		
 	}
 
-	function _distributeToUBIAndCommunityPool(uint256 _ubiAmount, uint256 _communityPoolAmount) internal {
+	function _distributeToUBIAndCommunityPoolAndQueryOracle(uint256 _ubiAmount, uint256 _communityPoolAmount) internal {
 		if (_ubiAmount == 0 || _communityPoolAmount == 0) return;
 		communityPoolBalance += _communityPoolAmount;
 		spendingRateOracle.queryBalance(
@@ -509,8 +510,8 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 		uint256 keeperAmount = fuseAmountForUBI > 0 ? fuseAmountForUBI - (fuseAmountForUBI * (RATIO_BASE - keeperAndCommunityPoolRatio)) / RATIO_BASE : 0;
 		uint256 communityPoolAmount = fuseAmountForUBI > 0 ? fuseAmountForUBI - (fuseAmountForUBI * keeperAndCommunityPoolRatio) / RATIO_BASE : 0;
 
-		_distributeGivebackAndQueryOracles(givebackAmount);
-		_distributeToUBIAndCommunityPool(keeperAmount, communityPoolAmount);
+		_distributeGivebackAndQueryOracle(givebackAmount);
+		_distributeToUBIAndCommunityPoolAndQueryOracle(keeperAmount, communityPoolAmount);
 
 		uint256 lastCollectUBIInterestCallTime = collectUBIInterestCallTimes.length > 0
 			? collectUBIInterestCallTimes[collectUBIInterestCallTimes.length - 1]
