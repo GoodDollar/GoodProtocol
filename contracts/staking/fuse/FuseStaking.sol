@@ -14,7 +14,6 @@ import "../../utils/DSMath.sol";
 import "../../Interfaces.sol";
 import "./IConsensus.sol";
 import "./PegSwap.sol";
-import "./IUBIScheme.sol";
 import "./ISpendingRateOracle.sol";
 
 contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath, ReentrancyGuard {
@@ -28,9 +27,6 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 
 	bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
 	uint256 public constant RATIO_BASE = 10000;
-
-	mapping(address => uint256) public pendingStakes;
-	mapping(address => uint256) public stakersGivebackRatios;
 
 	address[] public validators;
 
@@ -62,7 +58,14 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 	PegSwap public pegSwap;
 
 	mapping(address => mapping(address => uint256)) public allowance;
+
 	mapping(address => uint256) public userRewardPerTokenPaid;
+	mapping(address => uint256) public pendingStakes;
+	mapping(address => uint256) public stakersGivebackRatios;
+
+	// struct StakeInfo {
+	// 	uint256 u
+	// }
 
 	uint256[] public collectUBIInterestCallTimes;
 
@@ -495,7 +498,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 		spendingRateOracle.queryBalance(
 			address(this),
 			communityPoolBalance,
-			address(0);
+			address(0)
 		);
 
 		address ubiSchemeAddress = address(ubiScheme);
@@ -503,7 +506,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 		spendingRateOracle.queryBalance(
 			ubiSchemeAddress,
 			goodDollar.balanceOf(ubiSchemeAddress),
-			address(goodDollar);
+			address(goodDollar)
 		);
 	}
 
