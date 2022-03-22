@@ -482,6 +482,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 					balancesDifference = targetBalance - actualBalance;
 					if (_amount < balancesDifference) break;
 					_amount -= balancesDifference;
+					// todo buying GD
 					IERC20(faucetToken).safeTransfer(faucetAddresses[i], balancesDifference);
 				}
 			}
