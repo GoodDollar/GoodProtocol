@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -15,6 +18,7 @@ import "./IUBIScheme.sol";
 import "./ISpendingRateOracle.sol";
 
 contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath, ReentrancyGuard {
+	using SafeERC20 for IERC20;
 
 	struct GlobalStakingVariables {
 		uint256 rewardPerToken;
@@ -457,9 +461,29 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 
 	function _distributeGivebackAndQueryOracle(uint256 _amount) internal {
 		if (_amount == 0) return;
-		// todo oracle query and distrubution
 		uint256[] memory faucetAddresses = spendingRateOracle.getFaucets();
-		
+		for (uint256 i = 0; i < faucetAddresses.length; i++) {
+			address faucetToken = spendingRateOracle.getFaucetTokenAddress(faucetAddresses[i]);
+			uint256 targetBalance = spendingRateOracle.getFaucetTargetBalance(faucetAddresses[i]);
+			if (faucetToken == address(0)) {
+				uint256 balancesDifference;
+				if (faucetToken.balance < targetBalance) {
+					balancesDifference = targetBalance - faucetToken.balance;
+					if (_amount < balancesDifference) break;
+					_amount -= balancesDifference;
+					payable(faucetAddresses[i]).transfer(balancesDifference);
+				}
+			} else {
+				uint256 balancesDifference;
+				uint256 actualBalance = IERC20(faucetToken).balanceOf(faucetAddresses[i]);
+				if (actualBalance < targetBalance) {
+					balancesDifference = targetBalance - actualBalance;
+					if (_amount < balancesDifference) break;
+					_amount -= balancesDifference;
+					IERC20(faucetToken).safeTransfer(faucetAddresses[i], balancesDifference);
+				}
+			}
+		}
 	}
 
 	function _distributeToUBIAndCommunityPoolAndQueryOracle(uint256 _ubiAmount, uint256 _communityPoolAmount) internal {
