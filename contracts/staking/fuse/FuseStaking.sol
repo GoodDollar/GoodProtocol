@@ -463,10 +463,13 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 		if (_amount == 0) return;
 		uint256[] memory faucetAddresses = spendingRateOracle.getFaucets();
 		for (uint256 i = 0; i < faucetAddresses.length; i++) {
+			if (faucetAddresses[i] == address(ubiScheme) || faucetAddresses[i] == address(this)) {
+				continue;
+			}
 			address faucetToken = spendingRateOracle.getFaucetTokenAddress(faucetAddresses[i]);
 			uint256 targetBalance = spendingRateOracle.getFaucetTargetBalance(faucetAddresses[i]);
+			uint256 balancesDifference;
 			if (faucetToken == address(0)) {
-				uint256 balancesDifference;
 				if (faucetToken.balance < targetBalance) {
 					balancesDifference = targetBalance - faucetToken.balance;
 					if (_amount < balancesDifference) break;
@@ -474,7 +477,6 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 					payable(faucetAddresses[i]).transfer(balancesDifference);
 				}
 			} else {
-				uint256 balancesDifference;
 				uint256 actualBalance = IERC20(faucetToken).balanceOf(faucetAddresses[i]);
 				if (actualBalance < targetBalance) {
 					balancesDifference = targetBalance - actualBalance;
