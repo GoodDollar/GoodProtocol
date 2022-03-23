@@ -41,11 +41,25 @@ contract StakingRewardsPerEpoch is StakingRewards {
     emit PendingWithdrawn(_from, _amount);
   }
 
+  function _getRewardPerTokenPerUser(address _account) internal view returns(uint256) {
+    return rewardsPerTokenAt[lastEpochIndex] - rewardsPerTokenAt[stakersInfoPerEpoch[_from].indexOfLastEpochStaked];
+  }
+
   function earned(address account) public virtual view returns (uint256) {
-      return stakersInfo[account].balance * (rewardPerToken() - stakersInfo[account].rewardPerTokenPaid) / PRECISION + stakersInfo[account].reward;
+      return stakersInfo[account].balance * (_getRewardPerTokenPerUser(account) - stakersInfo[account].rewardPerTokenPaid) / PRECISION + stakersInfo[account].reward;
+  }
+
+  function _updateReward(address _account) internal override {
+    lastUpdateTime = lastTimeRewardApplicable();
+    if (_account != address(0)) {
+        stakersInfo[_account].reward = earned(_account);
+        stakersInfo[_account].rewardPerTokenPaid = _getRewardPerTokenPerUser(_account);
+    }
   }
 
   function notifyRewardAmount(uint256 reward) public override onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
+    _totalSupply += pendingStakes;
+    rewardsPerTokenAt.push(rewardPerToken());
     super.notifyRewardAmount(reward);
     lastEpochIndex++;
   }
