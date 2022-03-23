@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
+contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     /* ========== STATE VARIABLES ========== */
@@ -20,13 +20,14 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
 
-    struct StakeInfo {
-      uint256 rewardPerTokenPaid;
-      uint256 reward;
-      uint256 balance;
+    struct BaseStakeInfo {
+        uint256 rewardPerTokenPaid;
+        uint256 rewards;
+        uint256 balance;
     }
 
-    mapping(address => StakeInfo) internal stakeInfos;
+    mapping(address => BaseStakeInfo) public stakersInfo;
+    uint256[] public rewardsPerTokenAt;
 
     uint256 private _totalSupply;
 
@@ -52,7 +53,7 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
     }
 
     function balanceOf(address account) external view returns (uint256) {
-        return stakeInfos[account].balance;
+        return stakerInfo[account].balance;
     }
 
     function lastTimeRewardApplicable() public view returns (uint256) {
@@ -68,7 +69,7 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
     }
 
     function earned(address account) public view returns (uint256) {
-        return stakeInfos[account].balance * (rewardPerToken() - stakeInfos[account].rewardPerTokenPaid) / PRECISION + stakeInfos[account].reward;
+        return stakerInfo[account].balance * (rewardPerToken() - stakerInfo[account].rewardPerTokenPaid) / PRECISION + stakerInfo[account].reward;
     }
 
     function getRewardForDuration() external view returns (uint256) {
@@ -79,7 +80,7 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
 
     function _stake(address _from, uint256 _amount) internal {
         _totalSupply += amount;
-        stakeInfos[_from].balance += amount;
+        stakerInfo[_from].balance += amount;
         stakingToken.safeTransferFrom(_from, address(this), amount);
         emit Staked(_from, amount);
     }
@@ -91,27 +92,27 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
 
     function _withdraw(address _from, uint256 _amount) internal {
         _totalSupply -= amount;
-        stakeInfos[_from].balance -= amount;
+        stakerInfo[_from].balance -= amount;
         stakingToken.safeTransfer(_from, amount);
         emit Withdrawn(_from, amount);
     }
 
-    function withdraw(uint256 amount) public nonReentrant updateReward(msg.sender) {
-        require(amount > 0, "Cannot withdraw 0");
-        _withdraw(msg.sender, amount);
+    function withdraw(uint256 _amount) public nonReentrant updateReward(msg.sender) {
+        require(_amount > 0, "Cannot withdraw 0");
+        _withdraw(msg.sender, _amount);
     }
 
     function getReward() public nonReentrant updateReward(msg.sender) {
-        uint256 reward = stakeInfos[msg.sender].reward;
+        uint256 reward = stakerInfo[msg.sender].reward;
         if (reward > 0) {
-            stakeInfos[msg.sender].reward = 0;
+            stakerInfo[msg.sender].reward = 0;
             rewardsToken.safeTransfer(msg.sender, reward);
             emit RewardPaid(msg.sender, reward);
         }
     }
 
     function exit() external {
-        withdraw(stakeInfos[msg.sender].balance);
+        withdraw(stakerInfo[msg.sender].balance);
         getReward();
     }
 
@@ -160,8 +161,8 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
       rewardPerTokenStored = rewardPerToken();
       lastUpdateTime = lastTimeRewardApplicable();
       if (account != address(0)) {
-          stakeInfos[account].reward = earned(account);
-          stakeInfos[account].rewardPerTokenPaid = rewardPerTokenStored;
+          stakerInfo[account].reward = earned(account);
+          stakerInfo[account].rewardPerTokenPaid = rewardPerTokenStored;
       }
     }
 

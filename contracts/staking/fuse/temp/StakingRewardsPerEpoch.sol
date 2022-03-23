@@ -3,11 +3,18 @@ pragma solidity >=0.8.0;
 
 import "./StakingRewards.sol";
 
-contract ExperimentalFuseStaking is StakingRewards {
+contract StakingRewardsPerEpoch is StakingRewardsPerEpoch {
+
+
+  struct StakeInfoPerEpoch {
+    uint256 pendingStakes;
+    uint256 giveBackRatio;
+    uint256 indexOfLastEpochStaked;
+  }
 
   uint256 public lastCollectUBIInterestIndex;
 
-  mapping(address => uint256) public userToCollectUBIInterestIndex;
+  mapping (address => StakeInfoPerEpoch) public stakersInfoPerEpoch;
 
   function notifyRewardAmount(uint256 reward) external override onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
       if (block.timestamp >= periodFinish) {
