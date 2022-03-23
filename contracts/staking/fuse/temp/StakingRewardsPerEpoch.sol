@@ -14,6 +14,8 @@ contract StakingRewardsPerEpoch is StakingRewards {
   uint256 public lastEpochIndex;
   uint256 public pendingStakes;
 
+  uint256[] public rewardsPerTokenAt;
+
   mapping (address => StakeInfoPerEpoch) public stakersInfoPerEpoch;
 
   constructor(
@@ -25,35 +27,27 @@ contract StakingRewardsPerEpoch is StakingRewards {
     pendingStakes += _amount;
     stakersInfoPerEpoch[_from].pendingStake += _amount;
     stakingToken.safeTransferFrom(_from, address(this), _amount);
+    stakersInfoPerEpoch[_from].indexOfLastEpochStaked = lastEpochIndex;
     emit PendingStaked(_from, _amount);
   }
 
   function _withdraw(address _from, uint256 _amount) internal override {
     pendingStakes -= _amount;
     stakersInfoPerEpoch[_from].pendingStake -= _amount;
+    if (stakersInfoPerEpoch[_from].pendingStake == 0) {
+      stakersInfoPerEpoch[_from].indexOfLastEpochStaked = 0;
+    }
     stakingToken.safeTransfer(_from, _amount);
     emit PendingWithdrawn(_from, _amount);
   }
 
-  function notifyRewardAmount(uint256 reward) external virtual onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
-      if (block.timestamp >= periodFinish) {
-          rewardRate = reward / rewardsDuration;
-      } else {
-          uint256 remaining = periodFinish - block.timestamp;
-          uint256 leftover = remaining * rewardRate;
-          rewardRate = (reward + leftover) / rewardsDuration;
-      }
+  function earned(address account) public virtual view returns (uint256) {
+      return stakersInfo[account].balance * (rewardPerToken() - stakersInfo[account].rewardPerTokenPaid) / PRECISION + stakersInfo[account].reward;
+  }
 
-      // Ensure the provided reward amount is not more than the balance in the contract.
-      // This keeps the reward rate in the right range, preventing overflows due to
-      // very high values of rewardRate in the earned and rewardsPerToken functions;
-      // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
-      uint balance = rewardsToken.balanceOf(address(this));
-      require(rewardRate <= balance / rewardsDuration, "Provided reward too high");
-
-      lastUpdateTime = block.timestamp;
-      periodFinish = block.timestamp + rewardsDuration;
-      emit RewardAdded(reward);
+  function notifyRewardAmount(uint256 reward) public override onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
+    super.notifyRewardAmount(reward);
+    lastEpochIndex++;
   }
 
   event PendingStaked(address indexed user, uint256 amount);

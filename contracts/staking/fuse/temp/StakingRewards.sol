@@ -27,7 +27,6 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
     }
 
     mapping(address => BaseStakeInfo) public stakersInfo;
-    uint256[] public rewardsPerTokenAt;
 
     uint256 private _totalSupply;
 
@@ -68,7 +67,7 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
             rewardPerTokenStored + (lastTimeRewardApplicable() - lastUpdateTime) * rewardRate * PRECISION / _totalSupply;
     }
 
-    function earned(address account) public view returns (uint256) {
+    function earned(address account) public virtual view returns (uint256) {
         return stakersInfo[account].balance * (rewardPerToken() - stakersInfo[account].rewardPerTokenPaid) / PRECISION + stakersInfo[account].reward;
     }
 
@@ -118,7 +117,7 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
 
     /* ========== RESTRICTED FUNCTIONS ========== */
 
-    function notifyRewardAmount(uint256 reward) external virtual onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
+    function notifyRewardAmount(uint256 reward) public virtual onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
         if (block.timestamp >= periodFinish) {
             rewardRate = reward / rewardsDuration;
         } else {
