@@ -4,6 +4,7 @@ pragma solidity >=0.8.0;
 import "./StakingRewards.sol";
 
 contract StakingRewardsPerEpoch is StakingRewards {
+  using SafeERC20 for IERC20;
 
   struct StakeInfoPerEpoch {
     uint256 pendingStake;
@@ -42,10 +43,10 @@ contract StakingRewardsPerEpoch is StakingRewards {
   }
 
   function _getRewardPerTokenPerUser(address _account) internal view returns(uint256) {
-    return rewardsPerTokenAt[lastEpochIndex] - rewardsPerTokenAt[stakersInfoPerEpoch[_from].indexOfLastEpochStaked];
+    return rewardsPerTokenAt[lastEpochIndex] - rewardsPerTokenAt[stakersInfoPerEpoch[_account].indexOfLastEpochStaked];
   }
 
-  function earned(address account) public virtual view returns (uint256) {
+  function earned(address account) public override view returns (uint256) {
       return stakersInfo[account].balance * (_getRewardPerTokenPerUser(account) - stakersInfo[account].rewardPerTokenPaid) / PRECISION + stakersInfo[account].reward;
   }
 

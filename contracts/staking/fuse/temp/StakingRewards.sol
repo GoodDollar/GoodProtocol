@@ -28,7 +28,7 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
 
     mapping(address => BaseStakeInfo) public stakersInfo;
 
-    uint256 private _totalSupply;
+    uint256 internal _totalSupply;
 
     bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
     uint256 public constant PRECISION = 1e18;
