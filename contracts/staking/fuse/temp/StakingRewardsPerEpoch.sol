@@ -13,8 +13,7 @@ contract StakingRewardsPerEpoch is StakingRewards {
   }
 
   uint256 public lastCollectUBIInterestIndex;
-  uint256 public totalPendingStakes;
-
+  uint256 public pendingStakes;
 
   mapping (address => StakeInfoPerEpoch) public stakersInfoPerEpoch;
 
@@ -24,10 +23,17 @@ contract StakingRewardsPerEpoch is StakingRewards {
   ) StakingRewards(_rewardsToken, _stakingToken) {}
 
   function _stake(address _from, uint256 _amount) internal override {
-    totalPendingStakes += _amount;
+    pendingStakes += _amount;
     stakersInfoPerEpoch[_from].pendingStake += _amount;
     stakingToken.safeTransferFrom(_from, address(this), _amount);
     emit PendingStaked(_from, _amount);
+  }
+
+  function _withdraw(address _from, uint256 _amount) internal override {
+    pendingStakes -= _amount;
+    stakersInfoPerEpoch[_from].pendingStake -= _amount;
+    stakingToken.safeTransfer(_from, _amount);
+    emit PendingWithdrawn(_from, _amount);
   }
 
   event PendingStaked(address indexed user, uint256 amount);
