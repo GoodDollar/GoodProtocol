@@ -7,12 +7,14 @@ contract StakingRewardsPerEpoch is StakingRewards {
 
 
   struct StakeInfoPerEpoch {
-    uint256 pendingStakes;
+    uint256 pendingStake;
     uint256 giveBackRatio;
     uint256 indexOfLastEpochStaked;
   }
 
   uint256 public lastCollectUBIInterestIndex;
+  uint256 public totalPendingStakes;
+
 
   mapping (address => StakeInfoPerEpoch) public stakersInfoPerEpoch;
 
@@ -22,7 +24,13 @@ contract StakingRewardsPerEpoch is StakingRewards {
   ) StakingRewards(_rewardsToken, _stakingToken) {}
 
   function _stake(address _from, uint256 _amount) internal override {
-    super._stake(_from, _amount);
+    totalPendingStakes += _amount;
+    stakersInfoPerEpoch[_from].pendingStake += _amount;
+    stakingToken.safeTransferFrom(_from, address(this), _amount);
+    emit PendingStaked(_from, _amount);
   }
+
+  event PendingStaked(address indexed user, uint256 amount);
+  event PendingWithdrawn(address indexed user, uint256 amount);
 
 }
