@@ -464,7 +464,7 @@ contract FuseStaking is DAOUpgradeableContract, Pausable, AccessControl, DSMath,
 
 	function _distributeGivebackAndQueryOracle(uint256 _amount) internal {
 		if (_amount == 0) return;
-		uint256[] memory faucetAddresses = spendingRateOracle.getFaucets();
+		address[] memory faucetAddresses = spendingRateOracle.getFaucets();
 		for (uint256 i = 0; i < faucetAddresses.length; i++) {
 			if (faucetAddresses[i] == address(ubiScheme) || faucetAddresses[i] == address(this)) {
 				continue;

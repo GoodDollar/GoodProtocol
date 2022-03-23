@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
+contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     /* ========== STATE VARIABLES ========== */
@@ -22,7 +22,7 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 
     struct BaseStakeInfo {
         uint256 rewardPerTokenPaid;
-        uint256 rewards;
+        uint256 reward;
         uint256 balance;
     }
 
@@ -39,7 +39,7 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
     constructor(
         address _rewardsToken,
         address _stakingToken
-    ) public {
+    ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(GUARDIAN_ROLE, msg.sender);
         rewardsToken = IERC20(_rewardsToken);
@@ -53,7 +53,7 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
     }
 
     function balanceOf(address account) external view returns (uint256) {
-        return stakerInfo[account].balance;
+        return stakersInfo[account].balance;
     }
 
     function lastTimeRewardApplicable() public view returns (uint256) {
@@ -69,7 +69,7 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
     }
 
     function earned(address account) public view returns (uint256) {
-        return stakerInfo[account].balance * (rewardPerToken() - stakerInfo[account].rewardPerTokenPaid) / PRECISION + stakerInfo[account].reward;
+        return stakersInfo[account].balance * (rewardPerToken() - stakersInfo[account].rewardPerTokenPaid) / PRECISION + stakersInfo[account].reward;
     }
 
     function getRewardForDuration() external view returns (uint256) {
@@ -78,11 +78,11 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 
     /* ========== MUTATIVE FUNCTIONS ========== */
 
-    function _stake(address _from, uint256 _amount) internal {
-        _totalSupply += amount;
-        stakerInfo[_from].balance += amount;
-        stakingToken.safeTransferFrom(_from, address(this), amount);
-        emit Staked(_from, amount);
+    function _stake(address _from, uint256 _amount) internal virtual {
+        _totalSupply += _amount;
+        stakersInfo[_from].balance += _amount;
+        stakingToken.safeTransferFrom(_from, address(this), _amount);
+        emit Staked(_from, _amount);
     }
 
     function stake(uint256 amount) external nonReentrant whenNotPaused updateReward(msg.sender) {
@@ -90,11 +90,11 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
         _stake(msg.sender, amount);
     }
 
-    function _withdraw(address _from, uint256 _amount) internal {
-        _totalSupply -= amount;
-        stakerInfo[_from].balance -= amount;
-        stakingToken.safeTransfer(_from, amount);
-        emit Withdrawn(_from, amount);
+    function _withdraw(address _from, uint256 _amount) internal virtual {
+        _totalSupply -= _amount;
+        stakersInfo[_from].balance -= _amount;
+        stakingToken.safeTransfer(_from, _amount);
+        emit Withdrawn(_from, _amount);
     }
 
     function withdraw(uint256 _amount) public nonReentrant updateReward(msg.sender) {
@@ -103,16 +103,16 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
     }
 
     function getReward() public nonReentrant updateReward(msg.sender) {
-        uint256 reward = stakerInfo[msg.sender].reward;
+        uint256 reward = stakersInfo[msg.sender].reward;
         if (reward > 0) {
-            stakerInfo[msg.sender].reward = 0;
+            stakersInfo[msg.sender].reward = 0;
             rewardsToken.safeTransfer(msg.sender, reward);
             emit RewardPaid(msg.sender, reward);
         }
     }
 
     function exit() external {
-        withdraw(stakerInfo[msg.sender].balance);
+        withdraw(stakersInfo[msg.sender].balance);
         getReward();
     }
 
@@ -160,9 +160,9 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
     function _updateReward(address _account) internal virtual {
       rewardPerTokenStored = rewardPerToken();
       lastUpdateTime = lastTimeRewardApplicable();
-      if (account != address(0)) {
-          stakerInfo[account].reward = earned(account);
-          stakerInfo[account].rewardPerTokenPaid = rewardPerTokenStored;
+      if (_account != address(0)) {
+          stakersInfo[_account].reward = earned(_account);
+          stakersInfo[_account].rewardPerTokenPaid = rewardPerTokenStored;
       }
     }
 
