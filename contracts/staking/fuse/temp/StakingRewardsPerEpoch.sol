@@ -14,6 +14,8 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps {
     uint256 indexOfLastEpochStaked;
   }
 
+  mapping (address => StakeInfoPerEpoch) public stakersInfoPerEpoch;
+
   uint256 public constant RATIO_BASE = 10000;
 
   address[] public validators;
@@ -31,24 +33,51 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps {
   uint256 public keeperAndCommunityPoolRatio;
   uint256 public communityPoolBalance;
 
+	uint256 public minGivebackRatio;
+	uint256 public globalGivebackRatio;
+
   uint256 public lastEpochIndex;
   uint256 public pendingStakes;
 
   uint256[] public rewardsPerTokenAt;
 
-  mapping (address => StakeInfoPerEpoch) public stakersInfoPerEpoch;
-
   constructor(
       address _rewardsToken,
-      address _stakingToken
-  ) StakingRewards(_rewardsToken, _stakingToken) {}
+      address _stakingToken,
+      uint256 _minGivebackRatio
+  ) StakingRewards(_rewardsToken, _stakingToken) {
+    minGivebackRatio = _minGivebackRatio;
+  }
 
-  function _stake(address _from, uint256 _amount) internal override {
+  function _stake(address _from, uint256 _amount, uint256 _giveBackRatio) internal override {
+    _updateStakerBalanceAndGiveback(_from, _amount, _giveBackRatio);
     pendingStakes += _amount;
     stakersInfoPerEpoch[_from].pendingStake += _amount;
     stakingToken.safeTransferFrom(_from, address(this), _amount);
     stakersInfoPerEpoch[_from].indexOfLastEpochStaked = lastEpochIndex;
     emit PendingStaked(_from, _amount);
+  }
+
+  function _updateStakerGivebackRatio(
+      address _to,
+      uint256 _amount,
+      uint256 _giveBackRatio
+  ) internal {
+    stakersInfoPerEpoch[_to].giveBackRatio = weightedAverage(
+        stakersInfoPerEpoch[_to].giveBackRatio,
+        stakersInfo[_to].balance,
+        _giveBackRatio,
+        _amount
+    );
+  }
+  
+  function _updateGlobalGivebackRatio() internal {    
+    // globalGivebackRatio = weightedAverage(
+    //     globalGivebackRatio,
+    //     pendingStakes,
+    //     _giveBackRatio,
+    //     _amount
+    // );
   }
 
   function _withdraw(address _from, uint256 _amount) internal override {
