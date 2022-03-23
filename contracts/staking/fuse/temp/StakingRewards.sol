@@ -20,12 +20,15 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
 
-    mapping(address => uint256) public userRewardPerTokenPaid;
-    mapping(address => uint256) public rewards;
+    struct StakeInfo {
+      uint256 rewardPerTokenPaid;
+      uint256 reward;
+      uint256 balance;
+    }
+
+    mapping(address => StakeInfo) internal stakeInfos;
 
     uint256 private _totalSupply;
-
-    mapping(address => uint256) internal _balances;
 
     bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
     uint256 public constant PRECISION = 1e18;
@@ -49,7 +52,7 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
     }
 
     function balanceOf(address account) external view returns (uint256) {
-        return _balances[account];
+        return stakeInfos[account].balance;
     }
 
     function lastTimeRewardApplicable() public view returns (uint256) {
@@ -65,7 +68,7 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
     }
 
     function earned(address account) public view returns (uint256) {
-        return _balances[account] * (rewardPerToken() - userRewardPerTokenPaid[account]) / PRECISION + rewards[account];
+        return stakeInfos[account].balance * (rewardPerToken() - stakeInfos[account].rewardPerTokenPaid) / PRECISION + stakeInfos[account].reward;
     }
 
     function getRewardForDuration() external view returns (uint256) {
@@ -76,9 +79,9 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
 
     function _stake(address _from, uint256 _amount) internal {
         _totalSupply += amount;
-        _balances[msg.sender] += amount;
-        stakingToken.safeTransferFrom(msg.sender, address(this), amount);
-        emit Staked(msg.sender, amount);
+        stakeInfos[_from].balance += amount;
+        stakingToken.safeTransferFrom(_from, address(this), amount);
+        emit Staked(_from, amount);
     }
 
     function stake(uint256 amount) external nonReentrant whenNotPaused updateReward(msg.sender) {
@@ -88,9 +91,9 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
 
     function _withdraw(address _from, uint256 _amount) internal {
         _totalSupply -= amount;
-        _balances[msg.sender] -= amount;
-        stakingToken.safeTransfer(msg.sender, amount);
-        emit Withdrawn(msg.sender, amount);
+        stakeInfos[_from].balance -= amount;
+        stakingToken.safeTransfer(_from, amount);
+        emit Withdrawn(_from, amount);
     }
 
     function withdraw(uint256 amount) public nonReentrant updateReward(msg.sender) {
@@ -99,22 +102,22 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
     }
 
     function getReward() public nonReentrant updateReward(msg.sender) {
-        uint256 reward = rewards[msg.sender];
+        uint256 reward = stakeInfos[msg.sender].reward;
         if (reward > 0) {
-            rewards[msg.sender] = 0;
+            stakeInfos[msg.sender].reward = 0;
             rewardsToken.safeTransfer(msg.sender, reward);
             emit RewardPaid(msg.sender, reward);
         }
     }
 
     function exit() external {
-        withdraw(_balances[msg.sender]);
+        withdraw(stakeInfos[msg.sender].balance);
         getReward();
     }
 
     /* ========== RESTRICTED FUNCTIONS ========== */
 
-    function notifyRewardAmount(uint256 reward) external onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
+    function notifyRewardAmount(uint256 reward) external virtual onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
         if (block.timestamp >= periodFinish) {
             rewardRate = reward / rewardsDuration;
         } else {
@@ -138,7 +141,7 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
     // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external onlyRole(GUARDIAN_ROLE) {
         require(tokenAddress != address(stakingToken), "Cannot withdraw the staking token");
-        IERC20(tokenAddress).safeTransfer(owner, tokenAmount);
+        IERC20(tokenAddress).safeTransfer(msg.sender, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }
 
@@ -153,13 +156,17 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
 
     /* ========== MODIFIERS ========== */
 
+    function _updateReward(address _account) internal virtual {
+      rewardPerTokenStored = rewardPerToken();
+      lastUpdateTime = lastTimeRewardApplicable();
+      if (account != address(0)) {
+          stakeInfos[account].reward = earned(account);
+          stakeInfos[account].rewardPerTokenPaid = rewardPerTokenStored;
+      }
+    }
+
     modifier updateReward(address account) {
-        rewardPerTokenStored = rewardPerToken();
-        lastUpdateTime = lastTimeRewardApplicable();
-        if (account != address(0)) {
-            rewards[account] = earned(account);
-            userRewardPerTokenPaid[account] = rewardPerTokenStored;
-        }
+        _updateReward(account);
         _;
     }
 
