@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import "./StakingRewards.sol";
-import "./GoodDollarSwaps.sol";
 import "./IConsensus.sol";
 
 contract ValidatorsManagement {
