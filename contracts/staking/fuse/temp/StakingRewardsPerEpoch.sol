@@ -36,6 +36,7 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps, ValidatorsMa
 
   uint256 public lastEpochIndex;
   uint256 public pendingStakes;
+  uint256 public pendingGivebackRatio;
 
   ISpendingRateOracle public spendingRateOracle;
 
@@ -50,15 +51,16 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps, ValidatorsMa
 
   function _stake(address _from, uint256 _amount, uint256 _giveBackRatio) internal override {
     require(_amount == msg.value, "amountProvidedMustBeEqualToMsgValue");
-    _updateStakerBalanceAndGiveback(_from, _amount, _giveBackRatio);
+    require(_giveBackRatio >= minGivebackRatio, "giveback should be higher or equal to minimum");
     require(_stakeNextValidator(_amount, address(0)), "stakeInConsensusIsNotPerformed");
+    _updateStakerAndPendingGivebackRatio(_from, _amount, _giveBackRatio);
     pendingStakes += _amount;
     stakersInfoPerEpoch[_from].pendingStake += _amount;
-    stakersInfoPerEpoch[_from].indexOfLastEpochStaked = lastEpochIndex;
+    stakersInfoPerEpoch[_from].indexOfLastEpochStaked = lastEpochIndex; // should be + 1?
     emit PendingStaked(_from, _amount);
   }
 
-  function _updateStakerGivebackRatio(
+  function _updateStakerAndPendingGivebackRatio(
       address _to,
       uint256 _amount,
       uint256 _giveBackRatio
@@ -69,15 +71,21 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps, ValidatorsMa
         _giveBackRatio,
         _amount
     );
+    pendingGivebackRatio = weightedAverage(
+        pendingGivebackRatio,
+        pendingStakes,
+        _giveBackRatio,
+        _amount
+    );
   }
 
   function _updateGlobalGivebackRatio() internal {
-    // globalGivebackRatio = weightedAverage(
-    //     globalGivebackRatio,
-    //     pendingStakes,
-    //     _giveBackRatio,
-    //     _amount
-    // );
+    globalGivebackRatio = weightedAverage(
+        globalGivebackRatio,
+        _totalSupply,
+        pendingGivebackRatio,
+        pendingStakes
+    );
   }
 
   function _withdraw(address _from, uint256 _amount) internal override {
@@ -112,12 +120,16 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps, ValidatorsMa
   function _updateReward(address _account) internal override {
     lastUpdateTime = lastTimeRewardApplicable();
     if (_account != address(0)) {
-        stakersInfo[_account].balance += stakersInfoPerEpoch[_from].pendingStake;
-        stakersInfoPerEpoch[_from].pendingStake = 0;
         stakersInfo[_account].reward = earned(_account);
         stakersInfo[_account].rewardPerTokenPaid = _getRewardPerTokenPerUser(_account);
     }
   }
+
+  function happenOnNextCollectUbi() public {
+    // todo: save which accounts have pending stakes this epoch and iterate only on them and not all
+    stakersInfo[_account].balance += stakersInfoPerEpoch[_account].pendingStake; 
+    stakersInfoPerEpoch[_account].pendingStake = 0;
+  } 
 
   function notifyRewardAmount(uint256) external override onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
     _totalSupply += pendingStakes;
