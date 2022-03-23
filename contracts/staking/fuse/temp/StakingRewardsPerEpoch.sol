@@ -53,6 +53,8 @@ contract StakingRewardsPerEpoch is StakingRewards {
   function _updateReward(address _account) internal override {
     lastUpdateTime = lastTimeRewardApplicable();
     if (_account != address(0)) {
+        stakersInfo[_account].balance += stakersInfoPerEpoch[_from].pendingStake;
+        stakersInfoPerEpoch[_from].pendingStake = 0;
         stakersInfo[_account].reward = earned(_account);
         stakersInfo[_account].rewardPerTokenPaid = _getRewardPerTokenPerUser(_account);
     }
