@@ -4,6 +4,7 @@ pragma solidity >=0.8.0;
 import "./StakingRewards.sol";
 import "./GoodDollarSwaps.sol";
 import "./IConsensus.sol";
+import "../ISpendingRateOracle.sol";
 
 contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps {
   using SafeERC20 for IERC20;
@@ -17,10 +18,6 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps {
   mapping (address => StakeInfoPerEpoch) public stakersInfoPerEpoch;
 
   uint256 public constant RATIO_BASE = 10000;
-
-  address[] public validators;
-
-  IConsensus public consensus;
 
   Uniswap public uniswapV2Router;
   IGoodDollar public goodDollar;
@@ -39,21 +36,23 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps {
   uint256 public lastEpochIndex;
   uint256 public pendingStakes;
 
+  ISpendingRateOracle public spendingRateOracle;
+
   uint256[] public rewardsPerTokenAt;
 
   constructor(
       address _rewardsToken,
-      address _stakingToken,
       uint256 _minGivebackRatio
-  ) StakingRewards(_rewardsToken, _stakingToken) {
+  ) StakingRewards(_rewardsToken, address(0)) {
     minGivebackRatio = _minGivebackRatio;
   }
 
   function _stake(address _from, uint256 _amount, uint256 _giveBackRatio) internal override {
+    require(_amount == msg.value, "amountProvidedMustBeEqualToMsgValue");
     _updateStakerBalanceAndGiveback(_from, _amount, _giveBackRatio);
+    require(_stakeNextValidator(_amount, address(0)), "stakeInConsensusIsNotPerformed");
     pendingStakes += _amount;
     stakersInfoPerEpoch[_from].pendingStake += _amount;
-    stakingToken.safeTransferFrom(_from, address(this), _amount);
     stakersInfoPerEpoch[_from].indexOfLastEpochStaked = lastEpochIndex;
     emit PendingStaked(_from, _amount);
   }
@@ -70,8 +69,8 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps {
         _amount
     );
   }
-  
-  function _updateGlobalGivebackRatio() internal {    
+
+  function _updateGlobalGivebackRatio() internal {
     // globalGivebackRatio = weightedAverage(
     //     globalGivebackRatio,
     //     pendingStakes,
@@ -81,13 +80,28 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps {
   }
 
   function _withdraw(address _from, uint256 _amount) internal override {
+    uint256 effectiveBalance = address(this).balance;
+
+		_gatherFuseFromValidators(_amount);
+
+		effectiveBalance = address(this).balance - effectiveBalance; //use only undelegated funds
+
+    // in case some funds where not withdrawn
+		if (_amount > effectiveBalance) {
+			_amount = effectiveBalance;
+		}
+
     pendingStakes -= _amount;
     stakersInfoPerEpoch[_from].pendingStake -= _amount;
-    if (stakersInfoPerEpoch[_from].pendingStake == 0) {
-      stakersInfoPerEpoch[_from].indexOfLastEpochStaked = 0;
-    }
-    stakingToken.safeTransfer(_from, _amount);
+
+    if (_amount > 0) {
+			payable(_from).transfer(_amount);
+		}
     emit PendingWithdrawn(_from, _amount);
+  }
+
+  function _balanceInRewardToken() internal view override returns(uint256) {
+    return rewardsToken.balanceOf(address(this));
   }
 
   function _getRewardPerTokenPerUser(address _account) internal view returns(uint256) {
@@ -108,100 +122,25 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps {
     }
   }
 
-  function notifyRewardAmount(uint256 reward) external override onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
+  function notifyRewardAmount(uint256) external override onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
     _totalSupply += pendingStakes;
     rewardsPerTokenAt.push(rewardPerToken());
-    _notifyRewardAmount(reward);
     lastEpochIndex++;
+    // distribute DAO part
+    // distribute community pool and UBI scheme
+    // buy GD for stakers
+    uint256 reward = 0; // bought GD
+    _notifyRewardAmount(reward);
   }
 
-  function _gatherFuseFromValidators(uint256 _value) internal {
-		uint256 toCollect = _value;
-		uint256 perValidator = _value / validators.length;
-		for (uint256 i = 0; i < validators.length; i++) {
-			uint256 cur = consensus.delegatedAmount(
-				address(this),
-				validators[i]
-			);
-			if (cur == 0) continue;
-			if (cur <= perValidator) {
-				_safeUndelegate(validators[i], cur);
-				toCollect = toCollect - cur;
-			} else {
-				_safeUndelegate(validators[i], perValidator);
-				toCollect = toCollect - perValidator;
-			}
-			if (toCollect == 0) break;
-		}
+  function addValidator(address _validator) external onlyRole(GUARDIAN_ROLE) {
+    _addValidator(_validator);
 	}
 
-  function _stakeNextValidator(uint256 _value, address _validator)
-		internal
-		returns (bool)
-	{
-		if (validators.length == 0) return false;
-		if (_validator != address(0)) {
-			consensus.delegate{ value: _value }(_validator);
-			return true;
-		}
-
-		uint256 perValidator = (totalDelegated() + _value) / validators.length;
-		uint256 left = _value;
-		for (uint256 i = 0; i < validators.length && left > 0; i++) {
-			uint256 cur = consensus.delegatedAmount(
-				address(this),
-				validators[i]
-			);
-
-			if (cur < perValidator) {
-				uint256 toDelegate = perValidator - cur;
-				toDelegate = toDelegate < left ? toDelegate : left;
-				consensus.delegate{ value: toDelegate }(validators[i]);
-				left = left - toDelegate;
-			}
-		}
-
-		return true;
+	function removeValidator(address _validator) external onlyRole(GUARDIAN_ROLE) {
+    _removeValidator(_validator);
 	}
-
-  function totalDelegated() external view returns (uint256) {
-    uint256 total = 0;
-    for (uint256 i = 0; i < validators.length; i++) {
-      uint256 cur = consensus.delegatedAmount(
-        address(this),
-        validators[i]
-      );
-      total += cur;
-    }
-    return total;
-  }
-
-  function _safeUndelegate(address _validator, uint256 _amount)
-    internal
-    returns (bool)
-  {
-    try consensus.withdraw(_validator, _amount) {
-      return true;
-    } catch Error(
-      string memory /*reason*/
-    ) {
-      // This is executed in case
-      // revert was called inside getData
-      // and a reason string was provided.
-      return false;
-    } catch (
-      bytes memory /*lowLevelData*/
-    ) {
-      // This is executed in case revert() was used
-      // or there was a failing assertion, division
-      // by zero, etc. inside getData.
-      return false;
-    }
-  }
-
-  receive() external payable {}
 
   event PendingStaked(address indexed user, uint256 amount);
   event PendingWithdrawn(address indexed user, uint256 amount);
-
 }

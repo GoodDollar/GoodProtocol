@@ -84,7 +84,13 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
         emit Staked(_from, _amount);
     }
 
-    function stake(uint256 amount) external nonReentrant whenNotPaused updateReward(msg.sender) {
+    function stake(uint256 amount)
+      external
+      nonReentrant
+      whenNotPaused
+      payable
+      updateReward(msg.sender)
+    {
         require(amount > 0, "Cannot stake 0");
         _stake(msg.sender, amount);
     }
@@ -101,13 +107,17 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
         _withdraw(msg.sender, _amount);
     }
 
+    function _getReward(address _to) internal virtual {
+      uint256 reward = stakersInfo[_to].reward;
+      if (reward > 0) {
+          stakersInfo[_to].reward = 0;
+          rewardsToken.safeTransfer(_to, reward);
+          emit RewardPaid(_to, reward);
+      }
+    }
+
     function getReward() public nonReentrant updateReward(msg.sender) {
-        uint256 reward = stakersInfo[msg.sender].reward;
-        if (reward > 0) {
-            stakersInfo[msg.sender].reward = 0;
-            rewardsToken.safeTransfer(msg.sender, reward);
-            emit RewardPaid(msg.sender, reward);
-        }
+      _getReward(msg.sender);
     }
 
     function exit() external {
@@ -117,7 +127,7 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
 
     /* ========== RESTRICTED FUNCTIONS ========== */
 
-    function _notifyRewardAmount(uint256 reward) internal {
+    function _notifyRewardAmount(uint256 reward) internal virtual {
         if (block.timestamp >= periodFinish) {
             rewardRate = reward / rewardsDuration;
         } else {
@@ -130,15 +140,18 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
         // This keeps the reward rate in the right range, preventing overflows due to
         // very high values of rewardRate in the earned and rewardsPerToken functions;
         // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
-        uint balance = rewardsToken.balanceOf(address(this));
-        require(rewardRate <= balance / rewardsDuration, "Provided reward too high");
+        require(rewardRate <= rewardsToken.balanceOf(address(this)) / rewardsDuration, "Provided reward too high");
 
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + rewardsDuration;
         emit RewardAdded(reward);
     }
 
-    function notifyRewardAmount(uint256 reward) external virtual onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
+    function notifyRewardAmount(uint256 reward)
+      external
+      onlyRole(GUARDIAN_ROLE)
+      updateReward(address(0))
+    {
         _notifyRewardAmount(reward);
     }
 
@@ -173,6 +186,8 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
         _updateReward(account);
         _;
     }
+
+    receive() external payable {}
 
     /* ========== EVENTS ========== */
 
