@@ -2,8 +2,10 @@
 pragma solidity >=0.8.0;
 
 import "./StakingRewards.sol";
+import "./GoodDollarSwaps.sol";
+import "./IConsensus.sol";
 
-contract StakingRewardsPerEpoch is StakingRewards {
+contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps {
   using SafeERC20 for IERC20;
 
   struct StakeInfoPerEpoch {
@@ -11,6 +13,23 @@ contract StakingRewardsPerEpoch is StakingRewards {
     uint256 giveBackRatio;
     uint256 indexOfLastEpochStaked;
   }
+
+  uint256 public constant RATIO_BASE = 10000;
+
+  address[] public validators;
+
+  IConsensus public consensus;
+
+  Uniswap public uniswapV2Router;
+  IGoodDollar public goodDollar;
+  IUBIScheme public ubiScheme;
+  UniswapFactory public uniswapFactory;
+  UniswapPair public uniswapGoodDollarFusePair;
+
+  uint256 public maxSlippageRatio; //actually its max price impact ratio
+
+  uint256 public keeperAndCommunityPoolRatio;
+  uint256 public communityPoolBalance;
 
   uint256 public lastEpochIndex;
   uint256 public pendingStakes;
@@ -60,12 +79,98 @@ contract StakingRewardsPerEpoch is StakingRewards {
     }
   }
 
-  function notifyRewardAmount(uint256 reward) public override onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
+  function notifyRewardAmount(uint256 reward) external override onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
     _totalSupply += pendingStakes;
     rewardsPerTokenAt.push(rewardPerToken());
-    super.notifyRewardAmount(reward);
+    _notifyRewardAmount(reward);
     lastEpochIndex++;
   }
+
+  function _gatherFuseFromValidators(uint256 _value) internal {
+		uint256 toCollect = _value;
+		uint256 perValidator = _value / validators.length;
+		for (uint256 i = 0; i < validators.length; i++) {
+			uint256 cur = consensus.delegatedAmount(
+				address(this),
+				validators[i]
+			);
+			if (cur == 0) continue;
+			if (cur <= perValidator) {
+				_safeUndelegate(validators[i], cur);
+				toCollect = toCollect - cur;
+			} else {
+				_safeUndelegate(validators[i], perValidator);
+				toCollect = toCollect - perValidator;
+			}
+			if (toCollect == 0) break;
+		}
+	}
+
+  function _stakeNextValidator(uint256 _value, address _validator)
+		internal
+		returns (bool)
+	{
+		if (validators.length == 0) return false;
+		if (_validator != address(0)) {
+			consensus.delegate{ value: _value }(_validator);
+			return true;
+		}
+
+		uint256 perValidator = (totalDelegated() + _value) / validators.length;
+		uint256 left = _value;
+		for (uint256 i = 0; i < validators.length && left > 0; i++) {
+			uint256 cur = consensus.delegatedAmount(
+				address(this),
+				validators[i]
+			);
+
+			if (cur < perValidator) {
+				uint256 toDelegate = perValidator - cur;
+				toDelegate = toDelegate < left ? toDelegate : left;
+				consensus.delegate{ value: toDelegate }(validators[i]);
+				left = left - toDelegate;
+			}
+		}
+
+		return true;
+	}
+
+  function totalDelegated() external view returns (uint256) {
+    uint256 total = 0;
+    for (uint256 i = 0; i < validators.length; i++) {
+      uint256 cur = consensus.delegatedAmount(
+        address(this),
+        validators[i]
+      );
+      total += cur;
+    }
+    return total;
+  }
+
+  function _safeUndelegate(address _validator, uint256 _amount)
+    internal
+    returns (bool)
+  {
+    try consensus.withdraw(_validator, _amount) {
+      return true;
+    } catch Error(
+      string memory /*reason*/
+    ) {
+      // This is executed in case
+      // revert was called inside getData
+      // and a reason string was provided.
+      return false;
+    } catch (
+      bytes memory /*lowLevelData*/
+    ) {
+      // This is executed in case revert() was used
+      // or there was a failing assertion, division
+      // by zero, etc. inside getData.
+      return false;
+    }
+  }
+
+  receive() external payable {}
 
   event PendingStaked(address indexed user, uint256 amount);
   event PendingWithdrawn(address indexed user, uint256 amount);

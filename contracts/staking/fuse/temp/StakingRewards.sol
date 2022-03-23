@@ -117,7 +117,7 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
 
     /* ========== RESTRICTED FUNCTIONS ========== */
 
-    function notifyRewardAmount(uint256 reward) public virtual onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
+    function _notifyRewardAmount(uint256 reward) internal {
         if (block.timestamp >= periodFinish) {
             rewardRate = reward / rewardsDuration;
         } else {
@@ -136,6 +136,10 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + rewardsDuration;
         emit RewardAdded(reward);
+    }
+
+    function notifyRewardAmount(uint256 reward) external virtual onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
+        _notifyRewardAmount(reward);
     }
 
     // Added to support recovering LP Rewards from other systems such as BAL to be distributed to holders
