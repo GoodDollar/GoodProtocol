@@ -100,10 +100,6 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps {
     emit PendingWithdrawn(_from, _amount);
   }
 
-  function _balanceInRewardToken() internal view override returns(uint256) {
-    return rewardsToken.balanceOf(address(this));
-  }
-
   function _getRewardPerTokenPerUser(address _account) internal view returns(uint256) {
     return rewardsPerTokenAt[lastEpochIndex] - rewardsPerTokenAt[stakersInfoPerEpoch[_account].indexOfLastEpochStaked];
   }
