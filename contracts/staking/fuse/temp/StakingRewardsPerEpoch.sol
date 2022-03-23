@@ -5,8 +5,9 @@ import "./StakingRewards.sol";
 import "./GoodDollarSwaps.sol";
 import "./IConsensus.sol";
 import "../ISpendingRateOracle.sol";
+import "./ValidatorsManagement.sol";
 
-contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps {
+contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps, ValidatorsManagement {
   using SafeERC20 for IERC20;
 
   struct StakeInfoPerEpoch {
