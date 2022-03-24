@@ -2,10 +2,6 @@
 pragma solidity >=0.8.0;
 
 import "./StakingRewards.sol";
-import "./GoodDollarSwaps.sol";
-import "../../IConsensus.sol";
-import "../../ISpendingRateOracle.sol";
-import "./ValidatorsManagement.sol";
 
 contract StakingRewardsPerEpoch is StakingRewards {
 	using SafeERC20 for IERC20;
