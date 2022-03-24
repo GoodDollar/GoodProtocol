@@ -35,8 +35,10 @@ contract StakingRewardsPerEpoch is StakingRewards {
 	}
 
 	function _withdraw(address _from, uint256 _amount) internal virtual override {
-		pendingStakes -= _amount;
-		stakersInfoPerEpoch[_from].pendingStake -= _amount;
+		if (stakersInfoPerEpoch[_from].pendingStake >= _amount) {
+			pendingStakes -= _amount;
+			stakersInfoPerEpoch[_from].pendingStake -= _amount;
+		}
 		stakingToken.safeTransfer(_from, _amount);
 		emit PendingWithdrawn(_from, _amount);
 	}
@@ -61,18 +63,22 @@ contract StakingRewardsPerEpoch is StakingRewards {
 	}
 
 	function _updateReward(address _account) internal virtual override {
-		lastUpdateTime = lastTimeRewardApplicable();
-		if (_account != address(0)) {
-			stakersInfo[_account].balance += stakersInfoPerEpoch[_account]
-				.pendingStake;
-			stakersInfoPerEpoch[_account].pendingStake = 0;
-			stakersInfo[_account].reward = earned(_account);
-			stakersInfo[_account].rewardPerTokenPaid = _getRewardPerTokenPerUser(
-				_account
-			);
-		}
+			lastUpdateTime = lastTimeRewardApplicable();
+			if (_account != address(0)) {
+				if (
+						stakersInfoPerEpoch[_account].indexOfLastEpochStaked !=
+						lastUpdateTime
+				) {
+						stakersInfo[_account].balance += stakersInfoPerEpoch[_account]
+								.pendingStake;
+						stakersInfoPerEpoch[_account].pendingStake = 0;
+				}
+				stakersInfo[_account].reward = earned(_account);
+				stakersInfo[_account]
+						.rewardPerTokenPaid = _getRewardPerTokenPerUser(_account);
+			}
 	}
-
+	
 	function notifyRewardAmount(uint256 reward)
 		external
 		override
