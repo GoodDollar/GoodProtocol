@@ -27,7 +27,7 @@ contract StakingRewardsPerEpoch is StakingRewards {
 		stakersInfoPerEpoch[_from].pendingStake += _amount;
 		stakersInfoPerEpoch[_from].indexOfLastEpochStaked = lastEpochIndex;
 		stakingToken.safeTransferFrom(_from, address(this), _amount);
-		emit PendingStaked(_from, _amount);
+		emit Staked(_from, _amount);
 	}
 
 	function _withdraw(address _from, uint256 _amount) internal virtual override {
@@ -36,7 +36,7 @@ contract StakingRewardsPerEpoch is StakingRewards {
 			stakersInfoPerEpoch[_from].pendingStake -= _amount;
 		}
 		stakingToken.safeTransfer(_from, _amount);
-		emit PendingWithdrawn(_from, _amount);
+		emit StakeWithdraw(_from, _amount);
 	}
 
 	function _getRewardPerTokenPerUser(address _account)
@@ -86,7 +86,4 @@ contract StakingRewardsPerEpoch is StakingRewards {
 		lastEpochIndex++;
 		_notifyRewardAmount(reward);
 	}
-
-	event PendingStaked(address indexed user, uint256 amount);
-	event PendingWithdrawn(address indexed user, uint256 amount);
 }

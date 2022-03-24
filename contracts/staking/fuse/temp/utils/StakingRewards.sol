@@ -102,7 +102,7 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
 		_totalSupply -= _amount;
 		stakersInfo[_from].balance -= _amount;
 		stakingToken.safeTransfer(_from, _amount);
-		emit Withdrawn(_from, _amount);
+		emit StakeWithdraw(_from, _amount);
 	}
 
 	function withdraw(uint256 _amount)
@@ -211,9 +211,17 @@ contract StakingRewards is AccessControl, ReentrancyGuard, Pausable {
 
 	/* ========== EVENTS ========== */
 
+	/**
+	 * @dev Emitted when `staker` stakes an `amount` of the staking coin
+	 */
+	event Staked(address indexed staker, uint256 amount);
+
+	/**
+	 * @dev Emitted when `staker` withdraws an `amount` of the staking coin
+	 */
+	event StakeWithdraw(address indexed staker, uint256 amount);
+	
 	event RewardAdded(uint256 reward);
-	event Staked(address indexed user, uint256 amount);
-	event Withdrawn(address indexed user, uint256 amount);
 	event RewardPaid(address indexed user, uint256 reward);
 	event RewardsDurationUpdated(uint256 newDuration);
 	event Recovered(address token, uint256 amount);
