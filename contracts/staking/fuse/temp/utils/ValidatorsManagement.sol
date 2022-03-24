@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import "./IConsensus.sol";
+import "../../IConsensus.sol";
 
 contract ValidatorsManagement {
   address[] public validators;

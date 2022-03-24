@@ -1,23 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import "./StakingRewards.sol";
-import "./GoodDollarSwaps.sol";
-import "./IConsensus.sol";
-import "../ISpendingRateOracle.sol";
-import "./ValidatorsManagement.sol";
+import "./utils/StakingRewardsPerEpoch.sol";
 
-contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps, ValidatorsManagement {
-  using SafeERC20 for IERC20;
-
-  struct StakeInfoPerEpoch {
-    uint256 pendingStake;
-    uint256 giveBackRatio;
-    uint256 indexOfLastEpochStaked;
-  }
-
-  mapping (address => StakeInfoPerEpoch) public stakersInfoPerEpoch;
-
+contract ExperimentalFuseStaking is StakingRewardsPerEpoch, GoodDollarSwaps, ValidatorsManagement {
   uint256 public constant RATIO_BASE = 10000;
 
   Uniswap public uniswapV2Router;
@@ -31,23 +17,13 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps, ValidatorsMa
   uint256 public keeperAndCommunityPoolRatio;
   uint256 public communityPoolBalance;
 
-	uint256 public minGivebackRatio;
-	uint256 public globalGivebackRatio;
+  uint256 public minGivebackRatio;
+  uint256 public globalGivebackRatio;
 
-  uint256 public lastEpochIndex;
-  uint256 public pendingStakes;
   uint256 public pendingGivebackRatio;
-
   ISpendingRateOracle public spendingRateOracle;
 
-  uint256[] public rewardsPerTokenAt;
-
-  constructor(
-      address _rewardsToken,
-      uint256 _minGivebackRatio
-  ) StakingRewards(_rewardsToken, address(0)) {
-    minGivebackRatio = _minGivebackRatio;
-  }
+  mapping(address => uint256) public giveBackRatioPerUser; 
 
   function _stake(address _from, uint256 _amount, uint256 _giveBackRatio) internal override {
     require(_amount == msg.value, "amountProvidedMustBeEqualToMsgValue");
@@ -127,9 +103,9 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps, ValidatorsMa
 
   function happenOnNextCollectUbi() public {
     // todo: save which accounts have pending stakes this epoch and iterate only on them and not all
-    stakersInfo[_account].balance += stakersInfoPerEpoch[_account].pendingStake; 
+    stakersInfo[_account].balance += stakersInfoPerEpoch[_account].pendingStake;
     stakersInfoPerEpoch[_account].pendingStake = 0;
-  } 
+  }
 
   function notifyRewardAmount(uint256) external override onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
     _totalSupply += pendingStakes;
@@ -150,6 +126,4 @@ contract StakingRewardsPerEpoch is StakingRewards, GoodDollarSwaps, ValidatorsMa
     _removeValidator(_validator);
 	}
 
-  event PendingStaked(address indexed user, uint256 amount);
-  event PendingWithdrawn(address indexed user, uint256 amount);
 }
