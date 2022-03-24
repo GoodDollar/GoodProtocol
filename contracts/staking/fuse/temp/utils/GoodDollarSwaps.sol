@@ -7,9 +7,26 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import "../../PegSwap.sol";
+import "../../../../Interfaces.sol";
+
 contract GoodDollarSwaps {
 
-  /**
+  Uniswap public uniswapV2Router;
+  IGoodDollar public goodDollar;
+  UniswapFactory public uniswapFactory;
+  UniswapPair public uniswapGoodDollarFusePair;
+
+  uint256 public constant RATIO_BASE = 10000;
+
+  uint256 public maxSlippageRatio; //actually its max price impact ratio
+
+	address public USDC;
+	address public fUSD;
+
+	PegSwap public pegSwap;
+
+	/**
 	 * @dev internal method to buy goodDollar from fuseswap
 	 * @param _value fuse to be sold
 	 * @return uniswapV2Router coversion results uint256[2]
@@ -18,10 +35,9 @@ contract GoodDollarSwaps {
 		//buy from uniwasp
 		require(_value > 0, "buy value should be > 0");
 		(uint256 maxFuse, uint256 fuseGDOut) = calcMaxFuseWithPriceImpact(_value);
-		(
-			uint256 maxFuseUSDC,
-			uint256 usdcGDOut
-		) = calcMaxFuseUSDCWithPriceImpact(_value);
+		(uint256 maxFuseUSDC, uint256 usdcGDOut) = calcMaxFuseUSDCWithPriceImpact(
+			_value
+		);
 		address[] memory path;
 		if (maxFuse >= maxFuseUSDC) {
 			path = new address[](2);
@@ -111,7 +127,7 @@ contract GoodDollarSwaps {
 		);
 		(uint256 rg_gd, uint256 rg_usdc, ) = uniswapGDUSDCPair.getReserves();
 		(uint256 r_fuse, uint256 r_fusd, ) = uniswapFUSEfUSDPair.getReserves();
-		uint256 fusdPriceInFuse = r_fuse * 1e18 / r_fusd; //fusd is 1e18 so to keep in original 1e18 precision we first multiply by 1e18
+		uint256 fusdPriceInFuse = (r_fuse * 1e18) / r_fusd; //fusd is 1e18 so to keep in original 1e18 precision we first multiply by 1e18
 		// console.log(
 		// 	"rgd: %s rusdc:%s usdcPriceInFuse: %s",
 		// 	rg_gd,
@@ -121,7 +137,7 @@ contract GoodDollarSwaps {
 		// console.log("rfuse: %s rusdc:%s", r_fuse, r_fusd);
 
 		//how many fusd we can get for fuse
-		uint256 fuseValueInfUSD = _value * 1e18 / fusdPriceInFuse; //value and usdPriceInFuse are in 1e18, we mul by 1e18 to keep 18 decimals precision
+		uint256 fuseValueInfUSD = (_value * 1e18) / fusdPriceInFuse; //value and usdPriceInFuse are in 1e18, we mul by 1e18 to keep 18 decimals precision
 		// console.log("fuse fusd value: %s", fuseValueInfUSD);
 
 		(uint256 maxUSDC, uint256 tokenOut) = calcMaxTokenWithPriceImpact(
@@ -131,7 +147,7 @@ contract GoodDollarSwaps {
 		); //expect r_token to be in 18 decimals
 		// console.log("max USDC: %s", maxUSDC);
 		gdOut = tokenOut;
-		maxFuse = maxUSDC * fusdPriceInFuse / 1e18; //both are in 1e18 precision, div by 1e18 to keep precision
+		maxFuse = (maxUSDC * fusdPriceInFuse) / 1e18; //both are in 1e18 precision, div by 1e18 to keep precision
 	}
 
 	/**
@@ -160,4 +176,5 @@ contract GoodDollarSwaps {
 		maxToken = maxToken < _value ? maxToken : _value;
 		tokenOut = _getAmountOut(maxToken, r_token, r_gd);
 	}
+
 }
