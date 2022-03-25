@@ -30,11 +30,6 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 
 	IERC20 public rewardsToken;
 	IERC20 public stakingToken;
-	uint256 public periodFinish = 0;
-	uint256 public rewardRate = 0;
-	uint256 public rewardsDuration = 7 days;
-	uint256 public lastUpdateTime;
-	uint256 public rewardPerTokenStored;
 
 	mapping(address => StakeInfo) public stakersInfo;
 
@@ -62,10 +57,6 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 
 	function balanceOf(address account) external view returns (uint256) {
 		return stakersInfo[account].balance;
-	}
-
-	function lastTimeRewardApplicable() public view returns (uint256) {
-		return block.timestamp < periodFinish ? block.timestamp : periodFinish;
 	}
 
 	function stake(uint256 amount)
@@ -97,10 +88,9 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 		getReward();
 	}
 
-	// TODO: remove the method
 	function rewardPerToken() public view returns (uint256) {
 		if (_totalSupply == 0) {
-			return rewardPerTokenStored;
+			return rewardPerTokenAt[0];
 		}
 		return
 			rewardPerTokenStored +
@@ -108,10 +98,20 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 			_totalSupply;
 	}
 
+	function _getRewardPerTokenPerUser(address _account)
+		internal
+		view
+		returns (uint256)
+	{
+		return
+			rewardsPerTokenAt[lastEpochIndex] -
+			rewardsPerTokenAt[stakersInfo[_account].indexOfLastEpochStaked + 1];
+	}
+
 	function earned(address account) public view  returns (uint256) {
 		return
 			(stakersInfo[account].balance *
-				(_getRewardPerTokenPerUser(account) -
+				(rewardPerToken() -
 					stakersInfo[account].rewardPerTokenPaid)) /
 			PRECISION +
 			stakersInfo[account].reward;
@@ -130,7 +130,7 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 	function _addPendingStakesToBalanceOnTimeUpdate(address _account) internal {
 		if (
 					stakersInfo[_account].indexOfLastEpochStaked !=
-					lastUpdateTime
+					lastEpochIndex
 		) {
 				stakersInfo[_account].balance += stakersInfo[_account]
 						.pendingStake;
@@ -169,16 +169,6 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 		rewardsPerTokenAt.push(rewardPerToken());
 		lastEpochIndex++;
 		_updatePeriodAndRate(reward);
-	}
-
-	function _getRewardPerTokenPerUser(address _account)
-		internal
-		view
-		returns (uint256)
-	{
-		return
-			rewardsPerTokenAt[lastEpochIndex] -
-			rewardsPerTokenAt[stakersInfo[_account].indexOfLastEpochStaked];
 	}
 
 	function _withdraw(address _from, uint256 _amount) internal virtual {
