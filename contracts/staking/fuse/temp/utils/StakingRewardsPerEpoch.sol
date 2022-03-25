@@ -59,20 +59,24 @@ contract StakingRewardsPerEpoch is StakingRewards {
 	}
 
 	function _updateReward(address _account) internal virtual override {
-			lastUpdateTime = lastTimeRewardApplicable();
-			if (_account != address(0)) {
-				if (
-						stakersInfoPerEpoch[_account].indexOfLastEpochStaked !=
-						lastUpdateTime
-				) {
-						stakersInfo[_account].balance += stakersInfoPerEpoch[_account]
-								.pendingStake;
-						stakersInfoPerEpoch[_account].pendingStake = 0;
-				}
-				stakersInfo[_account].reward = earned(_account);
-				stakersInfo[_account]
-						.rewardPerTokenPaid = _getRewardPerTokenPerUser(_account);
-			}
+		lastUpdateTime = lastTimeRewardApplicable();
+		if (_account != address(0)) {
+			_addPendingStakesToBalanceOnTimeUpdate(_account);
+			stakersInfo[_account].reward = earned(_account);
+			stakersInfo[_account]
+					.rewardPerTokenPaid = _getRewardPerTokenPerUser(_account);
+		}
+	}
+	
+	function _addPendingStakesToBalanceOnTimeUpdate(address _account) internal {
+		if (
+					stakersInfoPerEpoch[_account].indexOfLastEpochStaked !=
+					lastUpdateTime
+		) {
+				stakersInfo[_account].balance += stakersInfoPerEpoch[_account]
+						.pendingStake;
+				stakersInfoPerEpoch[_account].pendingStake = 0;
+		}
 	}
 	
 	function notifyRewardAmount(uint256 reward)
