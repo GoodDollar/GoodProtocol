@@ -18,16 +18,8 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 		uint256 indexOfLastEpochStaked;
 	}
 
-	/**
-	 * @dev Emitted when `staker` stakes an `amount` of the staking coin
-	 */
 	event Staked(address indexed staker, uint256 amount);
-
-	/**
-	 * @dev Emitted when `staker` withdraws an `amount` of the staking coin
-	 */
 	event Withdrawn(address indexed staker, uint256 amount);
-
 	event RewardAdded(uint256 reward);
 	event RewardPaid(address indexed user, uint256 reward);
 	event RewardsDurationUpdated(uint256 newDuration);
@@ -116,7 +108,7 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 			_totalSupply;
 	}
 
-	function earned(address account) public view override returns (uint256) {
+	function earned(address account) public view  returns (uint256) {
 		return
 			(stakersInfo[account].balance *
 				(_getRewardPerTokenPerUser(account) -
@@ -125,7 +117,7 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 			stakersInfo[account].reward;
 	}
 
-	function _updateReward(address _account) internal virtual override {
+	function _updateReward(address _account) internal virtual {
 		lastUpdateTime = lastTimeRewardApplicable();
 		if (_account != address(0)) {
 			_addPendingStakesToBalanceOnTimeUpdate(_account);
@@ -189,7 +181,7 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 			rewardsPerTokenAt[stakersInfo[_account].indexOfLastEpochStaked];
 	}
 
-	function _withdraw(address _from, uint256 _amount) internal virtual override {
+	function _withdraw(address _from, uint256 _amount) internal virtual {
 		if (stakersInfo[_from].pendingStake >= _amount) {
 			pendingStakes -= _amount;
 			stakersInfo[_from].pendingStake -= _amount;
@@ -198,7 +190,7 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 		emit Withdrawn(_from, _amount);
 	}
 
-	function _stake(address _from, uint256 _amount) internal virtual override {
+	function _stake(address _from, uint256 _amount) internal virtual {
 		pendingStakes += _amount;
 		stakersInfo[_from].pendingStake += _amount;
 		stakersInfo[_from].indexOfLastEpochStaked = lastEpochIndex;
