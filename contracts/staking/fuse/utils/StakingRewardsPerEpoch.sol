@@ -1,52 +1,119 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import "./StakingRewards.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract StakingRewardsPerEpoch is StakingRewards {
+contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 	using SafeERC20 for IERC20;
 
-	struct StakeInfoPerEpoch {
+	struct StakeInfo {
+		uint256 rewardPerTokenPaid;
+		uint256 reward;
+		uint256 balance;
 		uint256 pendingStake;
 		uint256 indexOfLastEpochStaked;
 	}
 
-	mapping(address => StakeInfoPerEpoch) public stakersInfoPerEpoch;
+	/**
+	 * @dev Emitted when `staker` stakes an `amount` of the staking coin
+	 */
+	event Staked(address indexed staker, uint256 amount);
+
+	/**
+	 * @dev Emitted when `staker` withdraws an `amount` of the staking coin
+	 */
+	event Withdrawn(address indexed staker, uint256 amount);
+
+	event RewardAdded(uint256 reward);
+	event RewardPaid(address indexed user, uint256 reward);
+	event RewardsDurationUpdated(uint256 newDuration);
+	event Recovered(address token, uint256 amount);
+
+	bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
+	uint256 public constant PRECISION = 1e18;
+
+	IERC20 public rewardsToken;
+	IERC20 public stakingToken;
+	uint256 public periodFinish = 0;
+	uint256 public rewardRate = 0;
+	uint256 public rewardsDuration = 7 days;
+	uint256 public lastUpdateTime;
+	uint256 public rewardPerTokenStored;
+
+	mapping(address => StakeInfo) public stakersInfo;
 
 	uint256 public lastEpochIndex;
 	uint256 public pendingStakes;
-
 	uint256[] public rewardsPerTokenAt;
 
-	constructor(address _rewardsToken, address _stakingToken)
-		StakingRewards(_rewardsToken, _stakingToken)
-	{}
+	uint256 internal _totalSupply;
 
-	function _stake(address _from, uint256 _amount) internal virtual override {
-		pendingStakes += _amount;
-		stakersInfoPerEpoch[_from].pendingStake += _amount;
-		stakersInfoPerEpoch[_from].indexOfLastEpochStaked = lastEpochIndex;
-		stakingToken.safeTransferFrom(_from, address(this), _amount);
-		emit Staked(_from, _amount);
+	modifier updateReward(address account) {
+		_updateReward(account);
+		_;
 	}
 
-	function _withdraw(address _from, uint256 _amount) internal virtual override {
-		if (stakersInfoPerEpoch[_from].pendingStake >= _amount) {
-			pendingStakes -= _amount;
-			stakersInfoPerEpoch[_from].pendingStake -= _amount;
-		}
-		stakingToken.safeTransfer(_from, _amount);
-		emit StakeWithdraw(_from, _amount);
+	constructor(address _rewardsToken, address _stakingToken) {
+		_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+		_setupRole(GUARDIAN_ROLE, msg.sender);
+		rewardsToken = IERC20(_rewardsToken);
+		stakingToken = IERC20(_stakingToken);
 	}
 
-	function _getRewardPerTokenPerUser(address _account)
-		internal
-		view
-		returns (uint256)
+	function totalSupply() external view returns (uint256) {
+		return _totalSupply;
+	}
+
+	function balanceOf(address account) external view returns (uint256) {
+		return stakersInfo[account].balance;
+	}
+
+	function lastTimeRewardApplicable() public view returns (uint256) {
+		return block.timestamp < periodFinish ? block.timestamp : periodFinish;
+	}
+
+	function stake(uint256 amount)
+		external
+		payable
+		nonReentrant
+		whenNotPaused
+		updateReward(msg.sender)
 	{
+		require(amount > 0, "Cannot stake 0");
+		_stake(msg.sender, amount);
+	}
+
+	function withdraw(uint256 _amount)
+		public
+		nonReentrant
+		updateReward(msg.sender)
+	{
+		require(_amount > 0, "Cannot withdraw 0");
+		_withdraw(msg.sender, _amount);
+	}
+
+	function getReward() public nonReentrant updateReward(msg.sender) {
+		_getReward(msg.sender);
+	}
+
+	function exit() external {
+		withdraw(stakersInfo[msg.sender].balance);
+		getReward();
+	}
+
+	// TODO: remove the method
+	function rewardPerToken() public view returns (uint256) {
+		if (_totalSupply == 0) {
+			return rewardPerTokenStored;
+		}
 		return
-			rewardsPerTokenAt[lastEpochIndex] -
-			rewardsPerTokenAt[stakersInfoPerEpoch[_account].indexOfLastEpochStaked];
+			rewardPerTokenStored +
+			((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate * PRECISION) /
+			_totalSupply;
 	}
 
 	function earned(address account) public view override returns (uint256) {
@@ -67,27 +134,86 @@ contract StakingRewardsPerEpoch is StakingRewards {
 					.rewardPerTokenPaid = _getRewardPerTokenPerUser(_account);
 		}
 	}
-	
+
 	function _addPendingStakesToBalanceOnTimeUpdate(address _account) internal {
 		if (
-					stakersInfoPerEpoch[_account].indexOfLastEpochStaked !=
+					stakersInfo[_account].indexOfLastEpochStaked !=
 					lastUpdateTime
 		) {
-				stakersInfo[_account].balance += stakersInfoPerEpoch[_account]
+				stakersInfo[_account].balance += stakersInfo[_account]
 						.pendingStake;
-				stakersInfoPerEpoch[_account].pendingStake = 0;
+				stakersInfo[_account].pendingStake = 0;
 		}
 	}
-	
-	function notifyRewardAmount(uint256 reward)
-		external
-		override
-		onlyRole(GUARDIAN_ROLE)
+
+	function _updatePeriodAndRate(uint256 reward) internal virtual {
+		if (block.timestamp >= periodFinish) {
+			rewardRate = reward / rewardsDuration;
+		} else {
+			uint256 remaining = periodFinish - block.timestamp;
+			uint256 leftover = remaining * rewardRate;
+			rewardRate = (reward + leftover) / rewardsDuration;
+		}
+
+		// Ensure the provided reward amount is not more than the balance in the contract.
+		// This keeps the reward rate in the right range, preventing overflows due to
+		// very high values of rewardRate in the earned and rewardsPerToken functions;
+		// Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
+		require(
+			rewardRate <= rewardsToken.balanceOf(address(this)) / rewardsDuration,
+			"Provided reward too high"
+		);
+
+		lastUpdateTime = block.timestamp;
+		periodFinish = block.timestamp + rewardsDuration;
+		emit RewardAdded(reward);
+	}
+
+	function _notifyRewardAmount(uint256 reward)
+		internal
 		updateReward(address(0))
 	{
 		_totalSupply += pendingStakes;
 		rewardsPerTokenAt.push(rewardPerToken());
 		lastEpochIndex++;
-		_notifyRewardAmount(reward);
+		_updatePeriodAndRate(reward);
 	}
+
+	function _getRewardPerTokenPerUser(address _account)
+		internal
+		view
+		returns (uint256)
+	{
+		return
+			rewardsPerTokenAt[lastEpochIndex] -
+			rewardsPerTokenAt[stakersInfo[_account].indexOfLastEpochStaked];
+	}
+
+	function _withdraw(address _from, uint256 _amount) internal virtual override {
+		if (stakersInfo[_from].pendingStake >= _amount) {
+			pendingStakes -= _amount;
+			stakersInfo[_from].pendingStake -= _amount;
+		}
+		stakingToken.safeTransfer(_from, _amount);
+		emit Withdrawn(_from, _amount);
+	}
+
+	function _stake(address _from, uint256 _amount) internal virtual override {
+		pendingStakes += _amount;
+		stakersInfo[_from].pendingStake += _amount;
+		stakersInfo[_from].indexOfLastEpochStaked = lastEpochIndex;
+		stakingToken.safeTransferFrom(_from, address(this), _amount);
+		emit Staked(_from, _amount);
+	}
+
+	function _getReward(address _to) internal virtual {
+		uint256 reward = stakersInfo[_to].reward;
+		if (reward > 0) {
+			stakersInfo[_to].reward = 0;
+			rewardsToken.safeTransfer(_to, reward);
+			emit RewardPaid(_to, reward);
+		}
+	}
+
+	receive() external payable {}
 }

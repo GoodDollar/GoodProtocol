@@ -4,8 +4,8 @@ pragma solidity >=0.8.0;
 import "./utils/StakingRewardsPerEpoch.sol";
 import "./utils/GoodDollarSwaps.sol";
 import "./utils/ValidatorsManagement.sol";
-import "../IConsensus.sol";
-import "../ISpendingRateOracle.sol";
+import "./IConsensus.sol";
+import "./ISpendingRateOracle.sol";
 
 contract FuseStaking is StakingRewardsPerEpoch, GoodDollarSwaps, ValidatorsManagement {
 
@@ -26,7 +26,7 @@ contract FuseStaking is StakingRewardsPerEpoch, GoodDollarSwaps, ValidatorsManag
     require(_giveBackRatio >= minGivebackRatio, "giveback should be higher or equal to minimum");
     require(_stakeNextValidator(_amount, address(0)), "stakeInConsensusIsNotPerformed"); // maybe needs to get a validator input
     _updateGiveBackRatiosAndStake(_from, _amount, _giveBackRatio);
-    emit PendingStaked(_from, _amount);
+    emit Staked(_from, _amount);
   }
 
   function _updateGiveBackRatiosAndStake(address _from, uint256 _amount, uint256 _giveBackRatio) internal {
@@ -91,12 +91,12 @@ contract FuseStaking is StakingRewardsPerEpoch, GoodDollarSwaps, ValidatorsManag
 		}
 
     pendingStakes -= _amount;
-    stakersInfoPerEpoch[_from].pendingStake -= _amount;
+    stakersInfo[_from].pendingStake -= _amount;
 
     if (_amount > 0) {
 			payable(_from).transfer(_amount);
 		}
-    emit PendingWithdrawn(_from, _amount);
+    emit Withdrawn(_from, _amount);
   }
 
   // function notifyRewardAmount(uint256) external override onlyRole(GUARDIAN_ROLE) updateReward(address(0)) {
