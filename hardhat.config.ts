@@ -13,7 +13,12 @@ import { task, types } from "hardhat/config";
 import { sha3 } from "web3-utils";
 import { config } from "dotenv";
 import { airdrop } from "./scripts/governance/airdropCalculation";
-import { airdrop as gdxAirdrop } from "./scripts/gdx/gdxAirdropCalculation";
+import { airdrop as repAirdropRecover } from "./scripts/governance/airdropCalculationRecover";
+import {
+  airdrop as gdxAirdrop,
+  airdropRecover as gdxAirdropRecover
+} from "./scripts/gdx/gdxAirdropCalculation";
+import { sumStakersGdRewards } from "./scripts/staking/stakersGdRewardsCalculation";
 import { verify } from "./scripts/verify";
 import { ethers } from "ethers";
 config();
@@ -25,6 +30,8 @@ const infura_api = process.env.INFURA_API;
 const alchemy_key = process.env.ALCHEMY_KEY;
 const etherscan_key = process.env.ETHERSCAN_KEY;
 const ethplorer_key = process.env.ETHPLORER_KEY;
+
+const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
 
 // console.log({ mnemonic: sha3(mnemonic) });
 const hhconfig: HardhatUserConfig = {
@@ -144,7 +151,7 @@ const hhconfig: HardhatUserConfig = {
     },
     "production-mainnet": {
       accounts: [deployerPrivateKey],
-      url: "https://mainnet.infura.io/v3/" + infura_api,
+      url: MAINNET_URL,
       gas: 3000000,
       gasPrice: 50000000000,
       chainId: 1
@@ -177,6 +184,26 @@ task("repAirdrop", "Calculates airdrop data and merkle tree")
     }
   });
 
+task(
+  "repAirdropRecover",
+  "Calculates airdrop data and merkle tree after critical bug"
+)
+  .addParam("action", "calculate/tree/proof")
+  .addOptionalPositionalParam("address", "proof for address")
+  .setAction(async (taskArgs, hre) => {
+    const actions = repAirdropRecover(hre.ethers, ethplorer_key, etherscan_key);
+    switch (taskArgs.action) {
+      case "calculate":
+        return actions.collectAirdropData();
+      case "tree":
+        return actions.buildMerkleTree();
+      case "proof":
+        return actions.getProof(taskArgs.address);
+      default:
+        console.log("unknown action use calculate or tree");
+    }
+  });
+
 task("gdxAirdrop", "Calculates airdrop data")
   .addParam("action", "calculate/tree/proof")
   .addOptionalPositionalParam("address", "proof for address")
@@ -195,9 +222,30 @@ task("gdxAirdrop", "Calculates airdrop data")
     }
   });
 
+task("gdxAirdropRecover", "Calculates new airdrop data for recovery")
+  .addParam("action", "addition/tree")
+  .setAction(async (taskArgs, hre) => {
+    const actions = gdxAirdropRecover(hre.ethers);
+    switch (taskArgs.action) {
+      case "addition":
+        return actions.addCalculationsToPreviousData();
+      case "tree":
+        return actions.buildMerkleTree();
+      default:
+        console.log("unknown action use addition or tree");
+    }
+  });
+
 task("verifyjson", "verify contracts on etherscan").setAction(
   async (taskArgs, hre) => {
     return verify(hre);
   }
 );
 export default hhconfig;
+
+task("sumStakersGdRewards", "Sums the GoodDollar reward for each staker")
+  .setAction(async (taskArgs, hre) => {
+    const actions = sumStakersGdRewards(hre.ethers);
+        return actions.getStakersGdRewards();
+    }
+);

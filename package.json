@@ -1,12 +1,12 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "1.0.15-beta.1",
+  "version": "1.0.18",
   "description": "GoodDollar Protocol",
   "scripts": {
     "build": "scripts/build.sh deploy",
     "coverage:report": "export COVERALLS_REPO_TOKEN='qiXNelh1HXMAsoPah9yRD2yG2WlqrDfLh' && cat ../coverage/lcov.info coverage/lcov.info | coveralls",
     "coverage": "export CODE_COVERAGE=true; hardhat coverage",
-    "minimize": "../scripts/minimize.sh 'artifacts/contracts'",
+    "minimize": "./scripts/minimize.sh 'artifacts/contracts'",
     "test": "hardhat test",
     "test:parallel": "mocha --require hardhat/register --extension ts --recursive --parallel --exit",
     "postinstall": "patch-package",
@@ -21,6 +21,7 @@
   },
   "files": [
     "artifacts/contracts",
+    "artifacts/abis",
     "contracts",
     "releases",
     "scripts",
@@ -30,7 +31,6 @@
     "LICENSE",
     "truffle-config.js",
     "tsconfig.json",
-    "scripts",
     "test"
   ],
   "repository": {
@@ -55,6 +55,7 @@
   "dependencies": {
     "@gooddollar/goodcontracts": "^2.6.2",
     "@jsier/retrier": "^1.2.4",
+    "@openzeppelin/contracts": "^4.5.0",
     "@openzeppelin/contracts-upgradeable": "^4.3.2",
     "@typechain/hardhat": "^2.2.0",
     "async-promise-pool": "^1.0.4",

@@ -458,6 +458,12 @@
         "GoodMarketMaker": "0xDAC6A0c973Ba7cF3526dE456aFfA43AB421f659F",
         "GoodReserveCDai": "0xa150a825d425B36329D8294eeF8bD0fE68f8F6E0",
         "ExchangeHelper": "0x98FA532Dd5C3a6b66fbf370813803192DE4e0abd",
+        "CompoundStakingFactory": "0x78cc5ab2f0990b5fe58f95baebf8f37879534aeb",
+        "AaveStakingFactory": "0xf4411c22766947DB2da39Ad534A040b770B51153",
+        "StakersDistribution": "0x5766cf4b2fdb09d986eb1783d276013c224e28c8",
+        "GoodFundManager": "0x0c6c80d2061afa35e160f3799411d83bdeea0a5a",
+        "GReputation": "0x603b8c0f110e037b51a381cbcacabb8d6c6e4543",
+        "CompoundVotingMachine": "0x57ee6ceff51cb30ecb1245934a882c500fbec1e9",
         "ProtocolUpgradeRecover": "0x6f1b4dFDd7156FC5752541Ef35EDF57B48E74475",
         "network": "production-mainnet",
         "networkId": 1,
@@ -488,10 +494,16 @@
                 6944
             ]
         ],
-        "StakersDistribution": "0x12D15EfC3c9661AD68209CD197D416BFd9B145f5",
-        "GoodFundManager": "0x3F55BD3B432EDC73Bbb704Fa5a29CC08dc1aDBEB",
-        "GReputation": "0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf",
-        "CompoundVotingMachine": "0xc2Ff55b896e3c42f9e1c2f7467C51b93F1C23dFD"
+        "StakingContractsV3": [
+            [
+                "0x7b7246c78e2f900d17646ff0cb2ec47d6ba10754",
+                13888
+            ],
+            [
+                "0x3ff2d8eb2573819a9ef7167d2ba6fd6d31b17f4f",
+                6944
+            ]
+        ]
     },
     "production": {
         "NameService": "0xec6dcE387B1616a0c44fF2E4fA9E90E53Cf14eb0",
@@ -499,7 +511,7 @@
         "CompoundVotingMachine": "0x57Ee6Ceff51CB30Ecb1245934a882c500Fbec1e9",
         "ClaimersDistribution": "0x1aE4929090258A9D5000D98Cfb8A27174d345834",
         "GovernanceStaking": "0xFAF457Fb4A978Be059506F6CD41f9B30fCa753b0",
-        "GovernanceStakingV2": "0x280226A143b7Dfdf84645006e32F899B531C2F98",
+        "GovernanceStakingV2": "0xB7C3e738224625289C573c54d402E9Be46205546",
         "UBIScheme": "0xd253A5203817225e9768C05E5996d642fb96bA86",
         "ProtocolUpgradeFuseRecover": "0xBE43eCb37Af7F7C4A8606E672c504BE55Fc6226B",
         "network": "production",

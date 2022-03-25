@@ -37,6 +37,8 @@ abstract contract SimpleStakingV2 is
 	//max percentage of token/dai pool liquidity to swap to DAI when collecting interest out of 100000
 	uint24 public maxLiquidityPercentageSwap = 300; //0.3%
 
+	uint256 public lockedUSDValue;
+
 	/**
 	 * @dev Emitted when `staker` stake `value` tokens of `token`
 	 */
@@ -216,15 +218,15 @@ abstract contract SimpleStakingV2 is
 			_donationPer
 		);
 
+		(, , , uint256 lockedValueInUSD, ) = currentGains(true, false);
+		lockedUSDValue = lockedValueInUSD;
+
 		//notify GDAO distrbution for stakers
 		StakersDistribution sd = StakersDistribution(
 			nameService.getAddress("GDAO_STAKERS")
 		);
 		if (address(sd) != address(0)) {
-			uint256 stakeAmountInEighteenDecimals = token.decimals() == 18
-				? _amount
-				: _amount * 10**(18 - token.decimals());
-			sd.userStaked(_msgSender(), stakeAmountInEighteenDecimals);
+			sd.userStaked(_msgSender(), _convertValueTo18Decimals(_amount));
 		}
 
 		emit Staked(_msgSender(), address(token), _amount);
@@ -262,6 +264,9 @@ abstract contract SimpleStakingV2 is
 			nameService.getAddress("FUND_MANAGER")
 		);
 
+		(, , , uint256 lockedValueInUSD, ) = currentGains(true, false);
+		lockedUSDValue = lockedValueInUSD;
+
 		//this will revert in case user doesnt have enough productivity to withdraw _amount, as productivity=staking tokens amount
 		_burn(msg.sender, _amount); // burn their staking tokens
 
@@ -282,10 +287,7 @@ abstract contract SimpleStakingV2 is
 			nameService.getAddress("GDAO_STAKERS")
 		);
 		if (address(sd) != address(0)) {
-			uint256 withdrawAmountInEighteenDecimals = token.decimals() == 18
-				? _amount
-				: _amount * 10**(18 - token.decimals());
-			sd.userWithdraw(_msgSender(), withdrawAmountInEighteenDecimals);
+			sd.userWithdraw(_msgSender(), _convertValueTo18Decimals(_amount));
 		}
 
 		emit StakeWithdraw(msg.sender, address(token), tokenWithdraw);
@@ -350,9 +352,20 @@ abstract contract SimpleStakingV2 is
 		);
 
 		if (address(sd) != address(0)) {
-			sd.userWithdraw(_from, _value);
-			sd.userStaked(_to, _value);
+			uint256 _convertedValue = _convertValueTo18Decimals(_value);
+			sd.userWithdraw(_from, _convertedValue);
+			sd.userStaked(_to, _convertedValue);
 		}
+	}
+
+	function _convertValueTo18Decimals(uint256 _amount)
+		internal
+		view
+		returns (uint256 amountInEighteenDecimals)
+	{
+		amountInEighteenDecimals = token.decimals() == 18
+			? _amount
+			: _amount * 10**(18 - token.decimals());
 	}
 
 	// @dev To find difference in token's decimal and iToken's decimal
@@ -430,10 +443,10 @@ abstract contract SimpleStakingV2 is
 	}
 
 	/**
-	 @dev function calculate Token price in USD 
+	 @dev function calculate Token price in USD
  	 @param _oracle chainlink oracle usd/token oralce
 	 @param _amount Amount of Token to calculate worth of it
-	 @param _decimals decimals of Token 
+	 @param _decimals decimals of Token
 	 @return Returns worth of Tokens in USD
 	 */
 	function getTokenValueInUSD(

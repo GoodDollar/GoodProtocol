@@ -69,20 +69,24 @@ contract GReputation is Reputation {
 
 	event StateHash(string blockchain, bytes32 merkleRoot, uint256 totalSupply);
 
-	event StateHashProof(string blockchain, address user, uint256 repBalance);
+	event StateHashProof(
+		string blockchain,
+		address indexed user,
+		uint256 repBalance
+	);
 
 	/**
 	 * @dev initialize
 	 */
 	function initialize(
 		INameService _ns,
-		string calldata stateId,
-		bytes32 stateHash,
-		uint256 totalSupply
+		string calldata _stateId,
+		bytes32 _stateHash,
+		uint256 _totalSupply
 	) external initializer {
 		__Reputation_init(_ns);
-		if (totalSupply > 0)
-			_setBlockchainStateHash(stateId, stateHash, totalSupply);
+		if (_totalSupply > 0)
+			_setBlockchainStateHash(_stateId, _stateHash, _totalSupply);
 	}
 
 	function _canMint() internal view override {
@@ -182,6 +186,9 @@ contract GReputation is Reputation {
 			!isRootState || totalSupplyLocalAt(block.number) == 0,
 			"rootState already created"
 		);
+		if (isRootState) {
+			updateValueAtNow(totalSupplyHistory, _totalSupply);
+		}
 		uint256 i = 0;
 		for (; !isRootState && i < activeBlockchains.length; i++) {
 			if (activeBlockchains[i] == idHash) break;
@@ -398,7 +405,9 @@ contract GReputation is Reputation {
 
 		//if initiial state then set real balance
 		if (idHash == ROOT_STATE) {
+			uint256 curTotalSupply = totalSupplyLocalAt(block.number);
 			_mint(_user, _balance);
+			updateValueAtNow(totalSupplyHistory, curTotalSupply); // we undo the totalsupply, as we alredy set the totalsupply of the airdrop
 		}
 
 		//if proof is valid then set balances
@@ -575,35 +584,5 @@ contract GReputation is Reputation {
 
 	function setReputationRecipient(address _target) public {
 		reputationRecipients[msg.sender] = _target;
-	}
-
-	function fix1() public {
-		if (
-			getVotes(0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF) ==
-			1008145362854518632309 &&
-			getVotes(0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4) ==
-			587905678906424942728383 &&
-			getVotes(0x1D5096665E79585019c448259D944090F28702E3) ==
-			3421532080040613840050
-		) {
-			_updateDelegateVotes(
-				0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF,
-				0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF,
-				1008145362854518632309,
-				balanceOfLocal(0x7f8c1877Ed0DA352F78be4Fe4CdA58BB804a30dF)
-			);
-			_updateDelegateVotes(
-				0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4,
-				0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4,
-				587905678906424942728383,
-				balanceOfLocal(0xDEb250aDD368b74ebCCd59862D62fa4Fb57E09D4)
-			);
-			_updateDelegateVotes(
-				0x1D5096665E79585019c448259D944090F28702E3,
-				0x1D5096665E79585019c448259D944090F28702E3,
-				3421532080040613840050,
-				balanceOfLocal(0x1D5096665E79585019c448259D944090F28702E3)
-			);
-		}
 	}
 }
