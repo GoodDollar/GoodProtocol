@@ -123,10 +123,14 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 	}
 
 	function _withdraw(address _from, uint256 _amount) internal virtual {
-		if (stakersInfo[_from].pendingStake >= _amount) {
-			pendingStakes -= _amount;
-			stakersInfo[_from].pendingStake -= _amount;
+		if (stakersInfo[_from].pendingStake > 0) {
+			uint256 pendingToReduce = stakersInfo[_from].pendingStake >= _amount
+				? _amount
+				: stakersInfo[_from].pendingStake;
+			pendingStakes -= pendingToReduce;
+			stakersInfo[_from].pendingStake -= pendingToReduce;
 		}
+
 		stakingToken.safeTransfer(_from, _amount);
 		emit Withdrawn(_from, _amount);
 	}
