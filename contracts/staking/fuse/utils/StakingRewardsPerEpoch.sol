@@ -37,7 +37,7 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 	uint256 public pendingStakes;
 	uint256[] public rewardsPerTokenAt;
 
-	uint256 internal _totalSupply;
+	uint256 public totalSupply;
 
 	modifier updateReward(address account) {
 		_updateReward(account);
@@ -49,10 +49,6 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 		_setupRole(GUARDIAN_ROLE, msg.sender);
 		rewardsToken = IERC20(_rewardsToken);
 		stakingToken = IERC20(_stakingToken);
-	}
-
-	function totalSupply() external view returns (uint256) {
-		return _totalSupply;
 	}
 
 	function balanceOf(address account) external view returns (uint256) {
@@ -88,87 +84,42 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 		getReward();
 	}
 
-	function rewardPerToken() public view returns (uint256) {
-		if (_totalSupply == 0) {
-			return rewardPerTokenAt[0];
-		}
-		return
-			rewardPerTokenStored +
-			((lastTimeRewardApplicable() - lastUpdateTime) * rewardRate * PRECISION) /
-			_totalSupply;
-	}
-
 	function _getRewardPerTokenPerUser(address _account)
 		internal
 		view
 		returns (uint256)
 	{
-		return
-			rewardsPerTokenAt[lastEpochIndex] -
-			rewardsPerTokenAt[stakersInfo[_account].indexOfLastEpochStaked + 1];
-	}
-
-	function earned(address account) public view  returns (uint256) {
-		return
-			(stakersInfo[account].balance *
-				(rewardPerToken() -
-					stakersInfo[account].rewardPerTokenPaid)) /
-			PRECISION +
-			stakersInfo[account].reward;
-	}
-
-	function _updateReward(address _account) internal virtual {
-		lastUpdateTime = lastTimeRewardApplicable();
-		if (_account != address(0)) {
-			_addPendingStakesToBalanceOnTimeUpdate(_account);
-			stakersInfo[_account].reward = earned(_account);
-			stakersInfo[_account]
-					.rewardPerTokenPaid = _getRewardPerTokenPerUser(_account);
+		uint256 userIndex = stakersInfo[_account].indexOfLastEpochStaked + 1;
+		if (lastEpochIndex > userIndex) {
+			return rewardsPerTokenAt[lastEpochIndex] - rewardsPerTokenAt[userIndex];
+		} else {
+			return 0;
 		}
+	}
+
+	function earned(address account) public view returns (uint256) {
+		return stakersInfo[account].balance * _getRewardPerTokenPerUser(account) / PRECISION + stakersInfo[account].reward;
 	}
 
 	function _addPendingStakesToBalanceOnTimeUpdate(address _account) internal {
-		if (
-					stakersInfo[_account].indexOfLastEpochStaked !=
-					lastEpochIndex
-		) {
-				stakersInfo[_account].balance += stakersInfo[_account]
-						.pendingStake;
-				stakersInfo[_account].pendingStake = 0;
+		if (stakersInfo[_account].indexOfLastEpochStaked != lastEpochIndex) {
+			stakersInfo[_account].balance += stakersInfo[_account].pendingStake;
+			stakersInfo[_account].pendingStake = 0;
+			pendingStakes -= stakersInfo[_account].pendingStake;
 		}
 	}
 
-	function _updatePeriodAndRate(uint256 reward) internal virtual {
-		if (block.timestamp >= periodFinish) {
-			rewardRate = reward / rewardsDuration;
-		} else {
-			uint256 remaining = periodFinish - block.timestamp;
-			uint256 leftover = remaining * rewardRate;
-			rewardRate = (reward + leftover) / rewardsDuration;
-		}
-
-		// Ensure the provided reward amount is not more than the balance in the contract.
-		// This keeps the reward rate in the right range, preventing overflows due to
-		// very high values of rewardRate in the earned and rewardsPerToken functions;
-		// Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
-		require(
-			rewardRate <= rewardsToken.balanceOf(address(this)) / rewardsDuration,
-			"Provided reward too high"
-		);
-
-		lastUpdateTime = block.timestamp;
-		periodFinish = block.timestamp + rewardsDuration;
-		emit RewardAdded(reward);
+	function _updateReward(address _account) internal virtual {
+		_addPendingStakesToBalanceOnTimeUpdate(_account);
+		stakersInfo[_account].reward = earned(_account);
 	}
 
 	function _notifyRewardAmount(uint256 reward)
 		internal
-		updateReward(address(0))
 	{
-		_totalSupply += pendingStakes;
-		rewardsPerTokenAt.push(rewardPerToken());
+		totalSupply += pendingStakes;
+		rewardsPerTokenAt.push(reward * PRECISION / totalSupply);
 		lastEpochIndex++;
-		_updatePeriodAndRate(reward);
 	}
 
 	function _withdraw(address _from, uint256 _amount) internal virtual {
@@ -196,6 +147,4 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 			emit RewardPaid(_to, reward);
 		}
 	}
-
-	receive() external payable {}
 }
