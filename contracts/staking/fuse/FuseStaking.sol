@@ -14,7 +14,8 @@ contract FuseStaking is
 {
 	IUBIScheme public ubiScheme;
 
-	uint256 public keeperAndCommunityPoolRatio;
+	uint256 public keeperRatio;
+	uint256 public communityPoolRatio;
 	uint256 public communityPoolBalance;
 
 	uint256 public minGivebackRatio;
@@ -23,6 +24,17 @@ contract FuseStaking is
 	mapping(address => uint256) public giveBackRatioPerUser;
 
 	ISpendingRateOracle public spendingRateOracle;
+
+	event UBICollected(
+		uint256 indexed currentDay,
+		uint256 ubiAmount, //G$ sent to ubischeme
+		uint256 communityPoolAmount, //G$ added to pool
+		uint256 gdBoughtAmount, //actual G$ we got out of swapping stakingRewards + pendingFuseEarnings
+		uint256 stakingRewardsAmount, //rewards earned since previous collection,
+		uint256 pendingFuseEarnings, //new balance of fuse pending to be swapped for G$
+		address keeper,
+		uint256 keeperGDFee
+	);
 
 	constructor(address _rewardsToken, address _stakingToken)
 		StakingRewardsPerEpoch(_rewardsToken, _stakingToken)
@@ -162,15 +174,23 @@ contract FuseStaking is
 		require(goodDollar.transfer(to, communityPoolBalance));
 	}
 
-	function _distributeToUBIAndCommunityPoolAndQueryOracle(uint256 _ubiAmount, uint256 _communityPoolAmount) internal {
+	function _distributeToUBIAndCommunityPool(uint256 _ubiAmount, uint256 _communityPoolAmount)
+		internal
+		returns (
+			uint256 _gdUBIAmount,
+			uint256 _gdCommunityPoolAmount,
+		)
+	{
 		if (_ubiAmount == 0 || _communityPoolAmount == 0) return;
-		communityPoolBalance += _communityPoolAmount;
-		// buy gd for _ubiAmount
-		uint256 ubiAmountInGD = 0;
-		require(goodDollar.transfer(address(ubiScheme), ubiAmountInGD));
+		uint256[] memory swapResult = _buyGD(_ubiAmount);
+		require(goodDollar.transfer(address(ubiScheme), swapResult[1]), "ubiPartTransferFailed");
+		_gdUBIAmount = swapResult[1];
+		swapResult = _buyGD(_communityPoolAmount);
+		communityPoolBalance += swapResult[1];
+		_gdCommunityPoolAmount = swapResult[1];
 	}
 
-	function _distributeGivebackAndQueryOracle(uint256 _amount) internal {
+	function _distributeGivebackAndQueryOracle(uint256 _amount) internal virtual {
 		if (_amount == 0) return;
 		address[] memory faucetAddresses = spendingRateOracle.getFaucets();
 		for (uint256 i = 0; i < faucetAddresses.length; i++) {
@@ -180,33 +200,45 @@ contract FuseStaking is
 			if (faucetToken == address(0)) {
 				if (faucetToken.balance < targetBalance) {
 					balancesDifference = targetBalance - faucetToken.balance;
-					if (_amount < balancesDifference) break;
 					_amount -= balancesDifference;
-					payable(faucetAddresses[i]).transfer(balancesDifference);
+					payable(faucetAddresses[i]).transfer(balancesDifference), "transferToFaucetFailed");
+					spendingRateOracle.queryBalance(
+						faucetAddresses[i],
+						faucetAddresses[i].balance,
+						address(0)
+					);
 				}
 			} else {
-				uint256 actualBalance = IERC20(faucetToken).balanceOf(faucetAddresses[i]);
+				IERC20 faucetTokenInstance = IERC20(faucetToken);
+				uint256 actualBalance = faucetTokenInstance.balanceOf(faucetAddresses[i]);
 				if (actualBalance < targetBalance) {
 					balancesDifference = targetBalance - actualBalance;
-					if (_amount < balancesDifference) break;
 					_amount -= balancesDifference;
-					// todo buying GD
-					IERC20(faucetToken).safeTransfer(faucetAddresses[i], balancesDifference);
+					uint256[] memory swapResult = _buyGD(balancesDifference);
+					faucetTokenInstance.safeTransfer(faucetAddresses[i], swapResult[1]);
+					spendingRateOracle.queryBalance(
+						faucetAddresses[i],
+						faucetTokenInstance.balanceOf(faucetAddresses[i]),
+						faucetToken
+					);
 				}
 			}
 		}
 	}
 
+	function _checkIfCalledOnceInDayAndReturnDay() internal returns(uint256) {
+		uint256 curDay = ubiScheme.currentDay();
+		require(
+			curDay != lastDayCollected,
+			"can collect only once in a ubi cycle"
+		);
+		lastDayCollected = curDay;
+		return curDay;
+	}
+
 	function collectUBIInterest() external onlyRole(GUARDIAN_ROLE) {
 		uint256 curDay = _checkIfCalledOnceInDayAndReturnDay();
-
-		uint256 contractBalance;
-		uint256 earnings;
-		if (_isEarningsCheckEnabled) {
-			contractBalance = _balance();
-			require(contractBalance > 0, "no earnings to collect");
-			earnings = contractBalance - totalPendingStakes;
-		}
+		uint256 earnings = _balance(); // pending fuse earnings?
 
 		uint256 fuseAmountForUBI = (earnings * (RATIO_BASE - globalGivebackRatio)) / RATIO_BASE;
 
@@ -215,13 +247,21 @@ contract FuseStaking is
 		uint256 communityPoolAmount = keeperAmount > 0 ? keeperAmount - (keeperAmount * communityPoolRatio) / RATIO_BASE : 0;
 
 		_distributeGivebackAndQueryOracle(givebackAmount);
-		_distributeToUBIAndCommunityPoolAndQueryOracle(keeperAmount, communityPoolAmount);
+		(uint256 gdUBIAmount, uint256 gdCommunityPoolAmount) = _distributeToUBIAndCommunityPool(keeperAmount, communityPoolAmount);
+		uint256[] memory swapResult = _buyGD(fuseAmountForUBI);
+		_notifyRewardAmount(swapResult[1]);
+		_updateGlobalGivebackRatio();
 
-		// split it
-		// notify reward amount
-		// distribute to faucets
-		// distribute to communityPoolBalance
-		// distribute to keeper
+		// emit UBICollected(
+		// 	curDay,
+		// 	gdUBIAmount,
+		// 	gdCommunityPoolAmount,
+		// 	swapResult[1],
+		// 	earnings,
+		// 	// pendingFuseEarnings, // ??
+		// 	msg.sender,
+		// 	keeperAmount
+		// );
 	}
 
 	function addValidator(address _validator) external onlyRole(GUARDIAN_ROLE) {

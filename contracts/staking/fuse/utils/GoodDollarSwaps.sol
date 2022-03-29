@@ -30,7 +30,7 @@ contract GoodDollarSwaps {
 	 * @param _value fuse to be sold
 	 * @return uniswapV2Router coversion results uint256[2]
 	 */
-	function _buyGD(uint256 _value) internal returns (uint256[] memory) {
+	function _buyGD(uint256 _value) internal returns (uint256[] memory result) {
 		//buy from uniwasp
 		require(_value > 0, "buy value should be > 0");
 		(uint256 maxFuse, uint256 fuseGDOut) = calcMaxFuseWithPriceImpact(_value);
@@ -40,22 +40,20 @@ contract GoodDollarSwaps {
 		address[] memory path;
 		if (maxFuse >= maxFuseUSDC) {
 			path = new address[](2);
-			path[1] = address(goodDollar);
 			path[0] = uniswapV2Router.WETH();
-			return
-				uniswapV2Router.swapExactETHForTokens{ value: maxFuse }(
-					(fuseGDOut * 95) / 100,
-					path,
-					address(this),
-					block.timestamp
-				);
+			path[1] = address(goodDollar);
+			result = uniswapV2Router.swapExactETHForTokens{ value: maxFuse }(
+				(fuseGDOut * 95) / 100,
+				path,
+				address(this),
+				block.timestamp
+			);
 		} else {
 			(uint256 usdcAmount, uint256 usedFuse) = _buyUSDC(maxFuseUSDC);
 			path = new address[](2);
-			path[1] = address(goodDollar);
 			path[0] = USDC;
-
-			uint256[] memory result = uniswapV2Router.swapExactTokensForTokens(
+			path[1] = address(goodDollar);
+			result = uniswapV2Router.swapExactTokensForTokens(
 				usdcAmount,
 				(usdcGDOut * 95) / 100,
 				path,
@@ -64,7 +62,6 @@ contract GoodDollarSwaps {
 			);
 			//buyGD should return how much fuse was used in [0] and how much G$ we got in [1]
 			result[0] = usedFuse;
-			return result;
 		}
 	}
 
