@@ -55,16 +55,6 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 		return stakersInfo[account].balance;
 	}
 
-	function stake(uint256 amount)
-		external
-		payable
-		nonReentrant
-		whenNotPaused
-		updateReward(msg.sender)
-	{
-		require(amount > 0, "Cannot stake 0");
-		_stake(msg.sender, amount);
-	}
 
 	function withdraw(uint256 _amount)
 		public
@@ -135,14 +125,20 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 		emit Withdrawn(_from, _amount);
 	}
 
-	function _stake(address _from, uint256 _amount) internal virtual {
+  function _stake(address _from, uint256 _amount) 
+    internal 
+    virtual 
+    nonReentrant
+		whenNotPaused
+		updateReward(msg.sender) {
+    require(_amount > 0, "Cannot stake 0");
 		pendingStakes += _amount;
 		stakersInfo[_from].pendingStake += _amount;
 		stakersInfo[_from].indexOfLastEpochStaked = lastEpochIndex;
 		stakingToken.safeTransferFrom(_from, address(this), _amount);
 		emit Staked(_from, _amount);
 	}
-
+  
 	function _getReward(address _to) internal virtual {
 		uint256 reward = stakersInfo[_to].reward;
 		if (reward > 0) {
