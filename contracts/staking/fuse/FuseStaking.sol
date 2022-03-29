@@ -178,7 +178,7 @@ contract FuseStaking is
 		internal
 		returns (
 			uint256 _gdUBIAmount,
-			uint256 _gdCommunityPoolAmount,
+			uint256 _gdCommunityPoolAmount
 		)
 	{
 		if (_ubiAmount == 0 || _communityPoolAmount == 0) return;
@@ -201,7 +201,7 @@ contract FuseStaking is
 				if (faucetToken.balance < targetBalance) {
 					balancesDifference = targetBalance - faucetToken.balance;
 					_amount -= balancesDifference;
-					payable(faucetAddresses[i]).transfer(balancesDifference), "transferToFaucetFailed");
+					require(payable(faucetAddresses[i]).transfer(balancesDifference), "transferToFaucetFailed");
 					spendingRateOracle.queryBalance(
 						faucetAddresses[i],
 						faucetAddresses[i].balance,
