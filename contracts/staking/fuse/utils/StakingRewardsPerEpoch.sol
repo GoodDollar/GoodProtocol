@@ -55,7 +55,6 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 		return stakersInfo[account].balance;
 	}
 
-
 	function withdraw(uint256 _amount)
 		public
 		nonReentrant
@@ -88,7 +87,10 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 	}
 
 	function earned(address account) public view returns (uint256) {
-		return stakersInfo[account].balance * _getRewardPerTokenPerUser(account) / PRECISION + stakersInfo[account].reward;
+		return
+			(stakersInfo[account].balance * _getRewardPerTokenPerUser(account)) /
+			PRECISION +
+			stakersInfo[account].reward;
 	}
 
 	function _addPendingStakesToBalanceOnTimeUpdate(address _account) internal {
@@ -104,11 +106,9 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 		stakersInfo[_account].reward = earned(_account);
 	}
 
-	function _notifyRewardAmount(uint256 reward)
-		internal
-	{
+	function _notifyRewardAmount(uint256 reward) internal {
 		totalSupply += pendingStakes;
-		rewardsPerTokenAt.push(reward * PRECISION / totalSupply);
+		rewardsPerTokenAt.push((reward * PRECISION) / totalSupply);
 		lastEpochIndex++;
 	}
 
@@ -125,20 +125,21 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 		emit Withdrawn(_from, _amount);
 	}
 
-  function _stake(address _from, uint256 _amount) 
-    internal 
-    virtual 
-    nonReentrant
+	function _stake(address _from, uint256 _amount)
+		internal
+		virtual
+		nonReentrant
 		whenNotPaused
-		updateReward(msg.sender) {
-    require(_amount > 0, "Cannot stake 0");
+		updateReward(msg.sender)
+	{
+		require(_amount > 0, "Cannot stake 0");
 		pendingStakes += _amount;
 		stakersInfo[_from].pendingStake += _amount;
 		stakersInfo[_from].indexOfLastEpochStaked = lastEpochIndex;
 		stakingToken.safeTransferFrom(_from, address(this), _amount);
 		emit Staked(_from, _amount);
 	}
-  
+
 	function _getReward(address _to) internal virtual {
 		uint256 reward = stakersInfo[_to].reward;
 		if (reward > 0) {

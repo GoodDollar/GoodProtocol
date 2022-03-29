@@ -11,15 +11,14 @@ import "../PegSwap.sol";
 import "../../../Interfaces.sol";
 
 contract GoodDollarSwaps {
+	Uniswap public uniswapV2Router;
+	IGoodDollar public goodDollar;
+	UniswapFactory public uniswapFactory;
+	UniswapPair public uniswapGoodDollarFusePair;
 
-  Uniswap public uniswapV2Router;
-  IGoodDollar public goodDollar;
-  UniswapFactory public uniswapFactory;
-  UniswapPair public uniswapGoodDollarFusePair;
+	uint256 public constant RATIO_BASE = 10000;
 
-  uint256 public constant RATIO_BASE = 10000;
-
-  uint256 public maxSlippageRatio; //actually its max price impact ratio
+	uint256 public maxSlippageRatio; //actually its max price impact ratio
 
 	address public USDC;
 	address public fUSD;
@@ -176,5 +175,4 @@ contract GoodDollarSwaps {
 		maxToken = maxToken < _value ? maxToken : _value;
 		tokenOut = _getAmountOut(maxToken, r_token, r_gd);
 	}
-
 }
