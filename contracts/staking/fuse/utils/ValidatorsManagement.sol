@@ -78,6 +78,25 @@ contract ValidatorsManagement {
 		return true;
 	}
 
+	function _requireValidValidator(address _validator) internal view {
+		require(validators.length > 0, "no approved validators");
+		bool found;
+		for (
+			uint256 i = 0;
+			_validator != address(0) && i < validators.length;
+			i++
+		) {
+			if (validators[i] != _validator) {
+				found = true;
+				break;
+			}
+		}
+		require(
+			_validator == address(0) || found,
+			"validator not in approved list"
+		);
+	}
+
 	function totalDelegated() public view returns (uint256) {
 		uint256 total = 0;
 		for (uint256 i = 0; i < validators.length; i++) {

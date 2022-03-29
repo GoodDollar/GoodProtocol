@@ -20,9 +20,7 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 
 	event Staked(address indexed staker, uint256 amount);
 	event Withdrawn(address indexed staker, uint256 amount);
-	event RewardAdded(uint256 reward);
 	event RewardPaid(address indexed user, uint256 reward);
-	event RewardsDurationUpdated(uint256 newDuration);
 	event Recovered(address token, uint256 amount);
 
 	bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
@@ -55,24 +53,6 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 		return stakersInfo[account].balance;
 	}
 
-	function withdraw(uint256 _amount)
-		public
-		nonReentrant
-		updateReward(msg.sender)
-	{
-		require(_amount > 0, "Cannot withdraw 0");
-		_withdraw(msg.sender, _amount);
-	}
-
-	function getReward() public nonReentrant updateReward(msg.sender) {
-		_getReward(msg.sender);
-	}
-
-	function exit() external {
-		withdraw(stakersInfo[msg.sender].balance);
-		getReward();
-	}
-
 	function _getRewardPerTokenPerUser(address _account)
 		internal
 		view
@@ -91,6 +71,18 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 			(stakersInfo[account].balance * _getRewardPerTokenPerUser(account)) /
 			PRECISION +
 			stakersInfo[account].reward;
+	}
+
+	function recoverERC20(address tokenAddress, uint256 tokenAmount)
+		external
+		onlyRole(GUARDIAN_ROLE)
+	{
+		require(
+			tokenAddress != address(stakingToken),
+			"Cannot withdraw the staking token"
+		);
+		IERC20(tokenAddress).safeTransfer(msg.sender, tokenAmount);
+		emit Recovered(tokenAddress, tokenAmount);
 	}
 
 	function _addPendingStakesToBalanceOnTimeUpdate(address _account) internal {
@@ -128,9 +120,6 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 	function _stake(address _from, uint256 _amount)
 		internal
 		virtual
-		nonReentrant
-		whenNotPaused
-		updateReward(msg.sender)
 	{
 		require(_amount > 0, "Cannot stake 0");
 		pendingStakes += _amount;
