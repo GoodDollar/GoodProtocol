@@ -247,10 +247,7 @@ contract FuseStaking is
 
 	function _checkIfCalledOnceInDayAndReturnDay() internal returns (uint256) {
 		uint256 curDay = ubiScheme.currentDay();
-		require(
-      curDay != lastDayCollected, 
-      "can collect only once in a ubi cycle"
-      );
+		require(curDay != lastDayCollected, "can collect only once in a ubi cycle");
 		lastDayCollected = curDay;
 		return curDay;
 	}
@@ -259,25 +256,31 @@ contract FuseStaking is
 		uint256 curDay = _checkIfCalledOnceInDayAndReturnDay();
 		uint256 earnings = _balance(); // pending fuse earnings?
 
-		uint256 fuseAmountForUBI = (earnings * (RATIO_BASE - globalGivebackRatio)) /
+		uint256 stakersPart = (earnings * (RATIO_BASE - globalGivebackRatio)) /
 			RATIO_BASE;
+		uint256 daoPart = earnings > 0 ? earnings - stakersPart : 0;
+		uint256 keeperPart;
+		uint256 communityPoolPart;
 
-		uint256 givebackAmount = earnings > 0 ? earnings - fuseAmountForUBI : 0;
-		uint256 keeperAmount = fuseAmountForUBI > 0
-			? fuseAmountForUBI -
-				(fuseAmountForUBI * (RATIO_BASE - keeperRatio)) /
-				RATIO_BASE
-			: 0;
-		uint256 communityPoolAmount = keeperAmount > 0
-			? keeperAmount - (keeperAmount * communityPoolRatio) / RATIO_BASE
-			: 0;
+		if (stakersPart > 0) {
+			keeperPart =
+				stakersPart -
+				(stakersPart * (RATIO_BASE - keeperRatio)) /
+				RATIO_BASE;
+			stakersPart -= keeperPart;
+			communityPoolPart =
+				stakersPart -
+				(stakersPart * (RATIO_BASE - communityPoolRatio)) /
+				RATIO_BASE;
+			stakersPart -= communityPoolPart;
+		}
 
-		_distributeGivebackAndQueryOracle(givebackAmount);
+		_distributeGivebackAndQueryOracle(daoPart);
 		(
 			uint256 gdUBIAmount,
 			uint256 gdCommunityPoolAmount
-		) = _distributeToUBIAndCommunityPool(keeperAmount, communityPoolAmount);
-		uint256[] memory swapResult = _buyGD(fuseAmountForUBI);
+		) = _distributeToUBIAndCommunityPool(keeperPart, communityPoolPart);
+		uint256[] memory swapResult = _buyGD(stakersPart);
 		_notifyRewardAmount(swapResult[1]);
 		_updateGlobalGivebackRatio();
 
