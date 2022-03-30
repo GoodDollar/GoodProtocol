@@ -28,7 +28,7 @@ contract GoodDollarSwaps {
 	/**
 	 * @dev internal method to buy goodDollar from fuseswap
 	 * @param _value fuse to be sold
-	 * @return uniswapV2Router coversion results uint256[2]
+	 * @return result uniswapV2Router coversion results uint256[2]
 	 */
 	function _buyGD(uint256 _value) internal returns (uint256[] memory result) {
 		//buy from uniwasp

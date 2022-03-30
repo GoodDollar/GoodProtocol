@@ -12,6 +12,8 @@ contract FuseStaking is
 	GoodDollarSwaps,
 	ValidatorsManagement
 {
+	using SafeERC20 for IERC20;
+
 	IUBIScheme public ubiScheme;
 
 	uint256 public keeperRatio;
@@ -138,7 +140,7 @@ contract FuseStaking is
 
 	function withdraw(uint256 amount) public nonReentrant {
 		require(amount > 0, "cannotWithdraw0");
-		_withdraw(msg.sender, amount, true);
+		_withdraw(msg.sender, msg.sender, amount);
 	}
 
 	function _withdraw(address _from, uint256 _amount) internal override {
@@ -153,8 +155,8 @@ contract FuseStaking is
 
 	function _withdraw(
 		address _from,
-		uint256 _amount,
-		bool enableTransfer
+		address _to,
+		uint256 _amount
 	) internal {
 		uint256 effectiveBalance = address(this).balance;
 		require(
@@ -171,9 +173,9 @@ contract FuseStaking is
 
 		_withdraw(_from, _amount);
 
-		if (enableTransfer) {
-			payable(_from).transfer(_amount);
-			emit Withdrawn(_from, _amount);
+		if (_to != address(0)) {
+			payable(_to).transfer(_amount);
+			emit Withdrawn(_to, _amount);
 		}
 	}
 
@@ -188,7 +190,10 @@ contract FuseStaking is
 		uint256 _ubiAmount,
 		uint256 _communityPoolAmount
 	) internal returns (uint256 _gdUBIAmount, uint256 _gdCommunityPoolAmount) {
-		if (_ubiAmount == 0 || _communityPoolAmount == 0) return;
+		if (_ubiAmount == 0 || _communityPoolAmount == 0) {
+			_gdUBIAmount = 0;
+			_gdCommunityPoolAmount = 0;
+		}
 		uint256[] memory swapResult = _buyGD(_ubiAmount);
 		require(
 			goodDollar.transfer(address(ubiScheme), swapResult[1]),
@@ -215,10 +220,7 @@ contract FuseStaking is
 				if (faucetToken.balance < targetBalance) {
 					balancesDifference = targetBalance - faucetToken.balance;
 					_amount -= balancesDifference;
-					require(
-						payable(faucetAddresses[i]).transfer(balancesDifference),
-						"transferToFaucetFailed"
-					);
+					payable(faucetAddresses[i]).transfer(balancesDifference);
 					spendingRateOracle.queryBalance(
 						faucetAddresses[i],
 						faucetAddresses[i].balance,
@@ -258,21 +260,21 @@ contract FuseStaking is
 
 		uint256 stakersPart = (earnings * (RATIO_BASE - globalGivebackRatio)) /
 			RATIO_BASE;
-		uint256 daoPart = earnings > 0 ? earnings - stakersPart : 0;
+		uint256 daoPart = earnings - stakersPart;
 		uint256 keeperPart;
 		uint256 communityPoolPart;
 
-		if (stakersPart > 0) {
+		if (daoPart > 0) {
 			keeperPart =
-				stakersPart -
-				(stakersPart * (RATIO_BASE - keeperRatio)) /
+				daoPart -
+				(daoPart * (RATIO_BASE - keeperRatio)) /
 				RATIO_BASE;
-			stakersPart -= keeperPart;
+			daoPart -= keeperPart;
 			communityPoolPart =
-				stakersPart -
-				(stakersPart * (RATIO_BASE - communityPoolRatio)) /
+				daoPart -
+				(daoPart * (RATIO_BASE - communityPoolRatio)) /
 				RATIO_BASE;
-			stakersPart -= communityPoolPart;
+			daoPart -= communityPoolPart;
 		}
 
 		_distributeGivebackAndQueryOracle(daoPart);
@@ -358,7 +360,7 @@ contract FuseStaking is
 		address _to,
 		uint256 _amount
 	) internal virtual {
-		_withdraw(_from, address(this), false);
+		_withdraw(_from, address(0), _amount);
 		uint256 givebackRatio = _getTransferGivebackRatio(_to, _from);
 		_stake(_to, address(0), _amount, givebackRatio);
 	}
