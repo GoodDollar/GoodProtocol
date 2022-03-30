@@ -13,8 +13,8 @@ contract FuseStaking is
 	// ValidatorsManagement
 {
 	// uint256 public keeperRatio;
-	uint256 public communityPoolRatio;
-	uint256 public communityPoolBalance;
+	// uint256 public communityPoolRatio;
+	// uint256 public communityPoolBalance;
 
 	uint256 public minGivebackRatio;
 	uint256 public globalGivebackRatio;
