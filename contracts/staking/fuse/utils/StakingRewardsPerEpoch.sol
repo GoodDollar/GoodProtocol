@@ -10,8 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 	using SafeERC20 for IERC20;
 
-	struct StakeInfo {
-		uint256 rewardPerTokenPaid;
+	struct StakerInfo {
 		uint256 reward;
 		uint256 balance;
 		uint256 pendingStake;
@@ -29,7 +28,7 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 	IERC20 public rewardsToken;
 	IERC20 public stakingToken;
 
-	mapping(address => StakeInfo) public stakersInfo;
+	mapping(address => StakerInfo) public stakersInfo;
 
 	uint256 public lastEpochIndex;
 	uint256 public pendingStakes;
@@ -50,7 +49,11 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 	}
 
 	function balanceOf(address account) external view returns (uint256) {
-		return stakersInfo[account].balance;
+		return _balanceOf(account);
+	}
+
+	function _balanceOf(address account) internal view returns (uint256) {
+		return stakersInfo[account].balance + stakersInfo[account].pendingStake;
 	}
 
 	function _getRewardPerTokenPerUser(address _account)
@@ -111,16 +114,19 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 				: stakersInfo[_from].pendingStake;
 			pendingStakes -= pendingToReduce;
 			stakersInfo[_from].pendingStake -= pendingToReduce;
+			stakersInfo[_from].balance -= _amount - pendingToReduce;
+		} else {
+			stakersInfo[_from].balance -= _amount;
 		}
 
 		stakingToken.safeTransfer(_from, _amount);
 		emit Withdrawn(_from, _amount);
 	}
 
-	function _stake(address _from, uint256 _amount)
-		internal
-		virtual
-	{
+	function _stake(address _from, uint256 _amount) 
+  internal 
+  virtual 
+  {
 		require(_amount > 0, "Cannot stake 0");
 		pendingStakes += _amount;
 		stakersInfo[_from].pendingStake += _amount;

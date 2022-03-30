@@ -24,6 +24,7 @@ contract FuseStaking is
 	mapping(address => uint256) public giveBackRatioPerUser;
 
 	ISpendingRateOracle public spendingRateOracle;
+	uint256 public lastDayCollected; //ubi day from ubischeme
 
 	event UBICollected(
 		uint256 indexed currentDay,
@@ -40,8 +41,8 @@ contract FuseStaking is
 		StakingRewardsPerEpoch(_rewardsToken, _stakingToken)
 	{}
 
-	function stake(uint256 _giveBackRatio) public payable returns (bool) {
-		return stake(address(0), _giveBackRatio);
+	function stake(uint256 _giveBackRatio) public payable {
+		stake(address(0), _giveBackRatio);
 	}
 
 	function stake(address _validator, uint256 _giveBackRatio)
@@ -55,18 +56,17 @@ contract FuseStaking is
 		_stake(msg.sender, _validator, msg.value, _giveBackRatio);
 	}
 
-	function getReward() public nonReentrant updateReward(msg.sender) {
-		_getReward(msg.sender);
-	}
-
-	function exit() external {
-		withdraw(stakersInfo[msg.sender].balance);
-		getReward();
+	function _stake(address _from, uint256 _amount) internal override {
+		pendingStakes += _amount;
+		stakersInfo[_from].pendingStake += _amount;
+		stakersInfo[_from].indexOfLastEpochStaked = lastEpochIndex;
+		emit Staked(_from, _amount);
 	}
 
 	function _stake(
 		address _from,
 		address _validator,
+		uint256 _amount,
 		uint256 _giveBackRatio
 	) internal {
 		_requireValidValidator(_validator);
@@ -75,29 +75,28 @@ contract FuseStaking is
 			"giveback should be higher or equal to minimum"
 		);
 		require(_stakeNextValidator(_amount, _validator), "stakeFailed");
-		_updateStakerAndPendingGivebackRatio(_from, _amount, _giveBackRatio);
+		_updateGiveBackRatiosAndStake(_from, _amount, _giveBackRatio);
 		_stake(_from, _amount);
 		emit Staked(_from, _amount);
 	}
 
-	function _stake(address _from, uint256 _amount)
-		internal
-		override
-	{
-		pendingStakes += _amount;
-		stakersInfo[_from].pendingStake += _amount;
-		stakersInfo[_from].indexOfLastEpochStaked = lastEpochIndex;
-		emit Staked(_from, _amount);
-	}
-
-	function _updateStakerAndPendingGivebackRatio(
-		address _to,
+	function _updateGiveBackRatiosAndStake(
+		address _from,
 		uint256 _amount,
 		uint256 _giveBackRatio
 	) internal {
-		giveBackRatioPerUser[_to] = _weightedAverage(
-			giveBackRatioPerUser[_to],
-			stakersInfo[_to].balance,
+		_updateGivebackRatioForStakerAndPending(_from, _amount, _giveBackRatio);
+		_stake(_from, _amount);
+	}
+
+	function _updateGivebackRatioForStakerAndPending(
+		address _from,
+		uint256 _amount,
+		uint256 _giveBackRatio
+	) internal {
+		giveBackRatioPerUser[_from] = _weightedAverage(
+			giveBackRatioPerUser[_from],
+			stakersInfo[_from].balance,
 			_giveBackRatio,
 			_amount
 		);
@@ -134,10 +133,10 @@ contract FuseStaking is
 		return (valueA * weightA + valueB * weightB) / (weightA + weightB);
 	}
 
-	function withdraw(uint256 amount)
-		public
-		nonReentrant
-	{
+	function withdraw(uint256 amount) 
+  public 
+  nonReentrant 
+  {
 		require(amount > 0, "cannotWithdraw0");
 		_withdraw(msg.sender, amount, true);
 	}
@@ -152,12 +151,20 @@ contract FuseStaking is
 		}
 	}
 
-	function _withdraw(address _from, uint256 _amount, bool enableTransfer) internal override {
+	function _withdraw(
+		address _from,
+		uint256 _amount,
+		bool enableTransfer
+	) internal {
 		uint256 effectiveBalance = address(this).balance;
+		require(
+			_amount > 0 && _amount <= _balanceOf(_from),
+			"invalid withdraw amount"
+		);
 		_gatherFuseFromValidators(_amount);
 		effectiveBalance = address(this).balance - effectiveBalance; //use only undelegated funds
 
-		// in case some funds where not withdrawn
+		// in case some funds were not withdrawn
 		if (_amount > effectiveBalance) {
 			_amount = effectiveBalance;
 		}
@@ -170,20 +177,23 @@ contract FuseStaking is
 		}
 	}
 
-	function acquireCommunityPoolBalance(address to) external onlyRole(GUARDIAN_ROLE) {
+	function acquireCommunityPoolBalance(address to)
+		external
+		onlyRole(GUARDIAN_ROLE)
+	{
 		require(goodDollar.transfer(to, communityPoolBalance));
 	}
 
-	function _distributeToUBIAndCommunityPool(uint256 _ubiAmount, uint256 _communityPoolAmount)
-		internal
-		returns (
-			uint256 _gdUBIAmount,
-			uint256 _gdCommunityPoolAmount
-		)
-	{
+	function _distributeToUBIAndCommunityPool(
+		uint256 _ubiAmount,
+		uint256 _communityPoolAmount
+	) internal returns (uint256 _gdUBIAmount, uint256 _gdCommunityPoolAmount) {
 		if (_ubiAmount == 0 || _communityPoolAmount == 0) return;
 		uint256[] memory swapResult = _buyGD(_ubiAmount);
-		require(goodDollar.transfer(address(ubiScheme), swapResult[1]), "ubiPartTransferFailed");
+		require(
+			goodDollar.transfer(address(ubiScheme), swapResult[1]),
+			"ubiPartTransferFailed"
+		);
 		_gdUBIAmount = swapResult[1];
 		swapResult = _buyGD(_communityPoolAmount);
 		communityPoolBalance += swapResult[1];
@@ -194,14 +204,21 @@ contract FuseStaking is
 		if (_amount == 0) return;
 		address[] memory faucetAddresses = spendingRateOracle.getFaucets();
 		for (uint256 i = 0; i < faucetAddresses.length; i++) {
-			address faucetToken = spendingRateOracle.getFaucetTokenAddress(faucetAddresses[i]);
-			uint256 targetBalance = spendingRateOracle.getFaucetTargetBalance(faucetAddresses[i]);
+			address faucetToken = spendingRateOracle.getFaucetTokenAddress(
+				faucetAddresses[i]
+			);
+			uint256 targetBalance = spendingRateOracle.getFaucetTargetBalance(
+				faucetAddresses[i]
+			);
 			uint256 balancesDifference;
 			if (faucetToken == address(0)) {
 				if (faucetToken.balance < targetBalance) {
 					balancesDifference = targetBalance - faucetToken.balance;
 					_amount -= balancesDifference;
-					require(payable(faucetAddresses[i]).transfer(balancesDifference), "transferToFaucetFailed");
+					require(
+						payable(faucetAddresses[i]).transfer(balancesDifference),
+						"transferToFaucetFailed"
+					);
 					spendingRateOracle.queryBalance(
 						faucetAddresses[i],
 						faucetAddresses[i].balance,
@@ -210,7 +227,9 @@ contract FuseStaking is
 				}
 			} else {
 				IERC20 faucetTokenInstance = IERC20(faucetToken);
-				uint256 actualBalance = faucetTokenInstance.balanceOf(faucetAddresses[i]);
+				uint256 actualBalance = faucetTokenInstance.balanceOf(
+					faucetAddresses[i]
+				);
 				if (actualBalance < targetBalance) {
 					balancesDifference = targetBalance - actualBalance;
 					_amount -= balancesDifference;
@@ -226,12 +245,12 @@ contract FuseStaking is
 		}
 	}
 
-	function _checkIfCalledOnceInDayAndReturnDay() internal returns(uint256) {
+	function _checkIfCalledOnceInDayAndReturnDay() internal returns (uint256) {
 		uint256 curDay = ubiScheme.currentDay();
 		require(
-			curDay != lastDayCollected,
-			"can collect only once in a ubi cycle"
-		);
+      curDay != lastDayCollected, 
+      "can collect only once in a ubi cycle"
+      );
 		lastDayCollected = curDay;
 		return curDay;
 	}
@@ -240,14 +259,24 @@ contract FuseStaking is
 		uint256 curDay = _checkIfCalledOnceInDayAndReturnDay();
 		uint256 earnings = _balance(); // pending fuse earnings?
 
-		uint256 fuseAmountForUBI = (earnings * (RATIO_BASE - globalGivebackRatio)) / RATIO_BASE;
+		uint256 fuseAmountForUBI = (earnings * (RATIO_BASE - globalGivebackRatio)) /
+			RATIO_BASE;
 
 		uint256 givebackAmount = earnings > 0 ? earnings - fuseAmountForUBI : 0;
-		uint256 keeperAmount = fuseAmountForUBI > 0 ? fuseAmountForUBI - (fuseAmountForUBI * (RATIO_BASE - keeperRatio)) / RATIO_BASE : 0;
-		uint256 communityPoolAmount = keeperAmount > 0 ? keeperAmount - (keeperAmount * communityPoolRatio) / RATIO_BASE : 0;
+		uint256 keeperAmount = fuseAmountForUBI > 0
+			? fuseAmountForUBI -
+				(fuseAmountForUBI * (RATIO_BASE - keeperRatio)) /
+				RATIO_BASE
+			: 0;
+		uint256 communityPoolAmount = keeperAmount > 0
+			? keeperAmount - (keeperAmount * communityPoolRatio) / RATIO_BASE
+			: 0;
 
 		_distributeGivebackAndQueryOracle(givebackAmount);
-		(uint256 gdUBIAmount, uint256 gdCommunityPoolAmount) = _distributeToUBIAndCommunityPool(keeperAmount, communityPoolAmount);
+		(
+			uint256 gdUBIAmount,
+			uint256 gdCommunityPoolAmount
+		) = _distributeToUBIAndCommunityPool(keeperAmount, communityPoolAmount);
 		uint256[] memory swapResult = _buyGD(fuseAmountForUBI);
 		_notifyRewardAmount(swapResult[1]);
 		_updateGlobalGivebackRatio();
@@ -273,5 +302,14 @@ contract FuseStaking is
 		onlyRole(GUARDIAN_ROLE)
 	{
 		_removeValidator(_validator);
+	}
+
+	function getReward() public nonReentrant updateReward(msg.sender) {
+		_getReward(msg.sender);
+	}
+
+	function exit() external {
+		withdraw(stakersInfo[msg.sender].balance);
+		getReward();
 	}
 }
