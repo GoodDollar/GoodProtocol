@@ -25,6 +25,7 @@ contract FuseStaking is
 
 	ISpendingRateOracle public spendingRateOracle;
 	uint256 public lastDayCollected; //ubi day from ubischeme
+	mapping(address => mapping(address => uint256)) public allowance;
 
 	event UBICollected(
 		uint256 indexed currentDay,
@@ -36,6 +37,8 @@ contract FuseStaking is
 		address keeper,
 		uint256 keeperGDFee
 	);
+	event Transfer(address indexed from, address indexed to, uint256 value);
+	event Approval(address indexed owner, address indexed spender, uint256 value);
 
 	constructor(address _rewardsToken, address _stakingToken)
 		StakingRewardsPerEpoch(_rewardsToken, _stakingToken)
@@ -133,10 +136,7 @@ contract FuseStaking is
 		return (valueA * weightA + valueB * weightB) / (weightA + weightB);
 	}
 
-	function withdraw(uint256 amount) 
-  public 
-  nonReentrant 
-  {
+	function withdraw(uint256 amount) public nonReentrant {
 		require(amount > 0, "cannotWithdraw0");
 		_withdraw(msg.sender, amount, true);
 	}
@@ -177,11 +177,11 @@ contract FuseStaking is
 		}
 	}
 
-	function acquireCommunityPoolBalance(address to)
+	function acquireCommunityPoolBalance(address _to)
 		external
 		onlyRole(GUARDIAN_ROLE)
 	{
-		require(goodDollar.transfer(to, communityPoolBalance));
+		require(goodDollar.transfer(_to, communityPoolBalance));
 	}
 
 	function _distributeToUBIAndCommunityPool(
@@ -311,5 +311,85 @@ contract FuseStaking is
 	function exit() external {
 		withdraw(stakersInfo[msg.sender].balance);
 		getReward();
+	}
+
+	function transfer(address _to, uint256 _amount) external returns (bool) {
+		_transfer(msg.sender, _to, _amount);
+	}
+
+	function approve(address _spender, uint256 _amount) external returns (bool) {
+		_approve(msg.sender, _spender, _amount);
+		return true;
+	}
+
+	function _approve(
+		address _owner,
+		address _spender,
+		uint256 _amount
+	) internal {
+		require(
+			_owner != address(0),
+			"FuseStakingV4: approve from the zero address"
+		);
+		require(
+			_spender != address(0),
+			"FuseStakingV4: approve to the zero address"
+		);
+		allowance[_owner][_spender] = _amount;
+		emit Approval(_owner, _spender, _amount);
+	}
+
+	function transferFrom(
+		address _from,
+		address _to,
+		uint256 _amount
+	) public returns (bool) {
+		address spender = _msgSender();
+		_spendAllowance(_from, spender, _amount);
+		_transfer(_from, _to, _amount);
+		return true;
+	}
+
+	function _transfer(
+		address _from,
+		address _to,
+		uint256 _amount
+	) internal virtual {
+		_withdraw(_from, address(this), false);
+		uint256 givebackRatio = _getTransferGivebackRatio(_to, _from);
+		_stake(_to, address(0), _amount, givebackRatio);
+	}
+
+	/**
+	 * @dev determines the giveback ratio of a transferred stake
+	 * @param _to the receiver
+	 * @param _from the sender
+	 * @return receiver average giveback ratio if he has one, otherwise sender giveback ratio
+	 */
+	function _getTransferGivebackRatio(address _to, address _from)
+		internal
+		view
+		returns (uint256)
+	{
+		return
+			giveBackRatioPerUser[_to] > 0
+				? giveBackRatioPerUser[_to]
+				: giveBackRatioPerUser[_from] > 0
+				? giveBackRatioPerUser[_from]
+				: minGivebackRatio;
+	}
+
+	function _spendAllowance(
+		address _owner,
+		address _spender,
+		uint256 _amount
+	) internal virtual {
+		uint256 currentAllowance = allowance[_owner][_spender];
+		if (currentAllowance != type(uint256).max) {
+			require(currentAllowance >= _amount, "insufficient allowance");
+			unchecked {
+				_approve(_owner, _spender, currentAllowance - _amount);
+			}
+		}
 	}
 }
