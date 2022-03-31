@@ -16,7 +16,7 @@ const MaxUint256 = ethers.constants.MaxUint256;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 30;
 
-describe.only("DonationsStaking - DonationStaking contract that receives funds in ETH/StakingToken and stake them in the SimpleStaking contract", () => {
+describe("DonationsStaking - DonationStaking contract that receives funds in ETH/StakingToken and stake them in the SimpleStaking contract", () => {
   let dai: Contract;
   let bat: Contract;
   let pair: Contract, uniswapRouter: Contract, uniswapFactory: Contract;
@@ -404,7 +404,7 @@ describe.only("DonationsStaking - DonationStaking contract that receives funds i
     expect(version).to.be.equal("2.0.0");
   });
 
-  it.only("it should not allow to stake donations when not active", async () => {
+  it("it should not allow to stake donations when not active", async () => {
     let isActive = await donationsStaking.active();
     expect(isActive).to.be.equal(true);
     let stakeAmount = ethers.utils.parseEther("10");
