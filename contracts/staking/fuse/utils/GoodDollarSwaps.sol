@@ -25,6 +25,19 @@ contract GoodDollarSwaps {
 
 	PegSwap public pegSwap;
 
+	mapping(bytes32 => uint256) internal buffersForPendingFuse;
+
+	function _safeBuyGD(uint256 _value, bytes32 _bufferNameHash)
+		internal
+		returns (uint256[] memory result)
+	{
+			uint256 pendingFuseToBeSwapped = buffersForPendingFuse[_bufferNameHash];
+			uint256 valueAndPendingFuseAmount = _value + pendingFuseToBeSwapped;
+			result = _buyGD(valueAndPendingFuseAmount);
+			buffersForPendingFuse[_bufferNameHash] = valueAndPendingFuseAmount - result[0];
+			result[2] = buffersForPendingFuse[_bufferNameHash];
+	}
+
 	/**
 	 * @dev internal method to buy goodDollar from fuseswap
 	 * @param _value fuse to be sold
@@ -38,11 +51,12 @@ contract GoodDollarSwaps {
 			_value
 		);
 		address[] memory path;
+		uint256[] memory swapResult;
 		if (maxFuse >= maxFuseUSDC) {
 			path = new address[](2);
 			path[0] = uniswapV2Router.WETH();
 			path[1] = address(goodDollar);
-			result = uniswapV2Router.swapExactETHForTokens{ value: maxFuse }(
+			swapResult = uniswapV2Router.swapExactETHForTokens{ value: maxFuse }(
 				(fuseGDOut * 95) / 100,
 				path,
 				address(this),
@@ -53,7 +67,7 @@ contract GoodDollarSwaps {
 			path = new address[](2);
 			path[0] = USDC;
 			path[1] = address(goodDollar);
-			result = uniswapV2Router.swapExactTokensForTokens(
+			swapResult = uniswapV2Router.swapExactTokensForTokens(
 				usdcAmount,
 				(usdcGDOut * 95) / 100,
 				path,
@@ -61,8 +75,11 @@ contract GoodDollarSwaps {
 				block.timestamp
 			);
 			//buyGD should return how much fuse was used in [0] and how much G$ we got in [1]
-			result[0] = usedFuse;
+			swapResult[0] = usedFuse;
 		}
+		result = new uint256[](3);
+		result[0] = swapResult[0];
+		result[1] = swapResult[1];
 	}
 
 	/**
