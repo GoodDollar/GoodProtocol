@@ -1,25 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import "./utils/StakingRewardsPerEpoch.sol";
-// import "./utils/GoodDollarSwaps.sol";
-// import "./utils/ValidatorsManagement.sol";
-// import "./IConsensus.sol";
-// import "./ISpendingRateOracle.sol";
-
-contract FuseStaking is
-	StakingRewardsPerEpoch //,
-	// GoodDollarSwaps,
-	// ValidatorsManagement
-{
-	// uint256 public keeperRatio;
-	// uint256 public communityPoolRatio;
-	// uint256 public communityPoolBalance;
-
+contract FuseStaking {
 	uint256 public minGivebackRatio;
 	uint256 public globalGivebackRatio;
 	uint256 public pendingGivebackRatio;
 	mapping(address => uint256) public giveBackRatioPerUser;
+
+	struct StakerInfo {
+		uint256 reward;
+		uint256 balance;
+		uint256 pendingStake;
+		uint256 indexOfLastEpochStaked;
+	}
+	mapping(address => StakerInfo) public stakersInfo;
+
+	uint256 public pendingStakes;
+	uint256 public totalSupply;
 
 	function stake(uint256 _giveBackRatio) public payable {
 		stake(address(0), _giveBackRatio);
@@ -32,15 +29,8 @@ contract FuseStaking is
 		whenNotPaused
 		updateReward(msg.sender)
 	{
-		require(msg.value > 0, "stake must be > 0");
+		// require(msg.value > 0, "stake must be > 0");
 		_stake(msg.sender, _validator, msg.value, _giveBackRatio);
-	}
-
-	function _stake(address _from, uint256 _amount) internal override {
-		pendingStakes += _amount;
-		stakersInfo[_from].pendingStake += _amount;
-		// stakersInfo[_from].indexOfLastEpochStaked = lastEpochIndex;
-		// emit Staked(_from, _amount);
 	}
 
 	function _stake(
@@ -65,7 +55,7 @@ contract FuseStaking is
 		uint256 _giveBackRatio
 	) internal {
 		_updateGivebackRatioForStakerAndPending(_from, _amount, _giveBackRatio);
-		_stake(_from, _amount);
+		// _stake(_from, _amount);
 	}
 
 	function _updateGivebackRatioForStakerAndPending(
@@ -112,50 +102,6 @@ contract FuseStaking is
 		return (valueA * weightA + valueB * weightB) / (weightA + weightB);
 	}
 
-	// function withdraw(uint256 amount) public nonReentrant {
-	// 	require(amount > 0, "cannotWithdraw0");
-	// 	_withdraw(msg.sender, amount, true);
-	// }
-
-	function _withdraw(address _from, uint256 _amount) internal override {
-		if (stakersInfo[_from].pendingStake > 0) {
-			uint256 pendingToReduce = stakersInfo[_from].pendingStake >= _amount
-				? _amount
-				: stakersInfo[_from].pendingStake;
-			pendingStakes -= pendingToReduce;
-			stakersInfo[_from].pendingStake -= pendingToReduce;
-			stakersInfo[_from].balance -= _amount - pendingToReduce;
-		} else {
-			stakersInfo[_from].balance -= _amount;
-		}
-	}
-
-	function _withdraw(
-		address _from,
-		uint256 _amount,
-		bool enableTransfer
-	) internal {
-		// uint256 effectiveBalance = address(this).balance;
-		// require(
-		// 	_amount > 0 && _amount <= _balanceOf(_from),
-		// 	"invalid withdraw amount"
-		// );
-		// _gatherFuseFromValidators(_amount);
-		// effectiveBalance = address(this).balance - effectiveBalance; //use only undelegated funds
-
-		// // in case some funds were not withdrawn
-		// if (_amount > effectiveBalance) {
-		// 	_amount = effectiveBalance;
-		// }
-
-		_withdraw(_from, _amount);
-
-		// if (enableTransfer) {
-		// 	payable(_from).transfer(_amount);
-		// 	emit Withdrawn(_from, _amount);
-		// }
-	}
-
 	function collectUBIInterest() external onlyRole(GUARDIAN_ROLE) {
 		// uint256 curDay = _checkIfCalledOnceInDayAndReturnDay();
 		// uint256 earnings = _balance(); // pending fuse earnings?
@@ -200,43 +146,6 @@ contract FuseStaking is
 		// );
 	}
 
-	function transfer(address _to, uint256 _amount) external returns (bool) {
-		_transfer(msg.sender, _to, _amount);
-	}
-
-	// function approve(address _spender, uint256 _amount) external returns (bool) {
-	// 	_approve(msg.sender, _spender, _amount);
-	// 	return true;
-	// }
-
-	// function _approve(
-	// 	address _owner,
-	// 	address _spender,
-	// 	uint256 _amount
-	// ) internal {
-	// 	require(
-	// 		_owner != address(0),
-	// 		"FuseStakingV4: approve from the zero address"
-	// 	);
-	// 	require(
-	// 		_spender != address(0),
-	// 		"FuseStakingV4: approve to the zero address"
-	// 	);
-	// 	allowance[_owner][_spender] = _amount;
-	// 	emit Approval(_owner, _spender, _amount);
-	// }
-
-	function transferFrom(
-		address _from,
-		address _to,
-		uint256 _amount
-	) public returns (bool) {
-		// address spender = _msgSender();
-		// _spendAllowance(_from, spender, _amount);
-		_transfer(_from, _to, _amount);
-		return true;
-	}
-
 	function _transfer(
 		address _from,
 		address _to,
@@ -262,21 +171,7 @@ contract FuseStaking is
 			giveBackRatioPerUser[_to] > 0
 				? giveBackRatioPerUser[_to]
 				: giveBackRatioPerUser[_from] > 0
-				? giveBackRatioPerUser[_from]
-				: minGivebackRatio;
+				  ? giveBackRatioPerUser[_from]
+				  : minGivebackRatio;
 	}
-
-	// function _spendAllowance(
-	// 	address _owner,
-	// 	address _spender,
-	// 	uint256 _amount
-	// ) internal virtual {
-	// 	uint256 currentAllowance = allowance[_owner][_spender];
-	// 	if (currentAllowance != type(uint256).max) {
-	// 		require(currentAllowance >= _amount, "insufficient allowance");
-	// 		unchecked {
-	// 			_approve(_owner, _spender, currentAllowance - _amount);
-	// 		}
-	// 	}
-	// }
 }
