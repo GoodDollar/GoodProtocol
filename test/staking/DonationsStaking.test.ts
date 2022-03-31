@@ -16,7 +16,7 @@ const MaxUint256 = ethers.constants.MaxUint256;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 30;
 
-describe("DonationsStaking - DonationStaking contract that receives funds in ETH/StakingToken and stake them in the SimpleStaking contract", () => {
+describe.only("DonationsStaking - DonationStaking contract that receives funds in ETH/StakingToken and stake them in the SimpleStaking contract", () => {
   let dai: Contract;
   let bat: Contract;
   let pair: Contract, uniswapRouter: Contract, uniswapFactory: Contract;
@@ -402,5 +402,24 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
   it("it should return version of DonationsStaking properly", async () => {
     const version = await donationsStaking.getVersion();
     expect(version).to.be.equal("2.0.0");
+  });
+
+  it.only("it should not allow to stake donations when not active", async () => {
+    let isActive = await donationsStaking.active();
+    expect(isActive).to.be.equal(true);
+    let stakeAmount = ethers.utils.parseEther("10");
+    await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
+    await expect(donationsStaking.stakeDonations()).to.not.be.reverted;
+    
+    let encodedData = donationsStaking.interface.encodeFunctionData(
+      "setActive",
+      [false]
+    );
+    await genericCall(donationsStaking.address, encodedData);
+
+    isActive = await donationsStaking.active();
+    expect(isActive).to.be.equal(false);
+    await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
+    await expect(donationsStaking.stakeDonations()).to.be.revertedWith("Contract is inactive");
   });
 });

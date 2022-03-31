@@ -33,7 +33,7 @@ contract DonationsStaking is DAOUpgradeableContract, IHasRouter {
 	);
 
 	modifier isActive() {
-		require(active);
+		require(active, "Contract is inactive");
 		_;
 	}
 
