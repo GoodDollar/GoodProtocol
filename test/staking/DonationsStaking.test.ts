@@ -404,7 +404,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(version).to.be.equal("2.0.0");
   });
 
-  it("it should not allow to stake donations when not active", async () => {
+  it("should not allow to stake donations when not active", async () => {
     let isActive = await donationsStaking.active();
     expect(isActive).to.be.equal(true);
     let stakeAmount = ethers.utils.parseEther("10");
@@ -421,5 +421,29 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(isActive).to.be.equal(false);
     await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
     await expect(donationsStaking.stakeDonations()).to.be.revertedWith("Contract is inactive");
+  });
+
+  it("should not allow to set swap path on invalid path", async () => {
+    // Valid scenario check: from ETH to staking token
+    let encodedData = donationsStaking.interface.encodeFunctionData(
+      "setSwapPaths",
+      [[NULL_ADDRESS, dai.address]]
+    );
+    await expect(genericCall(donationsStaking.address, encodedData)).to.not.be.reverted;
+
+    // Invalid scenarios checks
+    const invalidInputs = [
+      [NULL_ADDRESS],             // less than minimum 2 length
+      [bat.address, dai.address], // first is not ETH null address
+      [NULL_ADDRESS, bat.address] // second is not the staking token
+    ];
+
+    invalidInputs.forEach(async (invalidInput) => {
+      encodedData = donationsStaking.interface.encodeFunctionData(
+        "setSwapPaths",
+        [[NULL_ADDRESS]]
+      );
+      await expect(genericCall(donationsStaking.address, encodedData)).to.be.revertedWith("Invalid path");
+    });
   });
 });
