@@ -435,13 +435,13 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const invalidInputs = [
       [NULL_ADDRESS],             // less than minimum 2 length
       [bat.address, dai.address], // first is not ETH null address
-      [NULL_ADDRESS, bat.address] // second is not the staking token
+      [NULL_ADDRESS, bat.address] // last is not the staking token
     ];
 
     invalidInputs.forEach(async (invalidInput) => {
       encodedData = donationsStaking.interface.encodeFunctionData(
         "setSwapPaths",
-        [[NULL_ADDRESS]]
+        [invalidInput]
       );
       await expect(genericCall(donationsStaking.address, encodedData)).to.be.revertedWith("Invalid path");
     });
