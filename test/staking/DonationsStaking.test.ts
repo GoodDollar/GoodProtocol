@@ -446,4 +446,20 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       await expect(genericCall(donationsStaking.address, encodedData)).to.be.revertedWith("Invalid path");
     });
   });
+
+  it("should set max liquidity percentage swap when avatar", async () => {
+    // fail when not avatar
+    const percentageToSet = 21;
+    expect(donationsStaking.connect(staker)["setMaxLiquidityPercentageSwap(uint24)"](percentageToSet)).
+      to.be.revertedWith("only avatar can call this method");
+
+    // succeed when avatar
+    let encodedData = donationsStaking.interface.encodeFunctionData(
+      "setMaxLiquidityPercentageSwap",
+      [percentageToSet]
+    );
+    await genericCall(donationsStaking.address, encodedData);
+    const actualPercentage = await donationsStaking.maxLiquidityPercentageSwap();
+    expect(actualPercentage).to.be.equal(percentageToSet);
+  });
 });
