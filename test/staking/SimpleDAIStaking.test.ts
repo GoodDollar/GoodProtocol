@@ -1424,7 +1424,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     expect(simpleStaking.message).to.be.not.empty;
   });
 
-  it("should unpause the good compound staking contract", async () => {
+  it("should not be able to withdraw stake when the withdrawn amount is higher than the staked amount", async () => {
     let isPaused = await goodCompoundStaking.isPaused();
     if (isPaused) {
       // Unpause
@@ -1447,9 +1447,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       isPaused = await goodCompoundStaking.isPaused();
       expect(isPaused).to.be.false;
     }
-  });
 
-  it("should not be able to withdraw stake when the withdrawn amount is higher than the staked amount", async () => {
     const stakeAmount = "100";
     const higherThanStakeAmount = "101";
     await dai["mint(address,uint256)"](
