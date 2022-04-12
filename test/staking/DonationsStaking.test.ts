@@ -316,6 +316,32 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(totalStakedAfterEnd).to.be.equal(0);
   });
 
+  it("should not allow to stake donations when not active", async () => {
+    let isActive = await donationsStaking.active();
+    expect(isActive).to.be.equal(true);
+    let stakeAmount = ethers.utils.parseEther("10");
+    await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
+    
+    expect(donationsStaking.stakeDonations()).to.not.be.reverted;
+    
+    let encodedData = donationsStaking.interface.encodeFunctionData(
+      "setActive",
+      [false]
+    );
+    await genericCall(donationsStaking.address, encodedData);
+
+    isActive = await donationsStaking.active();
+    expect(isActive).to.be.equal(false);
+    await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
+    await expect(donationsStaking.stakeDonations()).to.be.revertedWith("Contract is inactive");
+    // revent to original state
+    encodedData = donationsStaking.interface.encodeFunctionData(
+      "setActive",
+      [true]
+    );
+    await genericCall(donationsStaking.address, encodedData);
+  });
+
   it("it should set stakingContract when avatar call it ", async () => {
     let stakeAmount = ethers.utils.parseEther("6000"); // Max swap amount is around 5964 with current liquidity level so we should set it to higher number in order to test functionality
 
@@ -399,37 +425,32 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(stakingAmountBeforeSet).to.be.gt(safeAmount); // maxSafeAmount must be smaller than actualstaking amount so we can verify that we hit the limit for transaction amount at once
   });
 
+  
+  it("should set max liquidity percentage swap when avatar", async () => {
+    const originalPercentage = await donationsStaking.maxLiquidityPercentageSwap();
+    // fail when not avatar
+    const percentageToSet = 21;
+    expect(donationsStaking.connect(staker)["setMaxLiquidityPercentageSwap(uint24)"](percentageToSet)).
+      to.be.revertedWith("only avatar can call this method");
+    // succeed when avatar
+    let encodedData = donationsStaking.interface.encodeFunctionData(
+      "setMaxLiquidityPercentageSwap",
+      [percentageToSet]
+    );
+    await genericCall(donationsStaking.address, encodedData);
+    const actualPercentage = await donationsStaking.maxLiquidityPercentageSwap();
+    expect(actualPercentage).to.be.equal(percentageToSet);
+    // revent to original state
+    encodedData = donationsStaking.interface.encodeFunctionData(
+      "setMaxLiquidityPercentageSwap",
+      [originalPercentage]
+    );
+  });
+
   it("it should return version of DonationsStaking properly", async () => {
     const version = await donationsStaking.getVersion();
     expect(version).to.be.equal("2.0.0");
   });
-
-  // it("should not allow to stake donations when not active", async () => {
-  //   let isActive = await donationsStaking.active();
-  //   expect(isActive).to.be.equal(true);
-  //   let stakeAmount = ethers.utils.parseEther("10");
-  //   await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
-    
-  //   // option 1 to run it
-  //   expect(donationsStaking.stakeDonations()).to.not.be.reverted;
-    
-  //   //// option 2 to run it with more details, remove after problem solved
-  //   // const tx = await donationsStaking
-  //   // ["stakeDonations()"]()
-  //   // .catch(e => console.log({e}));
-  //   // console.log({tx});
-
-  //   let encodedData = donationsStaking.interface.encodeFunctionData(
-  //     "setActive",
-  //     [false]
-  //   );
-  //   await genericCall(donationsStaking.address, encodedData);
-
-  //   isActive = await donationsStaking.active();
-  //   expect(isActive).to.be.equal(false);
-  //   await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
-  //   await expect(donationsStaking.stakeDonations()).to.be.revertedWith("Contract is inactive");
-  // });
 
   it("should not allow to set swap path on invalid path", async () => {
     // Valid scenario check: from ETH to staking token
@@ -455,19 +476,4 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     });
   });
 
-  // it("should set max liquidity percentage swap when avatar", async () => {
-  //   // fail when not avatar
-  //   const percentageToSet = 21;
-  //   expect(donationsStaking.connect(staker)["setMaxLiquidityPercentageSwap(uint24)"](percentageToSet)).
-  //     to.be.revertedWith("only avatar can call this method");
-    
-  //   // succeed when avatar
-  //   let encodedData = donationsStaking.interface.encodeFunctionData(
-  //     "setMaxLiquidityPercentageSwap",
-  //     [percentageToSet]
-  //   );
-  //   await genericCall(donationsStaking.address, encodedData);
-  //   const actualPercentage = await donationsStaking.maxLiquidityPercentageSwap();
-  //   expect(actualPercentage).to.be.equal(percentageToSet);
-  // });
 });
