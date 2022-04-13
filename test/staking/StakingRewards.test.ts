@@ -614,6 +614,56 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .withdrawStake(stakingAmount, false);
   });
 
+  // it("it should get rewards with updated values2", async () => {
+  //   const goodFundManagerFactory = await ethers.getContractFactory(
+  //     "GoodFundManager"
+  //   );
+  //   const currentBlockNumber = await ethers.provider.getBlockNumber();
+  //   const encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+  //     "setStakingReward",
+  //     [
+  //       "1000",
+  //       goodCompoundStaking.address,
+  //       currentBlockNumber,
+  //       currentBlockNumber + 5000,
+  //       false
+  //     ] // set 10 gd per block
+  //   );
+  //   await genericCall(goodFundManager.address, encodedData, avatar, 0);
+
+  //   const stakingAmount = ethers.utils.parseEther("100");
+
+  //   await dai["mint(address,uint256)"](staker.address, stakingAmount);
+  //   await dai
+  //     .connect(staker)
+  //     .approve(goodCompoundStaking.address, stakingAmount);
+  //   await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
+
+  //   await advanceBlocks(4);
+  //   const stakingContractVals = await goodFundManager.rewardsForStakingContract(
+  //     goodCompoundStaking.address
+  //   );
+
+  //   const userMintedAndPending = await goodCompoundStaking.getUserMintedAndPending(staker.address);
+  //   console.log(`mintedRewards: ${userMintedAndPending[0].toString()} 50: ${ethers.utils.parseUnits("50", 18)}`);
+  //   expect(userMintedAndPending[0].to.be.equal(5000)); 
+  //   // Each block reward is 10gd so total reward 40gd bu since multiplier is 0.5 for first month should get 20gd
+  //   console.log(`pending: ${userMintedAndPending[1]}`);
+  //   // // let rewardsEarned = await goodCompoundStaking.getUserPendingReward(
+  //   // //   staker.address,
+  //   // //   stakingContractVals[0],
+  //   // //   stakingContractVals[1],
+  //   // //   stakingContractVals[2]
+  //   // // );
+  //   // //baseshare rewards is in 18 decimals
+  //   expect(userMintedAndPending[1].to.be.equal(
+  //     ethers.utils.parseUnits("20", 18))); // Each block reward is 10gd so total reward 40gd but since multiplier is 0.5 for first month should get 20gd
+
+  //   await goodCompoundStaking
+  //     .connect(staker)
+  //     .withdrawStake(stakingAmount, false);
+  // });
+
   it("it should get rewards with 1x multiplier for after threshold pass", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
