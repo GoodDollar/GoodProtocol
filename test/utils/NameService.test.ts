@@ -1,27 +1,8 @@
-import { default as hre, ethers, upgrades } from "hardhat";
-import { BigNumber, Contract, Signer } from "ethers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
-import {
-  GoodMarketMaker,
-  CERC20,
-  GoodReserveCDai,
-  UniswapFactory
-} from "../../types";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { createDAO, increaseTime, advanceBlocks } from "../helpers";
-import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
-import { parseUnits } from "@ethersproject/units";
-import ERC20 from "@uniswap/v2-core/build/ERC20.json";
-import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
-import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
-import { NameServiceMock } from '../../types/NameServiceMock';
+import { ethers } from "hardhat";
+import { createDAO } from "../helpers";
 
-const BN = ethers.BigNumber;
-export const NULL_ADDRESS = ethers.constants.AddressZero;
-export const BLOCK_INTERVAL = 1;
-
-describe.only("NameService - Setup and functionalities", () => {
+describe("NameService - Setup and functionalities", () => {
   let nameService, dai, avatar, controller, schemeMock, signers, genericCall;
 
   before(async () => {
@@ -41,7 +22,7 @@ describe.only("NameService - Setup and functionalities", () => {
       setDAOAddress: sda,
       setSchemes,
       marketMaker: mm,
-      genericCall : gc
+      genericCall: gc
     } = await createDAO();
 
     controller = ctrl;
@@ -132,22 +113,4 @@ describe.only("NameService - Setup and functionalities", () => {
       "only avatar can call this method"
     );
   });
-
-  // it("should authorize upgrade for dao upgradeable contract only when when avatar", async () => {
-  //   const daoUpgradeableContractMockFactory = await ethers.getContractFactory(
-  //     "DAOUpgradeableContractMock"
-  //   );
-  //   const daoUpgradeableContractMock = await daoUpgradeableContractMockFactory.deploy();
-
-  //   // Work when avatar
-  //   const encoded = daoUpgradeableContractMockFactory.interface.encodeFunctionData("authorizeUpgrade", [
-  //     dai.address
-  //   ]);
-  //   await expect(genericCall(daoUpgradeableContractMock.address, encoded)).to.not.be.reverted;
-
-  //   // Fail when not avatar
-  //   expect(daoUpgradeableContractMock.authorizeUpgrade(dai.address)).to.be.revertedWith(
-  //     "only avatar can call this method"
-  //   );
-  // });
-  });
+});
