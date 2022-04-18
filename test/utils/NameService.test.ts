@@ -15,13 +15,14 @@ import { parseUnits } from "@ethersproject/units";
 import ERC20 from "@uniswap/v2-core/build/ERC20.json";
 import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
+import { NameServiceMock } from '../../types/NameServiceMock';
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 1;
 
-describe("NameService - Setup and functionalities", () => {
-  let nameService, dai, avatar, controller, schemeMock, signers;
+describe.only("NameService - Setup and functionalities", () => {
+  let nameService, dai, avatar, controller, schemeMock, signers, genericCall;
 
   before(async () => {
     signers = await ethers.getSigners();
@@ -39,12 +40,14 @@ describe("NameService - Setup and functionalities", () => {
       nameService: ns,
       setDAOAddress: sda,
       setSchemes,
-      marketMaker: mm
+      marketMaker: mm,
+      genericCall : gc
     } = await createDAO();
 
     controller = ctrl;
     avatar = av;
     nameService = ns;
+    genericCall = gc;
     console.log("deployed dao", {
       gd,
       identity,
@@ -112,4 +115,39 @@ describe("NameService - Setup and functionalities", () => {
       signers[1].address
     );
   });
-});
+
+  it("Should authorize upgrade for name service only by avatar", async () => {
+    const nameServiceMockFactory = await ethers.getContractFactory(
+      "NameServiceMock"
+    );
+    const nameServiceMock = await nameServiceMockFactory.deploy();
+    // Work when avatar
+    const encoded = nameServiceMockFactory.interface.encodeFunctionData("authorizeUpgrade", [
+      dai.address
+    ]);
+    await expect(genericCall(nameServiceMock.address, encoded)).to.not.be.reverted;
+
+    // Fail when not avatar
+    expect(nameServiceMock.authorizeUpgrade(dai.address)).to.be.revertedWith(
+      "only avatar can call this method"
+    );
+  });
+
+  // it("should authorize upgrade for dao upgradeable contract only when when avatar", async () => {
+  //   const daoUpgradeableContractMockFactory = await ethers.getContractFactory(
+  //     "DAOUpgradeableContractMock"
+  //   );
+  //   const daoUpgradeableContractMock = await daoUpgradeableContractMockFactory.deploy();
+
+  //   // Work when avatar
+  //   const encoded = daoUpgradeableContractMockFactory.interface.encodeFunctionData("authorizeUpgrade", [
+  //     dai.address
+  //   ]);
+  //   await expect(genericCall(daoUpgradeableContractMock.address, encoded)).to.not.be.reverted;
+
+  //   // Fail when not avatar
+  //   expect(daoUpgradeableContractMock.authorizeUpgrade(dai.address)).to.be.revertedWith(
+  //     "only avatar can call this method"
+  //   );
+  // });
+  });
