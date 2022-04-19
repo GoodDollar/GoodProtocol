@@ -194,13 +194,13 @@ contract FuseStaking is
 			_gdUBIAmount = 0;
 			_gdCommunityPoolAmount = 0;
 		}
-		uint256[] memory swapResult = _buyGD(_ubiAmount);
+		uint256[] memory swapResult = _safeBuyGD(_ubiAmount, keccak256("_ubiAmount"));
 		require(
 			goodDollar.transfer(address(ubiScheme), swapResult[1]),
 			"ubiPartTransferFailed"
 		);
 		_gdUBIAmount = swapResult[1];
-		swapResult = _buyGD(_communityPoolAmount);
+		swapResult = _safeBuyGD(_communityPoolAmount, keccak256("_communityPoolAmount"));
 		communityPoolBalance += swapResult[1];
 		_gdCommunityPoolAmount = swapResult[1];
 	}
@@ -235,8 +235,8 @@ contract FuseStaking is
 				if (actualBalance < targetBalance) {
 					balancesDifference = targetBalance - actualBalance;
 					_amount -= balancesDifference;
-					uint256[] memory swapResult = _buyGD(balancesDifference);
-					faucetTokenInstance.safeTransfer(faucetAddresses[i], swapResult[1]);
+					uint256[] memory buyResult = _safeBuyGD(balancesDifference, keccak256(abi.encodePacked(i)));
+					faucetTokenInstance.safeTransfer(faucetAddresses[i], buyResult[1]);
 					spendingRateOracle.queryBalance(
 						faucetAddresses[i],
 						faucetTokenInstance.balanceOf(faucetAddresses[i]),
@@ -256,7 +256,7 @@ contract FuseStaking is
 
 	function collectUBIInterest() external onlyRole(GUARDIAN_ROLE) {
 		uint256 curDay = _checkIfCalledOnceInDayAndReturnDay();
-		uint256 earnings = _balance(); // pending fuse earnings?
+		uint256 earnings = _balance();
 
 		uint256 stakersPart = (earnings * (RATIO_BASE - globalGivebackRatio)) /
 			RATIO_BASE;
@@ -282,20 +282,20 @@ contract FuseStaking is
 			uint256 gdUBIAmount,
 			uint256 gdCommunityPoolAmount
 		) = _distributeToUBIAndCommunityPool(keeperPart, communityPoolPart);
-		uint256[] memory swapResult = _buyGD(stakersPart);
-		_notifyRewardAmount(swapResult[1]);
+		uint256[] memory buyResult = _safeBuyGD(stakersPart, keccak256("stakersPart"));
+		_notifyRewardAmount(buyResult[1]);
 		_updateGlobalGivebackRatio();
 
-		// emit UBICollected(
-		// 	curDay,
-		// 	gdUBIAmount,
-		// 	gdCommunityPoolAmount,
-		// 	swapResult[1],
-		// 	earnings,
-		// 	// pendingFuseEarnings, // ??
-		// 	msg.sender,
-		// 	keeperAmount
-		// );
+		emit UBICollected(
+			curDay,
+			gdUBIAmount,
+			gdCommunityPoolAmount,
+			buyResult[1],
+			earnings,
+			buyResult[2],
+			msg.sender,
+			keeperPart
+		);
 	}
 
 	function addValidator(address _validator) external onlyRole(GUARDIAN_ROLE) {
