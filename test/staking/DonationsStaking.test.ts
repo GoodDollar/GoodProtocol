@@ -425,6 +425,27 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(stakingAmountBeforeSet).to.be.gt(safeAmount); // maxSafeAmount must be smaller than actualstaking amount so we can verify that we hit the limit for transaction amount at once
   });
 
+  it("should set max liquidity percentage swap when avatar", async () => {
+    const originalPercentage = await donationsStaking.maxLiquidityPercentageSwap();
+    //fail when not avatar
+    const percentageToSet = 21;
+    expect(donationsStaking.connect(staker)["setMaxLiquidityPercentageSwap(uint24)"](percentageToSet)).
+      to.be.revertedWith("only avatar can call this method");
+    //succeed when avatar
+    let encodedData = donationsStaking.interface.encodeFunctionData(
+      "setMaxLiquidityPercentageSwap",
+      [percentageToSet]
+    );
+    await genericCall(donationsStaking.address, encodedData);
+    const actualPercentage = await donationsStaking.maxLiquidityPercentageSwap();
+    expect(actualPercentage).to.be.equal(percentageToSet);
+    //revent to original state
+    encodedData = donationsStaking.interface.encodeFunctionData(
+      "setMaxLiquidityPercentageSwap",
+      [originalPercentage]
+    );
+  });
+
   it("it should return version of DonationsStaking properly", async () => {
     const version = await donationsStaking.getVersion();
     expect(version).to.be.equal("2.0.0");
