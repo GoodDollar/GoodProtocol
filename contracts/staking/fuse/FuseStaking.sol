@@ -194,13 +194,13 @@ contract FuseStaking is
 			_gdUBIAmount = 0;
 			_gdCommunityPoolAmount = 0;
 		}
-		uint256[] memory swapResult = _buyGD(_ubiAmount);
+		uint256[] memory swapResult = _safeBuyGD(_ubiAmount, keccak256("_ubiAmount"));
 		require(
 			goodDollar.transfer(address(ubiScheme), swapResult[1]),
 			"ubiPartTransferFailed"
 		);
 		_gdUBIAmount = swapResult[1];
-		swapResult = _buyGD(_communityPoolAmount);
+		swapResult = _safeBuyGD(_communityPoolAmount, keccak256("_communityPoolAmount"));
 		communityPoolBalance += swapResult[1];
 		_gdCommunityPoolAmount = swapResult[1];
 	}
@@ -235,7 +235,7 @@ contract FuseStaking is
 				if (actualBalance < targetBalance) {
 					balancesDifference = targetBalance - actualBalance;
 					_amount -= balancesDifference;
-					uint256[] memory buyResult = _buyGD(balancesDifference);
+					uint256[] memory buyResult = _safeBuyGD(balancesDifference, keccak256(abi.encodePacked(i)));
 					faucetTokenInstance.safeTransfer(faucetAddresses[i], buyResult[1]);
 					spendingRateOracle.queryBalance(
 						faucetAddresses[i],
@@ -282,7 +282,7 @@ contract FuseStaking is
 			uint256 gdUBIAmount,
 			uint256 gdCommunityPoolAmount
 		) = _distributeToUBIAndCommunityPool(keeperPart, communityPoolPart);
-		uint256[] memory buyResult = _buyGD(stakersPart);
+		uint256[] memory buyResult = _safeBuyGD(stakersPart, keccak256("stakersPart"));
 		_notifyRewardAmount(buyResult[1]);
 		_updateGlobalGivebackRatio();
 
