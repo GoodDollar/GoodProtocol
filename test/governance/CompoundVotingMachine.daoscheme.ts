@@ -54,7 +54,7 @@ describe("CompoundVotingMachine#DAOScheme", () => {
 
   let genericCall, queuePeriod;
 
-  let avatar, mock, Controller;
+  let avatar, mock, Controller, setAddress;
 
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
@@ -79,6 +79,7 @@ describe("CompoundVotingMachine#DAOScheme", () => {
     )) as GReputation;
 
     gov = votingMachine;
+    setAddress = setDAOAddress;
 
     //this will give root minter permissions
     setDAOAddress("GDAO_CLAIMERS", root.address);
@@ -312,5 +313,17 @@ describe("CompoundVotingMachine#DAOScheme", () => {
     const tx = await (await gov.execute(proposalId)).wait();
     expect(states[await gov.state(proposalId)]).to.equal("Executed");
     expect(await c.isSchemeRegistered(gov.address, avatar)).to.eq(false);
+  });
+
+  it("should be able to update reputation", async () => {
+    const originalRep = await gov.rep();
+    const repToSet = root.address;
+    await setAddress("REPUTATION", root.address);
+    await gov.updateRep();
+    const updatedRep = await gov.rep();
+    expect(updatedRep).to.not.eq(originalRep);
+    expect(updatedRep).to.eq(repToSet);
+    await setAddress("REPUTATION", originalRep);
+    await gov.updateRep();
   });
 });

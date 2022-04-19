@@ -859,4 +859,65 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     expect(usdcStakingPendingGdaos).to.be.gt(0);
     expect(usdcStakingPendingGdaos.toString().length).to.be.gt(18);
   });
+
+  it("should get user minted and pending rewards", async () => {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+
+    const simpleStaking1 = await deployDaiStaking();
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "100000",
+        simpleStaking1.address,
+        currentBlockNumber - 5,
+        currentBlockNumber + 20,
+        false
+      ] // set 10 gd per block
+    );
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+
+    let [userMintedRewardBeforeStake, userPendingRewardBeforeStake] =
+      await getUserMintedAndPendingRewards(staker.address, simpleStaking1.address);
+    expect(userMintedRewardBeforeStake).to.eq('0');
+    expect(userPendingRewardBeforeStake).to.eq('0');
+
+    const stakingAmount = ethers.utils.parseEther("1000");
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
+    await simpleStaking1.connect(staker).stake(stakingAmount, 0, false);
+    await advanceBlocks(5); //should accumulate some gdao rewards
+
+    let [userMintedRewardAfterStake, userPendingRewardAfterStake] =
+      await getUserMintedAndPendingRewards(staker.address, simpleStaking1.address);
+    expect(userMintedRewardAfterStake.eq(0));
+    expect(userPendingRewardAfterStake.gt(0));
+
+    await stakersDistribution.claimReputation(staker.address, [
+      simpleStaking1.address
+    ]);
+
+    let [userMintedRewardAfterClaim, userPendingRewardAfterClaim] =
+      await getUserMintedAndPendingRewards(staker.address, simpleStaking1.address);
+    expect(userMintedRewardAfterClaim.gt(0));
+    expect(userPendingRewardAfterClaim.eq(0));
+  });
+
+  async function getUserMintedAndPendingRewards(stakerAddress, stakingContractAddress) {
+    const userMintedAndPending = await stakersDistribution.getUserMintedAndPending(
+      [stakingContractAddress],
+      stakerAddress
+    );
+    const userMintedReward = userMintedAndPending[0];
+    const userPendingReward = userMintedAndPending[1];
+
+    return [userMintedReward, userPendingReward];
+  }
 });

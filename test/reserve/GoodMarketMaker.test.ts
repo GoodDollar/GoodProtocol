@@ -597,4 +597,15 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     expect(gdPriceAfter.gt(gdPriceBefore));
     expect(reserveRatioAfter).to.be.equal(reserveRatioBefore);
   });
+
+  it("should not set reserve ratio daily expansion with illigal values", async () => {
+    const invalidZeroDenominator = 0;
+    await expect(marketMaker.setReserveRatioDailyExpansion(1, invalidZeroDenominator)).to.be.
+      revertedWith("denominator must be above 0");
+
+    const denominator = 1;
+    const nominatorHigherThanDenom = 2;
+    await expect(marketMaker.setReserveRatioDailyExpansion(nominatorHigherThanDenom, denominator)).to.be.
+      revertedWith("Invalid nom or denom value");
+  });
 });

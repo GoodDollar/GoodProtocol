@@ -28,7 +28,8 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     signers,
     exchangeHelper: Contract,
     setDAOAddress,
-    nameService;
+    nameService,
+    runAsAvatarOnly;
 
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
@@ -46,7 +47,8 @@ describe("GoodReserve - staking with cDAI mocks", () => {
       marketMaker: mm,
       daiAddress,
       cdaiAddress,
-      reserve
+      reserve,
+      runAsAvatarOnly: raao,
     } = await createDAO();
 
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -56,6 +58,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     controller = ctrl;
     setDAOAddress = sda;
     nameService = ns;
+    runAsAvatarOnly = raao;
     await setDAOAddress("UNISWAP_ROUTER", signers[0].address);
     const exchangeHelperFactory = await ethers.getContractFactory(
       "ExchangeHelper"
@@ -1127,5 +1130,37 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     expect(reserveBalanceAfter.toString()).to.be.equal("0");
     expect(await goodDollar.isMinter(goodReserve.address)).to.be.false;
     expect(await goodDollar.isMinter(avatar)).to.be.true;
+  });
+
+  it("should set reserve ratio daily expansion by avatar", async () => {
+    let currentReserveRatioDailyExpansion =
+      await marketMaker.reserveRatioDailyExpansion();
+    console.log(currentReserveRatioDailyExpansion.toString());
+
+    await runAsAvatarOnly(
+      goodReserve,
+      "setReserveRatioDailyExpansion(uint256,uint256)", 
+      1, 
+      1e15
+    );
+
+    let newReserveRatioDailyExpansion =
+      await marketMaker.reserveRatioDailyExpansion();
+    console.log(newReserveRatioDailyExpansion.toString());
+    
+    expect(newReserveRatioDailyExpansion).to.not.equal(currentReserveRatioDailyExpansion);
+    expect(newReserveRatioDailyExpansion).to.be.equal(BN.from("1000000000000"));
+
+    const encodedCall = goodReserve.interface.encodeFunctionData(
+      "setReserveRatioDailyExpansion", 
+      [BN.from(currentReserveRatioDailyExpansion).div(1e12),
+      1e15]
+    );
+    const ctrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    await ctrl.genericCall(goodReserve.address, encodedCall, avatar, 0);
   });
 });
