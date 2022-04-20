@@ -235,7 +235,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       "no stakingToken to stake"
     );
   });
-
+  
   it("it should stake donations with ETH according to 0.3% of pool", async () => {
     let stakeAmount = ethers.utils.parseEther("20");
     const pairContract = await ethers.getContractAt(
@@ -315,7 +315,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
 
     expect(totalStakedAfterEnd).to.be.equal(0);
   });
-
+  
   it("should not allow to stake donations when not active", async () => {
     let isActive = await donationsStaking.active();
     expect(isActive).to.be.equal(true);
@@ -341,6 +341,56 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     );
     await genericCall(donationsStaking.address, encodedData);
   });
+
+  it("should not allow to set swap path on invalid path", async () => {
+    //Valid scenario check: from ETH to staking token
+    let pathToSet = [NULL_ADDRESS, bat.address, cDAI.address, dai.address];
+    let encodedData = donationsStaking.interface.encodeFunctionData(
+      "setSwapPaths",
+      [pathToSet]
+    );
+    await genericCall(donationsStaking.address, encodedData);
+    expect(await isEthToStakingTokenPathEqualTo(pathToSet)).to.be.true;
+
+    // Invalid scenarios checks
+    const invalidPaths = [
+      [NULL_ADDRESS],             // less than minimum 2 length
+      [bat.address, dai.address], // first is not ETH null address
+      [NULL_ADDRESS, bat.address] // last is not the staking token
+    ];
+
+    for (const invalidPath of invalidPaths) {
+      encodedData = donationsStaking.interface.encodeFunctionData(
+      "setSwapPaths",
+      [invalidPath]
+      );
+      await genericCall(donationsStaking.address, encodedData);
+      expect(await isEthToStakingTokenPathEqualTo(invalidPath)).to.be.false;  
+    }
+
+    encodedData = donationsStaking.interface.encodeFunctionData(
+      "setSwapPaths",
+      [[NULL_ADDRESS, dai.address]]
+    );
+    await genericCall(donationsStaking.address, encodedData);
+  });
+  
+  async function isEthToStakingTokenPathEqualTo(path) {
+    for (let index = 0; index < path.length; index++) {
+      let expectedValue = path[index];
+      let valueAtIndex = await donationsStaking.ethToStakingTokenSwapPath(index).catch(e=>e);
+      if (expectedValue != valueAtIndex) {
+        return false;
+      }
+    }
+
+    const outOfArray = await donationsStaking.ethToStakingTokenSwapPath(path.length).catch(e=>e);
+    if (!outOfArray.message) {
+      return false;
+    }
+
+    return true;
+  }  
 
   it("it should set stakingContract when avatar call it ", async () => {
     let stakeAmount = ethers.utils.parseEther("6000"); // Max swap amount is around 5964 with current liquidity level so we should set it to higher number in order to test functionality
@@ -425,6 +475,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(stakingAmountBeforeSet).to.be.gt(safeAmount); // maxSafeAmount must be smaller than actualstaking amount so we can verify that we hit the limit for transaction amount at once
   });
 
+  
   it("should set max liquidity percentage swap when avatar", async () => {
     const originalPercentage = await donationsStaking.maxLiquidityPercentageSwap();
     //fail when not avatar
@@ -451,3 +502,13 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(version).to.be.equal("2.0.0");
   });
 });
+
+
+
+    // let pathBefore = await donationsStaking.ethToStakingTokenSwapPath(0);
+    // console.log({pathBefore});
+    // pathBefore = await donationsStaking.ethToStakingTokenSwapPath(1);
+    // console.log({pathBefore});
+    
+    // pathBefore = await donationsStaking.ethToStakingTokenSwapPath(2);
+    // console.log({pathBefore});
