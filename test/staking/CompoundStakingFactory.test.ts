@@ -4,6 +4,7 @@ import { expect } from "chai";
 import {
   CERC20,
   GoodCompoundStaking,
+  GoodCompoundStakingV2,
   CompoundStakingFactory
 } from "../../types";
 import { createDAO, deployUniswap } from "../helpers";
@@ -106,4 +107,34 @@ describe("CompoundStakingFactory", () => {
     expect(await staking.name()).to.equal("GoodCompoundStakingV2 Compound DAI");
     expect(await staking.symbol()).to.equal("gcDAI");
   });
+
+  it("should get correct gas cost settings", async () => {
+    const goodCompoundStakingV2 = (await ethers.getContractAt(
+      "GoodCompoundStakingV2",
+      await stakingFactory.impl()
+    )) as GoodCompoundStakingV2;
+
+    await goodCompoundStakingV2.init(
+      dai,
+      cdai,
+      dao.nameService.address,
+      "DAI",
+      "DAI",
+      5760,
+      stakingFactory.address,
+      compUsdOracle.address,
+      []
+    );
+
+    const INITIAL_COLLECT_INTEREST_GAS_COST = 250000;
+    const INITIAL_COLLECT_COMP_GAS_COST = 150000;
+    const gasCostForInterestTransfer = await goodCompoundStakingV2.getGasCostForInterestTransfer();
+    expect(gasCostForInterestTransfer).to.equal(INITIAL_COLLECT_INTEREST_GAS_COST);
+
+    const settings = await goodCompoundStakingV2.getSettings();
+    const collectInteresetGasCost = settings[0];
+    const compCollectGasCost = settings[1];
+    expect(collectInteresetGasCost).to.equal(INITIAL_COLLECT_INTEREST_GAS_COST);
+    expect(compCollectGasCost).to.equal(INITIAL_COLLECT_COMP_GAS_COST);
+    });
 });
