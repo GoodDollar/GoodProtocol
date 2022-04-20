@@ -1258,6 +1258,33 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     );
   });
 
+  it("should not be able to withdraw stake when the withdrawn amount is higher than the staked amount", async () => {
+    const stakeAmount = ethers.utils.parseEther("100");
+    const higherThanStakeAmount = ethers.utils.parseEther("101");
+    await cDAI["mint(address,uint256)"](
+      staker.address,
+      stakeAmount
+    );
+    await cDAI
+      .connect(staker)
+      .approve(goodCompoundStaking.address, higherThanStakeAmount);
+
+    await goodCompoundStaking
+      .connect(staker)
+      .stake(stakeAmount, "100", true);
+
+    const tx = await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(higherThanStakeAmount, true)
+      .catch(e => e);
+
+    expect(tx.message).to.be.not.empty;
+    // revent to original state
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakeAmount, true);
+  });
+
   it("should pause the contract", async () => {
     let encodedCall = goodCompoundStakingFactory.interface.encodeFunctionData(
       "pause",
