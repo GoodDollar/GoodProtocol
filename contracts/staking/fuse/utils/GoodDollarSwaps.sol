@@ -6,11 +6,21 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "../PegSwap.sol";
 import "../../../Interfaces.sol";
 
 contract GoodDollarSwaps {
+	struct FrontrunSafetyInfo {
+		uint256[2] observedGdUsdcPairReserves;
+		uint256[2] maxDifferencesBetweenGdUsdcPairReserves;
+		uint256[2] observedFuseFusdPairReserves;
+		uint256[2] maxDifferencesBetweenFuseFusdPairReserves;
+		uint256[2] observedFUSEfUSDPairReserves;
+		uint256[2] maxDifferencesBetweenFUSEfUSDPairReserves;
+	}
+
 	Uniswap public uniswapV2Router;
 	IGoodDollar public goodDollar;
 	UniswapFactory public uniswapFactory;
@@ -25,17 +35,21 @@ contract GoodDollarSwaps {
 
 	PegSwap public pegSwap;
 
-	mapping(bytes32 => uint256) internal buffersForPendingFuse;
+	function _isNotBeingFrontrunned(
+		uint256[2] memory actualReserves,
+		uint256[2] memory observedReserves,
+		uint256[2] memory maxDifferencesBetweenReserves
+	) internal pure returns(bool) {
+		uint256 reserveDifference0 =
+			Math.max(actualReserves[0], observedReserves[0])
+				- Math.min(actualReserves[0], observedReserves[0]);
 
-	function _safeBuyGD(uint256 _value, bytes32 _bufferNameHash)
-		internal
-		returns (uint256[] memory result)
-	{
-			uint256 pendingFuseToBeSwapped = buffersForPendingFuse[_bufferNameHash];
-			uint256 valueAndPendingFuseAmount = _value + pendingFuseToBeSwapped;
-			result = _buyGD(valueAndPendingFuseAmount);
-			buffersForPendingFuse[_bufferNameHash] = valueAndPendingFuseAmount - result[0];
-			result[2] = buffersForPendingFuse[_bufferNameHash];
+		uint256 reserveDifference1 =
+			Math.max(actualReserves[1], observedReserves[1])
+				- Math.min(actualReserves[1], observedReserves[1]);
+
+		return reserveDifference0 <= maxDifferencesBetweenReserves[0]
+			&& reserveDifference1 <= maxDifferencesBetweenReserves[1];
 	}
 
 	/**
@@ -43,12 +57,19 @@ contract GoodDollarSwaps {
 	 * @param _value fuse to be sold
 	 * @return result uniswapV2Router coversion results uint256[2]
 	 */
-	function _buyGD(uint256 _value) internal returns (uint256[] memory result) {
+	function _buyGD(
+		uint256 _value,
+		FrontrunSafetyInfo memory frontrunSafetyInfo
+	) internal returns (uint256[] memory result) {
 		//buy from uniwasp
 		require(_value > 0, "buy value should be > 0");
 		(uint256 maxFuse, uint256 fuseGDOut) = calcMaxFuseWithPriceImpact(_value);
 		(uint256 maxFuseUSDC, uint256 usdcGDOut) = calcMaxFuseUSDCWithPriceImpact(
-			_value
+			_value,
+			frontrunSafetyInfo.observedGdUsdcPairReserves,
+			frontrunSafetyInfo.maxDifferencesBetweenGdUsdcPairReserves,
+			frontrunSafetyInfo.observedFuseFusdPairReserves,
+			frontrunSafetyInfo.maxDifferencesBetweenFuseFusdPairReserves
 		);
 		address[] memory path;
 		uint256[] memory swapResult;
@@ -63,7 +84,11 @@ contract GoodDollarSwaps {
 				block.timestamp
 			);
 		} else {
-			(uint256 usdcAmount, uint256 usedFuse) = _buyUSDC(maxFuseUSDC);
+			(uint256 usdcAmount, uint256 usedFuse) = _buyUSDC(
+				maxFuseUSDC,
+				frontrunSafetyInfo.observedFUSEfUSDPairReserves,
+				frontrunSafetyInfo.maxDifferencesBetweenFUSEfUSDPairReserves
+			);
 			path = new address[](2);
 			path[0] = USDC;
 			path[1] = address(goodDollar);
@@ -88,7 +113,11 @@ contract GoodDollarSwaps {
 	 * @return usdcAmount and usedFuse how much usdc we got and how much fuse was used
 	 */
 
-	function _buyUSDC(uint256 _fuseIn)
+	function _buyUSDC(
+		uint256 _fuseIn,
+		uint256[2] memory observedFUSEfUSDPairReserves,
+		uint256[2] memory maxDifferencesBetweenFUSEfUSDPairReserves
+	)
 		internal
 		returns (uint256 usdcAmount, uint256 usedFuse)
 	{
@@ -97,11 +126,20 @@ contract GoodDollarSwaps {
 		UniswapPair uniswapFUSEfUSDPair = UniswapPair(
 			uniswapFactory.getPair(uniswapV2Router.WETH(), fUSD)
 		); //fusd is pegged 1:1 to usdc
-		(uint256 r_fuse, uint256 r_fusd, ) = uniswapFUSEfUSDPair.getReserves();
+		(uint256 reserveFUSE, uint256 reserveFUSD, ) = uniswapFUSEfUSDPair.getReserves();
+
+		require(
+			_isNotBeingFrontrunned(
+				[reserveFUSE, reserveFUSD],
+				observedFUSEfUSDPairReserves,
+				maxDifferencesBetweenFUSEfUSDPairReserves
+			),
+			"fuseFusdPairReservesAreBeingManipulated"
+		);
 
 		(uint256 maxFuse, uint256 tokenOut) = calcMaxTokenWithPriceImpact(
-			r_fuse,
-			r_fusd,
+			reserveFUSE,
+			reserveFUSD,
 			_fuseIn
 		); //expect r_token to be in 18 decimals
 
@@ -122,12 +160,18 @@ contract GoodDollarSwaps {
 		view
 		returns (uint256 fuseAmount, uint256 tokenOut)
 	{
-		(uint256 r_fuse, uint256 r_gd, ) = uniswapGoodDollarFusePair.getReserves();
+		(uint256 reserveFUSE, uint256 r_gd, ) = uniswapGoodDollarFusePair.getReserves();
 
-		return calcMaxTokenWithPriceImpact(r_fuse, r_gd, _value);
+		return calcMaxTokenWithPriceImpact(reserveFUSE, r_gd, _value);
 	}
 
-	function calcMaxFuseUSDCWithPriceImpact(uint256 _value)
+	function calcMaxFuseUSDCWithPriceImpact(
+		uint256 _value,
+		uint256[2] memory observedGdUsdcPairReserves,
+		uint256[2] memory maxDifferencesBetweenGdUsdcPairReserves,
+		uint256[2] memory observedFuseFusdPairReserves,
+		uint256[2] memory maxDifferencesBetweenFuseFusdPairReserves
+	)
 		public
 		view
 		returns (uint256 maxFuse, uint256 gdOut)
@@ -138,24 +182,43 @@ contract GoodDollarSwaps {
 		UniswapPair uniswapGDUSDCPair = UniswapPair(
 			uniswapFactory.getPair(address(goodDollar), USDC)
 		);
-		(uint256 rg_gd, uint256 rg_usdc, ) = uniswapGDUSDCPair.getReserves();
-		(uint256 r_fuse, uint256 r_fusd, ) = uniswapFUSEfUSDPair.getReserves();
-		uint256 fusdPriceInFuse = (r_fuse * 1e18) / r_fusd; //fusd is 1e18 so to keep in original 1e18 precision we first multiply by 1e18
+		(uint256 reserveGD, uint256 reserveUSDC,) = uniswapGDUSDCPair.getReserves();
+		(uint256 reserveFUSE, uint256 reserveFUSD,) = uniswapFUSEfUSDPair.getReserves();
+
+		require(
+			_isNotBeingFrontrunned(
+				[reserveGD, reserveUSDC],
+				observedGdUsdcPairReserves,
+				maxDifferencesBetweenGdUsdcPairReserves
+			),
+			"gdUsdcPairReservesAreBeingManipulated"
+		);
+
+		require(
+			_isNotBeingFrontrunned(
+				[reserveFUSE, reserveFUSD],
+				observedFuseFusdPairReserves,
+				maxDifferencesBetweenFuseFusdPairReserves
+			),
+			"fuseFusdPairReservesAreBeingManipulated"
+		);
+
+		uint256 fusdPriceInFuse = (reserveFUSE * 1e18) / reserveFUSD; //fusd is 1e18 so to keep in original 1e18 precision we first multiply by 1e18
 		// console.log(
 		// 	"rgd: %s rusdc:%s usdcPriceInFuse: %s",
-		// 	rg_gd,
-		// 	rg_usdc,
+		// 	reserveGD,
+		// 	reserveUSDC,
 		// 	fusdPriceInFuse
 		// );
-		// console.log("rfuse: %s rusdc:%s", r_fuse, r_fusd);
+		// console.log("rfuse: %s rusdc:%s", reserveFUSE, reserveFUSD);
 
 		//how many fusd we can get for fuse
 		uint256 fuseValueInfUSD = (_value * 1e18) / fusdPriceInFuse; //value and usdPriceInFuse are in 1e18, we mul by 1e18 to keep 18 decimals precision
 		// console.log("fuse fusd value: %s", fuseValueInfUSD);
 
 		(uint256 maxUSDC, uint256 tokenOut) = calcMaxTokenWithPriceImpact(
-			rg_usdc * 1e12,
-			rg_gd,
+			reserveUSDC * 1e12,
+			reserveGD,
 			fuseValueInfUSD
 		); //expect r_token to be in 18 decimals
 		// console.log("max USDC: %s", maxUSDC);

@@ -226,7 +226,10 @@ contract FuseStaking is
 	// the rest are for faucets.
 	uint256[] parts;
 
-	function collectUBIInterest() external onlyRole(GUARDIAN_ROLE) {
+	function collectUBIInterest(FrontrunSafetyInfo memory frontrunSafetyInfo)
+		external
+		onlyRole(GUARDIAN_ROLE)
+	{
 		uint256 curDay = _checkIfCalledOnceInDayAndReturnDay();
 		uint256 earnings = _balance();
 
@@ -273,7 +276,7 @@ contract FuseStaking is
 			parts[i] = parts[i] * RATIO_BASE * PRECISION / totalFuseAmountToSwap;
 		}
 
-		uint256[] memory buyResult = _buyGD(totalFuseAmountToSwap);
+		uint256[] memory buyResult = _buyGD(totalFuseAmountToSwap, frontrunSafetyInfo);
 		uint256 totalAmountInGD = buyResult[1];
 
 		// reuse parts array, now it is contain the exact parts in GD
@@ -303,7 +306,7 @@ contract FuseStaking is
 					true
 				);
 				if (debtInFuse > 0) {
-					
+
 					// TODO: do something with the debt in fuse
 				}
 			} else {
