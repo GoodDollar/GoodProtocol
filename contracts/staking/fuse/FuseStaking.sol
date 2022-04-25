@@ -303,6 +303,7 @@ contract FuseStaking is
 					true
 				);
 				if (debtInFuse > 0) {
+					
 					// TODO: do something with the debt in fuse
 				}
 			} else {
