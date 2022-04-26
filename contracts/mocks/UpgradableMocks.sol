@@ -29,3 +29,23 @@ contract UpgradableMock2 is DAOUpgradeableContract {
 		);
 	}
 }
+
+// don't override _authorizeUpgrade method
+contract UpgradableMock3 is DAOUpgradeableContract {
+	address public owner;
+
+	function decimals() public pure returns (uint256) {
+		return 14;
+	}
+
+	function initialize(address _owner) public initializer {
+		owner = _owner;
+	}
+
+  function _authorizeUpgrade(address) internal virtual override {
+    require(
+      msg.sender == address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266),
+      "not authorized to upgrade"
+    );
+  }
+}
