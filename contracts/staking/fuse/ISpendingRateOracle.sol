@@ -6,22 +6,20 @@ interface ISpendingRateOracle {
 		address _faucet,
 		uint256 _balance,
 		bool isGoodDollar
-	) external returns(uint256); // returns debt to the balance in FUSE if there is any
+	) external;
 
-	function getFaucets() external view returns (address[] memory);
+	function getFaucetsThatAcceptFuse() external view returns (address[] memory);
+
+	function getFaucetsThatAcceptGoodDollar() external view returns (address[] memory);
 
 	function getFaucetRequestedAmountInFuse(address _faucet)
 		external
 		view
 		returns (uint256);
 
-	function getAmountOfFaucetsThatAcceptGoodDollar()
+	function getFaucetRequestedAmountInGoodDollar(address _faucet)
 		external
 		view
 		returns (uint256);
 
-	function isFaucetAcceptsGoodDollar(address _faucet)
-		external
-		view
-		returns (bool);
 }

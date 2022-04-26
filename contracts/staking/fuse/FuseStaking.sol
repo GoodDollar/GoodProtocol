@@ -186,32 +186,6 @@ contract FuseStaking is
 		require(goodDollar.transfer(_to, communityPoolBalance));
 	}
 
-	// function _distributeGivebackAndQueryOracle(uint256 _amount) internal virtual {
-	// 	if (_amount == 0) return;
-	// 	address[] memory faucetAddresses = spendingRateOracle.getFaucets();
-	// 	for (uint256 i = 0; i < faucetAddresses.length; i++) {
-	// 		if (spendingRateOracle.isFaucetAcceptsGoodDollar(faucetAddresses[i])) {
-	// 			payable(faucetAddresses[i]).transfer(spendingRateOracle.getFaucetRequestedAmountInFuse(faucetAddresses[i]));
-	//
-	// 		} else {
-	// 			IERC20 faucetTokenInstance = IERC20(faucetToken);
-	// 			uint256 actualBalance = faucetTokenInstance.balanceOf(
-	// 				faucetAddresses[i]
-	// 			);
-	// 			if (actualBalance < targetBalance) {
-	// 				balancesDifference = targetBalance - actualBalance;
-	// 				_amount -= balancesDifference;
-	// 				faucetTokenInstance.safeTransfer(faucetAddresses[i], balancesDifference);
-	// 				spendingRateOracle.queryBalance(
-	// 					faucetAddresses[i],
-	// 					faucetTokenInstance.balanceOf(faucetAddresses[i]),
-	// 					faucetToken
-	// 				);
-	// 			}
-	// 		}
-	// 	}
-	// }
-
 	function _checkIfCalledOnceInDayAndReturnDay() internal returns (uint256) {
 		uint256 curDay = ubiScheme.currentDay();
 		require(curDay != lastDayCollected, "can collect only once in a ubi cycle");
@@ -219,121 +193,110 @@ contract FuseStaking is
 		return curDay;
 	}
 
-	// This is the array which will contain different types of uint256 along the
-	// evaluation of the collectUBIInterest tx for the sake of the gas efficiency
-	// and risk mitigation of overflowing the stack for fields.
-	// First three indicies are for stakers, keepers and community pool,
-	// the rest are for faucets.
-	uint256[] parts;
+	uint256 public debtToStakers;
+	uint256 public debtToDAO;
 
-	function collectUBIInterest(FrontrunSafetyInfo memory frontrunSafetyInfo)
-		external
-		onlyRole(GUARDIAN_ROLE)
-	{
-		uint256 curDay = _checkIfCalledOnceInDayAndReturnDay();
-		uint256 earnings = _balance();
-
-		uint256 stakersPartInFuse = (earnings * (RATIO_BASE - globalGivebackRatio)) /
-			RATIO_BASE;
-		uint256 daoPartInFuse = earnings - stakersPartInFuse;
-		uint256 keeperPartInFuse;
-		uint256 communityPoolPartInFuse;
-
-		if (daoPartInFuse > 0) {
-			keeperPartInFuse =
-				daoPartInFuse -
-				(daoPartInFuse * (RATIO_BASE - keeperRatio)) /
-				RATIO_BASE;
-			daoPartInFuse -= keeperPartInFuse;
-			communityPoolPartInFuse =
-				daoPartInFuse -
-				(daoPartInFuse * (RATIO_BASE - communityPoolRatio)) /
-				RATIO_BASE;
-			daoPartInFuse -= communityPoolPartInFuse;
+	function _getAmountOfFuseForAllFaucets() internal view returns(uint256 sum) {
+		address[] memory fuseAcceptingFaucets = spendingRateOracle.getFaucetsThatAcceptFuse();
+		for (uint256 i = 0; i < fuseAcceptingFaucets.length; i++) {
+			sum += spendingRateOracle.getFaucetRequestedAmountInFuse(fuseAcceptingFaucets[i]);
 		}
+	}
 
-		address[] memory faucetAddresses = spendingRateOracle.getFaucets();
-
-		uint256 totalFuseAmountToSwap = stakersPartInFuse
-			+ keeperPartInFuse
-			+ communityPoolPartInFuse;
-
-		parts.push(stakersPartInFuse);
-		parts.push(keeperPartInFuse);
-		parts.push(communityPoolPartInFuse);
-
-		for (uint256 i = 0; i < faucetAddresses.length; i++) {
-			if (spendingRateOracle.isFaucetAcceptsGoodDollar(faucetAddresses[i])) {
-				uint256 requestedAmount =
-					spendingRateOracle.getFaucetRequestedAmountInFuse(faucetAddresses[i]);
-				totalFuseAmountToSwap += requestedAmount;
-				parts.push(requestedAmount);
+	function _distributeGDToFaucets(uint256 totalAmount) internal {
+		address[] memory gdAcceptingFaucets = spendingRateOracle.getFaucetsThatAcceptGoodDollar();
+		for (uint256 i = 0; i < gdAcceptingFaucets.length; i++) {
+			uint256 targetAmount = spendingRateOracle.getFaucetRequestedAmountInGoodDollar(gdAcceptingFaucets[i]);
+			if (!goodDollar.transfer(gdAcceptingFaucets[i], targetAmount) || totalAmount < targetAmount) {
+				continue;
+			} else {
+				totalAmount -= targetAmount;
 			}
+			spendingRateOracle.queryBalance(
+				gdAcceptingFaucets[i],
+				goodDollar.balanceOf(gdAcceptingFaucets[i]),
+				true
+			);
 		}
+	}
 
-		// reuse parts array, now it is contain the BPS for each FUSE part.
-		for (uint256 i = 0; i < parts.length; i++) {
-			parts[i] = parts[i] * RATIO_BASE * PRECISION / totalFuseAmountToSwap;
+	function _distributeFuseToFaucets(uint256 totalAmount) internal {
+		address[] memory fuseAcceptingFaucets = spendingRateOracle.getFaucetsThatAcceptFuse();
+		for (uint256 i = 0; i < fuseAcceptingFaucets.length; i++) {
+			uint256 targetAmount = spendingRateOracle.getFaucetRequestedAmountInFuse(fuseAcceptingFaucets[i]);
+			if (!payable(fuseAcceptingFaucets[i]).send(targetAmount) || totalAmount < targetAmount) {
+				continue;
+			} else {
+				totalAmount -= targetAmount;
+			}
+			spendingRateOracle.queryBalance(
+				fuseAcceptingFaucets[i],
+				fuseAcceptingFaucets[i].balance,
+				false
+			);
 		}
+	}
 
-		uint256[] memory buyResult = _buyGD(totalFuseAmountToSwap, frontrunSafetyInfo);
-		uint256 totalAmountInGD = buyResult[1];
+	function collectUBIInterest() external {
+		uint256 currentDayNumber = _checkIfCalledOnceInDayAndReturnDay();
 
-		// reuse parts array, now it is contain the exact parts in GD
-		for (uint256 i = 0; i < parts.length; i++) {
-			parts[i] = totalAmountInGD - (totalAmountInGD * (RATIO_BASE - parts[i] / PRECISION)) / RATIO_BASE;
-		}
+		debtToStakers /= PRECISION;
+		debtToDAO /= PRECISION;
 
-		_notifyRewardAmount(parts[0]);
+		uint256 earnings = _balance() - debtToStakers - debtToDAO;
+		uint256 stakersPartInFuse = (earnings * (RATIO_BASE - globalGivebackRatio)) /
+			RATIO_BASE + debtToStakers;
+		uint256 daoPartInFuse = earnings - stakersPartInFuse + debtToDAO;
+
+		uint256 totalAmountOfFuseForFuseAcceptingFaucets = _getAmountOfFuseForAllFaucets();
+		uint256 totalFuseToSwap = stakersPartInFuse
+			+ daoPartInFuse - totalAmountOfFuseForFuseAcceptingFaucets;
+
+		uint256[] memory buyResult = _safeBuyGD(
+			totalFuseToSwap,
+			keccak256("totalFuseToSwap")
+		);
+
+		debtToStakers = buyResult[2] * PRECISION * stakersPartInFuse / totalFuseToSwap;
+		debtToDAO = buyResult[2] * PRECISION * daoPartInFuse / totalFuseToSwap;
+
+		uint256 stakersPartInGoodDollar = buyResult[1] * (RATIO_BASE - globalGivebackRatio)
+			/ RATIO_BASE;
+
+		uint256 daoPartInGoodDollar = buyResult[1] - stakersPartInGoodDollar;
+
+		uint256 keeperPartInGoodDollar = daoPartInGoodDollar
+			- (daoPartInGoodDollar * (RATIO_BASE - keeperRatio)) / RATIO_BASE;
+
+		daoPartInGoodDollar -= keeperPartInGoodDollar;
+
+		uint256 communityPoolPartInGoodDollar = daoPartInGoodDollar
+			- (daoPartInGoodDollar * (RATIO_BASE - communityPoolRatio))
+			/ RATIO_BASE;
+
+		daoPartInGoodDollar -= communityPoolPartInGoodDollar;
 
 		require(
-			goodDollar.transfer(address(ubiScheme), parts[1]),
+			goodDollar.transfer(address(ubiScheme), keeperPartInGoodDollar),
 			"ubiPartTransferFailed"
 		);
-		communityPoolBalance += parts[2];
+		communityPoolBalance += communityPoolPartInGoodDollar;
 
-		uint256 debtInFuse;
-		for (uint256 i = 0; i < faucetAddresses.length; i++) {
-			if (spendingRateOracle.isFaucetAcceptsGoodDollar(faucetAddresses[i])) {
-				// i + 3 is safe to use because the order of the faucets is immutable during the evaluation of this function
-				require(
-					goodDollar.transfer(faucetAddresses[i], parts[i + 3]),
-					"faucetTransferFailed"
-				);
-				debtInFuse = spendingRateOracle.queryBalance(
-					faucetAddresses[i],
-					goodDollar.balanceOf(faucetAddresses[i]),
-					true
-				);
-				if (debtInFuse > 0) {
-
-					// TODO: do something with the debt in fuse
-				}
-			} else {
-				payable(faucetAddresses[i])
-					.transfer(
-						spendingRateOracle.getFaucetRequestedAmountInFuse(faucetAddresses[i])
-					);
-				debtInFuse = spendingRateOracle.queryBalance(
-					faucetAddresses[i],
-					faucetAddresses[i].balance,
-					false
-				);
-				require(debtInFuse == 0, "notEnoughFuseToSupplyTheFaucet");
-			}
-		}
+		_distributeGDToFaucets(daoPartInGoodDollar);
+		_distributeFuseToFaucets(totalAmountOfFuseForFuseAcceptingFaucets);
 
 		_updateGlobalGivebackRatio();
+		_notifyRewardAmount(stakersPartInGoodDollar);
 
 		emit UBICollected(
-			curDay,
-			parts[1],
-			parts[2],
+			currentDayNumber,
+			keeperPartInGoodDollar,
+			communityPoolPartInGoodDollar,
 			buyResult[1],
 			earnings,
 			buyResult[2],
 			msg.sender,
-			keeperPartInFuse
+			keeperPartInGoodDollar
 		);
 	}
 
