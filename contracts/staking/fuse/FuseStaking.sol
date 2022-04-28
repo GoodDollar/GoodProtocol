@@ -243,30 +243,33 @@ contract FuseStaking is
 		debtToStakers /= PRECISION;
 		debtToDAO /= PRECISION;
 
+		uint256 totalAmountOfFuseForFuseAcceptingFaucets = _getAmountOfFuseForAllFaucets();
+
 		uint256 earnings = _balance() - debtToStakers - debtToDAO;
 		uint256 stakersPartInFuse = (earnings * (RATIO_BASE - globalGivebackRatio)) /
 			RATIO_BASE + debtToStakers;
-		uint256 daoPartInFuse = earnings - stakersPartInFuse + debtToDAO;
 
-		uint256 totalAmountOfFuseForFuseAcceptingFaucets = _getAmountOfFuseForAllFaucets();
-		uint256 totalFuseToSwap = stakersPartInFuse
-			+ daoPartInFuse - totalAmountOfFuseForFuseAcceptingFaucets;
+		uint256 keeperPartInFuse = (earnings - stakersPartInFuse)
+			- ((earnings - stakersPartInFuse) * (RATIO_BASE - keeperRatio)) / RATIO_BASE;
 
-		uint256[] memory buyResult = _safeBuyGD(
-			totalFuseToSwap,
-			keccak256("totalFuseToSwap")
-		);
+		uint256 daoPartInFuse = (earnings - stakersPartInFuse)
+				- keeperPartInFuse
+				+ debtToDAO
+				- totalAmountOfFuseForFuseAcceptingFaucets;
 
-		debtToStakers = buyResult[2] * PRECISION * stakersPartInFuse / totalFuseToSwap;
-		debtToDAO = buyResult[2] * PRECISION * daoPartInFuse / totalFuseToSwap;
+		uint256 totalFuseToSwap = stakersPartInFuse + daoPartInFuse + keeperPartInFuse;
 
-		uint256 stakersPartInGoodDollar = buyResult[1] * (RATIO_BASE - globalGivebackRatio)
-			/ RATIO_BASE;
+		uint256[] memory buyResult = _buyGD(totalFuseToSwap);
 
-		uint256 daoPartInGoodDollar = buyResult[1] - stakersPartInGoodDollar;
+		// avoiding the stack too deep error
+		buyResult[2] = totalFuseToSwap - buyResult[1];
 
-		uint256 keeperPartInGoodDollar = daoPartInGoodDollar
-			- (daoPartInGoodDollar * (RATIO_BASE - keeperRatio)) / RATIO_BASE;
+		debtToStakers = buyResult[2] * PRECISION * stakersPartInFuse / (totalFuseToSwap - keeperPartInFuse);
+		debtToDAO = buyResult[2] * PRECISION * daoPartInFuse / (totalFuseToSwap - keeperPartInFuse);
+
+		uint256 stakersPartInGoodDollar = buyResult[1] * PRECISION * stakersPartInFuse / totalFuseToSwap;
+		uint256 daoPartInGoodDollar = buyResult[1] * PRECISION * daoPartInFuse / totalFuseToSwap;
+		uint256 keeperPartInGoodDollar = buyResult[1] - (stakersPartInGoodDollar + daoPartInGoodDollar);
 
 		daoPartInGoodDollar -= keeperPartInGoodDollar;
 
@@ -274,15 +277,22 @@ contract FuseStaking is
 			- (daoPartInGoodDollar * (RATIO_BASE - communityPoolRatio))
 			/ RATIO_BASE;
 
-		daoPartInGoodDollar -= communityPoolPartInGoodDollar;
-
 		require(
-			goodDollar.transfer(address(ubiScheme), keeperPartInGoodDollar),
-			"ubiPartTransferFailed"
+			goodDollar.transfer(msg.sender, keeperPartInGoodDollar),
+			"keeperPartTransferFailed"
 		);
+
 		communityPoolBalance += communityPoolPartInGoodDollar;
 
-		_distributeGDToFaucets(daoPartInGoodDollar);
+		uint256 ubiPartInGoodDollar = daoPartInGoodDollar - communityPoolPartInGoodDollar;
+
+		require(
+			goodDollar.transfer(address(ubiScheme), ubiPartInGoodDollar),
+			"ubiPartTransferFailed"
+		);
+
+
+		_distributeGDToFaucets(daoPartInGoodDollar - ubiPartInGoodDollar);
 		_distributeFuseToFaucets(totalAmountOfFuseForFuseAcceptingFaucets);
 
 		_updateGlobalGivebackRatio();
@@ -290,7 +300,7 @@ contract FuseStaking is
 
 		emit UBICollected(
 			currentDayNumber,
-			keeperPartInGoodDollar,
+			ubiPartInGoodDollar,
 			communityPoolPartInGoodDollar,
 			buyResult[1],
 			earnings,

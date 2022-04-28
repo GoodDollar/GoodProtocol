@@ -29,16 +29,16 @@ contract GoodDollarSwaps {
 
 	mapping(bytes32 => uint256) internal buffersForPendingFuse;
 
-	function _safeBuyGD(uint256 _value, bytes32 _bufferNameHash)
-		internal
-		returns (uint256[] memory result)
-	{
-			uint256 pendingFuseToBeSwapped = buffersForPendingFuse[_bufferNameHash];
-			uint256 valueAndPendingFuseAmount = _value + pendingFuseToBeSwapped;
-			result = _buyGD(valueAndPendingFuseAmount);
-			buffersForPendingFuse[_bufferNameHash] = valueAndPendingFuseAmount - result[0];
-			result[2] = buffersForPendingFuse[_bufferNameHash];
-	}
+	// function _safeBuyGD(uint256 _value, bytes32 _bufferNameHash)
+	// 	internal
+	// 	returns (uint256[] memory result)
+	// {
+	// 		uint256 pendingFuseToBeSwapped = buffersForPendingFuse[_bufferNameHash];
+	// 		uint256 valueAndPendingFuseAmount = _value + pendingFuseToBeSwapped;
+	// 		result = _buyGD(valueAndPendingFuseAmount);
+	// 		buffersForPendingFuse[_bufferNameHash] = valueAndPendingFuseAmount - result[0];
+	// 		result[2] = buffersForPendingFuse[_bufferNameHash];
+	// }
 
 	/**
 	 * @dev internal method to buy goodDollar from fuseswap
