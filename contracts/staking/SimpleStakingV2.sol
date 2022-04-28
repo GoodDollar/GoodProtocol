@@ -35,7 +35,7 @@ abstract contract SimpleStakingV2 is
 	bool public isPaused;
 
 	//max percentage of token/dai pool liquidity to swap to DAI when collecting interest out of 100000
-	uint24 public maxLiquidityPercentageSwap = 300; //0.3%
+	uint24 public maxLiquidityPercentageSwap;
 
 	uint256 public lockedUSDValue;
 
@@ -88,6 +88,7 @@ abstract contract SimpleStakingV2 is
 		require(token.decimals() <= 18, "decimals");
 		tokenDecimalDifference = 18 - token.decimals();
 		maxMultiplierThreshold = _maxRewardThreshold;
+		maxLiquidityPercentageSwap = 300; //0.3%
 	}
 
 	function setMaxLiquidityPercentageSwap(uint24 _maxPercentage) public virtual {
