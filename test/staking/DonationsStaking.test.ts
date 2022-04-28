@@ -403,4 +403,29 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     const version = await donationsStaking.getVersion();
     expect(version).to.be.equal("2.0.0");
   });
+
+  it("should not allow to stake donations when not active", async () => {
+    let isActive = await donationsStaking.active();
+    expect(isActive).to.be.equal(true);
+    let stakeAmount = ethers.utils.parseEther("10");
+    await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
+    
+    expect(donationsStaking.stakeDonations()).to.not.be.reverted;
+    
+    let encodedData = donationsStaking.interface.encodeFunctionData(
+      "setActive",
+      [false]
+    );
+    await genericCall(donationsStaking.address, encodedData);
+    isActive = await donationsStaking.active();
+    expect(isActive).to.be.equal(false);
+    await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
+    await expect(donationsStaking.stakeDonations()).to.be.revertedWith("Contract is inactive");
+    // revent to original state
+    encodedData = donationsStaking.interface.encodeFunctionData(
+      "setActive",
+      [true]
+    );
+    await genericCall(donationsStaking.address, encodedData);
+  });
 });
