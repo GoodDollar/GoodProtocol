@@ -38,7 +38,8 @@ module.exports = {
     "mocks/SwapHelperTest.sol",
     "utils/MultiCall.sol",
     "utils/ProtocolUpgradeRecover.sol",
-    "utils/ProtocolUpgradeFuseRecover.sol"
+    "utils/ProtocolUpgradeFuseRecover.sol",
+    "utils/BulkProof.sol"
   ],
   mocha: {
     grep: "@skip-on-coverage", // Find everything with this tag
