@@ -258,9 +258,10 @@ contract FuseStaking is
 		uint256 daoPartInFuse = (earnings - stakersPartInFuse)
 				+ debtToDAO;
 
-		try daoPartInFuse - totalAmountOfFuseForFuseAcceptingFaucets returns(uint256 value) {
-			daoPartInFuse = value;
-		} catch Panic(uint256) {}
+		daoPartInFuse = totalAmountOfFuseForFuseAcceptingFaucets > daoPartInFuse
+			? daoPartInFuse
+			: daoPartInFuse - totalAmountOfFuseForFuseAcceptingFaucets;
+
 
 		uint256 totalFuseToSwap = stakersPartInFuse + daoPartInFuse + keeperPartInFuse;
 
