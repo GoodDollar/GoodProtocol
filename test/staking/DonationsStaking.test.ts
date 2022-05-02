@@ -316,32 +316,32 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(totalStakedAfterEnd).to.be.equal(0);
   });
   
-  it("should not allow to stake donations when not active", async () => {
-    let isActive = await donationsStaking.active();
-    expect(isActive).to.be.equal(true);
-    const stakeAmount = ethers.utils.parseEther("10");
-    await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
-    let tx = await donationsStaking.stakeDonations().catch(e=>e);
-    expect(tx.message).to.be.undefined; // expect not to throw
+  // it("should not allow to stake donations when not active", async () => {
+  //   let isActive = await donationsStaking.active();
+  //   expect(isActive).to.be.equal(true);
+  //   const stakeAmount = ethers.utils.parseEther("10");
+  //   await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
+  //   let tx = await donationsStaking.stakeDonations().catch(e=>e);
+  //   expect(tx.message).to.be.undefined; // expect not to throw
     
-    let encodedData = donationsStaking.interface.encodeFunctionData(
-      "setActive",
-      [false]
-    );
-    await genericCall(donationsStaking.address, encodedData);
-    isActive = await donationsStaking.active();
-    expect(isActive).to.be.equal(false);
-    await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
-    tx = await donationsStaking.stakeDonations().catch(e=>e);
-    expect(tx.message).to.have.string("Contract is inactive");
+  //   let encodedData = donationsStaking.interface.encodeFunctionData(
+  //     "setActive",
+  //     [false]
+  //   );
+  //   await genericCall(donationsStaking.address, encodedData);
+  //   isActive = await donationsStaking.active();
+  //   expect(isActive).to.be.equal(false);
+  //   await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
+  //   tx = await donationsStaking.stakeDonations().catch(e=>e);
+  //   expect(tx.message).to.have.string("Contract is inactive");
     
-    // revent to original state
-    encodedData = donationsStaking.interface.encodeFunctionData(
-      "setActive",
-      [true]
-    );
-    await genericCall(donationsStaking.address, encodedData);
-  });
+  //   // revent to original state
+  //   encodedData = donationsStaking.interface.encodeFunctionData(
+  //     "setActive",
+  //     [true]
+  //   );
+  //   await genericCall(donationsStaking.address, encodedData);
+  // });
 
   it("it should set stakingContract when avatar call it ", async () => {
     let stakeAmount = ethers.utils.parseEther("6000"); // Max swap amount is around 5964 with current liquidity level so we should set it to higher number in order to test functionality
