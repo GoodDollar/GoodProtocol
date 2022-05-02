@@ -246,16 +246,21 @@ contract FuseStaking is
 		uint256 totalAmountOfFuseForFuseAcceptingFaucets = _getAmountOfFuseForAllFaucets();
 
 		uint256 earnings = _balance() - debtToStakers - debtToDAO;
+
+		uint256 keeperPartInFuse = earnings
+			- (earnings * (RATIO_BASE - keeperRatio)) / RATIO_BASE;
+
+		earnings -= keeperPartInFuse;
+
 		uint256 stakersPartInFuse = (earnings * (RATIO_BASE - globalGivebackRatio)) /
 			RATIO_BASE + debtToStakers;
 
-		uint256 keeperPartInFuse = (earnings - stakersPartInFuse)
-			- ((earnings - stakersPartInFuse) * (RATIO_BASE - keeperRatio)) / RATIO_BASE;
-
 		uint256 daoPartInFuse = (earnings - stakersPartInFuse)
-				- keeperPartInFuse
-				+ debtToDAO
-				- totalAmountOfFuseForFuseAcceptingFaucets;
+				+ debtToDAO;
+
+		try daoPartInFuse - totalAmountOfFuseForFuseAcceptingFaucets returns(uint256 value) {
+			daoPartInFuse = value;
+		} catch Panic(uint256) {}
 
 		uint256 totalFuseToSwap = stakersPartInFuse + daoPartInFuse + keeperPartInFuse;
 
