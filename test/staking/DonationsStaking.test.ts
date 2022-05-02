@@ -319,10 +319,10 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
   it("should not allow to stake donations when not active", async () => {
     let isActive = await donationsStaking.active();
     expect(isActive).to.be.equal(true);
-    let stakeAmount = ethers.utils.parseEther("10");
+    const stakeAmount = ethers.utils.parseEther("10");
     await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
-    
-    expect(donationsStaking.stakeDonations()).to.not.be.reverted;
+    let tx = await donationsStaking.stakeDonations().catch(e=>e);
+    expect(tx.message).to.be.undefined; // expect not to throw
     
     let encodedData = donationsStaking.interface.encodeFunctionData(
       "setActive",
@@ -332,7 +332,9 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     isActive = await donationsStaking.active();
     expect(isActive).to.be.equal(false);
     await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
-    await expect(donationsStaking.stakeDonations()).to.be.revertedWith("Contract is inactive");
+    tx = await donationsStaking.stakeDonations().catch(e=>e);
+    expect(tx.message).to.have.string("Contract is inactive");
+    
     // revent to original state
     encodedData = donationsStaking.interface.encodeFunctionData(
       "setActive",
