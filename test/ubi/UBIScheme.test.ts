@@ -115,6 +115,11 @@ describe("UBIScheme", () => {
     expect(error.message).to.have.string("only Avatar");
   });
 
+  it("should return zero entitlement before UBI started", async () => {
+    let entitledTo = await ubi.connect(claimer1)["checkEntitlement()"]();
+    expect(entitledTo).to.equal(0);
+  });
+
   it("should start the ubi", async () => {
     await setSchemes([ubi.address]);
     // await ubi.start();
@@ -174,6 +179,27 @@ describe("UBIScheme", () => {
     expect(error.message).to.have.string("Only UBIScheme can call this method");
   });
 
+  it("should estimate next daily UBI to default value when no claimers and not using first claim pool", async () => {
+    const nextDailyUBIBefore = await ubi.estimateNextDailyUBI();
+    const defaultDailyUbi = await ubi.defaultDailyUbi();
+    let encodedCall = ubi.interface.encodeFunctionData(
+      "setUseFirstClaimPool",
+      [false]
+    );
+    await genericCall(ubi.address, encodedCall);
+    const nextDailyUBIAfter = await ubi.estimateNextDailyUBI();
+
+    expect(nextDailyUBIBefore.eq(0));
+    expect(nextDailyUBIAfter.gt(nextDailyUBIBefore));
+    expect(nextDailyUBIAfter.eq(defaultDailyUbi));
+
+    encodedCall = ubi.interface.encodeFunctionData(
+      "setUseFirstClaimPool",
+      [true]
+    );
+    await genericCall(ubi.address, encodedCall);
+  });
+
   it("should award a new user with 0 on first time execute claim if the first claim contract has no balance", async () => {
     let tx = await (await ubi.connect(claimer1).claim()).wait();
     let claimer1Balance = await goodDollar.balanceOf(claimer1.address);
@@ -189,8 +215,11 @@ describe("UBIScheme", () => {
     let transaction = await (await ubi.connect(claimer2).claim()).wait();
     let activeUsersCount = await ubi.activeUsersCount();
     let claimer2Balance = await goodDollar.balanceOf(claimer2.address);
+    const [claimersCount, amountClaimed] = await ubi.getDailyStats();
     expect(claimer2Balance.toNumber()).to.be.equal(100);
+    expect(amountClaimed.eq(100));
     expect(activeUsersCount.toNumber()).to.be.equal(2);
+    expect(claimersCount.eq(2));
     expect(transaction.events.find(_ => _.event === "ActivatedUser")).to.be.not
       .empty;
   });
