@@ -265,14 +265,6 @@ contract FuseStaking is
 		uint256 totalFuseToSwap = stakersPartInFuse + daoPartInFuse;
 
 		uint256[] memory buyResult = _buyGD(totalFuseToSwap);
-
-		// avoiding the stack too deep error
-		buyResult[2] = totalFuseToSwap - buyResult[0];
-
-		debtToStakers = buyResult[2] * PRECISION * stakersPartInFuse / (totalFuseToSwap - keeperPartInFuse);
-		debtToDAO = buyResult[2] * PRECISION * daoPartInFuse / (totalFuseToSwap - keeperPartInFuse);
-
-		uint256 stakersPartInGoodDollar = buyResult[1] * PRECISION * stakersPartInFuse / totalFuseToSwap;
 		uint256 daoPartInGoodDollar = buyResult[1] * PRECISION * daoPartInFuse / totalFuseToSwap;
 
 		uint256 communityPoolPartInGoodDollar = daoPartInGoodDollar
@@ -281,12 +273,21 @@ contract FuseStaking is
 
 		uint256 ubiPartInGoodDollar = daoPartInGoodDollar - communityPoolPartInGoodDollar;
 
+		{
+			uint256 totalDebt = totalFuseToSwap - buyResult[0];
+			debtToStakers = totalDebt * PRECISION * stakersPartInFuse / (totalFuseToSwap - keeperPartInFuse);
+			debtToDAO = totalDebt * PRECISION * daoPartInFuse / (totalFuseToSwap - keeperPartInFuse);
+		}
+
 		_updateGlobalGivebackRatio();
 
 		_distributeGDToFaucets(daoPartInGoodDollar - ubiPartInGoodDollar);
 		_distributeFuseToFaucets(totalAmountOfFuseForFuseAcceptingFaucets);
 
-		_notifyRewardAmount(stakersPartInGoodDollar);
+		{
+			uint256 stakersPartInGoodDollar = buyResult[1] * PRECISION * stakersPartInFuse / totalFuseToSwap;
+			_notifyRewardAmount(stakersPartInGoodDollar);
+		}
 
 		payable(msg.sender).transfer(keeperPartInFuse);
 
@@ -303,10 +304,11 @@ contract FuseStaking is
 			communityPoolPartInGoodDollar,
 			buyResult[1],
 			earnings,
-			buyResult[2],
+			debtToStakers + debtToDAO,
 			msg.sender,
 			keeperPartInFuse
 		);
+
 	}
 
 	function addValidator(address _validator) external onlyRole(GUARDIAN_ROLE) {
