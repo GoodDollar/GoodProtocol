@@ -9,25 +9,39 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	using SafeERC20 for IERC20;
 
+	// the users info about stake
 	struct StakerInfo {
-		uint256 reward;
-		uint256 balance;
-		uint256 pendingStake;
-		uint256 indexOfLastEpochStaked;
+		uint256 reward; // the reward amount which should be transfered to the user
+		uint256 balance; // the amount of active stake of user
+		uint256 pendingStake; // the amount of pending stake of user
+		uint256 indexOfLastEpochStaked; // an index of the epoch from which the reward is calculated
 	}
 
+	// staker - an address of the staker, amount - an amount of staked tokens, epoch - an epoch when the stake was made
 	event Staked(address indexed staker, uint256 amount, uint256 epoch);
+
+	// staker - an address of the staker, amount - an amount of withdrawn tokens, epoch - an epoch when the withdraw was made
 	event Withdrawn(address indexed staker, uint256 amount, uint256 epoch);
+
+	// user - an address of the staker, reward - an amount of tokens that was rewarded to the staker, epoch - an epoch when the reward was made
 	event RewardPaid(address indexed user, uint256 reward, uint256 epoch);
 
+	// precision constant for math
 	uint256 public constant PRECISION = 1e18;
 
+	// the user info sheet
 	mapping(address => StakerInfo) public stakersInfo;
 
+	// the epoch counter
 	uint256 public lastEpochIndex;
+
+	// total supply of pending stakes
 	uint256 public pendingStakes;
+
+	// the amount of reward per token at a specific epoch
 	uint256[] public rewardsPerTokenAt;
 
+	// total supply of active stakes
 	uint256 public totalSupply;
 
 	modifier updateReward(address account) {
