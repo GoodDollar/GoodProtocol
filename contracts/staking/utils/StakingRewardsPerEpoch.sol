@@ -3,11 +3,10 @@ pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
+contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	using SafeERC20 for IERC20;
 
 	struct StakerInfo {
@@ -17,16 +16,11 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 		uint256 indexOfLastEpochStaked;
 	}
 
-	event Staked(address indexed staker, uint256 amount);
-	event Withdrawn(address indexed staker, uint256 amount);
-	event RewardPaid(address indexed user, uint256 reward);
-	event Recovered(address token, uint256 amount);
+	event Staked(address indexed staker, uint256 amount, uint256 epoch);
+	event Withdrawn(address indexed staker, uint256 amount, uint256 epoch);
+	event RewardPaid(address indexed user, uint256 reward, uint256 epoch);
 
-	bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
 	uint256 public constant PRECISION = 1e18;
-
-	IERC20 public rewardsToken;
-	IERC20 public stakingToken;
 
 	mapping(address => StakerInfo) public stakersInfo;
 
@@ -39,13 +33,6 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 	modifier updateReward(address account) {
 		_updateReward(account);
 		_;
-	}
-
-	constructor(address _rewardsToken, address _stakingToken) {
-		_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-		_setupRole(GUARDIAN_ROLE, msg.sender);
-		rewardsToken = IERC20(_rewardsToken);
-		stakingToken = IERC20(_stakingToken);
 	}
 
 	function balanceOf(address account) external view returns (uint256) {
@@ -76,20 +63,9 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 			stakersInfo[account].reward;
 	}
 
-	function recoverERC20(address tokenAddress, uint256 tokenAmount)
-		external
-		onlyRole(GUARDIAN_ROLE)
-	{
-		require(
-			tokenAddress != address(stakingToken),
-			"Cannot withdraw the staking token"
-		);
-		IERC20(tokenAddress).safeTransfer(msg.sender, tokenAmount);
-		emit Recovered(tokenAddress, tokenAmount);
-	}
-
-	function _addPendingStakesToBalanceOnTimeUpdate(address _account) internal {
-		if (stakersInfo[_account].indexOfLastEpochStaked != lastEpochIndex) {
+	function _addPendingStakesToBalanceOnEpoch(address _account) internal {
+		if (stakersInfo[_account].indexOfLastEpochStaked != lastEpochIndex
+				&& stakersInfo[_account].pendingStake > 0) {
 			stakersInfo[_account].balance += stakersInfo[_account].pendingStake;
 			stakersInfo[_account].pendingStake = 0;
 			pendingStakes -= stakersInfo[_account].pendingStake;
@@ -102,8 +78,8 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 	}
 
 	function _notifyRewardAmount(uint256 reward) internal {
-		totalSupply += pendingStakes;
 		rewardsPerTokenAt.push((reward * PRECISION) / totalSupply);
+		totalSupply += pendingStakes;
 		lastEpochIndex++;
 	}
 
@@ -118,29 +94,25 @@ contract StakingRewardsPerEpoch is AccessControl, ReentrancyGuard, Pausable {
 		} else {
 			stakersInfo[_from].balance -= _amount;
 		}
-
-		stakingToken.safeTransfer(_from, _amount);
-		emit Withdrawn(_from, _amount);
+		emit Withdrawn(_from, _amount, lastEpochIndex);
 	}
 
 	function _stake(address _from, uint256 _amount)
   	internal
-  	virtual 
+  	virtual
   {
 		require(_amount > 0, "Cannot stake 0");
 		pendingStakes += _amount;
 		stakersInfo[_from].pendingStake += _amount;
 		stakersInfo[_from].indexOfLastEpochStaked = lastEpochIndex;
-		stakingToken.safeTransferFrom(_from, address(this), _amount);
-		emit Staked(_from, _amount);
+		emit Staked(_from, _amount, lastEpochIndex);
 	}
 
-	function _getReward(address _to) internal virtual {
-		uint256 reward = stakersInfo[_to].reward;
+	function _getReward(address _to) internal virtual returns(uint256 reward) {
+		reward = stakersInfo[_to].reward;
 		if (reward > 0) {
 			stakersInfo[_to].reward = 0;
-			rewardsToken.safeTransfer(_to, reward);
-			emit RewardPaid(_to, reward);
+			emit RewardPaid(_to, reward, lastEpochIndex);
 		}
 	}
 }
