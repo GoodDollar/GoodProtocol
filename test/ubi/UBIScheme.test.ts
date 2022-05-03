@@ -115,11 +115,6 @@ describe("UBIScheme", () => {
     expect(error.message).to.have.string("only Avatar");
   });
 
-  it("should return zero entitlement before UBI started", async () => {
-    let entitledTo = await ubi.connect(claimer1)["checkEntitlement()"]();
-    expect(entitledTo).to.equal(0);
-  });
-
   it("should start the ubi", async () => {
     await setSchemes([ubi.address]);
     // await ubi.start();
