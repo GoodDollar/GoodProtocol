@@ -114,8 +114,8 @@ contract GoodDollarSwaps {
 		); //expect r_token to be in 18 decimals
 
 		address[] memory path = new address[](2);
-		path[1] = fUSD;
 		path[0] = uniswapV2Router.WETH();
+		path[1] = fUSD;
 		uint256[] memory result = uniswapV2Router.swapExactETHForTokens{
 			value: maxFuse
 		}((tokenOut * 95) / 100, path, address(this), block.timestamp);

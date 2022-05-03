@@ -262,47 +262,40 @@ contract FuseStaking is
 			? daoPartInFuse
 			: daoPartInFuse - totalAmountOfFuseForFuseAcceptingFaucets;
 
-
-		uint256 totalFuseToSwap = stakersPartInFuse + daoPartInFuse + keeperPartInFuse;
+		uint256 totalFuseToSwap = stakersPartInFuse + daoPartInFuse;
 
 		uint256[] memory buyResult = _buyGD(totalFuseToSwap);
 
 		// avoiding the stack too deep error
-		buyResult[2] = totalFuseToSwap - buyResult[1];
+		buyResult[2] = totalFuseToSwap - buyResult[0];
 
 		debtToStakers = buyResult[2] * PRECISION * stakersPartInFuse / (totalFuseToSwap - keeperPartInFuse);
 		debtToDAO = buyResult[2] * PRECISION * daoPartInFuse / (totalFuseToSwap - keeperPartInFuse);
 
 		uint256 stakersPartInGoodDollar = buyResult[1] * PRECISION * stakersPartInFuse / totalFuseToSwap;
 		uint256 daoPartInGoodDollar = buyResult[1] * PRECISION * daoPartInFuse / totalFuseToSwap;
-		uint256 keeperPartInGoodDollar = buyResult[1] - (stakersPartInGoodDollar + daoPartInGoodDollar);
-
-		daoPartInGoodDollar -= keeperPartInGoodDollar;
 
 		uint256 communityPoolPartInGoodDollar = daoPartInGoodDollar
 			- (daoPartInGoodDollar * (RATIO_BASE - communityPoolRatio))
 			/ RATIO_BASE;
 
-		require(
-			goodDollar.transfer(msg.sender, keeperPartInGoodDollar),
-			"keeperPartTransferFailed"
-		);
+		uint256 ubiPartInGoodDollar = daoPartInGoodDollar - communityPoolPartInGoodDollar;
+
+		_updateGlobalGivebackRatio();
+
+		_distributeGDToFaucets(daoPartInGoodDollar - ubiPartInGoodDollar);
+		_distributeFuseToFaucets(totalAmountOfFuseForFuseAcceptingFaucets);
+
+		_notifyRewardAmount(stakersPartInGoodDollar);
+
+		payable(msg.sender).transfer(keeperPartInFuse);
 
 		communityPoolBalance += communityPoolPartInGoodDollar;
-
-		uint256 ubiPartInGoodDollar = daoPartInGoodDollar - communityPoolPartInGoodDollar;
 
 		require(
 			goodDollar.transfer(address(ubiScheme), ubiPartInGoodDollar),
 			"ubiPartTransferFailed"
 		);
-
-
-		_distributeGDToFaucets(daoPartInGoodDollar - ubiPartInGoodDollar);
-		_distributeFuseToFaucets(totalAmountOfFuseForFuseAcceptingFaucets);
-
-		_updateGlobalGivebackRatio();
-		_notifyRewardAmount(stakersPartInGoodDollar);
 
 		emit UBICollected(
 			currentDayNumber,
@@ -312,7 +305,7 @@ contract FuseStaking is
 			earnings,
 			buyResult[2],
 			msg.sender,
-			keeperPartInGoodDollar
+			keeperPartInFuse
 		);
 	}
 
