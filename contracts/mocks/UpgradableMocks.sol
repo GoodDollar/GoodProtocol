@@ -29,3 +29,21 @@ contract UpgradableMock2 is DAOUpgradeableContract {
 		);
 	}
 }
+
+contract UpgradableMock3 is DAOUpgradeableContract {
+	function decimals() public pure returns (uint256) {
+		return 3;
+	}
+	function initialize(INameService _ns) public initializer {
+    setDAO(_ns);
+	}
+}
+
+contract UpgradableMock4 is DAOUpgradeableContract {
+	function decimals() public pure returns (uint256) {
+		return 4;
+	}
+	function initialize(INameService _ns) public initializer {
+    setDAO(_ns);
+	}
+}
