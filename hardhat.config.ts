@@ -63,7 +63,7 @@ const hhconfig: HardhatUserConfig = {
       accounts: {
         accountsBalance: "10000000000000000000000000"
       },
-      initialDate: "2020-10-10"
+      initialDate: "2021-12-01"
     },
     test: {
       allowUnlimitedContractSize: true,
