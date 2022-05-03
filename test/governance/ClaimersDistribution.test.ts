@@ -84,9 +84,9 @@ describe("ClaimersDistribution", () => {
   });
 
   it("should update claim if claimed today", async () => {
-    const ts = Date.now();
+    const ts = await ethers.provider.getBlock("latest").then(_ => _.timestamp);
     await ubiScheme.connect(claimer1).claim();
-    expect(await cd.lastUpdated(claimer1.address)).gt((ts / 1000).toFixed(0));
+    expect(await cd.lastUpdated(claimer1.address)).gt(ts.toFixed(0));
     expect(await cd.getMonthClaims(claimer1.address)).to.equal(1);
     const monthData = await cd.months(await cd.currentMonth());
     expect(monthData.totalClaims).to.equal(1);
@@ -102,9 +102,9 @@ describe("ClaimersDistribution", () => {
   });
 
   it("should update stats after second claimer", async () => {
-    const ts = Date.now();
+    const ts = await ethers.provider.getBlock("latest").then(_ => _.timestamp);
     await ubiScheme.connect(claimer2).claim();
-    expect(await cd.lastUpdated(claimer2.address)).gt((ts / 1000).toFixed(0));
+    expect(await cd.lastUpdated(claimer2.address)).gt(ts.toFixed(0));
     expect(await cd.getMonthClaims(claimer2.address)).to.equal(1);
     const monthData = await cd.months(await cd.currentMonth());
     expect(monthData.totalClaims).to.equal(2);
@@ -115,9 +115,9 @@ describe("ClaimersDistribution", () => {
 
   it("should distribute reputation after a month and update to current monthly distribution", async () => {
     await increaseTime(60 * 60 * 24 * 30);
-    const ts = Date.now();
+    const ts = await ethers.provider.getBlock("latest").then(_ => _.timestamp);
     await ubiScheme.connect(claimer2).claim();
-    expect(await cd.lastUpdated(claimer2.address)).gt((ts / 1000).toFixed(0));
+    expect(await cd.lastUpdated(claimer2.address)).gt(ts.toFixed(0));
     expect(await cd.getMonthClaims(claimer2.address)).to.equal(1);
     const monthData = await cd.months(await cd.currentMonth());
     expect(monthData.totalClaims).to.equal(1);

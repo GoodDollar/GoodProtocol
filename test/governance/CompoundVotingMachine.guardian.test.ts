@@ -130,7 +130,8 @@ describe("CompoundVotingMachine#Guardian", () => {
   });
 
   it("Should be able to set guardian by avatar if foundation expired", async () => {
-    await increaseTime(60 * 60 * 24 * 365 * 2);
+    await ethers.provider.send("evm_setNextBlockTimestamp", [1672531201]); //1672531200
+    await ethers.provider.send("evm_mine", []);
 
     const encoded = gov.interface.encodeFunctionData("setGuardian", [
       acct.address
