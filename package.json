@@ -91,7 +91,7 @@
     "fs-extra": "9.0.0",
     "graphql": "^15.5.0",
     "graphql-request": "^3.4.0",
-    "hardhat": "^2.6.4",
+    "hardhat": "^2.9.3",
     "hardhat-contract-sizer": "^2.0.3",
     "hardhat-gas-reporter": "^1.0.4",
     "lodash": "^4.17.21",

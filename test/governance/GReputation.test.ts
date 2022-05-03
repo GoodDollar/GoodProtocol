@@ -119,7 +119,6 @@ describe("GReputation", () => {
   });
 
   it("should have avatar as role manager", async () => {
-    // const invites = await Invites.deployed();
     expect(await grep.hasRole(await grep.DEFAULT_ADMIN_ROLE(), avatar)).to.be
       .true;
   });
