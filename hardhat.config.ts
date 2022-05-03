@@ -62,7 +62,8 @@ const hhconfig: HardhatUserConfig = {
       allowUnlimitedContractSize: true,
       accounts: {
         accountsBalance: "10000000000000000000000000"
-      }
+      },
+      initialDate: "2020-10-10"
     },
     test: {
       allowUnlimitedContractSize: true,
@@ -243,9 +244,10 @@ task("verifyjson", "verify contracts on etherscan").setAction(
 );
 export default hhconfig;
 
-task("sumStakersGdRewards", "Sums the GoodDollar reward for each staker")
-  .setAction(async (taskArgs, hre) => {
-    const actions = sumStakersGdRewards(hre.ethers);
-        return actions.getStakersGdRewards();
-    }
-);
+task(
+  "sumStakersGdRewards",
+  "Sums the GoodDollar reward for each staker"
+).setAction(async (taskArgs, hre) => {
+  const actions = sumStakersGdRewards(hre.ethers);
+  return actions.getStakersGdRewards();
+});
