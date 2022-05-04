@@ -87,12 +87,15 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	}
 
 	function _updateReward(address _account) internal virtual {
-		_addPendingStakesToBalanceOnTimeUpdate(_account);
+		_addPendingStakesToBalanceOnEpoch(_account);
 		stakersInfo[_account].reward = earned(_account);
 	}
 
 	function _notifyRewardAmount(uint256 reward) internal {
-		rewardsPerTokenAt.push((reward * PRECISION) / totalSupply);
+		rewardsPerTokenAt.push(
+			rewardsPerTokenAt[rewardsPerTokenAt.length - 1]
+				+ (reward * PRECISION) / totalSupply
+		);
 		totalSupply += pendingStakes;
 		lastEpochIndex++;
 	}
