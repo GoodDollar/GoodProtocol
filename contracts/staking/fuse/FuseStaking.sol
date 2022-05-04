@@ -247,28 +247,30 @@ contract FuseStaking is
 
 		uint256 earnings = _balance() - debtToStakers - debtToDAO;
 
-		uint256 keeperPartInFuse = earnings
-			- (earnings * (RATIO_BASE - keeperRatio)) / RATIO_BASE;
+		uint256 keeperPartInFuse = earnings * keeperRatio / RATIO_BASE;
 
 		earnings -= keeperPartInFuse;
 
-		uint256 stakersPartInFuse = (earnings * (RATIO_BASE - globalGivebackRatio)) /
+		uint256 stakersPartInFuse = earnings * globalGivebackRatio /
 			RATIO_BASE + debtToStakers;
 
-		uint256 daoPartInFuse = (earnings - stakersPartInFuse)
-				+ debtToDAO;
+		uint256 daoPartInFuse = earnings - stakersPartInFuse + debtToDAO;
 
-		daoPartInFuse = totalAmountOfFuseForFuseAcceptingFaucets > daoPartInFuse
-			? 0
-			: daoPartInFuse - totalAmountOfFuseForFuseAcceptingFaucets;
+		totalAmountOfFuseForFuseAcceptingFaucets = Math.min(
+			totalAmountOfFuseForFuseAcceptingFaucets,
+			daoPartInFuse
+		);
+
+		daoPartInFuse -= totalAmountOfFuseForFuseAcceptingFaucets;
 
 		uint256 totalFuseToSwap = stakersPartInFuse + daoPartInFuse;
 
 		uint256[] memory buyResult = _buyGD(totalFuseToSwap);
-		uint256 daoPartInGoodDollar = buyResult[1] * PRECISION * daoPartInFuse / totalFuseToSwap;
+		uint256 daoPartInGoodDollar = buyResult[1] * PRECISION * daoPartInFuse
+			/ totalFuseToSwap;
 
 		uint256 communityPoolPartInGoodDollar = daoPartInGoodDollar
-			- (daoPartInGoodDollar * (RATIO_BASE - communityPoolRatio))
+			* communityPoolRatio
 			/ RATIO_BASE;
 
 		uint256 ubiPartInGoodDollar = daoPartInGoodDollar - communityPoolPartInGoodDollar;
