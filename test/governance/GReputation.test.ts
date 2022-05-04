@@ -843,5 +843,18 @@ describe("GReputation", () => {
       expect(await grep.balanceOfLocal(repTarget)).to.equal(111);
       expect(await grep.balanceOfLocal(rep3)).to.equal(startBalance.add(111));
     });
+
+    it("should get accurate prior votes", async () => {
+      await grep.connect(signers[3]).undelegate();
+      const selectedBlock = await ethers.provider.getBlockNumber();
+      const selectedBlockVotes = await grep.getCurrentVotes(rep2);
+      await advanceBlocks(1);
+      await (await grepWithOwner["mint(address,uint256)"](rep2, 1)).wait();
+      await advanceBlocks(1);
+      const priorSelectedBlockVotes = await grep.getPriorVotes(rep2, selectedBlock);
+      const votesAfterAdvancing = await grep.getCurrentVotes(rep2);
+      expect(priorSelectedBlockVotes).to.eq(selectedBlockVotes);
+      expect(priorSelectedBlockVotes).to.be.not.eq(votesAfterAdvancing);
+    });
   });
 });
