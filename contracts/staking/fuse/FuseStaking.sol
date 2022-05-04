@@ -35,9 +35,9 @@ contract FuseStaking is
 		uint256 communityPoolAmount, //G$ added to pool
 		uint256 gdBoughtAmount, //actual G$ we got out of swapping stakingRewards + pendingFuseEarnings
 		uint256 stakingRewardsAmount, //rewards earned since previous collection,
-		uint256 pendingFuseEarnings, //new balance of fuse pending to be swapped for G$
+		uint256 totalDebt, //new balance of fuse pending to be swapped for G$
 		address keeper,
-		uint256 keeperGDFee
+		uint256 keeperFuseFee
 	);
 	event Transfer(address indexed from, address indexed to, uint256 value);
 	event Approval(address indexed owner, address indexed spender, uint256 value);
@@ -259,7 +259,7 @@ contract FuseStaking is
 				+ debtToDAO;
 
 		daoPartInFuse = totalAmountOfFuseForFuseAcceptingFaucets > daoPartInFuse
-			? daoPartInFuse
+			? 0
 			: daoPartInFuse - totalAmountOfFuseForFuseAcceptingFaucets;
 
 		uint256 totalFuseToSwap = stakersPartInFuse + daoPartInFuse;
@@ -275,8 +275,8 @@ contract FuseStaking is
 
 		{
 			uint256 totalDebt = totalFuseToSwap - buyResult[0];
-			debtToStakers = totalDebt * PRECISION * stakersPartInFuse / (totalFuseToSwap - keeperPartInFuse);
-			debtToDAO = totalDebt * PRECISION * daoPartInFuse / (totalFuseToSwap - keeperPartInFuse);
+			debtToStakers = totalDebt * PRECISION * stakersPartInFuse / totalFuseToSwap;
+			debtToDAO = totalDebt * PRECISION * daoPartInFuse / totalFuseToSwap;
 		}
 
 		_updateGlobalGivebackRatio();
@@ -284,14 +284,14 @@ contract FuseStaking is
 		_distributeGDToFaucets(daoPartInGoodDollar - ubiPartInGoodDollar);
 		_distributeFuseToFaucets(totalAmountOfFuseForFuseAcceptingFaucets);
 
+		communityPoolBalance += communityPoolPartInGoodDollar;
+
 		{
 			uint256 stakersPartInGoodDollar = buyResult[1] * PRECISION * stakersPartInFuse / totalFuseToSwap;
 			_notifyRewardAmount(stakersPartInGoodDollar);
 		}
 
 		payable(msg.sender).transfer(keeperPartInFuse);
-
-		communityPoolBalance += communityPoolPartInGoodDollar;
 
 		require(
 			goodDollar.transfer(address(ubiScheme), ubiPartInGoodDollar),
