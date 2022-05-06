@@ -49,11 +49,17 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 		_;
 	}
 
+	/**
+	 * @dev A classic ERC20 method that allows staker balance acquiring.
+	 * @param account A staker address
+	 */
 	function balanceOf(address account) external view returns (uint256) {
 		return _balanceOf(account);
 	}
 
 	function _balanceOf(address account) internal view returns (uint256) {
+		// The resulting balance of any user is the sum of an active earning balance
+		// and pending waiting balance.
 		return stakersInfo[account].balance + stakersInfo[account].pendingStake;
 	}
 
@@ -62,22 +68,33 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 		view
 		returns (uint256)
 	{
-		uint256 userIndex = stakersInfo[_account].indexOfLastEpochStaked + 1;
-		if (lastEpochIndex > userIndex) {
-			return rewardsPerTokenAt[lastEpochIndex] - rewardsPerTokenAt[userIndex];
+		// The userEpochIndex is used to calculate a reward per toker per epoch
+		// getting into account passed epochs.
+		uint256 userEpochIndex = stakersInfo[_account].indexOfLastEpochStaked + 1;
+		if (lastEpochIndex > userEpochIndex) {
+			// Here we calculate the reward getting into account passed epochs.
+			return rewardsPerTokenAt[lastEpochIndex] - rewardsPerTokenAt[userEpochIndex];
 		} else {
 			return 0;
 		}
 	}
 
+	/**
+	 * @dev The function allows anyone to calculate the exact amount of reward
+	 * earned per epochs passed.
+	 * @param account A staker address
+	 */
 	function earned(address account) public view returns (uint256) {
 		return
-			(stakersInfo[account].balance * _getRewardPerTokenPerUser(account)) /
-			PRECISION +
-			stakersInfo[account].reward;
+			(stakersInfo[account].balance * _getRewardPerTokenPerUser(account))
+				/ PRECISION
+				+ stakersInfo[account].reward;
 	}
 
 	function _addPendingStakesToBalanceOnEpoch(address _account) internal {
+		// If stakers balance weren't updated when he staked and the staked
+		// amount is greater than 0, then update active earning balance, nullify
+		// pending one and update global sum of pending stakes.
 		if (stakersInfo[_account].indexOfLastEpochStaked != lastEpochIndex
 				&& stakersInfo[_account].pendingStake > 0) {
 			stakersInfo[_account].balance += stakersInfo[_account].pendingStake;
@@ -86,22 +103,33 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 		}
 	}
 
+	// this function updates the reward for the specific user
 	function _updateReward(address _account) internal virtual {
 		_addPendingStakesToBalanceOnEpoch(_account);
 		stakersInfo[_account].reward = earned(_account);
 	}
 
+	// This function adds the sum given in reward parameter to the distribution
+	// queue.
 	function _notifyRewardAmount(uint256 reward) internal {
+		// update cumulative rewards
 		rewardsPerTokenAt.push(
 			rewardsPerTokenAt[rewardsPerTokenAt.length - 1]
 				+ (reward * PRECISION) / totalSupply
 		);
+		// turn pending stakes to active stakes
 		totalSupply += pendingStakes;
+		pendingStakes = 0;
+
+		// update epoch count
 		lastEpochIndex++;
 	}
 
 	function _withdraw(address _from, uint256 _amount) internal virtual {
+		// if there are any pending stake for _from
 		if (stakersInfo[_from].pendingStake > 0) {
+			// if requested sum to withdraw is higher than actual pending stake balance
+			// then just withdraw the current balance
 			uint256 pendingToReduce = stakersInfo[_from].pendingStake >= _amount
 				? _amount
 				: stakersInfo[_from].pendingStake;
@@ -109,6 +137,7 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 			stakersInfo[_from].pendingStake -= pendingToReduce;
 			stakersInfo[_from].balance -= _amount - pendingToReduce;
 		} else {
+			// elsewise just withdraw the active balance
 			stakersInfo[_from].balance -= _amount;
 		}
 		emit Withdrawn(_from, _amount, lastEpochIndex);
@@ -118,6 +147,7 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
   	internal
   	virtual
   {
+		// the _from address could stake to the pending balance an above zero sum
 		require(_amount > 0, "Cannot stake 0");
 		pendingStakes += _amount;
 		stakersInfo[_from].pendingStake += _amount;
@@ -126,6 +156,7 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	}
 
 	function _getReward(address _to) internal virtual returns(uint256 reward) {
+		// return and reset the reward if there is any
 		reward = stakersInfo[_to].reward;
 		if (reward > 0) {
 			stakersInfo[_to].reward = 0;
