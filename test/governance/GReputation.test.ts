@@ -741,6 +741,25 @@ describe("GReputation", () => {
       );
     });
 
+    it("it should be able to get totalSupplyLocal for particular block", async () => {
+      let currentBlock = await ethers.provider.getBlockNumber();
+      const totalSupplyLocalBefore = await grep["totalSupplyLocal(uint256)"](currentBlock);
+      await grepWithOwner["mint(address,uint256)"](
+        founder,
+        ethers.utils.parseEther("1")
+      );
+      currentBlock = await ethers.provider.getBlockNumber();
+      const totalSupplyLocalAfter = await grep["totalSupplyLocal(uint256)"](currentBlock);
+      expect(totalSupplyLocalAfter).to.equal(
+        totalSupplyLocalBefore.add(ethers.utils.parseEther("1"))
+      );
+      
+      await grepWithOwner["burn(address,uint256)"](
+        founder,
+        ethers.utils.parseEther("1")
+      );
+    });
+
     it("it should return 0 when particular blockchain state is empty", async () => {
       let state = await grep["getVotesAtBlockchain(bytes32,address,uint256)"](
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("notExist")),
