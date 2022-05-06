@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import "./utils/StakingRewardsPerEpoch.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+
+import "../utils/StakingRewardsPerEpoch.sol";
 import "./utils/GoodDollarSwaps.sol";
 import "./utils/ValidatorsManagement.sol";
 import "./IConsensus.sol";
@@ -10,18 +12,23 @@ import "./ISpendingRateOracle.sol";
 contract FuseStaking is
 	StakingRewardsPerEpoch,
 	GoodDollarSwaps,
-	ValidatorsManagement
+	ValidatorsManagement,
+	AccessControl
 {
 	using SafeERC20 for IERC20;
-
-	mapping(address => mapping(address => uint256)) public allowance;
 
 	event Transfer(address indexed from, address indexed to, uint256 value);
 	event Approval(address indexed owner, address indexed spender, uint256 value);
 
-	constructor(address _rewardsToken, address _stakingToken)
-		StakingRewardsPerEpoch(_rewardsToken, _stakingToken)
-	{}
+	bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
+	mapping(address => mapping(address => uint256)) public allowance;
+	address internal _rewardsToken;
+
+	constructor(address __rewardsToken)
+		StakingRewardsPerEpoch()
+	{
+		_rewardsToken = __rewardsToken;
+	}
 
 	function stake(uint256 _giveBackRatio) public payable {
 		stake(address(0), _giveBackRatio);
@@ -42,7 +49,7 @@ contract FuseStaking is
 		pendingStakes += _amount;
 		stakersInfo[_from].pendingStake += _amount;
 		stakersInfo[_from].indexOfLastEpochStaked = lastEpochIndex;
-		emit Staked(_from, _amount);
+		emit Staked(_from, _amount, lastEpochIndex);
 	}
 
 	function _stake(
@@ -54,7 +61,7 @@ contract FuseStaking is
 		_requireValidValidator(_validator);
 		require(_stakeNextValidator(_amount, _validator), "stakeFailed");
 		_stake(_from, _amount);
-		emit Staked(_from, _amount);
+		emit Staked(_from, _amount, lastEpochIndex);
 	}
 
 	function withdraw(uint256 amount) public nonReentrant {
@@ -94,7 +101,7 @@ contract FuseStaking is
 
 		if (_to != address(0)) {
 			payable(_to).transfer(_amount);
-			emit Withdrawn(_to, _amount);
+			emit Withdrawn(_to, _amount, lastEpochIndex);
 		}
 	}
 
@@ -110,7 +117,8 @@ contract FuseStaking is
 	}
 
 	function getReward() public nonReentrant updateReward(msg.sender) {
-		_getReward(msg.sender);
+		uint256 reward = _getReward(msg.sender);
+		IERC20(_rewardsToken).safeTransfer(msg.sender, reward);
 	}
 
 	function exit() external {
