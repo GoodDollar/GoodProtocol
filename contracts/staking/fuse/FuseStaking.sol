@@ -30,7 +30,6 @@ contract FuseStaking is
 
 	ISpendingRateOracle public spendingRateOracle;
 	uint256 public lastDayCollected; //ubi day from ubischeme
-	mapping(address => mapping(address => uint256)) public allowance;
 
 	event UBICollected(
 		uint256 indexed currentDay,
