@@ -8,6 +8,7 @@ export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const MAX_INACTIVE_DAYS = 3;
 const ONE_DAY = 86400;
+const ONE_HOUR = 3600;
 
 describe("UBIScheme", () => {
   let goodDollar,
@@ -113,6 +114,25 @@ describe("UBIScheme", () => {
   it("should not be able to set the ubi scheme if the sender is not the avatar", async () => {
     let error = await firstClaimPool.setUBIScheme(ubi.address).catch(e => e);
     expect(error.message).to.have.string("only Avatar");
+  });
+
+  it("should return zero entitlement before UBI started", async () => {
+    let blockTimestamp = (await ethers.provider.getBlock("latest")).timestamp;
+    const timeInDay = (blockTimestamp % (ONE_DAY));
+    // Move to before 12pm of the current day
+    if (timeInDay > 12 * ONE_HOUR) {
+      blockTimestamp += 12 * ONE_HOUR;
+      await ethers.provider.send("evm_setNextBlockTimestamp", [
+        blockTimestamp
+      ]);
+      await ethers.provider.send("evm_mine", []);
+    }
+    const ubiNew = await upgrades.deployProxy(
+      await ethers.getContractFactory("UBIScheme"),
+      [nameService.address, firstClaimPool.address, 14]
+    );
+    let amount = await ubiNew.connect(claimer1)["checkEntitlement()"]();
+    expect(amount).to.equal(0);
   });
 
   it("should start the ubi", async () => {
