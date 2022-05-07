@@ -502,13 +502,3 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     expect(version).to.be.equal("2.0.0");
   });
 });
-
-
-
-    // let pathBefore = await donationsStaking.ethToStakingTokenSwapPath(0);
-    // console.log({pathBefore});
-    // pathBefore = await donationsStaking.ethToStakingTokenSwapPath(1);
-    // console.log({pathBefore});
-    
-    // pathBefore = await donationsStaking.ethToStakingTokenSwapPath(2);
-    // console.log({pathBefore});
