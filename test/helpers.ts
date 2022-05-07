@@ -228,7 +228,7 @@ export const createDAO = async () => {
     const functionName = functionAbi.substring(0, funcNameEnd);
 
     const tx = await contract[functionAbi](...parameters).catch(e=>e);
-    expect(tx.message).to.contain("only avatar can call this method");
+    expect(tx.message.toUpperCase()).to.contain("AVATAR");
     const encoded = contract.interface.encodeFunctionData(functionName, [
       ...parameters
     ]);
