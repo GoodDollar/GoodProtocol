@@ -10,8 +10,6 @@ import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/buil
 const BN = ethers.BigNumber;
 const RANDOM_GDX_MERKLEROOT1 = 
   "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-const RANDOM_GDX_MERKLEROOT2 = 
-  "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 1;
 
@@ -30,7 +28,8 @@ describe("GDX Token", () => {
     schemeMock,
     signers,
     genericCall,
-    setDAOAddress;
+    setDAOAddress,
+    runAsAvatarOnly;
 
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
@@ -49,7 +48,8 @@ describe("GDX Token", () => {
       marketMaker: mm,
       daiAddress,
       cdaiAddress,
-      genericCall: gn
+      genericCall: gn,
+      runAsAvatarOnly: raao
     } = await createDAO();
 
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -60,6 +60,7 @@ describe("GDX Token", () => {
     setDAOAddress = sda;
     goodReserve = reserve as GoodReserveCDai;
     genericCall = gn;
+    runAsAvatarOnly = raao;
     
     console.log("deployed dao", {
       founder: founder.address,
@@ -256,20 +257,13 @@ describe("GDX Token", () => {
   });
 
   it("should set GDX airdrop by avatar", async () => {
-    // succeed when avatar
-    let encodedCall = goodReserve.interface.encodeFunctionData(
-      "setGDXAirdrop",
-      [RANDOM_GDX_MERKLEROOT1]
-    );
-    await genericCall(goodReserve.address, encodedCall);
+    await runAsAvatarOnly(goodReserve,"setGDXAirdrop(bytes32)", RANDOM_GDX_MERKLEROOT1);
     expect(await goodReserve.gdxAirdrop()).to.equal(RANDOM_GDX_MERKLEROOT1);
-    // fail when not avatar
-    const tx = await goodReserve.setGDXAirdrop(RANDOM_GDX_MERKLEROOT2).catch(e=>e);
-    expect(tx.message).to.contain("only avatar can call this method");
     
-    encodedCall = goodReserve.interface.encodeFunctionData(
+    const originalGDXAirdrop = "0x26ef809f3f845395c0bc66ce1eea85146516cb99afd030e2085b13e79514e94c";
+    const encodedCall = goodReserve.interface.encodeFunctionData(
       "setGDXAirdrop",
-      ["0x26ef809f3f845395c0bc66ce1eea85146516cb99afd030e2085b13e79514e94c"]
+      [originalGDXAirdrop]
     );
     await genericCall(goodReserve.address, encodedCall);
   });

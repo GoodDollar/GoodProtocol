@@ -8,7 +8,8 @@ export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 1;
 
 describe("NameService - Setup and functionalities", () => {
-  let nameService, dai, avatar, controller, schemeMock, signers, genericCall;
+  let nameService, dai, avatar, controller, schemeMock, signers, genericCall, 
+    runAsAvatarOnly;
 
   before(async () => {
     signers = await ethers.getSigners();
@@ -27,13 +28,15 @@ describe("NameService - Setup and functionalities", () => {
       setDAOAddress: sda,
       setSchemes,
       marketMaker: mm,
-      genericCall: gc
+      genericCall: gc,
+      runAsAvatarOnly: raao,
     } = await createDAO();
 
     controller = ctrl;
     avatar = av;
     nameService = ns;
     genericCall = gc;
+    runAsAvatarOnly = raao;
     console.log("deployed dao", {
       gd,
       identity,
@@ -44,58 +47,27 @@ describe("NameService - Setup and functionalities", () => {
     await setSchemes([schemeMock.address]);
   });
 
-  it(" address should not be set  ", async () => {
-    await expect(nameService.setAddress("DAI", dai.address)).to.be.revertedWith(
-      "only avatar can call this method"
-    );
-  });
-
-  it(" addresses should not be set  ", async () => {
-    await expect(
-      nameService.setAddresses(
-        [
-          ethers.utils.formatBytes32String("DAI"),
-          ethers.utils.formatBytes32String("cDAI")
-        ],
-        [(signers[0].address, signers[1].address)]
-      )
-    ).to.be.revertedWith("only avatar can call this method");
-  });
-
   it("should set address by avatar", async () => {
-    const nsFactory = await ethers.getContractFactory("NameService");
-    const encoded = nsFactory.interface.encodeFunctionData("setAddress", [
+    await runAsAvatarOnly(
+      nameService,
+      "setAddress(string,address)",
       "DAI",
       dai.address
-    ]);
-
-    const ictrl = await ethers.getContractAt(
-      "Controller",
-      controller,
-      schemeMock
     );
-
-    await ictrl.genericCall(nameService.address, encoded, avatar, 0);
     expect(await nameService.getAddress("DAI")).to.be.equal(dai.address);
   });
 
   it("should set multiple addresses by avatar", async () => {
-    const nsFactory = await ethers.getContractFactory("NameService");
-    const encoded = nsFactory.interface.encodeFunctionData("setAddresses", [
+    await runAsAvatarOnly(
+      nameService,
+      "setAddresses(bytes32[],address[])", 
       [
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("DAI")),
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("cDAI"))
       ],
       [signers[0].address, signers[1].address]
-    ]);
-
-    const ictrl = await ethers.getContractAt(
-      "Controller",
-      controller,
-      schemeMock
     );
 
-    await ictrl.genericCall(nameService.address, encoded, avatar, 0);
     expect(await nameService.getAddress("DAI")).to.be.equal(signers[0].address);
     expect(await nameService.getAddress("cDAI")).to.be.equal(
       signers[1].address
