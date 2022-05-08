@@ -32,7 +32,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     setDAOAddress,
     initializeToken,
     goodCompoundStakingFactory,
-    deployStaking;
+    deployStaking,
+    runAsAvatarOnly;
 
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
@@ -55,7 +56,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       daiAddress,
       cdaiAddress,
       reserve,
-      setReserveToken
+      setReserveToken,
+      runAsAvatarOnly: raao,
     } = await createDAO();
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
@@ -63,6 +65,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     controller = ctrl;
     setDAOAddress = sda;
     nameService = ns;
+    runAsAvatarOnly = raao;
     initializeToken = setReserveToken;
     goodReserve = reserve as GoodReserveCDai;
 
@@ -1449,5 +1452,25 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       cDAI.address
     ).catch(e => e);
     expect(simpleStaking.message).to.be.not.empty;
+  });
+
+  it("should set max liquidity percentage swap when avatar", async () => {
+    goodCompoundStaking = await deployStaking();
+    const percentageBeforeSet = await goodCompoundStaking.maxLiquidityPercentageSwap();
+    const percentageToSet = 21;
+    await runAsAvatarOnly(
+      goodCompoundStaking,
+      "setMaxLiquidityPercentageSwap(uint24)",
+      percentageToSet
+    )
+    const percentageAfterSet = await goodCompoundStaking.maxLiquidityPercentageSwap();
+    expect(percentageAfterSet).to.be.equal(percentageToSet);
+    expect(percentageAfterSet).to.not.equal(percentageBeforeSet);
+  });
+
+  it("should get decimals equal to token demials", async () => {
+    goodCompoundStaking = await deployStaking();
+    expect(await goodCompoundStaking.decimals()).to.equal(await dai.decimals());
+    expect(await goodCompoundStaking.decimals()).to.equal(18);
   });
 });

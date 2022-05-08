@@ -474,7 +474,6 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     ); // It should send leftover stakingToken to avatar after swap to ETH in safeAmount
     expect(stakingAmountBeforeSet).to.be.gt(safeAmount); // maxSafeAmount must be smaller than actualstaking amount so we can verify that we hit the limit for transaction amount at once
   }); 
-
   
   it("should set max liquidity percentage swap when avatar", async () => {
     const originalPercentage = await donationsStaking.maxLiquidityPercentageSwap();
