@@ -21,6 +21,7 @@ import {
 import { sumStakersGdRewards } from "./scripts/staking/stakersGdRewardsCalculation";
 import { verify } from "./scripts/verify";
 import { ethers } from "ethers";
+import { fstat, readFileSync, writeFileSync } from "fs";
 config();
 
 const mnemonic = process.env.MNEMONIC;
@@ -29,6 +30,8 @@ const deployerPrivateKey =
 const infura_api = process.env.INFURA_API;
 const alchemy_key = process.env.ALCHEMY_KEY;
 const etherscan_key = process.env.ETHERSCAN_KEY;
+const celoscan_key = process.env.CELOSCAN_KEY;
+
 const ethplorer_key = process.env.ETHPLORER_KEY;
 
 const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
@@ -48,7 +51,9 @@ const hhconfig: HardhatUserConfig = {
     outDir: "types"
   },
   etherscan: {
-    apiKey: etherscan_key
+    apiKey: {
+      mainnet: etherscan_key
+    }
   },
   contractSizer: {
     alphaSort: false,
@@ -156,6 +161,13 @@ const hhconfig: HardhatUserConfig = {
       gas: 3000000,
       gasPrice: 50000000000,
       chainId: 1
+    },
+    celo: {
+      accounts: [deployerPrivateKey],
+      url: "https://forno.celo.org",
+      gas: 3000000,
+      gasPrice: 500000000,
+      chainId: 42220
     }
   },
   mocha: {
@@ -251,3 +263,36 @@ task(
   const actions = sumStakersGdRewards(hre.ethers);
   return actions.getStakersGdRewards();
 });
+
+task("cleanflat", "Cleans multiple SPDX and Pragma from flattened file")
+  .addPositionalParam("file", "flattened sol file")
+  .setAction(async ({ file }, { run }) => {
+    let flattened = readFileSync(file).toString();
+
+    // Remove every line started with "// SPDX-License-Identifier:"
+    flattened = flattened.replace(
+      /SPDX-License-Identifier:/gm,
+      "License-Identifier:"
+    );
+
+    flattened = `// SPDX-License-Identifier: MIXED\n\n${flattened}`;
+
+    // Remove every line started with "pragma experimental ABIEncoderV2;" except the first one
+    flattened = flattened.replace(
+      /pragma experimental ABIEncoderV2;\n/gm,
+      (
+        i => m =>
+          !i++ ? m : ""
+      )(0)
+    );
+    flattened = flattened.replace(
+      /pragma solidity.*\n/gm,
+      (
+        i => m =>
+          !i++ ? m : ""
+      )(0)
+    );
+
+    flattened = flattened.trim();
+    writeFileSync(file, flattened);
+  });
