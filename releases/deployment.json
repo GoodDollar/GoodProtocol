@@ -529,5 +529,16 @@
         "ProxyAdmin": "0x57179b2A8eB019157b0C3E761cdB26c82C982a3B",
         "FuseFaucet": "0x01ab5966C1d742Ae0CFF7f14cC0F4D85156e83d9",
         "FuseStaking": "0xA199F0C353E25AdF022378B0c208D600f39a6505"
+    },
+    "production-celo": {
+        "ProxyFactory": "0x99C22e78A579e2176311c736C4c9F0b0D5A47806",
+        "GoodDollar": "0xf2283840cE37DAe0a06B40a9A80603977f36fA3F",
+        "Avatar": "0xCD5e8a81B1e02c1837A674f87dF327C14f4e5748",
+        "Controller": "0x3D0bacBdC06A28971855275D511e6249bE67112d",
+        "Identity": "0x96B81f82A29e78C5ba9E2034Ce8490fd641a24eb",
+        "NameService": "0x563a80a452264a9e1aa37c6FA0B46D04C3c71b24",
+        "GReputation": "0xAC132ECe25217867E318eA8ff63420C90d5a74A6",
+        "network": "production-celo",
+        "networkId": 42220
     }
 }
