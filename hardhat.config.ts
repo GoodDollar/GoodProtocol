@@ -162,7 +162,7 @@ const hhconfig: HardhatUserConfig = {
       gasPrice: 50000000000,
       chainId: 1
     },
-    celo: {
+    "production-celo": {
       accounts: [deployerPrivateKey],
       url: "https://forno.celo.org",
       gas: 3000000,

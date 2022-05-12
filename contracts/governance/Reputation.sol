@@ -57,9 +57,11 @@ contract Reputation is DAOUpgradeableContract, AccessControlUpgradeable {
 		__ERC165_init_unchained();
 		__AccessControl_init_unchained();
 
-		setDAO(_ns);
-		_setupRole(DEFAULT_ADMIN_ROLE, address(avatar));
-		_setupRole(MINTER_ROLE, address(avatar));
+		if (address(_ns) != address(0)) {
+			setDAO(_ns);
+			_setupRole(DEFAULT_ADMIN_ROLE, address(avatar));
+			_setupRole(MINTER_ROLE, address(avatar));
+		}
 	}
 
 	function _canMint() internal view virtual {

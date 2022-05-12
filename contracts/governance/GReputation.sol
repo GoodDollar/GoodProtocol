@@ -89,6 +89,14 @@ contract GReputation is Reputation {
 			_setBlockchainStateHash(_stateId, _stateHash, _totalSupply);
 	}
 
+	function updateDAO(INameService _ns) public {
+		if (address(nameService) == address(0)) {
+			setDAO(_ns);
+			_setupRole(DEFAULT_ADMIN_ROLE, address(avatar));
+			_setupRole(MINTER_ROLE, address(avatar));
+		}
+	}
+
 	function _canMint() internal view override {
 		require(
 			_msgSender() == nameService.getAddress("GDAO_CLAIMERS") ||
