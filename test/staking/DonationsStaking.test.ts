@@ -333,7 +333,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     isActive = await donationsStaking.active();
     expect(isActive).to.be.equal(false);
     await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
-    await expect(donationsStaking.stakeDonations()).to.be.revertedWith("Contract is inactive");
+    await expect(donationsStaking.stakeDonations()).to.be.reverted;
     // revent to original state
     encodedData = donationsStaking.interface.encodeFunctionData(
       "setActive",
