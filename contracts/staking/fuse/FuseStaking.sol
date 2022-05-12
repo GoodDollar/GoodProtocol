@@ -299,13 +299,14 @@ contract FuseStaking is
 			
       if (totalAmount < targetAmount) {
         if (totalAmount > 0) {
+          totalAmount = 0;
 				  goodDollar.transfer(gdAcceptingFaucets[i], totalAmount);
         }
 
         break;
 			} else {
+        totalAmount -= targetAmount;
         goodDollar.transfer(gdAcceptingFaucets[i], targetAmount);
-				totalAmount -= targetAmount;
 			}
       // TODO: check if queryBalance is necessary, and if it updates call it update
 			spendingRateOracle.queryBalance(
@@ -328,12 +329,14 @@ contract FuseStaking is
 			
       if (totalAmount < targetAmount) {
         if (totalAmount > 0) {
+          totalAmount = 0;
 				  goodDollar.transfer(fuseAcceptingFaucets[i], totalAmount);
         }
 
         break;
 			} else {
 				totalAmount -= targetAmount;
+        goodDollar.transfer(fuseAcceptingFaucets[i], targetAmount);
 			}
       // TODO: check if queryBalance is necessary, and if it updates call it update
 			spendingRateOracle.queryBalance(
@@ -349,7 +352,7 @@ contract FuseStaking is
 	/**
 	 * @dev This function allows anyone to force calculation of their UBI in GoodDollars.
 	 */
-	function collectUBIInterest() external {
+	function collectUBIInterest() external nonReentrant {
 		// getting current day number to pass in the event
 		uint256 currentDayNumber = _checkIfCalledOnceInDayAndReturnDay();
 
