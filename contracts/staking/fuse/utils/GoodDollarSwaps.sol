@@ -43,7 +43,9 @@ contract GoodDollarSwaps {
 	/**
 	 * @dev internal method to buy goodDollar from fuseswap
 	 * @param _value fuse to be sold
-	 * @return result uniswapV2Router coversion results uint256[2]
+	 * @return result uniswapV2Router coversion results uint256[2]:
+   * index [0] - the amount of FUSE that was used
+   * index [1] - the amount of GoodDollar bought
 	 */
 	function _buyGD(
 		uint256 _value
@@ -83,7 +85,7 @@ contract GoodDollarSwaps {
 			//buyGD should return how much fuse was used in [0] and how much G$ we got in [1]
 			swapResult[0] = usedFuse;
 		}
-		result = new uint256[](3);
+		result = new uint256[](2);
 		result[0] = swapResult[0];
 		result[1] = swapResult[1];
 	}

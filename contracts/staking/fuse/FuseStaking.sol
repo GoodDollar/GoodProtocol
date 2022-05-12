@@ -67,7 +67,7 @@ contract FuseStaking is
 	// A role for guardian
 	bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
 
-	// A classic ERC20 function
+	// A classic ERC20 mapping
 	mapping(address => mapping(address => uint256)) public allowance;
 
 	// The debt in FUSE which is accumulated when the slippage is too big.
@@ -157,7 +157,7 @@ contract FuseStaking is
 		_stake(_from, _amount);
 	}
 
-	// Tshe calculation of the giveback statistics itself.
+	// The calculation of the giveback statistics itself.
 	function _updateGivebackRatioForStakerAndPending(
 		address _from,
 		uint256 _amount,
@@ -268,8 +268,9 @@ contract FuseStaking is
 		require(goodDollar.transfer(_to, communityPoolBalance));
 	}
 
-	// An inner function which calculates an amount of days of how many the method
-	// collectUBIInterest was called.
+	// An internal function that checks if collect UBI Interest was called today: 
+  // if true it reverts,
+  // if false it updates last collection day to today and returns today index.
 	function _checkIfCalledOnceInDayAndReturnDay() internal returns (uint256) {
 		uint256 curDay = ubiScheme.currentDay();
 		require(curDay != lastDayCollected, "can collect only once in a ubi cycle");
@@ -277,68 +278,87 @@ contract FuseStaking is
 		return curDay;
 	}
 
-	// Gather the amount for FUSE accepting faucets that they are required to recieve.
-	function _getAmountOfFuseForAllFaucets() internal view returns(uint256 sum) {
-		address[] memory fuseAcceptingFaucets = spendingRateOracle.getFaucetsThatAcceptFuse();
-		for (uint256 i = 0; i < fuseAcceptingFaucets.length; i++) {
-			sum += spendingRateOracle.getFaucetRequestedAmountInFuse(fuseAcceptingFaucets[i]);
-		}
-	}
+  // Suggested change: not use the next method, because we will need to iterate twice instead of once:
+  // 1. get faucets and amounts 2. get faucets and transfer. Better do all together.
+
+	// // Gather the amount for FUSE accepting faucets that they are required to recieve.
+	// function _getAmountOfFuseForAllFaucets() internal view returns(uint256 sum) {
+	// 	address[] memory fuseAcceptingFaucets = spendingRateOracle.getFaucetsThatAcceptFuse();
+	// 	for (uint256 i = 0; i < fuseAcceptingFaucets.length; i++) {
+	// 		sum += spendingRateOracle.getFaucetRequestedAmountInFuse(fuseAcceptingFaucets[i]);
+	// 	}
+	// }
 
 	// An inner function which allows us to distribute totalAmount of GoodDollars to the
 	// GD accepting faucets. Basically it iterates over all of the faucets accepting GD,
 	// sending them the needed sum and querying the oracle to calculate the spending rate for him.
-	function _distributeGDToFaucets(uint256 totalAmount) internal {
+	function _distributeGDToFaucetsAndReturnRemainder(uint256 totalAmount) internal returns (uint256) {
 		address[] memory gdAcceptingFaucets = spendingRateOracle.getFaucetsThatAcceptGoodDollar();
 		for (uint256 i = 0; i < gdAcceptingFaucets.length; i++) {
 			uint256 targetAmount = spendingRateOracle.getFaucetRequestedAmountInGoodDollar(gdAcceptingFaucets[i]);
-			if (!goodDollar.transfer(gdAcceptingFaucets[i], targetAmount) || totalAmount < targetAmount) {
-				continue;
+			
+      if (totalAmount < targetAmount) {
+        if (totalAmount > 0) {
+				  goodDollar.transfer(gdAcceptingFaucets[i], totalAmount);
+        }
+
+        break;
 			} else {
+        goodDollar.transfer(gdAcceptingFaucets[i], targetAmount);
 				totalAmount -= targetAmount;
 			}
+      // TODO: check if queryBalance is necessary, and if it updates call it update
 			spendingRateOracle.queryBalance(
 				gdAcceptingFaucets[i],
 				goodDollar.balanceOf(gdAcceptingFaucets[i]),
 				true
 			);
 		}
+    
+    return totalAmount;
 	}
 
 	// An inner function which allows us to distribute totalAmount of FUSE to the
 	// FUSE accepting faucets. Basically it iterates over all of the faucets accepting FUSE,
 	// sending them the needed sum and querying the oracle to calculate the spending rate for him.
-	function _distributeFuseToFaucets(uint256 totalAmount) internal {
+	function _distributeFuseToFaucetsAndReturnRemainder(uint256 totalAmount) internal returns (uint256){
 		address[] memory fuseAcceptingFaucets = spendingRateOracle.getFaucetsThatAcceptFuse();
 		for (uint256 i = 0; i < fuseAcceptingFaucets.length; i++) {
 			uint256 targetAmount = spendingRateOracle.getFaucetRequestedAmountInFuse(fuseAcceptingFaucets[i]);
-			if (!payable(fuseAcceptingFaucets[i]).send(targetAmount) || totalAmount < targetAmount) {
-				continue;
+			
+      if (totalAmount < targetAmount) {
+        if (totalAmount > 0) {
+				  goodDollar.transfer(fuseAcceptingFaucets[i], totalAmount);
+        }
+
+        break;
 			} else {
 				totalAmount -= targetAmount;
 			}
+      // TODO: check if queryBalance is necessary, and if it updates call it update
 			spendingRateOracle.queryBalance(
 				fuseAcceptingFaucets[i],
 				fuseAcceptingFaucets[i].balance,
 				false
 			);
 		}
+
+    return totalAmount;
 	}
 
 	/**
 	 * @dev This function allows anyone to force calculation of their UBI in GoodDollars.
 	 */
 	function collectUBIInterest() external {
-		// getting currend day number to pass in the event
+		// getting current day number to pass in the event
 		uint256 currentDayNumber = _checkIfCalledOnceInDayAndReturnDay();
 
 		// reducing the precision to calculate new values
 		debtToStakers /= PRECISION;
 		debtToDAO /= PRECISION;
 
-		// gather the FUSE amount for all FUSE accepting faucets
-		uint256 totalAmountOfFuseForFuseAcceptingFaucets = _getAmountOfFuseForAllFaucets();
-
+    // // gather the FUSE amount for all FUSE accepting faucets
+    // 		uint256 totalAmountOfFuseForFuseAcceptingFaucets = _getAmountOfFuseForAllFaucets();
 		// calculate total earnings of the funds that were staked
 		uint256 earnings = _balance() - debtToStakers - debtToDAO;
 
@@ -348,62 +368,65 @@ contract FuseStaking is
 		// subtract the keeper part from the earnings
 		earnings -= keeperPartInFuse;
 
-		// calculate the part of the FUSE that must be swapped to the GD and
+		// calculate the part of the FUSE that must be swapped to GD and
 		// distributed to the stakers
 		uint256 stakersPartInFuse = earnings * globalGivebackRatio /
 			RATIO_BASE + debtToStakers;
 
-		// calculate the the part of the earnings that should be distributed to the
+		// calculate the part of the earnings that should be distributed to the
 		// faucets and community pool
 		uint256 daoPartInFuse = earnings - stakersPartInFuse + debtToDAO;
 
-		// making sure that either faucets will receive their part
-		totalAmountOfFuseForFuseAcceptingFaucets = Math.min(
-			totalAmountOfFuseForFuseAcceptingFaucets,
-			daoPartInFuse
-		);
+    uint256 daoFuseRemainder = _distributeFuseToFaucetsAndReturnRemainder(daoPartInFuse);
 
-		// substracting the amount of FUSE from DAO part that should be distributed
-		// to the faucets that accept FUSE
-		daoPartInFuse -= totalAmountOfFuseForFuseAcceptingFaucets;
+		//// making sure that either faucets will receive their part
+		// totalAmountOfFuseForFuseAcceptingFaucets = Math.min(
+		// 	totalAmountOfFuseForFuseAcceptingFaucets,
+		// 	daoPartInFuse
+		// );
+
+		// // substracting the amount of FUSE from DAO part that should be distributed
+		// // to the faucets that accept FUSE
+		// daoPartInFuse -= totalAmountOfFuseForFuseAcceptingFaucets;
 
 		// calculate the total sum to be swapped to GD
-		uint256 totalFuseToSwap = stakersPartInFuse + daoPartInFuse;
+		uint256 totalFuseToSwap = stakersPartInFuse + daoFuseRemainder;
 
 		// the swap info - index 0 is the amount of FUSE that was spent
 		// index 1 - the accepted amount of GD
 		uint256[] memory buyResult = _buyGD(totalFuseToSwap);
 
 		// the DAO part in GD
-		uint256 daoPartInGoodDollar = buyResult[1] * PRECISION * daoPartInFuse
+		uint256 daoPartInGoodDollar = buyResult[1] * PRECISION * daoFuseRemainder
 			/ totalFuseToSwap;
 
+		uint256 daoGdRemainder = _distributeGDToFaucetsAndReturnRemainder(daoPartInGoodDollar);
+
 		// the community pool part in GD
-		uint256 communityPoolPartInGoodDollar = daoPartInGoodDollar
+		uint256 communityPoolPartInGoodDollar = daoGdRemainder
 			* communityPoolRatio
 			/ RATIO_BASE;
 
 		// the part that should go to the UBIScheme contract, basically the
 		// remainings of the DAO part without community pool part
-		uint256 ubiPartInGoodDollar = daoPartInGoodDollar - communityPoolPartInGoodDollar;
+		uint256 ubiPartInGoodDollar = daoGdRemainder - communityPoolPartInGoodDollar;
 
 		// calculating the debt in FUSE that was now swapped according to the
 		// market situation at the pair
 		{
 			uint256 totalDebt = totalFuseToSwap - buyResult[0];
 			debtToStakers = totalDebt * PRECISION * stakersPartInFuse / totalFuseToSwap;
-			debtToDAO = totalDebt * PRECISION * daoPartInFuse / totalFuseToSwap;
+			debtToDAO = totalDebt * PRECISION * daoFuseRemainder / totalFuseToSwap;
 		}
 
-		// performing the update of all giveback statistics
-		_updateGlobalGivebackRatio();
+    // according to suggested change it happens on _distributeFuseToFaucetsAndReturnRemainder
+    
+		// // distributing the GD to the faucets that accept GD (taking into account
+	  // // the UBIScheme part that should not be included)
+		// _distributeGDToFaucets(daoPartInGoodDollar - ubiPartInGoodDollar);
 
-		// distributing the GD to the faucets that accept GD (taking into account
-	  // the UBIScheme part that should not be included)
-		_distributeGDToFaucets(daoPartInGoodDollar - ubiPartInGoodDollar);
-
-		// distributing the FUSE tokens to the FUSE accepting faucets
-		_distributeFuseToFaucets(totalAmountOfFuseForFuseAcceptingFaucets);
+		// // distributing the FUSE tokens to the FUSE accepting faucets
+		// _distributeFuseToFaucets(totalAmountOfFuseForFuseAcceptingFaucets);
 
 		// updating the community pool balance
 		communityPoolBalance += communityPoolPartInGoodDollar;
@@ -411,6 +434,7 @@ contract FuseStaking is
 		// calculating and distributing the part for stakers
 		{
 			uint256 stakersPartInGoodDollar = buyResult[1] * PRECISION * stakersPartInFuse / totalFuseToSwap;
+      // or buyResult[1] - daoFuseRemainder;
 			_notifyRewardAmount(stakersPartInGoodDollar);
 		}
 
@@ -433,6 +457,8 @@ contract FuseStaking is
 			keeperPartInFuse
 		);
 
+    // performing the update of all giveback statistics
+		_updateGlobalGivebackRatio();
 	}
 
 	/**
