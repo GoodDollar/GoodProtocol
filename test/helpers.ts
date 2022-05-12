@@ -222,6 +222,20 @@ export const createDAO = async () => {
     await ictrl.genericCall(nameService.address, encoded, Avatar.address, 0);
   };
 
+  const runAsAvatarOnly = async (contract, functionAbi, ...parameters) => {
+    const funcNameEnd = functionAbi.indexOf('(');;
+    expect(funcNameEnd).to.be.gt(-1);
+    const functionName = functionAbi.substring(0, funcNameEnd);
+
+    const tx = await contract[functionAbi](...parameters).catch(e=>e);
+    expect(tx.message.toUpperCase()).to.contain("AVATAR");
+    const encoded = contract.interface.encodeFunctionData(functionName, [
+      ...parameters
+    ]);
+
+    await ictrl.genericCall(contract.address, encoded, Avatar.address, 0);
+  };
+
   const setReserveToken = async (token, gdReserve, tokenReserve, RR) => {
     const encoded = marketMaker.interface.encodeFunctionData(
       "initializeToken",
@@ -296,6 +310,7 @@ export const createDAO = async () => {
     identityDeployed: Identity,
     nameService,
     setDAOAddress,
+    runAsAvatarOnly,
     setSchemes,
     setReserveToken,
     genericCall,

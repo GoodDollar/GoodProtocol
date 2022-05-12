@@ -741,6 +741,25 @@ describe("GReputation", () => {
       );
     });
 
+    it("it should be able to get totalSupplyLocal for particular block", async () => {
+      let currentBlock = await ethers.provider.getBlockNumber();
+      const totalSupplyLocalBefore = await grep["totalSupplyLocal(uint256)"](currentBlock);
+      await grepWithOwner["mint(address,uint256)"](
+        founder,
+        ethers.utils.parseEther("1")
+      );
+      currentBlock = await ethers.provider.getBlockNumber();
+      const totalSupplyLocalAfter = await grep["totalSupplyLocal(uint256)"](currentBlock);
+      expect(totalSupplyLocalAfter).to.equal(
+        totalSupplyLocalBefore.add(ethers.utils.parseEther("1"))
+      );
+      
+      await grepWithOwner["burn(address,uint256)"](
+        founder,
+        ethers.utils.parseEther("1")
+      );
+    });
+
     it("it should return 0 when particular blockchain state is empty", async () => {
       let state = await grep["getVotesAtBlockchain(bytes32,address,uint256)"](
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("notExist")),
@@ -842,6 +861,19 @@ describe("GReputation", () => {
       await grepWithOwner.mint(rep3, 111);
       expect(await grep.balanceOfLocal(repTarget)).to.equal(111);
       expect(await grep.balanceOfLocal(rep3)).to.equal(startBalance.add(111));
+    });
+
+    it("should get accurate prior votes", async () => {
+      await grep.connect(signers[3]).undelegate();
+      const selectedBlock = await ethers.provider.getBlockNumber();
+      const selectedBlockVotes = await grep.getCurrentVotes(rep2);
+      await advanceBlocks(1);
+      await (await grepWithOwner["mint(address,uint256)"](rep2, 1)).wait();
+      await advanceBlocks(1);
+      const priorSelectedBlockVotes = await grep.getPriorVotes(rep2, selectedBlock);
+      const votesAfterAdvancing = await grep.getCurrentVotes(rep2);
+      expect(priorSelectedBlockVotes).to.eq(selectedBlockVotes);
+      expect(priorSelectedBlockVotes).to.be.not.eq(votesAfterAdvancing);
     });
   });
 });

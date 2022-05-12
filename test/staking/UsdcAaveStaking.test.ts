@@ -29,7 +29,10 @@ describe("UsdcAaveStakingV2 - staking with USDC mocks to AAVE interface", () => 
     lendingPool,
     setDAOAddress,
     genericCall,
-    goodAaveStakingFactory;
+    goodAaveStakingFactory,
+    runAsAvatarOnly,
+    deployStaking;
+
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
@@ -55,7 +58,8 @@ describe("UsdcAaveStakingV2 - staking with USDC mocks to AAVE interface", () => 
       marketMaker: mm,
       daiAddress,
       genericCall: gc,
-      COMP
+      COMP,
+      runAsAvatarOnly: raao
     } = await createDAO();
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     avatar = av;
@@ -63,6 +67,7 @@ describe("UsdcAaveStakingV2 - staking with USDC mocks to AAVE interface", () => 
     setDAOAddress = sda;
     nameService = ns;
     genericCall = gc;
+    runAsAvatarOnly = raao;
     console.log("deployed dao", {
       founder: founder.address,
       gd,
@@ -133,23 +138,26 @@ describe("UsdcAaveStakingV2 - staking with USDC mocks to AAVE interface", () => 
       await ethers.getContractFactory("AaveUSDMockOracle")
     ).deploy();
     await setDAOAddress("AAVE", aave.address);
-    goodAaveStaking = await goodAaveStakingFactory
-      .deploy()
-      .then(async contract => {
-        await contract.init(
-          usdc.address,
-          lendingPool.address,
-          nameService.address,
-          "Good USDC",
-          "gUSDC",
-          "172800",
-          daiUsdOracle.address,
-          incentiveController.address,
-          aaveUsdOracle.address,
-          [usdc.address, dai.address]
-        );
-        return contract;
-      });
+    deployStaking = async () => {
+      return await goodAaveStakingFactory
+        .deploy()
+        .then(async contract => {
+          await contract.init(
+            usdc.address,
+            lendingPool.address,
+            nameService.address,
+            "Good USDC",
+            "gUSDC",
+            "172800",
+            daiUsdOracle.address,
+            incentiveController.address,
+            aaveUsdOracle.address,
+            [usdc.address, dai.address]
+          );
+          return contract;
+        });
+    };
+    goodAaveStaking = await deployStaking();
     await usdc["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseUnits("500000000000000", 6)
@@ -306,4 +314,22 @@ describe("UsdcAaveStakingV2 - staking with USDC mocks to AAVE interface", () => 
     await token1.transfer(pair.address, token1Amount);
     await pair.mint(founder.address);
   }
+
+  it("should set gas cost to interest collection parameters", async () => {
+    const stakingContract = await deployStaking();
+    const collectGasCostBefore = await stakingContract.collectInterestGasCost();
+    const claimStakeGasCostBefore = await stakingContract.collectInterestGasCost();
+    await runAsAvatarOnly(
+      stakingContract,
+      "setcollectInterestGasCostParams(uint32,uint32)",
+      999,
+      999
+    )
+    const collectGasCostAfter = await stakingContract.collectInterestGasCost();
+    const claimStakeGasCostAfter = await stakingContract.collectInterestGasCost();
+    expect(collectGasCostAfter).to.not.equal(collectGasCostBefore);
+    expect(collectGasCostAfter).to.equal(999);
+    expect(claimStakeGasCostAfter).to.not.equal(claimStakeGasCostBefore);
+    expect(claimStakeGasCostAfter).to.equal(999);
+  });
 });
