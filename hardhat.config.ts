@@ -52,7 +52,8 @@ const hhconfig: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: {
-      mainnet: etherscan_key
+      mainnet: etherscan_key,
+      celo: celoscan_key
     }
   },
   contractSizer: {
@@ -163,6 +164,13 @@ const hhconfig: HardhatUserConfig = {
       chainId: 1
     },
     "production-celo": {
+      accounts: [deployerPrivateKey],
+      url: "https://forno.celo.org",
+      gas: 3000000,
+      gasPrice: 500000000,
+      chainId: 42220
+    },
+    celo: {
       accounts: [deployerPrivateKey],
       url: "https://forno.celo.org",
       gas: 3000000,
