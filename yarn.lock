@@ -2262,24 +2262,22 @@
   resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-4.5.0.tgz#3fd75d57de172b3743cdfc1206883f56430409cc"
   integrity sha512-fdkzKPYMjrRiPK6K4y64e6GzULR7R7RwxSigHS8DDp7aWDeoReqsQI+cxHV1UuhAqX69L1lAaWDxenfP+xiqzA==
 
-"@openzeppelin/hardhat-upgrades@^1.17.0":
-  version "1.17.0"
-  resolved "https://registry.yarnpkg.com/@openzeppelin/hardhat-upgrades/-/hardhat-upgrades-1.17.0.tgz#24ea0f366c3b2df985263cf8b1b796afd04d7e13"
-  integrity sha512-GNxR3/3fCKQsFpBi/r+5ib6U81UM9KCypmcOQxuCkVp9JKJ80/3hQdg1R+AQku/dlnhutPsfkCokH2LZFc5mNA==
+"@openzeppelin/hardhat-upgrades@1.7.0":
+  version "1.7.0"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/hardhat-upgrades/-/hardhat-upgrades-1.7.0.tgz#3086273b477818822b889ced9b4bd6d431c35e33"
+  integrity sha512-fInSIsIu2jYOqMzw0uQF6cBB0xDDUl7YSKEGU3Jp31UGe4jQg11d/echw0gc4BvLvxWEzhMpmqwDqV1KJPqNyQ==
   dependencies:
-    "@openzeppelin/upgrades-core" "^1.14.1"
-    chalk "^4.1.0"
-    proper-lockfile "^4.1.1"
+    "@openzeppelin/upgrades-core" "^1.7.0"
 
-"@openzeppelin/upgrades-core@^1.14.1":
-  version "1.14.2"
-  resolved "https://registry.yarnpkg.com/@openzeppelin/upgrades-core/-/upgrades-core-1.14.2.tgz#1acf6560dbe42b5e68fdffe6e6979b90fa33bb56"
-  integrity sha512-JkrMcsB0v6vwX+fObY+y51L3tD3BcLjNpPnKkgtsEOC1Umwt6WzvI8Gq2brmNOzFLNQqeX2xySiJTGvypqUQow==
+"@openzeppelin/upgrades-core@^1.7.0":
+  version "1.8.0"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/upgrades-core/-/upgrades-core-1.8.0.tgz#b2d6f747e3a4c3e37a18d1b13f45b7617dde2260"
+  integrity sha512-hO/SqUusFzD8mxrtDllShTE0eeWXsBkrR8zjjr8C8j+/gzvWQnd9HkNGTh7bpf8giUGzkERDuOOpFdSI1R3yvQ==
   dependencies:
     bn.js "^5.1.2"
-    cbor "^8.0.0"
+    cbor "^7.0.0"
     chalk "^4.1.0"
-    compare-versions "^4.0.0"
+    compare-versions "^3.6.0"
     debug "^4.1.1"
     ethereumjs-util "^7.0.3"
     proper-lockfile "^4.1.1"
