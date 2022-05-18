@@ -128,8 +128,8 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	function _withdraw(address _from, uint256 _amount) internal virtual {
 		// if there are any pending stake for _from
 		if (stakersInfo[_from].pendingStake > 0) {
-			// if requested sum to withdraw is higher than actual pending stake balance
-			// then just withdraw the current balance
+			// if pending stakes are higher or equal to requested withdrawal amount 
+      // subtract whole amount, otherwise the pending stake there is
 			uint256 pendingToReduce = stakersInfo[_from].pendingStake >= _amount
 				? _amount
 				: stakersInfo[_from].pendingStake;
