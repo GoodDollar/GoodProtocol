@@ -13,18 +13,17 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	struct StakerInfo {
 		uint256 reward; // the reward amount which should be transfered to the user
 		uint256 balance; // the amount of active stake of user
-		uint256 pendingStake; // the amount of pending stake of user
-		uint256 indexOfLastEpochStaked; // an index of the epoch from which the reward is calculated
+		uint256 rewardPerTokenPaid; // the amount of pending stake of user
 	}
 
-	// staker - an address of the staker, amount - an amount of staked tokens, epoch - an epoch when the stake was made
-	event Staked(address indexed staker, uint256 amount, uint256 epoch);
+	// staker - an address of the staker, amount - an amount of staked tokens
+	event Staked(address indexed staker, uint256 amount);
 
-	// staker - an address of the staker, amount - an amount of withdrawn tokens, epoch - an epoch when the withdraw was made
-	event Withdrawn(address indexed staker, uint256 amount, uint256 epoch);
+	// staker - an address of the staker, amount - an amount of withdrawn tokens
+	event Withdrawn(address indexed staker, uint256 amount);
 
-	// user - an address of the staker, reward - an amount of tokens that was rewarded to the staker, epoch - an epoch when the reward was made
-	event RewardPaid(address indexed user, uint256 reward, uint256 epoch);
+	// user - an address of the staker, reward - an amount of tokens that was rewarded to the staker
+	event RewardPaid(address indexed user, uint256 reward);
 
 	// precision constant for math
 	uint256 public constant PRECISION = 1e18;
@@ -32,17 +31,15 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	// the user info sheet
 	mapping(address => StakerInfo) public stakersInfo;
 
-	// the epoch counter
-	uint256 public lastEpochIndex;
-
-	// total supply of pending stakes
-	uint256 public pendingStakes;
+	uint256 public lastUpdateTime;
 
 	// the amount of reward per token at a specific epoch
-	uint256[] public rewardsPerTokenAt;
+	uint256 public rewardPerTokenStored;
 
 	// total supply of active stakes
 	uint256 public totalSupply;
+
+  uint256 public interestRatePerBlock;
 
 	modifier updateReward(address account) {
 		_updateReward(account);
@@ -58,25 +55,20 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	}
 
 	function _balanceOf(address account) internal view returns (uint256) {
-		// The resulting balance of any user is the sum of an active earning balance
-		// and pending waiting balance.
-		return stakersInfo[account].balance + stakersInfo[account].pendingStake;
+		return stakersInfo[account].balance;
 	}
 
-	function _getRewardPerTokenPerUser(address _account)
+	function _rewardPerToken()
 		internal
-		view
 		returns (uint256)
 	{
-		// The userEpochIndex is used to calculate a reward per token per epoch
-		// getting into account passed epochs.
-		uint256 userEpochIndex = stakersInfo[_account].indexOfLastEpochStaked + 1;
-		if (lastEpochIndex > userEpochIndex) {
-			// Here we calculate the reward getting into account passed epochs.
-			return rewardsPerTokenAt[lastEpochIndex] - rewardsPerTokenAt[userEpochIndex];
-		} else {
-			return 0;
-		}
+    if (totalSupply == 0) {
+      return rewardPerTokenStored;
+    }
+
+    return
+      rewardPerTokenStored +=
+        (block.timestamp - lastUpdateTime) * interestRatePerBlock;
 	}
 
 	/**
@@ -84,75 +76,52 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	 * earned per epochs passed.
 	 * @param account A staker address
 	 */
-	function earned(address account) public view returns (uint256) {
+	function earned(address account) public returns (uint256) {
 		return
-			(stakersInfo[account].balance * _getRewardPerTokenPerUser(account))
+			stakersInfo[account].balance * 
+      (_rewardPerToken() - stakersInfo[account].rewardPerTokenPaid)
 				/ PRECISION
 				+ stakersInfo[account].reward;
 	}
 
-	function _addPendingStakesToBalanceOnEpoch(address _account) internal {
-		// If stakers balance wasn't updated when he staked and the staked
-		// amount is greater than 0, then update active earning balance, nullify
-		// pending one and update global sum of pending stakes.
-		if (stakersInfo[_account].indexOfLastEpochStaked != lastEpochIndex
-				&& stakersInfo[_account].pendingStake > 0) {
-			stakersInfo[_account].balance += stakersInfo[_account].pendingStake;
-      pendingStakes -= stakersInfo[_account].pendingStake;
-			stakersInfo[_account].pendingStake = 0;
-		}
-	}
-
 	// this function updates the reward for the specific user
 	function _updateReward(address _account) internal virtual {
-		_addPendingStakesToBalanceOnEpoch(_account);
-		stakersInfo[_account].reward = earned(_account);
+		    rewardPerTokenStored = _rewardPerToken();
+        lastUpdateTime = block.timestamp;
+        if (_account != address(0)) {
+            stakersInfo[_account].reward = earned(_account);
+            stakersInfo[_account].rewardPerTokenPaid = rewardPerTokenStored;
+        }
 	}
 
 	// This function adds the sum given in reward parameter to the distribution
 	// queue.
-	function _notifyRewardAmount(uint256 reward) internal {
-		// update cumulative rewards
-		rewardsPerTokenAt.push(
-			rewardsPerTokenAt[rewardsPerTokenAt.length - 1]
-				+ (reward * PRECISION) / totalSupply
-		);
-		// turn pending stakes to active stakes
-		totalSupply += pendingStakes;
-		pendingStakes = 0;
+	// function _notifyRewardAmount(uint256 reward) internal {
+	// 	// update cumulative rewards
+	// 	rewardsPerTokenAt.push(
+	// 		rewardsPerTokenAt[rewardsPerTokenAt.length - 1]
+	// 			+ (reward * PRECISION) / totalSupply
+	// 	);
 
-		// update epoch count
-		lastEpochIndex++;
-	}
+	// 	// update epoch count
+	// 	lastEpochIndex++;
+	// }
 
 	function _withdraw(address _from, uint256 _amount) internal virtual {
-		// if there are any pending stake for _from
-		if (stakersInfo[_from].pendingStake > 0) {
-			// if pending stakes are higher or equal to requested withdrawal amount 
-      // subtract whole amount, otherwise the pending stake there is
-			uint256 pendingToReduce = stakersInfo[_from].pendingStake >= _amount
-				? _amount
-				: stakersInfo[_from].pendingStake;
-			pendingStakes -= pendingToReduce;
-			stakersInfo[_from].pendingStake -= pendingToReduce;
-			stakersInfo[_from].balance -= _amount - pendingToReduce;
-		} else {
-			// elsewise just withdraw the active balance
-			stakersInfo[_from].balance -= _amount;
-		}
-		emit Withdrawn(_from, _amount, lastEpochIndex);
+    require(_amount > 0, "Cannot withdraw 0");
+    totalSupply -= _amount;
+		stakersInfo[_from].balance -= _amount;
+    emit Withdrawn(_from, _amount);
 	}
 
 	function _stake(address _from, uint256 _amount)
   	internal
   	virtual
   {
-		// the _from address could stake to the pending balance an above zero sum
 		require(_amount > 0, "Cannot stake 0");
-		pendingStakes += _amount;
-		stakersInfo[_from].pendingStake += _amount;
-		stakersInfo[_from].indexOfLastEpochStaked = lastEpochIndex;
-		emit Staked(_from, _amount, lastEpochIndex);
+		totalSupply += _amount;
+    stakersInfo[_from].balance += _amount;
+		emit Staked(_from, _amount);
 	}
 
 	function _getReward(address _to) internal virtual returns(uint256 reward) {
@@ -160,7 +129,11 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 		reward = stakersInfo[_to].reward;
 		if (reward > 0) {
 			stakersInfo[_to].reward = 0;
-			emit RewardPaid(_to, reward, lastEpochIndex);
+			emit RewardPaid(_to, reward);
 		}
 	}
+
+  // function lastTimeRewardApplicable() public view returns (uint256) {
+  //   return block.timestamp < periodFinish ? block.timestamp : periodFinish;
+  // }
 }
