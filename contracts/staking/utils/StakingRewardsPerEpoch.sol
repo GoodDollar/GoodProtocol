@@ -39,7 +39,7 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	// total supply of active stakes
 	uint256 public totalSupply;
 
-  uint256 public interestRatePerBlock;
+	uint256 public interestRatePerBlock;
 
 	modifier updateReward(address account) {
 		_updateReward(account);
@@ -58,17 +58,15 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 		return stakersInfo[account].balance;
 	}
 
-	function _rewardPerToken()
-		internal
-		returns (uint256)
-	{
-    if (totalSupply == 0) {
-      return rewardPerTokenStored;
-    }
+	function _rewardPerToken() internal returns (uint256) {
+		if (totalSupply == 0) {
+			return rewardPerTokenStored;
+		}
 
-    return
-      rewardPerTokenStored +=
-        (block.timestamp - lastUpdateTime) * interestRatePerBlock;
+		return
+			rewardPerTokenStored +=
+				(block.timestamp - lastUpdateTime) *
+				interestRatePerBlock;
 	}
 
 	/**
@@ -78,20 +76,20 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	 */
 	function earned(address account) public returns (uint256) {
 		return
-			stakersInfo[account].balance * 
-      (_rewardPerToken() - stakersInfo[account].rewardPerTokenPaid)
-				/ PRECISION
-				+ stakersInfo[account].reward;
+			(stakersInfo[account].balance *
+				(_rewardPerToken() - stakersInfo[account].rewardPerTokenPaid)) /
+			PRECISION +
+			stakersInfo[account].reward;
 	}
 
 	// this function updates the reward for the specific user
 	function _updateReward(address _account) internal virtual {
-		    rewardPerTokenStored = _rewardPerToken();
-        lastUpdateTime = block.timestamp;
-        if (_account != address(0)) {
-            stakersInfo[_account].reward = earned(_account);
-            stakersInfo[_account].rewardPerTokenPaid = rewardPerTokenStored;
-        }
+		rewardPerTokenStored = _rewardPerToken();
+		lastUpdateTime = block.timestamp;
+		if (_account != address(0)) {
+			stakersInfo[_account].reward = earned(_account);
+			stakersInfo[_account].rewardPerTokenPaid = rewardPerTokenStored;
+		}
 	}
 
 	// This function adds the sum given in reward parameter to the distribution
@@ -108,23 +106,20 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	// }
 
 	function _withdraw(address _from, uint256 _amount) internal virtual {
-    require(_amount > 0, "Cannot withdraw 0");
-    totalSupply -= _amount;
+		require(_amount > 0, "Cannot withdraw 0");
+		totalSupply -= _amount;
 		stakersInfo[_from].balance -= _amount;
-    emit Withdrawn(_from, _amount);
+		emit Withdrawn(_from, _amount);
 	}
 
-	function _stake(address _from, uint256 _amount)
-  	internal
-  	virtual
-  {
+	function _stake(address _from, uint256 _amount) internal virtual {
 		require(_amount > 0, "Cannot stake 0");
 		totalSupply += _amount;
-    stakersInfo[_from].balance += _amount;
+		stakersInfo[_from].balance += _amount;
 		emit Staked(_from, _amount);
 	}
 
-	function _getReward(address _to) internal virtual returns(uint256 reward) {
+	function _getReward(address _to) internal virtual returns (uint256 reward) {
 		// return and reset the reward if there is any
 		reward = stakersInfo[_to].reward;
 		if (reward > 0) {
@@ -133,7 +128,7 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 		}
 	}
 
-  // function lastTimeRewardApplicable() public view returns (uint256) {
-  //   return block.timestamp < periodFinish ? block.timestamp : periodFinish;
-  // }
+	// function lastTimeRewardApplicable() public view returns (uint256) {
+	//   return block.timestamp < periodFinish ? block.timestamp : periodFinish;
+	// }
 }
