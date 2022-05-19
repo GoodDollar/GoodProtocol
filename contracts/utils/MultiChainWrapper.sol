@@ -19,6 +19,16 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import "./DAOUpgradeableContract.sol";
 
+interface IMultichainRouter {
+	// Swaps `amount` `token` from this chain to `toChainID` chain with recipient `to`
+	function anySwapOut(
+		address token,
+		address to,
+		uint256 amount,
+		uint256 toChainID
+	) external;
+}
+
 library TokenOperation {
 	using Address for address;
 
@@ -67,27 +77,6 @@ library TokenOperation {
 			);
 		}
 	}
-}
-
-interface IBridge {
-	function Swapin(
-		bytes32 txhash,
-		address account,
-		uint256 amount
-	) external returns (bool);
-
-	function Swapout(uint256 amount, address bindaddr) external returns (bool);
-
-	event LogSwapin(
-		bytes32 indexed txhash,
-		address indexed account,
-		uint256 amount
-	);
-	event LogSwapout(
-		address indexed account,
-		address indexed bindaddr,
-		uint256 amount
-	);
 }
 
 interface IRouter {
@@ -142,7 +131,6 @@ abstract contract PausableControl {
 /// 2. wrap token which want to support multiple minters
 /// 3. add security enhancement (mint cap, pausable, etc.)
 contract MintBurnWrapper is
-	IBridge,
 	IRouter,
 	AccessControlEnumerableUpgradeable,
 	PausableControl,
@@ -223,8 +211,10 @@ contract MintBurnWrapper is
 		require(to != address(this), "forbid mint to address(this)");
 
 		Supply storage s = minterSupply[msg.sender];
-		require(amount <= s.max, "minter max exceeded");
+		require(s.max == 0 || amount <= s.max, "minter max exceeded");
 		s.total += amount;
+		require(s.total == 0 || s.total <= s.cap, "minter cap exceeded");
+
 		require(s.total <= s.cap, "minter cap exceeded");
 		totalMinted += amount;
 		require(totalMinted <= totalMintCap, "total mint cap exceeded");
@@ -242,9 +232,6 @@ contract MintBurnWrapper is
 		internal
 		whenNotPaused(PAUSE_BURN_ROLE)
 	{
-		require(from != address(this), "forbid burn from address(this)");
-		// require(totalMinted >= amount, "total burn amount exceeded");
-
 		//update stats correctly, but dont fail if it tries to transfer tokens minted elsewhere as long as we burn some
 		if (totalMinted >= amount) {
 			totalMinted -= amount;
@@ -263,7 +250,7 @@ contract MintBurnWrapper is
 		}
 
 		//handle onTokenTransfer (ERC677), assume tokens has been transfered
-		if (from == token) {
+		if (from == address(this)) {
 			TokenOperation.safeBurnSelf(token, amount);
 		} else if (
 			tokenType == TokenType.Transfer || tokenType == TokenType.TransferDeposit
@@ -301,46 +288,23 @@ contract MintBurnWrapper is
 		return true;
 	}
 
-	// impl IBridge `Swapin`
-	function Swapin(
-		bytes32 txhash,
-		address account,
-		uint256 amount
-	)
-		external
-		onlyRole(MINTER_ROLE)
-		onlyRole(BRIDGE_ROLE)
-		whenNotPaused(PAUSE_BRIDGE_ROLE)
-		returns (bool)
-	{
-		_mint(account, amount);
-		emit LogSwapin(txhash, account, amount);
-		return true;
-	}
-
-	// impl IBridge `Swapout`
-	function Swapout(uint256 amount, address bindaddr)
-		external
-		whenNotPaused(PAUSE_BRIDGE_ROLE)
-		returns (bool)
-	{
-		require(bindaddr != address(0), "zero bind address");
-		_burn(msg.sender, amount);
-		emit LogSwapout(msg.sender, bindaddr, amount);
-		return true;
-	}
-
 	//impl swapout for erc677
 	function onTokenTransfer(
 		address sender,
 		uint256 amount,
 		bytes memory data
-	) external whenNotPaused(PAUSE_BRIDGE_ROLE) returns (bool) {
+	) external whenNotPaused(PAUSE_ROUTER_ROLE) returns (bool) {
 		require(msg.sender == token); //verify this was called from a token transfer
-		address bindaddr = chooseReceiver(sender, data);
-		require(bindaddr != address(0), "zero bind address");
-		_burn(msg.sender, amount); //msg.sender is token, in _burn we will burn self
-		emit LogSwapout(sender, bindaddr, amount);
+		(address bindaddr, uint256 chainId) = abi.decode(data, (address, uint256));
+		require(chainId != 0, "zero chainId");
+		bindaddr = bindaddr != address(0) ? bindaddr : sender;
+
+		IMultichainRouter(getRoleMember(ROUTER_ROLE, 0)).anySwapOut(
+			address(this),
+			bindaddr,
+			amount,
+			chainId
+		);
 		return true;
 	}
 
