@@ -9,20 +9,15 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	using SafeERC20 for IERC20;
 
-	// the users info about stake
+	// the users stake information
 	struct StakerInfo {
 		uint256 reward; // the reward amount which should be transfered to the user
-		uint256 balance; // the amount of active stake of user
-		uint256 rewardPerTokenPaid; // the amount of pending stake of user
+		uint256 balance; // the amount of user active stake
+		uint256 rewardPerTokenPaid; // rewards that accounted already so should be substracted 
+                                // while calculating rewards of staker
 	}
 
-	// staker - an address of the staker, amount - an amount of staked tokens
-	event Staked(address indexed staker, uint256 amount);
-
-	// staker - an address of the staker, amount - an amount of withdrawn tokens
-	event Withdrawn(address indexed staker, uint256 amount);
-
-	// user - an address of the staker, reward - an amount of tokens that was rewarded to the staker
+	// user - staker address, reward - amount of tokens rewarded to the staker
 	event RewardPaid(address indexed user, uint256 reward);
 
 	// precision constant for math
@@ -31,14 +26,20 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	// the user info sheet
 	mapping(address => StakerInfo) public stakersInfo;
 
+  // last timestamp this staking contract was updated and rewards were calculated
 	uint256 public lastUpdateTime;
 
-	// the amount of reward per token at a specific epoch
+	// the amount of reward per token
 	uint256 public rewardPerTokenStored;
 
 	// total supply of active stakes
 	uint256 public totalSupply;
-
+  
+  // annual percentage yield - rate of return on stake over one year 
+  // in BPS format. e.g. apy = 500 means 5% (500/10000)
+  uint256 internal _apy;
+  
+  // interest rate per one block. Equal to _apy * 1e14 / numberOfBlocksPerYear
 	uint256 public interestRatePerBlock;
 
 	modifier updateReward(address account) {
@@ -84,8 +85,8 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 
 	// this function updates the reward for the specific user
 	function _updateReward(address _account) internal virtual {
-		rewardPerTokenStored = _rewardPerToken();
-		lastUpdateTime = block.timestamp;
+    rewardPerTokenStored = _rewardPerToken();
+    lastUpdateTime = block.timestamp;
 		if (_account != address(0)) {
 			stakersInfo[_account].reward = earned(_account);
 			stakersInfo[_account].rewardPerTokenPaid = rewardPerTokenStored;
@@ -109,14 +110,12 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 		require(_amount > 0, "Cannot withdraw 0");
 		totalSupply -= _amount;
 		stakersInfo[_from].balance -= _amount;
-		emit Withdrawn(_from, _amount);
 	}
 
 	function _stake(address _from, uint256 _amount) internal virtual {
 		require(_amount > 0, "Cannot stake 0");
 		totalSupply += _amount;
 		stakersInfo[_from].balance += _amount;
-		emit Staked(_from, _amount);
 	}
 
 	function _getReward(address _to) internal virtual returns (uint256 reward) {
