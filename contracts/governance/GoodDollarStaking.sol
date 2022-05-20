@@ -3,7 +3,6 @@
 pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-
 import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
@@ -14,7 +13,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 /**
  * @title Staking contract that allows citizens to stake G$ to get GDAO rewards
  */
-contract GovStakingForGD is
+contract GoodDollarStaking is
 	ERC20Upgradeable,
 	MultiBaseGovernanceShareField,
 	DAOUpgradeableContract,
@@ -29,7 +28,7 @@ contract GovStakingForGD is
 	 * @dev Emitted when `staker` earns an `amount` of GOOD tokens
 	 */
 	event ReputationEarned(address indexed staker, uint256 amount);
-	
+
 	/**
 	 * @dev Emitted when `staker` stakes an `amount` of GoodDollars
 	 */
