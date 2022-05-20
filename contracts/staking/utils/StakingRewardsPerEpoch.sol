@@ -13,8 +13,8 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	struct StakerInfo {
 		uint256 reward; // the reward amount which should be transfered to the user
 		uint256 balance; // the amount of user active stake
-		uint256 rewardPerTokenPaid; // rewards that accounted already so should be substracted 
-                                // while calculating rewards of staker
+		uint256 rewardPerTokenPaid; // rewards that accounted already so should be substracted
+		// while calculating rewards of staker
 	}
 
 	// user - staker address, reward - amount of tokens rewarded to the staker
@@ -26,7 +26,7 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	// the user info sheet
 	mapping(address => StakerInfo) public stakersInfo;
 
-  // last timestamp this staking contract was updated and rewards were calculated
+	// last timestamp this staking contract was updated and rewards were calculated
 	uint256 public lastUpdateTime;
 
 	// the amount of reward per token
@@ -34,12 +34,12 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 
 	// total supply of active stakes
 	uint256 public totalSupply;
-  
-  // annual percentage yield - rate of return on stake over one year 
-  // in BPS format. e.g. apy = 500 means 5% (500/10000)
-  uint256 internal _apy;
-  
-  // interest rate per one block. Equal to _apy * 1e14 / numberOfBlocksPerYear
+
+	// annual percentage yield - rate of return on stake over one year
+	// in BPS format. e.g. apy = 500 means 5% (500/10000)
+	uint256 internal _apy;
+
+	// interest rate per one block. Equal to _apy * 1e14 / numberOfBlocksPerYear
 	uint256 public interestRatePerBlock;
 
 	modifier updateReward(address account) {
@@ -78,17 +78,16 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	function earned(address account) public returns (uint256) {
 		return
 			(stakersInfo[account].balance *
-				(_rewardPerToken() - stakersInfo[account].rewardPerTokenPaid)) /
-			PRECISION +
-			stakersInfo[account].reward;
+      (_rewardPerToken() - stakersInfo[account].rewardPerTokenPaid)) /
+			PRECISION;
 	}
 
 	// this function updates the reward for the specific user
 	function _updateReward(address _account) internal virtual {
-    rewardPerTokenStored = _rewardPerToken();
-    lastUpdateTime = block.timestamp;
+		rewardPerTokenStored = _rewardPerToken();
+		lastUpdateTime = block.timestamp;
 		if (_account != address(0)) {
-			stakersInfo[_account].reward = earned(_account);
+			stakersInfo[_account].reward += earned(_account);
 			stakersInfo[_account].rewardPerTokenPaid = rewardPerTokenStored;
 		}
 	}
@@ -98,8 +97,9 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 	// function _notifyRewardAmount(uint256 reward) internal {
 	// 	// update cumulative rewards
 	// 	rewardsPerTokenAt.push(
-	// 		rewardsPerTokenAt[rewardsPerTokenAt.length - 1]
-	// 			+ (reward * PRECISION) / totalSupply
+	// 		rewardsPerTokenAt[rewardsPerTokenAt.length - 1] +
+	// 			(reward * PRECISION) /
+	// 			totalSupply
 	// 	);
 
 	// 	// update epoch count
