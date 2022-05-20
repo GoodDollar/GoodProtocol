@@ -449,3 +449,13 @@ interface IAdminWallet {
 
 	function transferOwnership(address _owner) external;
 }
+
+interface IMultichainRouter {
+	// Swaps `amount` `token` from this chain to `toChainID` chain with recipient `to`
+	function anySwapOut(
+		address token,
+		address to,
+		uint256 amount,
+		uint256 toChainID
+	) external;
+}

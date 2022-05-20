@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 /**
  Wrap the G$ token to provide mint permissions to multichain.org router/bridge
  based on https://github.com/anyswap/multichain-smart-contracts/blob/1459fe6281867319af8ffb1849e5c16d242d6530/contracts/wrapper/MintBurnWrapper.sol
@@ -19,16 +19,6 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "./DAOUpgradeableContract.sol";
-
-interface IMultichainRouter {
-	// Swaps `amount` `token` from this chain to `toChainID` chain with recipient `to`
-	function anySwapOut(
-		address token,
-		address to,
-		uint256 amount,
-		uint256 toChainID
-	) external;
-}
 
 library TokenOperation {
 	using Address for address;
@@ -200,6 +190,7 @@ contract MintBurnWrapper is
 		updateFrequency = 90 days;
 		_setupRole(DEFAULT_ADMIN_ROLE, _admin);
 		setDAO(_nameService);
+		grantRole(DEFAULT_ADMIN_ROLE, avatar);
 	}
 
 	function upgrade1() external {
