@@ -9,7 +9,7 @@ import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
 import "./MultiBaseGovernanceShareField.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-
+import "../staking/utils/StakingRewardsFixedAPY.sol";
 /**
  * @title Staking contract that allows citizens to stake G$ to get GDAO rewards
  */
@@ -17,7 +17,8 @@ contract GoodDollarStaking is
 	ERC20Upgradeable,
 	MultiBaseGovernanceShareField,
 	DAOUpgradeableContract,
-	ReentrancyGuardUpgradeable
+	ReentrancyGuardUpgradeable,
+  StakingRewardsFixedAPY
 {
 	uint256 public constant FUSE_MONTHLY_BLOCKS = 12 * 60 * 24 * 30;
 

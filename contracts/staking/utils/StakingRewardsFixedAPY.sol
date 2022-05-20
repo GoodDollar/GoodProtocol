@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 contract StakingRewardsFixedAPY {
-	using SafeERC20 for IERC20;
 
 	// the users stake information
 	struct StakerInfo {
@@ -28,7 +24,7 @@ contract StakingRewardsFixedAPY {
 	uint256 public rewardPerTokenStored;
 
 	// total supply of active stakes
-	uint256 public totalSupply;
+	uint256 public totalStaked;
 
 	// annual percentage yield - rate of return on stake over one year
 	// in BPS format. e.g. apy = 500 means 5% (500/10000)
@@ -42,20 +38,8 @@ contract StakingRewardsFixedAPY {
 		_;
 	}
 
-	/**
-	 * @dev A classic ERC20 method that allows staker balance querying.
-	 * @param account A staker address
-	 */
-	function balanceOf(address account) external view returns (uint256) {
-		return _balanceOf(account);
-	}
-
-	function _balanceOf(address account) internal view returns (uint256) {
-		return stakersInfo[account].balance;
-	}
-
 	function _rewardPerToken() internal returns (uint256) {
-		if (totalSupply == 0) {
+		if (totalStaked == 0) {
 			return rewardPerTokenStored;
 		}
 
@@ -89,13 +73,13 @@ contract StakingRewardsFixedAPY {
 
 	function _withdraw(address _from, uint256 _amount) internal virtual {
 		require(_amount > 0, "Cannot withdraw 0");
-		totalSupply -= _amount;
+		totalStaked -= _amount;
 		stakersInfo[_from].balance -= _amount;
 	}
 
 	function _stake(address _from, uint256 _amount) internal virtual {
 		require(_amount > 0, "Cannot stake 0");
-		totalSupply += _amount;
+		totalStaked += _amount;
 		stakersInfo[_from].balance += _amount;
 	}
 
