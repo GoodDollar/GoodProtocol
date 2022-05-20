@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
+contract StakingRewardsFixedAPY {
 	using SafeERC20 for IERC20;
 
 	// the users stake information
@@ -16,9 +14,6 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 		uint256 rewardPerTokenPaid; // rewards that accounted already so should be substracted
 		// while calculating rewards of staker
 	}
-
-	// user - staker address, reward - amount of tokens rewarded to the staker
-	event RewardPaid(address indexed user, uint256 reward);
 
 	// precision constant for math
 	uint256 public constant PRECISION = 1e18;
@@ -72,7 +67,7 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 
 	/**
 	 * @dev The function allows anyone to calculate the exact amount of reward
-	 * earned per epochs passed.
+	 * earned.
 	 * @param account A staker address
 	 */
 	function earned(address account) public returns (uint256) {
@@ -92,20 +87,6 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 		}
 	}
 
-	// This function adds the sum given in reward parameter to the distribution
-	// queue.
-	// function _notifyRewardAmount(uint256 reward) internal {
-	// 	// update cumulative rewards
-	// 	rewardsPerTokenAt.push(
-	// 		rewardsPerTokenAt[rewardsPerTokenAt.length - 1] +
-	// 			(reward * PRECISION) /
-	// 			totalSupply
-	// 	);
-
-	// 	// update epoch count
-	// 	lastEpochIndex++;
-	// }
-
 	function _withdraw(address _from, uint256 _amount) internal virtual {
 		require(_amount > 0, "Cannot withdraw 0");
 		totalSupply -= _amount;
@@ -123,7 +104,6 @@ contract StakingRewardsPerEpoch is ReentrancyGuard, Pausable {
 		reward = stakersInfo[_to].reward;
 		if (reward > 0) {
 			stakersInfo[_to].reward = 0;
-			emit RewardPaid(_to, reward);
 		}
 	}
 
