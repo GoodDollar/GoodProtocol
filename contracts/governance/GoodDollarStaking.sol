@@ -10,18 +10,22 @@ import "../DAOStackInterfaces.sol";
 import "./MultiBaseGovernanceShareField.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "../staking/utils/StakingRewardsFixedAPY.sol";
+
+interface RewardsMinter {
+	function sendOrMint(address to, uint256 amount) external returns (uint256);
+}
+
 /**
- * @title Staking contract that allows citizens to stake G$ to get GDAO rewards
+ * @title Staking contract that allows citizens to stake G$ to get GOOD + G$ rewards
+ * it implements
  */
 contract GoodDollarStaking is
 	ERC20Upgradeable,
 	MultiBaseGovernanceShareField,
 	DAOUpgradeableContract,
 	ReentrancyGuardUpgradeable,
-  StakingRewardsFixedAPY
+	StakingRewardsFixedAPY
 {
-	uint256 public constant FUSE_MONTHLY_BLOCKS = 12 * 60 * 24 * 30;
-
 	// Token address
 	ERC20 token;
 
@@ -44,18 +48,19 @@ contract GoodDollarStaking is
 	 * @dev Constructor
 	 * @param _ns The address of the INameService contract
 	 */
-	constructor(INameService _ns) {
+	constructor(
+		INameService _ns,
+		uint128 _apy,
+		uint128 _numberOfBlocksPerYear
+	) StakingRewardsFixedAPY(_apy, _numberOfBlocksPerYear) {
 		setDAO(_ns);
 		token = ERC20(nameService.getAddress("GOODDOLLAR"));
-		__ERC20_init("G$ Staking For GOOD", "sG$");
-		rewardsPerBlock[address(this)] = (2 ether * 1e6) / FUSE_MONTHLY_BLOCKS; // (2M monthly GDAO as specified in specs, divided by blocks in month )
+		__ERC20_init("G$ Savings", "svG$");
+		rewardsPerBlock[address(this)] = (2 ether * 1e6) / getChainBlocksPerMonth(); // (2M monthly GDAO as specified in specs, divided by blocks in month )
 	}
 
-	/**
-	 * @dev this contract runs on fuse
-	 */
-	function getChainBlocksPerMonth() public pure override returns (uint256) {
-		return 518400; //12 * 60 * 24 * 30
+	function getChainBlocksPerMonth() public view override returns (uint256) {
+		return numberOfBlocksPerYear / 12;
 	}
 
 	/**
@@ -70,6 +75,7 @@ contract GoodDollarStaking is
 			token.transferFrom(_msgSender(), address(this), _amount),
 			"transferFrom failed, make sure you approved token transfer"
 		);
+		/* GOOD rewards Updates */
 		_increaseProductivity(
 			address(this),
 			_msgSender(),
@@ -79,6 +85,11 @@ contract GoodDollarStaking is
 		);
 		_mint(_msgSender(), _amount); // mint Staking token for staker
 		_mintRewards(_msgSender());
+		/* end GOOD rewards Updates */
+
+		/* G$ rewards updates */
+		_stake(_msgSender(), _amount);
+
 		emit Staked(_msgSender(), _amount);
 	}
 
@@ -93,6 +104,8 @@ contract GoodDollarStaking is
 		uint256 tokenWithdraw = _amount;
 
 		_burn(_msgSender(), _amount); // burn their staking tokens
+
+		/* Good rewards update */
 		_decreaseProductivity(
 			address(this),
 			_msgSender(),
@@ -101,6 +114,15 @@ contract GoodDollarStaking is
 			block.number
 		);
 		_mintRewards(_msgSender());
+		/* end Good rewards update */
+
+		/* G$ rewards update */
+		_withdraw(_msgSender(), tokenWithdraw);
+		if (stakersInfo[_msgSender()].balance == 0) {
+			_mintGDRewards(_msgSender(), 0); //we mint GD rewards only when balance is 0 or upon request
+		}
+
+		/* end G$ rewards update */
 
 		require(
 			token.transfer(_msgSender(), tokenWithdraw),
@@ -109,11 +131,30 @@ contract GoodDollarStaking is
 		emit StakeWithdraw(_msgSender(), _amount);
 	}
 
+	function _mintGDRewards(address _to, uint256 _extra)
+		internal
+		returns (uint256 actualSent)
+	{
+		uint256 rewards = _getReward(_to) + _extra;
+		actualSent = RewardsMinter(nameService.getAddress("MintBurnWrapper"))
+			.sendOrMint(_to, rewards);
+		//it could be that rewards minter doesnt have enough or passed cap
+		//so we keep track of debt to user
+		if (actualSent < rewards) {
+			_setReward(_to, rewards - actualSent);
+		}
+	}
+
 	/**
 	 * @dev Staker can withdraw their rewards without withdraw their stake
 	 */
-	function withdrawRewards() public nonReentrant returns (uint256) {
-		return _mintRewards(_msgSender());
+	function withdrawRewards()
+		public
+		nonReentrant
+		returns (uint256 goodRewards, uint256 gdRewards)
+	{
+		goodRewards = _mintRewards(_msgSender());
+		gdRewards = _mintGDRewards(_msgSender(), 0);
 	}
 
 	/**
@@ -147,9 +188,17 @@ contract GoodDollarStaking is
 		uint256 value
 	) internal override {
 		_decreaseProductivity(address(this), from, value, 0, block.number);
+		_withdraw(from, value); //update G$ rewards
 		_increaseProductivity(address(this), to, value, 0, block.number);
+		_stake(to, value); //update G$ rewards
+
+		//mint GOOD rewards
 		_mintRewards(from);
 		_mintRewards(to);
+
+		if (stakersInfo[from].balance == 0) {
+			_mintGDRewards(from, 0); //we mint GD rewards only when balance is 0 or upon request
+		}
 		super._transfer(from, to, value);
 	}
 
@@ -160,6 +209,16 @@ contract GoodDollarStaking is
 	function setMonthlyRewards(uint256 _monthlyAmount) public {
 		_onlyAvatar();
 		_setMonthlyRewards(address(this), _monthlyAmount);
+	}
+
+	/**
+	 * @dev Calculate rewards per block from monthly amount of rewards and set it
+	 * @param _apy bps yearly apy
+	 * @param _numberOfBlocksPerYear blocks per year
+	 */
+	function setGdApy(uint128 _apy, uint128 _numberOfBlocksPerYear) public {
+		_onlyAvatar();
+		_setAPY(_apy, _numberOfBlocksPerYear);
 	}
 
 	/// @dev helper function for multibase
@@ -182,7 +241,7 @@ contract GoodDollarStaking is
 	}
 
 	/// @dev helper function for multibase
-	function users(address _user) public view returns (UserInfo memory) {
+	function goodStakerInfo(address _user) public view returns (UserInfo memory) {
 		return contractToUsers[address(this)][_user];
 	}
 
