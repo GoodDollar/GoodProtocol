@@ -119,7 +119,7 @@ abstract contract PausableControl {
 
 /// @dev MintBurnWrapper has the following aims:
 /// 1. wrap token which does not support interface `IBridge` or `IRouter`
-/// 2. wrap token which want to support multiple minters
+/// 2. wrap token which wants to support multiple minters
 /// 3. add security enhancement (mint cap, pausable, etc.)
 contract MintBurnWrapper is
 	IRouter,
