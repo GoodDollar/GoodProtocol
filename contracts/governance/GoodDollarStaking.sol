@@ -140,8 +140,18 @@ contract GoodDollarStaking is
 
 	function _mintGDRewards(address _to) internal returns (uint256 actualSent) {
 		uint256 rewards = _getReward(_to);
-		actualSent = RewardsMinter(nameService.getAddress("MintBurnWrapper"))
-			.sendOrMint(_to, rewards);
+
+		//make sure RewardsMinter failure doesnt prevent withdrawl of stake
+		try
+			RewardsMinter(nameService.getAddress("MintBurnWrapper")).sendOrMint(
+				_to,
+				rewards
+			)
+		returns (uint256 _res) {
+			actualSent = _res;
+		} catch {
+			actualSent = 0;
+		}
 		//it could be that rewards minter doesnt have enough or passed cap
 		//so we keep track of debt to user
 		if (actualSent < rewards) {
@@ -210,7 +220,7 @@ contract GoodDollarStaking is
 	 * @dev Calculate rewards per block from monthly amount of rewards and set it
 	 * @param _monthlyAmount total rewards which will distribute monthly
 	 */
-	function setMonthlyRewards(uint256 _monthlyAmount) public {
+	function setMonthlyGOODRewards(uint256 _monthlyAmount) public {
 		_onlyAvatar();
 		_setMonthlyRewards(address(this), _monthlyAmount);
 	}
@@ -230,11 +240,7 @@ contract GoodDollarStaking is
 	}
 
 	/// @dev helper function for multibase
-	function getProductivity(address _user)
-		public
-		view
-		returns (uint256, uint256)
-	{
+	function getStaked(address _user) public view returns (uint256, uint256) {
 		return getProductivity(address(this), _user);
 	}
 

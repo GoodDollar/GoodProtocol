@@ -135,6 +135,7 @@ contract StakingRewardsFixedAPY {
 	 */
 	function _setReward(address _to, uint256 _amount) internal virtual {
 		stakersInfo[_to].reward += uint128(_amount);
+		stakersInfo[_to].rewardsMinted -= uint128(_amount);
 		principle += _amount * PRECISION; //rewards are part of the compounding interest
 	}
 }
