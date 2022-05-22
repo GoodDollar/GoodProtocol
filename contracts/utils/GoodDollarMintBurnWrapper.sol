@@ -167,8 +167,6 @@ contract GoodDollarMintBurnWrapper is
 	address public token; // the target token this contract is wrapping
 	TokenType public tokenType;
 
-	mapping(address => uint256) public depositBalance;
-
 	uint128 currentDay; //used to reset daily minter limit
 	uint128 updateFrequency; //how often to update the relative to supply daily limit
 
