@@ -21,7 +21,7 @@ contract StakingRewardsFixedAPY {
 	// precision constant for math
 	uint128 public constant PRECISION = 1e18;
 
-	// last timestamp this staking contract was updated and rewards were calculated
+	// last block this staking contract was updated and rewards were calculated
 	uint128 public lastUpdateBlock;
 
 	// the amount of reward per token
@@ -131,9 +131,9 @@ contract StakingRewardsFixedAPY {
 	}
 
 	/**
-	 * @dev keep track of debt to user
+	 * @dev keep track of debt to user in case reward minting failed
 	 */
-	function _setReward(address _to, uint256 _amount) internal virtual {
+	function _undoReward(address _to, uint256 _amount) internal virtual {
 		stakersInfo[_to].reward += uint128(_amount);
 		stakersInfo[_to].rewardsMinted -= uint128(_amount);
 		principle += _amount * PRECISION; //rewards are part of the compounding interest

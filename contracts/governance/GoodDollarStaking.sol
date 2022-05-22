@@ -155,7 +155,7 @@ contract GoodDollarStaking is
 		//it could be that rewards minter doesnt have enough or passed cap
 		//so we keep track of debt to user
 		if (actualSent < rewards) {
-			_setReward(_to, rewards - actualSent);
+			_undoReward(_to, rewards - actualSent);
 		}
 	}
 
