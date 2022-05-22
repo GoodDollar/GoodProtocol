@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
+import "./Math64X64.sol";
+
 contract StakingRewardsFixedAPY {
+	using Math64x64 for int128;
+
 	// the users stake information
 	struct StakerInfo {
 		uint128 reward; // the reward amount which should be transfered to the user
@@ -25,24 +29,25 @@ contract StakingRewardsFixedAPY {
 
 	// total supply of active stakes
 	uint128 public totalStaked;
+	uint256 public principle; //total earning compounding interest;
 
-	// annual percentage yield - rate of return on stake over one year
-	// in BPS format. e.g. apy = 500 means 5% (500/10000)
-	uint128 public apy;
+	// annual percentage yield - rate of return on stake over one year;
 
-	// interest rate per one block. Equal to _apy * 1e14 / numberOfBlocksPerYear
-	uint128 public interestRatePerBlock;
+	// interest rate per one block in 1e18 precision.
+	//for example APY=5% then per block = nroot(1+0.05,numberOfBlocksPerYear)
+	//nroot(1.05,6000000) = 1.000000008131694
+	//in 1e18 = 1000000008131694000
+	int128 public interestRatePerBlockX64;
 
-	uint128 public numberOfBlocksPerYear;
-
-	constructor(uint128 _apy, uint128 _numberOfBlocksPerYear) {
-		_setAPY(_apy, _numberOfBlocksPerYear);
+	constructor(uint128 _interestRatePerBlock) {
+		_setAPY(_interestRatePerBlock);
 	}
 
-	function _setAPY(uint128 _apy, uint128 _numberOfBlocksPerYear) internal {
-		apy = _apy;
-		numberOfBlocksPerYear = _numberOfBlocksPerYear;
-		interestRatePerBlock = (_apy * 1e14) / _numberOfBlocksPerYear;
+	function _setAPY(uint128 _interestRatePerBlock)
+		internal
+		updateReward(address(0))
+	{
+		interestRatePerBlockX64 = Math64x64.divu(_interestRatePerBlock, 1e18); //convert to signed int x64
 	}
 
 	modifier updateReward(address account) {
@@ -55,13 +60,16 @@ contract StakingRewardsFixedAPY {
 			return rewardPerTokenStored;
 		}
 
-		//earned in timespan = blocksPassed * interestRatePerBlock * totalStaked/PRECISION
+		//earned in timespan = interestRatePerBlock^blocksPassed * principle/PRECISION
 		//earned perToken = earnedInTimeSpan*PRECISION/totalStaked
-		//PRECISION and totalStaked cancel out
-		return
-			rewardPerTokenStored += uint128(
-				(block.number - lastUpdateBlock) * interestRatePerBlock
-			);
+		//PRECISION cancels out
+		int128 compound = interestRatePerBlockX64.pow(
+			block.number - lastUpdateBlock
+		);
+		uint256 earnedInterest = compound.mulu(principle);
+		principle += earnedInterest;
+
+		return rewardPerTokenStored += uint128(earnedInterest / totalStaked); //principle is already in PRECISION
 	}
 
 	/**
@@ -93,6 +101,7 @@ contract StakingRewardsFixedAPY {
 	{
 		require(_amount > 0, "Cannot withdraw 0");
 		totalStaked -= uint128(_amount);
+		principle -= _amount * PRECISION;
 		stakersInfo[_from].balance -= uint128(_amount);
 	}
 
@@ -103,6 +112,8 @@ contract StakingRewardsFixedAPY {
 	{
 		require(_amount > 0, "Cannot stake 0");
 		totalStaked += uint128(_amount);
+		principle += _amount * PRECISION;
+
 		stakersInfo[_from].balance += uint128(_amount);
 	}
 
@@ -116,6 +127,7 @@ contract StakingRewardsFixedAPY {
 		reward = stakersInfo[_to].reward;
 		stakersInfo[_to].reward = 0;
 		stakersInfo[_to].rewardsMinted += uint128(reward);
+		principle -= reward * PRECISION; //rewards are part of the compounding interest
 	}
 
 	/**
@@ -123,5 +135,6 @@ contract StakingRewardsFixedAPY {
 	 */
 	function _setReward(address _to, uint256 _amount) internal virtual {
 		stakersInfo[_to].reward += uint128(_amount);
+		principle += _amount * PRECISION; //rewards are part of the compounding interest
 	}
 }

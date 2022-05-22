@@ -29,6 +29,8 @@ contract GoodDollarStaking is
 	// Token address
 	ERC20 token;
 
+	uint128 public numberOfBlocksPerYear;
+
 	/**
 	 * @dev Emitted when `staker` earns an `amount` of GOOD tokens
 	 */
@@ -50,10 +52,15 @@ contract GoodDollarStaking is
 	 */
 	constructor(
 		INameService _ns,
-		uint128 _apy,
+		uint128 _interestRatePerBlock,
 		uint128 _numberOfBlocksPerYear
-	) StakingRewardsFixedAPY(_apy, _numberOfBlocksPerYear) {
+	) StakingRewardsFixedAPY(_interestRatePerBlock) {
 		setDAO(_ns);
+		require(
+			nameService.getAddress("MintBurnWrapper") != address(0),
+			"rewards minter not set"
+		);
+		numberOfBlocksPerYear = _numberOfBlocksPerYear;
 		token = ERC20(nameService.getAddress("GOODDOLLAR"));
 		__ERC20_init("G$ Savings", "svG$");
 		rewardsPerBlock[address(this)] = (2 ether * 1e6) / getChainBlocksPerMonth(); // (2M monthly GDAO as specified in specs, divided by blocks in month )
@@ -119,7 +126,7 @@ contract GoodDollarStaking is
 		/* G$ rewards update */
 		_withdraw(_msgSender(), tokenWithdraw);
 		if (stakersInfo[_msgSender()].balance == 0) {
-			_mintGDRewards(_msgSender(), 0); //we mint GD rewards only when balance is 0 or upon request
+			_mintGDRewards(_msgSender()); //we mint GD rewards only when balance is 0 or upon request
 		}
 
 		/* end G$ rewards update */
@@ -131,11 +138,8 @@ contract GoodDollarStaking is
 		emit StakeWithdraw(_msgSender(), _amount);
 	}
 
-	function _mintGDRewards(address _to, uint256 _extra)
-		internal
-		returns (uint256 actualSent)
-	{
-		uint256 rewards = _getReward(_to) + _extra;
+	function _mintGDRewards(address _to) internal returns (uint256 actualSent) {
+		uint256 rewards = _getReward(_to);
 		actualSent = RewardsMinter(nameService.getAddress("MintBurnWrapper"))
 			.sendOrMint(_to, rewards);
 		//it could be that rewards minter doesnt have enough or passed cap
@@ -154,7 +158,7 @@ contract GoodDollarStaking is
 		returns (uint256 goodRewards, uint256 gdRewards)
 	{
 		goodRewards = _mintRewards(_msgSender());
-		gdRewards = _mintGDRewards(_msgSender(), 0);
+		gdRewards = _mintGDRewards(_msgSender());
 	}
 
 	/**
@@ -197,7 +201,7 @@ contract GoodDollarStaking is
 		_mintRewards(to);
 
 		if (stakersInfo[from].balance == 0) {
-			_mintGDRewards(from, 0); //we mint GD rewards only when balance is 0 or upon request
+			_mintGDRewards(from); //we mint GD rewards only when balance is 0 or upon request
 		}
 		super._transfer(from, to, value);
 	}
@@ -213,12 +217,11 @@ contract GoodDollarStaking is
 
 	/**
 	 * @dev Calculate rewards per block from monthly amount of rewards and set it
-	 * @param _apy bps yearly apy
-	 * @param _numberOfBlocksPerYear blocks per year
+	 * @param _interestRatePerBlock bps yearly apy
 	 */
-	function setGdApy(uint128 _apy, uint128 _numberOfBlocksPerYear) public {
+	function setGdApy(uint128 _interestRatePerBlock) public {
 		_onlyAvatar();
-		_setAPY(_apy, _numberOfBlocksPerYear);
+		_setAPY(_interestRatePerBlock);
 	}
 
 	/// @dev helper function for multibase
