@@ -361,14 +361,19 @@ contract GoodReserveCDai is
 		uint256 gdExpansionToMint = getMarketMaker().mintExpansion(_interestToken);
 
 		uint256 nonUBI;
+
+		lastMinted = block.number;
+		uint256 gdUBI = gdInterestToMint + gdExpansionToMint;
+
 		if (nonUbiBps > 0) {
 			nonUBI = (gdExpansionToMint * nonUbiBps) / 10000;
+			gdUBI -= nonUBI;
+			_mintGoodDollars(address(distributionHelper), nonUBI, false);
+			emit NonUBIMinted(address(distributionHelper), nonUBI);
+			try distributionHelper.onDistribution(nonUBI) {} catch {}
 		}
-		uint256 gdUBI = gdInterestToMint + gdExpansionToMint - nonUBI;
-		lastMinted = block.number;
 		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
-		_mintGoodDollars(address(distributionHelper), nonUBI, false);
-		try distributionHelper.onDistribution(nonUBI) {} catch {}
+
 		_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), gdUBI, false);
 		emit UBIMinted(
 			lastMinted,
@@ -378,8 +383,6 @@ contract GoodReserveCDai is
 			gdExpansionToMint,
 			gdUBI
 		);
-
-		emit NonUBIMinted(address(distributionHelper), nonUBI);
 
 		return (gdUBI, interestInCdai);
 	}

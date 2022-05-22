@@ -58,6 +58,7 @@ contract DistributionHelper is
 	}
 
 	function onDistribution(uint256 _amount) external {
+		//we consider the actuall balance and not _amount
 		uint256 toDistribute = nativeToken().balanceOf(address(this));
 		if (toDistribute == 0) return;
 
