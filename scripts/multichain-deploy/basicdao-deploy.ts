@@ -1,24 +1,15 @@
+/***
+ * to get same addresses as on Celo
+ * deploy proxyfactory with 0x271cd5391016eb621aB3f9c0c70F5cF91DFd3FB0 with nonce 2
+ * create a gnosissafe with 0x3de7216149f12d8f51540d9a870149560fc11bfb with nonce 3
+ * run this script with 0x3de7216149f12d8f51540d9a870149560fc11bfb with nonce 7
+ */
 import { network, ethers, upgrades, run } from "hardhat";
-import { networkNames } from "@openzeppelin/upgrades-core";
-import { isFunction, get, omitBy } from "lodash";
-import { getImplementationAddress } from "@openzeppelin/upgrades-core";
-import pressAnyKey from "press-any-key";
 import { Contract } from "ethers";
-import { range } from "lodash";
-// import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollar.json";
-import DAOCreatorABI from "../../../GoodBootstrap/packages/contracts/build/contracts/DaoCreatorGoodDollarWithRep.json";
-// import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
-import IdentityABI from "../../../GoodBootstrap/packages/contracts/build/contracts/IdentityWithOwner.json";
+import DAOCreatorABI from "@gooddollar/goodcontracts/contracts/build/contracts/DaoCreatorGoodDollarWithRep.json";
+import IdentityABI from "@gooddollar/goodcontracts/contracts/build/contracts/IdentityWithOwner.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
-// import AddFoundersABI from "@gooddollar/goodcontracts/build/contracts/AddFoundersGoodDollar.json";
-import AddFoundersABI from "../../../GoodBootstrap/packages/contracts/build/contracts/AddFoundersGoodDollarWithRep.json";
-import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
-import FirstClaimPool from "@gooddollar/goodcontracts/stakingModel/build/contracts/FirstClaimPool.json";
-import BridgeMock from "@gooddollar/goodcontracts/stakingModel/build/contracts/BridgeMock.json";
-import AdminWalletABI from "@gooddollar/goodcontracts/build/contracts/AdminWallet.json";
-import OTPABI from "@gooddollar/goodcontracts/build/contracts/OneTimePayments.json";
-import HomeBridgeABI from "@gooddollar/goodcontracts/build/contracts/DeployHomeBridge.json";
-import ForeignBridgeABI from "@gooddollar/goodcontracts/build/contracts/DeployForeignBridge.json";
+import AddFoundersABI from "@gooddollar/goodcontracts/contracts/build/contracts/AddFoundersGoodDollarWithRep.json";
 
 import { deployDeterministic } from "./helpers";
 import releaser from "../../scripts/releaser";
@@ -60,6 +51,17 @@ export const createDAO = async () => {
       .getBalance(root.address)
       .then(_ => _.toString())
   });
+
+  if (network.name.includes("production")) {
+    const txCount = await root.getTransactionCount();
+    if (txCount !== 7) {
+      console.error(
+        "nonce doesnt match expected 7, to have same contract address",
+        { txCount }
+      );
+      return;
+    }
+  }
 
   const DAOCreatorFactory = new ethers.ContractFactory(
     DAOCreatorABI.abi,
@@ -114,7 +116,7 @@ export const createDAO = async () => {
   const GReputation = (await deployDeterministic(
     {
       name: "GReputation",
-      isUpgradable: true,
+      isUpgradeable: true,
       initializer: "initialize(address, string, bytes32, uint256)"
     },
     [
@@ -184,7 +186,7 @@ export const createDAO = async () => {
     .then(printDeploy);
 
   const NameService = await deployDeterministic(
-    { name: "NameService", isUpgradable: true },
+    { name: "NameService", isUpgradeable: true },
     [
       controller,
       ["CONTROLLER", "AVATAR", "IDENTITY", "GOODDOLLAR"].map(_ =>

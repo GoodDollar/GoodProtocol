@@ -15,6 +15,8 @@ interface ERC20 {
 
 	function mint(address to, uint256 mintAmount) external returns (uint256);
 
+	function burn(uint256 amount) external;
+
 	function totalSupply() external view returns (uint256);
 
 	function allowance(address owner, address spender)
@@ -446,4 +448,14 @@ interface IAdminWallet {
 	function owner() external view returns (address);
 
 	function transferOwnership(address _owner) external;
+}
+
+interface IMultichainRouter {
+	// Swaps `amount` `token` from this chain to `toChainID` chain with recipient `to`
+	function anySwapOut(
+		address token,
+		address to,
+		uint256 amount,
+		uint256 toChainID
+	) external;
 }
