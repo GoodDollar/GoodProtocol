@@ -39,8 +39,6 @@ contract StakingRewardsFixedAPY {
 	//in 1e18 = 1000000008131694000
 	int128 public interestRatePerBlockX64;
 
-  int128 public constant HUNDRED_PERCENT = 100000000000000000;
-
 	constructor(uint128 _interestRatePerBlock) {
 		_setAPY(_interestRatePerBlock);
 	}
@@ -62,15 +60,15 @@ contract StakingRewardsFixedAPY {
 			return rewardPerTokenStored;
 		}
 
-		//interest in timespan = (interestRatePerBlock^blocksPassed - 100%);
-		//earned in timespan = interestInTimespan * principle/PRECISION
+		//earned in timespan = (interestRatePerBlock^blocksPassed * principle - principle)/PRECISION
 		//earned perToken = earnedInTimeSpan*PRECISION/totalStaked
 		//PRECISION cancels out
-		int128 compoundInterestDelta = (
-			interestRatePerBlockX64.pow(block.number - lastUpdateBlock)
-		) - HUNDRED_PERCENT;
-		uint256 earnedInterest = compoundInterestDelta.mulu(principle);
-		principle += earnedInterest;
+		int128 compound = interestRatePerBlockX64.pow(
+			block.number - lastUpdateBlock
+		);
+		uint256 principleWithInterest = compound.mulu(principle);
+		principle = principleWithInterest;
+		uint256 earnedInterest = principleWithInterest - principle;
 
 		return rewardPerTokenStored += uint128(earnedInterest / totalStaked); //principle is already in PRECISION
 	}
