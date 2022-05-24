@@ -60,13 +60,14 @@ contract StakingRewardsFixedAPY {
 			return rewardPerTokenStored;
 		}
 
-		//earned in timespan = interestRatePerBlock^blocksPassed * principle/PRECISION
+		//interest in timespan = (interestRatePerBlock^blocksPassed - 100%);
+		//earned in timespan = interestInTimespan * principle/PRECISION
 		//earned perToken = earnedInTimeSpan*PRECISION/totalStaked
 		//PRECISION cancels out
-		int128 compound = interestRatePerBlockX64.pow(
-			block.number - lastUpdateBlock
-		);
-		uint256 earnedInterest = compound.mulu(principle);
+		int128 compoundInterestDelta = (
+			interestRatePerBlockX64.pow(block.number - lastUpdateBlock)
+		) - (1 * PRECISION);
+		uint256 earnedInterest = compoundInterestDelta.mulu(principle);
 		principle += earnedInterest;
 
 		return rewardPerTokenStored += uint128(earnedInterest / totalStaked); //principle is already in PRECISION
