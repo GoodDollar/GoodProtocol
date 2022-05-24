@@ -245,16 +245,35 @@ contract GoodDollarStaking is
 	}
 
 	/// @dev helper function for multibase
-	function getUserPendingReward(address _user) public view returns (uint256) {
-		return getUserPendingReward(address(this), 0, block.number, _user);
-	}
-
-	/// @dev helper function for multibase
 	function goodStakerInfo(address _user) public view returns (UserInfo memory) {
 		return contractToUsers[address(this)][_user];
 	}
 
-	function totalRewardsPerShare() public view returns (uint256) {
-		return totalRewardsPerShare(address(this));
+  /// @dev helper function for multibase and FixedAPYRewards
+	function getUserPendingReward(address _user)
+		public
+		returns (uint256 _goodReward, uint128 _gdReward)
+	{
+		// GOOD rewards
+    _goodReward = getUserPendingReward(
+			address(this),
+			0,
+			block.number,
+			_user
+		);
+    
+    // g$ rewards
+    _updateReward(_user);
+    _gdReward = stakersInfo[_user].reward;
+	}
+
+	/// @dev helper function for multibase and FixedAPYRewards
+	function totalRewardsPerShare()
+		public
+		view
+		returns (uint256 _goodRewardPerShare, uint128 _gdRewardPerShare)
+	{
+		_goodRewardPerShare = super.totalRewardsPerShare(address(this));
+		_gdRewardPerShare = rewardPerTokenStored;
 	}
 }
