@@ -58,7 +58,7 @@ contract StakingRewardsFixedAPY {
 	}
 
 	function _rewardPerToken() internal returns (uint256) {
-		if (totalStaked == 0) {
+		if (totalStaked == 0 || block.number == lastUpdateBlock) {
 			return rewardPerTokenStored;
 		}
 
