@@ -42,7 +42,7 @@ export const deployWrapper = async () => {
 
   const Wrapper = (await deployDeterministic(
     {
-      name: "MintBurnWrapper",
+      name: "GoodDollarMintBurnWrapper",
       salt: "MintBurnWrapper",
       isUpgradeable: true
     },

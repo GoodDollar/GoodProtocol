@@ -11,6 +11,7 @@ import "../utils/NameService.sol";
 import "../DAOStackInterfaces.sol";
 import "../Interfaces.sol";
 import "./GoodMarketMaker.sol";
+import "./DistributionHelper.sol";
 
 interface ContributionCalc {
 	function calculateContribution(
@@ -50,6 +51,9 @@ contract GoodReserveCDai is
 
 	/// @dev mark if user claimed his GDX
 	mapping(address => bool) public isClaimedGDX;
+
+	uint32 public nonUbiBps; //how much of expansion G$ to allocate for non Ubi causes
+	DistributionHelper public distributionHelper; //in charge of distributing non UBI to different recipients
 
 	// Emits when new GD tokens minted
 	event UBIMinted(
@@ -108,6 +112,8 @@ contract GoodReserveCDai is
 		// Address of the receiver of tokens
 		address indexed receiverAddress
 	);
+
+	event NonUBIMinted(address distributionHelper, uint256 amountMinted);
 
 	function initialize(INameService _ns, bytes32 _gdxAirdrop)
 		public
@@ -353,10 +359,22 @@ contract GoodReserveCDai is
 			interestInCdai
 		);
 		uint256 gdExpansionToMint = getMarketMaker().mintExpansion(_interestToken);
-		uint256 gdUBI = gdInterestToMint + gdExpansionToMint;
-		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
-		_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), gdUBI, false);
+
+		uint256 nonUBI;
+
 		lastMinted = block.number;
+		uint256 gdUBI = gdInterestToMint + gdExpansionToMint;
+
+		if (nonUbiBps > 0) {
+			nonUBI = (gdExpansionToMint * nonUbiBps) / 10000;
+			gdUBI -= nonUBI;
+			_mintGoodDollars(address(distributionHelper), nonUBI, false);
+			emit NonUBIMinted(address(distributionHelper), nonUBI);
+			try distributionHelper.onDistribution(nonUBI) {} catch {}
+		}
+		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
+
+		_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), gdUBI, false);
 		emit UBIMinted(
 			lastMinted,
 			address(_interestToken),
@@ -365,7 +383,16 @@ contract GoodReserveCDai is
 			gdExpansionToMint,
 			gdUBI
 		);
+
 		return (gdUBI, interestInCdai);
+	}
+
+	function setDistributionHelper(DistributionHelper _helper, uint32 _bps)
+		public
+	{
+		_onlyAvatar();
+		distributionHelper = _helper;
+		nonUbiBps = _bps;
 	}
 
 	/**
