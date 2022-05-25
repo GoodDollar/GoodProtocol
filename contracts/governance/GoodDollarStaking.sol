@@ -39,12 +39,17 @@ contract GoodDollarStaking is
 	/**
 	 * @dev Emitted when `staker` stakes an `amount` of GoodDollars
 	 */
-	event Staked(address indexed staker, uint256 amount);
+	event Staked(address indexed staker, uint256 amount, uint32 donationRatio);
 
 	/**
 	 * @dev Emitted when `staker` withdraws an `amount` of staked GoodDollars
 	 */
-	event StakeWithdraw(address indexed staker, uint256 amount);
+	event StakeWithdraw(
+		address indexed staker,
+		uint256 amount, //amount withdrawn including gdRewards
+		uint256 goodRewards,
+		uint256 gdRewards
+	);
 
 	/**
 	 * @dev Constructor
@@ -75,8 +80,10 @@ contract GoodDollarStaking is
 	 * needed to be executed before the execution of this method.
 	 * Can be executed only when the contract is not paused.
 	 * @param _amount The amount of GD to stake
+	 * @param _donationRatio percentage between 0-100
 	 */
-	function stake(uint256 _amount) external {
+	function stake(uint256 _amount, uint32 _donationRatio) external {
+		require(_donationRatio <= 100, "invalid donation ratio");
 		require(_amount > 0, "You need to stake a positive token amount");
 		require(
 			token.transferFrom(_msgSender(), address(this), _amount),
@@ -95,9 +102,9 @@ contract GoodDollarStaking is
 		/* end GOOD rewards Updates */
 
 		/* G$ rewards updates */
-		_stake(_msgSender(), _amount);
+		_stake(_msgSender(), _amount, _donationRatio);
 
-		emit Staked(_msgSender(), _amount);
+		emit Staked(_msgSender(), _amount, _donationRatio);
 	}
 
 	/**
@@ -179,10 +186,10 @@ contract GoodDollarStaking is
 		nonReentrant
 		returns (uint256 goodRewards, uint256 gdRewards)
 	{
-		gdRewards = earned(_msgSender());
+		(, uint256 gdRewardsAfterDonation) = earned(_msgSender());
 
 		//this will trigger a withdraw only of rewards part
-		return withdrawStake(gdRewards);
+		return withdrawStake(gdRewardsAfterDonation);
 	}
 
 	/**
@@ -209,6 +216,7 @@ contract GoodDollarStaking is
 
 	/**
 	 * @dev override _transfer to handle rewards calculations when transfer the stake
+	 * @notice transfer may fail if value < sharePrice()
 	 */
 	function _transfer(
 		address from,
@@ -230,7 +238,7 @@ contract GoodDollarStaking is
 		//the recipient sent G$ are considered like he is staking them, so they will also earn GOOD rewards
 		//even if sender transfered G$s from his rewardsComponent which doesnt earn GOOD rewards
 		_increaseProductivity(address(this), to, value, 0, block.number);
-		_stake(to, value); //update G$ rewards
+		_stake(to, value, 0); //update G$ rewards, receiver doesnt donate any of his interest so its set to 0
 
 		//mint GOOD rewards
 		_mintRewards(from);
@@ -280,19 +288,19 @@ contract GoodDollarStaking is
 	function getUserPendingReward(address _user)
 		public
 		view
-		returns (uint256 _goodReward, uint256 _gdReward)
+		returns (uint256 _goodReward, uint256 _gdRewardAfterDonation)
 	{
 		// GOOD rewards
 		_goodReward = getUserPendingReward(address(this), 0, block.number, _user);
 
-		_gdReward = earned(_user);
+		(, _gdRewardAfterDonation) = earned(_user);
 	}
 
 	/// @dev helper function for multibase and FixedAPYRewards
 	function totalRewardsPerShare()
 		public
 		view
-		returns (uint256 _goodRewardPerShare, uint128 _gdRewardPerShare)
+		returns (uint256 _goodRewardPerShare, uint256 _gdRewardPerShare)
 	{
 		_goodRewardPerShare = super.totalRewardsPerShare(address(this));
 		_gdRewardPerShare = sharePrice();
