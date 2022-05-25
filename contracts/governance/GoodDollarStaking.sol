@@ -234,19 +234,15 @@ contract GoodDollarStaking is
 		_setAPY(_interestRatePerBlock);
 	}
 
-	/// @dev helper function for multibase
-	function getRewardsPerBlock() public view returns (uint256) {
-		return rewardsPerBlock[address(this)];
+	/// @dev helper function for multibase and FixedAPYRewards
+	function getRewardsPerBlock() public view returns (uint256 _goodRewardPerBlock, int128 _gdRewardPerBlockX64) {
+		_goodRewardPerBlock = rewardsPerBlock[address(this)];
+    _gdRewardPerBlockX64 = interestRatePerBlockX64;
 	}
 
-	/// @dev helper function for multibase
+	/// @dev helper function for multibase and FixedAPYRewards - same stake amount for both
 	function getStaked(address _user) public view returns (uint256, uint256) {
 		return getProductivity(address(this), _user);
-	}
-
-	/// @dev helper function for multibase
-	function goodStakerInfo(address _user) public view returns (UserInfo memory) {
-		return contractToUsers[address(this)][_user];
 	}
 
   /// @dev helper function for multibase and FixedAPYRewards
@@ -275,5 +271,15 @@ contract GoodDollarStaking is
 	{
 		_goodRewardPerShare = super.totalRewardsPerShare(address(this));
 		_gdRewardPerShare = rewardPerTokenStored;
+	}
+
+  /// @dev helper function for multibase
+	function goodStakerInfo(address _user) public view returns (UserInfo memory) {
+		return contractToUsers[address(this)][_user];
+	}
+
+  /// @dev helper function for FixedAPYRewards
+	function gdStakerInfo(address _user) public view returns (StakerInfo memory) {
+		return stakersInfo[_user];
 	}
 }
