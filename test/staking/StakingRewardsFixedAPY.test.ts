@@ -20,37 +20,50 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     nameService = ns;
   });
 
+  // initialize StakingMockFixedAPY once here
+  // or in every test with deployStakingMock = async () => deploy and return new contract;
+
+  // general checks
   it("Should initialize using GoodDollarStaking ctor", async () => {
     // assert interestRatePerBlockX64 == ctor input
-    // using GoodDollarStaking to be able to stake/withdraw
+    // using mock
   });
 
-  it("shouldn't allow set APY with bad values?", async () => {
+  it("should not allow to set APY with bad values?", async () => {
     // maybe we should add APY _interestRatePerBlock lower and upper limits?
   });
 
-  it("Should get stakers info", async () => {
-    // after staking
-    // advance 1 year
-    // 
-    // assert stakeinfo balance, reward, paid/minted
-  });
-  
   it("should assert precision is 18e", async () => {
   });
-  
+
   it("should update last update block after each operation stake/withdraw", async () => {
     // check once after stake
     // once after withdraw
   });
 
-  // think if to stake/withdraw and check all of these together or separately
-  it("should calculate reward per token stored correctly", async () => {
+  // in the next few tests check after running a certain scenario 
+  // to repeat scenarion maybe helper function or fixture
+  // stake -> advance 1 year -> check stats, from here continue
+  // in some tests add multiple stakers / withdraws
+
+  it("Should get stakers info", async () => {
+    // assert stakeinfo deposit, shared, rewardsPaid and avgRatio.
   });
-  
-  it("should calculate principle and total staked correctly", async () => {
+
+  it("Should get contract stats", async () => {
+    // especially the principle
+    // assert after 1st staker, 2nd staker, 3rd staker
+    // after 1st partial stake withdrawal, after 2nd complete withdrawal
   });
-  
+
+  it("should compound principle over period", async () => {
+    // call compound and assert calculation
+  });
+
+  it("should get correct principle", async () => {
+    // call getPrinciple and assert calculation
+  });
+
   it("should calculate earned rewards in period", async () => {
     // stake
     // advance blocks
@@ -59,6 +72,18 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     // advance again
   });
 
-  it("Should be able to set APY only when avatar", async () => {
+  it("Should check shares precision remains accurate", async () => {
+    // still thinking it through, tbd
+  });
+
+  it("Should undo reward", async () => {
+    // stake > pass time > collect reward > undo whole amount
+  });
+
+  it("Should fail to undo exceeding reward", async () => {
+    // stake > pass time > collect reward > undo bigger amount
+  });
+
+  it("Should fail to withdraw exceeding amount", async () => {
   });
 });
