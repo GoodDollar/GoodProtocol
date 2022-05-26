@@ -3,7 +3,7 @@ import { network, ethers, upgrades, run } from "hardhat";
 
 let totalGas = 0;
 const gasUsage = {};
-const GAS_SETTINGS = { gasLimit: 5000000 };
+const GAS_SETTINGS = {};
 export const countTotalGas = async (tx, name) => {
   let res = tx;
   if (tx.deployTransaction) tx = tx.deployTransaction;
@@ -36,12 +36,10 @@ export const deployDeterministic = async (
       (await ethers.getContractFactory(contract.name, factoryOpts));
 
     const salt = ethers.BigNumber.from(
-      ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(contract.salt || contract.name)
-      )
+      ethers.utils.keccak256(ethers.utils.toUtf8Bytes(contract.name))
     );
 
-    if (contract.isUpgradeable === true) {
+    if (contract.isUpgradable === true) {
       console.log("Deploying:", contract.name, "using proxyfactory");
       const encoded = Contract.interface.encodeFunctionData(
         contract.initializer || "initialize",
