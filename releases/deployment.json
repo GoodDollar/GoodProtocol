@@ -87,8 +87,8 @@
         "GoodFundManager": "0xAeEC5Af38c034D2f983dA5948646617Eee3a3372",
         "StakersDistribution": "0x139F5DD0D48b9BDbF9d12e7A2A2fDc42577746ad",
         "ProtocolUpgrade": "0x15Ac42377D9eD4168DFf9126DAf188F20b23E54D",
-        "CompoundStakingFactory": "0x932DC4c08140272D658C5059589A6f862991aB02",
-        "AaveStakingFactory": "0xeB348140d16eacf3BF321247504FeDD448Fd0B8F",
+        "CompoundStakingFactory": "0xba5b519b80d044038159b980d1c8657d53ed08a8",
+        "AaveStakingFactory": "0xd30dacCE904EBACC642Ab6dd3415e6Fc7B7B2E10",
         "StakingContracts": [
             [
                 "0xbc371c5c98d40de18382e3e0eeb58805d76d3d50",
@@ -96,6 +96,16 @@
             ],
             [
                 "0x97336539bF2ab85ED83e63f294af113A7A110Cd3",
+                6944
+            ]
+        ],
+        "StakingContractsV3": [
+            [
+                "0x19afea8633db478a5d7a8910dc2adc982c576045",
+                13888
+            ],
+            [
+                "0x2e34a18CeDf2485fbA4e19495f29245A07869039",
                 6944
             ]
         ],
