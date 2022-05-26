@@ -8,6 +8,7 @@ contract StakingRewardsFixedAPY {
 
 	// precision constant for math
 	uint128 public constant PRECISION = 1e18;
+	uint128 public constant SHARE_PRECISION = 1e6;
 
 	// the users stake information
 	struct StakerInfo {
@@ -67,7 +68,8 @@ contract StakingRewardsFixedAPY {
 
 	function sharePrice() public view returns (uint256 price) {
 		uint256 compoundedPrinciple = _compound();
-		return compoundedPrinciple / (stats.totalShares * PRECISION);
+		return
+			(compoundedPrinciple * SHARE_PRECISION) / (stats.totalShares * PRECISION);
 	}
 
 	/**
@@ -82,8 +84,8 @@ contract StakingRewardsFixedAPY {
 			_account
 		);
 		return
-			sharePrice() *
-			stakersInfo[_account].shares -
+			(sharePrice() * stakersInfo[_account].shares) /
+			SHARE_PRECISION -
 			earnedRewards +
 			earnedRewardsAfterDonation;
 	}
@@ -99,8 +101,8 @@ contract StakingRewardsFixedAPY {
 		returns (uint256 earnedRewards, uint256 earnedRewardsAfterDonation)
 	{
 		earnedRewards =
-			sharePrice() *
-			stakersInfo[_account].shares -
+			(sharePrice() * stakersInfo[_account].shares) /
+			SHARE_PRECISION -
 			stakersInfo[_account].deposit;
 		earnedRewardsAfterDonation =
 			(earnedRewards *
@@ -133,9 +135,9 @@ contract StakingRewardsFixedAPY {
 			: 0;
 		//we also need to account for the diff between earnedRewards and donated rewards
 		uint256 donatedRewards = earnedRewards - earnedRewardsAfterDonation;
-		_amount += donatedRewards;
+		_amount += donatedRewards; //we also "withdraw" the donation part from user shares
 
-		uint128 shares = uint128(_amount / sharePrice()); //_amount now includes also donated rewards
+		uint128 shares = uint128((_amount * SHARE_PRECISION) / sharePrice()); //_amount now includes also donated rewards
 		require(shares > 0, "min withdraw 1 share");
 
 		stats.principle -= _amount * PRECISION;
@@ -155,7 +157,7 @@ contract StakingRewardsFixedAPY {
 		require(_amount > 0, "Cannot stake 0");
 		uint128 newShares = uint128(
 			stats.totalShares > 0
-				? (_amount / sharePrice()) //amount/sharePrice = new shares = amount/(principle/totalShares)
+				? ((_amount * SHARE_PRECISION) / sharePrice()) //amount/sharePrice = new shares = amount/(principle/totalShares)
 				: _amount
 		);
 		stats.totalShares += newShares;
@@ -195,7 +197,7 @@ contract StakingRewardsFixedAPY {
 		stakersInfo[_to].rewardsPaid -= uint128(_amount);
 		stats.principle += _amount * PRECISION; //rewards are part of the compounding interest
 
-		uint128 newShares = uint128(_amount / sharePrice());
+		uint128 newShares = uint128((_amount * SHARE_PRECISION) / sharePrice());
 		stakersInfo[_to].shares += newShares;
 		stats.totalShares += newShares;
 	}
