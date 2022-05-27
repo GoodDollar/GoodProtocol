@@ -18,21 +18,26 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     genericCall,
     controller,
     fixedStakingMockFactory,
-    fixedStaking;
+    fixedStaking,
+    goodDollar,
+    founder,
+    staker
+    ;
 
   before(async () => {
-    signers = await ethers.getSigners();
+    [founder, staker, ...signers] = await ethers.getSigners();
 
     let {
       controller: ctrl,
       avatar: av,
       genericCall: gc,
+      gd
     } = await createDAO();
 
     avatar = av;
     genericCall = gc;
     controller = ctrl;
-
+    goodDollar = await ethers.getContractAt("IGoodDollar", gd);
     fixedStakingMockFactory = await ethers.getContractFactory(
       "StakingMockFixedAPY"
     );
@@ -54,7 +59,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(actualInterestRateIn128).to.equal(interestRateInt128Format);
   });
 
-  it("should set APY", async () => {
+  it("should set APY successfully", async () => {
     const beforeSetInterestRateIn128 = await fixedStaking.interestRatePerBlockX64();
 
     const interestRatePerBlockX64 = BN.from(INTEREST_RATE_10APY_X64);   // x64 representation of same number
@@ -71,12 +76,17 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     // maybe we should add APY _interestRatePerBlock lower and upper limits?
   });
 
-  it("should assert precision is 18e", async () => {
-  });
-
   it("should update last update block after each operation stake/withdraw", async () => {
-    // check once after stake
-    // once after withdraw
+    await goodDollar.mint(staker.address, "100");
+    await goodDollar.connect(staker).approve(fixedStaking.address, "100");
+    await fixedStaking.connect(staker).stake(staker.address, "100", 10);
+    // todo take relevant parts from here into tests
+    const principle = await fixedStaking.getPrinciple(staker.address);
+    console.log({ principle });
+    const info = (await fixedStaking.stakersInfo(staker.address)).deposit;
+    console.log({ info });
+    const info2 = await fixedStaking.stats();
+    console.log({ info2 });
   });
 
   // in the next few tests check after running a certain scenario 
@@ -112,6 +122,10 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
   it("Should check shares precision remains accurate", async () => {
     // still thinking it through, tbd
+  });
+
+  it("should assert precision is 18e and share precision is 1e6", async () => {
+    // maybe not needed and the share precision is what's important
   });
 
   it("Should undo reward", async () => {
