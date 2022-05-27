@@ -20,7 +20,7 @@ contract StakingMockFixedAPY is StakingRewardsFixedAPY {
 		public
 		returns (uint256 depositComponent, uint256 rewardComponent)
 	{
-		return withdraw(_from, _amount);
+		return _withdraw(_from, _amount);
 	}
 
 	function stake(

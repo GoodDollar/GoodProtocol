@@ -110,7 +110,9 @@ contract StakingRewardsFixedAPY {
 			(100 * PRECISION);
 	}
 
-	// this function updates the reward for the specific user
+	/**
+	 * @dev Updates the rewards for all stakers
+	 */
 	function _updateReward() internal virtual {
 		stats.principle = _compound();
 		stats.lastUpdateBlock = uint128(block.number);

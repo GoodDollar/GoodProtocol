@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers, upgrades } from "hardhat";
-import { createDAO } from "../helpers";
+import { createDAO, advanceBlocks } from '../helpers';
 import { deploy } from '../../scripts/test/localOldDaoDeploy';
 
 const BN = ethers.BigNumber;
@@ -21,11 +21,30 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     fixedStaking,
     goodDollar,
     founder,
-    staker
+    staker1,
+    staker2,
+    staker3
     ;
 
+  async function stake(_staker, _amount, _givebackRatio) {
+    await goodDollar.mint(_staker.address, _amount);
+    await goodDollar.connect(_staker).approve(fixedStaking.address, _amount);
+    await fixedStaking.connect(_staker).stake(_staker.address, _amount, _givebackRatio);
+  }
+
+  async function withdraw(_staker, _amount) {
+    await fixedStaking.connect(_staker).withdraw(_staker.address, _amount);
+  }
+
+  function print(object) { // to be removed, just for debugging 
+    object.forEach(element => {
+      console.log(element.toString())
+    });
+    console.log(`----------------------`);
+  }
+
   before(async () => {
-    [founder, staker, ...signers] = await ethers.getSigners();
+    [founder, staker1, staker2, staker3, ...signers] = await ethers.getSigners();
 
     let {
       controller: ctrl,
@@ -77,16 +96,59 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should update last update block after each operation stake/withdraw", async () => {
-    await goodDollar.mint(staker.address, "100");
-    await goodDollar.connect(staker).approve(fixedStaking.address, "100");
-    await fixedStaking.connect(staker).stake(staker.address, "100", 10);
-    // todo take relevant parts from here into tests
-    const principle = await fixedStaking.getPrinciple(staker.address);
-    console.log({ principle });
-    const info = (await fixedStaking.stakersInfo(staker.address)).deposit;
-    console.log({ info });
-    const info2 = await fixedStaking.stats();
-    console.log({ info2 });
+    const statsBeforeStake1 = await fixedStaking.stats();
+    print(statsBeforeStake1); // to be removed
+
+    const stakeAmount1 = 100;
+    await stake(staker1, stakeAmount1, 10);
+    const statsAfterStake1 = await fixedStaking.stats();
+    print(statsAfterStake1); // to be removed
+
+    const stakeAmount2 = 200;
+    await stake(staker2, stakeAmount2, 40);
+    const statsAfterStake2 = await fixedStaking.stats();
+    print(statsAfterStake2); // to be removed
+
+    advanceBlocks(10000);
+
+    const withdrawAmount1 = 50, withdrawAmount2 = 50
+    await withdraw(staker1, withdrawAmount1);
+    const statsAfterWithdraw1 = await fixedStaking.stats();
+    print(statsAfterWithdraw1); // to be removed
+
+    await withdraw(staker1, withdrawAmount2);
+    const statsAfterWithdraw2 = await fixedStaking.stats();
+    print(statsAfterWithdraw2); // to be removed
+
+    // lastUpdateBlock
+    expect(statsAfterStake1.lastUpdateBlock.gt(statsBeforeStake1.lastUpdateBlock));
+    expect(statsAfterStake2.lastUpdateBlock.gt(statsAfterStake1.lastUpdateBlock));
+    expect(statsAfterWithdraw1.lastUpdateBlock.gt(statsAfterStake2.lastUpdateBlock));
+    expect(statsAfterWithdraw2.lastUpdateBlock.gt(statsAfterWithdraw1.lastUpdateBlock));
+
+    // totalStaked
+    expect(statsAfterStake1.totalStaked.eq(statsBeforeStake1.totalStaked.add(stakeAmount1)));
+    expect(statsAfterStake2.totalStaked.eq(statsAfterStake1.totalStaked.add(stakeAmount2)));
+    expect(statsAfterWithdraw1.totalStaked.eq(statsAfterStake2.totalStaked.sub(withdrawAmount1)));
+    expect(statsAfterWithdraw2.totalStaked.eq(statsAfterWithdraw1.totalStaked.sub(withdrawAmount2)));
+
+    // // totalShares
+    // expect(statsAfterStake1.totalShares.eq(statsBeforeStake1.totalShares.add(stakeAmount1)));
+    // expect(statsAfterStake2.totalShares.eq(statsAfterStake1.totalShares.add(stakeAmount2)));
+    // expect(statsAfterWithdraw1.totalShares.eq(statsAfterStake2.totalShares.sub(withdrawAmount1)));
+    // expect(statsAfterWithdraw2.totalShares.eq(statsAfterWithdraw1.totalShares.sub(withdrawAmount2)));
+
+    // // totalRewardsPaid
+    // expect(statsAfterStake1.totalRewardsPaid.eq(statsBeforeStake1.totalRewardsPaid.add(stakeAmount1)));
+    // expect(statsAfterStake2.totalRewardsPaid.eq(statsAfterStake1.totalRewardsPaid.add(stakeAmount2)));
+    // expect(statsAfterWithdraw1.totalRewardsPaid.eq(statsAfterStake2.totalRewardsPaid.sub(withdrawAmount1)));
+    // expect(statsAfterWithdraw2.totalRewardsPaid.eq(statsAfterWithdraw1.totalRewardsPaid.sub(withdrawAmount2)));
+
+    // // principle
+    // expect(statsAfterStake1.principle.eq(statsBeforeStake1.principle.add(stakeAmount1)));
+    // expect(statsAfterStake2.principle.eq(statsAfterStake1.principle.add(stakeAmount2)));
+    // expect(statsAfterWithdraw1.principle.eq(statsAfterStake2.principle.sub(withdrawAmount1)));
+    // expect(statsAfterWithdraw2.principle.eq(statsAfterWithdraw1.principle.sub(withdrawAmount2)));
   });
 
   // in the next few tests check after running a certain scenario 
