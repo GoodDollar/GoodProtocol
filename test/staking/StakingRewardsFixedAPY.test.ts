@@ -1,9 +1,25 @@
 import { expect } from "chai";
 import { ethers, upgrades } from "hardhat";
 import { createDAO } from "../helpers";
+import { deploy } from '../../scripts/test/localOldDaoDeploy';
+
+const BN = ethers.BigNumber;
+// APY=5% | Blocks per year = 12*60*24*365 = 6307200
+// per block = nroot(1+0.05,numberOfBlocksPerYear) = 1000000007735630000
+const INTEREST_RATE_5APY_X64 = BN.from("1000000007735630000");   // x64 representation of same number
+const INTEREST_RATE_5APY_128 = BN.from("18446744216406738474"); // 128 representation of same number
+// APY = 10% | nroot(1+0.10,numberOfBlocksPerYear) = 1000000015111330000
+const INTEREST_RATE_10APY_X64 = BN.from("1000000015111330000");   // x64 representation of same number
+const INTEREST_RATE_10APY_128 = BN.from("18446744352464388739"); // 128 representation of same number
 
 describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contract", () => {
-  let signers, avatar, genericCall, controller, nameService;
+  let signers,
+    avatar,
+    genericCall,
+    controller,
+    fixedStakingMockFactory,
+    fixedStaking;
+
   before(async () => {
     signers = await ethers.getSigners();
 
@@ -11,22 +27,44 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
       controller: ctrl,
       avatar: av,
       genericCall: gc,
-      nameService: ns
     } = await createDAO();
 
     avatar = av;
     genericCall = gc;
     controller = ctrl;
-    nameService = ns;
+
+    fixedStakingMockFactory = await ethers.getContractFactory(
+      "StakingMockFixedAPY"
+    );
   });
 
-  // initialize StakingMockFixedAPY once here
-  // or in every test with deployStakingMock = async () => deploy and return new contract;
+  beforeEach(async () => {
+    const interestRatePerBlock = BN.from(INTEREST_RATE_5APY_X64);
+    fixedStaking = await fixedStakingMockFactory.deploy(interestRatePerBlock);
+  });
 
-  // general checks
-  it("Should initialize using GoodDollarStaking ctor", async () => {
-    // assert interestRatePerBlockX64 == ctor input
-    // using mock
+  it("Should instantiate by constructor and get interest rate", async () => {
+    const interestRatePerBlock = BN.from(INTEREST_RATE_5APY_X64);     // x64 representation of same number
+    const interestRateInt128Format = BN.from(INTEREST_RATE_5APY_128); // 128 representation of same number
+    const fixedStakingInstance = await (await ethers.getContractFactory(
+      "StakingRewardsFixedAPY"
+    )).deploy(interestRatePerBlock);
+
+    const actualInterestRateIn128 = await fixedStakingInstance.interestRatePerBlockX64();
+    expect(actualInterestRateIn128).to.equal(interestRateInt128Format);
+  });
+
+  it("should set APY", async () => {
+    const beforeSetInterestRateIn128 = await fixedStaking.interestRatePerBlockX64();
+
+    const interestRatePerBlockX64 = BN.from(INTEREST_RATE_10APY_X64);   // x64 representation of same number
+    const interestRateInt128Format = BN.from(INTEREST_RATE_10APY_128);  // 128 representation of same number
+    await fixedStaking.setAPY(interestRatePerBlockX64)
+
+    const afterSetInterestRateIn128 = await fixedStaking.interestRatePerBlockX64();
+
+    expect(afterSetInterestRateIn128).to.not.equal(beforeSetInterestRateIn128);
+    expect(afterSetInterestRateIn128).to.equal(interestRateInt128Format);
   });
 
   it("should not allow to set APY with bad values?", async () => {
