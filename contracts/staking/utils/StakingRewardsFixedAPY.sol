@@ -2,6 +2,7 @@
 pragma solidity >=0.8.0;
 
 import "./Math64X64.sol";
+import "hardhat/console.sol";
 
 contract StakingRewardsFixedAPY {
 	using Math64x64 for int128;
@@ -68,6 +69,14 @@ contract StakingRewardsFixedAPY {
 
 	function sharePrice() public view returns (uint256 price) {
 		uint256 compoundedPrinciple = _compound();
+
+		// console.log(
+		// 	"compoundedPrinciple %s, shares: %s, sharePrice: %s",
+		// 	compoundedPrinciple,
+		// 	stats.totalShares,
+		// 	(compoundedPrinciple * SHARE_PRECISION) / (stats.totalShares * PRECISION)
+		// );
+
 		return
 			(compoundedPrinciple * SHARE_PRECISION) / (stats.totalShares * PRECISION);
 	}
@@ -83,6 +92,14 @@ contract StakingRewardsFixedAPY {
 		(uint256 earnedRewards, uint256 earnedRewardsAfterDonation) = earned(
 			_account
 		);
+
+		// console.log(
+		// 	"earned rewards: %s, afterDonation: %s, principle: %s",
+		// 	earnedRewards,
+		// 	earnedRewardsAfterDonation,
+		// 	(sharePrice() * stakersInfo[_account].shares) / SHARE_PRECISION
+		// );
+
 		return
 			(sharePrice() * stakersInfo[_account].shares) /
 			SHARE_PRECISION -
@@ -135,6 +152,14 @@ contract StakingRewardsFixedAPY {
 		depositComponent = _amount > earnedRewardsAfterDonation
 			? _amount - earnedRewardsAfterDonation
 			: 0;
+
+		// console.log(
+		// 	"rewards %s, deposit: %s, earnedRewardsAfter %s",
+		// 	rewardComponent,
+		// 	depositComponent,
+		// 	earnedRewardsAfterDonation
+		// );
+
 		//we also need to account for the diff between earnedRewards and donated rewards
 		uint256 donatedRewards = earnedRewards - earnedRewardsAfterDonation;
 		_amount += donatedRewards; //we also "withdraw" the donation part from user shares
@@ -160,8 +185,11 @@ contract StakingRewardsFixedAPY {
 		uint128 newShares = uint128(
 			stats.totalShares > 0
 				? ((_amount * SHARE_PRECISION) / sharePrice()) //amount/sharePrice = new shares = amount/(principle/totalShares)
-				: _amount
+				: _amount > SHARE_PRECISION
+				? _amount
+				: SHARE_PRECISION
 		);
+		require(newShares > 0, "min stake 1 share price");
 		stats.totalShares += newShares;
 		stats.totalStaked += uint128(_amount);
 		stats.principle += _amount * PRECISION;
