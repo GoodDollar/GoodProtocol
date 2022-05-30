@@ -186,9 +186,9 @@ contract GoodDollarMintBurnWrapper is
 		tokenType = _tokenType;
 		totalMintCap = _totalMintCap;
 		updateFrequency = 90 days;
-		_setupRole(DEFAULT_ADMIN_ROLE, _admin);
 		setDAO(_nameService);
-		grantRole(DEFAULT_ADMIN_ROLE, avatar);
+		_setupRole(DEFAULT_ADMIN_ROLE, _admin);
+		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
 	}
 
 	function upgrade1() external {
