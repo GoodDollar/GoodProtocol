@@ -42,10 +42,6 @@ contract StakingRewardsFixedAPY {
 	//in 1e18 = 1000000008131694000
 	int128 public interestRatePerBlockX64;
 
-	constructor(uint128 _interestRatePerBlock) {
-		_setAPY(_interestRatePerBlock);
-	}
-
 	function _setAPY(uint128 _interestRatePerBlock) internal updateReward {
 		interestRatePerBlockX64 = Math64x64.divu(_interestRatePerBlock, 1e18); //convert to signed int x64
 	}

@@ -55,11 +55,12 @@ contract GoodDollarStaking is
 	 * @dev Constructor
 	 * @param _ns The address of the INameService contract
 	 */
-	constructor(
+	function initialize(
 		INameService _ns,
 		uint128 _interestRatePerBlock,
 		uint128 _numberOfBlocksPerYear
-	) StakingRewardsFixedAPY(_interestRatePerBlock) {
+	) external initializer {
+		_setAPY(_interestRatePerBlock);
 		setDAO(_ns);
 		require(
 			nameService.getAddress("MintBurnWrapper") != address(0),

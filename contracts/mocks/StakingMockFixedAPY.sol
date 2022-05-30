@@ -4,9 +4,9 @@ pragma solidity >=0.8.0;
 import "../staking/utils/StakingRewardsFixedAPY.sol";
 
 contract StakingMockFixedAPY is StakingRewardsFixedAPY {
-	constructor(uint128 _interestRatePerBlock)
-		StakingRewardsFixedAPY(_interestRatePerBlock)
-	{}
+	constructor(uint128 _interestRatePerBlock) {
+		_setAPY(_interestRatePerBlock);
+	}
 
 	function setAPY(uint128 _interestRatePerBlock) public {
 		_setAPY(_interestRatePerBlock);
