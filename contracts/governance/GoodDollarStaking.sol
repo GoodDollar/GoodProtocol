@@ -55,11 +55,11 @@ contract GoodDollarStaking is
 	 * @dev Constructor
 	 * @param _ns The address of the INameService contract
 	 */
-	function initialize(
+	constructor(
 		INameService _ns,
 		uint128 _interestRatePerBlock,
 		uint128 _numberOfBlocksPerYear
-	) external initializer {
+	) {
 		_setAPY(_interestRatePerBlock);
 		setDAO(_ns);
 		require(
