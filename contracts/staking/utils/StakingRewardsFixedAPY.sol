@@ -26,6 +26,8 @@ contract StakingRewardsFixedAPY {
 		uint128 totalStaked;
 		uint128 totalShares;
 		uint128 totalRewardsPaid;
+		uint128 totalRewardsDonated;
+		uint128 avgDonationRatio;
 		uint256 principle; //total earning compounding interest;
 	}
 
@@ -127,6 +129,13 @@ contract StakingRewardsFixedAPY {
 			(100 * PRECISION);
 	}
 
+	function getRewardsDebt() external view returns (uint256 rewardsDebt) {
+		uint256 rewardsToPay = _compound() - stats.totalStaked;
+		rewardsDebt =
+			(rewardsToPay * (100 * PRECISION - stats.avgDonationRatio)) /
+			(100 * PRECISION);
+	}
+
 	/**
 	 * @dev Updates the rewards for all stakers
 	 */
@@ -167,10 +176,18 @@ contract StakingRewardsFixedAPY {
 		uint128 shares = uint128((_amount * SHARE_PRECISION) / sharePrice()); //_amount now includes also donated rewards
 		require(shares > 0, "min withdraw 1 share");
 
+		stats.avgDonationRatio =
+			(stats.avgDonationRatio *
+				stats.totalShares -
+				stakersInfo[_from].avgDonationRatio *
+				shares) /
+			(stats.totalShares - shares);
+
 		stats.principle -= _amount * PRECISION;
 		stats.totalShares -= shares;
 		stats.totalStaked -= uint128(depositComponent);
 		stats.totalRewardsPaid += uint128(rewardComponent);
+		stats.totalRewardsDonated += uint128(donatedRewards);
 		stakersInfo[_from].shares -= shares;
 		stakersInfo[_from].deposit -= uint128(depositComponent);
 		stakersInfo[_from].rewardsPaid += uint128(rewardComponent);
@@ -190,9 +207,6 @@ contract StakingRewardsFixedAPY {
 				: SHARE_PRECISION
 		);
 		require(newShares > 0, "min stake 1 share price");
-		stats.totalShares += newShares;
-		stats.totalStaked += uint128(_amount);
-		stats.principle += _amount * PRECISION;
 
 		stakersInfo[_from].deposit += uint128(_amount);
 		uint128 accountShares = stakersInfo[_from].shares;
@@ -204,6 +218,18 @@ contract StakingRewardsFixedAPY {
 				newShares) /
 			(accountShares + newShares);
 		stakersInfo[_from].shares += newShares;
+
+		stats.avgDonationRatio =
+			(stats.avgDonationRatio *
+				stats.totalShares +
+				_donationRatio *
+				PRECISION *
+				newShares) /
+			(stats.totalShares + newShares);
+
+		stats.totalShares += newShares;
+		stats.totalStaked += uint128(_amount);
+		stats.principle += _amount * PRECISION;
 	}
 
 	// function _getReward(address _to)
@@ -228,6 +254,14 @@ contract StakingRewardsFixedAPY {
 		stats.principle += _amount * PRECISION; //rewards are part of the compounding interest
 
 		uint128 newShares = uint128((_amount * SHARE_PRECISION) / sharePrice());
+
+		stats.avgDonationRatio =
+			(stats.avgDonationRatio *
+				stats.totalShares +
+				stakersInfo[_to].avgDonationRatio *
+				newShares) /
+			(stats.totalShares + newShares);
+
 		stakersInfo[_to].shares += newShares;
 		stats.totalShares += newShares;
 	}
