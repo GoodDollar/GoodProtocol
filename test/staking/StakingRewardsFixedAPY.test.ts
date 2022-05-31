@@ -22,7 +22,6 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     avatar,
     genericCall,
     controller,
-    fixedStakingMockFactory,
     fixedStaking: StakingMockFixedAPY,
     goodDollar,
     founder,
@@ -50,6 +49,14 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     console.log(`----------------------`);
   }
 
+  // on withdraw: _amount / sharePrice = shares redeemed
+  // on stake: _amount / sharePrice = shares added
+  async function getExpectedSharesChange(_amount, _contract = fixedStaking) {
+    return BN.from(_amount)
+      .mul(await _contract.SHARE_PRECISION())
+      .div(await _contract.sharePrice());
+  }
+
   before(async () => {
     [founder, staker1, staker2, staker3, staker4, ...signers] =
       await ethers.getSigners();
@@ -69,9 +76,6 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     genericCall = gc;
     controller = ctrl;
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
-    fixedStakingMockFactory = await ethers.getContractFactory(
-      "StakingMockFixedAPY"
-    );
   });
 
   const fixture_1year = async (wallets, provider) => {
@@ -110,140 +114,6 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   xit("should update global stats after each operation stake/withdraw", async () => {
-    const statsBeforeStake1 = await fixedStaking.stats();
-    print(statsBeforeStake1); // to be removed
-
-    const stakeAmount1 = 100;
-    await stake(staker1, stakeAmount1, 0);
-    const info0 = await fixedStaking.stakersInfo(staker1.address);
-    print(info0); // to be removed
-    const statsAfterStake1 = await fixedStaking.stats();
-    print(statsAfterStake1); // to be removed
-
-    const stakeAmount2 = 200;
-    await stake(staker2, stakeAmount2, 0);
-    const info00 = await fixedStaking.stakersInfo(staker1.address);
-    print(info00); // to be removed
-    const statsAfterStake2 = await fixedStaking.stats();
-    print(statsAfterStake2); // to be removed
-
-    advanceBlocks(BLOCKS_ONE_YEAR);
-
-    // change withdrawAmount2 to 51 to test reward withdrawal
-    const withdrawAmount1 = 50,
-      withdrawAmount2 = 50;
-
-    await fixedStaking
-      .connect(staker1)
-      .withdraw(staker1.address, withdrawAmount1);
-    const info1 = await fixedStaking.stakersInfo(staker1.address);
-    print(info1); // to be removed
-    const statsAfterWithdraw1 = await fixedStaking.stats();
-    print(statsAfterWithdraw1); // to be removed
-
-    const principleBeforeWithdraw = await fixedStaking.getPrinciple(
-      staker1.address
-    );
-
-    await fixedStaking
-      .connect(staker1)
-      .withdraw(staker1.address, withdrawAmount2);
-    const info2 = await fixedStaking.stakersInfo(staker1.address);
-    print(info2); // to be removed
-    const statsAfterWithdraw2 = await fixedStaking.stats();
-    print(statsAfterWithdraw2); // to be removed
-
-    // lastUpdateBlock
-    expect(
-      statsAfterStake1.lastUpdateBlock.gt(statsBeforeStake1.lastUpdateBlock)
-    );
-    expect(
-      statsAfterStake2.lastUpdateBlock.gt(statsAfterStake1.lastUpdateBlock)
-    );
-    expect(
-      statsAfterWithdraw1.lastUpdateBlock.gt(statsAfterStake2.lastUpdateBlock)
-    );
-    expect(
-      statsAfterWithdraw2.lastUpdateBlock.gt(
-        statsAfterWithdraw1.lastUpdateBlock
-      )
-    );
-
-    // totalStaked
-    expect(
-      statsAfterStake1.totalStaked.eq(
-        statsBeforeStake1.totalStaked.add(stakeAmount1)
-      )
-    );
-    expect(
-      statsAfterStake2.totalStaked.eq(
-        statsAfterStake1.totalStaked.add(stakeAmount2)
-      )
-    );
-    expect(
-      statsAfterWithdraw1.totalStaked.eq(
-        statsAfterStake2.totalStaked.sub(withdrawAmount1)
-      )
-    );
-    expect(
-      statsAfterWithdraw2.totalStaked.eq(
-        statsAfterWithdraw1.totalStaked.sub(withdrawAmount2)
-      )
-    );
-
-    // totalShares
-    expect(statsAfterStake1.totalShares.gt(statsBeforeStake1.totalShares));
-    expect(statsAfterStake2.totalShares.gt(statsAfterStake1.totalShares));
-    expect(statsAfterWithdraw1.totalShares.lt(statsAfterStake2.totalShares));
-    expect(statsAfterWithdraw2.totalShares.lt(statsAfterWithdraw1.totalShares));
-
-    // // totalRewardsPaid
-    // expect(statsAfterStake1.totalRewardsPaid.eq(statsBeforeStake1.totalRewardsPaid.add(stakeAmount1)));
-    // expect(statsAfterStake2.totalRewardsPaid.eq(statsAfterStake1.totalRewardsPaid.add(stakeAmount2)));
-    // expect(statsAfterWithdraw1.totalRewardsPaid.eq(statsAfterStake2.totalRewardsPaid.sub(withdrawAmount1)));
-    // expect(statsAfterWithdraw2.totalRewardsPaid.eq(statsAfterWithdraw1.totalRewardsPaid.sub(withdrawAmount2)));
-
-    // principle
-    expect(statsAfterStake1.principle.gt(statsBeforeStake1.principle));
-    expect(statsAfterStake2.principle.gt(statsAfterStake1.principle));
-    expect(statsAfterWithdraw1.principle.lt(statsAfterStake2.principle));
-    expect(statsAfterWithdraw2.principle.lt(statsAfterWithdraw1.principle));
-  });
-
-  it("Should get stakers info", async () => {
-    // assert stakeinfo deposit, shared, rewardsPaid and avgRatio.
-  });
-
-  it("Should get contract stats", async () => {
-    // especially the principle
-    // assert after 1st staker, 2nd staker, 3rd staker
-    // after 1st partial stake withdrawal, after 2nd complete withdrawal
-  });
-
-  it("should compound principle over period with donation 100% and 50% and 0%", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
-    let principle = await staking.getPrinciple(staker1.address);
-    expect(principle).to.equal(10000);
-    principle = await staking.getPrinciple(staker2.address);
-    expect(principle).to.equal(10250);
-    principle = await staking.getPrinciple(staker3.address);
-    expect(principle).to.equal(10500);
-
-    let info = await staking.stakersInfo(staker1.address);
-
-    const initialShares = (await staking.SHARE_DECIMALS()).mul(10000);
-    expect(info.deposit).to.equal(10000);
-    expect(info.shares).to.equal(initialShares); //amount * shareprecision / 1000 (initial share price)
-    expect(info.rewardsPaid).to.equal(0);
-    expect(info.avgDonationRatio).to.equal(
-      (await staking.PRECISION()).mul(100)
-    );
-
-    info = await staking.stakersInfo(staker2.address);
-    expect(info.deposit).to.equal(10000);
-    expect(info.shares).to.equal(initialShares);
-    expect(info.rewardsPaid).to.equal(0);
-    expect(info.avgDonationRatio).to.equal((await staking.PRECISION()).mul(50));
   });
 
   it("should compound principle over 2 years with donation 100% and 50% and new staker after 1 year with 25%", async () => {
@@ -293,15 +163,12 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     );
   });
 
-  it.only("should withdraw partial amount and calculate principle correctly after 1 year", async () => {
+  it("should withdraw partial amount and calculate principle correctly after 1 year", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
     const infoBefore = await staking.stakersInfo(staker3.address);
 
     //9500 withdraw / sharePrice = shares to reduce
-    const expectedSharesRedeemed = BN.from(9500)
-      .mul(await staking.SHARE_PRECISION())
-      .div(await staking.sharePrice());
-
+    const expectedSharesRedeemed = await getExpectedSharesChange(9500, staking);
     await staking.withdraw(staker3.address, BN.from(9500));
     const balanceAfterWithdraw = await staking.getPrinciple(staker3.address);
     expect(balanceAfterWithdraw).to.equal(1000);
@@ -326,6 +193,9 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
   it("should withdraw partial amount when donating and calculate principle correctly after 1 year", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
+    const infoBefore = await staking.stakersInfo(staker1.address);
+    const expectedSharesRedeemed = await getExpectedSharesChange(9500, staking);
+
     await staking.withdraw(staker1.address, BN.from(9500)); // 10000 deposit + 0 rewards before
     const balanceAfterWithdraw = await staking.getPrinciple(staker1.address);
     expect(balanceAfterWithdraw).to.equal(500);
@@ -335,26 +205,26 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
     expect(await staking.getPrinciple(staker1.address)).to.equal(500);
     expect(info.deposit).to.equal(500);
-    expect(info.shares.toNumber()).to.be.greaterThan(0); // todo: calc in a more accurate way
+    expect(info.shares.toNumber()).to.equal(infoBefore.shares.sub(expectedSharesRedeemed)); // todo: calc in a more accurate way
     expect(info.rewardsPaid).to.equal(0);
     expect(info.avgDonationRatio).to.equal(
       (await staking.PRECISION()).mul(100)
     );
-    // expect(info.shares).to.equal(BN.from(info.deposit).
-    //   mul(await staking.SHARE_PRECISION()).
-    //   div(await staking.sharePrice()));
   });
 
   it("should withdraw rewards from rewards only", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
+    const infoBefore = await staking.stakersInfo(staker3.address);
     const balance = await staking.getPrinciple(staker3.address);
+
+    const expectedSharesRedeemed = await getExpectedSharesChange(500, staking);
     await staking.withdraw(staker3.address, 500);
     const info = await staking.stakersInfo(staker3.address);
 
     expect(balance).to.equal(10500); //initial stake 10000 + 5%
     expect(await staking.getPrinciple(staker3.address)).to.equal(10000);
     expect(info.deposit).to.equal(10000);
-    expect(info.shares.toNumber()).to.be.greaterThan(0);
+    expect(info.shares.toNumber()).to.equal(infoBefore.shares.sub(expectedSharesRedeemed));
     expect(info.rewardsPaid).to.equal(500);
     expect(info.avgDonationRatio).to.equal(0);
   });
