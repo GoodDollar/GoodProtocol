@@ -293,24 +293,35 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     );
   });
 
-  it("should withdraw partial amount and calculate principle correctly after 1 year", async () => {
+  it.only("should withdraw partial amount and calculate principle correctly after 1 year", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
+    const infoBefore = await staking.stakersInfo(staker3.address);
 
-    await staking.withdraw(staker3.address, BN.from(9500)); // 10000 deposit + 500 rewards before. 1000 deposit after
+    //9500 withdraw / sharePrice = shares to reduce
+    const expectedSharesRedeemed = BN.from(9500)
+      .mul(await staking.SHARE_PRECISION())
+      .div(await staking.sharePrice());
+
+    await staking.withdraw(staker3.address, BN.from(9500));
     const balanceAfterWithdraw = await staking.getPrinciple(staker3.address);
     expect(balanceAfterWithdraw).to.equal(1000);
 
     await advanceBlocks(BLOCKS_ONE_YEAR);
-    const info = await staking.stakersInfo(staker3.address);
 
-    expect(await staking.getPrinciple(staker3.address)).to.equal(1050);
-    expect(info.deposit).to.equal(1000);
-    expect(info.shares.toNumber()).to.be.greaterThan(0); // todo: calc in a more accurate way
+    const info = await staking.stakersInfo(staker3.address);
+    expect(await staking.getPrinciple(staker3.address)).to.equal(1050); //principle after 1000 + 1 year 5%
+    expect(info.deposit).to.equal(1000); // 10000 original deposit + 500 rewards before. 1000 principle after
+
+    //check shares
+    expect(info.shares).to.equal(infoBefore.shares.sub(expectedSharesRedeemed));
+    expect(
+      info.shares
+        .mul(await staking.sharePrice())
+        .div(await staking.SHARE_PRECISION())
+    ).to.equal(await staking.getPrinciple(staker3.address));
+
     expect(info.rewardsPaid).to.equal(500);
     expect(info.avgDonationRatio).to.equal(0);
-    // expect(info.shares).to.equal(BN.from(info.deposit).
-    //   mul(await staking.SHARE_PRECISION()).
-    //   div(await staking.sharePrice()));
   });
 
   it("should withdraw partial amount when donating and calculate principle correctly after 1 year", async () => {
@@ -348,10 +359,10 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(info.avgDonationRatio).to.equal(0);
   });
 
-  it("should update avgDonationRatio after second stake", async () => { });
-  it("should update avgDonationRatio after partial withdraw and then second stake", async () => { });
+  it("should update avgDonationRatio after second stake", async () => {});
+  it("should update avgDonationRatio after partial withdraw and then second stake", async () => {});
 
-  it("should calculate correct share price and staking shares after principle has grown", async () => { });
+  it("should calculate correct share price and staking shares after principle has grown", async () => {});
 
   it("should get correct principle", async () => {
     // call getPrinciple and assert calculation
@@ -381,7 +392,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     // stake > pass time > collect reward > undo bigger amount
   });
 
-  it("Should fail to withdraw exceeding amount", async () => { });
+  it("Should fail to withdraw exceeding amount", async () => {});
 
-  it("Should not earn new rewards when withdrawing right after withdrawing or staking", async () => { });
+  it("Should not earn new rewards when withdrawing right after withdrawing or staking", async () => {});
 });

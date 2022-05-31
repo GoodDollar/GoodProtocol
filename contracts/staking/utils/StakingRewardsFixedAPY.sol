@@ -169,9 +169,20 @@ contract StakingRewardsFixedAPY {
 
 		//we also need to account for the diff between earnedRewards and donated rewards
 		uint256 donatedRewards = earnedRewards - earnedRewardsAfterDonation;
+
+		// console.log(
+		// 	"withdraw: rewardCompoent %s, depositComponent %s, donatedRewards %s",
+		// 	rewardComponent,
+		// 	depositComponent,
+		// 	donatedRewards
+		// );
+
 		_amount += donatedRewards; //we also "withdraw" the donation part from user shares
 
 		uint128 shares = uint128((_amount * SHARE_PRECISION) / sharePrice()); //_amount now includes also donated rewards
+
+		// console.log("withdraw: redeemed shares %s", shares);
+
 		require(shares > 0, "min withdraw 1 share");
 
 		stats.avgDonationRatio =
