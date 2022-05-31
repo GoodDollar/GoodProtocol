@@ -31,6 +31,8 @@ contract GoodDollarStaking is
 
 	uint128 public numberOfBlocksPerYear;
 
+	uint128 createdAt;
+
 	/**
 	 * @dev Emitted when `staker` earns an `amount` of GOOD tokens
 	 */
@@ -62,14 +64,11 @@ contract GoodDollarStaking is
 	) {
 		_setAPY(_interestRatePerBlock);
 		setDAO(_ns);
-		require(
-			nameService.getAddress("MintBurnWrapper") != address(0),
-			"rewards minter not set"
-		);
 		numberOfBlocksPerYear = _numberOfBlocksPerYear;
 		token = ERC20(nameService.getAddress("GOODDOLLAR"));
 		__ERC20_init("G$ Savings", "svG$");
-		rewardsPerBlock[address(this)] = (2 ether * 1e6) / getChainBlocksPerMonth(); // (2M monthly GDAO as specified in specs, divided by blocks in month )
+		rewardsPerBlock[address(this)] = 0;
+		createdAt = uint128(block.timestamp);
 	}
 
 	function getChainBlocksPerMonth() public view override returns (uint256) {
@@ -315,5 +314,39 @@ contract GoodDollarStaking is
 	/// @dev helper function for FixedAPYRewards
 	function gdStakerInfo(address _user) public view returns (StakerInfo memory) {
 		return stakersInfo[_user];
+	}
+
+	/// @notice after 1 month move GOOD permissions minting to this contract from previous GovernanceStaking
+	function upgrade() external {
+		require(
+			block.timestamp > createdAt + 30 days &&
+				dao.isSchemeRegistered(address(this), avatar),
+			"not deadline or not scheme"
+		);
+		_setMonthlyRewards(address(this), 2 ether * 1e6); //2M monthly GOOD
+
+		//this will make sure rewards are set at 0, so no withdraw issue will happen.
+		//on governacnestaking anyone withdrawing from now on will get 0 GOOD, not matter how long he has been staking
+		(bool ok, ) = dao.genericCall(
+			nameService.getAddress("GDAO_STAKING"),
+			abi.encodeWithSignature("setMonthlyRewards(uint256)", 0),
+			avatar,
+			0
+		);
+		require(ok, "calling setMonthlyRewards failed");
+
+		//this will set this contract as the GDAO_STAKING contract and give us minting rights on the reputation token
+		(ok, ) = dao.genericCall(
+			address(nameService),
+			abi.encodeWithSignature(
+				"setAddress(string,address)",
+				"GDAO_STAKING",
+				address(this)
+			),
+			avatar,
+			0
+		);
+		require(ok, "calling setAddress failed");
+		dao.unregisterSelf(avatar); // make sure we cant call this again;
 	}
 }
