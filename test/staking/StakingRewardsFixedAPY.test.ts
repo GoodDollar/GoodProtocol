@@ -93,21 +93,19 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   it("should set APY successfully", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
 
-    const beforeSetInterestRateIn128 =
-      await staking.interestRatePerBlockX64();
+    const beforeSetInterestRateIn128 = await staking.interestRatePerBlockX64();
 
     const interestRatePerBlockX64 = BN.from(INTEREST_RATE_10APY_X64); // x64 representation of same number
     const interestRateInt128Format = BN.from(INTEREST_RATE_10APY_128); // 128 representation of same number
     await staking.setAPY(interestRatePerBlockX64);
 
-    const afterSetInterestRateIn128 =
-      await staking.interestRatePerBlockX64();
+    const afterSetInterestRateIn128 = await staking.interestRatePerBlockX64();
 
     expect(afterSetInterestRateIn128).to.not.equal(beforeSetInterestRateIn128);
     expect(afterSetInterestRateIn128).to.equal(interestRateInt128Format);
   });
 
-  xit("should not allow to set APY with bad values?", async () => {
+  it("should not allow to set APY with bad values?", async () => {
     // maybe we should add APY _interestRatePerBlock lower and upper limits?
   });
 
@@ -217,11 +215,11 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   // stake -> advance 1 year -> check stats, from here continue
   // in some tests add multiple stakers / withdraws
 
-  xit("Should get stakers info", async () => {
+  it("Should get stakers info", async () => {
     // assert stakeinfo deposit, shared, rewardsPaid and avgRatio.
   });
 
-  xit("Should get contract stats", async () => {
+  it("Should get contract stats", async () => {
     // especially the principle
     // assert after 1st staker, 2nd staker, 3rd staker
     // after 1st partial stake withdrawal, after 2nd complete withdrawal
@@ -237,8 +235,10 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(principle).to.equal(10500);
 
     let info = await staking.stakersInfo(staker1.address);
+
+    const initialShares = (await staking.SHARE_DECIMALS()).mul(10000);
     expect(info.deposit).to.equal(10000);
-    expect(info.shares).to.equal(await staking.SHARE_PRECISION());
+    expect(info.shares).to.equal(initialShares); //amount * shareprecision / 1000 (initial share price)
     expect(info.rewardsPaid).to.equal(0);
     expect(info.avgDonationRatio).to.equal(
       (await staking.PRECISION()).mul(100)
@@ -246,7 +246,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
     info = await staking.stakersInfo(staker2.address);
     expect(info.deposit).to.equal(10000);
-    expect(info.shares).to.equal(await staking.SHARE_PRECISION());
+    expect(info.shares).to.equal(initialShares);
     expect(info.rewardsPaid).to.equal(0);
     expect(info.avgDonationRatio).to.equal((await staking.PRECISION()).mul(50));
   });
@@ -300,18 +300,14 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
   it("should withdraw partial amount and calculate principle correctly after 1 year", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
-    const balanceBeforeWithdraw = await staking.getPrinciple(staker3.address);
-    await staking.withdraw(staker3.address, BN.from(9500)); // 10000 deposit + 500 rewards before. 1000 deposit after
 
-    // this errors and returns 999
-    // const balanceAfterWithdraw = await staking.getPrinciple(staker3.address); 
+    await staking.withdraw(staker3.address, BN.from(9500)); // 10000 deposit + 500 rewards before. 1000 deposit after
+    const balanceAfterWithdraw = await staking.getPrinciple(staker3.address);
+    expect(balanceAfterWithdraw).to.equal(1000);
 
     await advanceBlocks(BLOCKS_ONE_YEAR);
     const info = await staking.stakersInfo(staker3.address);
-
-    expect(balanceBeforeWithdraw).to.equal(10500);
-    // expect(balanceAfterWithdraw).to.equal(1000);
-    // expect(await staking.getPrinciple(staker3.address)).to.equal(1050);
+    expect(await staking.getPrinciple(staker3.address)).to.equal(1050);
     expect(info.deposit).to.equal(1000);
     // expect(info.shares).to.equal(;
     expect(info.rewardsPaid).to.equal(500);
@@ -335,20 +331,18 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     );
   });
 
-  xit("should withdraw rewards from rewards only", async () => {
-  });
+  it("should withdraw rewards from rewards only", async () => {});
 
+  it("should update avgDonationRatio after second stake", async () => {});
+  it("should update avgDonationRatio after partial withdraw and then second stake", async () => {});
 
-  xit("should update avgDonationRatio after second stake", async () => { });
-  xit("should update avgDonationRatio after partial withdraw and then second stake", async () => { });
+  it("should calculate correct share price and staking shares after principle has grown", async () => {});
 
-  xit("should calculate correct share price and staking shares after principle has grown", async () => { });
-
-  xit("should get correct principle", async () => {
+  it("should get correct principle", async () => {
     // call getPrinciple and assert calculation
   });
 
-  xit("should calculate earned rewards in period", async () => {
+  it("should calculate earned rewards in period", async () => {
     // stake
     // advance blocks
     // call earned, assert result
@@ -356,23 +350,23 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     // advance again
   });
 
-  xit("Should check shares precision remains accurate", async () => {
+  it("Should check shares precision remains accurate", async () => {
     // still thinking it through, tbd
   });
 
-  xit("should assert precision is 18e and share precision is 1e6", async () => {
+  it("should assert precision is 18e and share precision is 1e6", async () => {
     // maybe not needed and the share precision is what's important
   });
 
-  xit("Should undo reward", async () => {
+  it("Should undo reward", async () => {
     // stake > pass time > collect reward > undo whole amount
   });
 
-  xit("Should fail to undo exceeding reward", async () => {
+  it("Should fail to undo exceeding reward", async () => {
     // stake > pass time > collect reward > undo bigger amount
   });
 
-  xit("Should fail to withdraw exceeding amount", async () => { });
+  it("Should fail to withdraw exceeding amount", async () => {});
 
-  xit("Should not earn new rewards when withdrawing right after withdrawing or staking", async () => { });
+  it("Should not earn new rewards when withdrawing right after withdrawing or staking", async () => {});
 });
