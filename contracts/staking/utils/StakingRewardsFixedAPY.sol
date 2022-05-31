@@ -9,7 +9,8 @@ contract StakingRewardsFixedAPY {
 
 	// precision constant for math
 	uint128 public constant PRECISION = 1e18;
-	uint128 public constant SHARE_PRECISION = 1e6;
+	uint128 public constant SHARE_PRECISION = 1e8;
+	uint128 public constant SHARE_DECIMALS = 1e2;
 
 	// the users stake information
 	struct StakerInfo {
@@ -92,11 +93,12 @@ contract StakingRewardsFixedAPY {
 		);
 
 		// console.log(
-		// 	"earned rewards: %s, afterDonation: %s, principle: %s",
+		// 	"getPrinciple: earned rewards: %s, afterDonation: %s, sharePrice: %s",
 		// 	earnedRewards,
 		// 	earnedRewardsAfterDonation,
-		// 	(sharePrice() * stakersInfo[_account].shares) / SHARE_PRECISION
+		// 	sharePrice()
 		// );
+		// console.log("getPrinciple: shares: %s", stakersInfo[_account].shares);
 
 		return
 			(sharePrice() * stakersInfo[_account].shares) /
@@ -198,9 +200,7 @@ contract StakingRewardsFixedAPY {
 		uint128 newShares = uint128(
 			stats.totalShares > 0
 				? ((_amount * SHARE_PRECISION) / sharePrice()) //amount/sharePrice = new shares = amount/(principle/totalShares)
-				: _amount > SHARE_PRECISION
-				? _amount
-				: SHARE_PRECISION
+				: (_amount * SHARE_DECIMALS) //principal/number of shares is shares price, so initially each share price will represent G%cent/SHARE_DECIMALS
 		);
 		require(newShares > 0, "min stake 1 share price");
 
