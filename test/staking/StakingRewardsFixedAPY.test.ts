@@ -210,11 +210,6 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(statsAfterWithdraw2.principle.lt(statsAfterWithdraw1.principle));
   });
 
-  // in the next few tests check after running a certain scenario
-  // to repeat scenarion maybe helper function or fixture
-  // stake -> advance 1 year -> check stats, from here continue
-  // in some tests add multiple stakers / withdraws
-
   it("Should get stakers info", async () => {
     // assert stakeinfo deposit, shared, rewardsPaid and avgRatio.
   });
@@ -307,21 +302,26 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
     await advanceBlocks(BLOCKS_ONE_YEAR);
     const info = await staking.stakersInfo(staker3.address);
+
     expect(await staking.getPrinciple(staker3.address)).to.equal(1050);
     expect(info.deposit).to.equal(1000);
-    // expect(info.shares).to.equal(;
+    expect(info.shares.toNumber()).to.be.greaterThan(0); // todo: calc in a more accurate way
     expect(info.rewardsPaid).to.equal(500);
     expect(info.avgDonationRatio).to.equal(0);
+    // expect(info.shares).to.equal(BN.from(info.deposit).
+    //   mul(await staking.SHARE_PRECISION()).
+    //   div(await staking.sharePrice()));
   });
 
   it("should withdraw partial amount when donating and calculate principle correctly after 1 year", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
-    const balanceBeforeWithdraw = await staking.getPrinciple(staker1.address);
     await staking.withdraw(staker1.address, BN.from(9500)); // 10000 deposit + 0 rewards before
+    const balanceAfterWithdraw = await staking.getPrinciple(staker1.address);
+    expect(balanceAfterWithdraw).to.equal(500);
+
     await advanceBlocks(BLOCKS_ONE_YEAR);
     const info = await staking.stakersInfo(staker1.address);
 
-    expect(balanceBeforeWithdraw).to.equal(10000);
     expect(await staking.getPrinciple(staker1.address)).to.equal(500);
     expect(info.deposit).to.equal(500);
     expect(info.shares.toNumber()).to.be.greaterThan(0); // todo: calc in a more accurate way
@@ -329,14 +329,29 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(info.avgDonationRatio).to.equal(
       (await staking.PRECISION()).mul(100)
     );
+    // expect(info.shares).to.equal(BN.from(info.deposit).
+    //   mul(await staking.SHARE_PRECISION()).
+    //   div(await staking.sharePrice()));
   });
 
-  it("should withdraw rewards from rewards only", async () => {});
+  it("should withdraw rewards from rewards only", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    const balance = await staking.getPrinciple(staker3.address);
+    await staking.withdraw(staker3.address, 500);
+    const info = await staking.stakersInfo(staker3.address);
 
-  it("should update avgDonationRatio after second stake", async () => {});
-  it("should update avgDonationRatio after partial withdraw and then second stake", async () => {});
+    expect(balance).to.equal(10500); //initial stake 10000 + 5%
+    expect(await staking.getPrinciple(staker3.address)).to.equal(10000);
+    expect(info.deposit).to.equal(10000);
+    expect(info.shares.toNumber()).to.be.greaterThan(0);
+    expect(info.rewardsPaid).to.equal(500);
+    expect(info.avgDonationRatio).to.equal(0);
+  });
 
-  it("should calculate correct share price and staking shares after principle has grown", async () => {});
+  it("should update avgDonationRatio after second stake", async () => { });
+  it("should update avgDonationRatio after partial withdraw and then second stake", async () => { });
+
+  it("should calculate correct share price and staking shares after principle has grown", async () => { });
 
   it("should get correct principle", async () => {
     // call getPrinciple and assert calculation
@@ -366,7 +381,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     // stake > pass time > collect reward > undo bigger amount
   });
 
-  it("Should fail to withdraw exceeding amount", async () => {});
+  it("Should fail to withdraw exceeding amount", async () => { });
 
-  it("Should not earn new rewards when withdrawing right after withdrawing or staking", async () => {});
+  it("Should not earn new rewards when withdrawing right after withdrawing or staking", async () => { });
 });
