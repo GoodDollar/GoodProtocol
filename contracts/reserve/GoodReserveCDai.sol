@@ -381,8 +381,8 @@ contract GoodReserveCDai is
 			emit NonUBIMinted(address(distributionHelper), nonUBI);
 			try distributionHelper.onDistribution(nonUBI) {} catch {}
 		}
-		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
 
+		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
 		_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), gdUBI, false);
 		emit UBIMinted(
 			lastMinted,

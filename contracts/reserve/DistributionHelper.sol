@@ -12,6 +12,11 @@ import "../utils/DAOUpgradeableContract.sol";
 
 import "hardhat/console.sol";
 
+/***
+ * DistributionHelper receives funds and distributes them to recipients
+ * recipients can be on other blockchains and get their funds via fuse/multichain bridge
+ * accounts with ADMIN_ROLE can update the recipients, defaults to Avatar
+ */
 contract DistributionHelper is
 	DAOUpgradeableContract,
 	AccessControlEnumerableUpgradeable
@@ -23,13 +28,14 @@ contract DistributionHelper is
 	}
 
 	struct DistributionRecipient {
-		uint32 bps;
-		uint32 chainId;
-		address addr;
+		uint32 bps; //share out of each distribution
+		uint32 chainId; //for multichain bridge
+		address addr; //recipient address
 		TransferType transferType;
 	}
 
 	DistributionRecipient[] public distributionRecipients;
+
 	address public fuseBridge;
 	IMultichainRouter public multiChainBridge;
 
@@ -38,6 +44,9 @@ contract DistributionHelper is
 		uint256 startingBalance,
 		uint256 incomingAmount
 	);
+
+	event RecipientUpdated(DistributionRecipient recipient, uint256 index);
+	event RecipientAdded(DistributionRecipient recipient, uint256 index);
 
 	function initialize(INameService _ns) external initializer {
 		__AccessControlEnumerable_init();
@@ -49,6 +58,10 @@ contract DistributionHelper is
 		);
 	}
 
+	/**
+	 * @dev this is usually called by reserve, but can be called by anyone anytime to trigger distribution
+	 * @param _amount how much was sent, informational only
+	 */
 	function onDistribution(uint256 _amount) external virtual {
 		//we consider the actuall balance and not _amount
 		// console.log("onDistribution amount: %s", _amount);
@@ -61,32 +74,43 @@ contract DistributionHelper is
 			if (r.bps > 0) {
 				uint256 toTransfer = (toDistribute * r.bps) / 10000;
 				totalDistributed += toTransfer;
-				distribute(r, toTransfer);
+				if (toTransfer > 0) distribute(r, toTransfer);
 			}
 		}
 
 		emit Distribution(totalDistributed, toDistribute, _amount);
 	}
 
-	function addRecipient(DistributionRecipient memory _recipient)
+	/**
+	 * @dev add or update the a recipient details, if address exists it will update, otherwise add
+	 * to "remove" set recipient bps to 0. only ADMIN_ROLE can call this.
+	 */
+	function addOrUpdateRecipient(DistributionRecipient memory _recipient)
 		external
 		onlyRole(DEFAULT_ADMIN_ROLE)
 	{
-		distributionRecipients.push(_recipient);
-	}
-
-	function updateRecipient(DistributionRecipient memory _recipient)
-		external
-		onlyRole(DEFAULT_ADMIN_ROLE)
-	{
+		console.log("addOrUpdate addr: %s", _recipient.addr);
 		for (uint256 i = 0; i < distributionRecipients.length; i++) {
+			console.log(
+				"addOrUpdate addr: %s idx: %s, recipient: %s",
+				_recipient.addr,
+				i,
+				distributionRecipients[i].addr
+			);
 			if (distributionRecipients[i].addr == _recipient.addr) {
 				distributionRecipients[i] = _recipient;
+				emit RecipientUpdated(_recipient, i);
 				return;
 			}
 		}
+		//if reached here then add new one
+		emit RecipientAdded(_recipient, distributionRecipients.length);
+		distributionRecipients.push(_recipient);
 	}
 
+	/**
+	 * @dev internal function that takes care of sending the G$s according to the transfer type
+	 */
 	function distribute(DistributionRecipient storage _recipient, uint256 _amount)
 		internal
 	{

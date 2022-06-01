@@ -11,3 +11,10 @@ contract DistributionHelperTest is DistributionHelper {
 		revert();
 	}
 }
+
+contract DistributionHelperTestHelper is DistributionHelper {
+	function setBridges(address _fuseBridge, address _multiBridge) external {
+		fuseBridge = _fuseBridge;
+		multiChainBridge = IMultichainRouter(_multiBridge);
+	}
+}
