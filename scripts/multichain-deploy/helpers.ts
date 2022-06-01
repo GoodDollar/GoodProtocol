@@ -1,9 +1,28 @@
 import { ContractFactory } from "ethers";
 import { network, ethers, upgrades, run } from "hardhat";
+import { Contract } from "ethers";
+import { TransactionResponse } from "@ethersproject/providers";
+import dao from "../../releases/deployment.json";
 
 let totalGas = 0;
 const gasUsage = {};
 const GAS_SETTINGS = { gasLimit: 5000000 };
+let release: { [key: string]: any } = dao[network.name];
+
+export const printDeploy = async (
+  c: Contract | TransactionResponse
+): Promise<Contract | TransactionResponse> => {
+  if (c instanceof Contract) {
+    await c.deployed();
+    console.log("deployed to: ", c.address);
+  }
+  if (c.wait) {
+    await c.wait();
+    console.log("tx done:", c.hash);
+  }
+  return c;
+};
+
 export const countTotalGas = async (tx, name) => {
   let res = tx;
   if (tx.deployTransaction) tx = tx.deployTransaction;
@@ -22,14 +41,14 @@ export const deployDeterministic = async (
 ) => {
   try {
     let proxyFactory;
-    if (!network.name.startsWith("production")) {
+    if (network.name.startsWith("develop")) {
       proxyFactory = await (
         await ethers.getContractFactory("ProxyFactory1967")
       ).deploy();
     } else
       proxyFactory = await ethers.getContractAt(
         "ProxyFactory1967",
-        "0x99C22e78A579e2176311c736C4c9F0b0D5A47806"
+        release.ProxyFactory
       );
     const Contract =
       (contract.factory as ContractFactory) ||
@@ -42,7 +61,10 @@ export const deployDeterministic = async (
     );
 
     if (contract.isUpgradeable === true) {
-      console.log("Deploying:", contract.name, "using proxyfactory");
+      console.log("Deploying:", contract.name, "using proxyfactory", {
+        args,
+        proxyFactory: proxyFactory.address
+      });
       const encoded = Contract.interface.encodeFunctionData(
         contract.initializer || "initialize",
         args
@@ -70,7 +92,10 @@ export const deployDeterministic = async (
       console.log("proxy deployed:", contract.name, proxyAddr);
       return Contract.attach(proxyAddr);
     } else {
-      console.log("Deploying:", contract.name, "using proxyfactory code");
+      console.log("Deploying:", contract.name, "using proxyfactory code", {
+        proxyFactory: proxyFactory.address,
+        args
+      });
       const constructor = Contract.interface.encodeDeploy(args);
       const bytecode = ethers.utils.solidityPack(
         ["bytes", "bytes"],

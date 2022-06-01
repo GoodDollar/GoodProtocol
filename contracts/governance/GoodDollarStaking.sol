@@ -32,6 +32,7 @@ contract GoodDollarStaking is
 	uint128 public numberOfBlocksPerYear;
 
 	uint128 createdAt;
+	uint32 daysUntilUpgrade;
 
 	/**
 	 * @dev Emitted when `staker` earns an `amount` of GOOD tokens
@@ -60,7 +61,8 @@ contract GoodDollarStaking is
 	constructor(
 		INameService _ns,
 		uint128 _interestRatePerBlock,
-		uint128 _numberOfBlocksPerYear
+		uint128 _numberOfBlocksPerYear,
+		uint32 _daysUntilUpgrade
 	) {
 		_setAPY(_interestRatePerBlock);
 		setDAO(_ns);
@@ -69,6 +71,7 @@ contract GoodDollarStaking is
 		__ERC20_init("G$ Savings", "svG$");
 		rewardsPerBlock[address(this)] = 0;
 		createdAt = uint128(block.timestamp);
+		daysUntilUpgrade = _daysUntilUpgrade;
 	}
 
 	function getChainBlocksPerMonth() public view override returns (uint256) {
@@ -319,7 +322,7 @@ contract GoodDollarStaking is
 	/// @notice after 1 month move GOOD permissions minting to this contract from previous GovernanceStaking
 	function upgrade() external {
 		require(
-			block.timestamp > createdAt + 30 days &&
+			block.timestamp > createdAt + (daysUntilUpgrade * 1 days) &&
 				dao.isSchemeRegistered(address(this), avatar),
 			"not deadline or not scheme"
 		);
