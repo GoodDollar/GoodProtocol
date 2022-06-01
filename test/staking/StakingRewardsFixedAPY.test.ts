@@ -339,6 +339,22 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(actualSharePriceAfter.gt(actualSharePriceBefore)).to.be.true;
   });
 
+  it("should check compound function compounds principle correctly", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    const PRECISION = await staking.PRECISION();
+
+    const expectedCompoundBefore = 3 * 10000 * 1.05; // 3 stakers of 10000 with 5 APY, after one year
+    const actualCompoundBefore = (await staking.compound()).div(PRECISION);
+    expect(actualCompoundBefore).to.equal(expectedCompoundBefore);
+
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+
+    const expectedCompoundAfter = expectedCompoundBefore * 1.05;
+    const actualCompoundAfter = (await staking.compound()).div(PRECISION);
+    expect(actualCompoundAfter).to.equal(expectedCompoundAfter);
+    expect(actualCompoundAfter.gt(actualCompoundBefore)).to.be.true;
+  });
+
   it("should get correct principle", async () => {
     // call getPrinciple and assert calculation
   });
