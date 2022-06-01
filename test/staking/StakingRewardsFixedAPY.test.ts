@@ -57,13 +57,6 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
       .div(await _contract.sharePrice());
   }
 
-  async function getSharesPercentage(_sharesAmount, _percent, _contract) {
-    return BN.from(_sharesAmount)
-      .mul(_percent)
-      .div(100)
-      .div(await _contract.SHARE_DECIMALS());
-  }
-
   before(async () => {
     [founder, staker1, staker2, staker3, staker4, ...signers] =
       await ethers.getSigners();
@@ -327,7 +320,24 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     );
   });
 
-  it("should calculate correct share price and staking shares after principle has grown", async () => {});
+  it("should calculate correct share price after principle has grown", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    const SHARE_PRECISION = await staking.SHARE_PRECISION();
+
+    const statsBefore = await staking.stats();
+    const principleBefore = 3 * 10000 * 1.05; // 3 stakers of 10000 with 5 APY, after one year
+    const expectedSharePriceBefore = BN.from(principleBefore).mul(SHARE_PRECISION).div(statsBefore.totalShares);
+    const actualSharePriceBefore = await staking.sharePrice();
+    expect(actualSharePriceBefore).to.equal(expectedSharePriceBefore);
+
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+
+    const principleAfter = principleBefore * 1.05;
+    const expectedSharePriceAfter = BN.from(principleAfter).mul(SHARE_PRECISION).div(statsBefore.totalShares);
+    const actualSharePriceAfter = await staking.sharePrice();
+    expect(actualSharePriceAfter).to.equal(expectedSharePriceAfter);
+    expect(actualSharePriceAfter.gt(actualSharePriceBefore)).to.be.true;
+  });
 
   it("should get correct principle", async () => {
     // call getPrinciple and assert calculation
