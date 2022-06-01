@@ -58,7 +58,10 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   }
 
   async function getSharesPercentage(_sharesAmount, _percent, _contract) {
-    return BN.from(_sharesAmount).mul(_percent).div(100).div(await _contract.SHARE_DECIMALS());
+    return BN.from(_sharesAmount)
+      .mul(_percent)
+      .div(100)
+      .div(await _contract.SHARE_DECIMALS());
   }
 
   before(async () => {
@@ -117,8 +120,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     // maybe we should add APY _interestRatePerBlock lower and upper limits?
   });
 
-  xit("should update global stats after each operation stake/withdraw", async () => {
-  });
+  it("should update global stats after each operation stake/withdraw", async () => {});
 
   it("Should get stakers info", async () => {
     // assert stakeinfo deposit, shared, rewardsPaid and avgRatio.
@@ -234,9 +236,12 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   it("should withdraw partial amount when donating and calculate principle correctly after 1 year", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
     const infoBefore = await staking.stakersInfo(staker1.address);
-    // const expectedSharesRedeemed = await getExpectedSharesChange(9500, staking);
+    const expectedSharesRedeemed = await getExpectedSharesChange(
+      9500 + 500,
+      staking
+    ); //withdrawing 9500 but 500 donated rewards will be withdrawn also
 
-    await staking.withdraw(staker1.address, BN.from(9500)); // 10000 deposit + 0 rewards before
+    await staking.withdraw(staker1.address, BN.from(9500)); // this will withdraw 9500 from deposit but also 500 donated rewards
     const balanceAfterWithdraw = await staking.getPrinciple(staker1.address);
     expect(balanceAfterWithdraw).to.equal(500);
 
@@ -245,9 +250,9 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
     expect(await staking.getPrinciple(staker1.address)).to.equal(500);
     expect(info.deposit).to.equal(500);
-    // console.log("info.shares.toNumber() %s, infoBefore.shares %s expectedSharesRedeemed %s",
-    //   info.shares.toNumber(), infoBefore.shares, expectedSharesRedeemed)
-    // expect(info.shares.toNumber()).to.equal(infoBefore.shares.sub(expectedSharesRedeemed));
+    expect(info.shares.toNumber()).to.equal(
+      infoBefore.shares.sub(expectedSharesRedeemed)
+    );
     expect(info.rewardsPaid).to.equal(0);
     expect(info.avgDonationRatio).to.equal(
       (await staking.PRECISION()).mul(100)
@@ -266,7 +271,9 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(balance).to.equal(10500); //initial stake 10000 + 5%
     expect(await staking.getPrinciple(staker3.address)).to.equal(10000);
     expect(info.deposit).to.equal(10000);
-    expect(info.shares.toNumber()).to.equal(infoBefore.shares.sub(expectedSharesRedeemed));
+    expect(info.shares.toNumber()).to.equal(
+      infoBefore.shares.sub(expectedSharesRedeemed)
+    );
     expect(info.rewardsPaid).to.equal(500);
     expect(info.avgDonationRatio).to.equal(0);
   });
@@ -281,34 +288,44 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
       BN.from(infoBefore.shares) // staker1 buys same amount of shares he had
         .mul(await staking.sharePrice())
         .div(await staking.SHARE_PRECISION()),
-      0);
+      0
+    );
 
     const infoAfter = await staking.stakersInfo(staker1.address);
     const statsAfter = await staking.stats();
-    const PRECISION = await staking.PRECISION()
+    const PRECISION = await staking.PRECISION();
 
     expect(infoBefore.avgDonationRatio).to.equal(PRECISION.mul(100)); // 1st stake had 100% donation
     expect(infoAfter.avgDonationRatio).to.equal(PRECISION.mul(50)); // 2nd stake had 0% for same amount of shares => 50% average
     expect(statsBefore.avgDonationRatio).to.equal(PRECISION.mul(50)); // total avg of 3 stakers => 0, 50, 100 each had staked 10000
-    expect(statsAfter.avgDonationRatio).to.equal(PRECISION.mul(375).div(10)); // 37.5% = (2 * 0% + 1 * 50% + 1 * 100%) / 4 
+    expect(statsAfter.avgDonationRatio).to.equal(PRECISION.mul(375).div(10)); // 37.5% = (2 * 0% + 1 * 50% + 1 * 100%) / 4
   });
 
-  // it("should update avgDonationRatio after partial withdraw and then second stake", async () => { // todo: same test with donations
-  //   const { staking } = await waffle.loadFixture(fixture_1year);
-  //   const infoBeforeWithdraw = await staking.stakersInfo(staker1.address);
-  //   const statsBeforeWithdraw = await staking.stats();
-  //   print(infoBeforeWithdraw)
-  //   print(statsBeforeWithdraw)
+  it("should update avgDonationRatio after partial withdraw", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    const infoBeforeWithdraw = await staking.stakersInfo(staker1.address);
+    const statsBeforeWithdraw = await staking.stats();
+    const expectedSharesRedeemed = await getExpectedSharesChange(
+      2000 + 500,
+      staking
+    ); //2000 + 500 that are donated
+    await staking.withdraw(staker1.address, 2000); //this also withdraws the donated rewards
+    const statsAfterWithdraw = await staking.stats();
 
-  //   await staking.withdraw(staker1.address,
-  //     await getSharesPercentage(statsBeforeWithdraw.totalShares, 10, staking)); // with
+    const expectedGlobalAvgRatio = statsBeforeWithdraw.avgDonationRatio
+      .mul(statsBeforeWithdraw.totalShares)
+      .sub(expectedSharesRedeemed.mul(infoBeforeWithdraw.avgDonationRatio))
+      .div(statsAfterWithdraw.totalShares);
 
-  //   const infoAfterWithdraw = await staking.stakersInfo(staker1.address);
-  //   print(infoAfterWithdraw)
-  //   const statsAfterWithdraw = await staking.stats();
-  //   print(statsAfterWithdraw)
+    const infoAfterWithdraw = await staking.stakersInfo(staker1.address);
+    expect(infoBeforeWithdraw.avgDonationRatio).to.equal(
+      infoAfterWithdraw.avgDonationRatio
+    );
 
-  // });
+    expect(expectedGlobalAvgRatio).to.equal(
+      statsAfterWithdraw.avgDonationRatio
+    );
+  });
 
   it("should calculate correct share price and staking shares after principle has grown", async () => {});
 
