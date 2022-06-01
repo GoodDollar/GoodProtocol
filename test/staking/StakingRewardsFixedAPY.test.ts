@@ -57,6 +57,13 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
       .div(await _contract.sharePrice());
   }
 
+  // 99.5% or more match
+  function areApproxEqual(a, b) {
+    return BN.from(a).lte(b) ?
+      (BN.from(a).div(b).mul(1000)).gt(995) :
+      (BN.from(b).div(a).mul(1000)).gt(995);
+  }
+
   before(async () => {
     [founder, staker1, staker2, staker3, staker4, ...signers] =
       await ethers.getSigners();
@@ -375,15 +382,46 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     // maybe not needed and the share precision is what's important
   });
 
-  it("Should undo reward", async () => {
-    // stake > pass time > collect reward > undo whole amount
+  it("Should undo reward and calculate stats accordingly", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    const SHARE_PRECISION = await staking.SHARE_PRECISION();
+
+    await staking.withdraw(staker3.address, 500);
+
+    const infoBeforeUndo = await staking.stakersInfo(staker3.address);
+    const statsBeforeUndo = await staking.stats();
+    const sharePriceOnUndo = await staking.sharePrice();
+
+    await staking.undoReward(staker3.address, 500);
+
+    const newSharesOnUndo = BN.from(500).mul(SHARE_PRECISION).div(sharePriceOnUndo);
+    const infoAfterUndo = await staking.stakersInfo(staker3.address);
+    const statsAfterUndo = await staking.stats();
+
+    expect(infoBeforeUndo.rewardsPaid).to.equal(500);
+    expect(infoAfterUndo.rewardsPaid).to.equal(0);
+    expect(statsBeforeUndo.totalRewardsPaid).to.equal(500);
+    expect(statsAfterUndo.totalRewardsPaid).to.equal(0);
+    expect(areApproxEqual(infoAfterUndo.shares, infoBeforeUndo.shares.add(newSharesOnUndo)));
+    expect(areApproxEqual(statsAfterUndo.totalShares, statsBeforeUndo.totalShares.add(newSharesOnUndo)));
+    const expectedGlobalAvgRatio = statsBeforeUndo.avgDonationRatio
+      .mul(statsBeforeUndo.totalShares)
+      .add(newSharesOnUndo.mul(infoBeforeUndo.avgDonationRatio))
+      .div(statsBeforeUndo.totalShares.add(newSharesOnUndo));
+    expect(areApproxEqual(statsAfterUndo.avgDonationRatio, expectedGlobalAvgRatio));
   });
 
   it("Should fail to undo exceeding reward", async () => {
-    // stake > pass time > collect reward > undo bigger amount
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    await staking.withdraw(staker3.address, 500);
+    const errorTx = await staking.undoReward(staker3.address, 501).
+      catch(e => e);
+    expect(errorTx).to.be.an("error");
   });
 
   it("Should fail to withdraw exceeding amount", async () => {});
 
   it("Should not earn new rewards when withdrawing right after withdrawing or staking", async () => {});
+
+  it("should calculate principle correctly using new APY after set APY ", async () => {})
 });
