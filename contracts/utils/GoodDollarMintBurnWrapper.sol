@@ -179,12 +179,12 @@ contract GoodDollarMintBurnWrapper is
 		INameService _nameService
 	) external initializer {
 		__AccessControlEnumerable_init();
+		setDAO(_nameService);
 		require(_admin != address(0), "zero admin address");
 		token = address(nativeToken());
 		tokenType = _tokenType;
 		totalMintCap = _totalMintCap;
 		updateFrequency = 90 days;
-		setDAO(_nameService);
 		_setupRole(DEFAULT_ADMIN_ROLE, _admin);
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
 	}
