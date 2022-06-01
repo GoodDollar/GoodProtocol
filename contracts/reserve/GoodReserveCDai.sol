@@ -13,6 +13,8 @@ import "../Interfaces.sol";
 import "./GoodMarketMaker.sol";
 import "./DistributionHelper.sol";
 
+import "hardhat/console.sol";
+
 interface ContributionCalc {
 	function calculateContribution(
 		GoodMarketMaker _marketMaker,
@@ -364,6 +366,13 @@ contract GoodReserveCDai is
 
 		lastMinted = block.number;
 		uint256 gdUBI = gdInterestToMint + gdExpansionToMint;
+
+		// console.log(
+		// 	"nonubi %s, sender: %s, fundManager: %s",
+		// 	nonUbiBps,
+		// 	_msgSender(),
+		// 	nameService.getAddress("FUND_MANAGER")
+		// );
 
 		if (nonUbiBps > 0) {
 			nonUBI = (gdExpansionToMint * nonUbiBps) / 10000;

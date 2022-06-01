@@ -1,14 +1,4 @@
 // SPDX-License-Identifier: MIT
-/**
- Wrap the G$ token to provide mint permissions to multichain.org router/bridge
- based on https://github.com/anyswap/multichain-smart-contracts/blob/1459fe6281867319af8ffb1849e5c16d242d6530/contracts/wrapper/MintBurnWrapper.sol
-
- Added onTokenTransfer
-
- Fixed:
- https://github.com/anyswap/multichain-smart-contracts/issues/4
- https://github.com/anyswap/multichain-smart-contracts/issues/3
- */
 
 pragma solidity ^0.8;
 
@@ -19,6 +9,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "../utils/DAOUpgradeableContract.sol";
+
+import "hardhat/console.sol";
 
 contract DistributionHelper is
 	DAOUpgradeableContract,
@@ -57,8 +49,9 @@ contract DistributionHelper is
 		);
 	}
 
-	function onDistribution(uint256 _amount) external {
+	function onDistribution(uint256 _amount) external virtual {
 		//we consider the actuall balance and not _amount
+		// console.log("onDistribution amount: %s", _amount);
 		uint256 toDistribute = nativeToken().balanceOf(address(this));
 		if (toDistribute == 0) return;
 
