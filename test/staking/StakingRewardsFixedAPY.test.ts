@@ -229,7 +229,28 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(info.avgDonationRatio).to.equal(0);
   });
 
-  it("should update avgDonationRatio after second stake", async () => {});
+  it("should update avgDonationRatio after second stake", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    const infoBefore = await staking.stakersInfo(staker1.address);
+    const statsBefore = await staking.stats();
+
+    await staking.stake(
+      staker1.address,
+      BN.from(infoBefore.shares)
+        .mul(await staking.sharePrice())
+        .div(await staking.SHARE_PRECISION()),
+      0);
+
+    const infoAfter = await staking.stakersInfo(staker1.address);
+    const statsAfter = await staking.stats();
+    const PRECISION = await staking.PRECISION()
+
+    expect(infoBefore.avgDonationRatio).to.equal(PRECISION.mul(100)); // 1st stake had 100% donation
+    expect(infoAfter.avgDonationRatio).to.equal(PRECISION.mul(50)); // 2nd stake had 0% for same amount of shares => 50% average
+    expect(statsBefore.avgDonationRatio).to.equal(PRECISION.mul(50)); // total avg of 3 stakers => 0, 50, 100 each had staked 10000
+    expect(statsAfter.avgDonationRatio).to.equal(PRECISION.mul(375).div(10)); // 37.5% = (2 * 0% + 1 * 50% + 1 * 100%) / 4 
+  });
+
   it("should update avgDonationRatio after partial withdraw and then second stake", async () => {});
 
   it("should calculate correct share price and staking shares after principle has grown", async () => {});
