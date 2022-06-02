@@ -476,7 +476,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     );
   });
 
-  it.only("Should undo reward when part of them is donated and keep stakers info the same", async () => {
+  it("Should undo reward when part of them is donated and keep stakers info the same", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
 
     const initialInfo = await staking.stakersInfo(staker2.address);
