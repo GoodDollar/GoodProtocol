@@ -39,6 +39,7 @@ abstract contract MultiBaseGovernanceShareField is DSMath {
 	function _setMonthlyRewards(address _contract, uint256 _monthlyAmount)
 		internal
 	{
+		_update(_contract, 0, block.number); //we need to accrue rewards before we change the rewards rate
 		rewardsPerBlock[_contract] = _monthlyAmount / getChainBlocksPerMonth();
 	}
 

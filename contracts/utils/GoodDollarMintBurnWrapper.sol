@@ -4,7 +4,7 @@
  based on https://github.com/anyswap/multichain-smart-contracts/blob/1459fe6281867319af8ffb1849e5c16d242d6530/contracts/wrapper/MintBurnWrapper.sol
 
  Added onTokenTransfer
-
+ Notice: contract needs to be registered as a scheme on Controller to be able to call mintTokens
  Fixed:
  https://github.com/anyswap/multichain-smart-contracts/issues/4
  https://github.com/anyswap/multichain-smart-contracts/issues/3
@@ -173,28 +173,30 @@ contract GoodDollarMintBurnWrapper is
 	event SendOrMint(address to, uint256 amount, uint256 sent, uint256 minted);
 
 	function initialize(
-		address _token,
 		TokenType _tokenType,
 		uint256 _totalMintCap,
 		address _admin,
 		INameService _nameService
 	) external initializer {
 		__AccessControlEnumerable_init();
-		require(_token != address(0), "zero token address");
+		setDAO(_nameService);
 		require(_admin != address(0), "zero admin address");
-		token = _token;
+		token = address(nativeToken());
 		tokenType = _tokenType;
 		totalMintCap = _totalMintCap;
 		updateFrequency = 90 days;
 		_setupRole(DEFAULT_ADMIN_ROLE, _admin);
-		setDAO(_nameService);
-		grantRole(DEFAULT_ADMIN_ROLE, avatar);
+		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
 	}
 
 	function upgrade1() external {
 		if (updateFrequency == 0) {
 			updateFrequency = 90 days;
 		}
+	}
+
+	function upgrade2() external {
+		IGoodDollar(token).renounceMinter(); //moving to mint via Controller
 	}
 
 	function decimals() external view returns (uint8) {
@@ -246,13 +248,8 @@ contract GoodDollarMintBurnWrapper is
 		totalMinted += amount;
 		require(totalMinted <= totalMintCap, "total mint cap exceeded");
 
-		if (
-			tokenType == TokenType.Transfer || tokenType == TokenType.TransferDeposit
-		) {
-			IERC20(token).safeTransfer(to, amount);
-		} else {
-			TokenOperation.safeMint(token, to, amount);
-		}
+		bool ok = dao.mintTokens(amount, to, avatar);
+		require(ok, "mint failed");
 	}
 
 	function _burn(address from, uint256 amount)
