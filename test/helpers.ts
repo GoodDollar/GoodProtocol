@@ -223,11 +223,11 @@ export const createDAO = async () => {
   };
 
   const runAsAvatarOnly = async (contract, functionAbi, ...parameters) => {
-    const funcNameEnd = functionAbi.indexOf('(');;
+    const funcNameEnd = functionAbi.indexOf("(");
     expect(funcNameEnd).to.be.gt(-1);
     const functionName = functionAbi.substring(0, funcNameEnd);
 
-    const tx = await contract[functionAbi](...parameters).catch(e=>e);
+    const tx = await contract[functionAbi](...parameters).catch(e => e);
     expect(tx.message.toUpperCase()).to.contain("AVATAR");
     const encoded = contract.interface.encodeFunctionData(functionName, [
       ...parameters
@@ -443,13 +443,7 @@ export async function increaseTime(seconds) {
 
 export const advanceBlocks = async (blocks: number) => {
   let ps = [];
-  for (let i = 0; i < blocks; i++) {
-    ps.push(ethers.provider.send("evm_mine", []));
-    if (i % 5000 === 0) {
-      await Promise.all(ps);
-      ps = [];
-    }
-  }
+  await ethers.provider.send("hardhat_mine", ["0x" + blocks.toString(16)]);
 };
 
 export const deployOldVoting = async dao => {
