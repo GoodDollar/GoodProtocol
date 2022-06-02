@@ -163,19 +163,24 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     );
   });
 
-  it("should update global stats after each operation stake/withdraw", async () => {
+  it("should update global stats after stake operation", async () => {
     const { staking } = await waffle.loadFixture(fixture_initOnly);
+    const statsBefore = await staking.stats();
+    const PRECISION = await staking.PRECISION();
     
+    await stake(staker1, 9000, 10, staking);
+    
+    const statsAfter = await staking.stats();
+    expect(statsAfter.lastUpdateBlock.gt(statsBefore.lastUpdateBlock));
+    expect(statsAfter.totalStaked).to.equal(9000);
+    expect(statsAfter.totalShares.eq((await staking.SHARE_DECIMALS()).mul(9000)));
+    expect(statsAfter.totalRewardsPaid).to.equal(0);
+    expect(statsAfter.totalRewardsDonated).to.equal(0);
+    expect(statsAfter.avgDonationRatio).to.equal((PRECISION).mul(10));
+    expect(statsAfter.principle).to.equal((PRECISION).mul(9000));
   });
-
-  it("Should get stakers info", async () => {
-    // assert stakeinfo deposit, shared, rewardsPaid and avgRatio.
-  });
-
-  it("Should get contract stats", async () => {
-    // especially the principle
-    // assert after 1st staker, 2nd staker, 3rd staker
-    // after 1st partial stake withdrawal, after 2nd complete withdrawal
+  
+  it("should update global stats after withdraw operation", async () => {
   });
 
   it("should compound principle over period with donation 100% and 50% and 0%", async () => {
