@@ -199,6 +199,18 @@ contract GoodDollarMintBurnWrapper is
 		IGoodDollar(token).renounceMinter(); //moving to mint via Controller
 	}
 
+	function decimals() external view returns (uint8) {
+		return ERC20(token).decimals();
+	}
+
+	function name() external view returns (string memory) {
+		return ERC20(token).name();
+	}
+
+	function symbol() external view returns (string memory) {
+		return ERC20(token).symbol();
+	}
+
 	function setUpdateFrequency(uint128 inSeconds)
 		external
 		onlyRole(DEFAULT_ADMIN_ROLE)
