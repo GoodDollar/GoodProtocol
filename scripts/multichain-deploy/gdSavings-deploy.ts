@@ -4,7 +4,7 @@
  * sidechain
  * 1. deploy GoodDollarMintBurnWrapper
  * 2. deploy G$Savings
- * 5. create proposal to:
+ * 3. create proposal to:
  *  - add G$Savings as rewards minter on GoodDollarMintBurnWraper
  *  - register GoodDollarMintBurnWrapper as scheme so it can call mint on controller
  *  - register G$Savings as scheme so it can handle upgrade from GovernanceStaking
@@ -33,7 +33,7 @@ import {
 } from "../../types";
 const { name: networkName } = network;
 
-const BLOCKS_PER_YEAR = (12 * 60 * 24 * 356).toString();
+const BLOCKS_PER_YEAR = (12 * 60 * 24 * 365).toString();
 const BLOCK_APY = "1000000007735630000";
 
 export const deploySidechain = async () => {
