@@ -17,6 +17,7 @@ contract StakingRewardsFixedAPY {
 		uint128 deposit; // the amount of user active stake
 		uint128 shares;
 		uint128 rewardsPaid; // rewards that accounted already so should be substracted
+		uint128 rewardsDonated; //total rewards user has donated so far
 		uint128 avgDonationRatio; //donation ratio per share
 	}
 
@@ -192,6 +193,8 @@ contract StakingRewardsFixedAPY {
 				shares) /
 			(stats.totalShares - shares);
 
+		// console.log("withdraw: reducing principle by %s", _amount);
+
 		stats.principle -= _amount * PRECISION;
 		stats.totalShares -= shares;
 		stats.totalStaked -= uint128(depositComponent);
@@ -200,6 +203,7 @@ contract StakingRewardsFixedAPY {
 		stakersInfo[_from].shares -= shares;
 		stakersInfo[_from].deposit -= uint128(depositComponent);
 		stakersInfo[_from].rewardsPaid += uint128(rewardComponent);
+		stakersInfo[_from].rewardsDonated += uint128(donatedRewards);
 	}
 
 	function _stake(
@@ -255,12 +259,23 @@ contract StakingRewardsFixedAPY {
 	/**
 	 * @dev keep track of debt to user in case reward minting failed
 	 */
-	function _undoReward(address _to, uint256 _amount) internal virtual {
-		stats.totalRewardsPaid -= uint128(_amount);
-		stakersInfo[_to].rewardsPaid -= uint128(_amount);
-		stats.principle += _amount * PRECISION; //rewards are part of the compounding interest
+	function _undoReward(address _to, uint256 _rewardsPaidAfterDonation)
+		internal
+		virtual
+	{
+		//the actual amount we undo needs to take into account the user donation ratio.
+		uint256 rewardsBeforeDonation = (100 *
+			PRECISION *
+			_rewardsPaidAfterDonation) / stakersInfo[_to].avgDonationRatio;
 
-		uint128 newShares = uint128((_amount * SHARE_PRECISION) / sharePrice());
+		//calculate this before udpating global principle
+		uint128 newShares = uint128(
+			(rewardsBeforeDonation * SHARE_PRECISION) / sharePrice()
+		);
+		console.log(
+			"undoReward: increasing principle by %s",
+			rewardsBeforeDonation
+		);
 
 		stats.avgDonationRatio =
 			(stats.avgDonationRatio *
@@ -269,7 +284,16 @@ contract StakingRewardsFixedAPY {
 				newShares) /
 			(stats.totalShares + newShares);
 
-		stakersInfo[_to].shares += newShares;
+		uint128 rewardsDonated = uint128(
+			rewardsBeforeDonation - _rewardsPaidAfterDonation
+		);
+		stats.totalRewardsPaid -= uint128(_rewardsPaidAfterDonation);
+		stats.totalRewardsDonated -= rewardsDonated;
+		stats.principle += rewardsBeforeDonation * PRECISION; //rewards are part of the compounding interest
 		stats.totalShares += newShares;
+
+		stakersInfo[_to].rewardsPaid -= uint128(_rewardsPaidAfterDonation);
+		stakersInfo[_to].rewardsDonated -= rewardsDonated;
+		stakersInfo[_to].shares += newShares;
 	}
 }
