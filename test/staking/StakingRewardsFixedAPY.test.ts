@@ -85,6 +85,16 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
   });
 
+  const fixture_initOnly = async (wallets, provider) => {
+    const staking: StakingMockFixedAPY = (await waffle.deployContract(
+      provider.getWallets()[0],
+      StakingABI,
+      [INTEREST_RATE_5APY_X64]
+    )) as StakingMockFixedAPY;
+
+    return { staking };
+  };
+  
   const fixture_1year = async (wallets, provider) => {
     const staking: StakingMockFixedAPY = (await waffle.deployContract(
       provider.getWallets()[0],
@@ -120,7 +130,43 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     // maybe we should add APY _interestRatePerBlock lower and upper limits?
   });
 
-  it("should update global stats after each operation stake/withdraw", async () => {});
+  it("should update staker info after stake operation", async () => {
+    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    
+    await stake(staker1, 9000, 10, staking);
+    
+    let info = await staking.stakersInfo(staker1.address);
+    const initialShares = (await staking.SHARE_DECIMALS()).mul(9000);
+    expect(info.deposit).to.equal(9000);
+    expect(info.shares).to.equal(initialShares);
+    expect(info.rewardsPaid).to.equal(0);
+    expect(info.avgDonationRatio).to.equal(
+      (await staking.PRECISION()).mul(10)
+    );
+  });
+
+  it("should update staker info after withdraw operation", async () => {
+    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    await stake(staker1, 9000, 10, staking);
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+    const expectedSharesChange = await getExpectedSharesChange(4000 + 45, staking); // 45 donated
+
+    await staking.withdraw(staker1.address, 4000);
+
+    const info = await staking.stakersInfo(staker1.address);
+    const initialShares = (await staking.SHARE_DECIMALS()).mul(9000);
+    expect(info.deposit).to.equal(5405); // 450 rewards, 90% of rewards is 405. (4000-405) = 3595 deposit component.
+    expect(info.shares).to.equal(initialShares.sub(expectedSharesChange));
+    expect(info.rewardsPaid).to.equal(405);
+    expect(info.avgDonationRatio).to.equal(
+      (await staking.PRECISION()).mul(10)
+    );
+  });
+
+  it("should update global stats after each operation stake/withdraw", async () => {
+    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    
+  });
 
   it("Should get stakers info", async () => {
     // assert stakeinfo deposit, shared, rewardsPaid and avgRatio.
@@ -424,4 +470,10 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   it("Should not earn new rewards when withdrawing right after withdrawing or staking", async () => {});
 
   it("should calculate principle correctly using new APY after set APY ", async () => {})
+
+  it("should handle stake/withdraw a small amount", async () => {
+  });
+
+  it("should handle stake/withdraw a big amount", async () => {
+  });
 });
