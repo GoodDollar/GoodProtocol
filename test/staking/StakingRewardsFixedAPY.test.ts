@@ -243,7 +243,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(principle).to.equal(129817);
   });
 
-  it("should withdraw full amount", async () => {
+  it("should withdraw full amount when not donating", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
     const balance = await staking.getPrinciple(staker3.address);
     await staking.withdraw(staker3.address, balance);
@@ -258,7 +258,10 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(info.avgDonationRatio).to.equal(0);
   });
 
-  it("should withdraw full amount when donating", async () => {
+  it("should withdraw full amount when partially donating", async () => {
+  });
+
+  it("should withdraw full amount when donating 100%", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
     const balance = await staking.getPrinciple(staker1.address);
     await staking.withdraw(staker1.address, balance);
@@ -275,7 +278,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     );
   });
 
-  it("should withdraw partial amount and calculate principle correctly after 1 year", async () => {
+  it("should withdraw partial amount when not donating and calculate principle correctly after 1 year", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
     const infoBefore = await staking.stakersInfo(staker3.address);
 
@@ -304,7 +307,10 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(info.avgDonationRatio).to.equal(0);
   });
 
-  it("should withdraw partial amount when donating and calculate principle correctly after 1 year", async () => {
+  it("should withdraw partial amount when partially donating and calculate principle correctly after 1 year", async () => {
+  });
+
+  it("should withdraw partial amount when donating 100% and calculate principle correctly after 1 year", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
     const infoBefore = await staking.stakersInfo(staker1.address);
     const expectedSharesRedeemed = await getExpectedSharesChange(
@@ -439,16 +445,26 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(actualCompoundAfter.gt(actualCompoundBefore)).to.be.true;
   });
 
-  it("should get correct principle", async () => {
-    // call getPrinciple and assert calculation
-  });
-
   it("should calculate earned rewards in period", async () => {
-    // stake
-    // advance blocks
-    // call earned, assert result
-    // assert stakersInfo
-    // advance again
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    let [earnedRewards1, earnedRewardsAfterDonation1] = await staking.earned(staker1.address);
+    let [earnedRewards2, earnedRewardsAfterDonation2] = await staking.earned(staker2.address);
+    let [earnedRewards3, earnedRewardsAfterDonation3] = await staking.earned(staker3.address);
+    
+    expect(earnedRewards1).equal(earnedRewards2).equal(earnedRewards3).equal(500);
+    expect(earnedRewardsAfterDonation1).to.equal(0);
+    expect(earnedRewardsAfterDonation2).to.equal(250);
+    expect(earnedRewardsAfterDonation3).to.equal(500);
+
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+    [earnedRewards1, earnedRewardsAfterDonation1] = await staking.earned(staker1.address);
+    [earnedRewards2, earnedRewardsAfterDonation2] = await staking.earned(staker2.address);
+    [earnedRewards3, earnedRewardsAfterDonation3] = await staking.earned(staker3.address);
+
+    expect(earnedRewards1).equal(earnedRewards2).equal(earnedRewards3).equal(1025);
+    expect(earnedRewardsAfterDonation1).to.equal(0);
+    expect(earnedRewardsAfterDonation2).to.equal(BN.from(5125).div(10));
+    expect(earnedRewardsAfterDonation3).to.equal(1025);
   });
 
   it("Should check shares precision remains accurate", async () => {
@@ -459,7 +475,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     // maybe not needed and the share precision is what's important
   });
 
-  it("Should undo reward and keep stakers info the same", async () => {
+  xit("Should undo reward and keep stakers info the same", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
 
     const initialInfo = await staking.stakersInfo(staker3.address);
@@ -481,7 +497,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(initialInfo.shares).to.equal(infoAfterUndo.shares);
   });
 
-  it("Should undo reward and keep global stats the same", async () => {
+  xit("Should undo reward and keep global stats the same", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
 
     const initialStats = await staking.stats();
