@@ -127,7 +127,7 @@ describe("DistributionHelper", () => {
     expect(dr.transferType).to.equal(0);
   });
 
-  it.only("should allow to update recipient by avatar", async () => {
+  it("should allow to update recipient by avatar", async () => {
     const { distHelper } = await waffle.loadFixture(fixture);
 
     const recipient = signers[0];
