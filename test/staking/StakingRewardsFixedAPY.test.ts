@@ -174,7 +174,28 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(statsAfter.principle).to.equal(PRECISION.mul(9000));
   });
 
-  it("should update global stats after withdraw operation", async () => {});
+  it("should update global stats after withdraw operation", async () => {
+    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    await stake(staker1, 9000, 10, staking);
+    const statsBefore = await staking.stats();
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+    
+    const expectedSharesChange = await getExpectedSharesChange(
+      4000 + 45,
+      staking
+    ); // 45 donated
+    await staking.withdraw(staker1.address, 4000);
+
+    const statsAfter = await staking.stats();
+    const initialShares = (await staking.SHARE_DECIMALS()).mul(9000);
+    expect(statsAfter.lastUpdateBlock.gt(statsBefore.lastUpdateBlock));
+    expect(statsAfter.totalStaked).to.equal(5405); // 450 rewards, 90% of rewards is 405. (4000-405) = 3595 deposit component.
+    expect(statsAfter.totalShares).to.equal(initialShares.sub(expectedSharesChange));
+    expect(statsAfter.totalRewardsPaid).to.equal(405);
+    expect(statsAfter.totalRewardsDonated).to.equal(45);
+    expect(statsAfter.avgDonationRatio).to.equal((await staking.PRECISION()).mul(10));
+    expect(statsAfter.principle).to.equal(await staking.compoundNextBlock());
+  });
 
   it("should compound principle over period with donation 100% and 50% and 0%", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
