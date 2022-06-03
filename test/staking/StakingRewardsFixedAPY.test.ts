@@ -259,6 +259,20 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should withdraw full amount when partially donating", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    const balance = await staking.getPrinciple(staker2.address);
+    await staking.withdraw(staker2.address, balance);
+    const info = await staking.stakersInfo(staker2.address);
+
+    expect(balance).to.equal(10250);
+    expect(await staking.getPrinciple(staker2.address)).to.equal(0);
+    expect(info.deposit).to.equal(0);
+    expect(info.shares).to.equal(0);
+    expect(info.rewardsPaid).to.equal(250);
+    expect(info.rewardsDonated).to.equal(250);
+    expect(info.avgDonationRatio).to.equal(
+      (await staking.PRECISION()).mul(50)
+    );
   });
 
   it("should withdraw full amount when donating 100%", async () => {
@@ -285,6 +299,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     //9500 withdraw / sharePrice = shares to reduce
     const expectedSharesRedeemed = await getExpectedSharesChange(9500, staking);
     await staking.withdraw(staker3.address, BN.from(9500));
+    
     const balanceAfterWithdraw = await staking.getPrinciple(staker3.address);
     expect(balanceAfterWithdraw).to.equal(1000);
 
@@ -308,6 +323,36 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should withdraw partial amount when partially donating and calculate principle correctly after 1 year", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    const infoBefore = await staking.stakersInfo(staker2.address);
+    const expectedSharesRedeemed = await getExpectedSharesChange(
+      9500 + 250,
+      staking
+    ); //withdrawing 9500 but 250 donated rewards will be withdrawn also
+
+    await staking.withdraw(staker2.address, BN.from(9500)); // will withdraw 9500 from deposit but also 250 earned + 250 donated rewards
+    
+    const balanceAfterWithdraw = await staking.getPrinciple(staker2.address);
+    expect(balanceAfterWithdraw).to.equal(750);
+
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+
+    const info = await staking.stakersInfo(staker2.address);
+    expect(await staking.getPrinciple(staker2.address)).to.equal(BN.from(76875).div(100)); // 750 + 5%APY * 50%donation
+    expect(info.deposit).to.equal(750);
+    expect(info.shares.toNumber()).to.equal(
+      infoBefore.shares.sub(expectedSharesRedeemed)
+    );
+    // expect(
+    //   info.shares
+    //     .mul(await staking.sharePrice())
+    //     .div(await staking.SHARE_PRECISION())
+    // ).to.equal(await staking.getPrinciple(staker2.address));
+    expect(info.rewardsPaid).to.equal(250);
+    expect(info.rewardsDonated).to.equal(250);
+    expect(info.avgDonationRatio).to.equal(
+      (await staking.PRECISION()).mul(50)
+    );
   });
 
   it("should withdraw partial amount when donating 100% and calculate principle correctly after 1 year", async () => {
@@ -319,17 +364,23 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     ); //withdrawing 9500 but 500 donated rewards will be withdrawn also
 
     await staking.withdraw(staker1.address, BN.from(9500)); // this will withdraw 9500 from deposit but also 500 donated rewards
+    
     const balanceAfterWithdraw = await staking.getPrinciple(staker1.address);
     expect(balanceAfterWithdraw).to.equal(500);
 
     await advanceBlocks(BLOCKS_ONE_YEAR);
+    
     const info = await staking.stakersInfo(staker1.address);
-
     expect(await staking.getPrinciple(staker1.address)).to.equal(500);
     expect(info.deposit).to.equal(500);
     expect(info.shares.toNumber()).to.equal(
       infoBefore.shares.sub(expectedSharesRedeemed)
     );
+    // expect(
+    //   info.shares
+    //     .mul(await staking.sharePrice())
+    //     .div(await staking.SHARE_PRECISION())
+    // ).to.equal(await staking.getPrinciple(staker1.address));
     expect(info.rewardsPaid).to.equal(0);
     expect(info.rewardsDonated).to.equal(500);
     expect(info.avgDonationRatio).to.equal(
@@ -475,7 +526,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     // maybe not needed and the share precision is what's important
   });
 
-  xit("Should undo reward and keep stakers info the same", async () => {
+  it("Should undo reward and keep stakers info the same", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
 
     const initialInfo = await staking.stakersInfo(staker3.address);
@@ -497,7 +548,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(initialInfo.shares).to.equal(infoAfterUndo.shares);
   });
 
-  xit("Should undo reward and keep global stats the same", async () => {
+  it("Should undo reward and keep global stats the same", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
 
     const initialStats = await staking.stats();
