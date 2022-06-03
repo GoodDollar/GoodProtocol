@@ -133,25 +133,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(info.deposit).to.equal(9000);
     expect(info.shares).to.equal(initialShares);
     expect(info.rewardsPaid).to.equal(0);
-    expect(info.avgDonationRatio).to.equal((await staking.PRECISION()).mul(10));
-  });
-
-  it("should update staker info after withdraw operation", async () => {
-    const { staking } = await waffle.loadFixture(fixture_initOnly);
-    await stake(staker1, 9000, 10, staking);
-    await advanceBlocks(BLOCKS_ONE_YEAR);
-    const expectedSharesChange = await getExpectedSharesChange(
-      4000 + 45,
-      staking
-    ); // 45 donated
-
-    await staking.withdraw(staker1.address, 4000);
-
-    const info = await staking.stakersInfo(staker1.address);
-    const initialShares = (await staking.SHARE_DECIMALS()).mul(9000);
-    expect(info.deposit).to.equal(5405); // 450 rewards, 90% of rewards is 405. (4000-405) = 3595 deposit component.
-    expect(info.shares).to.equal(initialShares.sub(expectedSharesChange));
-    expect(info.rewardsPaid).to.equal(405);
+    expect(info.rewardsDonated).to.equal(0);
     expect(info.avgDonationRatio).to.equal((await staking.PRECISION()).mul(10));
   });
 
@@ -172,6 +154,26 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(statsAfter.totalRewardsDonated).to.equal(0);
     expect(statsAfter.avgDonationRatio).to.equal(PRECISION.mul(10));
     expect(statsAfter.principle).to.equal(PRECISION.mul(9000));
+  });
+
+  it("should update staker info after withdraw operation", async () => {
+    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    await stake(staker1, 9000, 10, staking);
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+    const expectedSharesChange = await getExpectedSharesChange(
+      4000 + 45,
+      staking
+    ); // 45 donated
+
+    await staking.withdraw(staker1.address, 4000);
+
+    const info = await staking.stakersInfo(staker1.address);
+    const initialShares = (await staking.SHARE_DECIMALS()).mul(9000);
+    expect(info.deposit).to.equal(5405); // 450 rewards, 90% of rewards is 405. (4000-405) = 3595 deposit component.
+    expect(info.shares).to.equal(initialShares.sub(expectedSharesChange));
+    expect(info.rewardsPaid).to.equal(405);
+    expect(info.rewardsDonated).to.equal(45);
+    expect(info.avgDonationRatio).to.equal((await staking.PRECISION()).mul(10));
   });
 
   it("should update global stats after withdraw operation", async () => {
@@ -207,11 +209,11 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(principle).to.equal(10500);
 
     let info = await staking.stakersInfo(staker1.address);
-
     const initialShares = (await staking.SHARE_DECIMALS()).mul(10000);
     expect(info.deposit).to.equal(10000);
     expect(info.shares).to.equal(initialShares); //amount * shareprecision / 1000 (initial share price)
     expect(info.rewardsPaid).to.equal(0);
+    expect(info.rewardsDonated).to.equal(0);
     expect(info.avgDonationRatio).to.equal(
       (await staking.PRECISION()).mul(100)
     );
@@ -220,6 +222,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(info.deposit).to.equal(10000);
     expect(info.shares).to.equal(initialShares);
     expect(info.rewardsPaid).to.equal(0);
+    expect(info.rewardsDonated).to.equal(0);
     expect(info.avgDonationRatio).to.equal((await staking.PRECISION()).mul(50));
   });
 
@@ -251,6 +254,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(info.deposit).to.equal(0);
     expect(info.shares).to.equal(0);
     expect(info.rewardsPaid).to.equal(500);
+    expect(info.rewardsDonated).to.equal(0);
     expect(info.avgDonationRatio).to.equal(0);
   });
 
@@ -265,6 +269,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(info.deposit).to.equal(0);
     expect(info.shares).to.equal(0);
     expect(info.rewardsPaid).to.equal(0);
+    expect(info.rewardsDonated).to.equal(500);
     expect(info.avgDonationRatio).to.equal(
       (await staking.PRECISION()).mul(100)
     );
@@ -295,6 +300,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     ).to.equal(await staking.getPrinciple(staker3.address));
 
     expect(info.rewardsPaid).to.equal(500);
+    expect(info.rewardsDonated).to.equal(0);
     expect(info.avgDonationRatio).to.equal(0);
   });
 
@@ -319,6 +325,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
       infoBefore.shares.sub(expectedSharesRedeemed)
     );
     expect(info.rewardsPaid).to.equal(0);
+    expect(info.rewardsDonated).to.equal(500);
     expect(info.avgDonationRatio).to.equal(
       (await staking.PRECISION()).mul(100)
     );
@@ -340,6 +347,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
       infoBefore.shares.sub(expectedSharesRedeemed)
     );
     expect(info.rewardsPaid).to.equal(500);
+    expect(info.rewardsDonated).to.equal(0);
     expect(info.avgDonationRatio).to.equal(0);
   });
 
