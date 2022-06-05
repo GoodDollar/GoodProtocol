@@ -610,7 +610,11 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     await expect(staking.undoReward(staker3.address, 501)).to.be.reverted;
   });
 
-  it("Should fail to withdraw exceeding amount", async () => {});
+  it("Should fail to withdraw exceeding amount", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    const principle = await staking.getPrinciple(staker1.address);
+    await expect(staking.withdraw(staker1.address, principle.add(1))).to.be.reverted;
+  });
 
   it("Should not earn new rewards when withdrawing right after withdrawing or staking", async () => {});
 
