@@ -173,7 +173,6 @@ contract GoodDollarMintBurnWrapper is
 	event SendOrMint(address to, uint256 amount, uint256 sent, uint256 minted);
 
 	function initialize(
-		TokenType _tokenType,
 		uint256 _totalMintCap,
 		address _admin,
 		INameService _nameService
@@ -182,7 +181,7 @@ contract GoodDollarMintBurnWrapper is
 		setDAO(_nameService);
 		require(_admin != address(0), "zero admin address");
 		token = address(nativeToken());
-		tokenType = _tokenType;
+		tokenType = TokenType.MintBurnFrom;
 		totalMintCap = _totalMintCap;
 		updateFrequency = 90 days;
 		_setupRole(DEFAULT_ADMIN_ROLE, _admin);
