@@ -251,9 +251,10 @@ contract StakingRewardsFixedAPY {
 		virtual
 	{
 		//the actual amount we undo needs to take into account the user donation ratio.
-		uint256 rewardsBeforeDonation = (100 *
-			PRECISION *
-			_rewardsPaidAfterDonation) / stakersInfo[_to].avgDonationRatio;
+		uint256 rewardsBeforeDonation = stakersInfo[_to].avgDonationRatio == 0
+			? _rewardsPaidAfterDonation
+			: (100 * PRECISION * _rewardsPaidAfterDonation) /
+				stakersInfo[_to].avgDonationRatio;
 
 		//calculate this before udpating global principle
 		uint128 newShares = uint128(
@@ -274,6 +275,7 @@ contract StakingRewardsFixedAPY {
 		uint128 rewardsDonated = uint128(
 			rewardsBeforeDonation - _rewardsPaidAfterDonation
 		);
+
 		stats.totalRewardsPaid -= uint128(_rewardsPaidAfterDonation);
 		stats.totalRewardsDonated -= rewardsDonated;
 		stats.principle += rewardsBeforeDonation * PRECISION; //rewards are part of the compounding interest

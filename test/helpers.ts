@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import hre from "hardhat";
 import { expect } from "chai";
 import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollar.json";
 import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
@@ -444,7 +445,19 @@ export async function increaseTime(seconds) {
 
 export const advanceBlocks = async (blocks: number) => {
   let ps = [];
-  await ethers.provider.send("hardhat_mine", ["0x" + blocks.toString(16)]);
+  //required for bug https://github.com/sc-forks/solidity-coverage/issues/707
+  if ((hre as any).__SOLIDITY_COVERAGE_RUNNING) {
+    for (let i = 0; i < blocks; i++) {
+      ps.push(ethers.provider.send("evm_mine", []));
+      if (i % 5000 === 0) {
+        await Promise.all(ps);
+        ps = [];
+      }
+    }
+    await Promise.all(ps);
+  } else {
+    await ethers.provider.send("hardhat_mine", ["0x" + blocks.toString(16)]);
+  }
 };
 
 export const deployOldVoting = async dao => {
