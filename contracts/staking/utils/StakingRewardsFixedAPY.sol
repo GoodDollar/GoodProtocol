@@ -101,11 +101,12 @@ contract StakingRewardsFixedAPY {
 		// );
 		// console.log("getPrinciple: shares: %s", stakersInfo[_account].shares);
 
-		return
-			(sharePrice() * stakersInfo[_account].shares) /
+		balance = stakersInfo[_account].deposit;
+		uint256 principle = (sharePrice() * stakersInfo[_account].shares) /
 			SHARE_PRECISION -
 			earnedRewards +
 			earnedRewardsAfterDonation;
+		balance = principle < balance ? balance : principle; //because of precision loss in initial shares calculation we force principle to be at least as what user deposited
 	}
 
 	/**
@@ -118,10 +119,11 @@ contract StakingRewardsFixedAPY {
 		view
 		returns (uint256 earnedRewards, uint256 earnedRewardsAfterDonation)
 	{
-		earnedRewards =
-			(sharePrice() * stakersInfo[_account].shares) /
-			SHARE_PRECISION -
-			stakersInfo[_account].deposit;
+		uint256 principle = (sharePrice() * stakersInfo[_account].shares) /
+			SHARE_PRECISION;
+		earnedRewards = principle < stakersInfo[_account].deposit
+			? 0
+			: principle - stakersInfo[_account].deposit;
 		earnedRewardsAfterDonation =
 			(earnedRewards *
 				(100 * PRECISION - stakersInfo[_account].avgDonationRatio)) /
