@@ -653,10 +653,13 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     const principle = await staking.getPrinciple(staker4.address);
     await expect(staking.withdraw(staker4.address, 10000)).not.reverted;
 
-    //todo: add checks for stakerinfo
-    // const info = await staking.stakersInfo(staker4.address);
-    // print(info);
-    // console.log(await staking.getPrinciple(staker4.address));
+    const info = await staking.stakersInfo(staker4.address);
+    expect(await staking.getPrinciple(staker4.address)).to.equal(0);
+    expect(info.deposit).to.equal(0);
+    expect(info.shares).to.equal(0);
+    expect(info.rewardsPaid).to.equal(0);
+    expect(info.rewardsDonated).to.equal(0);
+    expect(info.avgDonationRatio).to.equal(0);
   });
 
   it("should calculate principle correctly using new APY after set APY ", async () => {});
