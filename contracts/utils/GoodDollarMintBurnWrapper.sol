@@ -167,8 +167,8 @@ contract GoodDollarMintBurnWrapper is
 	address public token; // the target token this contract is wrapping
 	TokenType public tokenType;
 
-	uint128 currentDay; //used to reset daily minter limit
-	uint128 updateFrequency; //how often to update the relative to supply daily limit
+	uint128 public currentDay; //used to reset daily minter limit
+	uint128 public updateFrequency; //how often to update the relative to supply daily limit
 
 	event SendOrMint(address to, uint256 amount, uint256 sent, uint256 minted);
 
@@ -184,8 +184,8 @@ contract GoodDollarMintBurnWrapper is
 		tokenType = TokenType.MintBurnFrom;
 		totalMintCap = _totalMintCap;
 		updateFrequency = 90 days;
-		_setupRole(DEFAULT_ADMIN_ROLE, _admin);
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
+		_setupRole(DEFAULT_ADMIN_ROLE, _admin);
 	}
 
 	function upgrade1() external {
@@ -210,15 +210,15 @@ contract GoodDollarMintBurnWrapper is
 		return ERC20(token).symbol();
 	}
 
+	function owner() external view returns (address) {
+		return getRoleMember(DEFAULT_ADMIN_ROLE, 0);
+	}
+
 	function setUpdateFrequency(uint128 inSeconds)
 		external
 		onlyRole(DEFAULT_ADMIN_ROLE)
 	{
 		updateFrequency = inSeconds;
-	}
-
-	function owner() external view returns (address) {
-		return getRoleMember(DEFAULT_ADMIN_ROLE, 0);
 	}
 
 	function pause(bytes32 role) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -227,66 +227,6 @@ contract GoodDollarMintBurnWrapper is
 
 	function unpause(bytes32 role) external onlyRole(DEFAULT_ADMIN_ROLE) {
 		_unpause(role);
-	}
-
-	function _updateCurrentDay() internal {
-		currentDay = uint128(block.timestamp / 1 days);
-	}
-
-	function _mint(address to, uint256 amount)
-		internal
-		whenNotPaused(PAUSE_MINT_ROLE)
-	{
-		require(to != address(this), "forbid mint to address(this)");
-
-		Supply storage s = minterSupply[msg.sender];
-		require(s.max == 0 || amount <= s.max, "minter max exceeded");
-		s.total += amount;
-		require(s.total == 0 || s.total <= s.cap, "minter cap exceeded");
-
-		totalMinted += amount;
-		require(totalMinted <= totalMintCap, "total mint cap exceeded");
-
-		bool ok = dao.mintTokens(amount, to, avatar);
-		require(ok, "mint failed");
-	}
-
-	function _burn(address from, uint256 amount)
-		internal
-		whenNotPaused(PAUSE_BURN_ROLE)
-	{
-		//update stats correctly, but dont fail if it tries to transfer tokens minted elsewhere as long as we burn some
-		if (totalMinted >= amount) {
-			totalMinted -= amount;
-		} else {
-			totalMinted = 0;
-		}
-
-		if (hasRole(MINTER_ROLE, msg.sender)) {
-			Supply storage s = minterSupply[msg.sender];
-
-			if (s.total >= amount) {
-				s.total -= amount;
-			} else {
-				s.total = 0;
-			}
-		}
-
-		//handle onTokenTransfer (ERC677), assume tokens has been transfered
-		if (from == address(this)) {
-			TokenOperation.safeBurnSelf(token, amount);
-		} else if (
-			tokenType == TokenType.Transfer || tokenType == TokenType.TransferDeposit
-		) {
-			IERC20(token).safeTransferFrom(from, address(this), amount);
-		} else if (tokenType == TokenType.MintBurnAny) {
-			TokenOperation.safeBurnAny(token, from, amount);
-		} else if (tokenType == TokenType.MintBurnFrom) {
-			TokenOperation.safeBurnFrom(token, from, amount);
-		} else if (tokenType == TokenType.MintBurnSelf) {
-			IERC20(token).safeTransferFrom(from, address(this), amount);
-			TokenOperation.safeBurnSelf(token, amount);
-		}
 	}
 
 	// impl IRouter `mint`
@@ -302,7 +242,6 @@ contract GoodDollarMintBurnWrapper is
 	// impl IRouter `burn`
 	function burn(address from, uint256 amount)
 		external
-		onlyRole(MINTER_ROLE)
 		onlyRole(ROUTER_ROLE)
 		whenNotPaused(PAUSE_ROUTER_ROLE)
 		returns (bool)
@@ -329,28 +268,6 @@ contract GoodDollarMintBurnWrapper is
 			chainId
 		);
 		return true;
-	}
-
-	function _balanceDebt(Supply storage minter) internal {
-		uint256 toBurn = Math.min(
-			minter.mintDebt,
-			IERC20(token).balanceOf(address(this))
-		);
-
-		if (toBurn > 0) {
-			minter.mintDebt -= uint128(toBurn);
-			ERC20(token).burn(toBurn); //from DAOUpgradableContract -> Interfaces
-		}
-	}
-
-	function _updateDailyLimitCap(Supply storage minter) internal {
-		uint256 blocksPassed = block.timestamp - minter.lastUpdate;
-		if (blocksPassed > updateFrequency) {
-			minter.dailyCap =
-				uint128(IERC20(token).totalSupply() * minter.bpsPerDay) /
-				10000;
-			minter.lastUpdate = uint128(block.timestamp);
-		}
 	}
 
 	function sendOrMint(address to, uint256 amount)
@@ -421,5 +338,87 @@ contract GoodDollarMintBurnWrapper is
 	) external onlyRole(DEFAULT_ADMIN_ROLE) {
 		require(force || hasRole(MINTER_ROLE, minter), "not minter");
 		minterSupply[minter].total = total;
+	}
+
+	function _updateCurrentDay() internal {
+		currentDay = uint128(block.timestamp / 1 days);
+	}
+
+	function _mint(address to, uint256 amount)
+		internal
+		whenNotPaused(PAUSE_MINT_ROLE)
+	{
+		require(to != address(this), "forbid mint to address(this)");
+
+		Supply storage s = minterSupply[msg.sender];
+		require(s.max == 0 || amount <= s.max, "minter max exceeded");
+		s.total += amount;
+		require(s.total == 0 || s.total <= s.cap, "minter cap exceeded");
+
+		totalMinted += amount;
+		require(totalMinted <= totalMintCap, "total mint cap exceeded");
+
+		bool ok = dao.mintTokens(amount, to, avatar);
+		require(ok, "mint failed");
+	}
+
+	function _burn(address from, uint256 amount)
+		internal
+		whenNotPaused(PAUSE_BURN_ROLE)
+	{
+		//update stats correctly, but dont fail if it tries to transfer tokens minted elsewhere as long as we burn some
+		if (totalMinted >= amount) {
+			totalMinted -= amount;
+		} else {
+			totalMinted = 0;
+		}
+
+		if (hasRole(MINTER_ROLE, msg.sender)) {
+			Supply storage s = minterSupply[msg.sender];
+
+			if (s.total >= amount) {
+				s.total -= amount;
+			} else {
+				s.total = 0;
+			}
+		}
+
+		//handle onTokenTransfer (ERC677), assume tokens has been transfered
+		if (from == address(this)) {
+			TokenOperation.safeBurnSelf(token, amount);
+		} else if (
+			tokenType == TokenType.Transfer || tokenType == TokenType.TransferDeposit
+		) {
+			IERC20(token).safeTransferFrom(from, address(this), amount);
+		} else if (tokenType == TokenType.MintBurnAny) {
+			TokenOperation.safeBurnAny(token, from, amount);
+		} else if (tokenType == TokenType.MintBurnFrom) {
+			TokenOperation.safeBurnFrom(token, from, amount);
+		} else if (tokenType == TokenType.MintBurnSelf) {
+			IERC20(token).safeTransferFrom(from, address(this), amount);
+			TokenOperation.safeBurnSelf(token, amount);
+		}
+	}
+
+	function _balanceDebt(Supply storage minter) internal {
+		uint256 toBurn = Math.min(
+			minter.mintDebt,
+			IERC20(token).balanceOf(address(this))
+		);
+
+		if (toBurn > 0) {
+			minter.mintDebt -= uint128(toBurn);
+			ERC20(token).burn(toBurn); //from DAOUpgradableContract -> Interfaces
+		}
+	}
+
+	function _updateDailyLimitCap(Supply storage minter) internal {
+		uint256 blocksPassed = block.timestamp - minter.lastUpdate;
+		if (blocksPassed > updateFrequency) {
+			minter.dailyCap =
+				uint128(IERC20(token).totalSupply() * minter.bpsPerDay) /
+				10000;
+			minter.lastUpdate = uint128(block.timestamp);
+		}
 	}
 }
