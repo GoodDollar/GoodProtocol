@@ -9,20 +9,28 @@ const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 1;
 
+const MINTER_CAP = 1000000;
+const MINTER_TX_MAX = 100000;
+const REWARD_BPS = 300;
+
 describe("GoodDollarMintBurnWrapper", () => {
   let goodReserve: GoodReserveCDai;
   let goodDollar: ERC20,
     genericCall,
     avatar,
     founder,
+    minter,
+    rewarder,
     wrapperAdmin,
     signers,
     setDAOAddress,
     nameService,
-    cDai;
+    cDai,
+    controller;
 
   before(async () => {
-    [founder, wrapperAdmin, ...signers] = await ethers.getSigners();
+    [founder, wrapperAdmin, minter, rewarder, ...signers] =
+      await ethers.getSigners();
 
     let {
       controller: ctrl,
@@ -30,7 +38,7 @@ describe("GoodDollarMintBurnWrapper", () => {
       gd,
       identity,
       setDAOAddress: sda,
-      setSchemes,
+      setSchemes: ss,
       reserve,
       cdaiAddress,
       genericCall: gc,
@@ -42,6 +50,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     cDai = cdaiAddress;
     avatar = av;
     setDAOAddress = sda;
+    controller = ctrl;
 
     console.log("deployed dao", {
       founder: founder.address,
@@ -60,9 +69,14 @@ describe("GoodDollarMintBurnWrapper", () => {
   });
 
   const fixture = async (wallets, provider) => {
-    const gf = await ethers.getContractFactory("GoodDollarMintBurnWrapper");
-
     wallets = provider.getWallets();
+
+    const gf = await ethers.getContractFactory("GoodDollarMintBurnWrapper");
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      wallets[wallets.length - 1] //has scheme permissions set by createDAO()
+    );
     const wrapper = (await waffle.deployContract(wallets[0], {
       abi: JSON.parse(gf.interface.format(FormatTypes.json) as string) as any[],
       bytecode: gf.bytecode
@@ -74,6 +88,19 @@ describe("GoodDollarMintBurnWrapper", () => {
       nameService.address
     );
 
+    await wrapper
+      .connect(wrapperAdmin)
+      .addMinter(minter.address, MINTER_CAP, MINTER_TX_MAX, 0, false);
+    await wrapper
+      .connect(wrapperAdmin)
+      .addMinter(rewarder.address, MINTER_CAP, MINTER_TX_MAX, REWARD_BPS, true);
+
+    await ictrl.registerScheme(
+      wrapper.address,
+      ethers.constants.HashZero,
+      "0x00000001",
+      avatar
+    );
     return { wrapper };
   };
 
@@ -119,7 +146,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
     await expect(
-      wrapper.pause(await wrapper.PAUSE_ALL_ROLE())
+      wrapper.unpause(await wrapper.PAUSE_ALL_ROLE())
     ).to.be.revertedWith("role");
 
     await expect(
@@ -156,9 +183,34 @@ describe("GoodDollarMintBurnWrapper", () => {
     expect(await wrapper.paused(await wrapper.PAUSE_ALL_ROLE())).to.equal(true);
   });
 
-  it("should be able to unpause roles only by admin role", async () => {});
+  it("should be able to unpause roles only by admin role", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
 
-  it("should be able to mint only by minter role", async () => {});
+    await expect(
+      wrapper.unpause(await wrapper.PAUSE_ALL_ROLE())
+    ).to.be.revertedWith("role");
+
+    await expect(
+      wrapper.connect(wrapperAdmin).pause(await wrapper.PAUSE_BURN_ROLE())
+    ).to.not.reverted;
+
+    await expect(
+      wrapper.connect(wrapperAdmin).unpause(await wrapper.PAUSE_BURN_ROLE())
+    ).to.not.reverted;
+
+    expect(await wrapper.paused(await wrapper.PAUSE_BURN_ROLE())).to.equal(
+      false
+    );
+  });
+
+  it("should be able to mint only by minter role", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await expect(wrapper.mint(founder.address, 1000)).to.revertedWith("role");
+    await expect(wrapper.connect(minter).mint(signers[0].address, 1000)).to.not
+      .reverted;
+    expect(await goodDollar.balanceOf(signers[0].address)).to.equal(1000);
+  });
 
   it("should not be able to mint when minter is paused", async () => {});
 
