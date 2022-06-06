@@ -69,7 +69,7 @@ const hhconfig: HardhatUserConfig = {
       accounts: {
         accountsBalance: "10000000000000000000000000"
       },
-      initialDate: "2021-12-01"
+      initialDate: "2021-12-01" //required for DAO tests like guardian
     },
     test: {
       allowUnlimitedContractSize: true,
