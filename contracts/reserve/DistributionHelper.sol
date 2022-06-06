@@ -89,14 +89,14 @@ contract DistributionHelper is
 		external
 		onlyRole(DEFAULT_ADMIN_ROLE)
 	{
-		console.log("addOrUpdate addr: %s", _recipient.addr);
+		// console.log("addOrUpdate addr: %s", _recipient.addr);
 		for (uint256 i = 0; i < distributionRecipients.length; i++) {
-			console.log(
-				"addOrUpdate addr: %s idx: %s, recipient: %s",
-				_recipient.addr,
-				i,
-				distributionRecipients[i].addr
-			);
+			// console.log(
+			// 	"addOrUpdate addr: %s idx: %s, recipient: %s",
+			// 	_recipient.addr,
+			// 	i,
+			// 	distributionRecipients[i].addr
+			// );
 			if (distributionRecipients[i].addr == _recipient.addr) {
 				distributionRecipients[i] = _recipient;
 				emit RecipientUpdated(_recipient, i);

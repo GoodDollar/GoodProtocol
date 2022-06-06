@@ -131,12 +131,6 @@ describe("GoodReserve - Distribution Helper", () => {
     ).to.be.revertedWith("avatar");
   });
 
-  //   it("should send UBI to distribution contract", async () => {
-  //     await increaseTime(24 * 60 * 60); //required for reserve ratio advance
-  //     let tx = await (await goodReserve.mintUBI(0, 0, cDai)).wait();
-  //     console.log(tx);
-  //   });
-
   it("should send UBI to distribution contract", async () => {
     const { distHelper } = await waffle.loadFixture(deployed_fixture);
 
