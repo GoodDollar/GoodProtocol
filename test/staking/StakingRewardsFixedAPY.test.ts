@@ -15,6 +15,13 @@ const INTEREST_RATE_5APY_128 = BN.from("18446744216406738474"); // 128 represent
 const INTEREST_RATE_10APY_X64 = BN.from("1000000015111330000"); // x64 representation of same number
 const INTEREST_RATE_10APY_128 = BN.from("18446744352464388739"); // 128 representation of same number
 
+// Donation percentages
+const NO_DONATION = 0;
+const DONATE_10_PERCENT = 10;
+const DONATE_25_PERCENT = 25;
+const DONATE_50_PERCENT = 50;
+const DONATE_100_PERCENT = 100;
+
 describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contract", () => {
   let signers,
     setNSAddress,
@@ -95,9 +102,9 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
       [INTEREST_RATE_5APY_X64]
     )) as StakingMockFixedAPY;
 
-    await stake(staker1, 10000, 100, staking);
-    await stake(staker2, 10000, 50, staking);
-    await stake(staker3, 10000, 0, staking);
+    await stake(staker1, 10000, DONATE_100_PERCENT, staking);
+    await stake(staker2, 10000, DONATE_50_PERCENT, staking);
+    await stake(staker3, 10000, NO_DONATION, staking);
 
     await advanceBlocks(BLOCKS_ONE_YEAR);
 
@@ -126,7 +133,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   it("should update staker info after stake operation", async () => {
     const { staking } = await waffle.loadFixture(fixture_initOnly);
 
-    await stake(staker1, 9000, 10, staking);
+    await stake(staker1, 9000, DONATE_10_PERCENT, staking);
 
     let info = await staking.stakersInfo(staker1.address);
     const initialShares = (await staking.SHARE_DECIMALS()).mul(9000);
@@ -142,7 +149,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     const statsBefore = await staking.stats();
     const PRECISION = await staking.PRECISION();
 
-    await stake(staker1, 9000, 10, staking);
+    await stake(staker1, 9000, DONATE_10_PERCENT, staking);
 
     const statsAfter = await staking.stats();
     expect(statsAfter.lastUpdateBlock.gt(statsBefore.lastUpdateBlock));
@@ -158,7 +165,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
   it("should update staker info after withdraw operation", async () => {
     const { staking } = await waffle.loadFixture(fixture_initOnly);
-    await stake(staker1, 9000, 10, staking);
+    await stake(staker1, 9000, DONATE_10_PERCENT, staking);
     await advanceBlocks(BLOCKS_ONE_YEAR);
     const expectedSharesChange = await getExpectedSharesChange(
       4000 + 45,
@@ -178,7 +185,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
   it("should update global stats after withdraw operation", async () => {
     const { staking } = await waffle.loadFixture(fixture_initOnly);
-    await stake(staker1, 9000, 10, staking);
+    await stake(staker1, 9000, DONATE_10_PERCENT, staking);
     const statsBefore = await staking.stats();
     await advanceBlocks(BLOCKS_ONE_YEAR);
     
@@ -230,7 +237,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     const { staking } = await waffle.loadFixture(fixture_1year);
 
     //add staker with 25% donation after first year
-    await stake(staker4, 125125, 25, staking);
+    await stake(staker4, 125125, DONATE_25_PERCENT, staking);
     await advanceBlocks(BLOCKS_ONE_YEAR);
     //check all stakes after 2nd year
     let principle = await staking.getPrinciple(staker1.address);
@@ -616,7 +623,16 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     await expect(staking.withdraw(staker1.address, principle.add(1))).to.be.reverted;
   });
 
-  it("Should not earn new rewards when withdrawing right after withdrawing or staking", async () => {});
+  // it.only("Should not earn new rewards when withdrawing right after staking", async () => {
+  //   const { staking } = await waffle.loadFixture(fixture_1year);
+  //   console.log("Logs start from here!")
+  //   await stake(staker4, 10000, NO_DONATION, staking);
+  //   await staking.withdraw(staker4.address, 10000);
+
+  //   // const info = await staking.stakersInfo(staker4.address);
+  //   // print(info);
+  //   // console.log(await staking.getPrinciple(staker4.address));
+  // });
 
   it("should calculate principle correctly using new APY after set APY ", async () => {});
 
