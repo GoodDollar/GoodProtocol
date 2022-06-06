@@ -63,7 +63,7 @@ contract DistributionHelper is
 	 * @param _amount how much was sent, informational only
 	 */
 	function onDistribution(uint256 _amount) external virtual {
-		//we consider the actuall balance and not _amount
+		//we consider the actual balance and not _amount
 		// console.log("onDistribution amount: %s", _amount);
 		uint256 toDistribute = nativeToken().balanceOf(address(this));
 		if (toDistribute == 0) return;

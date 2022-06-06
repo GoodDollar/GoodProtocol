@@ -182,7 +182,7 @@ contract GoodDollarStaking is
 	}
 
 	/**
-	 * @dev Staker can withdraw their rewards without withdraw their stake
+	 * @dev Stakers can withdraw their rewards without withdrawing their stake
 	 */
 	function withdrawRewards()
 		public
