@@ -14,6 +14,8 @@ const INTEREST_RATE_5APY_128 = BN.from("18446744216406738474"); // 128 represent
 // APY = 10% | nroot(1+0.10,numberOfBlocksPerYear) = 1000000015111330000
 const INTEREST_RATE_10APY_X64 = BN.from("1000000015111330000"); // x64 representation of same number
 const INTEREST_RATE_10APY_128 = BN.from("18446744352464388739"); // 128 representation of same number
+// APY = 8% | nroot(1+0.08,numberOfBlocksPerYear) = 1000000012202093100
+const INTEREST_RATE_8APY_X64 = BN.from("1000000012202093100"); // x64 representation of same number
 
 // Donation percentages
 const NO_DONATION = 0;
@@ -662,7 +664,40 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(info.avgDonationRatio).to.equal(0);
   });
 
-  it("should calculate principle correctly using new APY after set APY ", async () => {});
+  it("should calculate principle correctly after set APY ", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    await stake(staker4, 125125, DONATE_25_PERCENT, staking);
+
+    // before set, APY is 5%
+    const beforeSetInterestRateIn128 = await staking.interestRatePerBlockX64();
+    expect(beforeSetInterestRateIn128).to.equal(INTEREST_RATE_5APY_128);
+
+    // set APY to 10%
+    await staking.setAPY(INTEREST_RATE_10APY_X64);
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+
+    let principle = await staking.getPrinciple(staker1.address);
+    expect(principle).to.equal(10000); // 10000 + 10000((1.05APY1 * 1.10APY2) - 1) * 0% earning
+    principle = await staking.getPrinciple(staker2.address);
+    expect(principle).to.equal(10775); // 10000 + 10000((1.05APY1 * 1.10APY2) - 1) * 50%earning
+    principle = await staking.getPrinciple(staker3.address);
+    expect(principle).to.equal(11550); // 10000 + 10000((1.05APY1 * 1.10APY2) - 1) * 100%earning
+    principle = await staking.getPrinciple(staker4.address);
+    expect(principle).to.equal(BN.from(134509375).div(1000)); // 125125 + 125125((1.10APY2) - 1) * 75%earning(100%-25%)
+
+    // set APY to 8%
+    await staking.setAPY(INTEREST_RATE_8APY_X64);
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+
+    principle = await staking.getPrinciple(staker1.address);
+    expect(principle).to.equal(10000); // 10000 + 10000((1.05APY1 * 1.10APY2 * 1.08APY3) - 1) * 0%earning
+    principle = await staking.getPrinciple(staker2.address);
+    expect(principle).to.equal(11237); // 10000 + 10000((1.05APY1 * 1.10APY2 * 1.08APY3) - 1) * 50%earning
+    principle = await staking.getPrinciple(staker3.address);
+    expect(principle).to.equal(12474); // 10000 + 10000((1.05APY1 * 1.10APY2 * 1.08APY3) - 1) * 100%earning
+    principle = await staking.getPrinciple(staker4.address);
+    expect(principle).to.equal(BN.from(142767625).div(1000)); // 125125 + 125125((1.10APY2 * 1.08APY3) - 1) * 75%earning(100%-25%)
+  });
 
   it("should handle stake/withdraw a small amount", async () => {});
 
