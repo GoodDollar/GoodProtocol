@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v2
       - id: set-test-chunks
         name: Set Chunks
-        run: echo "::set-output name=test-chunks::$(find test -name '*.ts' | jq -R -s -c 'split("\n")[:-1]' | jq -cM '[_nwise(length / 5 | floor)]')"
+        run: echo "::set-output name=test-chunks::$(find test -name '*.ts' | jq -R -s -c 'split("\n")[:-1]' | jq -cM '[_nwise(length / 8 | floor)]')"
       - id: set-test-chunk-ids
         name: Set Chunk IDs
         run: echo "::set-output name=test-chunk-ids::$(echo $CHUNKS | jq -cM 'to_entries | map(.key)')"
@@ -28,8 +28,8 @@ jobs:
         chunk: ${{ fromJson(needs.setup.outputs['test-chunk-ids']) }}
     env:
       CHUNKS: ${{ needs.setup.outputs['test-chunks'] }}
-      HARDHAT_MAX_MEMORY: 4096
-      NODE_OPTIONS: "--max-old-space-size=4096"
+      HARDHAT_MAX_MEMORY: 6096
+      NODE_OPTIONS: "--max-old-space-size=6096"
 
     steps:
       - uses: actions/checkout@v2
@@ -70,8 +70,8 @@ jobs:
         chunk: ${{ fromJson(needs.setup.outputs['test-chunk-ids']) }}
     env:
       CHUNKS: ${{ needs.setup.outputs['test-chunks'] }}
-      HARDHAT_MAX_MEMORY: 4096
-      NODE_OPTIONS: "--max-old-space-size=4096"
+      HARDHAT_MAX_MEMORY: 6096
+      NODE_OPTIONS: "--max-old-space-size=6096"
 
     steps:
       - uses: actions/checkout@v2
