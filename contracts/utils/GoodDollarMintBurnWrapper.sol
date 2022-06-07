@@ -134,6 +134,7 @@ contract GoodDollarMintBurnWrapper is
 	bytes32 public constant BRIDGE_ROLE = keccak256("BRIDGE_ROLE");
 	bytes32 public constant ROUTER_ROLE = keccak256("ROUTER_ROLE");
 	bytes32 public constant REWARDS_ROLE = keccak256("REWARDS_ROLE");
+	bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
 
 	// pausable control roles
 	bytes32 public constant PAUSE_MINT_ROLE = keccak256("PAUSE_MINT_ROLE");
@@ -186,6 +187,7 @@ contract GoodDollarMintBurnWrapper is
 		updateFrequency = 90 days;
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
 		_setupRole(DEFAULT_ADMIN_ROLE, _admin);
+		_setupRole(GUARDIAN_ROLE, avatar);
 	}
 
 	function upgrade1() external {
@@ -221,11 +223,11 @@ contract GoodDollarMintBurnWrapper is
 		updateFrequency = inSeconds;
 	}
 
-	function pause(bytes32 role) external onlyRole(DEFAULT_ADMIN_ROLE) {
+	function pause(bytes32 role) external onlyRole(GUARDIAN_ROLE) {
 		_pause(role);
 	}
 
-	function unpause(bytes32 role) external onlyRole(DEFAULT_ADMIN_ROLE) {
+	function unpause(bytes32 role) external onlyRole(GUARDIAN_ROLE) {
 		_unpause(role);
 	}
 
@@ -314,12 +316,7 @@ contract GoodDollarMintBurnWrapper is
 		bool withRewardsRole
 	) external onlyRole(DEFAULT_ADMIN_ROLE) {
 		grantRole(MINTER_ROLE, minter);
-		Supply storage m = minterSupply[minter];
-		m.cap = cap;
-		m.max = max;
-		m.bpsPerDay = bpsPerDay;
-		m.lastUpdate = uint128(block.timestamp);
-		m.dailyCap = uint128(IERC20(token).totalSupply() * bpsPerDay) / 10000;
+		_setMinterCaps(minter, cap, max, bpsPerDay);
 		if (withRewardsRole) {
 			grantRole(REWARDS_ROLE, minter);
 		} else {
@@ -327,7 +324,30 @@ contract GoodDollarMintBurnWrapper is
 		}
 	}
 
-	function setTotalMintCap(uint256 cap) external onlyRole(DEFAULT_ADMIN_ROLE) {
+	function setMinterCaps(
+		address minter,
+		uint256 cap,
+		uint256 max,
+		uint32 bpsPerDay
+	) external onlyRole(GUARDIAN_ROLE) {
+		_setMinterCaps(minter, cap, max, bpsPerDay);
+	}
+
+	function _setMinterCaps(
+		address minter,
+		uint256 cap,
+		uint256 max,
+		uint32 bpsPerDay
+	) internal {
+		Supply storage m = minterSupply[minter];
+		m.cap = cap;
+		m.max = max;
+		m.bpsPerDay = bpsPerDay;
+		m.lastUpdate = uint128(block.timestamp);
+		m.dailyCap = uint128(IERC20(token).totalSupply() * bpsPerDay) / 10000;
+	}
+
+	function setTotalMintCap(uint256 cap) external onlyRole(GUARDIAN_ROLE) {
 		totalMintCap = cap;
 	}
 
@@ -335,7 +355,7 @@ contract GoodDollarMintBurnWrapper is
 		address minter,
 		uint256 total,
 		bool force
-	) external onlyRole(DEFAULT_ADMIN_ROLE) {
+	) external onlyRole(GUARDIAN_ROLE) {
 		require(force || hasRole(MINTER_ROLE, minter), "not minter");
 		minterSupply[minter].total = total;
 	}
