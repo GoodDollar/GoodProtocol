@@ -9,6 +9,7 @@ const BN = ethers.BigNumber;
 // APY=5% | Blocks per year = 12*60*24*365 = 6307200
 // per block = nroot(1+0.05,numberOfBlocksPerYear) = 1000000007735630000
 const BLOCKS_ONE_YEAR = 6307200;
+const BLOCKS_FOUR_YEARS = 25228800;
 const BLOCKS_TEN_YEARS = 63072000;
 const INTEREST_RATE_5APY_X64 = BN.from("1000000007735630000"); // x64 representation of same number
 const INTEREST_RATE_5APY_128 = BN.from("18446744216406738474"); // 128 representation of same number
@@ -152,29 +153,35 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(info.avgDonationRatio).to.equal((await staking.PRECISION()).mul(10));
   });
 
-  it("should handle stake/withdraw a small amount", async () => {
+  it("should handle stake/withdraw the minimal amount of 1", async () => {
     const { staking } = await waffle.loadFixture(fixture_initOnly);
 
-    await stake(staker4, 10, NO_DONATION, staking);
+    await stake(staker4, 1, NO_DONATION, staking);
 
     await advanceBlocks(BLOCKS_TEN_YEARS);
+    await advanceBlocks(BLOCKS_FOUR_YEARS);
 
-    await expectPrinciple(staker4, 16, staking); // (1.05^10) = 1.628894
-    await expect((await staking.sharePrice()).eq(BN.from(1628894))).to.be.true;
+    await expectPrinciple(staker4, 1, staking); // (1.01^14) = 1.979931
+    await expect((await staking.sharePrice()).eq(BN.from(1979931))).to.be.true;
 
     await advanceBlocks(BLOCKS_ONE_YEAR);
 
-    await expectPrinciple(staker4, 17, staking); // (1.05^11) = 1.710339
-    await expect((await staking.sharePrice()).eq(1710339)).to.be.true;
+    await expectPrinciple(staker4, 2, staking); // (1.01^15) = 2.078928
+    await expect((await staking.sharePrice()).eq(2078928)).to.be.true;
 
-    await staking.withdraw(staker4.address, 17); //this also withdraws the donated rewards
+    await staking.withdraw(staker4.address, 2); //this also withdraws the donated rewards
 
     let info = await staking.stakersInfo(staker4.address);
     await expectPrinciple(staker4, 0, staking);
     expect(info.deposit).to.equal(0);
-    expect(info.rewardsPaid).to.equal(7);
+    expect(info.rewardsPaid).to.equal(1);
     expect(info.rewardsDonated).to.equal(0);
     expect(info.avgDonationRatio).to.equal(0);
+  });
+
+  it("should fail on staking less than minimal amount of 1", async () => {
+    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    await expect(stake(staker4, 0.99, NO_DONATION, staking)).to.be.reverted;
   });
 
   it("Should fail to withdraw exceeding amount", async () => {
@@ -721,8 +728,6 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     await expectPrinciple(staker3, 12474, staking); // 10000 + 10000((1.05APY1 * 1.10APY2 * 1.08APY3) - 1) * 100%earning
     await expectPrinciple(staker4, BN.from(142767625).div(1000), staking); // 125125 + 125125((1.10APY2 * 1.08APY3) - 1) * 75%earning(100%-25%)
   });
-
-  it("should handle stake/withdraw a small amount", async () => {});
 
   it("should handle stake/withdraw a big amount", async () => {});
 });
