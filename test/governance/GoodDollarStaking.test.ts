@@ -236,18 +236,19 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     );
   });
 
-  xit("Should be able to withdraw rewards without withdraw stake", async () => {
-    const rewardsPerBlock = (await governanceStaking.getRewardsPerBlock())[0];
+  it("Should be able to withdraw rewards without withdraw stake", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+    const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     await goodDollar.mint(founder.address, "100");
-    await goodDollar.approve(governanceStaking.address, "100");
+    await goodDollar.approve(staking.address, "100");
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
-    await governanceStaking.stake("100", 0);
+    await staking.stake("100", 0);
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(
       founder.address
     );
     const transaction = await (
-      await governanceStaking.withdrawRewards()
+      await staking.withdrawRewards()
     ).wait();
     const withdrawBlockNumber = await ethers.provider.getBlockNumber();
     const GDAOBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
@@ -258,7 +259,6 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     );
     expect(transaction.events.find(_ => _.event === "ReputationEarned")).to.be
       .not.empty;
-    await governanceStaking.withdrawStake("100");
   });
 
   xit("Should be able to withdraw transferred stakes", async () => {
