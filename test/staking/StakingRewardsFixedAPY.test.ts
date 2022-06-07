@@ -670,7 +670,6 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   it("Should be able to withdraw right after staking", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
     await stake(staker4, 10000, NO_DONATION, staking);
-    const principle = await staking.getPrinciple(staker4.address);
     await expect(staking.withdraw(staker4.address, 10000)).not.reverted;
 
     const info = await staking.stakersInfo(staker4.address);
@@ -722,10 +721,32 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   it("should not allow to set APY with bad values?", async () => {
   });
 
-  it("should handle share price on very big first stake and later small ones", async () => {
-  });
+  // it.only("should handle first stake big, followed by smaller actions", async () => {
+  //   const { staking } = await waffle.loadFixture(fixture_initOnly);
 
-  it("should handle share price on very small first stake and later bigger ones", async () => {
+  //   await stake(staker4, 10000000, DONATE_25_PERCENT, staking);
+
+  //   const principleAfterBigStake = await staking.getPrinciple(staker4.address);
+  //   const infoAfterBigStake = await staking.stakersInfo(staker4.address);
+
+  //   await stake(staker4, 5, DONATE_25_PERCENT, staking);
+
+  //   const principleAfterSmallStake = await staking.getPrinciple(staker4.address);
+  //   const infoAfterSmallStake = await staking.stakersInfo(staker4.address);
+
+  //   expect(principleAfterSmallStake.gt(principleAfterBigStake)).to.be.true;
+  //   expect(infoAfterSmallStake.deposit.gt(infoAfterBigStake.deposit)).to.be.true;
+
+  //   staking.withdraw(staker4.address, 1000)
+
+  //   const principleAfterWithdraw = await staking.getPrinciple(staker4.address);
+  //   const infoAfterWithdraw = await staking.stakersInfo(staker4.address);
+
+  //   expect(principleAfterWithdraw.lt(principleAfterSmallStake)).to.be.true;
+  //   expect(infoAfterWithdraw.deposit.lt(infoAfterBigStake.deposit)).to.be.true;
+  // });
+
+  it("should handle first stake small, followed by bigger actions", async () => {
   });
 
   it("should handle stake and withdraw after short periods", async () => {
