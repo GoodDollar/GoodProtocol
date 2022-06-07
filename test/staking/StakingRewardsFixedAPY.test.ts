@@ -177,6 +177,20 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(info.avgDonationRatio).to.equal(0);
   });
 
+  it("should fail on staking 0", async () => {
+    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    await expect(stake(staker4, 0, NO_DONATION, staking)).to.be.revertedWith(
+      "stake 0"
+    );
+  });
+
+  it("should fail on staking with donationRatio > 100", async () => {
+    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    await expect(stake(staker4, 1, 101, staking)).to.be.revertedWith(
+      "donation"
+    );
+  });
+
   it("should fail on staking less than minimal amount of 1", async () => {
     const { staking } = await waffle.loadFixture(fixture_initOnly);
     await expect(stake(staker4, 0.99, NO_DONATION, staking)).to.be.reverted;
@@ -190,6 +204,14 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     await expect(
       staking.withdraw(staker1.address, principle.add(1))
     ).revertedWith("no balance");
+  });
+
+  it("Should fail to withdraw when empty balance", async () => {
+    const { staking } = await waffle.loadFixture(fixture_initOnly);
+
+    await expect(staking.withdraw(staker1.address, 0)).revertedWith(
+      "no balance"
+    );
   });
 
   it("should update global stats after stake operation", async () => {
@@ -718,8 +740,6 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     await expectPrinciple(staker4, BN.from(142767625).div(1000), staking); // 125125 + 125125((1.10APY2 * 1.08APY3) - 1) * 75%earning(100%-25%)
   });
 
-  it("should handle stake/withdraw a big amount", async () => {});
-
   it("should handle first stake big, followed by smaller actions", async () => {
     const { staking } = await waffle.loadFixture(fixture_2);
 
@@ -756,6 +776,8 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
   it("should handle first 100 Billion stake, followed by a small", async () => {});
 
+  it("should handle stake/withdraw a big amount", async () => {});
+
   it("should withdraw all when amount=0", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
     await staking.withdraw(staker3.address, 0);
@@ -763,5 +785,37 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
     expect(info.deposit).to.equal(0);
     expect(info.shares).to.equal(0);
+  });
+
+  it("should be able to get rewards debt (ie principle - deposits - donated rewards)", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    const debt = (await staking.getRewardsDebt()).div(
+      ethers.utils.parseEther("1")
+    ); //debt is in 1e18 precision
+    expect(debt).to.equal(750); //30000*1.05 - 300000 - 50% (staker1 100% staker2 50% staker3 0%)
+  });
+
+  it("should not be able to stake less than share price", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    await advanceBlocks(BLOCKS_TEN_YEARS * 10);
+
+    const sharePrice = await staking.sharePrice();
+    await expect(stake(staker1, 1, 0, staking)).to.revertedWith("share");
+  });
+
+  it("should not be able to withdraw less than share price", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    await advanceBlocks(BLOCKS_TEN_YEARS * 10);
+
+    const sharePrice = await staking.sharePrice();
+    await expect(staking.withdraw(staker3.address, 1)).to.revertedWith("share");
+  });
+
+  it("should handle 1 Trillion staked for 50 years", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    await stake(staker3, 100000000000000, 0, staking);
+    await advanceBlocks(BLOCKS_TEN_YEARS * 5);
+
+    await expect(staking.withdraw(staker3.address, 0)).to.not.reverted;
   });
 });

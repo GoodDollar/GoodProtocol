@@ -134,7 +134,7 @@ contract StakingRewardsFixedAPY {
 	}
 
 	function getRewardsDebt() external view returns (uint256 rewardsDebt) {
-		uint256 rewardsToPay = _compound() - stats.totalStaked;
+		uint256 rewardsToPay = _compound() - stats.totalStaked * PRECISION; //totalStaked is in G$ precision (ie 2 decimals)
 		rewardsDebt =
 			(rewardsToPay * (100 * PRECISION - stats.avgDonationRatio)) /
 			(100 * PRECISION);
@@ -188,7 +188,7 @@ contract StakingRewardsFixedAPY {
 
 		uint128 shares = uint128((_amount * SHARE_PRECISION) / sharePrice()); //_amount now includes also donated rewards
 
-		// console.log("withdraw: redeemed shares %s", shares);
+		console.log("withdraw: redeemed shares %s price: %s", shares, sharePrice());
 
 		require(shares > 0, "min withdraw 1 share");
 
