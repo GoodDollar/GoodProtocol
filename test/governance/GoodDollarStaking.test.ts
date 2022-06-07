@@ -276,12 +276,14 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     expect(gdaoBalanceAfterWithdraw).to.gt(gdaoBalanceBeforeWithdraw);
   });
 
-  xit("should not be able to withdraw after they send their stake to somebody else", async () => {
-    let transaction = await governanceStaking
+  it("should not be able to withdraw after they send their stake to somebody else", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+
+    let transaction = await staking
       .connect(staker)
       .withdrawStake("100")
       .catch(e => e);
-    expect(transaction.message).to.have.string("Not enough token staked");
+    expect(transaction.message).to.have.string("no balance");
   });
 
   xit("it should distribute reward with correct precision", async () => {
