@@ -1,9 +1,10 @@
-import { ContractFactory } from "ethers";
+import { Contract, ContractFactory, Signer } from "ethers";
 import { network, ethers, upgrades, run } from "hardhat";
 import { Contract } from "ethers";
 import { TransactionResponse } from "@ethersproject/providers";
 import dao from "../../releases/deployment.json";
 
+const networkName = network.name;
 let totalGas = 0;
 const gasUsage = {};
 const GAS_SETTINGS = { gasLimit: 5000000 };
@@ -119,5 +120,42 @@ export const deployDeterministic = async (
   } catch (e) {
     console.log("Failed deploying contract:", { contract });
     throw e;
+  }
+};
+
+export const executeViaGuardian = async (
+  contracts,
+  ethValues,
+  functionSigs,
+  functionInputs,
+  guardian: Signer
+) => {
+  let release: { [key: string]: any } = dao[networkName];
+  const ctrl = await (
+    await ethers.getContractAt("Controller", release.Controller)
+  ).connect(guardian);
+
+  for (let i = 0; i < contracts.length; i++) {
+    const contract = contracts[i];
+    console.log("executing:", contracts[i], functionSigs[i], functionInputs[i]);
+    const sigHash = ethers.utils
+      .keccak256(ethers.utils.toUtf8Bytes(functionSigs[i]))
+      .slice(0, 10);
+    const encoded = ethers.utils.solidityPack(
+      ["bytes4", "bytes"],
+      [sigHash, functionInputs[i]]
+    );
+    if (contract === ctrl.address) {
+      console.log("executing directly on controller:", sigHash, encoded);
+
+      await guardian
+        .sendTransaction({ to: contract, data: encoded })
+        .then(printDeploy);
+    } else {
+      console.log("executing genericCall:", sigHash, encoded);
+      await ctrl
+        .genericCall(contract, encoded, release.Avatar, ethValues[i])
+        .then(printDeploy);
+    }
   }
 };

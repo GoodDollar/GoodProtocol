@@ -101,7 +101,7 @@ contract GoodDollarStaking is
 			block.number
 		);
 		_mint(_msgSender(), _amount); // mint Staking token for staker
-		_mintRewards(_msgSender());
+		_mintGOODRewards(_msgSender());
 		/* end GOOD rewards Updates */
 
 		/* G$ rewards updates */
@@ -141,7 +141,7 @@ contract GoodDollarStaking is
 				block.number
 			);
 		}
-		goodRewards = _mintRewards(_msgSender());
+		goodRewards = _mintGOODRewards(_msgSender());
 		/* end Good rewards update */
 
 		//rewards are paid via the rewards distribution contract
@@ -182,7 +182,7 @@ contract GoodDollarStaking is
 	}
 
 	/**
-	 * @dev Staker can withdraw their rewards without withdraw their stake
+	 * @dev Stakers can withdraw their rewards without withdrawing their stake
 	 */
 	function withdrawRewards()
 		public
@@ -201,7 +201,7 @@ contract GoodDollarStaking is
 	 * @return Returns amount of the minted rewards
 	 * emits 'ReputationEarned' event for staker earned GOOD amount
 	 */
-	function _mintRewards(address user) internal returns (uint256) {
+	function _mintGOODRewards(address user) internal returns (uint256) {
 		uint256 amount = _issueEarnedRewards(address(this), user, 0, block.number);
 		if (amount > 0) {
 			ERC20(nameService.getAddress("REPUTATION")).mint(user, amount);
@@ -241,11 +241,11 @@ contract GoodDollarStaking is
 		//the recipient sent G$ are considered like he is staking them, so they will also earn GOOD rewards
 		//even if sender transfered G$s from his rewardsComponent which doesnt earn GOOD rewards
 		_increaseProductivity(address(this), to, value, 0, block.number);
-		_stake(to, value, 0); //update G$ rewards, receiver doesnt donate any of his interest so its set to 0
+		_stake(to, value, uint32(stakersInfo[to].avgDonationRatio / PRECISION)); //update G$ rewards, receiver keeps his donation average
 
 		//mint GOOD rewards
-		_mintRewards(from);
-		_mintRewards(to);
+		_mintGOODRewards(from);
+		_mintGOODRewards(to);
 
 		super._transfer(from, to, value);
 	}

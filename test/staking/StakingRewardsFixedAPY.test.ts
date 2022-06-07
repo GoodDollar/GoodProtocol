@@ -430,7 +430,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     // maybe not needed and the share precision is what's important
   });
 
-  it("Should undo reward and keep stakers info the same", async () => {
+  xit("Should undo reward and keep stakers info the same", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
 
     const initialInfo = await staking.stakersInfo(staker3.address);
@@ -452,7 +452,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(initialInfo.shares).to.equal(infoAfterUndo.shares);
   });
 
-  it("Should undo reward and keep global stats the same", async () => {
+  xit("Should undo reward and keep global stats the same", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
 
     const initialStats = await staking.stats();
