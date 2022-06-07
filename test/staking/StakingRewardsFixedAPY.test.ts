@@ -772,11 +772,9 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(principleAfterWithdraw).to.equal(principleAfterSmallStake.sub(1000));
   });
 
-  it("should handle first stake small, followed by 100 Billion stake", async () => {});
-
   it("should handle first 100 Billion stake, followed by a small", async () => {});
 
-  it("should handle stake/withdraw a big amount", async () => {});
+  it("should handle first stake small, followed by 100 Billion stake", async () => {});
 
   it("should withdraw all when amount=0", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
@@ -811,7 +809,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     await expect(staking.withdraw(staker3.address, 1)).to.revertedWith("share");
   });
 
-  it("should handle 1 Trillion staked for 50 years", async () => {
+  it("should handle stake/withdraw for 1 Trillion staked for 50 years", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
     await stake(staker3, 100000000000000, 0, staking);
     await advanceBlocks(BLOCKS_TEN_YEARS * 5);
