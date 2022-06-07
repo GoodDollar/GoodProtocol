@@ -78,7 +78,10 @@ contract StakingRewardsFixedAPY {
 		// );
 
 		return
-			(compoundedPrinciple * SHARE_PRECISION) / (stats.totalShares * PRECISION);
+			stats.totalShares == 0
+				? 0
+				: (compoundedPrinciple * SHARE_PRECISION) /
+					(stats.totalShares * PRECISION);
 	}
 
 	/**
@@ -151,9 +154,9 @@ contract StakingRewardsFixedAPY {
 		updateReward
 		returns (uint256 depositComponent, uint256 rewardComponent)
 	{
-		_amount = _amount == 0 ? getPrinciple(_from) : _amount;
-		require(_amount > 0, "Cannot withdraw 0");
-		require(_amount <= getPrinciple(_from), "no balance");
+		uint256 balance = getPrinciple(_from);
+		_amount = _amount == 0 ? balance : _amount;
+		require(_amount > 0 && _amount <= balance, "no balance");
 
 		(uint256 earnedRewards, uint256 earnedRewardsAfterDonation) = earned(_from);
 		rewardComponent = earnedRewardsAfterDonation >= _amount
@@ -189,17 +192,18 @@ contract StakingRewardsFixedAPY {
 
 		require(shares > 0, "min withdraw 1 share");
 
-		stats.avgDonationRatio =
-			(stats.avgDonationRatio *
+		uint128 sharesAfter = stats.totalShares - shares;
+		stats.avgDonationRatio = sharesAfter == 0
+			? 0
+			: (stats.avgDonationRatio *
 				stats.totalShares -
 				stakersInfo[_from].avgDonationRatio *
-				shares) /
-			(stats.totalShares - shares);
+				shares) / sharesAfter;
 
 		// console.log("withdraw: reducing principle by %s", _amount);
 
 		stats.principle -= _amount * PRECISION;
-		stats.totalShares -= shares;
+		stats.totalShares = sharesAfter;
 		stats.totalStaked -= uint128(depositComponent);
 		stats.totalRewardsPaid += uint128(rewardComponent);
 		stats.totalRewardsDonated += uint128(donatedRewards);

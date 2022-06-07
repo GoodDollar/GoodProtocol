@@ -122,6 +122,12 @@ contract GoodDollarStaking is
 		//we get the relative part user is withdrawing from his original deposit, his principle is composed of deposit+earned interest
 		(depositComponent, gdRewards) = _withdraw(_msgSender(), _amount);
 
+		// console.log(
+		// 	"withdraStake: fromDeposit: %s, fromRewards: %s",
+		// 	depositComponent,
+		// 	gdRewards
+		// );
+
 		_burn(_msgSender(), depositComponent); // burn their staking tokens
 
 		/* Good rewards update */
@@ -313,7 +319,7 @@ contract GoodDollarStaking is
 	}
 
 	/// @notice after 1 month move GOOD permissions minting to this contract from previous GovernanceStaking
-	function upgrade() external {
+	function upgrade() external virtual {
 		require(
 			block.timestamp > createdAt + (daysUntilUpgrade * 1 days) &&
 				dao.isSchemeRegistered(address(this), avatar),
