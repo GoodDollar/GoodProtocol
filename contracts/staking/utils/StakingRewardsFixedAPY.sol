@@ -251,19 +251,6 @@ contract StakingRewardsFixedAPY {
 		stats.principle += _amount * PRECISION;
 	}
 
-	// function _getReward(address _to)
-	// 	internal
-	// 	virtual
-	// 	updateReward
-	// 	returns (uint256 reward)
-	// {
-	// 	// return and reset the reward if there is any
-	// 	reward = stakersInfo[_to].reward;
-	// 	stakersInfo[_to].reward = 0;
-	// 	stakersInfo[_to].rewardsMinted += uint128(reward);
-	// 	principle -= reward * PRECISION; //rewards are part of the compounding interest
-	// }
-
 	/**
 	 * @dev keep track of debt to user in case reward minting failed
 	 */

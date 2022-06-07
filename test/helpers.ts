@@ -228,8 +228,9 @@ export const createDAO = async () => {
     expect(funcNameEnd).to.be.gt(-1);
     const functionName = functionAbi.substring(0, funcNameEnd);
 
-    const tx = await contract[functionAbi](...parameters).catch(e => e);
-    expect(tx.message.toUpperCase()).to.contain("AVATAR");
+    await expect(contract[functionAbi](...parameters)).to.revertedWith(
+      "avatar"
+    );
     const encoded = contract.interface.encodeFunctionData(functionName, [
       ...parameters
     ]);
