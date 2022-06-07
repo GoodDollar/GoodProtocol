@@ -96,6 +96,16 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     return { staking };
   };
 
+  const fixture_2 = async (wallets, provider) => {
+    const staking: StakingMockFixedAPY = (await waffle.deployContract(
+      provider.getWallets()[0],
+      StakingABI,
+      [INTEREST_RATE_5APY_X64]
+    )) as StakingMockFixedAPY;
+
+    return { staking };
+  };
+
   const fixture_1year = async (wallets, provider) => {
     const staking: StakingMockFixedAPY = (await waffle.deployContract(
       provider.getWallets()[0],
@@ -179,7 +189,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     const principle = await staking.getPrinciple(staker1.address);
     await expect(
       staking.withdraw(staker1.address, principle.add(1))
-    ).revertedWith("not enough balance");
+    ).revertedWith("no balance");
   });
 
   it("should update global stats after stake operation", async () => {
@@ -710,48 +720,48 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
   it("should handle stake/withdraw a big amount", async () => {});
 
-  it("Should check shares precision remains accurate", async () => {
-    // still thinking it through, tbd
+  it("should handle first stake big, followed by smaller actions", async () => {
+    const { staking } = await waffle.loadFixture(fixture_2);
+
+    await stake(staker4, 10000000, DONATE_25_PERCENT, staking);
+
+    const principleAfterBigStake = await staking.getPrinciple(staker4.address);
+    const infoAfterBigStake = await staking.stakersInfo(staker4.address);
+
+    await stake(staker4, 5, DONATE_25_PERCENT, staking);
+
+    const principleAfterSmallStake = await staking.getPrinciple(
+      staker4.address
+    );
+    const infoAfterSmallStake = await staking.stakersInfo(staker4.address);
+
+    expect(principleAfterSmallStake.gt(principleAfterBigStake)).to.be.true;
+    expect(infoAfterSmallStake.deposit.gt(infoAfterBigStake.deposit)).to.be
+      .true;
+
+    await staking.withdraw(staker4.address, 1000);
+
+    const principleAfterWithdraw = await staking.getPrinciple(staker4.address);
+    const infoAfterWithdraw = await staking.stakersInfo(staker4.address);
+    console.log({
+      principleAfterSmallStake,
+      principleAfterWithdraw,
+      infoAfterSmallStake,
+      infoAfterWithdraw
+    });
+    expect(principleAfterWithdraw).to.equal(principleAfterSmallStake.sub(1000));
   });
 
-  it("should assert precision is 18e and share precision is 1e6", async () => {
-    // maybe not needed and the share precision is what's important
-  });
+  it("should handle first stake small, followed by 100 Billion stake", async () => {});
 
-  it("should not allow to set APY with bad values?", async () => {
-  });
+  it("should handle first 100 Billion stake, followed by a small", async () => {});
 
-  // it.only("should handle first stake big, followed by smaller actions", async () => {
-  //   const { staking } = await waffle.loadFixture(fixture_initOnly);
+  it("should withdraw all when amount=0", async () => {
+    const { staking } = await waffle.loadFixture(fixture_1year);
+    await staking.withdraw(staker3.address, 0);
+    const info = await staking.stakersInfo(staker3.address);
 
-  //   await stake(staker4, 10000000, DONATE_25_PERCENT, staking);
-
-  //   const principleAfterBigStake = await staking.getPrinciple(staker4.address);
-  //   const infoAfterBigStake = await staking.stakersInfo(staker4.address);
-
-  //   await stake(staker4, 5, DONATE_25_PERCENT, staking);
-
-  //   const principleAfterSmallStake = await staking.getPrinciple(staker4.address);
-  //   const infoAfterSmallStake = await staking.stakersInfo(staker4.address);
-
-  //   expect(principleAfterSmallStake.gt(principleAfterBigStake)).to.be.true;
-  //   expect(infoAfterSmallStake.deposit.gt(infoAfterBigStake.deposit)).to.be.true;
-
-  //   staking.withdraw(staker4.address, 1000)
-
-  //   const principleAfterWithdraw = await staking.getPrinciple(staker4.address);
-  //   const infoAfterWithdraw = await staking.stakersInfo(staker4.address);
-
-  //   expect(principleAfterWithdraw.lt(principleAfterSmallStake)).to.be.true;
-  //   expect(infoAfterWithdraw.deposit.lt(infoAfterBigStake.deposit)).to.be.true;
-  // });
-
-  it("should handle first stake small, followed by bigger actions", async () => {
-  });
-
-  it("should handle stake and withdraw after short periods", async () => {
-  });
-
-  it("should handle stake and withdraw after extended periods", async () => {
+    expect(info.deposit).to.equal(0);
+    expect(info.shares).to.equal(0);
   });
 });
