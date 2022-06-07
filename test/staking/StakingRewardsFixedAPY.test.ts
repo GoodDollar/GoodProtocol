@@ -52,14 +52,6 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
       .stake(_staker.address, _amount, _givebackRatio);
   }
 
-  function print(object) {
-    // to be removed, just for debugging
-    object.forEach(element => {
-      console.log(element.toString());
-    });
-    console.log(`----------------------`);
-  }
-
   // on withdraw: _amount / sharePrice = shares redeemed
   // on stake: _amount / sharePrice = shares added
   async function getExpectedSharesChange(_amount, _contract = fixedStaking) {
@@ -133,10 +125,6 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
     expect(afterSetInterestRateIn128).to.not.equal(beforeSetInterestRateIn128);
     expect(afterSetInterestRateIn128).to.equal(interestRateInt128Format);
-  });
-
-  it("should not allow to set APY with bad values?", async () => {
-    // maybe we should add APY _interestRatePerBlock lower and upper limits?
   });
 
   it("should update staker info after stake operation", async () => {
@@ -612,14 +600,6 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(earnedRewardsAfterDonation3).to.equal(1025);
   });
 
-  it("Should check shares precision remains accurate", async () => {
-    // still thinking it through, tbd
-  });
-
-  it("should assert precision is 18e and share precision is 1e6", async () => {
-    // maybe not needed and the share precision is what's important
-  });
-
   it("Should undo reward and keep stakers info the same", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
 
@@ -730,4 +710,27 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should handle stake/withdraw a big amount", async () => {});
+
+  it("Should check shares precision remains accurate", async () => {
+    // still thinking it through, tbd
+  });
+
+  it("should assert precision is 18e and share precision is 1e6", async () => {
+    // maybe not needed and the share precision is what's important
+  });
+
+  it("should not allow to set APY with bad values?", async () => {
+  });
+
+  it("should handle share price on very big first stake and later small ones", async () => {
+  });
+
+  it("should handle share price on very small first stake and later bigger ones", async () => {
+  });
+
+  it("should handle stake and withdraw after short periods", async () => {
+  });
+
+  it("should handle stake and withdraw after extended periods", async () => {
+  });
 });
