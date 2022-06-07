@@ -86,8 +86,6 @@ contract GoodDollarStaking is
 	 * @param _donationRatio percentage between 0-100
 	 */
 	function stake(uint256 _amount, uint32 _donationRatio) external {
-		require(_donationRatio <= 100, "invalid donation ratio");
-		require(_amount > 0, "You need to stake a positive token amount");
 		require(
 			token.transferFrom(_msgSender(), address(this), _amount),
 			"transferFrom failed, make sure you approved token transfer"
@@ -101,11 +99,11 @@ contract GoodDollarStaking is
 			block.number
 		);
 		_mint(_msgSender(), _amount); // mint Staking token for staker
-		_mintRewards(_msgSender());
+		_mintGOODRewards(_msgSender());
 		/* end GOOD rewards Updates */
 
 		/* G$ rewards updates */
-		_stake(_msgSender(), _amount, _donationRatio);
+		_stake(_msgSender(), _amount, _donationRatio); //this will validate _amount and _donation ratio
 
 		emit Staked(_msgSender(), _amount, _donationRatio);
 	}
@@ -136,7 +134,7 @@ contract GoodDollarStaking is
 				block.number
 			);
 		}
-		goodRewards = _mintRewards(_msgSender());
+		goodRewards = _mintGOODRewards(_msgSender());
 		/* end Good rewards update */
 
 		//rewards are paid via the rewards distribution contract
@@ -196,7 +194,7 @@ contract GoodDollarStaking is
 	 * @return Returns amount of the minted rewards
 	 * emits 'ReputationEarned' event for staker earned GOOD amount
 	 */
-	function _mintRewards(address user) internal returns (uint256) {
+	function _mintGOODRewards(address user) internal returns (uint256) {
 		uint256 amount = _issueEarnedRewards(address(this), user, 0, block.number);
 		if (amount > 0) {
 			ERC20(nameService.getAddress("REPUTATION")).mint(user, amount);
@@ -236,11 +234,11 @@ contract GoodDollarStaking is
 		//the recipient sent G$ are considered like he is staking them, so they will also earn GOOD rewards
 		//even if sender transfered G$s from his rewardsComponent which doesnt earn GOOD rewards
 		_increaseProductivity(address(this), to, value, 0, block.number);
-		_stake(to, value, 0); //update G$ rewards, receiver doesnt donate any of his interest so its set to 0
+		_stake(to, value, uint32(stakersInfo[to].avgDonationRatio / PRECISION)); //update G$ rewards, receiver keeps his avg donation ratio
 
 		//mint GOOD rewards
-		_mintRewards(from);
-		_mintRewards(to);
+		_mintGOODRewards(from);
+		_mintGOODRewards(to);
 
 		super._transfer(from, to, value);
 	}
@@ -267,10 +265,10 @@ contract GoodDollarStaking is
 	function getRewardsPerBlock()
 		public
 		view
-		returns (uint256 _goodRewardPerBlock, int128 _gdRewardPerBlockX64)
+		returns (uint256 _goodRewardPerBlock, uint256 _gdInterestRatePerBlock)
 	{
 		_goodRewardPerBlock = rewardsPerBlock[address(this)];
-		_gdRewardPerBlockX64 = interestRatePerBlockX64;
+		_gdInterestRatePerBlock = Math64x64.mulu(interestRatePerBlockX64, 1e18);
 	}
 
 	/// @dev helper function for multibase and FixedAPYRewards - same stake amount for both

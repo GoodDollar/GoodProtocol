@@ -214,6 +214,7 @@ contract StakingRewardsFixedAPY {
 		uint256 _amount,
 		uint32 _donationRatio
 	) internal virtual updateReward {
+		require(_donationRatio <= 100, "invalid donation ratio");
 		require(_amount > 0, "Cannot stake 0");
 		uint128 newShares = uint128(
 			stats.totalShares > 0
