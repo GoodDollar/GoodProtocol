@@ -119,11 +119,6 @@ contract GoodDollarStaking is
 		nonReentrant
 		returns (uint256 goodRewards, uint256 gdRewards)
 	{
-		uint256 accountBalance = getPrinciple(_msgSender());
-		if (_amount == 0) _amount = accountBalance;
-		require(_amount > 0, "Should withdraw positive amount");
-		require(accountBalance >= _amount, "Not enough token staked");
-
 		uint256 depositComponent;
 		/* G$ rewards update */
 		//we get the relative part user is withdrawing from his original deposit, his principle is composed of deposit+earned interest

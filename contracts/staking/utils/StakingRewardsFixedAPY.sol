@@ -151,8 +151,9 @@ contract StakingRewardsFixedAPY {
 		updateReward
 		returns (uint256 depositComponent, uint256 rewardComponent)
 	{
+		_amount = _amount == 0 ? getPrinciple(_from) : _amount;
 		require(_amount > 0, "Cannot withdraw 0");
-		require(_amount <= getPrinciple(_from), "not enough balance");
+		require(_amount <= getPrinciple(_from), "no balance");
 
 		(uint256 earnedRewards, uint256 earnedRewardsAfterDonation) = earned(_from);
 		rewardComponent = earnedRewardsAfterDonation >= _amount
