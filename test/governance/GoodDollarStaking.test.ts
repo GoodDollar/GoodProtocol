@@ -536,7 +536,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     expect(userPendingRewards).to.be.equal(0);
   });
 
-  it.only("it should calculate accumulated rewards per share correctly", async () => {
+  it("it should calculate accumulated rewards per share correctly", async () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
 
     await goodDollar.mint(founder.address, "200");
