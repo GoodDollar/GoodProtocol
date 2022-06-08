@@ -514,7 +514,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     expect(userPendingGoodReward).to.be.gt(0);
   });
 
-  it("it should return pendingRewards equal zero after withdraw", async () => {
+  xit("it should return pendingRewards equal zero after withdraw", async () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
 
     await goodDollar.mint(staker.address, "200");
