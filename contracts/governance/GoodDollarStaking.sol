@@ -3,12 +3,13 @@
 pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
 import "./MultiBaseGovernanceShareField.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "../staking/utils/StakingRewardsFixedAPY.sol";
 
 interface RewardsMinter {
@@ -198,14 +199,23 @@ contract GoodDollarStaking is
 	/**
 	 * @dev Mint GOOD rewards of the staker
 	 * @param user Receipent address of the rewards
-	 * @return Returns amount of the minted rewards
+	 * @return amount of the minted rewards
 	 * emits 'ReputationEarned' event for staker earned GOOD amount
 	 */
-	function _mintGOODRewards(address user) internal returns (uint256) {
-		uint256 amount = _issueEarnedRewards(address(this), user, 0, block.number);
-		if (amount > 0) {
-			ERC20(nameService.getAddress("REPUTATION")).mint(user, amount);
-			emit ReputationEarned(_msgSender(), amount);
+	function _mintGOODRewards(address user) internal returns (uint256 amount) {
+		//try to mint only if have minter permission, so user can always withdraw his funds without this reverting
+		if (
+			nameService.getAddress("GDAO_STAKING") == address(this) ||
+			AccessControlUpgradeable(nameService.getAddress("REPUTATION")).hasRole(
+				keccak256("MINTER_ROLE"),
+				address(this)
+			)
+		) {
+			amount = _issueEarnedRewards(address(this), user, 0, block.number);
+			if (amount > 0) {
+				ERC20(nameService.getAddress("REPUTATION")).mint(user, amount);
+				emit ReputationEarned(_msgSender(), amount);
+			}
 		}
 		return amount;
 	}

@@ -6,9 +6,10 @@ import {
   GoodMarketMaker,
   GoodReserveCDai,
   GReputation,
-  GoodDollarStaking
+  GoodDollarStaking,
+  GovernanceStaking
 } from "../../types";
-import { createDAO, advanceBlocks } from "../helpers";
+import { createDAO, advanceBlocks, increaseTime } from "../helpers";
 import { FormatTypes } from "ethers/lib/utils";
 
 const BN = ethers.BigNumber;
@@ -97,12 +98,6 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     marketMaker = mm;
 
     console.log("setting permissions...");
-    governanceStaking = (await governanceStakingFactory.deploy(
-      nameService.address,
-      BN.from("1000000007735630000"),
-      518400 * 12,
-      30
-    )) as GoodDollarStaking;
 
     setDAOAddress("CDAI", cDAI.address);
     setDAOAddress("DAI", dai.address);
@@ -158,6 +153,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
 
   const fixture_upgradeTest = async (wallets, provider) => {
     const f = await ethers.getContractFactory("GoodDollarStaking");
+    const gf = await ethers.getContractFactory("GovernanceStaking");
 
     wallets = provider.getWallets();
     const staking = (await waffle.deployContract(
@@ -171,9 +167,22 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
       [nameService.address, BN.from("1000000007735630000"), 518400 * 12, 30]
     )) as GoodDollarStaking;
 
+    const govStaking = (await waffle.deployContract(
+      wallets[0],
+      {
+        abi: JSON.parse(
+          gf.interface.format(FormatTypes.json) as string
+        ) as any[],
+        bytecode: gf.bytecode
+      },
+      [nameService.address]
+    )) as GovernanceStaking;
+
+    await setDAOAddress("GDAO_STAKING", govStaking.address);
+
     await setSchemes([staking.address]);
 
-    return { staking };
+    return { staking, govStaking };
   };
 
   it("should update stakingrewardsfixedapy staker info and global stats when staking", async () => {});
@@ -189,9 +198,36 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     //test that G$ balance is equal to principle after some interest was earned
   });
 
-  it("should perform upgrade", async () => {
+  it("should not perform upgrade when not deadline", async () => {
     const { staking } = await waffle.loadFixture(fixture_upgradeTest);
+    await expect(staking.upgrade()).to.revertedWith("deadline");
+  });
+
+  it("should perform upgrade after deadline", async () => {
+    const { staking, govStaking } = await waffle.loadFixture(
+      fixture_upgradeTest
+    );
+
+    const gdaoStakingBefore = await nameService.getAddress("GDAO_STAKING");
+
+    await increaseTime(60 * 60 * 24 * 31); //pass > 30 days of
     await expect(staking.upgrade()).to.not.reverted;
+    const ctrl = await ethers.getContractAt("Controller", controller);
+
+    await expect(staking.upgrade()).to.reverted; //should not be able to call upgrade again
+
+    //verify nameService address changed
+    expect(gdaoStakingBefore).to.equal(govStaking.address);
+    expect(await nameService.getAddress("GDAO_STAKING")).to.equal(
+      staking.address
+    );
+
+    //verify no longer registered as scheme
+    expect(await ctrl.isSchemeRegistered(staking.address, avatar)).to.be.false;
+
+    //verify rewards have changed
+    expect((await staking.getRewardsPerBlock())[0]).gt(0);
+    expect(await govStaking.getRewardsPerBlock()).eq(0);
   });
 
   it("should change GD apy only by avatar", async () => {});
@@ -201,8 +237,4 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   it("should handle stakingrewardsfixed apy correctly when transfering staking tokens", async () => {
     //test that logic of _transfer is as expected
   });
-
-  function rdiv(x: BigNumber, y: BigNumber) {
-    return x.mul(BN.from("10").pow(27)).add(y.div(2)).div(y);
-  }
 });
