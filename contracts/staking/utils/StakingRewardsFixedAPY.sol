@@ -78,7 +78,10 @@ contract StakingRewardsFixedAPY {
 		// );
 
 		return
-			(compoundedPrinciple * SHARE_PRECISION) / (stats.totalShares * PRECISION);
+			stats.totalShares == 0
+				? 0
+				: (compoundedPrinciple * SHARE_PRECISION) /
+					(stats.totalShares * PRECISION);
 	}
 
 	/**
@@ -101,11 +104,12 @@ contract StakingRewardsFixedAPY {
 		// );
 		// console.log("getPrinciple: shares: %s", stakersInfo[_account].shares);
 
-		return
-			(sharePrice() * stakersInfo[_account].shares) /
+		balance = stakersInfo[_account].deposit;
+		uint256 principle = (sharePrice() * stakersInfo[_account].shares) /
 			SHARE_PRECISION -
 			earnedRewards +
 			earnedRewardsAfterDonation;
+		balance = principle < balance ? balance : principle; //because of precision loss in initial shares calculation we force principle to be at least as what user deposited
 	}
 
 	/**
@@ -118,10 +122,11 @@ contract StakingRewardsFixedAPY {
 		view
 		returns (uint256 earnedRewards, uint256 earnedRewardsAfterDonation)
 	{
-		earnedRewards =
-			(sharePrice() * stakersInfo[_account].shares) /
-			SHARE_PRECISION -
-			stakersInfo[_account].deposit;
+		uint256 principle = (sharePrice() * stakersInfo[_account].shares) /
+			SHARE_PRECISION;
+		earnedRewards = principle < stakersInfo[_account].deposit
+			? 0
+			: principle - stakersInfo[_account].deposit;
 		earnedRewardsAfterDonation =
 			(earnedRewards *
 				(100 * PRECISION - stakersInfo[_account].avgDonationRatio)) /
@@ -129,7 +134,7 @@ contract StakingRewardsFixedAPY {
 	}
 
 	function getRewardsDebt() external view returns (uint256 rewardsDebt) {
-		uint256 rewardsToPay = _compound() - stats.totalStaked;
+		uint256 rewardsToPay = _compound() - stats.totalStaked * PRECISION; //totalStaked is in G$ precision (ie 2 decimals)
 		rewardsDebt =
 			(rewardsToPay * (100 * PRECISION - stats.avgDonationRatio)) /
 			(100 * PRECISION);
@@ -149,8 +154,9 @@ contract StakingRewardsFixedAPY {
 		updateReward
 		returns (uint256 depositComponent, uint256 rewardComponent)
 	{
-		require(_amount > 0, "Cannot withdraw 0");
-		require(_amount <= getPrinciple(_from), "not enough balance");
+		uint256 balance = getPrinciple(_from);
+		_amount = _amount == type(uint256).max ? balance : _amount;
+		require(_amount > 0 && _amount <= balance, "no balance");
 
 		(uint256 earnedRewards, uint256 earnedRewardsAfterDonation) = earned(_from);
 		rewardComponent = earnedRewardsAfterDonation >= _amount
@@ -182,21 +188,22 @@ contract StakingRewardsFixedAPY {
 
 		uint128 shares = uint128((_amount * SHARE_PRECISION) / sharePrice()); //_amount now includes also donated rewards
 
-		// console.log("withdraw: redeemed shares %s", shares);
+		// console.log("withdraw: redeemed shares %s price: %s", shares, sharePrice());
 
 		require(shares > 0, "min withdraw 1 share");
 
-		stats.avgDonationRatio =
-			(stats.avgDonationRatio *
+		uint128 sharesAfter = stats.totalShares - shares;
+		stats.avgDonationRatio = sharesAfter == 0
+			? 0
+			: (stats.avgDonationRatio *
 				stats.totalShares -
 				stakersInfo[_from].avgDonationRatio *
-				shares) /
-			(stats.totalShares - shares);
+				shares) / sharesAfter;
 
 		// console.log("withdraw: reducing principle by %s", _amount);
 
 		stats.principle -= _amount * PRECISION;
-		stats.totalShares -= shares;
+		stats.totalShares = sharesAfter;
 		stats.totalStaked -= uint128(depositComponent);
 		stats.totalRewardsPaid += uint128(rewardComponent);
 		stats.totalRewardsDonated += uint128(donatedRewards);
@@ -211,6 +218,7 @@ contract StakingRewardsFixedAPY {
 		uint256 _amount,
 		uint32 _donationRatio
 	) internal virtual updateReward {
+		require(_donationRatio <= 100, "invalid donation ratio");
 		require(_amount > 0, "Cannot stake 0");
 		uint128 newShares = uint128(
 			stats.totalShares > 0
