@@ -90,22 +90,36 @@ contract GoodDollarStaking is
 			token.transferFrom(_msgSender(), address(this), _amount),
 			"transferFrom failed, make sure you approved token transfer"
 		);
+		_stakeFrom(_msgSender(), _amount, _donationRatio);
+	}
+
+	function _stakeFrom(
+		address _from,
+		uint256 _amount,
+		uint32 _donationRatio
+	) internal {
 		/* GOOD rewards Updates */
-		_increaseProductivity(
-			address(this),
-			_msgSender(),
-			_amount,
-			0,
-			block.number
-		);
-		_mint(_msgSender(), _amount); // mint Staking token for staker
-		_mintGOODRewards(_msgSender());
+		_increaseProductivity(address(this), _from, _amount, 0, block.number);
+		_mint(_from, _amount); // mint Staking token for staker
+		_mintGOODRewards(_from);
 		/* end GOOD rewards Updates */
 
 		/* G$ rewards updates */
-		_stake(_msgSender(), _amount, _donationRatio); //this will validate _amount and _donation ratio
+		_stake(_from, _amount, _donationRatio); //this will validate _amount and _donation ratio
 
-		emit Staked(_msgSender(), _amount, _donationRatio);
+		emit Staked(_from, _amount, _donationRatio);
+	}
+
+	function onTokenTransfer(
+		address _from,
+		uint256 _amount,
+		bytes calldata data
+	) external returns (bool success) {
+		require(_msgSender() == address(token), "unsupported token");
+		uint32 donationRatio = abi.decode(data, (uint32));
+
+		_stakeFrom(_from, _amount, donationRatio);
+		return true;
 	}
 
 	/**
@@ -118,17 +132,20 @@ contract GoodDollarStaking is
 		returns (uint256 goodRewards, uint256 gdRewards)
 	{
 		uint256 depositComponent;
-		/* G$ rewards update */
-		//we get the relative part user is withdrawing from his original deposit, his principle is composed of deposit+earned interest
-		(depositComponent, gdRewards) = _withdraw(_msgSender(), _amount);
+
+		//in case amount is 0 this will just withdraw the GOOD rewards, this is required for withdrawRewards
+		if (_amount > 0) {
+			/* G$ rewards update */
+			//we get the relative part user is withdrawing from his original deposit, his principle is composed of deposit+earned interest
+			(depositComponent, gdRewards) = _withdraw(_msgSender(), _amount);
+			_burn(_msgSender(), depositComponent); // burn their staking tokens
+		}
 
 		// console.log(
 		// 	"withdraStake: fromDeposit: %s, fromRewards: %s",
 		// 	depositComponent,
 		// 	gdRewards
 		// );
-
-		_burn(_msgSender(), depositComponent); // burn their staking tokens
 
 		/* Good rewards update */
 		if (depositComponent > 0) {
