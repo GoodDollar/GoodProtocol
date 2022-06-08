@@ -17,6 +17,12 @@ export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 30;
 const DONATION_30_PERCENT = 30;
 const STAKE_AMOUNT = 10000;
+// APY=5% | per block = nroot(1+0.05,numberOfBlocksPerYear) = 1000000007735630000
+const INTEREST_RATE_5APY_X64 = BN.from("1000000007735630000"); // x64 representation of same number
+const INTEREST_RATE_5APY_128 = BN.from("18446744216406738474"); // 128 representation of same number
+// APY = 10% | nroot(1+0.10,numberOfBlocksPerYear) = 1000000015111330000
+const INTEREST_RATE_10APY_X64 = BN.from("1000000015111330000"); // x64 representation of same number
+const INTEREST_RATE_10APY_128 = BN.from("18446744352464388739"); // 128 representation of same number
 
 describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   let dai: Contract;
@@ -37,7 +43,8 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     signers,
     nameService,
     setDAOAddress,
-    setSchemes;
+    setSchemes,
+    runAsAvatarOnly;
 
   before(async () => {
     [founder, staker, staker2, staker3, ...signers] = await ethers.getSigners();
@@ -64,7 +71,8 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
       cdaiAddress,
       reserve,
       reputation,
-      setReserveToken
+      setReserveToken,
+      runAsAvatarOnly: raao
     } = await createDAO();
 
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -75,6 +83,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     controller = ctrl;
     setDAOAddress = sda;
     nameService = ns;
+    runAsAvatarOnly = raao;
     goodReserve = reserve as GoodReserveCDai;
     console.log("deployed dao", {
       founder: founder.address,
@@ -119,7 +128,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   ) {
     await goodDollar.mint(_staker.address, _amount);
     await goodDollar.approve(stakingContract.address, _amount);
-    await stakingContract.stake(_amount, DONATION_30_PERCENT);
+    await stakingContract.stake(_amount, _givebackRatio);
   }
 
   const fixture = async (wallets, provider) => {
@@ -134,7 +143,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
         ) as any[],
         bytecode: f.bytecode
       },
-      [nameService.address, BN.from("1000000007735630000"), 518400 * 12, 30]
+      [nameService.address, BN.from(INTEREST_RATE_5APY_X64), 518400 * 12, 30]
     )) as GoodDollarStaking;
 
     await staking.upgrade();
@@ -267,7 +276,19 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     expect(await govStaking.getRewardsPerBlock()).eq(0);
   });
 
-  it("should change GD apy only by avatar", async () => {});
+  it("should change GD apy only by avatar", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+
+    // before set, APY is 5%
+    const beforeSetInterestRateIn128 = await staking.interestRatePerBlockX64();
+    expect(beforeSetInterestRateIn128).to.equal(INTEREST_RATE_5APY_128);
+
+    await runAsAvatarOnly(staking, "setGdApy(uint128)", INTEREST_RATE_10APY_X64);
+
+    // after set, APY is 10%
+    const afterSetInterestRateIn128 = await staking.interestRatePerBlockX64();
+    expect(afterSetInterestRateIn128).to.equal(INTEREST_RATE_10APY_128);
+  });
 
   it("should withdraw only rewards when calling withdrawRewards", async () => {});
 
