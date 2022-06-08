@@ -44,15 +44,25 @@ contract StakingRewardsFixedAPY {
 	//in 1e18 = 1000000008131694000
 	int128 public interestRatePerBlockX64;
 
+	/**
+	 * @notice internal helper to convert unsigned interest rate per block in 1e18 precision to x64 format
+	 */
 	function _setAPY(uint128 _interestRatePerBlock) internal updateReward {
 		interestRatePerBlockX64 = Math64x64.divu(_interestRatePerBlock, 1e18); //convert to signed int x64
 	}
 
+	/**
+	 * @notice modifier to compound the APY on every state update
+	 */
 	modifier updateReward() {
 		_updateReward();
 		_;
 	}
 
+	/**
+	 * @notice calculates the compounded principle based on passed blocks
+	 * @return compoundedPrinciple the new principle
+	 */
 	function _compound() internal view returns (uint256 compoundedPrinciple) {
 		if (stats.principle == 0 || block.number == stats.lastUpdateBlock) {
 			return stats.principle;
@@ -67,6 +77,10 @@ contract StakingRewardsFixedAPY {
 		compoundedPrinciple = compound.mulu(stats.principle);
 	}
 
+	/**
+	 * @notice calculates the current share price (principle/totalShares)
+	 * @return price the current share price in SHARE_PRECISION
+	 */
 	function sharePrice() public view returns (uint256 price) {
 		uint256 compoundedPrinciple = _compound();
 
@@ -85,7 +99,8 @@ contract StakingRewardsFixedAPY {
 	}
 
 	/**
-	 * @dev calculate how much user can withdraw after reducing donations
+	 * @notice calculate how much user can withdraw after reducing donations
+	 * @return balance account principle after donating rewards
 	 */
 	function getPrinciple(address _account)
 		public
@@ -113,9 +128,11 @@ contract StakingRewardsFixedAPY {
 	}
 
 	/**
-	 * @dev The function allows anyone to calculate the exact amount of reward
+	 * @notice The function allows anyone to calculate the exact amount of reward
 	 * earned.
 	 * @param _account A staker address
+	 * @return earnedRewards total rewards earned before donations
+	 * @return earnedRewardsAfterDonation  rewards earned after donation
 	 */
 	function earned(address _account)
 		public
@@ -133,6 +150,10 @@ contract StakingRewardsFixedAPY {
 			(100 * PRECISION);
 	}
 
+	/**
+	 * @notice calculate the interest earned and not yet paid for stats.totalStaked
+	 * @return rewardsDebt the rewards(interest) not yet paid
+	 */
 	function getRewardsDebt() external view returns (uint256 rewardsDebt) {
 		uint256 rewardsToPay = _compound() - stats.totalStaked * PRECISION; //totalStaked is in G$ precision (ie 2 decimals)
 		rewardsDebt =
@@ -141,13 +162,20 @@ contract StakingRewardsFixedAPY {
 	}
 
 	/**
-	 * @dev Updates the rewards for all stakers
+	 * @notice compounds the global principle
 	 */
 	function _updateReward() internal virtual {
 		stats.principle = _compound();
 		stats.lastUpdateBlock = uint128(block.number);
 	}
 
+	/**
+	 * @notice perform state update when withdrawing
+	 * @param _from account address withdrawing
+	 * @param _amount amount to withdraw, if amount is max uint then it will withdraw available balance
+	 * @return depositComponent how much was withdrawn from user original stake. >0 only when _amount > interest(rewards) earned
+	 * @return rewardComponent how much was withdrawn from user earned rewards after donation
+	 */
 	function _withdraw(address _from, uint256 _amount)
 		internal
 		virtual
@@ -213,6 +241,12 @@ contract StakingRewardsFixedAPY {
 		stakersInfo[_from].rewardsDonated += uint128(donatedRewards);
 	}
 
+	/**
+	 * @notice perform state update when staking
+	 * @param _from account address staking
+	 * @param _amount amount to stake
+	 * @param _donationRatio how much to donate from the earned interest. in percentages 0-100.
+	 */
 	function _stake(
 		address _from,
 		uint256 _amount,
@@ -252,7 +286,7 @@ contract StakingRewardsFixedAPY {
 	}
 
 	/**
-	 * @dev keep track of debt to user in case reward minting failed
+	 * @notice keep track of debt to user in case reward minting failed
 	 */
 	function _undoReward(address _to, uint256 _rewardsPaidAfterDonation)
 		internal
