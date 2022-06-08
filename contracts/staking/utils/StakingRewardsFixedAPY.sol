@@ -155,7 +155,7 @@ contract StakingRewardsFixedAPY {
 		returns (uint256 depositComponent, uint256 rewardComponent)
 	{
 		uint256 balance = getPrinciple(_from);
-		_amount = _amount == 0 ? balance : _amount;
+		_amount = _amount == type(uint256).max ? balance : _amount;
 		require(_amount > 0 && _amount <= balance, "no balance");
 
 		(uint256 earnedRewards, uint256 earnedRewardsAfterDonation) = earned(_from);

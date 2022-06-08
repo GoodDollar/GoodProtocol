@@ -833,9 +833,10 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(infoAfterWithdraw.shares.lt(infoAfterSmallStake.shares)).to.be.true;
   });
 
-  it("should withdraw all when amount=0", async () => {
+  it("should withdraw all when amount=max uint", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
-    await staking.withdraw(staker3.address, 0);
+    await expect(staking.withdraw(staker3.address, 0)).revertedWith("balance");
+    await staking.withdraw(staker3.address, ethers.constants.MaxUint256);
     const info = await staking.stakersInfo(staker3.address);
 
     expect(info.deposit).to.equal(0);
@@ -871,6 +872,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     await stake(staker3, 100000000000000, 0, staking);
     await advanceBlocks(BLOCKS_TEN_YEARS * 5);
 
-    await expect(staking.withdraw(staker3.address, 0)).to.not.reverted;
+    await expect(staking.withdraw(staker3.address, ethers.constants.MaxUint256))
+      .to.not.reverted;
   });
 });
