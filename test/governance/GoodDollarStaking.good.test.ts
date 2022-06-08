@@ -532,7 +532,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     );
     expect(userPendingGoodRewards).to.gt(0); //one block passed
 
-    await staking.connect(staker).withdrawStake(0);
+    await staking.connect(staker).withdrawStake(ethers.constants.MaxUint256);
     [userPendingGoodRewards] = await staking["getUserPendingReward(address)"](
       staker.address
     );
