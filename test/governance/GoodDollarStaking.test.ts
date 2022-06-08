@@ -359,34 +359,36 @@ describe("GoodDollarStaking - staking with GD and get Rewards in GDAO and GD", (
     await ictrl.genericCall(staking.address, encodedCall, avatar, 0);
   });
 
-  xit("it should return productivity values correctly", async () => {
+  it("it should return productivity values correctly", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
     await goodDollar.mint(founder.address, "100");
-    await goodDollar.approve(governanceStaking.address, "100");
-    await governanceStaking.stake("100", 0);
-    const productivityValue = await governanceStaking[
-      "getProductivity(address)"
+    await goodDollar.approve(staking.address, "100");
+    await staking.stake("100", 0);
+    const productivityValue = await staking[
+      "getStaked(address)"
     ](founder.address);
 
     expect(productivityValue[0].toString()).to.be.equal("100");
     expect(productivityValue[1].toString()).to.be.equal("100");
-    await governanceStaking.withdrawStake("100");
+    await staking.withdrawStake("100");
   });
 
-  xit("it should return earned rewards with pending ones properly", async () => {
-    const rewardsPerBlock = (await governanceStaking.getRewardsPerBlock())[0];
+  it("it should return earned rewards with pending ones properly", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+    const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     await goodDollar.mint(founder.address, "100");
-    await goodDollar.approve(governanceStaking.address, "100");
+    await goodDollar.approve(staking.address, "100");
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
-    await governanceStaking.stake("100", 0);
+    await staking.stake("100", 0);
     await advanceBlocks(5);
-    const totalEarned = await governanceStaking[
+    const [totalEarnedGOOD,] = await staking[
       "getUserPendingReward(address)"
     ](founder.address);
     const pendingRewardBlockNumber = await ethers.provider.getBlockNumber();
     const multiplier = pendingRewardBlockNumber - stakeBlockNumber;
     const calculatedPendingReward = rewardsPerBlock.mul(multiplier); // We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
-    expect(totalEarned).to.be.equal(calculatedPendingReward);
-    await governanceStaking.withdrawStake("100");
+    expect(totalEarnedGOOD).to.be.equal(calculatedPendingReward);
+    await staking.withdrawStake("100");
   });
 
   xit("Accumulated per share has enough precision when reward << totalproductivity", async () => {
@@ -512,34 +514,34 @@ describe("GoodDollarStaking - staking with GD and get Rewards in GDAO and GD", (
       0 //should have 0 rewardEarned because every action, like the above stake withdraws gdao rewards
     );
     await advanceBlocks(2); // pass some blocks
-    const userPendingReward = await governanceStaking[
+    const [userPendingGoodReward,] = await governanceStaking[
       "getUserPendingReward(address)"
     ](staker2.address);
     governanceStaking.connect(staker2).withdrawStake("100");
-    expect(userPendingReward).to.be.gt(0);
+    expect(userPendingGoodReward).to.be.gt(0);
   });
 
   xit("it should return pendingRewards equal zero after withdraw", async () => {
-    let userPendingRewards = await governanceStaking[
+    let [userPendingGoodRewards,] = await governanceStaking[
       "getUserPendingReward(address)"
     ](staker.address);
-    expect(userPendingRewards).to.be.gt(0);
+    expect(userPendingGoodRewards).to.be.gt(0);
     await governanceStaking.connect(staker).withdrawRewards();
-    userPendingRewards = await governanceStaking[
+    [userPendingGoodRewards,] = await governanceStaking[
       "getUserPendingReward(address)"
     ](staker.address);
-    expect(userPendingRewards).to.equal(0);
+    expect(userPendingGoodRewards).to.equal(0);
     await advanceBlocks(1);
-    userPendingRewards = await governanceStaking[
+    [userPendingGoodRewards,] = await governanceStaking[
       "getUserPendingReward(address)"
     ](staker.address);
-    expect(userPendingRewards).to.gt(0); //one block passed
+    expect(userPendingGoodRewards).to.gt(0); //one block passed
 
     await governanceStaking.connect(staker).withdrawStake(0);
-    userPendingRewards = await governanceStaking[
+    [userPendingGoodRewards,] = await governanceStaking[
       "getUserPendingReward(address)"
     ](staker.address);
-    expect(userPendingRewards).to.be.equal(0);
+    expect(userPendingGoodRewards).to.be.equal(0);
   });
 
   it("it should calculate accumulated rewards per share correctly", async () => {
