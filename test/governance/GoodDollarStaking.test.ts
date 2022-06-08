@@ -15,7 +15,7 @@ const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 30;
 
-describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
+describe("GoodDollarStaking - staking with GD and get Rewards in GDAO and GD", () => {
   let dai: Contract;
   let cDAI: Contract;
   let goodReserve: GoodReserveCDai;
@@ -286,30 +286,32 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     expect(transaction.message).to.have.string("no balance");
   });
 
-  xit("it should distribute reward with correct precision", async () => {
+  it("it should distribute reward with correct precision", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
       schemeMock
     );
     const governanceStakingFactory = await ethers.getContractFactory(
-      "GovernanceStaking"
+      "GoodDollarStakingMock"
     );
     let encodedCall = governanceStakingFactory.interface.encodeFunctionData(
-      "setMonthlyRewards",
+      "setMonthlyGOODRewards",
       ["17280000000000000000"] // Give 0.0001 GDAO per block so 17.28 GDAO per month
     );
-    await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
-    const rewardsPerBlock = (await governanceStaking.getRewardsPerBlock())[0];
+    await ictrl.genericCall(staking.address, encodedCall, avatar, 0);
+    const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     await goodDollar.mint(founder.address, "100");
-    await goodDollar.approve(governanceStaking.address, "100");
+    await goodDollar.approve(staking.address, "100");
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
-    await governanceStaking.stake("100", 0);
+    await staking.stake("100", 0);
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(
       founder.address
     );
-    await governanceStaking.withdrawStake("100");
+    await staking.withdrawStake("100");
     const withdrawBlockNumber = await ethers.provider.getBlockNumber();
     const GDAOBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
     const multiplier = withdrawBlockNumber - stakeBlockNumber;
@@ -319,40 +321,42 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
     );
   });
 
-  xit("it should not generate rewards when rewards per block set to 0", async () => {
+  it("it should not generate rewards when rewards per block set to 0", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
       schemeMock
     );
     const governanceStakingFactory = await ethers.getContractFactory(
-      "GovernanceStaking"
+      "GoodDollarStakingMock"
     );
     let encodedCall = governanceStakingFactory.interface.encodeFunctionData(
-      "setMonthlyRewards",
+      "setMonthlyGOODRewards",
       ["0"] // Give 0 GDAO per block
     );
-    await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
+    await ictrl.genericCall(staking.address, encodedCall, avatar, 0);
 
     await goodDollar.mint(founder.address, "100");
-    await goodDollar.approve(governanceStaking.address, "100");
-    await governanceStaking.stake("100", 0);
-    const userProductivity = await governanceStaking[
-      "getProductivity(address)"
+    await goodDollar.approve(staking.address, "100");
+    await staking.stake("100", 0);
+    const userProductivity = await staking[
+      "getStaked(address)"
     ](founder.address);
     expect(userProductivity[0]).to.be.equal(BN.from("100"));
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(
       founder.address
     );
-    await governanceStaking.withdrawStake("100");
+    await staking.withdrawStake("100");
     const GDAOBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
     expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw)).to.equal(0);
     encodedCall = governanceStakingFactory.interface.encodeFunctionData(
-      "setMonthlyRewards",
+      "setMonthlyGOODRewards",
       [ethers.utils.parseEther("12000000")]
     );
-    await ictrl.genericCall(governanceStaking.address, encodedCall, avatar, 0);
+    await ictrl.genericCall(staking.address, encodedCall, avatar, 0);
   });
 
   xit("it should return productivity values correctly", async () => {
