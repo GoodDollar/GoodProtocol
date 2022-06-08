@@ -941,22 +941,23 @@ describe("GoodDollarStaking - staking with GD and get Rewards in GDAO and GD", (
     await setDAOAddress("GDAO_STAKING", governanceStaking.address);
   });
 
-  xit("it should accrue previous rewards based on previous monthly rate on monthly rewards rate change to 0", async () => {
+  it("it should accrue previous rewards based on previous monthly rate on monthly rewards rate change to 0", async () => {
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
       schemeMock
     );
-
     const governanceStakingFactory = await ethers.getContractFactory(
-      "GovernanceStaking"
+      "GoodDollarStakingMock"
     );
     const simpleGovernanceStaking = await governanceStakingFactory.deploy(
-      nameService.address
+      nameService.address,
+      BN.from("1000000007735630000"),
+      518400 * 12,
+      30
     );
 
-    const rewardsPerBlock = await simpleGovernanceStaking.getRewardsPerBlock();
-
+    const rewardsPerBlock = (await simpleGovernanceStaking.getRewardsPerBlock())[0];
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(simpleGovernanceStaking.address, "100");
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
@@ -964,7 +965,7 @@ describe("GoodDollarStaking - staking with GD and get Rewards in GDAO and GD", (
     await advanceBlocks(4);
 
     let encodedCall = governanceStakingFactory.interface.encodeFunctionData(
-      "setMonthlyRewards",
+      "setMonthlyGOODRewards",
       ["0"] // Give 0.0001 GDAO per block so 17.28 GDAO per month
     );
     await ictrl.genericCall(
@@ -977,7 +978,7 @@ describe("GoodDollarStaking - staking with GD and get Rewards in GDAO and GD", (
     const withdrawBlockNumber = await ethers.provider.getBlockNumber();
     const multiplier = withdrawBlockNumber - stakeBlockNumber;
     const calculatedReward = rewardsPerBlock.mul(multiplier);
-    const pendingReward = await simpleGovernanceStaking[
+    const [pendingReward,] = await simpleGovernanceStaking[
       "getUserPendingReward(address)"
     ](founder.address);
     expect(pendingReward).to.equal(calculatedReward);
