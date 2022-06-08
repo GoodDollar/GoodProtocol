@@ -1741,8 +1741,68 @@
       "kind": "uups"
     },
     {
-      "address": "0x809d550fca64d94Bd9F66E60752A544199cfAC3D",
-      "txHash": "0xc660740e51773ddac10a713c825ebcdfcd48622c3218b91b58db250d362bc879",
+      "address": "0xaB7B4c595d3cE8C85e16DA86630f2fc223B05057",
+      "txHash": "0x8cc67a7e3521e211ff51b855484440a23226dfc1815a68fcfe38155df58c17c4",
+      "kind": "uups"
+    },
+    {
+      "address": "0xCa1D199b6F53Af7387ac543Af8e8a34455BBe5E0",
+      "txHash": "0xd4df58c55c34f976c11f1e526705ba908b4ca20d2ca92d91138d4de16b1e7d6c",
+      "kind": "uups"
+    },
+    {
+      "address": "0xdF46e54aAadC1d55198A4a8b4674D7a4c927097A",
+      "txHash": "0x0ac614e9caefa08a96ec9b5067900e172221e865a1423a59825ed91bc1e07a7f",
+      "kind": "uups"
+    },
+    {
+      "address": "0xf5c4a909455C00B99A90d93b48736F3196DB5621",
+      "txHash": "0x91a70945fe2d0f4922c5d5e30dbc0c6897c85115b68ab032ac12e8b6dc385767",
+      "kind": "uups"
+    },
+    {
+      "address": "0xFD2Cf3b56a73c75A7535fFe44EBABe7723c64719",
+      "txHash": "0xb0e1463caac6602d9a230ee801a0fd61d279b8a1a30e754f6608ac159f780816",
+      "kind": "uups"
+    },
+    {
+      "address": "0xA9e6Bfa2BF53dE88FEb19761D9b2eE2e821bF1Bf",
+      "txHash": "0x9926b0d248f32f32cd61b4865002440006a4f9da7b75f609290e02996da01d59",
+      "kind": "uups"
+    },
+    {
+      "address": "0x158d291D8b47F056751cfF47d1eEcd19FDF9B6f8",
+      "txHash": "0x02442210e75374761529d46f2baf5a4d22c96698b7b5409b6536bef5ffd31ecd",
+      "kind": "uups"
+    },
+    {
+      "address": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+      "txHash": "0x92f6fde0e4dc028de4b83c6092cf97e019c79ae2b006231ba993bdb28c2a7bdd",
+      "kind": "uups"
+    },
+    {
+      "address": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
+      "txHash": "0xa22e802202b3d6eda70eb408c6c56be152f794d3c5c473e07598ef6330e93041",
+      "kind": "uups"
+    },
+    {
+      "address": "0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE",
+      "txHash": "0xffc84f26d9d788274858062fa79a4a19d8744e4347c3ef04c901a495a96c4a5c",
+      "kind": "uups"
+    },
+    {
+      "address": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
+      "txHash": "0xcb83aca919b93cf587aa2fbe48e875c978c24f34d33864927b3cb764e62c3d77",
+      "kind": "uups"
+    },
+    {
+      "address": "0x4A679253410272dd5232B3Ff7cF5dbB88f295319",
+      "txHash": "0x5539f6dc0d93f8d9b8b9934e94a164f19a5c2495396ff8116c163ebcea15b145",
+      "kind": "uups"
+    },
+    {
+      "address": "0x09635F643e140090A9A8Dcd712eD6285858ceBef",
+      "txHash": "0x4853e351e4584e06cce2ca54af390397c42f342ad84f4e80561ad3eaf2e1dc98",
       "kind": "uups"
     }
   ],
@@ -3587,52 +3647,12 @@
             "src": "contracts/governance/Reputation.sol:40"
           },
           {
-            "contract": "Reputation",
-            "label": "totalSupplyHistory",
-            "type": "t_array(t_uint256)dyn_storage",
-            "src": "contracts/governance/Reputation.sol:43"
-          },
-          {
-            "contract": "GReputation",
-            "label": "nonces",
-            "type": "t_mapping(t_address,t_uint256)",
-            "src": "contracts/governance/GReputation.sol:42"
-          },
-          {
-            "contract": "GReputation",
-            "label": "blockchainStates",
-            "type": "t_mapping(t_bytes32,t_array(t_struct(BlockchainState)7398_storage)dyn_storage)",
-            "src": "contracts/governance/GReputation.sol:45"
-          },
-          {
-            "contract": "GReputation",
-            "label": "stateHashBalances",
-            "type": "t_mapping(t_bytes32,t_mapping(t_address,t_uint256))",
-            "src": "contracts/governance/GReputation.sol:48"
-          },
-          {
-            "contract": "GReputation",
-            "label": "activeBlockchains",
-            "type": "t_array(t_bytes32)dyn_storage",
-            "src": "contracts/governance/GReputation.sol:51"
-          },
-          {
-            "contract": "GReputation",
-            "label": "delegates",
-            "type": "t_mapping(t_address,t_address)",
-            "src": "contracts/governance/GReputation.sol:54"
-          },
-          {
-            "contract": "GReputation",
-            "label": "activeVotes",
-            "type": "t_mapping(t_address,t_array(t_uint256)dyn_storage)",
-            "src": "contracts/governance/GReputation.sol:57"
-          },
-          {
-            "contract": "GReputation",
-            "label": "reputationRecipients",
-            "type": "t_mapping(t_address,t_address)",
-            "src": "contracts/governance/GReputation.sol:60"
+            "label": "rewardsForStakingContract",
+            "offset": 0,
+            "slot": "161",
+            "type": "t_mapping(t_address,t_struct(Reward)22070_storage)",
+            "contract": "GoodFundManager",
+            "src": "contracts/staking/GoodFundManager.sol:66"
           }
         ],
         "types": {
@@ -3651,11 +3671,12 @@
           "t_bytes32": {
             "label": "bytes32"
           },
-          "t_array(t_struct(BlockchainState)7398_storage)dyn_storage": {
-            "label": "struct GReputation.BlockchainState[]"
+          "t_mapping(t_address,t_struct(Reward)22070_storage)": {
+            "label": "mapping(address => struct GoodFundManager.Reward)",
+            "numberOfBytes": "32"
           },
-          "t_struct(BlockchainState)7398_storage": {
-            "label": "struct GReputation.BlockchainState",
+          "t_struct(Reward)22070_storage": {
+            "label": "struct GoodFundManager.Reward",
             "members": [
               {
                 "label": "stateHash",
@@ -4077,7 +4098,24 @@
             "contract": "GoodReserveCDai",
             "label": "isClaimedGDX",
             "type": "t_mapping(t_address,t_bool)",
-            "src": "contracts/reserve/GoodReserveCDai.sol:52"
+            "contract": "GoodReserveCDai",
+            "src": "contracts/reserve/GoodReserveCDai.sol:55"
+          },
+          {
+            "label": "nonUbiBps",
+            "offset": 0,
+            "slot": "610",
+            "type": "t_uint32",
+            "contract": "GoodReserveCDai",
+            "src": "contracts/reserve/GoodReserveCDai.sol:57"
+          },
+          {
+            "label": "distributionHelper",
+            "offset": 4,
+            "slot": "610",
+            "type": "t_contract(DistributionHelper)16839",
+            "contract": "GoodReserveCDai",
+            "src": "contracts/reserve/GoodReserveCDai.sol:58"
           }
         ],
         "types": {
@@ -4090,8 +4128,9 @@
           "t_bytes32": {
             "label": "bytes32"
           },
-          "t_mapping(t_address,t_bool)": {
-            "label": "mapping(address => bool)"
+          "t_contract(DistributionHelper)16839": {
+            "label": "contract DistributionHelper",
+            "numberOfBytes": "20"
           },
           "t_bool": {
             "label": "bool"
@@ -4224,6 +4263,10 @@
             "src": "contracts/utils/DAOContract.sol:40"
           },
           {
+            "label": "reserveTokens",
+            "offset": 0,
+            "slot": "154",
+            "type": "t_mapping(t_address,t_struct(ReserveToken)17717_storage)",
             "contract": "GoodMarketMaker",
             "label": "reserveTokens",
             "type": "t_mapping(t_address,t_struct(ReserveToken)14929_storage)",
@@ -4246,10 +4289,15 @@
           "t_mapping(t_address,t_struct(ReserveToken)14929_storage)": {
             "label": "mapping(address => struct GoodMarketMaker.ReserveToken)"
           },
-          "t_address": {
-            "label": "address"
+          "t_contract(INameService)6858": {
+            "label": "contract INameService",
+            "numberOfBytes": "20"
           },
-          "t_struct(ReserveToken)14929_storage": {
+          "t_mapping(t_address,t_struct(ReserveToken)17717_storage)": {
+            "label": "mapping(address => struct GoodMarketMaker.ReserveToken)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(ReserveToken)17717_storage": {
             "label": "struct GoodMarketMaker.ReserveToken",
             "members": [
               {
