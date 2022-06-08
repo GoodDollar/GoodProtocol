@@ -13,7 +13,7 @@ import "../utils/DAOUpgradeableContract.sol";
 import "hardhat/console.sol";
 
 /***
- * DistributionHelper receives funds and distributes them to recipients
+ * @dev DistributionHelper receives funds and distributes them to recipients
  * recipients can be on other blockchains and get their funds via fuse/multichain bridge
  * accounts with ADMIN_ROLE can update the recipients, defaults to Avatar
  */
@@ -44,14 +44,13 @@ contract DistributionHelper is
 		uint256 startingBalance,
 		uint256 incomingAmount
 	);
-
 	event RecipientUpdated(DistributionRecipient recipient, uint256 index);
 	event RecipientAdded(DistributionRecipient recipient, uint256 index);
 
 	function initialize(INameService _ns) external initializer {
 		__AccessControlEnumerable_init();
 		setDAO(_ns);
-		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
+		_setupRole(DEFAULT_ADMIN_ROLE, avatar); //this needs to happen after setDAO for avatar to be non empty
 		fuseBridge = nameService.getAddress("BRIDGE_CONTRACT");
 		multiChainBridge = IMultichainRouter(
 			0xf27Ee99622C3C9b264583dACB2cCE056e194494f
@@ -59,7 +58,7 @@ contract DistributionHelper is
 	}
 
 	/**
-	 * @dev this is usually called by reserve, but can be called by anyone anytime to trigger distribution
+	 * @notice this is usually called by reserve, but can be called by anyone anytime to trigger distribution
 	 * @param _amount how much was sent, informational only
 	 */
 	function onDistribution(uint256 _amount) external virtual {
@@ -82,7 +81,7 @@ contract DistributionHelper is
 	}
 
 	/**
-	 * @dev add or update the a recipient details, if address exists it will update, otherwise add
+	 * @notice add or update a recipient details, if address exists it will update, otherwise add
 	 * to "remove" set recipient bps to 0. only ADMIN_ROLE can call this.
 	 */
 	function addOrUpdateRecipient(DistributionRecipient memory _recipient)
@@ -109,7 +108,9 @@ contract DistributionHelper is
 	}
 
 	/**
-	 * @dev internal function that takes care of sending the G$s according to the transfer type
+	 * @notice internal function that takes care of sending the G$s according to the transfer type
+	 * @param _recipient data about the recipient
+	 * @param _amount how much to send
 	 */
 	function distribute(DistributionRecipient storage _recipient, uint256 _amount)
 		internal
