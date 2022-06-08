@@ -514,7 +514,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     expect(userPendingGoodReward).to.be.gt(0);
   });
 
-  xit("it should return pendingRewards equal zero after withdraw", async () => {
+  it("it should return pendingRewards equal zero after withdraw", async () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
 
     await goodDollar.mint(staker.address, "200");
@@ -537,7 +537,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     );
     expect(userPendingGoodRewards).to.gt(0); //one block passed
 
-    await staking.connect(staker).withdrawStake(0);
+    await staking.connect(staker).withdrawStake(ethers.constants.MaxUint256);
     [userPendingGoodRewards] = await staking["getUserPendingReward(address)"](
       staker.address
     );
