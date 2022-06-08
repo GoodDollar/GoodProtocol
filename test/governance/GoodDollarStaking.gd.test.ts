@@ -15,6 +15,8 @@ import { FormatTypes } from "ethers/lib/utils";
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 30;
+const DONATION_30_PERCENT = 30;
+const STAKE_AMOUNT = 10000;
 
 describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   let dai: Contract;
@@ -109,6 +111,17 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     await setDAOAddress("FUND_MANAGER", goodFundManager.address);
   });
 
+  async function stake(
+    _staker,
+    _amount,
+    _givebackRatio,
+    stakingContract
+  ) {
+    await goodDollar.mint(_staker.address, _amount);
+    await goodDollar.approve(stakingContract.address, _amount);
+    await stakingContract.stake(_amount, DONATION_30_PERCENT);
+  }
+
   const fixture = async (wallets, provider) => {
     const f = await ethers.getContractFactory("GoodDollarStakingMock");
 
@@ -185,7 +198,31 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     return { staking, govStaking };
   };
 
-  it("should update stakingrewardsfixedapy staker info and global stats when staking", async () => {});
+  it("should update stakingrewardsfixedapy staker info and global stats when staking", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+    const statsBefore = await staking.stats();
+    const PRECISION = await staking.PRECISION();
+
+    await stake(founder, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
+
+    const info = await staking.stakersInfo(founder.address);
+    expect(info.deposit).to.equal(STAKE_AMOUNT);
+    expect(info.rewardsPaid).to.equal(0);
+    expect(info.rewardsDonated).to.equal(0);
+    expect(info.shares).to.equal((await staking.SHARE_DECIMALS()).mul(STAKE_AMOUNT));
+    expect(info.avgDonationRatio).to.equal((await staking.PRECISION()).mul(DONATION_30_PERCENT));
+
+    const stats = await staking.stats();
+    expect(stats.lastUpdateBlock.gt(statsBefore.lastUpdateBlock));
+    expect(stats.totalStaked).to.equal(STAKE_AMOUNT);
+    expect(
+      stats.totalShares.eq((await staking.SHARE_DECIMALS()).mul(STAKE_AMOUNT))
+    ).to.be.true;
+    expect(stats.totalRewardsPaid).to.equal(0);
+    expect(stats.totalRewardsDonated).to.equal(0);
+    expect(stats.avgDonationRatio).to.equal(PRECISION.mul(DONATION_30_PERCENT));
+    expect(stats.principle).to.equal(PRECISION.mul(STAKE_AMOUNT));
+  });
 
   it("should withdraw from deposit and undo rewards if unable to mint rewards", async () => {
     //test that withdraw is success for deposit part even if call to GoodDollarMintBurnWrapper fails
