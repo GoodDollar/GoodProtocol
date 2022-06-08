@@ -4,6 +4,10 @@ pragma solidity >=0.8.0;
 import "./Math64X64.sol";
 import "hardhat/console.sol";
 
+/***
+ * @dev helper contract for calculating fixed per block compounding interest rate rewards.
+ * with staker ability to specifiy which percentage of rewards he would like to donate
+ */
 contract StakingRewardsFixedAPY {
 	using Math64x64 for int128;
 
