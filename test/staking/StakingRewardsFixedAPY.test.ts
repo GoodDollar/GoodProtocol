@@ -631,7 +631,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(earnedRewardsAfterDonation3).to.equal(1025);
   });
 
-  xit("Should undo reward and keep stakers info the same", async () => {
+  it("Should undo reward and keep stakers info the same", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
 
     const initialInfo = await staking.stakersInfo(staker3.address);
@@ -653,7 +653,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(initialInfo.shares).to.equal(infoAfterUndo.shares);
   });
 
-  xit("Should undo reward and keep global stats the same", async () => {
+  it("Should undo reward and keep global stats the same", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
 
     const initialStats = await staking.stats();
@@ -762,12 +762,12 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
     const principleAfterWithdraw = await staking.getPrinciple(staker4.address);
     const infoAfterWithdraw = await staking.stakersInfo(staker4.address);
-    console.log({
-      principleAfterSmallStake,
-      principleAfterWithdraw,
-      infoAfterSmallStake,
-      infoAfterWithdraw
-    });
+    // console.log({
+    //   principleAfterSmallStake,
+    //   principleAfterWithdraw,
+    //   infoAfterSmallStake,
+    //   infoAfterWithdraw
+    // });
     expect(principleAfterWithdraw).to.equal(principleAfterSmallStake.sub(1000));
   });
 
@@ -776,14 +776,14 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
     await stake(staker4, 5, DONATE_25_PERCENT, staking);
 
-    const principleAfterSmallStake = await staking.getPrinciple(staker4.address);
+    const principleAfterSmallStake = await staking.getPrinciple(
+      staker4.address
+    );
     const infoAfterSmallStake = await staking.stakersInfo(staker4.address);
 
     await stake(staker4, 1e13, DONATE_25_PERCENT, staking);
 
-    const principleAfterBigStake = await staking.getPrinciple(
-      staker4.address
-    );
+    const principleAfterBigStake = await staking.getPrinciple(staker4.address);
     const infoAfterBigStake = await staking.stakersInfo(staker4.address);
 
     expect(principleAfterBigStake.gt(principleAfterSmallStake)).to.be.true;
@@ -796,9 +796,10 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     const infoAfterWithdraw = await staking.stakersInfo(staker4.address);
 
     expect(principleAfterWithdraw).to.equal(principleAfterBigStake.sub(1000));
-    expect(infoAfterWithdraw.deposit).to.equal(infoAfterBigStake.deposit.sub(1000));
-    expect(infoAfterWithdraw.shares.lt(infoAfterBigStake.shares)).to.be
-      .true;
+    expect(infoAfterWithdraw.deposit).to.equal(
+      infoAfterBigStake.deposit.sub(1000)
+    );
+    expect(infoAfterWithdraw.shares.lt(infoAfterBigStake.shares)).to.be.true;
   });
 
   it("should handle first 100 Billion stake, followed by a small", async () => {
@@ -826,9 +827,10 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     const infoAfterWithdraw = await staking.stakersInfo(staker4.address);
 
     expect(principleAfterWithdraw).to.equal(principleAfterSmallStake.sub(1000));
-    expect(infoAfterWithdraw.deposit).to.equal(infoAfterSmallStake.deposit.sub(1000));
-    expect(infoAfterWithdraw.shares.lt(infoAfterSmallStake.shares)).to.be
-      .true;
+    expect(infoAfterWithdraw.deposit).to.equal(
+      infoAfterSmallStake.deposit.sub(1000)
+    );
+    expect(infoAfterWithdraw.shares.lt(infoAfterSmallStake.shares)).to.be.true;
   });
 
   it("should withdraw all when amount=0", async () => {

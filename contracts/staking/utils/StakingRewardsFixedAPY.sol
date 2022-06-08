@@ -188,7 +188,7 @@ contract StakingRewardsFixedAPY {
 
 		uint128 shares = uint128((_amount * SHARE_PRECISION) / sharePrice()); //_amount now includes also donated rewards
 
-		console.log("withdraw: redeemed shares %s price: %s", shares, sharePrice());
+		// console.log("withdraw: redeemed shares %s price: %s", shares, sharePrice());
 
 		require(shares > 0, "min withdraw 1 share");
 
