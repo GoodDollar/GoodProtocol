@@ -185,7 +185,6 @@ contract GoodDollarStaking is
 	 */
 	function withdrawRewards()
 		public
-		nonReentrant
 		returns (uint256 goodRewards, uint256 gdRewards)
 	{
 		(, uint256 gdRewardsAfterDonation) = earned(_msgSender());

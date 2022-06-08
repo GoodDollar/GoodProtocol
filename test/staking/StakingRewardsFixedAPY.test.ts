@@ -771,9 +771,65 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(principleAfterWithdraw).to.equal(principleAfterSmallStake.sub(1000));
   });
 
-  it("should handle first 100 Billion stake, followed by a small", async () => {});
+  it("should handle first stake small, followed by 100 Billion stake", async () => {
+    const { staking } = await waffle.loadFixture(fixture_2);
 
-  it("should handle first stake small, followed by 100 Billion stake", async () => {});
+    await stake(staker4, 5, DONATE_25_PERCENT, staking);
+
+    const principleAfterSmallStake = await staking.getPrinciple(staker4.address);
+    const infoAfterSmallStake = await staking.stakersInfo(staker4.address);
+
+    await stake(staker4, 1e13, DONATE_25_PERCENT, staking);
+
+    const principleAfterBigStake = await staking.getPrinciple(
+      staker4.address
+    );
+    const infoAfterBigStake = await staking.stakersInfo(staker4.address);
+
+    expect(principleAfterBigStake.gt(principleAfterSmallStake)).to.be.true;
+    expect(infoAfterBigStake.deposit.gt(infoAfterSmallStake.deposit)).to.be
+      .true;
+
+    await staking.withdraw(staker4.address, 1000);
+
+    const principleAfterWithdraw = await staking.getPrinciple(staker4.address);
+    const infoAfterWithdraw = await staking.stakersInfo(staker4.address);
+
+    expect(principleAfterWithdraw).to.equal(principleAfterBigStake.sub(1000));
+    expect(infoAfterWithdraw.deposit).to.equal(infoAfterBigStake.deposit.sub(1000));
+    expect(infoAfterWithdraw.shares.lt(infoAfterBigStake.shares)).to.be
+      .true;
+  });
+
+  it("should handle first 100 Billion stake, followed by a small", async () => {
+    const { staking } = await waffle.loadFixture(fixture_2);
+
+    await stake(staker4, 1e13, DONATE_25_PERCENT, staking);
+
+    const principleAfterBigStake = await staking.getPrinciple(staker4.address);
+    const infoAfterBigStake = await staking.stakersInfo(staker4.address);
+
+    await stake(staker4, 5, DONATE_25_PERCENT, staking);
+
+    const principleAfterSmallStake = await staking.getPrinciple(
+      staker4.address
+    );
+    const infoAfterSmallStake = await staking.stakersInfo(staker4.address);
+
+    expect(principleAfterSmallStake.gt(principleAfterBigStake)).to.be.true;
+    expect(infoAfterSmallStake.deposit.gt(infoAfterBigStake.deposit)).to.be
+      .true;
+
+    await staking.withdraw(staker4.address, 1000);
+
+    const principleAfterWithdraw = await staking.getPrinciple(staker4.address);
+    const infoAfterWithdraw = await staking.stakersInfo(staker4.address);
+
+    expect(principleAfterWithdraw).to.equal(principleAfterSmallStake.sub(1000));
+    expect(infoAfterWithdraw.deposit).to.equal(infoAfterSmallStake.deposit.sub(1000));
+    expect(infoAfterWithdraw.shares.lt(infoAfterSmallStake.shares)).to.be
+      .true;
+  });
 
   it("should withdraw all when amount=0", async () => {
     const { staking } = await waffle.loadFixture(fixture_1year);
