@@ -1,6 +1,5 @@
 import { default as hre, ethers, upgrades, waffle } from "hardhat";
 import { BigNumber, Contract, Signer } from "ethers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
 import {
   GoodMarketMaker,
@@ -51,16 +50,13 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
       avatar: av,
       gd,
       identity,
-      daoCreator,
       nameService: ns,
       setDAOAddress: sda,
-      setSchemes,
       marketMaker: mm,
       daiAddress,
       cdaiAddress,
       reserve,
-      reputation,
-      setReserveToken
+      reputation
     } = await createDAO();
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
@@ -172,15 +168,14 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     return { staking };
   };
 
-  it("Should not mint reward when staking contract is not minter ", async () => {
+  it("Should not revert withdraw but also not mint GOOD reward when staking contract is not minter", async () => {
     const { staking } = await waffle.loadFixture(fixture);
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(staking.address, "100");
     await staking.stake("100", 0);
     await advanceBlocks(5);
-    await await expect(staking.withdrawStake("100")).to.revertedWith(
-      "GReputation: need minter role or be GDAO contract"
-    );
+    await expect(staking.withdrawStake("100")).to.not.reverted;
+    expect(await grep.balanceOfLocal(founder.address)).to.eq(0);
   });
 
   it("Should be able to mint rewards after set GDAO staking contract", async () => {
@@ -963,32 +958,6 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     );
     expect(pendingReward).to.equal(calculatedReward);
     await advanceBlocks(4);
-  });
-
-  it("should update stakingrewardsfixedapy staker info and global stats when staking", async () => {});
-
-  it("should withdraw from deposit and undo rewards if unable to mint rewards", async () => {
-    //test that withdraw is success for deposit part even if call to GoodDollarMintBurnWrapper fails
-  });
-
-  it("should withdraw rewards after mint rewards is enabled again", async () => {});
-
-  it("should get G$ rewards when withdrawing", async () => {
-    //need to make sure GoodDollarMintBurnWrapper is deployed or some mock, so it can mint rewards
-    //test that G$ balance is equal to principle after some interest was earned
-  });
-
-  it("should perform upgrade", async () => {
-    //make sure in fixture_upgrade it is set as scheme with permissions 0x0000001f
-    //need to another contract set as GDAO_STAKING in nameservice
-  });
-
-  it("should change GD apy only by avatar", async () => {});
-
-  it("should withdraw only rewards when calling withdrawRewards", async () => {});
-
-  it("should handle stakingrewardsfixed apy correctly when transfering staking tokens", async () => {
-    //test that logic of _transfer is as expected
   });
 
   function rdiv(x: BigNumber, y: BigNumber) {
