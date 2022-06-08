@@ -29,7 +29,9 @@ contract OverMintTester {
 	function stake() external {
 		uint256 tokenBalance = stakingToken.balanceOf(address(this));
 		stakingToken.approve(address(stakingContract), tokenBalance);
-		stakingContract.stake(tokenBalance, 0);
+		try stakingContract.stake(tokenBalance, 0) {} catch {
+			stakingContract.stake(tokenBalance);
+		}
 	}
 
 	function overMintTest() external {

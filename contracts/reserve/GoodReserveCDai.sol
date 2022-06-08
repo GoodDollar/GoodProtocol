@@ -374,12 +374,12 @@ contract GoodReserveCDai is
 		// 	nameService.getAddress("FUND_MANAGER")
 		// );
 
-		if (nonUbiBps > 0) {
+		if (nonUbiBps > 0 && address(distributionHelper) != address(0)) {
 			nonUBI = (gdExpansionToMint * nonUbiBps) / 10000;
-			gdUBI -= nonUBI;
+			gdUBI -= nonUBI; //only reduce UBI if
 			_mintGoodDollars(address(distributionHelper), nonUBI, false);
+			try distributionHelper.onDistribution(nonUBI) {} catch {} //should not prevent mintUBI from completing
 			emit NonUBIMinted(address(distributionHelper), nonUBI);
-			try distributionHelper.onDistribution(nonUBI) {} catch {}
 		}
 
 		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
@@ -396,6 +396,11 @@ contract GoodReserveCDai is
 		return (gdUBI, interestInCdai);
 	}
 
+	/**
+	 * @notice allows Avatar to change or set the distribution helper
+	 * @param _helper address of distributionhelper contract
+	 * @param _bps how much of UBI to transfer in basis points
+	 */
 	function setDistributionHelper(DistributionHelper _helper, uint32 _bps)
 		public
 	{
