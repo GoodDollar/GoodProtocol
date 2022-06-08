@@ -865,11 +865,11 @@ describe("GoodDollarStaking - staking with GD and get Rewards in GDAO and GD", (
     );
     await setDAOAddress("GDAO_STAKING", simpleGovernanceStaking.address);
     await goodDollar.mint(founder.address, "100");
-    const rewardsPerBlock = await simpleGovernanceStaking.getRewardsPerBlock();
+    const rewardsPerBlock = (await simpleGovernanceStaking.getRewardsPerBlock())[0];
     await goodDollar.approve(simpleGovernanceStaking.address, "200");
 
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
-    await simpleGovernanceStaking.stake("200");
+    await simpleGovernanceStaking.stake("200", BN.from(0));
     const GDAOBalanceAfterStake = await grep.balanceOfLocal(founder.address);
     await advanceBlocks(100);
     await simpleGovernanceStaking.withdrawRewards();
@@ -886,23 +886,18 @@ describe("GoodDollarStaking - staking with GD and get Rewards in GDAO and GD", (
   });
 
   xit("it should not overmint rewards when staker withdraw their rewards", async () => {
-    const governanceStakingFactory = await ethers.getContractFactory(
-      "GovernanceStaking"
-    );
-    const simpleGovernanceStaking = await governanceStakingFactory.deploy(
-      nameService.address
-    );
-    await setDAOAddress("GDAO_STAKING", simpleGovernanceStaking.address);
+    const { staking } = await waffle.loadFixture(fixture_ready);
+
     const overmintTesterFactory = await ethers.getContractFactory(
       "OverMintTester"
     );
     const overMintTester = await overmintTesterFactory.deploy(
       goodDollar.address,
-      simpleGovernanceStaking.address,
+      staking.address,
       grep.address
     );
     await goodDollar.mint(overMintTester.address, "100");
-    const rewardsPerBlock = await simpleGovernanceStaking.getRewardsPerBlock();
+    const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await overMintTester.stake();
     const GDAOBalanceAfterStake = await grep.balanceOfLocal(
@@ -938,38 +933,30 @@ describe("GoodDollarStaking - staking with GD and get Rewards in GDAO and GD", (
         secondWithdrawRewardsBlockNumber - withdrawRewardsBlockNumber
       )
     );
-    await setDAOAddress("GDAO_STAKING", governanceStaking.address);
   });
 
   it("it should accrue previous rewards based on previous monthly rate on monthly rewards rate change to 0", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+
     const ictrl = await ethers.getContractAt(
       "Controller",
       controller,
       schemeMock
     );
-    const governanceStakingFactory = await ethers.getContractFactory(
-      "GoodDollarStakingMock"
-    );
-    const simpleGovernanceStaking = await governanceStakingFactory.deploy(
-      nameService.address,
-      BN.from("1000000007735630000"),
-      518400 * 12,
-      30
-    );
 
-    const rewardsPerBlock = (await simpleGovernanceStaking.getRewardsPerBlock())[0];
+    const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     await goodDollar.mint(founder.address, "100");
-    await goodDollar.approve(simpleGovernanceStaking.address, "100");
+    await goodDollar.approve(staking.address, "100");
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
-    await simpleGovernanceStaking.stake("100", 0);
+    await staking.stake("100", 0);
     await advanceBlocks(4);
 
-    let encodedCall = governanceStakingFactory.interface.encodeFunctionData(
+    let encodedCall = staking.interface.encodeFunctionData(
       "setMonthlyGOODRewards",
       ["0"] // Give 0.0001 GDAO per block so 17.28 GDAO per month
     );
     await ictrl.genericCall(
-      simpleGovernanceStaking.address,
+      staking.address,
       encodedCall,
       avatar,
       0
@@ -978,7 +965,7 @@ describe("GoodDollarStaking - staking with GD and get Rewards in GDAO and GD", (
     const withdrawBlockNumber = await ethers.provider.getBlockNumber();
     const multiplier = withdrawBlockNumber - stakeBlockNumber;
     const calculatedReward = rewardsPerBlock.mul(multiplier);
-    const [pendingReward,] = await simpleGovernanceStaking[
+    const [pendingReward,] = await staking[
       "getUserPendingReward(address)"
     ](founder.address);
     expect(pendingReward).to.equal(calculatedReward);
