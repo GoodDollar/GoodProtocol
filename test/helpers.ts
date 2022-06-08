@@ -444,20 +444,9 @@ export async function increaseTime(seconds) {
 }
 
 export const advanceBlocks = async (blocks: number) => {
-  let ps = [];
-  //required for bug https://github.com/sc-forks/solidity-coverage/issues/707
-  if ((hre as any).__SOLIDITY_COVERAGE_RUNNING) {
-    for (let i = 0; i < blocks; i++) {
-      ps.push(ethers.provider.send("evm_mine", []));
-      if (i % 5000 === 0) {
-        await Promise.all(ps);
-        ps = [];
-      }
-    }
-    await Promise.all(ps);
-  } else {
-    await ethers.provider.send("hardhat_mine", ["0x" + blocks.toString(16)]);
-  }
+  await ethers.provider.send("hardhat_mine", ["0x" + blocks.toString(16)]);
+  // required for bug https://github.com/sc-forks/solidity-coverage/issues/707
+  await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
 };
 
 export const deployOldVoting = async dao => {
