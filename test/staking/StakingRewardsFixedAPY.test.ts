@@ -1,8 +1,7 @@
 import { expect } from "chai";
 import { ethers, waffle } from "hardhat";
 import { createDAO, advanceBlocks } from "../helpers";
-import { deploy } from "../../scripts/test/localOldDaoDeploy";
-import { StakingRewardsFixedAPY, StakingMockFixedAPY } from "../../types";
+import { StakingMockFixedAPY } from "../../types";
 import { default as StakingABI } from "../../artifacts/contracts/mocks/StakingMockFixedAPY.sol/StakingMockFixedAPY.json";
 const BN = ethers.BigNumber;
 
