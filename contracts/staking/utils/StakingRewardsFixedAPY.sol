@@ -199,22 +199,13 @@ contract StakingRewardsFixedAPY {
 			? _amount - earnedRewardsAfterDonation
 			: 0;
 
-		// console.log(
-		// 	"rewards %s, deposit: %s, earnedRewardsAfter %s",
-		// 	rewardComponent,
-		// 	depositComponent,
-		// 	earnedRewardsAfterDonation
-		// );
-
-		//we also need to account for the diff between earnedRewards and donated rewards
 		uint256 donatedRewards = earnedRewards - earnedRewardsAfterDonation;
+		//we also need to account for the diff between earnedRewards and donated rewards
 
-		// console.log(
-		// 	"withdraw: rewardCompoent %s, depositComponent %s, donatedRewards %s",
-		// 	rewardComponent,
-		// 	depositComponent,
-		// 	donatedRewards
-		// );
+		//we withdraw donated rewards in same ratio relative the amount withdrawn out of the rewards part
+		donatedRewards = earnedRewardsAfterDonation == 0 //avoid div by 0
+			? donatedRewards
+			: (rewardComponent * donatedRewards) / earnedRewardsAfterDonation;
 
 		_amount += donatedRewards; //we also "withdraw" the donation part from user shares
 
@@ -297,10 +288,12 @@ contract StakingRewardsFixedAPY {
 		virtual
 	{
 		//the actual amount we undo needs to take into account the user donation ratio.
+		//rewardsPaidAfterDonation = (100% - donation%) * rewardsBeforeDonation
+		//rewadrdsBeforeDonation = rewardsPaidAfterDonation/(100% - donation%)
 		uint256 rewardsBeforeDonation = stakersInfo[_to].avgDonationRatio == 0
 			? _rewardsPaidAfterDonation
 			: (100 * PRECISION * _rewardsPaidAfterDonation) /
-				stakersInfo[_to].avgDonationRatio;
+				(100 * PRECISION - stakersInfo[_to].avgDonationRatio);
 
 		//calculate this before udpating global principle
 		uint128 newShares = uint128(
