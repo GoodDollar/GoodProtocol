@@ -323,7 +323,21 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     expect(afterSetInterestRateIn128).to.equal(INTEREST_RATE_10APY_128);
   });
 
-  it("should withdraw only rewards when calling withdrawRewards", async () => {});
+  xit("should withdraw only rewards when calling withdrawRewards", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+
+    // collect 350 earned rewards: 10,000 * 5%APY = 500 total rewards, minus 30% donation
+    await stake(founder, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+    const infoBefore = await staking.stakersInfo(founder.address);
+
+    await staking.withdrawRewards();
+
+    const info = await staking.stakersInfo(founder.address);
+    expect(info.deposit).to.equal(infoBefore.deposit).to.equal(STAKE_AMOUNT);
+    expect(info.rewardsPaid).to.equal(350);
+    expect(info.rewardsDonated).to.equal(150);
+  });
 
   it("should handle stakingrewardsfixed apy correctly when transfering staking tokens", async () => {
     //test that logic of _transfer is as expected
