@@ -510,7 +510,6 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     const [userPendingGoodReward] = await staking[
       "getUserPendingReward(address)"
     ](staker2.address);
-    staking.connect(staker2).withdrawStake("100");
     expect(userPendingGoodReward).to.be.gt(0);
   });
 
