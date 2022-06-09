@@ -173,6 +173,14 @@ contract GoodDollarMintBurnWrapper is
 
 	event SendOrMint(address to, uint256 amount, uint256 sent, uint256 minted);
 
+	modifier onlyRoles(bytes32[2] memory roles) {
+		require(
+			hasRole(roles[0], _msgSender()) || hasRole(roles[1], _msgSender()),
+			"role missing"
+		);
+		_;
+	}
+
 	function initialize(
 		uint256 _totalMintCap,
 		address _admin,
@@ -187,7 +195,6 @@ contract GoodDollarMintBurnWrapper is
 		updateFrequency = 90 days;
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
 		_setupRole(DEFAULT_ADMIN_ROLE, _admin);
-		_setupRole(GUARDIAN_ROLE, avatar);
 	}
 
 	function upgrade1() external {
@@ -218,16 +225,22 @@ contract GoodDollarMintBurnWrapper is
 
 	function setUpdateFrequency(uint128 inSeconds)
 		external
-		onlyRole(DEFAULT_ADMIN_ROLE)
+		onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE])
 	{
 		updateFrequency = inSeconds;
 	}
 
-	function pause(bytes32 role) external onlyRole(GUARDIAN_ROLE) {
+	function pause(bytes32 role)
+		external
+		onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE])
+	{
 		_pause(role);
 	}
 
-	function unpause(bytes32 role) external onlyRole(GUARDIAN_ROLE) {
+	function unpause(bytes32 role)
+		external
+		onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE])
+	{
 		_unpause(role);
 	}
 
@@ -332,7 +345,7 @@ contract GoodDollarMintBurnWrapper is
 		uint256 cap,
 		uint256 max,
 		uint32 bpsPerDay
-	) external onlyRole(GUARDIAN_ROLE) {
+	) external onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE]) {
 		_setMinterCaps(minter, cap, max, bpsPerDay);
 	}
 
@@ -352,7 +365,10 @@ contract GoodDollarMintBurnWrapper is
 			10000;
 	}
 
-	function setTotalMintCap(uint256 cap) external onlyRole(GUARDIAN_ROLE) {
+	function setTotalMintCap(uint256 cap)
+		external
+		onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE])
+	{
 		totalMintCap = cap;
 	}
 
@@ -360,7 +376,7 @@ contract GoodDollarMintBurnWrapper is
 		address minter,
 		uint256 total,
 		bool force
-	) external onlyRole(GUARDIAN_ROLE) {
+	) external onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE]) {
 		require(force || hasRole(MINTER_ROLE, minter), "not minter");
 		minterSupply[minter].total = total;
 	}
@@ -411,17 +427,8 @@ contract GoodDollarMintBurnWrapper is
 		//handle onTokenTransfer (ERC677), assume tokens has been transfered
 		if (from == address(this)) {
 			TokenOperation.safeBurnSelf(token, amount);
-		} else if (
-			tokenType == TokenType.Transfer || tokenType == TokenType.TransferDeposit
-		) {
-			IERC20Upgradeable(token).safeTransferFrom(from, address(this), amount);
-		} else if (tokenType == TokenType.MintBurnAny) {
-			TokenOperation.safeBurnAny(token, from, amount);
 		} else if (tokenType == TokenType.MintBurnFrom) {
 			TokenOperation.safeBurnFrom(token, from, amount);
-		} else if (tokenType == TokenType.MintBurnSelf) {
-			IERC20Upgradeable(token).safeTransferFrom(from, address(this), amount);
-			TokenOperation.safeBurnSelf(token, amount);
 		}
 	}
 

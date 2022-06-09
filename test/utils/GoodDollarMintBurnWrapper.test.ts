@@ -1,8 +1,7 @@
-import { ethers, waffle } from "hardhat";
+import { ethers, waffle, upgrades } from "hardhat";
 import { expect } from "chai";
 import { GoodReserveCDai, GoodDollarMintBurnWrapper, ERC20 } from "../../types";
 import { createDAO, increaseTime } from "../helpers";
-import { Contract } from "ethers";
 import { FormatTypes } from "@ethersproject/abi";
 
 const BN = ethers.BigNumber;
@@ -21,6 +20,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     founder,
     minter,
     rewarder,
+    guardian,
     wrapperAdmin,
     signers,
     setDAOAddress,
@@ -29,7 +29,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     controller;
 
   before(async () => {
-    [founder, wrapperAdmin, minter, rewarder, ...signers] =
+    [founder, wrapperAdmin, minter, rewarder, guardian, ...signers] =
       await ethers.getSigners();
 
     let {
@@ -77,17 +77,32 @@ describe("GoodDollarMintBurnWrapper", () => {
       controller,
       wallets[wallets.length - 1] //has scheme permissions set by createDAO()
     );
-    const wrapper = (await waffle.deployContract(wallets[0], {
-      abi: JSON.parse(gf.interface.format(FormatTypes.json) as string) as any[],
-      bytecode: gf.bytecode
-    })) as GoodDollarMintBurnWrapper;
+    // const wrapper = (await waffle.deployContract(wallets[0], {
+    //   abi: JSON.parse(gf.interface.format(FormatTypes.json) as string) as any[],
+    //   bytecode: gf.bytecode
+    // })) as GoodDollarMintBurnWrapper;
 
-    await wrapper.initialize(
-      "100000000000", //1B G$
-      wrapperAdmin.address,
-      nameService.address
-    );
+    // await wrapper.initialize(
+    //   "100000000000", //1B G$
+    //   wrapperAdmin.address,
+    //   nameService.address
+    // );
 
+    const wrapper = (await upgrades.deployProxy(
+      await ethers.getContractFactory("GoodDollarMintBurnWrapper"),
+      [
+        "100000000000", //1B G$
+        wrapperAdmin.address,
+        nameService.address
+      ],
+      {
+        kind: "uups"
+      }
+    )) as GoodDollarMintBurnWrapper;
+
+    await wrapper
+      .connect(wrapperAdmin)
+      .grantRole(await wrapper.GUARDIAN_ROLE(), guardian.address);
     await wrapper
       .connect(wrapperAdmin)
       .addMinter(minter.address, MINTER_CAP, MINTER_TX_MAX, 0, false);
@@ -103,6 +118,23 @@ describe("GoodDollarMintBurnWrapper", () => {
     );
     return { wrapper };
   };
+
+  it("should be safe for upgrades", async () => {
+    const result = await upgrades
+      .deployProxy(
+        await ethers.getContractFactory("GoodDollarMintBurnWrapper"),
+        [
+          "100000000000", //1B G$
+          wrapperAdmin.address,
+          nameService.address
+        ],
+        {
+          kind: "uups"
+        }
+      )
+      .catch(e => false);
+    expect(result).not.false;
+  });
 
   it("should have avatar as default admin ", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
@@ -131,7 +163,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     expect(await wrapper.symbol()).to.equal("G$");
   });
 
-  it("should update updateFrequency only by admin role", async () => {
+  it("should update updateFrequency only by admin or guardian role", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
     expect(await wrapper.updateFrequency()).to.equal(60 * 60 * 24 * 90); //default 90 days;
@@ -140,9 +172,12 @@ describe("GoodDollarMintBurnWrapper", () => {
     await expect(wrapper.connect(wrapperAdmin).setUpdateFrequency(0)).to.not
       .reverted;
     expect(await wrapper.updateFrequency()).to.equal(0);
+    await expect(wrapper.connect(guardian).setUpdateFrequency(1)).to.not
+      .reverted;
+    expect(await wrapper.updateFrequency()).to.equal(1);
   });
 
-  it("should be able to pause roles only by admin role", async () => {
+  it("should be able to pause roles only by admin or guardian role", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
     await expect(
@@ -152,38 +187,17 @@ describe("GoodDollarMintBurnWrapper", () => {
     await expect(
       wrapper.connect(wrapperAdmin).pause(await wrapper.PAUSE_BURN_ROLE())
     ).to.not.reverted;
+    await expect(
+      wrapper.connect(guardian).pause(await wrapper.PAUSE_ALL_ROLE())
+    ).to.not.reverted;
+
     expect(await wrapper.paused(await wrapper.PAUSE_BURN_ROLE())).to.equal(
       true
     );
-
-    await expect(
-      wrapper.connect(wrapperAdmin).pause(await wrapper.PAUSE_MINT_ROLE())
-    ).to.not.reverted;
-    expect(await wrapper.paused(await wrapper.PAUSE_MINT_ROLE())).to.equal(
-      true
-    );
-    await expect(
-      wrapper.connect(wrapperAdmin).pause(await wrapper.PAUSE_REWARDS_ROLE())
-    ).to.not.reverted;
-    expect(await wrapper.paused(await wrapper.PAUSE_REWARDS_ROLE())).to.equal(
-      true
-    );
-
-    await expect(
-      wrapper.connect(wrapperAdmin).pause(await wrapper.PAUSE_ROUTER_ROLE())
-    ).to.not.reverted;
-    expect(await wrapper.paused(await wrapper.PAUSE_ROUTER_ROLE())).to.equal(
-      true
-    );
-
-    //this is test last because otherwise all other roles are considered paused
-    await expect(
-      wrapper.connect(wrapperAdmin).pause(await wrapper.PAUSE_ALL_ROLE())
-    ).to.not.reverted;
     expect(await wrapper.paused(await wrapper.PAUSE_ALL_ROLE())).to.equal(true);
   });
 
-  it("should be able to unpause roles only by admin role", async () => {
+  it("should be able to unpause roles only by admin or guardian role", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
     await expect(
@@ -192,6 +206,14 @@ describe("GoodDollarMintBurnWrapper", () => {
 
     await expect(
       wrapper.connect(wrapperAdmin).pause(await wrapper.PAUSE_BURN_ROLE())
+    ).to.not.reverted;
+
+    await expect(
+      wrapper.connect(wrapperAdmin).pause(await wrapper.PAUSE_ALL_ROLE())
+    ).to.not.reverted;
+
+    await expect(
+      wrapper.connect(guardian).unpause(await wrapper.PAUSE_ALL_ROLE())
     ).to.not.reverted;
 
     await expect(
@@ -199,6 +221,9 @@ describe("GoodDollarMintBurnWrapper", () => {
     ).to.not.reverted;
 
     expect(await wrapper.paused(await wrapper.PAUSE_BURN_ROLE())).to.equal(
+      false
+    );
+    expect(await wrapper.paused(await wrapper.PAUSE_ALL_ROLE())).to.equal(
       false
     );
   });
