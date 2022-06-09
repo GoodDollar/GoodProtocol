@@ -12,8 +12,8 @@
 
 pragma solidity ^0.8;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
@@ -21,7 +21,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./DAOUpgradeableContract.sol";
 
 library TokenOperation {
-	using Address for address;
+	using AddressUpgradeable for address;
 
 	function safeMint(
 		address token,
@@ -127,7 +127,7 @@ contract GoodDollarMintBurnWrapper is
 	PausableControl,
 	DAOUpgradeableContract
 {
-	using SafeERC20 for IERC20;
+	using SafeERC20Upgradeable for IERC20Upgradeable;
 
 	// access control roles
 	bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
@@ -290,7 +290,10 @@ contract GoodDollarMintBurnWrapper is
 		uint256 maxMintToday = m.dailyCap - m.mintedToday;
 
 		//calcualte how much to send and mint
-		uint256 toSend = Math.min(IERC20(token).balanceOf(address(this)), amount);
+		uint256 toSend = Math.min(
+			IERC20Upgradeable(token).balanceOf(address(this)),
+			amount
+		);
 		uint256 toMint = Math.min(amount - toSend, maxMintToday);
 		totalSent = toSend + toMint;
 		m.mintedToday += uint128(toMint);
@@ -303,7 +306,7 @@ contract GoodDollarMintBurnWrapper is
 			_balanceDebt(m);
 		}
 
-		if (toSend > 0) IERC20(token).safeTransfer(to, toSend);
+		if (toSend > 0) IERC20Upgradeable(token).safeTransfer(to, toSend);
 
 		emit SendOrMint(to, amount, toSend, toMint);
 	}
@@ -344,7 +347,9 @@ contract GoodDollarMintBurnWrapper is
 		m.max = max;
 		m.bpsPerDay = bpsPerDay;
 		m.lastUpdate = uint128(block.timestamp);
-		m.dailyCap = uint128(IERC20(token).totalSupply() * bpsPerDay) / 10000;
+		m.dailyCap =
+			uint128(IERC20Upgradeable(token).totalSupply() * bpsPerDay) /
+			10000;
 	}
 
 	function setTotalMintCap(uint256 cap) external onlyRole(GUARDIAN_ROLE) {
@@ -409,13 +414,13 @@ contract GoodDollarMintBurnWrapper is
 		} else if (
 			tokenType == TokenType.Transfer || tokenType == TokenType.TransferDeposit
 		) {
-			IERC20(token).safeTransferFrom(from, address(this), amount);
+			IERC20Upgradeable(token).safeTransferFrom(from, address(this), amount);
 		} else if (tokenType == TokenType.MintBurnAny) {
 			TokenOperation.safeBurnAny(token, from, amount);
 		} else if (tokenType == TokenType.MintBurnFrom) {
 			TokenOperation.safeBurnFrom(token, from, amount);
 		} else if (tokenType == TokenType.MintBurnSelf) {
-			IERC20(token).safeTransferFrom(from, address(this), amount);
+			IERC20Upgradeable(token).safeTransferFrom(from, address(this), amount);
 			TokenOperation.safeBurnSelf(token, amount);
 		}
 	}
@@ -423,7 +428,7 @@ contract GoodDollarMintBurnWrapper is
 	function _balanceDebt(Supply storage minter) internal {
 		uint256 toBurn = Math.min(
 			minter.mintDebt,
-			IERC20(token).balanceOf(address(this))
+			IERC20Upgradeable(token).balanceOf(address(this))
 		);
 
 		if (toBurn > 0) {
@@ -436,7 +441,7 @@ contract GoodDollarMintBurnWrapper is
 		uint256 blocksPassed = block.timestamp - minter.lastUpdate;
 		if (blocksPassed > updateFrequency) {
 			minter.dailyCap =
-				uint128(IERC20(token).totalSupply() * minter.bpsPerDay) /
+				uint128(IERC20Upgradeable(token).totalSupply() * minter.bpsPerDay) /
 				10000;
 			minter.lastUpdate = uint128(block.timestamp);
 		}
