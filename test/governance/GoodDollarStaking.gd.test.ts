@@ -7,7 +7,8 @@ import {
   GoodReserveCDai,
   GReputation,
   GoodDollarStaking,
-  GovernanceStaking
+  GovernanceStaking,
+  GoodDollarMintBurnWrapper
 } from "../../types";
 import { createDAO, advanceBlocks, increaseTime } from "../helpers";
 import { FormatTypes } from "ethers/lib/utils";
@@ -17,12 +18,14 @@ export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 30;
 const DONATION_30_PERCENT = 30;
 const STAKE_AMOUNT = 10000;
+const BLOCKS_ONE_YEAR = 6307200;
 // APY=5% | per block = nroot(1+0.05,numberOfBlocksPerYear) = 1000000007735630000
 const INTEREST_RATE_5APY_X64 = BN.from("1000000007735630000"); // x64 representation of same number
 const INTEREST_RATE_5APY_128 = BN.from("18446744216406738474"); // 128 representation of same number
 // APY = 10% | nroot(1+0.10,numberOfBlocksPerYear) = 1000000015111330000
 const INTEREST_RATE_10APY_X64 = BN.from("1000000015111330000"); // x64 representation of same number
 const INTEREST_RATE_10APY_128 = BN.from("18446744352464388739"); // 128 representation of same number
+const INITIAL_CAP = 100000000000; //1B G$s
 
 describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   let dai: Contract;
@@ -233,8 +236,21 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     expect(stats.principle).to.equal(PRECISION.mul(STAKE_AMOUNT));
   });
 
-  it("should withdraw from deposit and undo rewards if unable to mint rewards", async () => {
+  xit("should withdraw from deposit and undo rewards if unable to mint rewards", async () => {
     //test that withdraw is success for deposit part even if call to GoodDollarMintBurnWrapper fails
+    const { staking } = await waffle.loadFixture(fixture_ready);
+
+    const mintBurnWrapperFactory = await ethers.getContractFactory("GoodDollarMintBurnWrapper");
+    let goodDollarMintBurnWrapper = (await upgrades.deployProxy(
+      mintBurnWrapperFactory,
+      [1, INITIAL_CAP, avatar, nameService.address],
+      { kind: "uups" }
+    )) as unknown as GoodDollarMintBurnWrapper;
+    await setSchemes([goodDollarMintBurnWrapper.address]);
+
+    await stake(founder, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+    await staking.withdrawStake(STAKE_AMOUNT);
   });
 
   it("should withdraw rewards after mint rewards is enabled again", async () => {});
