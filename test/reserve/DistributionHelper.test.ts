@@ -1,4 +1,4 @@
-import { ethers, waffle } from "hardhat";
+import { ethers, waffle, upgrades } from "hardhat";
 import { expect } from "chai";
 import {
   GoodReserveCDai,
@@ -69,12 +69,17 @@ describe("DistributionHelper", () => {
     const rf = await ethers.getContractFactory("DistributionBridgeMock");
 
     wallets = provider.getWallets();
-    const distHelper = (await waffle.deployContract(wallets[0], {
-      abi: JSON.parse(df.interface.format(FormatTypes.json) as string) as any[],
-      bytecode: df.bytecode
-    })) as DistributionHelperTestHelper;
+    // const distHelper = (await waffle.deployContract(wallets[0], {
+    //   abi: JSON.parse(df.interface.format(FormatTypes.json) as string) as any[],
+    //   bytecode: df.bytecode
+    // })) as DistributionHelperTestHelper;
 
-    await distHelper.initialize(nameService.address);
+    // await distHelper.initialize(nameService.address);
+    const distHelper = (await upgrades.deployProxy(
+      await ethers.getContractFactory("DistributionHelperTestHelper"),
+      [nameService.address],
+      { kind: "uups" }
+    )) as DistributionHelperTestHelper;
 
     const bridge = (await waffle.deployContract(wallets[0], {
       abi: JSON.parse(rf.interface.format(FormatTypes.json) as string) as any[],
