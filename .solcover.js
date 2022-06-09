@@ -2,10 +2,11 @@ module.exports = {
   providerOptions: {
     mnemonic:
       "glad notable bullet donkey fall dolphin simple size stone evil slogan dinner",
-    default_balance_ether: 1000000,
+    default_balance_ether: 1000000
   },
   istanbulReporter: ["html", "lcov"],
   skipFiles: [
+    "mocks/*.sol",
     "mocks/cDAINonMintableMock.sol",
     "mocks/GoodCompoundStakingTest.sol",
     "mocks/DaiEthPriceMockOracle.sol",
@@ -45,6 +46,6 @@ module.exports = {
     grep: "@skip-on-coverage", // Find everything with this tag
     invert: true, // Run the grep's inverse set.
     enableTimeouts: false,
-    timeout: 3600000,
-  },
+    timeout: 3600000
+  }
 };

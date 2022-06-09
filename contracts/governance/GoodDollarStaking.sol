@@ -86,28 +86,40 @@ contract GoodDollarStaking is
 	 * @param _donationRatio percentage between 0-100
 	 */
 	function stake(uint256 _amount, uint32 _donationRatio) external {
-		require(_donationRatio <= 100, "invalid donation ratio");
-		require(_amount > 0, "You need to stake a positive token amount");
 		require(
 			token.transferFrom(_msgSender(), address(this), _amount),
 			"transferFrom failed, make sure you approved token transfer"
 		);
+		_stakeFrom(_msgSender(), _amount, _donationRatio);
+	}
+
+	function _stakeFrom(
+		address _from,
+		uint256 _amount,
+		uint32 _donationRatio
+	) internal {
 		/* GOOD rewards Updates */
-		_increaseProductivity(
-			address(this),
-			_msgSender(),
-			_amount,
-			0,
-			block.number
-		);
-		_mint(_msgSender(), _amount); // mint Staking token for staker
-		_mintRewards(_msgSender());
+		_increaseProductivity(address(this), _from, _amount, 0, block.number);
+		_mint(_from, _amount); // mint Staking token for staker
+		_mintGOODRewards(_from);
 		/* end GOOD rewards Updates */
 
 		/* G$ rewards updates */
-		_stake(_msgSender(), _amount, _donationRatio);
+		_stake(_from, _amount, _donationRatio); //this will validate _amount and _donation ratio
 
-		emit Staked(_msgSender(), _amount, _donationRatio);
+		emit Staked(_from, _amount, _donationRatio);
+	}
+
+	function onTokenTransfer(
+		address _from,
+		uint256 _amount,
+		bytes calldata data
+	) external returns (bool success) {
+		require(_msgSender() == address(token), "unsupported token");
+		uint32 donationRatio = abi.decode(data, (uint32));
+
+		_stakeFrom(_from, _amount, donationRatio);
+		return true;
 	}
 
 	/**
@@ -119,17 +131,21 @@ contract GoodDollarStaking is
 		nonReentrant
 		returns (uint256 goodRewards, uint256 gdRewards)
 	{
-		uint256 accountBalance = getPrinciple(_msgSender());
-		if (_amount == 0) _amount = accountBalance;
-		require(_amount > 0, "Should withdraw positive amount");
-		require(accountBalance >= _amount, "Not enough token staked");
-
 		uint256 depositComponent;
-		/* G$ rewards update */
-		//we get the relative part user is withdrawing from his original deposit, his principle is composed of deposit+earned interest
-		(depositComponent, gdRewards) = _withdraw(_msgSender(), _amount);
 
-		_burn(_msgSender(), depositComponent); // burn their staking tokens
+		//in case amount is 0 this will just withdraw the GOOD rewards, this is required for withdrawRewards
+		if (_amount > 0) {
+			/* G$ rewards update */
+			//we get the relative part user is withdrawing from his original deposit, his principle is composed of deposit+earned interest
+			(depositComponent, gdRewards) = _withdraw(_msgSender(), _amount);
+			_burn(_msgSender(), depositComponent); // burn their staking tokens
+		}
+
+		// console.log(
+		// 	"withdraStake: fromDeposit: %s, fromRewards: %s",
+		// 	depositComponent,
+		// 	gdRewards
+		// );
 
 		/* Good rewards update */
 		if (depositComponent > 0) {
@@ -141,7 +157,7 @@ contract GoodDollarStaking is
 				block.number
 			);
 		}
-		goodRewards = _mintRewards(_msgSender());
+		goodRewards = _mintGOODRewards(_msgSender());
 		/* end Good rewards update */
 
 		//rewards are paid via the rewards distribution contract
@@ -182,11 +198,10 @@ contract GoodDollarStaking is
 	}
 
 	/**
-	 * @dev Staker can withdraw their rewards without withdraw their stake
+	 * @dev Stakers can withdraw their rewards without withdrawing their stake
 	 */
 	function withdrawRewards()
 		public
-		nonReentrant
 		returns (uint256 goodRewards, uint256 gdRewards)
 	{
 		(, uint256 gdRewardsAfterDonation) = earned(_msgSender());
@@ -201,7 +216,7 @@ contract GoodDollarStaking is
 	 * @return Returns amount of the minted rewards
 	 * emits 'ReputationEarned' event for staker earned GOOD amount
 	 */
-	function _mintRewards(address user) internal returns (uint256) {
+	function _mintGOODRewards(address user) internal returns (uint256) {
 		uint256 amount = _issueEarnedRewards(address(this), user, 0, block.number);
 		if (amount > 0) {
 			ERC20(nameService.getAddress("REPUTATION")).mint(user, amount);
@@ -241,11 +256,11 @@ contract GoodDollarStaking is
 		//the recipient sent G$ are considered like he is staking them, so they will also earn GOOD rewards
 		//even if sender transfered G$s from his rewardsComponent which doesnt earn GOOD rewards
 		_increaseProductivity(address(this), to, value, 0, block.number);
-		_stake(to, value, 0); //update G$ rewards, receiver doesnt donate any of his interest so its set to 0
+		_stake(to, value, uint32(stakersInfo[to].avgDonationRatio / PRECISION)); //update G$ rewards, receiver keeps his avg donation ratio
 
 		//mint GOOD rewards
-		_mintRewards(from);
-		_mintRewards(to);
+		_mintGOODRewards(from);
+		_mintGOODRewards(to);
 
 		super._transfer(from, to, value);
 	}
@@ -272,10 +287,10 @@ contract GoodDollarStaking is
 	function getRewardsPerBlock()
 		public
 		view
-		returns (uint256 _goodRewardPerBlock, int128 _gdRewardPerBlockX64)
+		returns (uint256 _goodRewardPerBlock, uint256 _gdInterestRatePerBlock)
 	{
 		_goodRewardPerBlock = rewardsPerBlock[address(this)];
-		_gdRewardPerBlockX64 = interestRatePerBlockX64;
+		_gdInterestRatePerBlock = Math64x64.mulu(interestRatePerBlockX64, 1e18);
 	}
 
 	/// @dev helper function for multibase and FixedAPYRewards - same stake amount for both
@@ -320,7 +335,7 @@ contract GoodDollarStaking is
 	}
 
 	/// @notice after 1 month move GOOD permissions minting to this contract from previous GovernanceStaking
-	function upgrade() external {
+	function upgrade() external virtual {
 		require(
 			block.timestamp > createdAt + (daysUntilUpgrade * 1 days) &&
 				dao.isSchemeRegistered(address(this), avatar),

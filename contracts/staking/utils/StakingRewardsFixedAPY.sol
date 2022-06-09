@@ -4,6 +4,10 @@ pragma solidity >=0.8.0;
 import "./Math64X64.sol";
 import "hardhat/console.sol";
 
+/***
+ * @dev helper contract for calculating fixed per block compounding interest rate rewards.
+ * with staker ability to specifiy which percentage of rewards he would like to donate
+ */
 contract StakingRewardsFixedAPY {
 	using Math64x64 for int128;
 
@@ -44,15 +48,25 @@ contract StakingRewardsFixedAPY {
 	//in 1e18 = 1000000008131694000
 	int128 public interestRatePerBlockX64;
 
+	/**
+	 * @notice internal helper to convert unsigned interest rate per block in 1e18 precision to x64 format
+	 */
 	function _setAPY(uint128 _interestRatePerBlock) internal updateReward {
 		interestRatePerBlockX64 = Math64x64.divu(_interestRatePerBlock, 1e18); //convert to signed int x64
 	}
 
+	/**
+	 * @notice modifier to compound the APY on every state update
+	 */
 	modifier updateReward() {
 		_updateReward();
 		_;
 	}
 
+	/**
+	 * @notice calculates the compounded principle based on passed blocks
+	 * @return compoundedPrinciple the new principle
+	 */
 	function _compound() internal view returns (uint256 compoundedPrinciple) {
 		if (stats.principle == 0 || block.number == stats.lastUpdateBlock) {
 			return stats.principle;
@@ -67,6 +81,10 @@ contract StakingRewardsFixedAPY {
 		compoundedPrinciple = compound.mulu(stats.principle);
 	}
 
+	/**
+	 * @notice calculates the current share price (principle/totalShares)
+	 * @return price the current share price in SHARE_PRECISION
+	 */
 	function sharePrice() public view returns (uint256 price) {
 		uint256 compoundedPrinciple = _compound();
 
@@ -78,11 +96,15 @@ contract StakingRewardsFixedAPY {
 		// );
 
 		return
-			(compoundedPrinciple * SHARE_PRECISION) / (stats.totalShares * PRECISION);
+			stats.totalShares == 0
+				? 0
+				: (compoundedPrinciple * SHARE_PRECISION) /
+					(stats.totalShares * PRECISION);
 	}
 
 	/**
-	 * @dev calculate how much user can withdraw after reducing donations
+	 * @notice calculate how much user can withdraw after reducing donations
+	 * @return balance account principle after donating rewards
 	 */
 	function getPrinciple(address _account)
 		public
@@ -101,56 +123,72 @@ contract StakingRewardsFixedAPY {
 		// );
 		// console.log("getPrinciple: shares: %s", stakersInfo[_account].shares);
 
-		return
-			(sharePrice() * stakersInfo[_account].shares) /
+		balance = stakersInfo[_account].deposit;
+		uint256 principle = (sharePrice() * stakersInfo[_account].shares) /
 			SHARE_PRECISION -
 			earnedRewards +
 			earnedRewardsAfterDonation;
+		balance = principle < balance ? balance : principle; //because of precision loss in initial shares calculation we force principle to be at least as what user deposited
 	}
 
 	/**
-	 * @dev The function allows anyone to calculate the exact amount of reward
+	 * @notice The function allows anyone to calculate the exact amount of reward
 	 * earned.
 	 * @param _account A staker address
+	 * @return earnedRewards total rewards earned before donations
+	 * @return earnedRewardsAfterDonation  rewards earned after donation
 	 */
 	function earned(address _account)
 		public
 		view
 		returns (uint256 earnedRewards, uint256 earnedRewardsAfterDonation)
 	{
-		earnedRewards =
-			(sharePrice() * stakersInfo[_account].shares) /
-			SHARE_PRECISION -
-			stakersInfo[_account].deposit;
+		uint256 principle = (sharePrice() * stakersInfo[_account].shares) /
+			SHARE_PRECISION;
+		earnedRewards = principle < stakersInfo[_account].deposit
+			? 0
+			: principle - stakersInfo[_account].deposit;
 		earnedRewardsAfterDonation =
 			(earnedRewards *
 				(100 * PRECISION - stakersInfo[_account].avgDonationRatio)) /
 			(100 * PRECISION);
 	}
 
+	/**
+	 * @notice calculate the interest earned and not yet paid for stats.totalStaked
+	 * @return rewardsDebt the rewards(interest) not yet paid
+	 */
 	function getRewardsDebt() external view returns (uint256 rewardsDebt) {
-		uint256 rewardsToPay = _compound() - stats.totalStaked;
+		uint256 rewardsToPay = _compound() - stats.totalStaked * PRECISION; //totalStaked is in G$ precision (ie 2 decimals)
 		rewardsDebt =
 			(rewardsToPay * (100 * PRECISION - stats.avgDonationRatio)) /
 			(100 * PRECISION);
 	}
 
 	/**
-	 * @dev Updates the rewards for all stakers
+	 * @notice compounds the global principle
 	 */
 	function _updateReward() internal virtual {
 		stats.principle = _compound();
 		stats.lastUpdateBlock = uint128(block.number);
 	}
 
+	/**
+	 * @notice perform state update when withdrawing
+	 * @param _from account address withdrawing
+	 * @param _amount amount to withdraw, if amount is max uint then it will withdraw available balance
+	 * @return depositComponent how much was withdrawn from user original stake. >0 only when _amount > interest(rewards) earned
+	 * @return rewardComponent how much was withdrawn from user earned rewards after donation
+	 */
 	function _withdraw(address _from, uint256 _amount)
 		internal
 		virtual
 		updateReward
 		returns (uint256 depositComponent, uint256 rewardComponent)
 	{
-		require(_amount > 0, "Cannot withdraw 0");
-		require(_amount <= getPrinciple(_from), "not enough balance");
+		uint256 balance = getPrinciple(_from);
+		_amount = _amount == type(uint256).max ? balance : _amount;
+		require(_amount > 0 && _amount <= balance, "no balance");
 
 		(uint256 earnedRewards, uint256 earnedRewardsAfterDonation) = earned(_from);
 		rewardComponent = earnedRewardsAfterDonation >= _amount
@@ -182,21 +220,22 @@ contract StakingRewardsFixedAPY {
 
 		uint128 shares = uint128((_amount * SHARE_PRECISION) / sharePrice()); //_amount now includes also donated rewards
 
-		// console.log("withdraw: redeemed shares %s", shares);
+		// console.log("withdraw: redeemed shares %s price: %s", shares, sharePrice());
 
 		require(shares > 0, "min withdraw 1 share");
 
-		stats.avgDonationRatio =
-			(stats.avgDonationRatio *
+		uint128 sharesAfter = stats.totalShares - shares;
+		stats.avgDonationRatio = sharesAfter == 0
+			? 0
+			: (stats.avgDonationRatio *
 				stats.totalShares -
 				stakersInfo[_from].avgDonationRatio *
-				shares) /
-			(stats.totalShares - shares);
+				shares) / sharesAfter;
 
 		// console.log("withdraw: reducing principle by %s", _amount);
 
 		stats.principle -= _amount * PRECISION;
-		stats.totalShares -= shares;
+		stats.totalShares = sharesAfter;
 		stats.totalStaked -= uint128(depositComponent);
 		stats.totalRewardsPaid += uint128(rewardComponent);
 		stats.totalRewardsDonated += uint128(donatedRewards);
@@ -206,11 +245,18 @@ contract StakingRewardsFixedAPY {
 		stakersInfo[_from].rewardsDonated += uint128(donatedRewards);
 	}
 
+	/**
+	 * @notice perform state update when staking
+	 * @param _from account address staking
+	 * @param _amount amount to stake
+	 * @param _donationRatio how much to donate from the earned interest. in percentages 0-100.
+	 */
 	function _stake(
 		address _from,
 		uint256 _amount,
 		uint32 _donationRatio
 	) internal virtual updateReward {
+		require(_donationRatio <= 100, "invalid donation ratio");
 		require(_amount > 0, "Cannot stake 0");
 		uint128 newShares = uint128(
 			stats.totalShares > 0
@@ -243,21 +289,8 @@ contract StakingRewardsFixedAPY {
 		stats.principle += _amount * PRECISION;
 	}
 
-	// function _getReward(address _to)
-	// 	internal
-	// 	virtual
-	// 	updateReward
-	// 	returns (uint256 reward)
-	// {
-	// 	// return and reset the reward if there is any
-	// 	reward = stakersInfo[_to].reward;
-	// 	stakersInfo[_to].reward = 0;
-	// 	stakersInfo[_to].rewardsMinted += uint128(reward);
-	// 	principle -= reward * PRECISION; //rewards are part of the compounding interest
-	// }
-
 	/**
-	 * @dev keep track of debt to user in case reward minting failed
+	 * @notice keep track of debt to user in case reward minting failed
 	 */
 	function _undoReward(address _to, uint256 _rewardsPaidAfterDonation)
 		internal

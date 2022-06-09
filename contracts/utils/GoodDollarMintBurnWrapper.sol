@@ -149,7 +149,7 @@ contract GoodDollarMintBurnWrapper is
 		uint128 dailyCap; //cap per day
 		uint128 mintedToday; //total minted today
 		uint128 lastUpdate; //last update of dailyCap
-		uint128 mintDebt;
+		uint128 mintDebt; // how much we need to burn in order to make bridge balanced
 		uint32 bpsPerDay; //basis points relative to token supply daily limit
 	}
 

@@ -13,6 +13,8 @@ import "../Interfaces.sol";
 import "./GoodMarketMaker.sol";
 import "./DistributionHelper.sol";
 
+import "hardhat/console.sol";
+
 interface ContributionCalc {
 	function calculateContribution(
 		GoodMarketMaker _marketMaker,
@@ -365,15 +367,22 @@ contract GoodReserveCDai is
 		lastMinted = block.number;
 		uint256 gdUBI = gdInterestToMint + gdExpansionToMint;
 
-		if (nonUbiBps > 0) {
-			nonUBI = (gdExpansionToMint * nonUbiBps) / 10000;
-			gdUBI -= nonUBI;
-			_mintGoodDollars(address(distributionHelper), nonUBI, false);
-			emit NonUBIMinted(address(distributionHelper), nonUBI);
-			try distributionHelper.onDistribution(nonUBI) {} catch {}
-		}
-		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
+		// console.log(
+		// 	"nonubi %s, sender: %s, fundManager: %s",
+		// 	nonUbiBps,
+		// 	_msgSender(),
+		// 	nameService.getAddress("FUND_MANAGER")
+		// );
 
+		if (nonUbiBps > 0 && address(distributionHelper) != address(0)) {
+			nonUBI = (gdExpansionToMint * nonUbiBps) / 10000;
+			gdUBI -= nonUBI; //only reduce UBI if
+			_mintGoodDollars(address(distributionHelper), nonUBI, false);
+			try distributionHelper.onDistribution(nonUBI) {} catch {} //should not prevent mintUBI from completing
+			emit NonUBIMinted(address(distributionHelper), nonUBI);
+		}
+
+		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
 		_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), gdUBI, false);
 		emit UBIMinted(
 			lastMinted,
@@ -387,6 +396,11 @@ contract GoodReserveCDai is
 		return (gdUBI, interestInCdai);
 	}
 
+	/**
+	 * @notice allows Avatar to change or set the distribution helper
+	 * @param _helper address of distributionhelper contract
+	 * @param _bps how much of UBI to transfer in basis points
+	 */
 	function setDistributionHelper(DistributionHelper _helper, uint32 _bps)
 		public
 	{
