@@ -247,6 +247,23 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
       { kind: "uups" }
     )) as unknown as GoodDollarMintBurnWrapper;
     await setSchemes([goodDollarMintBurnWrapper.address]);
+    await setDAOAddress("MintBurnWrapper", goodDollarMintBurnWrapper.address);
+
+    let encodedCall = goodDollarMintBurnWrapper.interface.encodeFunctionData("addMinter", [
+      staking.address,
+      INITIAL_CAP,
+      INITIAL_CAP,
+      30,
+      true
+    ]);
+
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+
+    await ictrl.genericCall(goodDollar.address, encodedCall, avatar, 0);
 
     await stake(founder, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
     await advanceBlocks(BLOCKS_ONE_YEAR);

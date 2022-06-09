@@ -181,19 +181,27 @@ contract GoodDollarStaking is
 		returns (uint256 actualSent)
 	{
 		//make sure RewardsMinter failure doesnt prevent withdrawl of stake
+		//console.log("_mintGDRewards: sending amount: %s to: %s", _amount, _to);
 		try
 			RewardsMinter(nameService.getAddress("MintBurnWrapper")).sendOrMint(
 				_to,
 				_amount
 			)
 		returns (uint256 _res) {
+			//console.log("sendOrMint result: %s", _res);
 			actualSent = _res;
 		} catch {
+			//console.log("sendOrMint threw an error");
 			actualSent = 0;
 		}
 		//it could be that rewards minter doesnt have enough or passed cap
 		//so we keep track of debt to user
 		if (actualSent < _amount) {
+			// console.log(
+			// 	"Actually sent: %s, will undo %s",
+			// 	actualSent,
+			// 	_amount - actualSent
+			// );
 			_undoReward(_to, _amount - actualSent);
 		}
 	}
