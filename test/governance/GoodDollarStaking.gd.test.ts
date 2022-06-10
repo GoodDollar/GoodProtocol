@@ -117,6 +117,52 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     return { staking };
   };
 
+  const fixture_highCapMinter = async (wallets, provider) => {
+    const f = await ethers.getContractFactory("GoodDollarStakingMock");
+
+    wallets = provider.getWallets();
+    const staking = (await waffle.deployContract(
+      wallets[0],
+      {
+        abi: JSON.parse(
+          f.interface.format(FormatTypes.json) as string
+        ) as any[],
+        bytecode: f.bytecode
+      },
+      [nameService.address, BN.from("1000000007735630000"), 518400 * 12, 30]
+    )) as GoodDollarStaking;
+
+    await staking.upgrade();
+
+    await setDAOAddress("GDAO_STAKING", staking.address);
+
+    const mintBurnWrapperFactory = await ethers.getContractFactory(
+      "GoodDollarMintBurnWrapper"
+    );
+    let goodDollarMintBurnWrapper = (await upgrades.deployProxy(
+      mintBurnWrapperFactory,
+      [1, INITIAL_CAP, avatar, nameService.address],
+      { kind: "uups" }
+    )) as unknown as GoodDollarMintBurnWrapper;
+    await setSchemes([goodDollarMintBurnWrapper.address]);
+    await setDAOAddress("MintBurnWrapper", goodDollarMintBurnWrapper.address);
+
+    let encodedCall = goodDollarMintBurnWrapper.interface.encodeFunctionData(
+      "addMinter",
+      [staking.address, INITIAL_CAP, INITIAL_CAP, 5000, true]
+    );
+
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+
+    await ictrl.genericCall(goodDollarMintBurnWrapper.address, encodedCall, avatar, 0);
+
+    return { staking: staking.connect(staker1) };
+  };
+
   const fixture_ready = async (wallets, provider) => {
     const f = await ethers.getContractFactory("GoodDollarStakingMock");
 
@@ -290,7 +336,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("should withdraw only rewards when calling withdrawRewards", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await waffle.loadFixture(fixture_highCapMinter);
 
     // collect 350 earned rewards: 10,000 * 5%APY = 500 total rewards, minus 30% donation
     await stake(staker1, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
