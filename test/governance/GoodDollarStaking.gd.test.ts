@@ -158,7 +158,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
       schemeMock
     );
 
-    await ictrl.genericCall(goodDollar.address, encodedCall, avatar, 0);
+    await ictrl.genericCall(goodDollarMintBurnWrapper.address, encodedCall, avatar, 0);
 
     return { staking: staking.connect(staker1) };
   };
@@ -296,13 +296,16 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     await stake(staker1, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
     await advanceBlocks(BLOCKS_ONE_YEAR);
     const infoBefore = await staking.stakersInfo(staker1.address);
+    const principleBefore = await staking.getPrinciple(staker1.address);
 
-    await staking.withdrawRewards();
+    await staking.connect(staker1).withdrawRewards();
 
-    const info = await staking.stakersInfo(staker1.address);
-    expect(info.deposit).to.equal(infoBefore.deposit).to.equal(STAKE_AMOUNT);
-    expect(info.rewardsPaid).to.equal(350);
-    expect(info.rewardsDonated).to.equal(150);
+    const principleAfter = await staking.getPrinciple(staker1.address);
+    const infoAfter = await staking.stakersInfo(staker1.address);
+    expect(infoAfter.deposit).to.equal(infoBefore.deposit).to.equal(STAKE_AMOUNT);
+    expect(infoAfter.rewardsPaid).to.equal(350);
+    expect(infoAfter.rewardsDonated).to.equal(150);
+    expect(principleAfter).to.equal(principleBefore.sub(350));
   });
 
   it("should handle stakingrewardsfixed apy correctly when transfering staking tokens", async () => {
