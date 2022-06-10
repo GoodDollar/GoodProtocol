@@ -39,6 +39,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     nameService,
     setDAOAddress,
     setSchemes,
+    genericCall,
     runAsAvatarOnly,
     staker1,
     staker2;
@@ -60,7 +61,8 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
       reserve,
       reputation,
       runAsAvatarOnly: ras,
-      setSchemes: ss
+      setSchemes: ss,
+      genericCall: gc
     } = await createDAO();
 
     setSchemes = ss;
@@ -72,6 +74,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     setDAOAddress = sda;
     nameService = ns;
     goodReserve = reserve as GoodReserveCDai;
+    genericCall = gc;
     console.log("deployed dao", {
       founder: founder.address,
       gd,
@@ -206,7 +209,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
 
     await ictrl.genericCall(goodDollarMintBurnWrapper.address, encodedCall, avatar, 0);
 
-    return { staking: staking.connect(staker1) };
+    return { staking: staking.connect(staker1), goodDollarMintBurnWrapper };
   };
 
   const fixture_upgradeTest = async (wallets, provider) => {
@@ -274,13 +277,33 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("should withdraw from deposit and undo rewards if unable to mint rewards", async () => {
-    //test that withdraw is success for deposit part even if call to GoodDollarMintBurnWrapper fails
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking, goodDollarMintBurnWrapper } = await waffle.loadFixture(fixture_ready);
+    const PAUSE_ALL_ROLE = await goodDollarMintBurnWrapper.PAUSE_ALL_ROLE();
+    expect(await goodDollarMintBurnWrapper.paused(PAUSE_ALL_ROLE)).to.be.false;
+
+    // pause goodDollarMintBurnWrapper
+    const encodedCall = goodDollarMintBurnWrapper.interface.encodeFunctionData(
+      "pause",
+      [PAUSE_ALL_ROLE]
+    );
+    await genericCall(goodDollarMintBurnWrapper.address, encodedCall);
+    expect(await goodDollarMintBurnWrapper.paused(PAUSE_ALL_ROLE)).to.be.true;
 
     await stake(staker1, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
     await advanceBlocks(BLOCKS_ONE_YEAR);
+    const principleBefore = await staking.getPrinciple(staker1.address);
+    const infoBefore = await staking.stakersInfo(staker1.address);
+
+    // withdraw so undo rewards will be called on rewards part
     await staking.withdrawStake(ethers.constants.MaxUint256);
-    expect(await goodDollar.balanceOf(staker1)).to.eq(STAKE_AMOUNT); //we expect only the stake to have been withdrawn successfully
+
+    const principleAfter = await staking.getPrinciple(staker1.address);
+    const infoAfter = await staking.stakersInfo(staker1.address);
+    expect(await goodDollar.balanceOf(staker1.address)).to.eq(STAKE_AMOUNT); //we expect only the stake to have been withdrawn successfully, no rewards yet
+    expect(principleBefore).to.equal(STAKE_AMOUNT + 350);
+    expect(principleAfter).to.equal(350);
+    expect(infoAfter.avgDonationRatio).to.equal(infoBefore.avgDonationRatio);
+    expect(infoAfter.deposit).to.equal(0);
   });
 
   it("should withdraw rewards after mint rewards is enabled again", async () => {});
