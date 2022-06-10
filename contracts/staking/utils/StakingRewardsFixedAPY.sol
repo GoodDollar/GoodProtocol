@@ -287,6 +287,13 @@ contract StakingRewardsFixedAPY {
 		internal
 		virtual
 	{
+		//skip on invalid input
+		if (
+			_rewardsPaidAfterDonation == 0 ||
+			stakersInfo[_to].avgDonationRatio == 100 * PRECISION
+		) {
+			return;
+		}
 		//the actual amount we undo needs to take into account the user donation ratio.
 		//rewardsPaidAfterDonation = (100% - donation%) * rewardsBeforeDonation
 		//rewadrdsBeforeDonation = rewardsPaidAfterDonation/(100% - donation%)
@@ -297,7 +304,9 @@ contract StakingRewardsFixedAPY {
 
 		//calculate this before udpating global principle
 		uint128 newShares = uint128(
-			(rewardsBeforeDonation * SHARE_PRECISION) / sharePrice()
+			stats.totalShares > 0
+				? ((rewardsBeforeDonation * SHARE_PRECISION) / sharePrice())
+				: (rewardsBeforeDonation * SHARE_DECIMALS) //staker previously withdrew all, so shares issued like on first stake
 		);
 		// console.log(
 		// 	"undoReward: increasing principle by %s",

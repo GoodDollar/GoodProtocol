@@ -947,4 +947,18 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     await expect(staking.withdraw(staker3.address, ethers.constants.MaxUint256))
       .to.not.reverted;
   });
+
+  it("should have undo reward handle invalid input", async () => {
+    const { staking } = await waffle.loadFixture(fixture_2);
+
+    //undo 0 rewards
+    await stake(staker4, 10000, NO_DONATION, staking);
+    await staking.withdraw(staker4.address, 10000);
+    await expect(staking.undoReward(staker4.address, 0)).to.not.reverted;
+
+    //undo 100% donation
+    await stake(staker4, 10000, DONATE_100_PERCENT, staking);
+    await staking.withdraw(staker4.address, 500);
+    await expect(staking.undoReward(staker4.address, 100)).to.not.reverted;
+  });
 });
