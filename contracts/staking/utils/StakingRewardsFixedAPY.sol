@@ -282,25 +282,19 @@ contract StakingRewardsFixedAPY {
 
 	/**
 	 * @notice keep track of debt to user in case reward minting failed
+	 * @dev notice that this should not be called when _rewardsPaidAfterDonation are 0 or when staker avgDonationRatio is 100%
 	 */
 	function _undoReward(address _to, uint256 _rewardsPaidAfterDonation)
 		internal
 		virtual
 	{
-		//skip on invalid input
-		if (
-			_rewardsPaidAfterDonation == 0 ||
-			stakersInfo[_to].avgDonationRatio == 100 * PRECISION
-		) {
-			return;
-		}
 		//the actual amount we undo needs to take into account the user donation ratio.
 		//rewardsPaidAfterDonation = (100% - donation%) * rewardsBeforeDonation
 		//rewadrdsBeforeDonation = rewardsPaidAfterDonation/(100% - donation%)
-		uint256 rewardsBeforeDonation = stakersInfo[_to].avgDonationRatio == 0
-			? _rewardsPaidAfterDonation
-			: (100 * PRECISION * _rewardsPaidAfterDonation) /
-				(100 * PRECISION - stakersInfo[_to].avgDonationRatio);
+		uint256 rewardsBeforeDonation = (100 *
+			PRECISION *
+			_rewardsPaidAfterDonation) /
+			(100 * PRECISION - stakersInfo[_to].avgDonationRatio);
 
 		//calculate this before udpating global principle
 		uint128 newShares = uint128(
