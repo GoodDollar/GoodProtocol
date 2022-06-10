@@ -41,6 +41,8 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     setSchemes,
     genericCall,
     runAsAvatarOnly,
+    stakingContinued,
+    mintBurnWrapperContinued,
     staker1,
     staker2;
 
@@ -163,7 +165,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
 
     await ictrl.genericCall(goodDollarMintBurnWrapper.address, encodedCall, avatar, 0);
 
-    return { staking: staking.connect(staker1) };
+    return { staking: staking.connect(staker1), goodDollarMintBurnWrapper };
   };
 
   const fixture_ready = async (wallets, provider) => {
@@ -276,8 +278,27 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     expect(stats.principle).to.equal(PRECISION.mul(STAKE_AMOUNT));
   });
 
+  it("should withdraw only rewards when calling withdrawRewards", async () => {
+    const { staking } = await waffle.loadFixture(fixture_highCapMinter);
+
+    // collect 350 earned rewards: 10,000 * 5%APY = 500 total rewards, minus 30% donation
+    await stake(staker1, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+    const infoBefore = await staking.stakersInfo(staker1.address);
+    const principleBefore = await staking.getPrinciple(staker1.address);
+
+    await staking.connect(staker1).withdrawRewards();
+
+    const principleAfter = await staking.getPrinciple(staker1.address);
+    const infoAfter = await staking.stakersInfo(staker1.address);
+    expect(infoAfter.deposit).to.equal(infoBefore.deposit).to.equal(STAKE_AMOUNT);
+    expect(infoAfter.rewardsPaid).to.equal(350);
+    expect(infoAfter.rewardsDonated).to.equal(150);
+    expect(principleAfter).to.equal(principleBefore.sub(350));
+  });
+
   it("should withdraw from deposit and undo rewards if unable to mint rewards", async () => {
-    const { staking, goodDollarMintBurnWrapper } = await waffle.loadFixture(fixture_ready);
+    const { staking, goodDollarMintBurnWrapper } = await waffle.loadFixture(fixture_highCapMinter);
     const PAUSE_ALL_ROLE = await goodDollarMintBurnWrapper.PAUSE_ALL_ROLE();
     expect(await goodDollarMintBurnWrapper.paused(PAUSE_ALL_ROLE)).to.be.false;
 
@@ -304,9 +325,32 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     expect(principleAfter).to.equal(350);
     expect(infoAfter.avgDonationRatio).to.equal(infoBefore.avgDonationRatio);
     expect(infoAfter.deposit).to.equal(0);
+    expect(infoAfter.rewardsPaid).to.equal(0);
+    expect(infoAfter.rewardsDonated).to.equal(0);
+
+    stakingContinued = staking;
+    mintBurnWrapperContinued = goodDollarMintBurnWrapper;
   });
 
-  it("should withdraw rewards after mint rewards is enabled again", async () => {});
+  it("should withdraw rewards after mint rewards is enabled again", async () => {
+    const PAUSE_ALL_ROLE = await mintBurnWrapperContinued.PAUSE_ALL_ROLE();
+    expect(await mintBurnWrapperContinued.paused(PAUSE_ALL_ROLE)).to.be.true;
+
+    const encodedCall = mintBurnWrapperContinued.interface.encodeFunctionData(
+      "unpause",
+      [PAUSE_ALL_ROLE]
+    );
+    await genericCall(mintBurnWrapperContinued.address, encodedCall);
+    expect(await mintBurnWrapperContinued.paused(PAUSE_ALL_ROLE)).to.be.false;
+
+    await stakingContinued.withdrawRewards();
+
+    const stakerInfo = await stakingContinued.stakersInfo(staker1.address);
+    expect(await goodDollar.balanceOf(staker1.address)).to.equal(STAKE_AMOUNT + 350);
+    expect(await stakingContinued.getPrinciple(staker1.address)).to.equal(0)
+    expect(stakerInfo.rewardsPaid).to.equal(350);
+    expect(stakerInfo.rewardsDonated).to.equal(150);
+  });
 
   it("should not perform upgrade when not deadline", async () => {
     const { staking } = await waffle.loadFixture(fixture_upgradeTest);
@@ -356,25 +400,6 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     // after set, APY is 10%
     const afterSetInterestRateIn128 = await staking.interestRatePerBlockX64();
     expect(afterSetInterestRateIn128).to.equal(INTEREST_RATE_10APY_128);
-  });
-
-  it("should withdraw only rewards when calling withdrawRewards", async () => {
-    const { staking } = await waffle.loadFixture(fixture_highCapMinter);
-
-    // collect 350 earned rewards: 10,000 * 5%APY = 500 total rewards, minus 30% donation
-    await stake(staker1, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
-    await advanceBlocks(BLOCKS_ONE_YEAR);
-    const infoBefore = await staking.stakersInfo(staker1.address);
-    const principleBefore = await staking.getPrinciple(staker1.address);
-
-    await staking.connect(staker1).withdrawRewards();
-
-    const principleAfter = await staking.getPrinciple(staker1.address);
-    const infoAfter = await staking.stakersInfo(staker1.address);
-    expect(infoAfter.deposit).to.equal(infoBefore.deposit).to.equal(STAKE_AMOUNT);
-    expect(infoAfter.rewardsPaid).to.equal(350);
-    expect(infoAfter.rewardsDonated).to.equal(150);
-    expect(principleAfter).to.equal(principleBefore.sub(350));
   });
 
   it("should handle stakingrewardsfixed apy correctly when transfering staking tokens", async () => {
