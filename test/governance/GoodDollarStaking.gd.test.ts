@@ -255,6 +255,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
 
     await stake(staker1, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
 
+    expect(await goodDollar.balanceOf(staking.address)).equal(STAKE_AMOUNT);
     const info = await staking.stakersInfo(staker1.address);
     expect(info.deposit).to.equal(STAKE_AMOUNT);
     expect(info.rewardsPaid).to.equal(0);
@@ -283,6 +284,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
 
     // collect 350 earned rewards: 10,000 * 5%APY = 500 total rewards, minus 30% donation
     await stake(staker1, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
+    expect(await goodDollar.balanceOf(staking.address)).equal(STAKE_AMOUNT);
     await advanceBlocks(BLOCKS_ONE_YEAR);
     const infoBefore = await staking.stakersInfo(staker1.address);
     const principleBefore = await staking.getPrinciple(staker1.address);
@@ -292,6 +294,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     const principleAfter = await staking.getPrinciple(staker1.address);
     const infoAfter = await staking.stakersInfo(staker1.address);
     expect(infoAfter.deposit).to.equal(infoBefore.deposit).to.equal(STAKE_AMOUNT);
+    expect(await goodDollar.balanceOf(staker1.address)).equal(350);
     expect(infoAfter.rewardsPaid).to.equal(350);
     expect(infoAfter.rewardsDonated).to.equal(150);
     expect(principleAfter).to.equal(principleBefore.sub(350));
@@ -311,6 +314,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     expect(await goodDollarMintBurnWrapper.paused(PAUSE_ALL_ROLE)).to.be.true;
 
     await stake(staker1, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
+    expect(await goodDollar.balanceOf(staking.address)).equal(STAKE_AMOUNT);
     await advanceBlocks(BLOCKS_ONE_YEAR);
     const principleBefore = await staking.getPrinciple(staker1.address);
     const infoBefore = await staking.stakersInfo(staker1.address);
