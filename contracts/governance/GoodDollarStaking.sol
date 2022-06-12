@@ -2,10 +2,10 @@
 
 pragma solidity >=0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import "../utils/DAOUpgradeableContract.sol";
+import { ERC20 as ERC20_OZ } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "../utils/DAOContract.sol";
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
@@ -22,10 +22,10 @@ interface RewardsMinter {
  * it implements
  */
 contract GoodDollarStaking is
-	ERC20Upgradeable,
+	ERC20_OZ,
 	MultiBaseGovernanceShareField,
-	DAOUpgradeableContract,
-	ReentrancyGuardUpgradeable,
+	DAOContract,
+	ReentrancyGuard,
 	StakingRewardsFixedAPY
 {
 	// Token address
@@ -65,12 +65,11 @@ contract GoodDollarStaking is
 		uint128 _interestRatePerBlock,
 		uint128 _numberOfBlocksPerYear,
 		uint32 _daysUntilUpgrade
-	) {
+	) ERC20_OZ("G$ Savings", "svG$") {
 		_setAPY(_interestRatePerBlock);
 		setDAO(_ns);
 		numberOfBlocksPerYear = _numberOfBlocksPerYear;
 		token = ERC20(nameService.getAddress("GOODDOLLAR"));
-		__ERC20_init("G$ Savings", "svG$");
 		rewardsPerBlock[address(this)] = 0;
 		createdAt = uint128(block.timestamp);
 		daysUntilUpgrade = _daysUntilUpgrade;
@@ -89,10 +88,10 @@ contract GoodDollarStaking is
 	 */
 	function stake(uint256 _amount, uint32 _donationRatio) external {
 		require(
-			token.transferFrom(_msgSender(), address(this), _amount),
+			token.transferFrom(msg.sender, address(this), _amount),
 			"transferFrom failed, make sure you approved token transfer"
 		);
-		_stakeFrom(_msgSender(), _amount, _donationRatio);
+		_stakeFrom(msg.sender, _amount, _donationRatio);
 	}
 
 	function _stakeFrom(
@@ -117,7 +116,7 @@ contract GoodDollarStaking is
 		uint256 _amount,
 		bytes calldata data
 	) external returns (bool success) {
-		require(_msgSender() == address(token), "unsupported token");
+		require(msg.sender == address(token), "unsupported token");
 		uint32 donationRatio = abi.decode(data, (uint32));
 
 		_stakeFrom(_from, _amount, donationRatio);
@@ -139,8 +138,8 @@ contract GoodDollarStaking is
 		if (_amount > 0) {
 			/* G$ rewards update */
 			//we get the relative part user is withdrawing from his original deposit, his principle is composed of deposit+earned interest
-			(depositComponent, gdRewards) = _withdraw(_msgSender(), _amount);
-			_burn(_msgSender(), depositComponent); // burn their staking tokens
+			(depositComponent, gdRewards) = _withdraw(msg.sender, _amount);
+			_burn(msg.sender, depositComponent); // burn their staking tokens
 		}
 
 		// console.log(
@@ -153,28 +152,28 @@ contract GoodDollarStaking is
 		if (depositComponent > 0) {
 			_decreaseProductivity(
 				address(this),
-				_msgSender(),
+				msg.sender,
 				depositComponent,
 				0,
 				block.number
 			);
 		}
-		goodRewards = _mintGOODRewards(_msgSender());
+		goodRewards = _mintGOODRewards(msg.sender);
 		/* end Good rewards update */
 
 		//rewards are paid via the rewards distribution contract
 		if (gdRewards > 0) {
-			_mintGDRewards(_msgSender(), gdRewards);
+			_mintGDRewards(msg.sender, gdRewards);
 		}
 
 		//stake is withdrawn from original deposit sent to this contract
 		if (depositComponent > 0) {
 			require(
-				token.transfer(_msgSender(), depositComponent),
+				token.transfer(msg.sender, depositComponent),
 				"withdraw transfer failed"
 			);
 		}
-		emit StakeWithdraw(_msgSender(), _amount, goodRewards, gdRewards);
+		emit StakeWithdraw(msg.sender, _amount, goodRewards, gdRewards);
 	}
 
 	function _mintGDRewards(address _to, uint256 _amount)
@@ -214,7 +213,7 @@ contract GoodDollarStaking is
 		public
 		returns (uint256 goodRewards, uint256 gdRewards)
 	{
-		(, uint256 gdRewardsAfterDonation) = earned(_msgSender());
+		(, uint256 gdRewardsAfterDonation) = earned(msg.sender);
 
 		//this will trigger a withdraw only of rewards part
 		return withdrawStake(gdRewardsAfterDonation);
@@ -230,7 +229,7 @@ contract GoodDollarStaking is
 		//try to mint only if have minter permission, so user can always withdraw his funds without this reverting
 		if (
 			nameService.getAddress("GDAO_STAKING") == address(this) ||
-			AccessControlUpgradeable(nameService.getAddress("REPUTATION")).hasRole(
+			AccessControl(nameService.getAddress("REPUTATION")).hasRole(
 				keccak256("MINTER_ROLE"),
 				address(this)
 			)
@@ -238,7 +237,7 @@ contract GoodDollarStaking is
 			amount = _issueEarnedRewards(address(this), user, 0, block.number);
 			if (amount > 0) {
 				ERC20(nameService.getAddress("REPUTATION")).mint(user, amount);
-				emit ReputationEarned(_msgSender(), amount);
+				emit ReputationEarned(msg.sender, amount);
 			}
 		}
 		return amount;
