@@ -6,7 +6,8 @@ import {
   GReputation,
   GoodDollarStaking,
   GovernanceStaking,
-  GoodDollarMintBurnWrapper
+  GoodDollarMintBurnWrapper,
+  IGoodDollar
 } from "../../types";
 import { createDAO, advanceBlocks, increaseTime } from "../helpers";
 import { FormatTypes } from "ethers/lib/utils";
@@ -32,7 +33,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   let goodReserve: GoodReserveCDai;
   let grep: GReputation;
   let avatar,
-    goodDollar,
+    goodDollar: IGoodDollar,
     controller,
     founder,
     schemeMock,
@@ -86,7 +87,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
 
     grep = (await ethers.getContractAt("GReputation", reputation)) as GReputation;
 
-    goodDollar = await ethers.getContractAt("IGoodDollar", gd);
+    goodDollar = (await ethers.getContractAt("IGoodDollar", gd)) as IGoodDollar;
 
     //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
     await goodReserve.setAddresses();
@@ -356,16 +357,21 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     ); // no withdrawals yet
   });
 
-  xit("should be able to stake using onTokenTransfer", async () => {
+  it("should be able to stake using onTokenTransfer", async () => {
     const { staking, goodDollarMintBurnWrapper } = await waffle.loadFixture(
       fixture_ready
     );
 
     await goodDollar.mint(staker1.address, "100000000");
-    await goodDollar.connect(staker1).transferAndCall(staking.address, "100000000", 35);
-    console.log({ encoded: ethers.utils.defaultAbiCoder.encode(["uint32"], [35]) });
+
     await expect(
-      goodDollar.connect(staker1).transferAndCall(staking.address, "100000000", "35")
+      goodDollar
+        .connect(staker1)
+        .transferAndCall(
+          staking.address,
+          "100000000",
+          ethers.utils.defaultAbiCoder.encode(["uint32"], [35])
+        )
     ).not.reverted;
     const senderInfo = await staking.stakersInfo(staker1.address);
     expect(senderInfo.deposit).to.equal("100000000");
