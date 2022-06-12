@@ -456,10 +456,11 @@ describe("GoodDollarMintBurnWrapper", () => {
 
     expect(await goodDollar.balanceOf(signers[0].address)).to.eq(1000);
     expect(minterInfo.total).eq(1000);
-    expect(minterInfo.mintDebt).eq(1000);
     expect(minterInfo.mintedToday).eq(1000);
+    expect(minterInfo.totalRewards).eq(1000);
     expect(await wrapper.totalMinted()).eq(1000);
     expect(await wrapper.totalMintDebt()).eq(1000);
+    expect(await wrapper.totalRewards()).eq(1000);
   });
 
   it("should not update mint stats after sendOrMint when wrapper has G$ balance", async () => {
@@ -472,10 +473,11 @@ describe("GoodDollarMintBurnWrapper", () => {
 
     expect(await goodDollar.balanceOf(signers[0].address)).to.eq(1000);
     expect(minterInfo.total).eq(0);
-    expect(minterInfo.mintDebt).eq(0);
+    expect(minterInfo.totalRewards).eq(1000);
     expect(minterInfo.mintedToday).eq(0);
     expect(await wrapper.totalMinted()).eq(0);
     expect(await wrapper.totalMintDebt()).eq(0);
+    expect(await wrapper.totalRewards()).eq(1000);
   });
 
   it("should perform send and mint when having partial balance for sendOrMint", async () => {
@@ -489,10 +491,11 @@ describe("GoodDollarMintBurnWrapper", () => {
     expect(await goodDollar.balanceOf(signers[0].address)).to.eq(1000);
     expect(await goodDollar.balanceOf(wrapper.address)).to.eq(0);
     expect(minterInfo.total).eq(500);
-    expect(minterInfo.mintDebt).eq(500);
+    expect(minterInfo.totalRewards).eq(1000);
     expect(minterInfo.mintedToday).eq(500);
     expect(await wrapper.totalMinted()).eq(500);
     expect(await wrapper.totalMintDebt()).eq(500);
+    expect(await wrapper.totalRewards()).eq(1000);
   });
 
   it("should reduce debt in sendOrMint", async () => {
@@ -501,7 +504,8 @@ describe("GoodDollarMintBurnWrapper", () => {
     await wrapper.connect(rewarder).sendOrMint(signers[0].address, 200); //200 debt
     const minterInfo = await wrapper.minterSupply(rewarder.address);
     expect(await wrapper.totalMintDebt()).eq(200);
-    expect(minterInfo.mintDebt).eq(200);
+    expect(await wrapper.totalRewards()).eq(200);
+    expect(minterInfo.totalRewards).eq(200);
 
     await goodDollar.mint(wrapper.address, 1200);
 
@@ -509,7 +513,9 @@ describe("GoodDollarMintBurnWrapper", () => {
     const minterInfoAfter = await wrapper.minterSupply(rewarder.address);
 
     expect(await wrapper.totalMintDebt()).eq(0);
-    expect(minterInfoAfter.mintDebt).eq(0);
+    expect(await wrapper.totalRewards()).eq(1200);
+
+    expect(minterInfoAfter.totalRewards).eq(1200);
   });
 
   it("should mint just partial amount if daily limit passed in sendOrMint", async () => {
@@ -527,10 +533,11 @@ describe("GoodDollarMintBurnWrapper", () => {
       minterInfo.dailyCap
     );
     expect(minterInfo.total).eq(minterInfo.dailyCap);
-    expect(minterInfo.mintDebt).eq(minterInfo.dailyCap);
+    expect(minterInfo.totalRewards).eq(minterInfo.dailyCap);
     expect(minterInfo.mintedToday).eq(minterInfo.dailyCap);
     expect(await wrapper.totalMinted()).eq(minterInfo.dailyCap);
     expect(await wrapper.totalMintDebt()).eq(minterInfo.dailyCap);
+    expect(await wrapper.totalRewards()).eq(minterInfo.dailyCap);
   });
 
   it("should reset rewarder mintedToday after day passed", async () => {
@@ -690,5 +697,16 @@ describe("GoodDollarMintBurnWrapper", () => {
         )
       )
     ).revertedWith("chainId");
+  });
+
+  it("should not mint or sendOrMint to self", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await expect(wrapper.connect(minter).mint(wrapper.address, 1)).revertedWith(
+      "self"
+    );
+    await expect(
+      wrapper.connect(rewarder).sendOrMint(wrapper.address, 1)
+    ).revertedWith("self");
   });
 });

@@ -132,7 +132,7 @@ contract GoodDollarMintBurnWrapper is
 		uint128 dailyCap; //cap per day
 		uint128 mintedToday; //total minted today
 		uint128 lastUpdate; //last update of dailyCap
-		uint128 mintDebt; // how much we need to burn in order to make bridge balanced
+		uint128 totalRewards; // total rewards sent (sent + minted)
 		uint32 bpsPerDay; //basis points relative to token supply daily limit
 	}
 
@@ -145,9 +145,16 @@ contract GoodDollarMintBurnWrapper is
 
 	uint128 public currentDay; //used to reset daily minter limit
 	uint128 public updateFrequency; //how often to update the relative to supply daily limit
-	uint128 public totalMintDebt; // total outstanding mint debt
+	uint128 public totalMintDebt; // total outstanding rewards mint debt
+	uint128 public totalRewards; // total rewards sent (sent + minted)
 
-	event SendOrMint(address to, uint256 amount, uint256 sent, uint256 minted);
+	event SendOrMint(
+		address to,
+		uint256 amount,
+		uint256 sent,
+		uint256 minted,
+		uint256 outstandingMintDebt
+	);
 	event MinterSet(
 		address minter,
 		uint256 totalMintCap,
@@ -327,19 +334,22 @@ contract GoodDollarMintBurnWrapper is
 		// console.log("sendOrMint %s %s %s", toMint, toSend, maxMintToday);
 		totalSent = toSend + toMint;
 		m.mintedToday += uint128(toMint);
-		m.mintDebt += uint128(toMint);
+		m.totalRewards += uint128(totalSent);
+		totalRewards += uint128(totalSent);
 		totalMintDebt += uint128(toMint);
 		if (toMint > 0) _mint(to, toMint);
 
-		if (toSend > 0) IERC20Upgradeable(token).safeTransfer(to, toSend);
+		if (toSend > 0) {
+			IERC20Upgradeable(token).safeTransfer(to, toSend);
+		}
 
 		if (toMint == 0) {
 			//if we are not minting then we might have positive balance, check if we can cover out debt and burn some
 			//from balance in exchange for what we minted in the past ie mintDebt
-			_balanceDebt(m);
+			_balanceDebt();
 		}
 
-		emit SendOrMint(to, amount, toSend, toMint);
+		emit SendOrMint(to, amount, toSend, toMint, totalMintDebt);
 	}
 
 	/**
@@ -447,7 +457,7 @@ contract GoodDollarMintBurnWrapper is
 		internal
 		whenNotPaused(PAUSE_MINT_ROLE)
 	{
-		require(to != address(this), "forbid mint to address(this)");
+		require(to != address(this), "mint to self");
 
 		Supply storage s = minterSupply[msg.sender];
 		require(s.max == 0 || amount <= s.max, "minter max exceeded");
@@ -496,14 +506,13 @@ contract GoodDollarMintBurnWrapper is
 	/**
 	 * @notice helper for sendOrMint action to burn from balance to cover minting debt
 	 */
-	function _balanceDebt(Supply storage minter) internal {
+	function _balanceDebt() internal {
 		uint256 toBurn = Math.min(
-			minter.mintDebt,
+			totalMintDebt,
 			IERC20Upgradeable(token).balanceOf(address(this))
 		);
 
 		if (toBurn > 0) {
-			minter.mintDebt -= uint128(toBurn);
 			totalMintDebt -= uint128(toBurn);
 			ERC20(token).burn(toBurn); //from DAOUpgradableContract -> Interfaces
 		}
