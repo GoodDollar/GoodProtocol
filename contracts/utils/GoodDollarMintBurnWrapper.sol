@@ -322,7 +322,7 @@ contract GoodDollarMintBurnWrapper is
 
 		if (toSend > 0) IERC20Upgradeable(token).safeTransfer(to, toSend);
 
-		console.log("sendormint %s %s %s", maxMintToday, toMint, toSend);
+		// console.log("sendormint %s %s %s", maxMintToday, toMint, toSend);
 		emit SendOrMint(to, amount, toSend, toMint);
 	}
 
