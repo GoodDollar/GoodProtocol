@@ -75,7 +75,7 @@ describe("GoodDollarMintBurnWrapper", () => {
       avatar
     });
 
-    goodDollar = (await ethers.getContractAt("IGoodDollar", gd)) as ERC20;
+    goodDollar = (await ethers.getContractAt("IGoodDollar", gd)) as IGoodDollar;
 
     console.log("deployed contribution, deploying reserve...", {
       founder: founder.address
@@ -429,6 +429,25 @@ describe("GoodDollarMintBurnWrapper", () => {
     expect(minterInfo.total).eq(500);
   });
 
+  it("should reset minter total when burn amount > total", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await wrapper
+      .connect(wrapperAdmin)
+      .grantRole(await wrapper.ROUTER_ROLE(), minter.address);
+    await wrapper.connect(minter).mint(signers[0].address, 1000);
+
+    await goodDollar.mint(founder.address, 2000);
+    await goodDollar.connect(founder).approve(wrapper.address, 2000);
+    await expect(wrapper.connect(minter).burn(founder.address, 2000)).to.not
+      .reverted;
+
+    expect(await wrapper.totalMinted()).eq(0);
+
+    const minterInfo = await wrapper.minterSupply(minter.address);
+    expect(minterInfo.total).eq(0);
+  });
+
   it("should update mint stats after sendOrMint", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
@@ -543,7 +562,6 @@ describe("GoodDollarMintBurnWrapper", () => {
     let minterInfo = await wrapper.minterSupply(rewarder.address);
 
     const frequency = await wrapper.updateFrequency();
-    console.log(frequency.toNumber());
     await increaseTime(frequency.toNumber());
 
     await wrapper
@@ -632,7 +650,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     expect(events[0].args.chainId).to.equal(4220);
   });
 
-  it.only("should default to sender as recipient on transferAndCall if recipient=0", async () => {
+  it("should default to sender as recipient on transferAndCall if recipient=0", async () => {
     const { wrapper, multiChainRouter } = await waffle.loadFixture(
       fixture_withMultichain
     );
@@ -656,7 +674,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     expect(events[0].args.chainId).to.equal(4220);
   });
 
-  it.only("should fail transferAndCall for multichain if no chainid", async () => {
+  it("should fail transferAndCall for multichain if no chainid", async () => {
     const { wrapper, multiChainRouter } = await waffle.loadFixture(
       fixture_withMultichain
     );

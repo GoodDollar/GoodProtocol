@@ -24,24 +24,6 @@ import "./DAOUpgradeableContract.sol";
 library TokenOperation {
 	using AddressUpgradeable for address;
 
-	function safeMint(
-		address token,
-		address to,
-		uint256 value
-	) internal {
-		// mint(address,uint256)
-		_callOptionalReturn(token, abi.encodeWithSelector(0x40c10f19, to, value));
-	}
-
-	function safeBurnAny(
-		address token,
-		address from,
-		uint256 value
-	) internal {
-		// burn(address,uint256)
-		_callOptionalReturn(token, abi.encodeWithSelector(0x9dc29fac, from, value));
-	}
-
 	function safeBurnSelf(address token, uint256 value) internal {
 		// burn(uint256)
 		_callOptionalReturn(token, abi.encodeWithSelector(0x42966c68, value));
@@ -119,7 +101,7 @@ abstract contract PausableControl {
 }
 
 /// @dev MintBurnWrapper has the following aims:
-/// 1. wrap token which does not support interface `IBridge` or `IRouter`
+/// 1. wrap token which does not support interface `IRouter`
 /// 2. wrap token which wants to support multiple minters
 /// 3. add security enhancement (mint cap, pausable, etc.)
 contract GoodDollarMintBurnWrapper is
@@ -158,16 +140,8 @@ contract GoodDollarMintBurnWrapper is
 	uint256 public totalMintCap; // total mint cap
 	uint256 public totalMinted; // total minted amount
 
-	enum TokenType {
-		MintBurnAny, // mint and burn(address from, uint256 amount), don't need approve
-		MintBurnFrom, // mint and burnFrom(address from, uint256 amount), need approve
-		MintBurnSelf, // mint and burn(uint256 amount), call transferFrom first, need approve
-		Transfer, // transfer and transferFrom, need approve
-		TransferDeposit // transfer and transferFrom, deposit and withdraw, need approve
-	}
-
 	address public token; // the target token this contract is wrapping
-	TokenType public tokenType;
+	uint256 private unused_tokenType;
 
 	uint128 public currentDay; //used to reset daily minter limit
 	uint128 public updateFrequency; //how often to update the relative to supply daily limit
@@ -192,7 +166,6 @@ contract GoodDollarMintBurnWrapper is
 		setDAO(_nameService);
 		require(_admin != address(0), "zero admin address");
 		token = address(nativeToken());
-		tokenType = TokenType.MintBurnFrom;
 		totalMintCap = _totalMintCap;
 		updateFrequency = 90 days;
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
@@ -225,6 +198,10 @@ contract GoodDollarMintBurnWrapper is
 		return getRoleMember(DEFAULT_ADMIN_ROLE, 0);
 	}
 
+	/**
+	 @notice set how frequent to udpate rewarder daily limit based on bps out of total supply
+	 @param inSeconds frequency in seconds
+	 */
 	function setUpdateFrequency(uint128 inSeconds)
 		external
 		onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE])
@@ -232,6 +209,10 @@ contract GoodDollarMintBurnWrapper is
 		updateFrequency = inSeconds;
 	}
 
+	/**
+	 * @notice pause one of the functions of the wrapper (see pause roles), only dev/guardian roles can call this
+	 * @param role which function to pause
+	 */
 	function pause(bytes32 role)
 		external
 		onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE])
@@ -239,6 +220,10 @@ contract GoodDollarMintBurnWrapper is
 		_pause(role);
 	}
 
+	/**
+	 * @notice unpause one of the functions of the wrapper (see pause roles), only dev/guardian roles can call this
+	 * @param role which function to unpause
+	 */
 	function unpause(bytes32 role)
 		external
 		onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE])
@@ -246,7 +231,12 @@ contract GoodDollarMintBurnWrapper is
 		_unpause(role);
 	}
 
-	// impl IRouter `mint`
+	/**
+	 * @notice implement the IRouter mint required for work with multichain router. This method is used by the multichain bridge to mint new tokens on sidechain
+	 * on bridge transfer from another chain. Can only be called by the ROUTER role
+	 * @param to recipient
+	 * @param amount amount to mint
+	 */
 	function mint(address to, uint256 amount)
 		external
 		onlyRole(MINTER_ROLE)
@@ -256,7 +246,12 @@ contract GoodDollarMintBurnWrapper is
 		return true;
 	}
 
-	// impl IRouter `burn`
+	/**
+	 * @notice implement the IRouter burn required for work with multichain router. This method is used by the multichain bridge to burn tokens on sidechain
+	 * on bridge transfer to other chain. Can only be called by the ROUTER role
+	 * @param from sender - requires sender to first tokens to the wrapper or use transferAndCall
+	 * @param amount amount to mint
+	 */
 	function burn(address from, uint256 amount)
 		external
 		onlyRole(ROUTER_ROLE)
@@ -267,7 +262,13 @@ contract GoodDollarMintBurnWrapper is
 		return true;
 	}
 
-	//impl swapout for erc677
+	/**
+	 * @notice helper function to transfer from sidechain to another chain without the need to first approve tokens for burn.
+	 * sender call transferAndCall(wrapperAddress,abi.encode(recipient,target chain id))
+	 * @param sender sender
+	 * @param amount sent by sender
+	 * @param data expected to be recipient + target chain abi encoded
+	 */
 	function onTokenTransfer(
 		address sender,
 		uint256 amount,
@@ -287,6 +288,11 @@ contract GoodDollarMintBurnWrapper is
 		return true;
 	}
 
+	/**
+	 * @notice allow REWARDS_ROLE to send existing funds in balance or mint new G$ on sidechain to recipient.
+	 * @param to recipient
+	 * @param amount amount to send or mint. if not enough balance the rest will be minted up to the rewarder dailyLimit
+	 */
 	function sendOrMint(address to, uint256 amount)
 		external
 		onlyRole(REWARDS_ROLE)
@@ -328,40 +334,62 @@ contract GoodDollarMintBurnWrapper is
 		emit SendOrMint(to, amount, toSend, toMint);
 	}
 
+	/**
+	 * @notice add minter or rewards role
+	 * @param minter address of minter
+	 * @param globalLimit minter global limit
+	 * @param perTxLimit minter per tx limit
+	 * @param bpsPerDay limit for rewards role in bps relative to G$ total supply
+	 * @param withRewardsRole should also grant REWARDS_ROLE to minter
+	 */
 	function addMinter(
 		address minter,
-		uint256 cap,
-		uint256 max,
+		uint256 globalLimit,
+		uint256 perTxLimit,
 		uint32 bpsPerDay,
 		bool withRewardsRole
 	) external onlyRole(DEFAULT_ADMIN_ROLE) {
-		grantRole(MINTER_ROLE, minter);
-		_setMinterCaps(minter, cap, max, bpsPerDay);
+		_setMinterCaps(minter, globalLimit, perTxLimit, bpsPerDay);
 		if (withRewardsRole) {
 			grantRole(REWARDS_ROLE, minter);
 		} else {
+			grantRole(MINTER_ROLE, minter);
 			revokeRole(REWARDS_ROLE, minter);
 		}
 	}
 
+	/**
+	 * @notice update minter or rewards role limits
+	 * @param minter address of minter
+	 * @param globalLimit minter global limit
+	 * @param perTxLimit minter per tx limit
+	 * @param bpsPerDay limit for rewards role in bps relative to G$ total supply
+	 */
 	function setMinterCaps(
 		address minter,
-		uint256 cap,
-		uint256 max,
+		uint256 globalLimit,
+		uint256 perTxLimit,
 		uint32 bpsPerDay
 	) external onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE]) {
-		_setMinterCaps(minter, cap, max, bpsPerDay);
+		_setMinterCaps(minter, globalLimit, perTxLimit, bpsPerDay);
 	}
 
+	/**
+	 * @notice update minter or rewards role limits
+	 * @param minter address of minter
+	 * @param globalLimit minter global limit
+	 * @param perTxLimit minter per tx limit
+	 * @param bpsPerDay limit for rewards role in bps relative to G$ total supply
+	 */
 	function _setMinterCaps(
 		address minter,
-		uint256 cap,
-		uint256 max,
+		uint256 globalLimit,
+		uint256 perTxLimit,
 		uint32 bpsPerDay
 	) internal {
 		Supply storage m = minterSupply[minter];
-		m.cap = cap;
-		m.max = max;
+		m.cap = globalLimit;
+		m.max = perTxLimit;
 		m.bpsPerDay = bpsPerDay;
 		m.lastUpdate = uint128(block.timestamp);
 		m.dailyCap =
@@ -369,6 +397,10 @@ contract GoodDollarMintBurnWrapper is
 			10000;
 	}
 
+	/**
+	 * @notice update the global cap for minter roles
+	 * @param cap the new total mint cap
+	 */
 	function setTotalMintCap(uint256 cap)
 		external
 		onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE])
@@ -376,10 +408,16 @@ contract GoodDollarMintBurnWrapper is
 		totalMintCap = cap;
 	}
 
+	/**
+	 * @notice helper to update the current day, used to reset rewards role daily limit
+	 */
 	function _updateCurrentDay() internal {
 		currentDay = uint128(block.timestamp / 1 days);
 	}
 
+	/**
+	 * @notice helper for mint/sendOrMint action
+	 */
 	function _mint(address to, uint256 amount)
 		internal
 		whenNotPaused(PAUSE_MINT_ROLE)
@@ -398,6 +436,9 @@ contract GoodDollarMintBurnWrapper is
 		require(ok, "mint failed");
 	}
 
+	/**
+	 * @notice helper for burn action
+	 */
 	function _burn(address from, uint256 amount)
 		internal
 		whenNotPaused(PAUSE_BURN_ROLE)
@@ -422,11 +463,14 @@ contract GoodDollarMintBurnWrapper is
 		//handle onTokenTransfer (ERC677), assume tokens has been transfered
 		if (from == address(this)) {
 			TokenOperation.safeBurnSelf(token, amount);
-		} else if (tokenType == TokenType.MintBurnFrom) {
+		} else {
 			TokenOperation.safeBurnFrom(token, from, amount);
 		}
 	}
 
+	/**
+	 * @notice helper for sendOrMint action to burn from balance to cover minting debt
+	 */
 	function _balanceDebt(Supply storage minter) internal {
 		uint256 toBurn = Math.min(
 			minter.mintDebt,
@@ -440,6 +484,9 @@ contract GoodDollarMintBurnWrapper is
 		}
 	}
 
+	/**
+	 * @notice helper for sendOrMint action to update the rewarder daily limit if updateFrequency passed
+	 */
 	function _updateDailyLimitCap(Supply storage minter) internal {
 		uint256 secondsPased = block.timestamp - minter.lastUpdate;
 
