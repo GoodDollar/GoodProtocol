@@ -14,6 +14,7 @@ import { FormatTypes } from "ethers/lib/utils";
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 30;
+const DONATION_10_PERCENT = 10;
 const DONATION_30_PERCENT = 30;
 const STAKE_AMOUNT = 10000;
 const BLOCKS_ONE_YEAR = 6307200;
@@ -164,6 +165,55 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     );
 
     await ictrl.genericCall(goodDollarMintBurnWrapper.address, encodedCall, avatar, 0);
+
+    return { staking: staking.connect(staker1), goodDollarMintBurnWrapper };
+  };
+
+  const fixture_highCapMinter_staked1year = async (wallets, provider) => {
+    const f = await ethers.getContractFactory("GoodDollarStakingMock");
+
+    wallets = provider.getWallets();
+    const staking = (await waffle.deployContract(
+      wallets[0],
+      {
+        abi: JSON.parse(
+          f.interface.format(FormatTypes.json) as string
+        ) as any[],
+        bytecode: f.bytecode
+      },
+      [nameService.address, BN.from("1000000007735630000"), 518400 * 12, 30]
+    )) as GoodDollarStaking;
+
+    await staking.upgrade();
+
+    await setDAOAddress("GDAO_STAKING", staking.address);
+
+    const mintBurnWrapperFactory = await ethers.getContractFactory(
+      "GoodDollarMintBurnWrapper"
+    );
+    let goodDollarMintBurnWrapper = (await upgrades.deployProxy(
+      mintBurnWrapperFactory,
+      [1, INITIAL_CAP, avatar, nameService.address],
+      { kind: "uups" }
+    )) as unknown as GoodDollarMintBurnWrapper;
+    await setSchemes([goodDollarMintBurnWrapper.address]);
+    await setDAOAddress("MintBurnWrapper", goodDollarMintBurnWrapper.address);
+
+    let encodedCall = goodDollarMintBurnWrapper.interface.encodeFunctionData(
+      "addMinter",
+      [staking.address, INITIAL_CAP, INITIAL_CAP, 5000, true]
+    );
+
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+
+    await ictrl.genericCall(goodDollarMintBurnWrapper.address, encodedCall, avatar, 0);
+
+    await stake(staker1, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
+    await advanceBlocks(BLOCKS_ONE_YEAR);
 
     return { staking: staking.connect(staker1), goodDollarMintBurnWrapper };
   };
@@ -406,7 +456,23 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     expect(afterSetInterestRateIn128).to.equal(INTEREST_RATE_10APY_128);
   });
 
-  it("should handle stakingrewardsfixed apy correctly when transfering staking tokens", async () => {
-    //test that logic of _transfer is as expected
+  it("should handle stakingrewardsfixed apy correctly when transfering staking tokens to new staker", async () => {
+    const { staking } = await waffle.loadFixture(fixture_highCapMinter_staked1year);
+
+    const RECEIVER_STAKE = 100;
+    await stake(staker2, RECEIVER_STAKE, DONATION_10_PERCENT, staking);
+    expect(await staking.getPrinciple(staker1.address)).to.equal(STAKE_AMOUNT + 350); // 350 yearly earned reward
+    expect(await staking.getPrinciple(staker2.address)).to.equal(RECEIVER_STAKE);
+
+    await staking["transfer(address,address,uint256)"](staker1.address, staker2.address, 200);
+
+    expect((await staking.stakersInfo(staker2.address)).avgDonationRatio).
+      to.equal((await staking.PRECISION()).mul(DONATION_10_PERCENT)); // keep receiver avg donation ratio
+    expect(await staking.getPrinciple(staker1.address)).to.equal(STAKE_AMOUNT + 350 - 200);
+    expect(await staking.getPrinciple(staker2.address)).to.equal(RECEIVER_STAKE + 200);
+    const senderInfo = await staking.stakersInfo(staker1.address);
+    expect(senderInfo.rewardsPaid).to.equal(200);
+    expect(senderInfo.rewardsDonated).to.equal(85); // (200 /(100% - 30% donation))
+    expect(await goodDollar.balanceOf(staking.address)).to.equal(STAKE_AMOUNT + RECEIVER_STAKE); // no withdrawals yet
   });
 });

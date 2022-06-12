@@ -21,4 +21,12 @@ contract GoodDollarStakingMock is GoodDollarStaking {
 	function upgrade() external override {
 		_setMonthlyRewards(address(this), 2 ether * 1e6); //2M monthly GOOD
 	}
+
+	function transfer(
+		address _from,
+		address _to,
+		uint256 _value
+	) external {
+		_transfer(_from, _to, _value);
+	}
 }
