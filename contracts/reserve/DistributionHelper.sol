@@ -38,6 +38,7 @@ contract DistributionHelper is
 
 	address public fuseBridge;
 	IMultichainRouter public multiChainBridge;
+	address public anyGoodDollar; //G$ multichain wrapper on ethereum
 
 	event Distribution(
 		uint256 distributed,
@@ -53,8 +54,9 @@ contract DistributionHelper is
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar); //this needs to happen after setDAO for avatar to be non empty
 		fuseBridge = nameService.getAddress("BRIDGE_CONTRACT");
 		multiChainBridge = IMultichainRouter(
-			0xf27Ee99622C3C9b264583dACB2cCE056e194494f
+			0x765277EebeCA2e31912C9946eAe1021199B39C61
 		);
+		anyGoodDollar = address(0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d);
 	}
 
 	/**
@@ -123,8 +125,8 @@ contract DistributionHelper is
 			);
 		} else if (_recipient.transferType == TransferType.MultichainBridge) {
 			nativeToken().approve(address(multiChainBridge), _amount);
-			multiChainBridge.anySwapOut(
-				address(nativeToken()),
+			multiChainBridge.anySwapOutUnderlying(
+				anyGoodDollar,
 				_recipient.addr,
 				_amount,
 				_recipient.chainId
