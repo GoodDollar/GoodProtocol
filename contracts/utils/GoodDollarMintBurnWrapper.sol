@@ -148,6 +148,14 @@ contract GoodDollarMintBurnWrapper is
 	uint128 public totalMintDebt; // total outstanding mint debt
 
 	event SendOrMint(address to, uint256 amount, uint256 sent, uint256 minted);
+	event MinterSet(
+		address minter,
+		uint256 totalMintCap,
+		uint256 perTxCap,
+		uint32 bps,
+		bool rewardsRole,
+		bool isUpdate
+	);
 
 	modifier onlyRoles(bytes32[2] memory roles) {
 		require(
@@ -352,10 +360,19 @@ contract GoodDollarMintBurnWrapper is
 		_setMinterCaps(minter, globalLimit, perTxLimit, bpsPerDay);
 		if (withRewardsRole) {
 			grantRole(REWARDS_ROLE, minter);
+			revokeRole(MINTER_ROLE, minter);
 		} else {
 			grantRole(MINTER_ROLE, minter);
 			revokeRole(REWARDS_ROLE, minter);
 		}
+		emit MinterSet(
+			minter,
+			globalLimit,
+			perTxLimit,
+			bpsPerDay,
+			withRewardsRole,
+			false
+		);
 	}
 
 	/**
@@ -372,6 +389,14 @@ contract GoodDollarMintBurnWrapper is
 		uint32 bpsPerDay
 	) external onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE]) {
 		_setMinterCaps(minter, globalLimit, perTxLimit, bpsPerDay);
+		emit MinterSet(
+			minter,
+			globalLimit,
+			perTxLimit,
+			bpsPerDay,
+			hasRole(REWARDS_ROLE, minter),
+			true
+		);
 	}
 
 	/**
