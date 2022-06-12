@@ -1,6 +1,12 @@
 import { ethers, waffle, upgrades } from "hardhat";
 import { expect } from "chai";
-import { GoodReserveCDai, GoodDollarMintBurnWrapper, ERC20 } from "../../types";
+import {
+  GoodReserveCDai,
+  GoodDollarMintBurnWrapper,
+  ERC20,
+  IGoodDollar,
+  MultichainRouterMock
+} from "../../types";
 import { createDAO, increaseTime } from "../helpers";
 import { FormatTypes } from "@ethersproject/abi";
 
@@ -14,13 +20,15 @@ const REWARD_BPS = 300;
 
 describe("GoodDollarMintBurnWrapper", () => {
   let goodReserve: GoodReserveCDai;
-  let goodDollar: ERC20,
+  let goodDollar: IGoodDollar,
     genericCall,
     avatar,
     founder,
     minter,
+    minterUncapped,
     rewarder,
     guardian,
+    router,
     wrapperAdmin,
     signers,
     setDAOAddress,
@@ -29,8 +37,16 @@ describe("GoodDollarMintBurnWrapper", () => {
     controller;
 
   before(async () => {
-    [founder, wrapperAdmin, minter, rewarder, guardian, ...signers] =
-      await ethers.getSigners();
+    [
+      founder,
+      wrapperAdmin,
+      minter,
+      rewarder,
+      guardian,
+      minterUncapped,
+      router,
+      ...signers
+    ] = await ethers.getSigners();
 
     let {
       controller: ctrl,
@@ -77,16 +93,6 @@ describe("GoodDollarMintBurnWrapper", () => {
       controller,
       wallets[wallets.length - 1] //has scheme permissions set by createDAO()
     );
-    // const wrapper = (await waffle.deployContract(wallets[0], {
-    //   abi: JSON.parse(gf.interface.format(FormatTypes.json) as string) as any[],
-    //   bytecode: gf.bytecode
-    // })) as GoodDollarMintBurnWrapper;
-
-    // await wrapper.initialize(
-    //   "100000000000", //1B G$
-    //   wrapperAdmin.address,
-    //   nameService.address
-    // );
 
     const wrapper = (await upgrades.deployProxy(
       await ethers.getContractFactory("GoodDollarMintBurnWrapper"),
@@ -103,12 +109,19 @@ describe("GoodDollarMintBurnWrapper", () => {
     await wrapper
       .connect(wrapperAdmin)
       .grantRole(await wrapper.GUARDIAN_ROLE(), guardian.address);
+
+    await wrapper
+      .connect(wrapperAdmin)
+      .grantRole(await wrapper.ROUTER_ROLE(), router.address);
+
+    await goodDollar.mint(controller, 100000000000); //so bps limit is significant
+
     await wrapper
       .connect(wrapperAdmin)
       .addMinter(minter.address, MINTER_CAP, MINTER_TX_MAX, 0, false);
     await wrapper
       .connect(wrapperAdmin)
-      .addMinter(rewarder.address, MINTER_CAP, MINTER_TX_MAX, REWARD_BPS, true);
+      .addMinter(rewarder.address, 0, 0, REWARD_BPS, true);
 
     await ictrl.registerScheme(
       wrapper.address,
@@ -117,6 +130,43 @@ describe("GoodDollarMintBurnWrapper", () => {
       avatar
     );
     return { wrapper };
+  };
+
+  const fixture_withMultichain = async (wallets, provider) => {
+    wallets = provider.getWallets();
+
+    const gf = await ethers.getContractFactory("GoodDollarMintBurnWrapper");
+    const rf = await ethers.getContractFactory("MultichainRouterMock");
+
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      wallets[wallets.length - 1] //has scheme permissions set by createDAO()
+    );
+
+    const wrapper = (await upgrades.deployProxy(
+      await ethers.getContractFactory("GoodDollarMintBurnWrapper"),
+      [
+        "100000000000", //1B G$
+        wrapperAdmin.address,
+        nameService.address
+      ],
+      {
+        kind: "uups"
+      }
+    )) as GoodDollarMintBurnWrapper;
+
+    const multiChainRouter = (await rf.deploy(
+      wrapper.address
+    )) as MultichainRouterMock;
+
+    await wrapper
+      .connect(wrapperAdmin)
+      .grantRole(await wrapper.ROUTER_ROLE(), multiChainRouter.address);
+
+    await goodDollar.mint(controller, 100000000000); //so bps limit is significant
+
+    return { wrapper, multiChainRouter };
   };
 
   it("should be safe for upgrades", async () => {
@@ -237,19 +287,390 @@ describe("GoodDollarMintBurnWrapper", () => {
     expect(await goodDollar.balanceOf(signers[0].address)).to.equal(1000);
   });
 
-  it("should not be able to mint when minter is paused", async () => {});
+  it("should not be able to mint when minter is paused", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
 
-  it("should not be able to mint when passed tx cap", async () => {});
+    await expect(
+      wrapper.connect(guardian).pause(await wrapper.PAUSE_MINT_ROLE())
+    ).to.not.reverted;
 
-  it("should not be able to mint when passed minter cap", async () => {});
+    await expect(
+      wrapper.connect(minter).mint(signers[0].address, 1000)
+    ).revertedWith("pause");
+  });
 
-  it("should not be able to mint when passed global cap", async () => {});
+  it("should not be able to mint when passed tx cap", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
 
-  it("should update stats after mint", async () => {});
+    await expect(
+      wrapper.connect(minter).mint(signers[0].address, MINTER_TX_MAX + 1)
+    ).revertedWith("max");
+  });
 
-  it("should be able to burn only by router role", async () => {});
+  it("should not be able to mint when passed minter cap", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
 
-  it("should not be able to burn when router is paused", async () => {});
+    for (let i = 0; i < MINTER_CAP / MINTER_TX_MAX; i++)
+      await wrapper.connect(minter).mint(signers[0].address, MINTER_TX_MAX);
 
-  it("should update stats after burn", async () => {});
+    await expect(
+      wrapper.connect(minter).mint(signers[0].address, MINTER_TX_MAX)
+    ).revertedWith("cap");
+  });
+
+  it("should not be able to mint when passed global cap", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await wrapper
+      .connect(wrapperAdmin)
+      .addMinter(minterUncapped.address, 0, 10000000000, 0, false);
+
+    for (let i = 0; i < 100000000000 / 10000000000; i++)
+      await wrapper
+        .connect(minterUncapped)
+        .mint(signers[0].address, 10000000000);
+
+    await expect(
+      wrapper.connect(minterUncapped).mint(signers[0].address, 10000000000)
+    ).revertedWith("total mint");
+  });
+
+  it("should update stats after mint", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await wrapper.connect(minter).mint(signers[0].address, 1000);
+
+    expect(await goodDollar.balanceOf(signers[0].address)).to.eq(1000);
+    expect(await wrapper.totalMinted()).eq(1000);
+
+    const minterInfo = await wrapper.minterSupply(minter.address);
+    expect(minterInfo.total).eq(1000);
+
+    await wrapper.connect(minter).mint(signers[0].address, 500);
+    const minterInfoAfter = await wrapper.minterSupply(minter.address);
+    expect(await wrapper.totalMinted()).eq(1500);
+    expect(minterInfoAfter.total).eq(1500);
+  });
+
+  it("should be able to burn only by router role", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+    await goodDollar.mint(founder.address, 1000);
+    await goodDollar.connect(founder).approve(wrapper.address, 1000);
+    await expect(
+      wrapper.connect(minter).burn(founder.address, 1000)
+    ).to.revertedWith("role");
+    await expect(wrapper.connect(router).burn(founder.address, 1000)).to.not
+      .reverted;
+
+    expect(await goodDollar.balanceOf(founder.address)).to.equal(0);
+  });
+
+  it("should not be able to burn when router is paused", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await expect(
+      wrapper.connect(guardian).pause(await wrapper.PAUSE_ROUTER_ROLE())
+    ).to.not.reverted;
+
+    await goodDollar.mint(founder.address, 1000);
+    await goodDollar.connect(founder).approve(wrapper.address, 1000);
+
+    await expect(
+      wrapper.connect(router).burn(founder.address, 1000)
+    ).revertedWith("pause");
+  });
+
+  it("should not update stats after burn when not minted yet", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await goodDollar.mint(founder.address, 1000);
+    await goodDollar.connect(founder).approve(wrapper.address, 1000);
+    await expect(wrapper.connect(router).burn(founder.address, 1000)).to.not
+      .reverted;
+
+    expect(await wrapper.totalMinted()).eq(0);
+
+    const minterInfo = await wrapper.minterSupply(minter.address);
+    expect(minterInfo.total).eq(0);
+  });
+
+  it("should update global stats when minter!=burner after burn when already minted", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await wrapper.connect(minter).mint(signers[0].address, 1000);
+
+    await goodDollar.mint(founder.address, 500);
+    await goodDollar.connect(founder).approve(wrapper.address, 500);
+    await expect(wrapper.connect(router).burn(founder.address, 500)).to.not
+      .reverted;
+
+    expect(await wrapper.totalMinted()).eq(500);
+
+    const minterInfo = await wrapper.minterSupply(minter.address);
+    expect(minterInfo.total).eq(1000);
+  });
+
+  it("should update both global and minter stats when minter==burner after burn when already minted", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await wrapper
+      .connect(wrapperAdmin)
+      .grantRole(await wrapper.ROUTER_ROLE(), minter.address);
+    await wrapper.connect(minter).mint(signers[0].address, 1000);
+
+    await goodDollar.mint(founder.address, 500);
+    await goodDollar.connect(founder).approve(wrapper.address, 500);
+    await expect(wrapper.connect(minter).burn(founder.address, 500)).to.not
+      .reverted;
+
+    expect(await wrapper.totalMinted()).eq(500);
+
+    const minterInfo = await wrapper.minterSupply(minter.address);
+    expect(minterInfo.total).eq(500);
+  });
+
+  it("should update mint stats after sendOrMint", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await wrapper.connect(rewarder).sendOrMint(signers[0].address, 1000);
+    const minterInfo = await wrapper.minterSupply(rewarder.address);
+
+    expect(await goodDollar.balanceOf(signers[0].address)).to.eq(1000);
+    expect(minterInfo.total).eq(1000);
+    expect(minterInfo.mintDebt).eq(1000);
+    expect(minterInfo.mintedToday).eq(1000);
+    expect(await wrapper.totalMinted()).eq(1000);
+    expect(await wrapper.totalMintDebt()).eq(1000);
+  });
+
+  it("should not update mint stats after sendOrMint when wrapper has G$ balance", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await goodDollar.mint(wrapper.address, 1000);
+
+    await wrapper.connect(rewarder).sendOrMint(signers[0].address, 1000);
+    const minterInfo = await wrapper.minterSupply(rewarder.address);
+
+    expect(await goodDollar.balanceOf(signers[0].address)).to.eq(1000);
+    expect(minterInfo.total).eq(0);
+    expect(minterInfo.mintDebt).eq(0);
+    expect(minterInfo.mintedToday).eq(0);
+    expect(await wrapper.totalMinted()).eq(0);
+    expect(await wrapper.totalMintDebt()).eq(0);
+  });
+
+  it("should perform send and mint when having partial balance for sendOrMint", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await goodDollar.mint(wrapper.address, 500);
+
+    await wrapper.connect(rewarder).sendOrMint(signers[0].address, 1000);
+    const minterInfo = await wrapper.minterSupply(rewarder.address);
+
+    expect(await goodDollar.balanceOf(signers[0].address)).to.eq(1000);
+    expect(await goodDollar.balanceOf(wrapper.address)).to.eq(0);
+    expect(minterInfo.total).eq(500);
+    expect(minterInfo.mintDebt).eq(500);
+    expect(minterInfo.mintedToday).eq(500);
+    expect(await wrapper.totalMinted()).eq(500);
+    expect(await wrapper.totalMintDebt()).eq(500);
+  });
+
+  it("should reduce debt in sendOrMint", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await wrapper.connect(rewarder).sendOrMint(signers[0].address, 200); //200 debt
+    const minterInfo = await wrapper.minterSupply(rewarder.address);
+    expect(await wrapper.totalMintDebt()).eq(200);
+    expect(minterInfo.mintDebt).eq(200);
+
+    await goodDollar.mint(wrapper.address, 1200);
+
+    await wrapper.connect(rewarder).sendOrMint(signers[0].address, 1000);
+    const minterInfoAfter = await wrapper.minterSupply(rewarder.address);
+
+    expect(await wrapper.totalMintDebt()).eq(0);
+    expect(minterInfoAfter.mintDebt).eq(0);
+  });
+
+  it("should mint just partial amount if daily limit passed in sendOrMint", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    let minterInfo = await wrapper.minterSupply(rewarder.address);
+
+    await wrapper
+      .connect(rewarder)
+      .sendOrMint(signers[0].address, minterInfo.dailyCap.add(1000));
+
+    minterInfo = await wrapper.minterSupply(rewarder.address);
+
+    expect(await goodDollar.balanceOf(signers[0].address)).to.eq(
+      minterInfo.dailyCap
+    );
+    expect(minterInfo.total).eq(minterInfo.dailyCap);
+    expect(minterInfo.mintDebt).eq(minterInfo.dailyCap);
+    expect(minterInfo.mintedToday).eq(minterInfo.dailyCap);
+    expect(await wrapper.totalMinted()).eq(minterInfo.dailyCap);
+    expect(await wrapper.totalMintDebt()).eq(minterInfo.dailyCap);
+  });
+
+  it("should reset rewarder mintedToday after day passed", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    const minterInfo = await wrapper.minterSupply(rewarder.address);
+    await wrapper
+      .connect(rewarder)
+      .sendOrMint(signers[0].address, minterInfo.dailyCap);
+
+    await increaseTime(60 * 60 * 24);
+
+    await expect(
+      wrapper
+        .connect(rewarder)
+        .sendOrMint(signers[0].address, minterInfo.dailyCap)
+    ).to.not.reverted;
+
+    expect(await goodDollar.balanceOf(signers[0].address)).to.eq(
+      minterInfo.dailyCap.mul(2)
+    );
+  });
+
+  it("should update rewarder daily limit after updateFrequency days passed", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await goodDollar.mint(controller, 100000000000);
+    const totalSupplyBeforeMint = await goodDollar.totalSupply();
+    let minterInfo = await wrapper.minterSupply(rewarder.address);
+
+    const frequency = await wrapper.updateFrequency();
+    console.log(frequency.toNumber());
+    await increaseTime(frequency.toNumber());
+
+    await wrapper
+      .connect(rewarder)
+      .sendOrMint(signers[0].address, minterInfo.dailyCap.add(1000));
+
+    let minterInfoAfter = await wrapper.minterSupply(rewarder.address);
+
+    expect(minterInfoAfter.dailyCap).gt(minterInfo.dailyCap);
+    expect(minterInfoAfter.dailyCap).eq(
+      totalSupplyBeforeMint.mul(REWARD_BPS).div(10000)
+    ); //we doubled the G$ supply so bps relative to supply should be double now
+  });
+
+  it("should not mint but not revert wehn rewarder passes daily limit", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    const minterInfo = await wrapper.minterSupply(rewarder.address);
+    await wrapper
+      .connect(rewarder)
+      .sendOrMint(signers[0].address, minterInfo.dailyCap);
+
+    const tx = await (
+      await wrapper
+        .connect(rewarder)
+        .sendOrMint(signers[1].address, minterInfo.dailyCap)
+    ).wait();
+
+    const sendOrMintEvent = tx.events.find(_ => _.event === "SendOrMint");
+
+    expect(await goodDollar.balanceOf(signers[1].address)).to.eq(0);
+    expect(sendOrMintEvent.args.minted).to.eq(0);
+    expect(sendOrMintEvent.args.sent).to.eq(0);
+  });
+
+  it("should allow guardian to update minter limits and rewarder daily limit", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await expect(
+      wrapper.setMinterCaps(minter.address, 0, 0, 0)
+    ).to.be.revertedWith("role");
+
+    await expect(
+      wrapper.connect(guardian).setMinterCaps(minter.address, 0, 0, 50)
+    ).to.not.reverted;
+
+    const minterInfo = await wrapper.minterSupply(minter.address);
+    expect(minterInfo.cap).to.eq(0);
+    expect(minterInfo.max).to.eq(0);
+    expect(minterInfo.dailyCap).eq(
+      (await goodDollar.totalSupply()).mul(50).div(10000)
+    );
+  });
+
+  it("should allow guardian to update totalMintCap", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await expect(wrapper.setTotalMintCap(0)).to.be.revertedWith("role");
+
+    await expect(wrapper.connect(guardian).setTotalMintCap(0)).to.not.reverted;
+
+    expect(await wrapper.totalMintCap()).to.eq(0);
+  });
+
+  it("should support transferAndCall for multichain bridge transfer", async () => {
+    const { wrapper, multiChainRouter } = await waffle.loadFixture(
+      fixture_withMultichain
+    );
+
+    await goodDollar.mint(founder.address, 100000);
+    await goodDollar.transferAndCall(
+      wrapper.address,
+      100000,
+      ethers.utils.defaultAbiCoder.encode(
+        ["address", "uint256"],
+        [minter.address, "4220"]
+      )
+    );
+
+    expect(await goodDollar.balanceOf(founder.address)).to.eq(0); //verify burn happened
+    expect(await goodDollar.balanceOf(wrapper.address)).to.eq(0); //verify burn happened
+    const events = await multiChainRouter.queryFilter(
+      multiChainRouter.filters.AnySwap()
+    );
+    expect(events[0].args.recipient).to.equal(minter.address);
+    expect(events[0].args.chainId).to.equal(4220);
+  });
+
+  it.only("should default to sender as recipient on transferAndCall if recipient=0", async () => {
+    const { wrapper, multiChainRouter } = await waffle.loadFixture(
+      fixture_withMultichain
+    );
+
+    await goodDollar.mint(founder.address, 100000);
+    await goodDollar.transferAndCall(
+      wrapper.address,
+      100000,
+      ethers.utils.defaultAbiCoder.encode(
+        ["address", "uint256"],
+        [ethers.constants.AddressZero, "4220"]
+      )
+    );
+
+    expect(await goodDollar.balanceOf(founder.address)).to.eq(0); //verify burn happened
+    expect(await goodDollar.balanceOf(wrapper.address)).to.eq(0); //verify burn happened
+    const events = await multiChainRouter.queryFilter(
+      multiChainRouter.filters.AnySwap()
+    );
+    expect(events[0].args.recipient).to.equal(founder.address);
+    expect(events[0].args.chainId).to.equal(4220);
+  });
+
+  it.only("should fail transferAndCall for multichain if no chainid", async () => {
+    const { wrapper, multiChainRouter } = await waffle.loadFixture(
+      fixture_withMultichain
+    );
+
+    await goodDollar.mint(founder.address, 100000);
+    await expect(
+      goodDollar.transferAndCall(
+        wrapper.address,
+        100000,
+        ethers.utils.defaultAbiCoder.encode(
+          ["address", "uint"],
+          [minter.address, 0]
+        )
+      )
+    ).revertedWith("chainId");
+  });
 });

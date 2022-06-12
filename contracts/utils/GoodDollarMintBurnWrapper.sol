@@ -17,6 +17,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "hardhat/console.sol";
 
 import "./DAOUpgradeableContract.sol";
 
@@ -170,6 +171,7 @@ contract GoodDollarMintBurnWrapper is
 
 	uint128 public currentDay; //used to reset daily minter limit
 	uint128 public updateFrequency; //how often to update the relative to supply daily limit
+	uint128 public totalMintDebt; // total outstanding mint debt
 
 	event SendOrMint(address to, uint256 amount, uint256 sent, uint256 minted);
 
@@ -308,18 +310,20 @@ contract GoodDollarMintBurnWrapper is
 			amount
 		);
 		uint256 toMint = Math.min(amount - toSend, maxMintToday);
+		// console.log("sendOrMint %s %s %s", toMint, toSend, maxMintToday);
 		totalSent = toSend + toMint;
 		m.mintedToday += uint128(toMint);
 		m.mintDebt += uint128(toMint);
-
+		totalMintDebt += uint128(toMint);
 		if (toMint > 0) _mint(to, toMint);
-		else {
-			//if we are not minting then we probably have positive balance, check if we can cover out debt and burn some
+
+		if (toSend > 0) IERC20Upgradeable(token).safeTransfer(to, toSend);
+
+		if (toMint == 0) {
+			//if we are not minting then we might have positive balance, check if we can cover out debt and burn some
 			//from balance in exchange for what we minted in the past ie mintDebt
 			_balanceDebt(m);
 		}
-
-		if (toSend > 0) IERC20Upgradeable(token).safeTransfer(to, toSend);
 
 		emit SendOrMint(to, amount, toSend, toMint);
 	}
@@ -372,15 +376,6 @@ contract GoodDollarMintBurnWrapper is
 		totalMintCap = cap;
 	}
 
-	function setMinterTotal(
-		address minter,
-		uint256 total,
-		bool force
-	) external onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE]) {
-		require(force || hasRole(MINTER_ROLE, minter), "not minter");
-		minterSupply[minter].total = total;
-	}
-
 	function _updateCurrentDay() internal {
 		currentDay = uint128(block.timestamp / 1 days);
 	}
@@ -394,7 +389,7 @@ contract GoodDollarMintBurnWrapper is
 		Supply storage s = minterSupply[msg.sender];
 		require(s.max == 0 || amount <= s.max, "minter max exceeded");
 		s.total += amount;
-		require(s.total == 0 || s.total <= s.cap, "minter cap exceeded");
+		require(s.cap == 0 || s.total <= s.cap, "minter cap exceeded");
 
 		totalMinted += amount;
 		require(totalMinted <= totalMintCap, "total mint cap exceeded");
@@ -440,17 +435,25 @@ contract GoodDollarMintBurnWrapper is
 
 		if (toBurn > 0) {
 			minter.mintDebt -= uint128(toBurn);
+			totalMintDebt -= uint128(toBurn);
 			ERC20(token).burn(toBurn); //from DAOUpgradableContract -> Interfaces
 		}
 	}
 
 	function _updateDailyLimitCap(Supply storage minter) internal {
-		uint256 blocksPassed = block.timestamp - minter.lastUpdate;
-		if (blocksPassed > updateFrequency) {
-			minter.dailyCap =
-				uint128(IERC20Upgradeable(token).totalSupply() * minter.bpsPerDay) /
-				10000;
+		uint256 secondsPased = block.timestamp - minter.lastUpdate;
+
+		if (secondsPased >= updateFrequency) {
+			minter.dailyCap = uint128(
+				(IERC20Upgradeable(token).totalSupply() * minter.bpsPerDay) / 10000
+			);
 			minter.lastUpdate = uint128(block.timestamp);
+			// console.log(
+			// 	"secondsPassed %s %s %s",
+			// 	secondsPased,
+			// 	minter.dailyCap,
+			// 	minter.lastUpdate
+			// );
 		}
 	}
 }
