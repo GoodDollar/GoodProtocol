@@ -11,6 +11,7 @@ import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
 import "./MultiBaseGovernanceShareField.sol";
 import "../staking/utils/StakingRewardsFixedAPY.sol";
+import "hardhat/console.sol";
 
 interface RewardsMinter {
 	function sendOrMint(address to, uint256 amount) external returns (uint256);
@@ -28,12 +29,12 @@ contract GoodDollarStaking is
 	StakingRewardsFixedAPY
 {
 	// Token address
-	ERC20 token;
+	ERC20 public token;
 
 	uint128 public numberOfBlocksPerYear;
 
-	uint128 createdAt;
-	uint32 daysUntilUpgrade;
+	uint128 public createdAt;
+	uint32 public daysUntilUpgrade;
 
 	/**
 	 * @dev Emitted when `staker` earns an `amount` of GOOD tokens
@@ -345,11 +346,6 @@ contract GoodDollarStaking is
 	/// @dev helper function for multibase
 	function goodStakerInfo(address _user) public view returns (UserInfo memory) {
 		return contractToUsers[address(this)][_user];
-	}
-
-	/// @dev helper function for FixedAPYRewards
-	function gdStakerInfo(address _user) public view returns (StakerInfo memory) {
-		return stakersInfo[_user];
 	}
 
 	/// @notice after 1 month move GOOD permissions minting to this contract from previous GovernanceStaking

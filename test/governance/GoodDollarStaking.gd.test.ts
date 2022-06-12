@@ -355,4 +355,20 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
       STAKE_AMOUNT + RECEIVER_STAKE
     ); // no withdrawals yet
   });
+
+  xit("should be able to stake using onTokenTransfer", async () => {
+    const { staking, goodDollarMintBurnWrapper } = await waffle.loadFixture(
+      fixture_ready
+    );
+
+    await goodDollar.mint(staker1.address, "100000000");
+    await goodDollar.connect(staker1).transferAndCall(staking.address, "100000000", 35);
+    console.log({ encoded: ethers.utils.defaultAbiCoder.encode(["uint32"], [35]) });
+    await expect(
+      goodDollar.connect(staker1).transferAndCall(staking.address, "100000000", "35")
+    ).not.reverted;
+    const senderInfo = await staking.stakersInfo(staker1.address);
+    expect(senderInfo.deposit).to.equal("100000000");
+    expect(senderInfo.avgDonationRatio.div(ethers.constants.WeiPerEther)).to.equal(35);
+  });
 });
