@@ -385,4 +385,33 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     expect(senderInfo.deposit).to.equal("100000000");
     expect(senderInfo.avgDonationRatio.div(ethers.constants.WeiPerEther)).to.equal(35);
   });
+
+  it("should asure getStaked returns correct value", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+
+    // correct after stake
+    await stake(staker1, STAKE_AMOUNT, DONATION_10_PERCENT, staking);
+    await stake(staker2, STAKE_AMOUNT, DONATION_10_PERCENT, staking);
+    let [userProductivity, totalProductivity] = await staking["getStaked(address)"](staker1.address);
+    let stakerDeposit = (await staking.stakersInfo(staker1.address)).deposit;
+    let totalStaked = (await staking.stats()).totalStaked;
+    expect(userProductivity).to.equal(stakerDeposit).to.equal(STAKE_AMOUNT);
+    expect(totalProductivity).to.equal(totalStaked).to.equal(STAKE_AMOUNT * 2);
+
+    // correct after receiving interest
+    advanceBlocks(BLOCKS_ONE_YEAR);
+    [userProductivity, totalProductivity] = await staking["getStaked(address)"](staker1.address);
+    stakerDeposit = (await staking.stakersInfo(staker1.address)).deposit;
+    totalStaked = (await staking.stats()).totalStaked;
+    expect(userProductivity).to.equal(stakerDeposit).to.equal(STAKE_AMOUNT);
+    expect(totalProductivity).to.equal(totalStaked).to.equal(STAKE_AMOUNT * 2);
+
+    // correct after withdraw
+    await staking.withdrawStake(5000);
+    [userProductivity, totalProductivity] = await staking["getStaked(address)"](staker1.address);
+    stakerDeposit = (await staking.stakersInfo(staker1.address)).deposit;
+    totalStaked = (await staking.stats()).totalStaked;
+    expect(userProductivity).to.equal(stakerDeposit).to.equal(5450); // 10000+500totalReward-50donation = 10450. Withdraw 5000 => 5450
+    expect(totalProductivity).to.equal(totalStaked).to.equal(STAKE_AMOUNT + 5450);
+  });
 });
