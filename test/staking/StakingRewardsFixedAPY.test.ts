@@ -949,7 +949,9 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should have undo reward handle invalid input", async () => {
-    const { staking } = await waffle.loadFixture(fixture_2);
+    const staking: StakingMockFixedAPY = (await (
+      await ethers.getContractFactory("StakingMockFixedAPY")
+    ).deploy(INTEREST_RATE_5APY_X64)) as StakingMockFixedAPY;
 
     //undo 0 rewards
     await stake(staker4, 10000, NO_DONATION, staking);
