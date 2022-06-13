@@ -321,25 +321,23 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   it("should change reward per block for both GD and GOOD only by avatar", async () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
 
-    const goodRewardsPerBlockBeforeSet = (await staking.getRewardsPerBlock())[0];
+    const [goodRewardsPerBlockBeforeSet, gdRewardsPerBlockBeforeSet] = await staking.getRewardsPerBlock();
     console.log("goodRewardsPerBlockBeforeSet", goodRewardsPerBlockBeforeSet);
+    expect(gdRewardsPerBlockBeforeSet.add(1)).to.equal(INTEREST_RATE_5APY_X64);
     const gdInterestRateIn128BeforeSet = await staking.interestRatePerBlockX64();
     expect(gdInterestRateIn128BeforeSet).to.equal(INTEREST_RATE_5APY_128);
-    const gdRewardsPerBlockBeforeSet = (await staking.getRewardsPerBlock())[1];
-    expect(gdRewardsPerBlockBeforeSet.add(1)).to.equal(INTEREST_RATE_5APY_X64);
 
     await runAsAvatarOnly(staking, "setMonthlyGOODRewards(uint256)", ethers.utils.parseEther("7654321"));
     await runAsAvatarOnly(staking, "setGdApy(uint128)", INTEREST_RATE_10APY_X64);
 
-    const goodRewardsPerBlockAfterSet = (await staking.getRewardsPerBlock())[0];
+    const [goodRewardsPerBlockAfterSet, gdRewardsPerBlockAfterSet] = await staking.getRewardsPerBlock();
     expect(goodRewardsPerBlockAfterSet).to.equal(
       ethers.utils.parseEther("7654321").div(BN.from("518400")) // 1728000 is montlhy reward amount and 518400 is monthly blocks for FUSE chain
     );
+    expect(gdRewardsPerBlockAfterSet.add(1)).to.equal(INTEREST_RATE_10APY_X64);
     expect(goodRewardsPerBlockAfterSet).to.not.equal(goodRewardsPerBlockBeforeSet);
     const gdInterestRateIn128AfterSet = await staking.interestRatePerBlockX64();
     expect(gdInterestRateIn128AfterSet).to.equal(INTEREST_RATE_10APY_128);
-    const gdRewardsPerBlockAfterSet = (await staking.getRewardsPerBlock())[1];
-    expect(gdRewardsPerBlockAfterSet.add(1)).to.equal(INTEREST_RATE_10APY_X64);
   });
 
   it("should handle stakingrewardsfixed apy correctly when transfering staking tokens to new staker", async () => {
