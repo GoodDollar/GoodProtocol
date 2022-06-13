@@ -288,6 +288,14 @@ contract StakingRewardsFixedAPY {
 		internal
 		virtual
 	{
+		//skip on invalid input
+		if (
+			_rewardsPaidAfterDonation == 0 ||
+			stakersInfo[_to].avgDonationRatio == 100 * PRECISION
+		) {
+			return;
+		}
+
 		//the actual amount we undo needs to take into account the user donation ratio.
 		//rewardsPaidAfterDonation = (100% - donation%) * rewardsBeforeDonation
 		//rewadrdsBeforeDonation = rewardsPaidAfterDonation/(100% - donation%)
