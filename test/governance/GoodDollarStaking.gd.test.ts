@@ -414,4 +414,31 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     expect(userProductivity).to.equal(stakerDeposit).to.equal(5450); // 10000+500totalReward-50donation = 10450. Withdraw 5000 => 5450
     expect(totalProductivity).to.equal(totalStaked).to.equal(STAKE_AMOUNT + 5450);
   });
+
+  it("it should return earned rewards with pending ones properly", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+    const [goodRewardsPerBlock] = await staking.getRewardsPerBlock();
+
+    await goodDollar.mint(staker1.address, STAKE_AMOUNT);
+    await goodDollar.connect(staker1).approve(staking.address, STAKE_AMOUNT);
+    const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
+    await staking.connect(staker1).stake(STAKE_AMOUNT, DONATION_10_PERCENT);
+
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+    const [earnedGoodRewards, earnedGdRewards] = await staking[
+      "getUserPendingReward(address)"
+    ](staker1.address);
+
+    const pendingRewardBlockNumber = await ethers.provider.getBlockNumber();
+    const multiplier = pendingRewardBlockNumber - stakeBlockNumber;
+    const calculatedPendingGoodReward = goodRewardsPerBlock.mul(multiplier); // We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
+    expect(earnedGoodRewards).to.be.equal(calculatedPendingGoodReward);
+    expect(earnedGdRewards).to.equal(
+      BN.from(STAKE_AMOUNT)
+        .mul(105 - 100)
+        .div(100)
+        .mul(100 - 10)
+        .div(100)
+    ); // 5% apy, 10% donation
+  });
 });

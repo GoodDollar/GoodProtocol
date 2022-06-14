@@ -283,7 +283,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     await staking.withdrawStake("100");
   });
 
-  it("it should return earned rewards with pending ones properly", async () => {
+  it("it should return earned rewards with pending ones properly for a short period", async () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
     const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     await goodDollar.mint(founder.address, "100");
