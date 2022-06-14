@@ -85,7 +85,10 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
       avatar
     });
 
-    grep = (await ethers.getContractAt("GReputation", reputation)) as GReputation;
+    grep = (await ethers.getContractAt(
+      "GReputation",
+      reputation
+    )) as GReputation;
 
     goodDollar = (await ethers.getContractAt("IGoodDollar", gd)) as IGoodDollar;
 
@@ -100,7 +103,10 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   }
 
   const fixture_staked1year = async (wallets, provider) => {
-    const { staking, goodDollarMintBurnWrapper } = await fixture_ready(wallets, provider);
+    const { staking, goodDollarMintBurnWrapper } = await fixture_ready(
+      wallets,
+      provider
+    );
 
     await stake(staker1, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
     await advanceBlocks(BLOCKS_ONE_YEAR);
@@ -115,7 +121,9 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     const staking = (await waffle.deployContract(
       wallets[0],
       {
-        abi: JSON.parse(f.interface.format(FormatTypes.json) as string) as any[],
+        abi: JSON.parse(
+          f.interface.format(FormatTypes.json) as string
+        ) as any[],
         bytecode: f.bytecode
       },
       [nameService.address, BN.from("1000000007735630000"), 518400 * 12, 30]
@@ -143,9 +151,18 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
       [staking.address, INITIAL_CAP, INITIAL_CAP, 30, true]
     );
 
-    const ictrl = await ethers.getContractAt("Controller", controller, schemeMock);
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
 
-    await ictrl.genericCall(goodDollarMintBurnWrapper.address, encodedCall, avatar, 0);
+    await ictrl.genericCall(
+      goodDollarMintBurnWrapper.address,
+      encodedCall,
+      avatar,
+      0
+    );
 
     return { staking: staking.connect(staker1), goodDollarMintBurnWrapper };
   };
@@ -158,7 +175,9 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     const staking = (await waffle.deployContract(
       wallets[0],
       {
-        abi: JSON.parse(f.interface.format(FormatTypes.json) as string) as any[],
+        abi: JSON.parse(
+          f.interface.format(FormatTypes.json) as string
+        ) as any[],
         bytecode: f.bytecode
       },
       [nameService.address, BN.from("1000000007735630000"), 518400 * 12, 30]
@@ -167,7 +186,9 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     const govStaking = (await waffle.deployContract(
       wallets[0],
       {
-        abi: JSON.parse(gf.interface.format(FormatTypes.json) as string) as any[],
+        abi: JSON.parse(
+          gf.interface.format(FormatTypes.json) as string
+        ) as any[],
         bytecode: gf.bytecode
       },
       [nameService.address]
@@ -192,7 +213,9 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     expect(info.deposit).to.equal(STAKE_AMOUNT);
     expect(info.rewardsPaid).to.equal(0);
     expect(info.rewardsDonated).to.equal(0);
-    expect(info.shares).to.equal((await staking.SHARE_DECIMALS()).mul(STAKE_AMOUNT));
+    expect(info.shares).to.equal(
+      (await staking.SHARE_DECIMALS()).mul(STAKE_AMOUNT)
+    );
     expect(info.avgDonationRatio).to.equal(
       (await staking.PRECISION()).mul(DONATION_30_PERCENT)
     );
@@ -200,8 +223,9 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     const stats = await staking.stats();
     expect(stats.lastUpdateBlock.gt(statsBefore.lastUpdateBlock));
     expect(stats.totalStaked).to.equal(STAKE_AMOUNT);
-    expect(stats.totalShares.eq((await staking.SHARE_DECIMALS()).mul(STAKE_AMOUNT))).to.be
-      .true;
+    expect(
+      stats.totalShares.eq((await staking.SHARE_DECIMALS()).mul(STAKE_AMOUNT))
+    ).to.be.true;
     expect(stats.totalRewardsPaid).to.equal(0);
     expect(stats.totalRewardsDonated).to.equal(0);
     expect(stats.avgDonationRatio).to.equal(PRECISION.mul(DONATION_30_PERCENT));
@@ -222,7 +246,9 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
 
     const principleAfter = await staking.getPrinciple(staker1.address);
     const infoAfter = await staking.stakersInfo(staker1.address);
-    expect(infoAfter.deposit).to.equal(infoBefore.deposit).to.equal(STAKE_AMOUNT);
+    expect(infoAfter.deposit)
+      .to.equal(infoBefore.deposit)
+      .to.equal(STAKE_AMOUNT);
     expect(await goodDollar.balanceOf(staker1.address)).equal(350);
     expect(infoAfter.rewardsPaid).to.equal(350);
     expect(infoAfter.rewardsDonated).to.equal(150);
@@ -237,9 +263,10 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     expect(await goodDollarMintBurnWrapper.paused(PAUSE_ALL_ROLE)).to.be.false;
 
     // pause goodDollarMintBurnWrapper
-    const encodedCall = goodDollarMintBurnWrapper.interface.encodeFunctionData("pause", [
-      PAUSE_ALL_ROLE
-    ]);
+    const encodedCall = goodDollarMintBurnWrapper.interface.encodeFunctionData(
+      "pause",
+      [PAUSE_ALL_ROLE]
+    );
     await genericCall(goodDollarMintBurnWrapper.address, encodedCall);
     expect(await goodDollarMintBurnWrapper.paused(PAUSE_ALL_ROLE)).to.be.true;
 
@@ -269,17 +296,19 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     );
     const PAUSE_ALL_ROLE = await goodDollarMintBurnWrapper.PAUSE_ALL_ROLE();
     // pause goodDollarMintBurnWrapper
-    let encodedCall = goodDollarMintBurnWrapper.interface.encodeFunctionData("pause", [
-      PAUSE_ALL_ROLE
-    ]);
+    let encodedCall = goodDollarMintBurnWrapper.interface.encodeFunctionData(
+      "pause",
+      [PAUSE_ALL_ROLE]
+    );
     await genericCall(goodDollarMintBurnWrapper.address, encodedCall);
     await stake(staker1, STAKE_AMOUNT, DONATION_30_PERCENT, staking);
     await advanceBlocks(BLOCKS_ONE_YEAR);
     // withdraw so undo rewards will be called on rewards part
     await staking.withdrawStake(ethers.constants.MaxUint256);
-    encodedCall = goodDollarMintBurnWrapper.interface.encodeFunctionData("unpause", [
-      PAUSE_ALL_ROLE
-    ]);
+    encodedCall = goodDollarMintBurnWrapper.interface.encodeFunctionData(
+      "unpause",
+      [PAUSE_ALL_ROLE]
+    );
     await genericCall(goodDollarMintBurnWrapper.address, encodedCall);
     expect(await goodDollarMintBurnWrapper.paused(PAUSE_ALL_ROLE)).to.be.false;
 
@@ -287,7 +316,9 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     await staking.withdrawRewards();
 
     const stakerInfo = await staking.stakersInfo(staker1.address);
-    expect(await goodDollar.balanceOf(staker1.address)).to.equal(STAKE_AMOUNT + 350);
+    expect(await goodDollar.balanceOf(staker1.address)).to.equal(
+      STAKE_AMOUNT + 350
+    );
   });
 
   it("should not perform upgrade when not deadline", async () => {
@@ -296,7 +327,9 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("should perform upgrade after deadline", async () => {
-    const { staking, govStaking } = await waffle.loadFixture(fixture_upgradeTest);
+    const { staking, govStaking } = await waffle.loadFixture(
+      fixture_upgradeTest
+    );
 
     const gdaoStakingBefore = await nameService.getAddress("GDAO_STAKING");
 
@@ -308,7 +341,9 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
 
     //verify nameService address changed
     expect(gdaoStakingBefore).to.equal(govStaking.address);
-    expect(await nameService.getAddress("GDAO_STAKING")).to.equal(staking.address);
+    expect(await nameService.getAddress("GDAO_STAKING")).to.equal(
+      staking.address
+    );
 
     //verify no longer registered as scheme
     expect(await ctrl.isSchemeRegistered(staking.address, avatar)).to.be.false;
@@ -323,10 +358,15 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
 
     const [, gdRewardsPerBlockBeforeSet] = await staking.getRewardsPerBlock();
     expect(gdRewardsPerBlockBeforeSet.add(1)).to.equal(INTEREST_RATE_5APY_X64);
-    const gdInterestRateIn128BeforeSet = await staking.interestRatePerBlockX64();
+    const gdInterestRateIn128BeforeSet =
+      await staking.interestRatePerBlockX64();
     expect(gdInterestRateIn128BeforeSet).to.equal(INTEREST_RATE_5APY_128);
 
-    await runAsAvatarOnly(staking, "setGdApy(uint128)", INTEREST_RATE_10APY_X64);
+    await runAsAvatarOnly(
+      staking,
+      "setGdApy(uint128)",
+      INTEREST_RATE_10APY_X64
+    );
 
     const [, gdRewardsPerBlockAfterSet] = await staking.getRewardsPerBlock();
     expect(gdRewardsPerBlockAfterSet.add(1)).to.equal(INTEREST_RATE_10APY_X64);
@@ -339,18 +379,24 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
 
     const RECEIVER_STAKE = 100;
     await stake(staker2, RECEIVER_STAKE, DONATION_10_PERCENT, staking);
-    expect(await staking.getPrinciple(staker1.address)).to.equal(STAKE_AMOUNT + 350); // 350 yearly earned reward
-    expect(await staking.getPrinciple(staker2.address)).to.equal(RECEIVER_STAKE);
+    expect(await staking.getPrinciple(staker1.address)).to.equal(
+      STAKE_AMOUNT + 350
+    ); // 350 yearly earned reward
+    expect(await staking.getPrinciple(staker2.address)).to.equal(
+      RECEIVER_STAKE
+    );
 
     await staking.transfer(staker2.address, 200);
 
-    expect((await staking.stakersInfo(staker2.address)).avgDonationRatio).to.equal(
-      (await staking.PRECISION()).mul(DONATION_10_PERCENT)
-    ); // keep receiver avg donation ratio
+    expect(
+      (await staking.stakersInfo(staker2.address)).avgDonationRatio
+    ).to.equal((await staking.PRECISION()).mul(DONATION_10_PERCENT)); // keep receiver avg donation ratio
     expect(await staking.getPrinciple(staker1.address)).to.equal(
       STAKE_AMOUNT + 350 - 200
     );
-    expect(await staking.getPrinciple(staker2.address)).to.equal(RECEIVER_STAKE + 200);
+    expect(await staking.getPrinciple(staker2.address)).to.equal(
+      RECEIVER_STAKE + 200
+    );
     const senderInfo = await staking.stakersInfo(staker1.address);
     expect(senderInfo.rewardsPaid).to.equal(200);
     expect(senderInfo.rewardsDonated).to.equal(85); // (200 /(100% - 30% donation))
@@ -377,7 +423,9 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     ).not.reverted;
     const senderInfo = await staking.stakersInfo(staker1.address);
     expect(senderInfo.deposit).to.equal("100000000");
-    expect(senderInfo.avgDonationRatio.div(ethers.constants.WeiPerEther)).to.equal(35);
+    expect(
+      senderInfo.avgDonationRatio.div(ethers.constants.WeiPerEther)
+    ).to.equal(35);
   });
 
   it("should asure getStaked returns correct value", async () => {
@@ -385,79 +433,58 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
 
     // correct after stake
     await stake(staker1, STAKE_AMOUNT, DONATION_10_PERCENT, staking);
-    await stake(staker2, STAKE_AMOUNT, DONATION_10_PERCENT, staking);
-    let [userProductivity, totalProductivity] = await staking["getStaked(address)"](
-      staker1.address
-    );
+    let [userProductivity, totalProductivity] = await staking[
+      "getStaked(address)"
+    ](staker1.address);
     let stakerDeposit = (await staking.stakersInfo(staker1.address)).deposit;
     let totalStaked = (await staking.stats()).totalStaked;
     expect(userProductivity).to.equal(stakerDeposit).to.equal(STAKE_AMOUNT);
-    expect(totalProductivity)
-      .to.equal(totalStaked)
-      .to.equal(STAKE_AMOUNT * 2);
+    expect(totalProductivity).to.equal(totalStaked);
 
-    // correct after receiving interest
-    advanceBlocks(BLOCKS_ONE_YEAR);
-    [userProductivity, totalProductivity] = await staking["getStaked(address)"](
-      staker1.address
-    );
+    await staking.connect(staker1).withdrawStake(200);
+
+    let [userProductivity2, totalProductivity2] = await staking[
+      "getStaked(address)"
+    ](staker1.address);
     stakerDeposit = (await staking.stakersInfo(staker1.address)).deposit;
     totalStaked = (await staking.stats()).totalStaked;
-    expect(userProductivity).to.equal(stakerDeposit).to.equal(STAKE_AMOUNT);
-    expect(totalProductivity)
-      .to.equal(totalStaked)
-      .to.equal(STAKE_AMOUNT * 2);
 
-    // correct after withdraw
-    await staking.withdrawStake(5000);
-    [userProductivity, totalProductivity] = await staking["getStaked(address)"](
-      staker1.address
-    );
-    stakerDeposit = (await staking.stakersInfo(staker1.address)).deposit;
-    totalStaked = (await staking.stats()).totalStaked;
-    expect(userProductivity).to.equal(stakerDeposit).to.equal(5450); // 10000+500totalReward-50donation = 10450. Withdraw 5000 => 5450
-    expect(totalProductivity)
-      .to.equal(totalStaked)
-      .to.equal(STAKE_AMOUNT + 5450);
+    expect(userProductivity2).to.equal(stakerDeposit);
+    expect(totalProductivity2).to.equal(totalStaked);
   });
 
-  it("it should return getUserPendingReward correct value", async () => {
+  it("it should return getUserPendingReward G$ value equal to earned() rewards after donation", async () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
     await stake(staker1, STAKE_AMOUNT, DONATION_10_PERCENT, staking);
     await advanceBlocks(BLOCKS_ONE_YEAR);
 
-    const [a, earnedGdRewards] = await staking[
-      "getUserPendingReward(address)"
-    ](staker1.address);
-    
-    expect(earnedGdRewards).to.equal(
-      BN.from(STAKE_AMOUNT)
-        .mul(105 - 100)
-        .div(100)
-        .mul(100 - 10)
-        .div(100)
-    ); // 5% apy, 10% donation
+    const [, earnedGdRewards] = await staking["getUserPendingReward(address)"](
+      staker1.address
+    );
+    const [, earnedRewardsAfterDonation] = await staking.earned(
+      staker1.address
+    );
+
+    expect(earnedGdRewards)
+      .to.equal(earnedRewardsAfterDonation)
+      .to.equal(
+        BN.from(STAKE_AMOUNT)
+          .mul(5)
+          .div(100)
+          .mul(100 - 10)
+          .div(100)
+      ); // 5% apy, 10% donation
   });
 
-  it("should calculate totalRewardsPerShare correctly", async () => {
+  it("should return G$ totalRewardsPerShare equal sharePrice()", async () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
-    await goodDollar.mint(staker1.address, STAKE_AMOUNT);
-    await goodDollar.connect(staker1).approve(staking.address, STAKE_AMOUNT);
-    await staking.connect(staker1).stake(STAKE_AMOUNT, DONATION_10_PERCENT);
-
-    advanceBlocks(BLOCKS_ONE_YEAR);
-
-    let [earnedRewards] = await staking.earned(staker1.address);
-    const [, staked] = await staking.getStaked(staker1.address);
+    await stake(staker1, STAKE_AMOUNT, DONATION_10_PERCENT, staking);
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+    const sharePrice = await staking.sharePrice();
     let [, accumulatedGdRewardsPerShare] = await staking[
       "totalRewardsPerShare()"
     ]();
     // to be changed
-    expect(accumulatedGdRewardsPerShare).to.equal(
-      staked
-        .add(earnedRewards)
-        .mul(await staking.SHARE_PRECISION())
-        .div((await staking.stats()).totalShares)
-    );
+    expect(accumulatedGdRewardsPerShare).to.equal(sharePrice).to.gt(0);
   });
 });
