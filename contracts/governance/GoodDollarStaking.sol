@@ -149,7 +149,7 @@ contract GoodDollarStaking is
 
 	/**
 	 * @notice Withdraws _amount from the staker principle
-	 * we use getPrinciple and not getProductivity because the user can have more G$ to withdraw than he staked
+	 * in _withdraw we use getPrinciple and not getProductivity because the user can have more G$ to withdraw than he staked
 	 * @param _amount amount to withdraw
 	 * @return goodRewards how much GOOD rewards were transfered to staker
 	 * @return gdRewards out of withdrawn amount how much was taken from earned interest (amount-gdRewards = taken from deposit)
