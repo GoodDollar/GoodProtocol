@@ -441,4 +441,41 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
         .div(100)
     ); // 5% apy, 10% donation
   });
+
+  it("it should calculate accumulated rewards per share for both tokens correctly", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+    await goodDollar.mint(staker1.address, STAKE_AMOUNT);
+    await goodDollar.connect(staker1).approve(staking.address, STAKE_AMOUNT);
+    await staking.connect(staker1).stake(STAKE_AMOUNT, DONATION_10_PERCENT);
+
+    advanceBlocks(BLOCKS_ONE_YEAR);
+
+    let [earnedRewards] = await staking.earned(staker1.address);
+    const [, staked] = await staking.getStaked(staker1.address);
+
+    let [accumulatedGoodRewardsPerShare, accumulatedGdRewardsPerShare] = await staking[
+      "totalRewardsPerShare()"
+    ]();
+
+    expect(accumulatedGdRewardsPerShare).to.equal(
+      staked
+        .add(earnedRewards)
+        .mul(await staking.SHARE_PRECISION())
+        .div((await staking.stats()).totalShares)
+    );
+
+    // let totalProductiviy = BN.from(STAKE_AMOUNT);
+
+    // //totalRewardsPerShare is in 1e27 , divid by  1e9 to get 1e18 decimals
+    // expect(accumulatedGoodRewardsPerShare.div(BN.from(1e9))).to.equal(
+    //   ethers.utils
+    //     .parseEther("2000000") //monthly rewards
+    //     .mul(BN.from(1e2)) //G$ is 2 decimals, dividing reduces decimals by 2, so we first increase to 1e20 decimals
+    //     .div(await staking.getChainBlocksPerMonth())
+    //     .mul(BN.from(BLOCKS_ONE_YEAR)) //=rewards per block * number of blocks = rewards earned in period
+    //     .div(totalProductiviy) //=rewards per share
+    //     .mul(BN.from("10000000000000000")), //restore lost precision from dividing by totalProductivity G$ 2 decimals;
+    //   "6307200 blocks"
+    // ); //6307200 block passed with actual staking
+  });
 });
