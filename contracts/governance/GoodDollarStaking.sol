@@ -31,10 +31,10 @@ contract GoodDollarStaking is
 	// Token address
 	ERC20 public token;
 
-	uint128 public numberOfBlocksPerYear;
+	uint128 public numberOfBlocksPerYear; //required for getChainBlocksPerMonth for GOOD rewards calculations
 
-	uint128 public createdAt;
-	uint32 public daysUntilUpgrade;
+	uint128 public createdAt; //required for upgrade process
+	uint32 public daysUntilUpgrade; //required for upgrade process
 
 	/**
 	 * @dev Emitted when `staker` earns an `amount` of GOOD tokens
@@ -59,6 +59,9 @@ contract GoodDollarStaking is
 	/**
 	 * @dev Constructor
 	 * @param _ns The address of the INameService contract
+	 * @param _interestRatePerBlock G$ rewards fixed APY in 1e18 precision
+	 * @param _numberOfBlocksPerYear blockchain approx blocks per year for GOOD rewards
+	 * @param _daysUntilUpgrade when it is allowed to upgrade from older GovernanceStaking
 	 */
 	constructor(
 		INameService _ns,
@@ -75,7 +78,16 @@ contract GoodDollarStaking is
 		daysUntilUpgrade = _daysUntilUpgrade;
 	}
 
-	function getChainBlocksPerMonth() public view override returns (uint256) {
+	/**
+	 * @notice return approx chain blocks per month
+	 * @return blocksPerMonth approx blocks per month
+	 */
+	function getChainBlocksPerMonth()
+		public
+		view
+		override
+		returns (uint256 blocksPerMonth)
+	{
 		return numberOfBlocksPerYear / 12;
 	}
 
@@ -94,6 +106,12 @@ contract GoodDollarStaking is
 		_stakeFrom(msg.sender, _amount, _donationRatio);
 	}
 
+	/**
+	 * @dev helper for staking
+	 * @param _from address of staker
+	 * @param _amount The amount of GD to stake
+	 * @param _donationRatio percentage between 0-100
+	 */
 	function _stakeFrom(
 		address _from,
 		uint256 _amount,
@@ -111,6 +129,12 @@ contract GoodDollarStaking is
 		emit Staked(_from, _amount, _donationRatio);
 	}
 
+	/**
+	 * @notice helper for staking through G$ transferAndCall without approve
+	 * @param _from address of sender
+	 * @param _amount The amount of GD to stake
+	 * @param data should be the donationRatio abi encoded as uint32
+	 */
 	function onTokenTransfer(
 		address _from,
 		uint256 _amount,
@@ -124,8 +148,11 @@ contract GoodDollarStaking is
 	}
 
 	/**
-	 * @dev Withdraws _amount from the staker principle
+	 * @notice Withdraws _amount from the staker principle
 	 * we use getPrinciple and not getProductivity because the user can have more G$ to withdraw than he staked
+	 * @param _amount amount to withdraw
+	 * @return goodRewards how much GOOD rewards were transfered to staker
+	 * @return gdRewards out of withdrawn amount how much was taken from earned interest (amount-gdRewards = taken from deposit)
 	 */
 	function withdrawStake(uint256 _amount)
 		public
@@ -176,6 +203,12 @@ contract GoodDollarStaking is
 		emit StakeWithdraw(msg.sender, _amount, goodRewards, gdRewards);
 	}
 
+	/**
+	 * @notice helper to mint/send G$ rewards from fixed APY
+	 * @param _to address of recipient
+	 * @param _amount how much to mint/send
+	 * @return actualSent how much rewards where actually minted/sent. If RewardsMinter is passed its limit it could be that not all requested amount was awarded.
+	 */
 	function _mintGDRewards(address _to, uint256 _amount)
 		internal
 		returns (uint256 actualSent)
@@ -208,6 +241,8 @@ contract GoodDollarStaking is
 
 	/**
 	 * @dev Stakers can withdraw their rewards without withdrawing their stake
+	 * @return goodRewards recieved GOOD rewards
+	 * @return gdRewards recieved G$ rewards
 	 */
 	function withdrawRewards()
 		public
@@ -244,7 +279,7 @@ contract GoodDollarStaking is
 	}
 
 	/**
-	 * @dev Returns the number of decimals used to get its user representation.
+	 * @dev Returns the number of decimals used for the staking reciept token precision
 	 */
 	function decimals() public view virtual override returns (uint8) {
 		return 2;
@@ -301,7 +336,11 @@ contract GoodDollarStaking is
 		_setAPY(_interestRatePerBlock);
 	}
 
-	/// @dev helper function for multibase and FixedAPYRewards
+	/**
+	 * @dev returns both GOOD and G$ rewards rate
+	 * @return _goodRewardPerBlock GOOD nominal reward rate per block
+	 * @return _gdInterestRatePerBlock the G$ interest rate  per block in 1e18 precision
+	 */
 	function getRewardsPerBlock()
 		public
 		view
@@ -311,7 +350,11 @@ contract GoodDollarStaking is
 		_gdInterestRatePerBlock = Math64x64.mulu(interestRatePerBlockX64, 1e18);
 	}
 
-	/// @dev helper function for multibase and FixedAPYRewards - same stake amount for both
+	/**
+	 * @dev returns the user original deposit amount as registered in MultiBaseShare. should equal stakersInfo.deposit
+	 * @return userStake user deposit amount
+	 * @return totalStaked total deposits
+	 */
 	function getStaked(address _user)
 		public
 		view
@@ -320,7 +363,11 @@ contract GoodDollarStaking is
 		return getProductivity(address(this), _user);
 	}
 
-	/// @dev helper function for multibase and FixedAPYRewards
+	/**
+	 * @dev returns user pending GOOD and G$ rewards
+	 * @return _goodReward GOOD nominal rewards pending
+	 * @return _gdRewardAfterDonation the G$ nominal rewards earned from interest rate after deducting user donation percentage
+	 */
 	function getUserPendingReward(address _user)
 		public
 		view
@@ -332,18 +379,30 @@ contract GoodDollarStaking is
 		(, _gdRewardAfterDonation) = earned(_user);
 	}
 
-	/// @dev helper function for multibase and FixedAPYRewards
+	/**
+	 * @dev returns accumulated rewards per share
+	 * @return _goodRewardPerShare GOOD accumulated rewards
+	 * @return _gdRewardPerShare G$ accumulated rewards
+	 */
 	function totalRewardsPerShare()
 		public
 		view
 		returns (uint256 _goodRewardPerShare, uint256 _gdRewardPerShare)
 	{
 		_goodRewardPerShare = super.totalRewardsPerShare(address(this));
-		_gdRewardPerShare = sharePrice();
+
+		_gdRewardPerShare =
+			((_compound() - stats.totalStaked * PRECISION) * SHARE_PRECISION) /
+			(stats.totalShares * PRECISION);
 	}
 
 	/// @dev helper function for multibase
-	function goodStakerInfo(address _user) public view returns (UserInfo memory) {
+	/// @return userInfo staker info related to GOOD rewards
+	function goodStakerInfo(address _user)
+		public
+		view
+		returns (UserInfo memory userInfo)
+	{
 		return contractToUsers[address(this)][_user];
 	}
 

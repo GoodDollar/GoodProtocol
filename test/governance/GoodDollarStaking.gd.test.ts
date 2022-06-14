@@ -480,11 +480,15 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
     await stake(staker1, STAKE_AMOUNT, DONATION_10_PERCENT, staking);
     await advanceBlocks(BLOCKS_ONE_YEAR);
+    const stats = await staking.stats();
     const sharePrice = await staking.sharePrice();
     let [, accumulatedGdRewardsPerShare] = await staking[
       "totalRewardsPerShare()"
     ]();
     // to be changed
-    expect(accumulatedGdRewardsPerShare).to.equal(sharePrice).to.gt(0);
+    //rewards per share = (principle - deposit) / number of shares = 10500 - 10000 / 1000000
+    expect(accumulatedGdRewardsPerShare)
+      .to.equal(BN.from("10500").sub("10000").mul(1e8).div(stats.totalShares))
+      .to.gt(0); //mul by 1e8 = SHARE_PRECISION
   });
 });
