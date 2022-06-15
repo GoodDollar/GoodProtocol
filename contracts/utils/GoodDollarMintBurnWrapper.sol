@@ -264,7 +264,7 @@ contract GoodDollarMintBurnWrapper is
 	/**
 	 * @notice implement the IRouter burn required for work with multichain router. This method is used by the multichain bridge to burn tokens on sidechain
 	 * on bridge transfer to other chain. Can only be called by the ROUTER role
-	 * @param from sender - requires sender to first tokens to the wrapper or use transferAndCall
+	 * @param from sender - requires sender to first approve tokens to the wrapper or use transferAndCall
 	 * @param amount amount to mint
 	 */
 	function burn(address from, uint256 amount)
@@ -522,16 +522,16 @@ contract GoodDollarMintBurnWrapper is
 	 * @notice helper for sendOrMint action to update the rewarder daily limit if updateFrequency passed
 	 */
 	function _updateDailyLimitCap(Supply storage minter) internal {
-		uint256 secondsPased = block.timestamp - minter.lastUpdate;
+		uint256 secondsPassed = block.timestamp - minter.lastUpdate;
 
-		if (secondsPased >= updateFrequency) {
+		if (secondsPassed >= updateFrequency) {
 			minter.dailyCap = uint128(
 				(IERC20Upgradeable(token).totalSupply() * minter.bpsPerDay) / 10000
 			);
 			minter.lastUpdate = uint128(block.timestamp);
 			// console.log(
 			// 	"secondsPassed %s %s %s",
-			// 	secondsPased,
+			// 	secondsPassed,
 			// 	minter.dailyCap,
 			// 	minter.lastUpdate
 			// );
