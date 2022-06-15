@@ -458,4 +458,12 @@ interface IMultichainRouter {
 		uint256 amount,
 		uint256 toChainID
 	) external;
+
+	// Swaps `amount` `token` from this chain to `toChainID` chain with recipient `to`
+	function anySwapOutUnderlying(
+		address token,
+		address to,
+		uint256 amount,
+		uint256 toChainID
+	) external;
 }
