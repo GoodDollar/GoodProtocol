@@ -1,13 +1,7 @@
-import { default as hre, ethers, upgrades, waffle } from "hardhat";
+import { default as hre, ethers, waffle } from "hardhat";
 import { BigNumber, Contract, Signer } from "ethers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
-import {
-  GoodMarketMaker,
-  GoodReserveCDai,
-  GReputation,
-  GoodDollarStaking
-} from "../../types";
+import { GoodReserveCDai, GReputation, GoodDollarStaking } from "../../types";
 import { createDAO, advanceBlocks } from "../helpers";
 import { FormatTypes } from "ethers/lib/utils";
 
@@ -19,12 +13,9 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   let dai: Contract;
   let cDAI: Contract;
   let goodReserve: GoodReserveCDai;
-  let governanceStaking: GoodDollarStaking;
-  let goodFundManager: Contract;
   let grep: GReputation;
   let avatar,
     goodDollar,
-    marketMaker: GoodMarketMaker,
     controller,
     founder,
     staker,
@@ -39,28 +30,18 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     [founder, staker, staker2, staker3, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
     const cdaiFactory = await ethers.getContractFactory("cDAIMock");
-    const goodFundManagerFactory = await ethers.getContractFactory(
-      "GoodFundManager"
-    );
-    const governanceStakingFactory = await ethers.getContractFactory(
-      "GoodDollarStaking"
-    );
 
     let {
       controller: ctrl,
       avatar: av,
       gd,
       identity,
-      daoCreator,
       nameService: ns,
       setDAOAddress: sda,
-      setSchemes,
-      marketMaker: mm,
       daiAddress,
       cdaiAddress,
       reserve,
-      reputation,
-      setReserveToken
+      reputation
     } = await createDAO();
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
@@ -76,38 +57,12 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
       controller,
       avatar
     });
-    goodFundManager = await upgrades.deployProxy(
-      goodFundManagerFactory,
-      [nameService.address],
-      { kind: "uups" }
-    );
-    grep = (await ethers.getContractAt(
-      "GReputation",
-      reputation
-    )) as GReputation;
-    console.log("Deployed goodfund manager", {
-      manager: goodFundManager.address
-    });
+
+    grep = (await ethers.getContractAt("GReputation", reputation)) as GReputation;
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
-
-    marketMaker = mm;
-
-    console.log("setting permissions...");
-    governanceStaking = (await governanceStakingFactory.deploy(
-      nameService.address,
-      BN.from("1000000007735630000"),
-      518400 * 12,
-      30
-    )) as GoodDollarStaking;
-
-    setDAOAddress("CDAI", cDAI.address);
-    setDAOAddress("DAI", dai.address);
 
     //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
     await goodReserve.setAddresses();
-
-    await setDAOAddress("MARKET_MAKER", marketMaker.address);
-    await setDAOAddress("FUND_MANAGER", goodFundManager.address);
   });
 
   const fixture = async (wallets, provider) => {
@@ -117,9 +72,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     const staking = (await waffle.deployContract(
       wallets[0],
       {
-        abi: JSON.parse(
-          f.interface.format(FormatTypes.json) as string
-        ) as any[],
+        abi: JSON.parse(f.interface.format(FormatTypes.json) as string) as any[],
         bytecode: f.bytecode
       },
       [nameService.address, BN.from("1000000007735630000"), 518400 * 12, 30]
@@ -137,9 +90,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     const staking = (await waffle.deployContract(
       wallets[0],
       {
-        abi: JSON.parse(
-          f.interface.format(FormatTypes.json) as string
-        ) as any[],
+        abi: JSON.parse(f.interface.format(FormatTypes.json) as string) as any[],
         bytecode: f.bytecode
       },
       [nameService.address, BN.from("1000000007735630000"), 518400 * 12, 30]
@@ -159,9 +110,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     const staking = (await waffle.deployContract(
       wallets[0],
       {
-        abi: JSON.parse(
-          f.interface.format(FormatTypes.json) as string
-        ) as any[],
+        abi: JSON.parse(f.interface.format(FormatTypes.json) as string) as any[],
         bytecode: f.bytecode
       },
       [nameService.address, BN.from("1000000007735630000"), 518400 * 12, 30]
@@ -172,15 +121,14 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     return { staking };
   };
 
-  it("Should not mint reward when staking contract is not minter ", async () => {
+  it("Should not revert withdraw but also not mint GOOD reward when staking contract is not minter", async () => {
     const { staking } = await waffle.loadFixture(fixture);
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(staking.address, "100");
     await staking.stake("100", 0);
     await advanceBlocks(5);
-    await await expect(staking.withdrawStake("100")).to.revertedWith(
-      "GReputation: need minter role or be GDAO contract"
-    );
+    await expect(staking.withdrawStake("100")).to.not.reverted;
+    expect(await grep.balanceOfLocal(founder.address)).to.eq(0);
   });
 
   it("Should be able to mint rewards after set GDAO staking contract", async () => {
@@ -191,9 +139,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     await staking.stake("100", 0);
     await advanceBlocks(5);
 
-    const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(
-      founder.address
-    );
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(founder.address);
     await staking.withdrawStake("100");
     const GDAOBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
 
@@ -203,16 +149,11 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   it("Avatar should be able to change rewards per block", async () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
 
-    const ictrl = await ethers.getContractAt(
-      "Controller",
-      controller,
-      schemeMock
-    );
+    const ictrl = await ethers.getContractAt("Controller", controller, schemeMock);
 
-    let encodedCall = staking.interface.encodeFunctionData(
-      "setMonthlyGOODRewards",
-      [ethers.utils.parseEther("1728000")]
-    );
+    let encodedCall = staking.interface.encodeFunctionData("setMonthlyGOODRewards", [
+      ethers.utils.parseEther("1728000")
+    ]);
     await ictrl.genericCall(staking.address, encodedCall, avatar, 0);
     const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     expect(rewardsPerBlock).to.equal(
@@ -223,9 +164,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await staking.stake("100", 0);
     await advanceBlocks(4);
-    const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(
-      founder.address
-    );
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(founder.address);
     await staking.withdrawStake("100");
     const withdrawBlockNumber = await ethers.provider.getBlockNumber();
     const GDAOBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
@@ -244,9 +183,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await staking.stake("100", 0);
     await advanceBlocks(4);
-    const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(
-      founder.address
-    );
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(founder.address);
     const transaction = await (await staking.withdrawRewards()).wait();
     const withdrawBlockNumber = await ethers.provider.getBlockNumber();
     const GDAOBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
@@ -255,8 +192,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     expect(GDAOBalanceAfterWithdraw).to.be.equal(
       GDAOBalanceBeforeWithdraw.add(calculatedReward)
     );
-    expect(transaction.events.find(_ => _.event === "ReputationEarned")).to.be
-      .not.empty;
+    expect(transaction.events.find(_ => _.event === "ReputationEarned")).to.be.not.empty;
   });
 
   it("Should be able to withdraw transferred stakes", async () => {
@@ -268,9 +204,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     await advanceBlocks(4);
     await staking.connect(staker).transfer(founder.address, "100");
     await staking.connect(staker).withdrawRewards();
-    const gdaoBalanceBeforeWithdraw = await grep.balanceOfLocal(
-      founder.address
-    );
+    const gdaoBalanceBeforeWithdraw = await grep.balanceOfLocal(founder.address);
     await staking.withdrawStake("100");
     const gdaoBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
     expect(gdaoBalanceAfterWithdraw).to.gt(gdaoBalanceBeforeWithdraw);
@@ -289,11 +223,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   it("it should distribute reward with correct precision", async () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
 
-    const ictrl = await ethers.getContractAt(
-      "Controller",
-      controller,
-      schemeMock
-    );
+    const ictrl = await ethers.getContractAt("Controller", controller, schemeMock);
 
     let encodedCall = staking.interface.encodeFunctionData(
       "setMonthlyGOODRewards",
@@ -306,9 +236,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await staking.stake("100", 0);
     await advanceBlocks(4);
-    const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(
-      founder.address
-    );
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(founder.address);
     await staking.withdrawStake("100");
     const withdrawBlockNumber = await ethers.provider.getBlockNumber();
     const GDAOBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
@@ -323,11 +251,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   it("it should not generate rewards when rewards per block set to 0", async () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
 
-    const ictrl = await ethers.getContractAt(
-      "Controller",
-      controller,
-      schemeMock
-    );
+    const ictrl = await ethers.getContractAt("Controller", controller, schemeMock);
 
     let encodedCall = staking.interface.encodeFunctionData(
       "setMonthlyGOODRewards",
@@ -338,14 +262,10 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(staking.address, "100");
     await staking.stake("100", 0);
-    const userProductivity = await staking["getStaked(address)"](
-      founder.address
-    );
+    const userProductivity = await staking["getStaked(address)"](founder.address);
     expect(userProductivity[0]).to.be.equal(BN.from("100"));
     await advanceBlocks(4);
-    const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(
-      founder.address
-    );
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(founder.address);
     await staking.withdrawStake("100");
     const GDAOBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
     expect(GDAOBalanceAfterWithdraw.sub(GDAOBalanceBeforeWithdraw)).to.equal(0);
@@ -356,16 +276,14 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(staking.address, "100");
     await staking.stake("100", 0);
-    const productivityValue = await staking["getStaked(address)"](
-      founder.address
-    );
+    const productivityValue = await staking["getStaked(address)"](founder.address);
 
     expect(productivityValue[0].toString()).to.be.equal("100");
     expect(productivityValue[1].toString()).to.be.equal("100");
     await staking.withdrawStake("100");
   });
 
-  it("it should return earned rewards with pending ones properly", async () => {
+  it("it should return earned rewards with pending ones properly for a short period", async () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
     const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     await goodDollar.mint(founder.address, "100");
@@ -392,9 +310,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await staking.stake("1000000000000", 0);
     await advanceBlocks(4);
-    const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(
-      founder.address
-    );
+    const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(founder.address);
     await staking.withdrawStake("1000000000000");
     const withdrawBlockNumber = await ethers.provider.getBlockNumber();
     const GDAOBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
@@ -414,21 +330,16 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     await goodDollar.approve(staking.address, "800");
     await goodDollar.connect(staker).approve(staking.address, "200");
     await staking.stake("800", 0);
-    const secondStakerStakeBlockNumber =
-      (await ethers.provider.getBlockNumber()) + 1;
+    const secondStakerStakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await staking.connect(staker).stake("200", 0);
     await advanceBlocks(4);
     const GDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(staker.address);
-    const FounderGDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(
-      founder.address
-    );
+    const FounderGDAOBalanceBeforeWithdraw = await grep.balanceOfLocal(founder.address);
     await staking.withdrawStake("800");
     const founderWithdrawBlockNumber = await ethers.provider.getBlockNumber();
     await staking.connect(staker).withdrawStake("200");
     const GDAOBalanceAfterWithdraw = await grep.balanceOfLocal(staker.address);
-    const FounderGDAOBalanceAfterWithdraw = await grep.balanceOfLocal(
-      founder.address
-    );
+    const FounderGDAOBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
     const founderCalculatedRewards = rewardsPerBlock.add(
       rewardsPerBlock
         .mul(80)
@@ -455,13 +366,9 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     await goodDollar.approve(staking.address, "100");
     await staking.stake("100", 0);
     await staking.approve(staker.address, "100");
-    const stakerProductivityBeforeTransfer = await staking.getStaked(
-      staker.address
-    );
+    const stakerProductivityBeforeTransfer = await staking.getStaked(staker.address);
 
-    await staking
-      .connect(staker)
-      .transferFrom(founder.address, staker.address, "100");
+    await staking.connect(staker).transferFrom(founder.address, staker.address, "100");
     const stakerProductivity = await staking.getStaked(staker.address);
 
     expect(await staking.balanceOf(founder.address)).to.equal(0);
@@ -488,28 +395,22 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
 
     expect(await staking.balanceOf(staker2.address)).to.equal(199);
 
-    expect((await staking.goodStakerInfo(staker2.address)).amount).to.equal(
-      199
-    );
+    expect((await staking.goodStakerInfo(staker2.address)).amount).to.equal(199);
     expect((await staking.goodStakerInfo(staker2.address)).rewardDebt).to.gt(0); //should have withdrawn rewards after withdraw stake
-    expect((await staking.goodStakerInfo(staker2.address)).rewardEarn).to.equal(
-      0
-    ); //should have 0 pending rewards after withdraw stake
+    expect((await staking.goodStakerInfo(staker2.address)).rewardEarn).to.equal(0); //should have 0 pending rewards after withdraw stake
 
     await advanceBlocks(10);
     await goodDollar.connect(staker2).approve(staking.address, "200");
 
     await staking.connect(staker2).stake("1", 0); //should calculate user pending rewards
 
-    expect(
-      (await staking.goodStakerInfo(staker2.address)).rewardEarn
-    ).to.be.equal(
+    expect((await staking.goodStakerInfo(staker2.address)).rewardEarn).to.be.equal(
       0 //should have 0 rewardEarned because every action, like the above stake withdraws gdao rewards
     );
     await advanceBlocks(2); // pass some blocks
-    const [userPendingGoodReward] = await staking[
-      "getUserPendingReward(address)"
-    ](staker2.address);
+    const [userPendingGoodReward] = await staking["getUserPendingReward(address)"](
+      staker2.address
+    );
     expect(userPendingGoodReward).to.be.gt(0);
   });
 
@@ -521,9 +422,9 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     await staking.connect(staker).stake("100", 0);
     await advanceBlocks(10);
 
-    let [userPendingGoodRewards] = await staking[
-      "getUserPendingReward(address)"
-    ](staker.address);
+    let [userPendingGoodRewards] = await staking["getUserPendingReward(address)"](
+      staker.address
+    );
     expect(userPendingGoodRewards).to.be.gt(0);
     await staking.connect(staker).withdrawRewards();
     [userPendingGoodRewards] = await staking["getUserPendingReward(address)"](
@@ -553,9 +454,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     await goodDollar.connect(staker).approve(staking.address, "200");
 
     await staking.stake("100", 0);
-    let accumulatedRewardsPerShare = (
-      await staking["totalRewardsPerShare()"]()
-    )[0];
+    let accumulatedRewardsPerShare = (await staking["totalRewardsPerShare()"]())[0];
     expect(accumulatedRewardsPerShare).to.equal(0); //first has no accumulated rewards yet, since no blocks have passed since staking
 
     await staking.stake("100", 0);
@@ -567,10 +466,6 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     );
     let totalProductiviy = BN.from("100");
 
-    console.log(
-      { accumulatedRewardsPerShare },
-      await staking.getRewardsPerBlock()
-    );
     //totalRewardsPerShare is in 1e27 , divid by  1e9 to get 1e18 decimals
     expect(accumulatedRewardsPerShare.div(BN.from(1e9))).to.equal(
       ethers.utils
@@ -585,9 +480,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
 
     totalProductiviy = totalProductiviy.add(BN.from("100")); //second stake
     await staking.connect(staker).stake("100", 0);
-    let accumulatedRewardsPerShare2 = (
-      await staking["totalRewardsPerShare()"]()
-    )[0];
+    let accumulatedRewardsPerShare2 = (await staking["totalRewardsPerShare()"]())[0];
 
     //shouldnt be naive accumlattion of 2 blocks, since total productivity has changed between blocks
     expect(accumulatedRewardsPerShare2.div(BN.from(1e9))).to.not.equal(
@@ -602,15 +495,8 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
       "2 blocks"
     ); //2 blocks passed but now we have 200 total productivity before 3rd stake
 
-    console.log(
-      accumulatedRewardsPerShare2.toString(),
-      accumulatedRewardsPerShare.toString()
-    );
-
     const calculatedAccRewards = rdiv(
-      ethers.utils
-        .parseEther("2000000")
-        .div(await staking.getChainBlocksPerMonth()),
+      ethers.utils.parseEther("2000000").div(await staking.getChainBlocksPerMonth()),
       totalProductiviy
     );
     //accumulated so far plus block accumulation
@@ -618,7 +504,6 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
       calculatedAccRewards.add(accumulatedRewardsPerShare), //add rewards from previous block
       "2 blocks correct"
     );
-    await setDAOAddress("GDAO_STAKING", governanceStaking.address);
   });
 
   it("Staking tokens should be 2 decimals", async () => {
@@ -637,8 +522,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   it("It should approve stake amount in order to stake", async () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
 
-    await expect(staking.stake(ethers.utils.parseEther("10000000"), 0)).to
-      .reverted;
+    await expect(staking.stake(ethers.utils.parseEther("10000000"), 0)).to.reverted;
   });
 
   it("Withdraw 0 should succeed", async () => {
@@ -682,14 +566,10 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await staking.stake("100", 0);
     await advanceBlocks(5);
-    const gdaoBalanceBeforeGetRewards = await grep.balanceOfLocal(
-      founder.address
-    );
+    const gdaoBalanceBeforeGetRewards = await grep.balanceOfLocal(founder.address);
     await staking.stake("100", 0);
     const getRewardsBlockNumber = await ethers.provider.getBlockNumber();
-    const gdaoBalanceAfterGetRewards = await grep.balanceOfLocal(
-      founder.address
-    );
+    const gdaoBalanceAfterGetRewards = await grep.balanceOfLocal(founder.address);
     const multiplier = getRewardsBlockNumber - stakeBlockNumber;
     const calculatedReward = rewardsPerBlock.mul(multiplier); // We calculate user rewards since it's the only staker so gets whole rewards so rewardsPerBlock * multipler(block that passed between stake and withdraw)
     await staking.withdrawStake("200");
@@ -710,40 +590,25 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
 
     await goodDollar.approve(staking.address, stakingAmount);
     await goodDollar.connect(staker).approve(staking.address, stakingAmount);
-    await goodDollar
-      .connect(signers[0])
-      .approve(staking.address, stakingAmount);
-    await goodDollar
-      .connect(signers[1])
-      .approve(staking.address, stakingAmount);
+    await goodDollar.connect(signers[0]).approve(staking.address, stakingAmount);
+    await goodDollar.connect(signers[1]).approve(staking.address, stakingAmount);
     await staking.stake(stakingAmount, 0);
-    const stakerOneGDAOBalanceAfterStake = await grep.balanceOfLocal(
-      founder.address
-    );
+    const stakerOneGDAOBalanceAfterStake = await grep.balanceOfLocal(founder.address);
     await staking.connect(staker).stake(stakingAmount.div(10), 0);
-    const stakerTwoGDAOBalanceAfterStake = await grep.balanceOfLocal(
-      staker.address
-    );
+    const stakerTwoGDAOBalanceAfterStake = await grep.balanceOfLocal(staker.address);
     await staking.connect(signers[0]).stake(stakingAmount.div(4), 0);
     const stakerThreeGDAOBalanceAfterStake = await grep.balanceOfLocal(
       signers[0].address
     );
-    const stakerFourStakeBlockNumber =
-      (await ethers.provider.getBlockNumber()) + 1;
+    const stakerFourStakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await staking.connect(signers[1]).stake(stakingAmount.div(5), 0);
-    const stakerFourGDAOBalanceAfterStake = await grep.balanceOfLocal(
-      signers[1].address
-    );
+    const stakerFourGDAOBalanceAfterStake = await grep.balanceOfLocal(signers[1].address);
     await advanceBlocks(10);
     await staking.withdrawStake(stakingAmount);
     const stakerOneWithdrawBlockNumber = await ethers.provider.getBlockNumber();
-    const stakerOneGDAOBalanceAfterWithdraw = await grep.balanceOfLocal(
-      founder.address
-    );
+    const stakerOneGDAOBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
     await staking.connect(staker).withdrawStake(stakingAmount.div(10));
-    const stakerTwoGDAOBalanceAfterWithdraw = await grep.balanceOfLocal(
-      staker.address
-    );
+    const stakerTwoGDAOBalanceAfterWithdraw = await grep.balanceOfLocal(staker.address);
     await staking.connect(signers[0]).withdrawStake(stakingAmount.div(4));
     const stakerThreeGDAOBalanceAfterWithdraw = await grep.balanceOfLocal(
       signers[0].address
@@ -812,34 +677,24 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     const { staking } = await waffle.loadFixture(fixture_ready);
 
     const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
-    console.log(rewardsPerBlock.toString());
     const stakingAmount = BN.from("10000");
     await goodDollar.mint(founder.address, stakingAmount);
     await goodDollar.mint(staker.address, stakingAmount);
     await goodDollar.approve(staking.address, stakingAmount);
     await goodDollar.connect(staker).approve(staking.address, stakingAmount);
     await staking.stake(stakingAmount, 0);
-    const stakerOneGDAOBalanceAfterStake = await grep.balanceOfLocal(
-      founder.address
-    );
-    const stakerTwoStakeBlockNumber =
-      (await ethers.provider.getBlockNumber()) + 1;
+    const stakerOneGDAOBalanceAfterStake = await grep.balanceOfLocal(founder.address);
+    const stakerTwoStakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await staking.connect(staker).stake(stakingAmount.div(10000), 0);
-    const stakerTwoGDAOBalanceAfterStake = await grep.balanceOfLocal(
-      staker.address
-    );
+    const stakerTwoGDAOBalanceAfterStake = await grep.balanceOfLocal(staker.address);
     await advanceBlocks(10);
 
     await staking.connect(staker).withdrawStake(stakingAmount.div(10000));
     const stakerTwoWithdrawBlockNumber = await ethers.provider.getBlockNumber();
     await staking.withdrawStake(stakingAmount);
 
-    const stakerOneGDAOBalanceAfterWithdraw = await grep.balanceOfLocal(
-      founder.address
-    );
-    const stakerTwoGDAOBalanceAfterWithdraw = await grep.balanceOfLocal(
-      staker.address
-    );
+    const stakerOneGDAOBalanceAfterWithdraw = await grep.balanceOfLocal(founder.address);
+    const stakerTwoGDAOBalanceAfterWithdraw = await grep.balanceOfLocal(staker.address);
     const calculatedRewardsStakerOne = rewardsPerBlock
       .add(
         rewardsPerBlock
@@ -885,9 +740,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   it("it should not overmint rewards when staker withdraw their rewards", async () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
 
-    const overmintTesterFactory = await ethers.getContractFactory(
-      "OverMintTester"
-    );
+    const overmintTesterFactory = await ethers.getContractFactory("OverMintTester");
     const overMintTester = await overmintTesterFactory.deploy(
       goodDollar.address,
       staking.address,
@@ -897,9 +750,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     const stakeBlockNumber = (await ethers.provider.getBlockNumber()) + 1;
     await overMintTester.stake();
-    const GDAOBalanceAfterStake = await grep.balanceOfLocal(
-      overMintTester.address
-    );
+    const GDAOBalanceAfterStake = await grep.balanceOfLocal(overMintTester.address);
     await advanceBlocks(100);
     await overMintTester.overMintTest();
     const withdrawRewardsBlockNumber = await ethers.provider.getBlockNumber();
@@ -908,38 +759,27 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     );
     await advanceBlocks(20);
     await overMintTester.overMintTest();
-    const secondWithdrawRewardsBlockNumber =
-      await ethers.provider.getBlockNumber();
+    const secondWithdrawRewardsBlockNumber = await ethers.provider.getBlockNumber();
     const GDAOBalanceAfterSecondWithdrawReward = await grep.balanceOfLocal(
       overMintTester.address
     );
 
     expect(GDAOBalanceAfterWithdrawReward).to.be.gt(GDAOBalanceAfterStake);
-    expect(
-      GDAOBalanceAfterWithdrawReward.sub(GDAOBalanceAfterStake)
-    ).to.be.equal(
+    expect(GDAOBalanceAfterWithdrawReward.sub(GDAOBalanceAfterStake)).to.be.equal(
       rewardsPerBlock.mul(withdrawRewardsBlockNumber - stakeBlockNumber)
     );
-    expect(GDAOBalanceAfterSecondWithdrawReward).to.be.gt(
-      GDAOBalanceAfterWithdrawReward
-    );
+    expect(GDAOBalanceAfterSecondWithdrawReward).to.be.gt(GDAOBalanceAfterWithdrawReward);
     expect(
       GDAOBalanceAfterSecondWithdrawReward.sub(GDAOBalanceAfterWithdrawReward)
     ).to.be.equal(
-      rewardsPerBlock.mul(
-        secondWithdrawRewardsBlockNumber - withdrawRewardsBlockNumber
-      )
+      rewardsPerBlock.mul(secondWithdrawRewardsBlockNumber - withdrawRewardsBlockNumber)
     );
   });
 
   it("it should accrue previous rewards based on previous monthly rate on monthly rewards rate change to 0", async () => {
     const { staking } = await waffle.loadFixture(fixture_ready);
 
-    const ictrl = await ethers.getContractAt(
-      "Controller",
-      controller,
-      schemeMock
-    );
+    const ictrl = await ethers.getContractAt("Controller", controller, schemeMock);
 
     const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     await goodDollar.mint(founder.address, "100");
@@ -962,32 +802,6 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     );
     expect(pendingReward).to.equal(calculatedReward);
     await advanceBlocks(4);
-  });
-
-  it("should update stakingrewardsfixedapy staker info and global stats when staking", async () => {});
-
-  it("should withdraw from deposit and undo rewards if unable to mint rewards", async () => {
-    //test that withdraw is success for deposit part even if call to GoodDollarMintBurnWrapper fails
-  });
-
-  it("should withdraw rewards after mint rewards is enabled again", async () => {});
-
-  it("should get G$ rewards when withdrawing", async () => {
-    //need to make sure GoodDollarMintBurnWrapper is deployed or some mock, so it can mint rewards
-    //test that G$ balance is equal to principle after some interest was earned
-  });
-
-  it("should perform upgrade", async () => {
-    //make sure in fixture_upgrade it is set as scheme with permissions 0x0000001f
-    //need to another contract set as GDAO_STAKING in nameservice
-  });
-
-  it("should change GD apy only by avatar", async () => {});
-
-  it("should withdraw only rewards when calling withdrawRewards", async () => {});
-
-  it("should handle stakingrewardsfixed apy correctly when transfering staking tokens", async () => {
-    //test that logic of _transfer is as expected
   });
 
   function rdiv(x: BigNumber, y: BigNumber) {

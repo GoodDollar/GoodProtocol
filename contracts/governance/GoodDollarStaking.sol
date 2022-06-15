@@ -2,14 +2,16 @@
 
 pragma solidity >=0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "../utils/DAOUpgradeableContract.sol";
+import { ERC20 as ERC20_OZ } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "../utils/DAOContract.sol";
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
 import "./MultiBaseGovernanceShareField.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "../staking/utils/StakingRewardsFixedAPY.sol";
+import "hardhat/console.sol";
 
 interface RewardsMinter {
 	function sendOrMint(address to, uint256 amount) external returns (uint256);
@@ -20,19 +22,19 @@ interface RewardsMinter {
  * it implements
  */
 contract GoodDollarStaking is
-	ERC20Upgradeable,
+	ERC20_OZ,
 	MultiBaseGovernanceShareField,
-	DAOUpgradeableContract,
-	ReentrancyGuardUpgradeable,
+	DAOContract,
+	ReentrancyGuard,
 	StakingRewardsFixedAPY
 {
 	// Token address
-	ERC20 token;
+	ERC20 public token;
 
-	uint128 public numberOfBlocksPerYear;
+	uint128 public numberOfBlocksPerYear; //required for getChainBlocksPerMonth for GOOD rewards calculations
 
-	uint128 createdAt;
-	uint32 daysUntilUpgrade;
+	uint128 public createdAt; //required for upgrade process
+	uint32 public daysUntilUpgrade; //required for upgrade process
 
 	/**
 	 * @dev Emitted when `staker` earns an `amount` of GOOD tokens
@@ -57,24 +59,35 @@ contract GoodDollarStaking is
 	/**
 	 * @dev Constructor
 	 * @param _ns The address of the INameService contract
+	 * @param _interestRatePerBlock G$ rewards fixed APY in 1e18 precision
+	 * @param _numberOfBlocksPerYear blockchain approx blocks per year for GOOD rewards
+	 * @param _daysUntilUpgrade when it is allowed to upgrade from older GovernanceStaking
 	 */
 	constructor(
 		INameService _ns,
 		uint128 _interestRatePerBlock,
 		uint128 _numberOfBlocksPerYear,
 		uint32 _daysUntilUpgrade
-	) {
+	) ERC20_OZ("G$ Savings", "svG$") {
 		_setAPY(_interestRatePerBlock);
 		setDAO(_ns);
 		numberOfBlocksPerYear = _numberOfBlocksPerYear;
 		token = ERC20(nameService.getAddress("GOODDOLLAR"));
-		__ERC20_init("G$ Savings", "svG$");
 		rewardsPerBlock[address(this)] = 0;
 		createdAt = uint128(block.timestamp);
 		daysUntilUpgrade = _daysUntilUpgrade;
 	}
 
-	function getChainBlocksPerMonth() public view override returns (uint256) {
+	/**
+	 * @notice return approx chain blocks per month
+	 * @return blocksPerMonth approx blocks per month
+	 */
+	function getChainBlocksPerMonth()
+		public
+		view
+		override
+		returns (uint256 blocksPerMonth)
+	{
 		return numberOfBlocksPerYear / 12;
 	}
 
@@ -87,12 +100,18 @@ contract GoodDollarStaking is
 	 */
 	function stake(uint256 _amount, uint32 _donationRatio) external {
 		require(
-			token.transferFrom(_msgSender(), address(this), _amount),
+			token.transferFrom(msg.sender, address(this), _amount),
 			"transferFrom failed, make sure you approved token transfer"
 		);
-		_stakeFrom(_msgSender(), _amount, _donationRatio);
+		_stakeFrom(msg.sender, _amount, _donationRatio);
 	}
 
+	/**
+	 * @dev helper for staking
+	 * @param _from address of staker
+	 * @param _amount The amount of GD to stake
+	 * @param _donationRatio percentage between 0-100
+	 */
 	function _stakeFrom(
 		address _from,
 		uint256 _amount,
@@ -110,12 +129,18 @@ contract GoodDollarStaking is
 		emit Staked(_from, _amount, _donationRatio);
 	}
 
+	/**
+	 * @notice helper for staking through G$ transferAndCall without approve
+	 * @param _from address of sender
+	 * @param _amount The amount of GD to stake
+	 * @param data should be the donationRatio abi encoded as uint32
+	 */
 	function onTokenTransfer(
 		address _from,
 		uint256 _amount,
 		bytes calldata data
 	) external returns (bool success) {
-		require(_msgSender() == address(token), "unsupported token");
+		require(msg.sender == address(token), "unsupported token");
 		uint32 donationRatio = abi.decode(data, (uint32));
 
 		_stakeFrom(_from, _amount, donationRatio);
@@ -123,8 +148,11 @@ contract GoodDollarStaking is
 	}
 
 	/**
-	 * @dev Withdraws _amount from the staker principle
-	 * we use getPrinciple and not getProductivity because the user can have more G$ to withdraw than he staked
+	 * @notice Withdraws _amount from the staker principle
+	 * in _withdraw we use getPrinciple and not getProductivity because the user can have more G$ to withdraw than he staked
+	 * @param _amount amount to withdraw
+	 * @return goodRewards how much GOOD rewards were transfered to staker
+	 * @return gdRewards out of withdrawn amount how much was taken from earned interest (amount-gdRewards = taken from deposit)
 	 */
 	function withdrawStake(uint256 _amount)
 		public
@@ -137,8 +165,8 @@ contract GoodDollarStaking is
 		if (_amount > 0) {
 			/* G$ rewards update */
 			//we get the relative part user is withdrawing from his original deposit, his principle is composed of deposit+earned interest
-			(depositComponent, gdRewards) = _withdraw(_msgSender(), _amount);
-			_burn(_msgSender(), depositComponent); // burn their staking tokens
+			(depositComponent, gdRewards) = _withdraw(msg.sender, _amount);
+			_burn(msg.sender, depositComponent); // burn their staking tokens
 		}
 
 		// console.log(
@@ -151,60 +179,76 @@ contract GoodDollarStaking is
 		if (depositComponent > 0) {
 			_decreaseProductivity(
 				address(this),
-				_msgSender(),
+				msg.sender,
 				depositComponent,
 				0,
 				block.number
 			);
 		}
-		goodRewards = _mintGOODRewards(_msgSender());
+		goodRewards = _mintGOODRewards(msg.sender);
 		/* end Good rewards update */
 
 		//rewards are paid via the rewards distribution contract
 		if (gdRewards > 0) {
-			_mintGDRewards(_msgSender(), gdRewards);
+			_mintGDRewards(msg.sender, gdRewards);
 		}
 
 		//stake is withdrawn from original deposit sent to this contract
 		if (depositComponent > 0) {
 			require(
-				token.transfer(_msgSender(), depositComponent),
+				token.transfer(msg.sender, depositComponent),
 				"withdraw transfer failed"
 			);
 		}
-		emit StakeWithdraw(_msgSender(), _amount, goodRewards, gdRewards);
+		emit StakeWithdraw(msg.sender, _amount, goodRewards, gdRewards);
 	}
 
+	/**
+	 * @notice helper to mint/send G$ rewards from fixed APY
+	 * @param _to address of recipient
+	 * @param _amount how much to mint/send
+	 * @return actualSent how much rewards where actually minted/sent. If RewardsMinter is passed its limit it could be that not all requested amount was awarded.
+	 */
 	function _mintGDRewards(address _to, uint256 _amount)
 		internal
 		returns (uint256 actualSent)
 	{
 		//make sure RewardsMinter failure doesnt prevent withdrawl of stake
+		//console.log("_mintGDRewards: sending amount: %s to: %s", _amount, _to);
 		try
 			RewardsMinter(nameService.getAddress("MintBurnWrapper")).sendOrMint(
 				_to,
 				_amount
 			)
 		returns (uint256 _res) {
+			//console.log("sendOrMint result: %s", _res);
 			actualSent = _res;
 		} catch {
+			//console.log("sendOrMint threw an error");
 			actualSent = 0;
 		}
 		//it could be that rewards minter doesnt have enough or passed cap
 		//so we keep track of debt to user
 		if (actualSent < _amount) {
+			// console.log(
+			// 	"Actually sent: %s, will undo %s",
+			// 	actualSent,
+			// 	_amount - actualSent
+			// );
 			_undoReward(_to, _amount - actualSent);
 		}
 	}
 
 	/**
 	 * @dev Stakers can withdraw their rewards without withdrawing their stake
+	 * @return goodRewards recieved GOOD rewards
+	 * @return gdRewards recieved G$ rewards
 	 */
 	function withdrawRewards()
 		public
 		returns (uint256 goodRewards, uint256 gdRewards)
 	{
-		(, uint256 gdRewardsAfterDonation) = earned(_msgSender());
+		(, uint256 gdRewardsAfterDonation) = earned(msg.sender);
 
 		//this will trigger a withdraw only of rewards part
 		return withdrawStake(gdRewardsAfterDonation);
@@ -213,20 +257,29 @@ contract GoodDollarStaking is
 	/**
 	 * @dev Mint GOOD rewards of the staker
 	 * @param user Receipent address of the rewards
-	 * @return Returns amount of the minted rewards
+	 * @return amount of the minted rewards
 	 * emits 'ReputationEarned' event for staker earned GOOD amount
 	 */
-	function _mintGOODRewards(address user) internal returns (uint256) {
-		uint256 amount = _issueEarnedRewards(address(this), user, 0, block.number);
-		if (amount > 0) {
-			ERC20(nameService.getAddress("REPUTATION")).mint(user, amount);
-			emit ReputationEarned(_msgSender(), amount);
+	function _mintGOODRewards(address user) internal returns (uint256 amount) {
+		//try to mint only if have minter permission, so user can always withdraw his funds without this reverting
+		if (
+			nameService.getAddress("GDAO_STAKING") == address(this) ||
+			AccessControl(nameService.getAddress("REPUTATION")).hasRole(
+				keccak256("MINTER_ROLE"),
+				address(this)
+			)
+		) {
+			amount = _issueEarnedRewards(address(this), user, 0, block.number);
+			if (amount > 0) {
+				ERC20(nameService.getAddress("REPUTATION")).mint(user, amount);
+				emit ReputationEarned(msg.sender, amount);
+			}
 		}
 		return amount;
 	}
 
 	/**
-	 * @dev Returns the number of decimals used to get its user representation.
+	 * @dev Returns the number of decimals used for the staking reciept token precision
 	 */
 	function decimals() public view virtual override returns (uint8) {
 		return 2;
@@ -283,7 +336,11 @@ contract GoodDollarStaking is
 		_setAPY(_interestRatePerBlock);
 	}
 
-	/// @dev helper function for multibase and FixedAPYRewards
+	/**
+	 * @dev returns both GOOD and G$ rewards rate
+	 * @return _goodRewardPerBlock GOOD nominal reward rate per block
+	 * @return _gdInterestRatePerBlock the G$ interest rate  per block in 1e18 precision
+	 */
 	function getRewardsPerBlock()
 		public
 		view
@@ -293,7 +350,11 @@ contract GoodDollarStaking is
 		_gdInterestRatePerBlock = Math64x64.mulu(interestRatePerBlockX64, 1e18);
 	}
 
-	/// @dev helper function for multibase and FixedAPYRewards - same stake amount for both
+	/**
+	 * @dev returns the user original deposit amount as registered in MultiBaseShare. should equal stakersInfo.deposit
+	 * @return userStake user deposit amount
+	 * @return totalStaked total deposits
+	 */
 	function getStaked(address _user)
 		public
 		view
@@ -302,7 +363,11 @@ contract GoodDollarStaking is
 		return getProductivity(address(this), _user);
 	}
 
-	/// @dev helper function for multibase and FixedAPYRewards
+	/**
+	 * @dev returns user pending GOOD and G$ rewards
+	 * @return _goodReward GOOD nominal rewards pending
+	 * @return _gdRewardAfterDonation the G$ nominal rewards earned from interest rate after deducting user donation percentage
+	 */
 	function getUserPendingReward(address _user)
 		public
 		view
@@ -314,24 +379,31 @@ contract GoodDollarStaking is
 		(, _gdRewardAfterDonation) = earned(_user);
 	}
 
-	/// @dev helper function for multibase and FixedAPYRewards
+	/**
+	 * @dev returns accumulated rewards per share
+	 * @return _goodRewardPerShare GOOD accumulated rewards
+	 * @return _gdRewardPerShare G$ accumulated rewards
+	 */
 	function totalRewardsPerShare()
 		public
 		view
 		returns (uint256 _goodRewardPerShare, uint256 _gdRewardPerShare)
 	{
 		_goodRewardPerShare = super.totalRewardsPerShare(address(this));
-		_gdRewardPerShare = sharePrice();
+
+		_gdRewardPerShare =
+			((_compound() - stats.totalStaked * PRECISION) * SHARE_PRECISION) /
+			(stats.totalShares * PRECISION);
 	}
 
 	/// @dev helper function for multibase
-	function goodStakerInfo(address _user) public view returns (UserInfo memory) {
+	/// @return userInfo staker info related to GOOD rewards
+	function goodStakerInfo(address _user)
+		public
+		view
+		returns (UserInfo memory userInfo)
+	{
 		return contractToUsers[address(this)][_user];
-	}
-
-	/// @dev helper function for FixedAPYRewards
-	function gdStakerInfo(address _user) public view returns (StakerInfo memory) {
-		return stakersInfo[_user];
 	}
 
 	/// @notice after 1 month move GOOD permissions minting to this contract from previous GovernanceStaking

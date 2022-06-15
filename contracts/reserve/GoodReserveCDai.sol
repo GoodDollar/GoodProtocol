@@ -376,7 +376,7 @@ contract GoodReserveCDai is
 
 		if (nonUbiBps > 0 && address(distributionHelper) != address(0)) {
 			nonUBI = (gdExpansionToMint * nonUbiBps) / 10000;
-			gdUBI -= nonUBI; //only reduce UBI if
+			gdUBI -= nonUBI;
 			_mintGoodDollars(address(distributionHelper), nonUBI, false);
 			try distributionHelper.onDistribution(nonUBI) {} catch {} //should not prevent mintUBI from completing
 			emit NonUBIMinted(address(distributionHelper), nonUBI);
