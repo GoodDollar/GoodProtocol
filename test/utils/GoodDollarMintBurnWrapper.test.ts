@@ -583,7 +583,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     ); //we doubled the G$ supply so bps relative to supply should be double now
   });
 
-  it("should not mint but not revert wehn rewarder passes daily limit", async () => {
+  it("should not mint but not revert when rewarder passes daily limit", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
     const minterInfo = await wrapper.minterSupply(rewarder.address);
