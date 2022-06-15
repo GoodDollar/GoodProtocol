@@ -39,7 +39,7 @@ export const deployWrapper = async (defaultAdmin = null) => {
       salt: "MintBurnWrapper",
       isUpgradeable: true
     },
-    [1, INITIAL_CAP, defaultAdmin || release.GuardiansSafe, release.NameService]
+    [INITIAL_CAP, defaultAdmin || release.GuardiansSafe, release.NameService]
   ).then(printDeploy)) as Contract;
 
   release = {
