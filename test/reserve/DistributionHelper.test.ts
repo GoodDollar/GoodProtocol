@@ -1,10 +1,10 @@
-import { ethers, waffle } from "hardhat";
+import { ethers, waffle, upgrades } from "hardhat";
 import { expect } from "chai";
 import {
   GoodReserveCDai,
   DistributionHelperTestHelper,
   DistributionBridgeMock,
-  ERC20
+  IGoodDollar
 } from "../../types";
 import { createDAO, increaseTime } from "../helpers";
 import { Contract } from "ethers";
@@ -17,7 +17,7 @@ export const BLOCK_INTERVAL = 1;
 
 describe("DistributionHelper", () => {
   let goodReserve: GoodReserveCDai;
-  let goodDollar: ERC20,
+  let goodDollar: IGoodDollar,
     genericCall,
     avatar,
     founder,
@@ -55,7 +55,7 @@ describe("DistributionHelper", () => {
       avatar
     });
 
-    goodDollar = (await ethers.getContractAt("IGoodDollar", gd)) as ERC20;
+    goodDollar = (await ethers.getContractAt("IGoodDollar", gd)) as IGoodDollar;
 
     console.log("deployed contribution, deploying reserve...", {
       founder: founder.address
@@ -69,12 +69,17 @@ describe("DistributionHelper", () => {
     const rf = await ethers.getContractFactory("DistributionBridgeMock");
 
     wallets = provider.getWallets();
-    const distHelper = (await waffle.deployContract(wallets[0], {
-      abi: JSON.parse(df.interface.format(FormatTypes.json) as string) as any[],
-      bytecode: df.bytecode
-    })) as DistributionHelperTestHelper;
+    // const distHelper = (await waffle.deployContract(wallets[0], {
+    //   abi: JSON.parse(df.interface.format(FormatTypes.json) as string) as any[],
+    //   bytecode: df.bytecode
+    // })) as DistributionHelperTestHelper;
 
-    await distHelper.initialize(nameService.address);
+    // await distHelper.initialize(nameService.address);
+    const distHelper = (await upgrades.deployProxy(
+      await ethers.getContractFactory("DistributionHelperTestHelper"),
+      [nameService.address],
+      { kind: "uups" }
+    )) as DistributionHelperTestHelper;
 
     const bridge = (await waffle.deployContract(wallets[0], {
       abi: JSON.parse(rf.interface.format(FormatTypes.json) as string) as any[],
@@ -231,7 +236,7 @@ describe("DistributionHelper", () => {
     ).to.equal((100000000000 * 2000) / 10000);
 
     const events = await bridge.queryFilter(bridge.filters.AnySwap());
-    expect(events[0].args.token).to.equal(goodDollar.address);
+    expect(events[0].args.token).to.equal(await distHelper.anyGoodDollar());
     expect(events[0].args.recipient).to.equal(recipient.address);
     expect(events[0].args.amount).to.equal((100000000000 * 2000) / 10000);
     expect(events[0].args.chainId).to.equal(4000);

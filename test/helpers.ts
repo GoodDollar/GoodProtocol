@@ -81,7 +81,7 @@ export const createDAO = async () => {
 
   await Identity.setAuthenticationPeriod(365);
   await daoCreator.forgeOrg(
-    "G$",
+    "GoodDollar",
     "G$",
     0,
     FeeFormula.address,

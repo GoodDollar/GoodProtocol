@@ -30,6 +30,15 @@ contract DistributionBridgeMock {
 		emit AnySwap(token, recipient, amount, chainId);
 	}
 
+	function anySwapOutUnderlying(
+		address token,
+		address recipient,
+		uint256 amount,
+		uint256 chainId
+	) external {
+		emit AnySwap(token, recipient, amount, chainId);
+	}
+
 	function onTokenTransfer(
 		address sender,
 		uint256 amount,
