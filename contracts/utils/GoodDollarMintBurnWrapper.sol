@@ -172,14 +172,6 @@ contract GoodDollarMintBurnWrapper is
 		_;
 	}
 
-	modifier onlyRoles(bytes32[2] memory roles) {
-		require(
-			hasRole(roles[0], _msgSender()) || hasRole(roles[1], _msgSender()),
-			"role missing"
-		);
-		_;
-	}
-
 	function initialize(
 		uint256 _totalMintCap,
 		address _admin,
@@ -543,79 +535,6 @@ contract GoodDollarMintBurnWrapper is
 			// 	minter.dailyCap,
 			// 	minter.lastUpdate
 			// );
-		}
-	}
-
-	function _updateCurrentDay() internal {
-		currentDay = uint128(block.timestamp / 1 days);
-	}
-
-	function _mint(address to, uint256 amount)
-		internal
-		whenNotPaused(PAUSE_MINT_ROLE)
-	{
-		require(to != address(this), "forbid mint to address(this)");
-
-		Supply storage s = minterSupply[msg.sender];
-		require(s.max == 0 || amount <= s.max, "minter max exceeded");
-		s.total += amount;
-		require(s.total == 0 || s.total <= s.cap, "minter cap exceeded");
-
-		totalMinted += amount;
-		require(totalMinted <= totalMintCap, "total mint cap exceeded");
-
-		bool ok = dao.mintTokens(amount, to, avatar);
-		require(ok, "mint failed");
-	}
-
-	function _burn(address from, uint256 amount)
-		internal
-		whenNotPaused(PAUSE_BURN_ROLE)
-	{
-		//update stats correctly, but dont fail if it tries to transfer tokens minted elsewhere as long as we burn some
-		if (totalMinted >= amount) {
-			totalMinted -= amount;
-		} else {
-			totalMinted = 0;
-		}
-
-		if (hasRole(MINTER_ROLE, msg.sender)) {
-			Supply storage s = minterSupply[msg.sender];
-
-			if (s.total >= amount) {
-				s.total -= amount;
-			} else {
-				s.total = 0;
-			}
-		}
-
-		//handle onTokenTransfer (ERC677), assume tokens has been transfered
-		if (from == address(this)) {
-			TokenOperation.safeBurnSelf(token, amount);
-		} else if (tokenType == TokenType.MintBurnFrom) {
-			TokenOperation.safeBurnFrom(token, from, amount);
-		}
-	}
-
-	function _balanceDebt(Supply storage minter) internal {
-		uint256 toBurn = Math.min(
-			minter.mintDebt,
-			IERC20Upgradeable(token).balanceOf(address(this))
-		);
-
-		if (toBurn > 0) {
-			minter.mintDebt -= uint128(toBurn);
-			ERC20(token).burn(toBurn); //from DAOUpgradableContract -> Interfaces
-		}
-	}
-
-	function _updateDailyLimitCap(Supply storage minter) internal {
-		uint256 blocksPassed = block.timestamp - minter.lastUpdate;
-		if (blocksPassed > updateFrequency) {
-			minter.dailyCap =
-				uint128(IERC20Upgradeable(token).totalSupply() * minter.bpsPerDay) /
-				10000;
-			minter.lastUpdate = uint128(block.timestamp);
 		}
 	}
 }
