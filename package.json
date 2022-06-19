@@ -31,7 +31,8 @@
     "LICENSE",
     "truffle-config.js",
     "tsconfig.json",
-    "test"
+    "test",
+    "types"
   ],
   "repository": {
     "type": "git",
