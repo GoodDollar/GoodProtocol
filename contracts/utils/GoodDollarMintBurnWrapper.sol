@@ -209,6 +209,10 @@ contract GoodDollarMintBurnWrapper is
 		return ERC20(token).symbol();
 	}
 
+	function balanceOf(address account) external view returns (uint256 balance) {
+		return ERC20(token).balanceOf(account);
+	}
+
 	function owner() external view returns (address) {
 		return getRoleMember(DEFAULT_ADMIN_ROLE, 0);
 	}
