@@ -207,7 +207,7 @@ contract GoodDollarStaking is
 	 * @notice helper to mint/send G$ rewards from fixed APY
 	 * @param _to address of recipient
 	 * @param _amount how much to mint/send
-	 * @return actualSent how much rewards where actually minted/sent. If RewardsMinter is passed its limit it could be that not all requested amount was awarded.
+	 * @return actualSent how much rewards were actually minted/sent. If RewardsMinter is passed its limit it could be that not all requested amount was awarded.
 	 */
 	function _mintGDRewards(address _to, uint256 _amount)
 		internal
@@ -391,9 +391,10 @@ contract GoodDollarStaking is
 	{
 		_goodRewardPerShare = super.totalRewardsPerShare(address(this));
 
-		_gdRewardPerShare =
-			((_compound() - stats.totalStaked * PRECISION) * SHARE_PRECISION) /
-			(stats.totalShares * PRECISION);
+		_gdRewardPerShare = stats.totalShares == 0
+			? 0
+			: ((_compound() - stats.totalStaked * PRECISION) * SHARE_PRECISION) /
+				(stats.totalShares * PRECISION);
 	}
 
 	/// @dev helper function for multibase
