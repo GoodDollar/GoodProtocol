@@ -41,7 +41,8 @@ contract DistributionHelper is
 	event Distribution(
 		uint256 distributed,
 		uint256 startingBalance,
-		uint256 incomingAmount
+		uint256 incomingAmount,
+		DistributionRecipient[] distributionRecipients
 	);
 	event RecipientUpdated(DistributionRecipient recipient, uint256 index);
 	event RecipientAdded(DistributionRecipient recipient, uint256 index);
@@ -77,7 +78,12 @@ contract DistributionHelper is
 			}
 		}
 
-		emit Distribution(totalDistributed, toDistribute, _amount);
+		emit Distribution(
+			totalDistributed,
+			toDistribute,
+			_amount,
+			distributionRecipients
+		);
 	}
 
 	/**

@@ -327,4 +327,68 @@ describe("DistributionHelper", () => {
       (100000000000 * 5) / 10000
     );
   });
+
+  it("should emit distribution event for multiple recipients", async () => {
+    const { distHelper, bridge } = await waffle.loadFixture(fixture);
+
+    const recipient = signers[0];
+
+    let encodedCall = distHelper.interface.encodeFunctionData(
+      "addOrUpdateRecipient",
+      [
+        {
+          bps: 2555,
+          chainId: 1,
+          addr: signers[0].address,
+          transferType: 2
+        }
+      ]
+    );
+
+    await genericCall(distHelper.address, encodedCall, avatar.address, 0);
+
+    encodedCall = distHelper.interface.encodeFunctionData(
+      "addOrUpdateRecipient",
+      [
+        {
+          bps: 1000,
+          chainId: 1,
+          addr: signers[1].address,
+          transferType: 2
+        }
+      ]
+    );
+
+    await genericCall(distHelper.address, encodedCall, avatar.address, 0);
+
+    encodedCall = distHelper.interface.encodeFunctionData(
+      "addOrUpdateRecipient",
+      [
+        {
+          bps: 5,
+          chainId: 1,
+          addr: signers[2].address,
+          transferType: 2
+        }
+      ]
+    );
+
+    await genericCall(distHelper.address, encodedCall, avatar.address, 0);
+
+    await goodDollar.mint(distHelper.address, "100000000000");
+    await distHelper.onDistribution("100000000000");
+
+    const DistributionEvents = await distHelper.queryFilter(
+      distHelper.filters.Distribution()
+    );
+    expect(DistributionEvents[0].args.distributionRecipients[0].addr).eq(
+      signers[0].address
+    );
+    expect(DistributionEvents[0].args.distributionRecipients[1].addr).eq(
+      signers[1].address
+    );
+    expect(DistributionEvents[0].args.distributionRecipients[2].addr).eq(
+      signers[2].address
+    );
+  });
 });
