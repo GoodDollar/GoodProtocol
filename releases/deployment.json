@@ -513,7 +513,9 @@
                 "0x3ff2d8eb2573819a9ef7167d2ba6fd6d31b17f4f",
                 6944
             ]
-        ]
+        ],
+        "MultichainRouter": "0x765277eebeca2e31912c9946eae1021199b39c61",
+        "anyGoodDollar": "0xd17652350cfd2a37ba2f947c910987a3b1a1c60d"
     },
     "production": {
         "NameService": "0xec6dcE387B1616a0c44fF2E4fA9E90E53Cf14eb0",
