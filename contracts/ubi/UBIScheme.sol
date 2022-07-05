@@ -576,6 +576,7 @@ contract UBIScheme is DAOUpgradeableContract {
 			dailyUbi = 0; //required so distributionformula will trigger
 			cycleLength = 30;
 			currentCycleLength = 0; //this will trigger a new cycle calculation in distribution formula
+			startOfCycle = block.timestamp - 91 days; //this will trigger a new calculation in distributionFormula
 			periodStart = (block.timestamp / (1 days)) * 1 days + 12 hours; //set start time to GMT noon
 			distributionFormula();
 		}
