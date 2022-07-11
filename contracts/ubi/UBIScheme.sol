@@ -1,4 +1,6 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIXED
+
+// License-Identifier: MIT
 pragma solidity >=0.8.0;
 
 import "../utils/DAOUpgradeableContract.sol";
@@ -571,14 +573,20 @@ contract UBIScheme is DAOUpgradeableContract {
 	}
 
 	function upgrade() public {
-		if (block.timestamp < 1657022400) {
-			activeUsersCount = 50000; //estimated
-			dailyUbi = 0; //required so distributionformula will trigger
-			cycleLength = 30;
-			currentCycleLength = 0; //this will trigger a new cycle calculation in distribution formula
-			startOfCycle = block.timestamp - 91 days; //this will trigger a new calculation in distributionFormula
-			periodStart = (block.timestamp / (1 days)) * 1 days + 12 hours; //set start time to GMT noon
-			distributionFormula();
-		}
+		_onlyAvatar();
+		paused = true;
+		activeUsersCount = 50000; //estimated
+		dailyUbi = 0; //required so distributionformula will trigger
+		cycleLength = 30;
+		currentCycleLength = 0; //this will trigger a new cycle calculation in distribution formula
+		startOfCycle = block.timestamp - 91 days; //this will trigger a new calculation in distributionFormula
+		periodStart = 1646136000;
+		distributionFormula();
+		emit CycleLengthSet(cycleLength);
+	}
+
+	function setActiveUserCount(uint256 _activeUserCount) public {
+		_onlyAvatar();
+		activeUsersCount = _activeUserCount;
 	}
 }
