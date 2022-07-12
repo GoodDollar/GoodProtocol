@@ -148,8 +148,8 @@ contract GoodDollarMintBurnWrapper is
 	uint128 public totalMintDebt; // total outstanding rewards mint debt
 	uint128 public totalRewards; // total rewards sent (sent + minted)
 
-	event Minted(address to, uint256 amount);
-	event Burned(address to, uint256 amount);
+	event Minted(address minter, address to, uint256 amount);
+	event Burned(address minter, address to, uint256 amount);
 	event SendOrMint(
 		address to,
 		uint256 amount,
@@ -264,7 +264,7 @@ contract GoodDollarMintBurnWrapper is
 		returns (bool)
 	{
 		_mint(to, amount);
-		emit Minted(to, amount);
+		emit Minted(msg.sender, to, amount);
 		return true;
 	}
 
@@ -281,7 +281,7 @@ contract GoodDollarMintBurnWrapper is
 		returns (bool)
 	{
 		_burn(from, amount);
-		emit Burned(from, amount);
+		emit Burned(msg.sender, from, amount);
 		return true;
 	}
 
