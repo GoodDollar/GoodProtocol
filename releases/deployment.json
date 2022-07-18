@@ -155,7 +155,7 @@
         "cDAI": "0x0000000000000000000000000000000000000000",
         "COMP": "0x0000000000000000000000000000000000000000",
         "GoodDollarMintBurnWrapper": "0x46cF05f93539F4735Cb0D7b2B1cA6A70fa49510a",
-        "GoodDollarStaking": "0x33D4BeFa352b2393EcC886B92bA195330f775d0e"
+        "GoodDollarStaking": "0x6c0091Df2FEF6DB7D9a0dB6226e5dF63Da3b7419"
     },
     "fuse-mainnet": {
         "NameService": "0x3baeEff20Cb02a5b8eF413C611c015E69221663e",

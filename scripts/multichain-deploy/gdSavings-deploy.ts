@@ -69,7 +69,10 @@ export const deploySidechain = async () => {
     GDSavings = (await deployDeterministic(
       {
         name: "GoodDollarStaking",
-        salt: "GoodDollarStaking",
+        salt:
+          networkName !== "production"
+            ? "GoodDollarStakingV2"
+            : "GoodDollarStaking",
         isUpgradeable: false
       },
       [
@@ -153,7 +156,7 @@ export const deploySidechain = async () => {
     )
   ];
 
-  if (networkName === "staging") {
+  if (networkName === "fuse") {
     return executeViaGuardian(
       proposalContracts,
       proposalEthValues,

@@ -275,7 +275,9 @@ task(
 task("cleanflat", "Cleans multiple SPDX and Pragma from flattened file")
   .addPositionalParam("file", "flattened sol file")
   .setAction(async ({ file }, { run }) => {
-    let flattened = readFileSync(file).toString();
+    let flattened = await run("flatten:get-flattened-sources", {
+      files: [file]
+    });
 
     // Remove every line started with "// SPDX-License-Identifier:"
     flattened = flattened.replace(
@@ -302,5 +304,5 @@ task("cleanflat", "Cleans multiple SPDX and Pragma from flattened file")
     );
 
     flattened = flattened.trim();
-    writeFileSync(file, flattened);
+    writeFileSync("flat.sol", flattened);
   });
