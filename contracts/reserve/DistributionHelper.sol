@@ -53,9 +53,9 @@ contract DistributionHelper is
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar); //this needs to happen after setDAO for avatar to be non empty
 		fuseBridge = nameService.getAddress("BRIDGE_CONTRACT");
 		multiChainBridge = IMultichainRouter(
-			0x765277EebeCA2e31912C9946eAe1021199B39C61
+			nameService.getAddress("MULTICHAIN_ROUTER")
 		);
-		anyGoodDollar = address(0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d);
+		anyGoodDollar = nameService.getAddress("MULTICHAIN_ANYGOODDOLLAR");
 	}
 
 	/**

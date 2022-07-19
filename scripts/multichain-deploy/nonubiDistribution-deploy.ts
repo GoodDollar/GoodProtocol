@@ -96,7 +96,9 @@ export const deployMainnet = async () => {
     release.GoodReserveCDai, //upgradeTo
     release.GoodReserveCDai, //Reserve -> set distribution helper + non ubi bps
     DHelper.address, //distribution helper -> add fuse GoodDollarMintBurnWrapper as recipient with 100%
-    ns.address //nameservice add DistributionHelper
+    ns.address, //nameservice add DistributionHelper
+    ns.address, //nameservice add MultiChainRouter
+    ns.address //nameservice add MultiChain AnyGoodDollar
   ];
 
   const proposalEthValues = proposalContracts.map(_ => 0);
@@ -105,6 +107,8 @@ export const deployMainnet = async () => {
     "upgradeTo(address)",
     "setDistributionHelper(address,uint32)",
     "addOrUpdateRecipient((uint32,uint32,address,uint8))",
+    "setAddress(string,address)",
+    "setAddress(string,address)",
     "setAddress(string,address)"
   ];
 
@@ -125,8 +129,16 @@ export const deployMainnet = async () => {
     ), //addOrUpdateRecipient((uint32,uint32,address,uint8))
     ethers.utils.defaultAbiCoder.encode(
       ["string", "address"],
-      ["DistributionHelper", DHelper.address]
-    ) //setAddress(string,address)"
+      ["DISTRIBUTION_HELPER", DHelper.address]
+    ), //setAddress(string,address)"
+    ethers.utils.defaultAbiCoder.encode(
+      ["string", "address"],
+      ["MULTICHAIN_ROUTER", release.MultichainRouter]
+    ),
+    ethers.utils.defaultAbiCoder.encode(
+      ["string", "address"],
+      ["MULTICHAIN_ANYGOODDOLLAR", release.AnyGoodDollar]
+    )
   ];
 
   if (networkName === "fuse-mainnet") {
