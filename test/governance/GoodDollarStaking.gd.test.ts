@@ -93,7 +93,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     goodDollar = (await ethers.getContractAt("IGoodDollar", gd)) as IGoodDollar;
 
     //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
-    await goodReserve.setAddresses();
+    // await goodReserve.setAddresses();
   });
 
   async function stake(_staker, _amount, _givebackRatio, stakingContract) {
@@ -144,11 +144,11 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     await setSchemes([goodDollarMintBurnWrapper.address]);
     await setDAOAddress("MintBurnWrapper", goodDollarMintBurnWrapper.address);
 
-    await goodDollar.mint(founder.address, "100000000000"); //mint so that 30bps cap can mint some G$
+    await goodDollar.mint(founder.address, "200000000000"); //mint so that 30bps cap can mint some G$
 
     let encodedCall = goodDollarMintBurnWrapper.interface.encodeFunctionData(
       "addMinter",
-      [staking.address, INITIAL_CAP, INITIAL_CAP, 30, true]
+      [staking.address, INITIAL_CAP, (INITIAL_CAP * 30) / 100000, 30, true]
     );
 
     const ictrl = await ethers.getContractAt(
@@ -321,6 +321,18 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     );
   });
 
+  it("should have upgrade deadline < 60 days", async () => {
+    const f = await ethers.getContractFactory("GoodDollarStaking");
+    await expect(
+      f.deploy(
+        nameService.address,
+        BN.from("1000000007735630000"),
+        518400 * 12,
+        61
+      )
+    ).revertedWith("max two");
+  });
+
   it("should not perform upgrade when not deadline", async () => {
     const { staking } = await waffle.loadFixture(fixture_upgradeTest);
     await expect(staking.upgrade()).to.revertedWith("deadline");
@@ -372,6 +384,49 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     expect(gdRewardsPerBlockAfterSet.add(1)).to.equal(INTEREST_RATE_10APY_X64);
     const gdInterestRateIn128AfterSet = await staking.interestRatePerBlockX64();
     expect(gdInterestRateIn128AfterSet).to.equal(INTEREST_RATE_10APY_128);
+  });
+
+  it("should be pausable by avatar", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+
+    await runAsAvatarOnly(staking, "pause(bool,uint128)", true, "0");
+    expect(await staking.paused()).to.equal(true);
+    let [, gdRewardsPerBlockAfterSet] = await staking.getRewardsPerBlock();
+    expect(gdRewardsPerBlockAfterSet).to.equal("0");
+
+    await runAsAvatarOnly(
+      staking,
+      "pause(bool,uint128)",
+      false,
+      "1000000029000000000"
+    );
+    expect(await staking.paused()).to.equal(false);
+    [, gdRewardsPerBlockAfterSet] = await staking.getRewardsPerBlock();
+    expect(gdRewardsPerBlockAfterSet.add(1)).to.equal("1000000029000000000");
+  });
+
+  it("should not be able to stake when paused", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+
+    await runAsAvatarOnly(staking, "pause(bool,uint128)", true, "0");
+    await expect(
+      stake(staker2, "1000", DONATION_10_PERCENT, staking)
+    ).to.revertedWith("pause");
+  });
+
+  it("should have max yearly apy of 20%", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+
+    await runAsAvatarOnly(staking, "setGdApy(uint128)", "1000000029000000000");
+
+    let [, gdRewardsPerBlockAfterSet] = await staking.getRewardsPerBlock();
+    expect(gdRewardsPerBlockAfterSet.add(1)).to.equal("1000000029000000000");
+
+    //shout not be set as > 20% apy
+    await runAsAvatarOnly(staking, "setGdApy(uint128)", "1000000030000000000");
+
+    [, gdRewardsPerBlockAfterSet] = await staking.getRewardsPerBlock();
+    expect(gdRewardsPerBlockAfterSet.add(1)).to.equal("1000000029000000000");
   });
 
   it("should handle stakingrewardsfixed apy correctly when transfering staking tokens to new staker", async () => {

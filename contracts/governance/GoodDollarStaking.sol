@@ -4,6 +4,7 @@ pragma solidity >=0.8.0;
 
 import { ERC20 as ERC20_OZ } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../utils/DAOContract.sol";
 import "../utils/NameService.sol";
@@ -11,7 +12,6 @@ import "../Interfaces.sol";
 import "../DAOStackInterfaces.sol";
 import "./MultiBaseGovernanceShareField.sol";
 import "../staking/utils/StakingRewardsFixedAPY.sol";
-import "hardhat/console.sol";
 
 interface RewardsMinter {
 	function sendOrMint(address to, uint256 amount) external returns (uint256);
@@ -26,6 +26,7 @@ contract GoodDollarStaking is
 	MultiBaseGovernanceShareField,
 	DAOContract,
 	ReentrancyGuard,
+	Pausable,
 	StakingRewardsFixedAPY
 {
 	// Token address
@@ -56,6 +57,10 @@ contract GoodDollarStaking is
 		uint256 gdRewards
 	);
 
+	event APYSet(uint128 newAPY);
+
+	event GOODRewardsSet(uint256 newMonthlyRewards);
+
 	/**
 	 * @dev Constructor
 	 * @param _ns The address of the INameService contract
@@ -69,6 +74,7 @@ contract GoodDollarStaking is
 		uint128 _numberOfBlocksPerYear,
 		uint32 _daysUntilUpgrade
 	) ERC20_OZ("G$ Savings", "svG$") {
+		require(_daysUntilUpgrade <= 60, "max two months until upgrade");
 		_setAPY(_interestRatePerBlock);
 		setDAO(_ns);
 		numberOfBlocksPerYear = _numberOfBlocksPerYear;
@@ -116,7 +122,7 @@ contract GoodDollarStaking is
 		address _from,
 		uint256 _amount,
 		uint32 _donationRatio
-	) internal {
+	) internal whenNotPaused {
 		/* GOOD rewards Updates */
 		_increaseProductivity(address(this), _from, _amount, 0, block.number);
 		_mint(_from, _amount); // mint Staking token for staker
@@ -322,18 +328,30 @@ contract GoodDollarStaking is
 	 * @dev Calculate rewards per block from monthly amount of rewards and set it
 	 * @param _monthlyAmount total rewards which will distribute monthly
 	 */
-	function setMonthlyGOODRewards(uint256 _monthlyAmount) public {
+	function setMonthlyGOODRewards(uint256 _monthlyAmount) external {
 		_onlyAvatar();
 		_setMonthlyRewards(address(this), _monthlyAmount);
+		emit GOODRewardsSet(_monthlyAmount);
 	}
 
 	/**
-	 * @dev Calculate rewards per block from monthly amount of rewards and set it
-	 * @param _interestRatePerBlock bps yearly apy
+	 * @dev interest rate per one block in 1e18 precision.
+	 * for example APY=5% then per block = nroot(1+0.05,numberOfBlocksPerYear)
+	 * nroot(1.05,6000000) = 1.000000008131694
+	 * in 1e18 = 1000000008131694000
+	 * @param _interestRatePerBlock nth blocks per year root of APY - nroot(1+0.05,numberOfBlocksPerYear)
 	 */
 	function setGdApy(uint128 _interestRatePerBlock) public {
 		_onlyAvatar();
 		_setAPY(_interestRatePerBlock);
+		require(
+			Math64x64.mulu(
+				Math64x64.pow(interestRatePerBlockX64, numberOfBlocksPerYear),
+				1e4
+			) < 12000
+		);
+
+		emit APYSet(_interestRatePerBlock);
 	}
 
 	/**
@@ -342,7 +360,7 @@ contract GoodDollarStaking is
 	 * @return _gdInterestRatePerBlock the G$ interest rate  per block in 1e18 precision
 	 */
 	function getRewardsPerBlock()
-		public
+		external
 		view
 		returns (uint256 _goodRewardPerBlock, uint256 _gdInterestRatePerBlock)
 	{
@@ -356,7 +374,7 @@ contract GoodDollarStaking is
 	 * @return totalStaked total deposits
 	 */
 	function getStaked(address _user)
-		public
+		external
 		view
 		returns (uint256 userStake, uint256 totalStaked)
 	{
@@ -369,7 +387,7 @@ contract GoodDollarStaking is
 	 * @return _gdRewardAfterDonation the G$ nominal rewards earned from interest rate after deducting user donation percentage
 	 */
 	function getUserPendingReward(address _user)
-		public
+		external
 		view
 		returns (uint256 _goodReward, uint256 _gdRewardAfterDonation)
 	{
@@ -385,7 +403,7 @@ contract GoodDollarStaking is
 	 * @return _gdRewardPerShare G$ accumulated rewards
 	 */
 	function totalRewardsPerShare()
-		public
+		external
 		view
 		returns (uint256 _goodRewardPerShare, uint256 _gdRewardPerShare)
 	{
@@ -400,7 +418,7 @@ contract GoodDollarStaking is
 	/// @dev helper function for multibase
 	/// @return userInfo staker info related to GOOD rewards
 	function goodStakerInfo(address _user)
-		public
+		external
 		view
 		returns (UserInfo memory userInfo)
 	{
@@ -415,6 +433,7 @@ contract GoodDollarStaking is
 			"not deadline or not scheme"
 		);
 		_setMonthlyRewards(address(this), 2 ether * 1e6); //2M monthly GOOD
+		emit GOODRewardsSet(2 ether * 1e6);
 
 		//this will make sure rewards are set at 0, so no withdraw issue will happen.
 		//on governacnestaking anyone withdrawing from now on will get 0 GOOD, not matter how long he has been staking
@@ -439,5 +458,24 @@ contract GoodDollarStaking is
 		);
 		require(ok, "calling setAddress failed");
 		dao.unregisterSelf(avatar); // make sure we cant call this again;
+	}
+
+	/**
+	 * @dev Pause staking and also set APY, usually when paused we want the APY to be 0
+	 * updateReward is called to accrue interest until pause event
+	 * @param _paused whether to pause on unpause
+	 * @param _interestRatePerBlock the interest rate to set when pausing/unpausing (see setGdApy)
+	 */
+	function pause(bool _paused, uint128 _interestRatePerBlock)
+		external
+		updateReward
+	{
+		_onlyAvatar();
+		if (_paused) {
+			_pause();
+		} else {
+			_unpause();
+		}
+		setGdApy(_interestRatePerBlock);
 	}
 }
