@@ -54,7 +54,17 @@ contract GoodDollarStaking is
 		address indexed staker,
 		uint256 amount, //amount withdrawn including gdRewards
 		uint256 goodRewards,
-		uint256 gdRewards
+		uint256 gdRewards,
+		uint256 actualRewardsSent //maybe rewards could not be minted
+	);
+
+	/**
+	 * @dev Emitted when `staker` withdraws but MintBurnWrapper could not allocate/mint the rewards
+	 */
+	event RewardsNotSent(
+		address indexed staker,
+		uint256 gdRewards,
+		uint256 actualRewardsSent //rewards not minted
 	);
 
 	event APYSet(uint128 newAPY);
@@ -195,8 +205,9 @@ contract GoodDollarStaking is
 		/* end Good rewards update */
 
 		//rewards are paid via the rewards distribution contract
+		uint256 actualRewardsSent;
 		if (gdRewards > 0) {
-			_mintGDRewards(msg.sender, gdRewards);
+			actualRewardsSent = _mintGDRewards(msg.sender, gdRewards);
 		}
 
 		//stake is withdrawn from original deposit sent to this contract
@@ -206,7 +217,13 @@ contract GoodDollarStaking is
 				"withdraw transfer failed"
 			);
 		}
-		emit StakeWithdraw(msg.sender, _amount, goodRewards, gdRewards);
+		emit StakeWithdraw(
+			msg.sender,
+			_amount,
+			goodRewards,
+			gdRewards,
+			actualRewardsSent
+		);
 	}
 
 	/**
@@ -242,6 +259,7 @@ contract GoodDollarStaking is
 			// 	_amount - actualSent
 			// );
 			_undoReward(_to, _amount - actualSent);
+			emit RewardsNotSent(_to, _amount, actualSent);
 		}
 	}
 
