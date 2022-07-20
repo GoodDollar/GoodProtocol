@@ -152,7 +152,7 @@ export const deploySidechain = async () => {
     ),
     ethers.utils.defaultAbiCoder.encode(
       ["string", "address"],
-      ["MintBurnWrapper", Wrapper.address]
+      ["MINTBURN_WRAPPER", Wrapper.address]
     )
   ];
 

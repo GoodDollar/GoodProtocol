@@ -125,32 +125,44 @@ contract GoodDollarMintBurnWrapper is
 	bytes32 public constant PAUSE_ROUTER_ROLE = keccak256("PAUSE_ROUTER_ROLE");
 	bytes32 public constant PAUSE_REWARDS_ROLE = keccak256("PAUSE_REWARDS_ROLE");
 
-	struct Supply {
-		uint256 max; // single limit of each mint
-		uint256 cap; // total limit of all mint
-		uint256 total; // total minted minus burned
-		uint128 dailyCap; //cap per day
+	struct InLimits {
+		uint256 maxIn; // single limit of each mint
+		uint256 capIn; // total limit of all mint
+		uint256 totalIn; // total minted minus burned
+		uint128 dailyCapIn; //cap per day
 		uint128 mintedToday; //total minted today
 		uint128 lastUpdate; //last update of dailyCap
 		uint128 totalRewards; // total rewards sent (sent + minted)
-		uint32 bpsPerDay; //basis points relative to token supply daily limit
+		uint32 bpsPerDayIn; //basis points relative to token supply daily limit
+		uint128 lastDayReset; //last day we reset the daily limits
 	}
 
-	mapping(address => Supply) public minterSupply;
-	uint256 public totalMintCap; // total mint cap
+	struct OutLimits {
+		uint256 maxOut; // single limit of each burn
+		uint256 capOut; // total limit of all burn
+		uint256 totalOut; // total burned minus minted
+		uint128 dailyCapOut; //burn cap per day
+		uint128 burnedToday; //total burned today
+		uint32 bpsPerDayOut; //basis points relative to token supply daily limit
+	}
+
+	mapping(address => InLimits) public minterSupply;
+	uint256 public totalMintCap_unused; // total mint cap, not used, kept because of upgradable storage
 	uint256 public totalMinted; // total minted amount
 
 	address public token; // the target token this contract is wrapping
-	uint256 private unused_tokenType;
+	uint256 private unused_tokenType; //kept because of upgradable storage layout, contract already deployed to Celo contains it
 
 	uint128 public currentDay; //used to reset daily minter limit
 	uint128 public updateFrequency; //how often to update the relative to supply daily limit
 	uint128 public totalMintDebt; // total outstanding rewards mint debt
 	uint128 public totalRewards; // total rewards sent (sent + minted)
+	mapping(address => OutLimits) public minterOutLimits;
 
 	event Minted(address minter, address to, uint256 amount);
 	event Burned(address minter, address to, uint256 amount);
 	event SendOrMint(
+		address rewarder,
 		address to,
 		uint256 amount,
 		uint256 sent,
@@ -159,12 +171,17 @@ contract GoodDollarMintBurnWrapper is
 	);
 	event MinterSet(
 		address minter,
-		uint256 totalMintCap,
-		uint256 perTxCap,
-		uint32 bps,
+		uint256 totalMintCapIn,
+		uint256 perTxCapIn,
+		uint32 bpsIn,
+		uint256 totalMintCapOut,
+		uint256 perTxCapOut,
+		uint32 bpsOut,
 		bool rewardsRole,
 		bool isUpdate
 	);
+
+	event UpdateFrequencySet(uint128 newFrequency);
 
 	modifier onlyRoles(bytes32[2] memory roles) {
 		require(
@@ -174,16 +191,14 @@ contract GoodDollarMintBurnWrapper is
 		_;
 	}
 
-	function initialize(
-		uint256 _totalMintCap,
-		address _admin,
-		INameService _nameService
-	) external initializer {
+	function initialize(address _admin, INameService _nameService)
+		external
+		initializer
+	{
 		__AccessControlEnumerable_init();
 		setDAO(_nameService);
 		require(_admin != address(0), "zero admin address");
 		token = address(nativeToken());
-		totalMintCap = _totalMintCap;
 		updateFrequency = 90 days;
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
 		_setupRole(DEFAULT_ADMIN_ROLE, _admin);
@@ -228,6 +243,7 @@ contract GoodDollarMintBurnWrapper is
 		onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE])
 	{
 		updateFrequency = inSeconds;
+		emit UpdateFrequencySet(inSeconds);
 	}
 
 	/**
@@ -263,6 +279,7 @@ contract GoodDollarMintBurnWrapper is
 		onlyRole(MINTER_ROLE)
 		returns (bool)
 	{
+		_updateDailyLimitCap(msg.sender);
 		_mint(to, amount);
 		emit Minted(msg.sender, to, amount);
 		return true;
@@ -276,10 +293,11 @@ contract GoodDollarMintBurnWrapper is
 	 */
 	function burn(address from, uint256 amount)
 		external
-		onlyRole(ROUTER_ROLE)
+		onlyRole(MINTER_ROLE)
 		whenNotPaused(PAUSE_ROUTER_ROLE)
 		returns (bool)
 	{
+		_updateDailyLimitCap(msg.sender);
 		_burn(from, amount);
 		emit Burned(msg.sender, from, amount);
 		return true;
@@ -302,7 +320,7 @@ contract GoodDollarMintBurnWrapper is
 		require(chainId != 0, "zero chainId");
 		bindaddr = bindaddr != address(0) ? bindaddr : sender;
 
-		IMultichainRouter(getRoleMember(ROUTER_ROLE, 0)).anySwapOut(
+		IMultichainRouter(nameService.getAddress("MULTICHAIN_ROUTER")).anySwapOut(
 			address(this),
 			bindaddr,
 			amount,
@@ -322,16 +340,12 @@ contract GoodDollarMintBurnWrapper is
 		whenNotPaused(PAUSE_REWARDS_ROLE)
 		returns (uint256 totalSent)
 	{
-		Supply storage m = minterSupply[msg.sender];
-		_updateDailyLimitCap(m);
+		_updateDailyLimitCap(msg.sender);
 
-		//check if daily limit needs reset
-		uint256 today = currentDay;
-		_updateCurrentDay();
-		if (currentDay != today) {
-			m.mintedToday = 0;
-		}
-		uint256 maxMintToday = m.dailyCap - m.mintedToday;
+		uint256 maxMintToday = minterSupply[msg.sender].dailyCapIn == 0
+			? amount
+			: minterSupply[msg.sender].dailyCapIn -
+				minterSupply[msg.sender].mintedToday;
 
 		//calcualte how much to send and mint
 		uint256 toSend = Math.min(
@@ -341,8 +355,7 @@ contract GoodDollarMintBurnWrapper is
 		uint256 toMint = Math.min(amount - toSend, maxMintToday);
 		// console.log("sendOrMint %s %s %s", toMint, toSend, maxMintToday);
 		totalSent = toSend + toMint;
-		m.mintedToday += uint128(toMint);
-		m.totalRewards += uint128(totalSent);
+		minterSupply[msg.sender].totalRewards += uint128(totalSent);
 		totalRewards += uint128(totalSent);
 		totalMintDebt += uint128(toMint);
 		if (toMint > 0) _mint(to, toMint);
@@ -357,25 +370,30 @@ contract GoodDollarMintBurnWrapper is
 			_balanceDebt();
 		}
 
-		emit SendOrMint(to, amount, toSend, toMint, totalMintDebt);
+		emit SendOrMint(_msgSender(), to, amount, toSend, toMint, totalMintDebt);
 	}
 
 	/**
 	 * @notice add minter or rewards role
 	 * @param minter address of minter
-	 * @param globalLimit minter global limit
-	 * @param perTxLimit minter per tx limit
-	 * @param bpsPerDay limit for rewards role in bps relative to G$ total supply
+	 * @param globalLimitIn minter global limit
+	 * @param perTxLimitIn minter per tx limit
+	 * @param bpsPerDayIn limit for rewards role in bps relative to G$ total supply
+	 * @param globalLimitOut minter global limit
+	 * @param perTxLimitOut minter per tx limit
+	 * @param bpsPerDayOut limit for rewards role in bps relative to G$ total supply
 	 * @param withRewardsRole should also grant REWARDS_ROLE to minter
 	 */
 	function addMinter(
 		address minter,
-		uint256 globalLimit,
-		uint256 perTxLimit,
-		uint32 bpsPerDay,
+		uint256 globalLimitIn,
+		uint256 perTxLimitIn,
+		uint32 bpsPerDayIn,
+		uint256 globalLimitOut,
+		uint256 perTxLimitOut,
+		uint32 bpsPerDayOut,
 		bool withRewardsRole
 	) external onlyRole(DEFAULT_ADMIN_ROLE) {
-		_setMinterCaps(minter, globalLimit, perTxLimit, bpsPerDay);
 		if (withRewardsRole) {
 			grantRole(REWARDS_ROLE, minter);
 			revokeRole(MINTER_ROLE, minter);
@@ -383,72 +401,95 @@ contract GoodDollarMintBurnWrapper is
 			grantRole(MINTER_ROLE, minter);
 			revokeRole(REWARDS_ROLE, minter);
 		}
-		emit MinterSet(
+		_setMinterCaps(
 			minter,
-			globalLimit,
-			perTxLimit,
-			bpsPerDay,
-			withRewardsRole,
-			false
+			globalLimitIn,
+			perTxLimitIn,
+			bpsPerDayIn,
+			globalLimitOut,
+			perTxLimitOut,
+			bpsPerDayOut
 		);
 	}
 
 	/**
 	 * @notice update minter or rewards role limits
 	 * @param minter address of minter
-	 * @param globalLimit minter global limit
-	 * @param perTxLimit minter per tx limit
-	 * @param bpsPerDay limit for rewards role in bps relative to G$ total supply
+	 * @param globalLimitIn minter global limit
+	 * @param perTxLimitIn minter per tx limit
+	 * @param bpsPerDayIn limit for rewards role in bps relative to G$ total supply
+	 * @param globalLimitOut minter global limit
+	 * @param perTxLimitOut minter per tx limit
+	 * @param bpsPerDayOut limit for rewards role in bps relative to G$ total supply
 	 */
 	function setMinterCaps(
 		address minter,
-		uint256 globalLimit,
-		uint256 perTxLimit,
-		uint32 bpsPerDay
+		uint256 globalLimitIn,
+		uint256 perTxLimitIn,
+		uint32 bpsPerDayIn,
+		uint256 globalLimitOut,
+		uint256 perTxLimitOut,
+		uint32 bpsPerDayOut
 	) external onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE]) {
-		_setMinterCaps(minter, globalLimit, perTxLimit, bpsPerDay);
-		emit MinterSet(
+		_setMinterCaps(
 			minter,
-			globalLimit,
-			perTxLimit,
-			bpsPerDay,
-			hasRole(REWARDS_ROLE, minter),
-			true
+			globalLimitIn,
+			perTxLimitIn,
+			bpsPerDayIn,
+			globalLimitOut,
+			perTxLimitOut,
+			bpsPerDayOut
 		);
 	}
 
 	/**
 	 * @notice update minter or rewards role limits
 	 * @param minter address of minter
-	 * @param globalLimit minter global limit
-	 * @param perTxLimit minter per tx limit
-	 * @param bpsPerDay limit for rewards role in bps relative to G$ total supply
+	 * @param globalLimitIn minter global limit
+	 * @param perTxLimitIn minter per tx limit
+	 * @param bpsPerDayIn limit for rewards role in bps relative to G$ total supply
+	 * @param globalLimitOut minter global limit
+	 * @param perTxLimitOut minter per tx limit
+	 * @param bpsPerDayOut limit for rewards role in bps relative to G$ total supply
 	 */
 	function _setMinterCaps(
 		address minter,
-		uint256 globalLimit,
-		uint256 perTxLimit,
-		uint32 bpsPerDay
+		uint256 globalLimitIn,
+		uint256 perTxLimitIn,
+		uint32 bpsPerDayIn,
+		uint256 globalLimitOut,
+		uint256 perTxLimitOut,
+		uint32 bpsPerDayOut
 	) internal {
-		Supply storage m = minterSupply[minter];
-		m.cap = globalLimit;
-		m.max = perTxLimit;
-		m.bpsPerDay = bpsPerDay;
+		InLimits storage m = minterSupply[minter];
+		OutLimits storage o = minterOutLimits[minter];
+		bool isUpdate = m.lastUpdate > 0;
+		bool withRewardsRole = hasRole(REWARDS_ROLE, minter);
+		m.capIn = globalLimitIn;
+		m.maxIn = perTxLimitIn;
+		m.bpsPerDayIn = bpsPerDayIn;
 		m.lastUpdate = uint128(block.timestamp);
-		m.dailyCap =
-			uint128(IERC20Upgradeable(token).totalSupply() * bpsPerDay) /
+		m.dailyCapIn =
+			uint128(IERC20Upgradeable(token).totalSupply() * bpsPerDayIn) /
 			10000;
-	}
+		o.dailyCapOut =
+			uint128(IERC20Upgradeable(token).totalSupply() * bpsPerDayOut) /
+			10000;
+		o.capOut = globalLimitOut;
+		o.maxOut = perTxLimitOut;
+		o.bpsPerDayOut = bpsPerDayOut;
 
-	/**
-	 * @notice update the global cap for minter roles
-	 * @param cap the new total mint cap
-	 */
-	function setTotalMintCap(uint256 cap)
-		external
-		onlyRoles([GUARDIAN_ROLE, DEFAULT_ADMIN_ROLE])
-	{
-		totalMintCap = cap;
+		emit MinterSet(
+			minter,
+			globalLimitIn,
+			perTxLimitIn,
+			bpsPerDayIn,
+			globalLimitOut,
+			perTxLimitOut,
+			bpsPerDayOut,
+			withRewardsRole,
+			isUpdate
+		);
 	}
 
 	/**
@@ -467,13 +508,33 @@ contract GoodDollarMintBurnWrapper is
 	{
 		require(to != address(this), "mint to self");
 
-		Supply storage s = minterSupply[msg.sender];
-		require(s.max == 0 || amount <= s.max, "minter max exceeded");
-		s.total += amount;
-		require(s.cap == 0 || s.total <= s.cap, "minter cap exceeded");
+		require(
+			minterSupply[msg.sender].maxIn == 0 ||
+				amount <= minterSupply[msg.sender].maxIn,
+			"minter max exceeded"
+		);
+		require(
+			minterSupply[msg.sender].dailyCapIn == 0 ||
+				minterSupply[msg.sender].dailyCapIn >=
+				(minterSupply[msg.sender].mintedToday + amount),
+			"minter daily cap exceeded"
+		);
+
+		minterSupply[msg.sender].mintedToday += uint128(amount);
+		minterSupply[msg.sender].totalIn += amount;
+		require(
+			minterSupply[msg.sender].capIn == 0 ||
+				minterSupply[msg.sender].totalIn <= minterSupply[msg.sender].capIn,
+			"minter cap exceeded"
+		);
 
 		totalMinted += amount;
-		require(totalMinted <= totalMintCap, "total mint cap exceeded");
+
+		if (minterOutLimits[msg.sender].totalOut >= amount) {
+			minterOutLimits[msg.sender].totalOut -= amount;
+		} else {
+			minterOutLimits[msg.sender].totalOut = 0;
+		}
 
 		bool ok = dao.mintTokens(amount, to, avatar);
 		require(ok, "mint failed");
@@ -486,6 +547,27 @@ contract GoodDollarMintBurnWrapper is
 		internal
 		whenNotPaused(PAUSE_BURN_ROLE)
 	{
+		require(
+			minterOutLimits[msg.sender].maxOut == 0 ||
+				amount <= minterOutLimits[msg.sender].maxOut,
+			"minter burn max exceeded"
+		);
+		require(
+			minterOutLimits[msg.sender].dailyCapOut == 0 ||
+				minterOutLimits[msg.sender].dailyCapOut >=
+				(minterOutLimits[msg.sender].burnedToday + amount),
+			"minter burn daily cap exceeded"
+		);
+
+		minterOutLimits[msg.sender].burnedToday += uint128(amount);
+		minterOutLimits[msg.sender].totalOut += amount;
+		require(
+			minterOutLimits[msg.sender].capOut == 0 ||
+				minterOutLimits[msg.sender].totalOut <=
+				minterOutLimits[msg.sender].capOut,
+			"minter cap exceeded"
+		);
+
 		//update stats correctly, but dont fail if it tries to transfer tokens minted elsewhere as long as we burn some
 		if (totalMinted >= amount) {
 			totalMinted -= amount;
@@ -493,14 +575,10 @@ contract GoodDollarMintBurnWrapper is
 			totalMinted = 0;
 		}
 
-		if (hasRole(MINTER_ROLE, msg.sender)) {
-			Supply storage s = minterSupply[msg.sender];
-
-			if (s.total >= amount) {
-				s.total -= amount;
-			} else {
-				s.total = 0;
-			}
+		if (minterSupply[msg.sender].totalIn >= amount) {
+			minterSupply[msg.sender].totalIn -= amount;
+		} else {
+			minterSupply[msg.sender].totalIn = 0;
 		}
 
 		//handle onTokenTransfer (ERC677), assume tokens has been transfered
@@ -522,6 +600,7 @@ contract GoodDollarMintBurnWrapper is
 
 		if (toBurn > 0) {
 			totalMintDebt -= uint128(toBurn);
+			totalMinted -= toBurn;
 			ERC20(token).burn(toBurn); //from DAOUpgradableContract -> Interfaces
 		}
 	}
@@ -529,20 +608,31 @@ contract GoodDollarMintBurnWrapper is
 	/**
 	 * @notice helper for sendOrMint action to update the rewarder daily limit if updateFrequency passed
 	 */
-	function _updateDailyLimitCap(Supply storage minter) internal {
-		uint256 secondsPassed = block.timestamp - minter.lastUpdate;
-
+	function _updateDailyLimitCap(address minter) internal {
+		uint256 secondsPassed = block.timestamp - minterSupply[minter].lastUpdate;
+		uint256 totalSupply = IERC20Upgradeable(token).totalSupply();
 		if (secondsPassed >= updateFrequency) {
-			minter.dailyCap = uint128(
-				(IERC20Upgradeable(token).totalSupply() * minter.bpsPerDay) / 10000
+			minterSupply[minter].dailyCapIn = uint128(
+				(totalSupply * minterSupply[minter].bpsPerDayIn) / 10000
 			);
-			minter.lastUpdate = uint128(block.timestamp);
+			minterOutLimits[minter].dailyCapOut = uint128(
+				(totalSupply * minterOutLimits[minter].bpsPerDayOut) / 10000
+			);
+			minterSupply[minter].lastUpdate = uint128(block.timestamp);
 			// console.log(
 			// 	"secondsPassed %s %s %s",
 			// 	secondsPassed,
 			// 	minter.dailyCap,
 			// 	minter.lastUpdate
 			// );
+		}
+
+		//check if daily limit needs reset
+		_updateCurrentDay();
+		if (currentDay != minterSupply[minter].lastDayReset) {
+			minterSupply[minter].mintedToday = 0;
+			minterOutLimits[minter].burnedToday = 0;
+			minterSupply[minter].lastDayReset = currentDay;
 		}
 	}
 }

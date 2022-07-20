@@ -142,7 +142,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
       { kind: "uups" }
     )) as unknown as GoodDollarMintBurnWrapper;
     await setSchemes([goodDollarMintBurnWrapper.address]);
-    await setDAOAddress("MintBurnWrapper", goodDollarMintBurnWrapper.address);
+    await setDAOAddress("MINTBURN_WRAPPER", goodDollarMintBurnWrapper.address);
 
     await goodDollar.mint(founder.address, "200000000000"); //mint so that 30bps cap can mint some G$
 

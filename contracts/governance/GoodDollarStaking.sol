@@ -222,7 +222,7 @@ contract GoodDollarStaking is
 		//make sure RewardsMinter failure doesnt prevent withdrawl of stake
 		//console.log("_mintGDRewards: sending amount: %s to: %s", _amount, _to);
 		try
-			RewardsMinter(nameService.getAddress("MintBurnWrapper")).sendOrMint(
+			RewardsMinter(nameService.getAddress("MINTBURN_WRAPPER")).sendOrMint(
 				_to,
 				_amount
 			)

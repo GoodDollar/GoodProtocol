@@ -27,8 +27,6 @@ export const deployWrapper = async (defaultAdmin = null) => {
 
   console.log("MintBurnWrapper deploy params:", [
     release.GoodDollar,
-    1,
-    INITIAL_CAP,
     defaultAdmin || release.GuardiansSafe,
     release.NameService
   ]);
@@ -39,7 +37,7 @@ export const deployWrapper = async (defaultAdmin = null) => {
       salt: "MintBurnWrapper",
       isUpgradeable: true
     },
-    [INITIAL_CAP, defaultAdmin || release.GuardiansSafe, release.NameService]
+    [defaultAdmin || release.GuardiansSafe, release.NameService]
   ).then(printDeploy)) as Contract;
 
   release = {

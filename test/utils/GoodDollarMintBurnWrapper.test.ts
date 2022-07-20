@@ -96,11 +96,7 @@ describe("GoodDollarMintBurnWrapper", () => {
 
     const wrapper = (await upgrades.deployProxy(
       await ethers.getContractFactory("GoodDollarMintBurnWrapper"),
-      [
-        "100000000000", //1B G$
-        wrapperAdmin.address,
-        nameService.address
-      ],
+      [wrapperAdmin.address, nameService.address],
       {
         kind: "uups"
       }
@@ -110,18 +106,36 @@ describe("GoodDollarMintBurnWrapper", () => {
       .connect(wrapperAdmin)
       .grantRole(await wrapper.GUARDIAN_ROLE(), guardian.address);
 
-    await wrapper
-      .connect(wrapperAdmin)
-      .grantRole(await wrapper.ROUTER_ROLE(), router.address);
-
-    await goodDollar.mint(controller, 100000000000); //so bps limit is significant
+    await goodDollar.mint(controller, 10000000); //so bps limit is significant
 
     await wrapper
       .connect(wrapperAdmin)
-      .addMinter(minter.address, MINTER_CAP, MINTER_TX_MAX, 0, false);
+      .addMinter(
+        router.address,
+        MINTER_CAP,
+        MINTER_TX_MAX,
+        REWARD_BPS,
+        MINTER_CAP,
+        MINTER_TX_MAX,
+        REWARD_BPS,
+        false
+      );
+
     await wrapper
       .connect(wrapperAdmin)
-      .addMinter(rewarder.address, 0, 0, REWARD_BPS, true);
+      .addMinter(
+        minter.address,
+        MINTER_CAP,
+        MINTER_TX_MAX,
+        REWARD_BPS,
+        MINTER_CAP,
+        MINTER_TX_MAX,
+        REWARD_BPS,
+        false
+      );
+    await wrapper
+      .connect(wrapperAdmin)
+      .addMinter(rewarder.address, 0, 0, REWARD_BPS, 0, 0, 0, true);
 
     await ictrl.registerScheme(
       wrapper.address,
@@ -146,11 +160,7 @@ describe("GoodDollarMintBurnWrapper", () => {
 
     const wrapper = (await upgrades.deployProxy(
       await ethers.getContractFactory("GoodDollarMintBurnWrapper"),
-      [
-        "100000000000", //1B G$
-        wrapperAdmin.address,
-        nameService.address
-      ],
+      [wrapperAdmin.address, nameService.address],
       {
         kind: "uups"
       }
@@ -162,9 +172,19 @@ describe("GoodDollarMintBurnWrapper", () => {
 
     await wrapper
       .connect(wrapperAdmin)
-      .grantRole(await wrapper.ROUTER_ROLE(), multiChainRouter.address);
+      .addMinter(
+        multiChainRouter.address,
+        MINTER_CAP,
+        MINTER_TX_MAX,
+        REWARD_BPS,
+        MINTER_CAP,
+        MINTER_TX_MAX,
+        REWARD_BPS,
+        false
+      );
 
-    await goodDollar.mint(controller, 100000000000); //so bps limit is significant
+    await setDAOAddress("MULTICHAIN_ROUTER", multiChainRouter.address);
+    await goodDollar.mint(controller, 10000000); //so bps limit is significant
 
     return { wrapper, multiChainRouter };
   };
@@ -173,11 +193,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     const result = await upgrades
       .deployProxy(
         await ethers.getContractFactory("GoodDollarMintBurnWrapper"),
-        [
-          "100000000000", //1B G$
-          wrapperAdmin.address,
-          nameService.address
-        ],
+        [wrapperAdmin.address, nameService.address],
         {
           kind: "uups"
         }
@@ -299,6 +315,18 @@ describe("GoodDollarMintBurnWrapper", () => {
     ).revertedWith("pause");
   });
 
+  it("should not be able to mint when passed daily cap", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    try {
+      while (true) {
+        await wrapper.connect(minter).mint(signers[0].address, MINTER_TX_MAX);
+      }
+    } catch (e) {
+      expect(e.message).to.contain("daily");
+    }
+  });
+
   it("should not be able to mint when passed tx cap", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
@@ -310,20 +338,24 @@ describe("GoodDollarMintBurnWrapper", () => {
   it("should not be able to mint when passed minter cap", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
-    for (let i = 0; i < MINTER_CAP / MINTER_TX_MAX; i++)
+    for (let i = 0; i < MINTER_CAP / MINTER_TX_MAX; i++) {
+      if (i % 3 === 0) {
+        await increaseTime(60 * 60 * 24); //pass daily cap
+      }
       await wrapper.connect(minter).mint(signers[0].address, MINTER_TX_MAX);
+    }
 
     await expect(
       wrapper.connect(minter).mint(signers[0].address, MINTER_TX_MAX)
-    ).revertedWith("cap");
+    ).revertedWith("minter cap");
   });
 
-  it("should not be able to mint when passed global cap", async () => {
+  xit("should not be able to mint when passed global cap", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
     await wrapper
       .connect(wrapperAdmin)
-      .addMinter(minterUncapped.address, 0, 10000000000, 0, false);
+      .addMinter(minterUncapped.address, 0, 10000000000, 0, 0, 0, 0, false);
 
     for (let i = 0; i < 100000000000 / 10000000000; i++)
       await wrapper
@@ -335,6 +367,46 @@ describe("GoodDollarMintBurnWrapper", () => {
     ).revertedWith("total mint");
   });
 
+  it("should not be able to burn when passed daily cap", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+    await goodDollar.mint(signers[0].address, 100000000);
+    await goodDollar.connect(signers[0]).approve(wrapper.address, 100000000);
+    try {
+      while (true) {
+        await wrapper.connect(router).burn(signers[0].address, MINTER_TX_MAX);
+      }
+    } catch (e) {
+      expect(e.message).to.contain("daily");
+    }
+  });
+
+  it("should not be able to burn when passed tx cap", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+
+    await goodDollar.mint(signers[0].address, 100000000);
+    await goodDollar.connect(signers[0]).approve(wrapper.address, 100000000);
+    await expect(
+      wrapper.connect(router).burn(signers[0].address, MINTER_TX_MAX + 1)
+    ).revertedWith("max");
+  });
+
+  it("should not be able to burn when passed minter cap", async () => {
+    const { wrapper } = await waffle.loadFixture(fixture);
+    await goodDollar.mint(signers[0].address, 100000000);
+    await goodDollar.connect(signers[0]).approve(wrapper.address, 100000000);
+
+    for (let i = 0; i < MINTER_CAP / MINTER_TX_MAX; i++) {
+      if (i % 3 === 0) {
+        await increaseTime(60 * 60 * 24); //pass daily cap
+      }
+      await wrapper.connect(router).burn(signers[0].address, MINTER_TX_MAX);
+    }
+
+    await expect(
+      wrapper.connect(router).burn(signers[0].address, MINTER_TX_MAX)
+    ).revertedWith("minter cap");
+  });
+
   it("should update stats after mint", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
@@ -344,20 +416,20 @@ describe("GoodDollarMintBurnWrapper", () => {
     expect(await wrapper.totalMinted()).eq(1000);
 
     const minterInfo = await wrapper.minterSupply(minter.address);
-    expect(minterInfo.total).eq(1000);
+    expect(minterInfo.totalIn).eq(1000);
 
     await wrapper.connect(minter).mint(signers[0].address, 500);
     const minterInfoAfter = await wrapper.minterSupply(minter.address);
     expect(await wrapper.totalMinted()).eq(1500);
-    expect(minterInfoAfter.total).eq(1500);
+    expect(minterInfoAfter.totalIn).eq(1500);
   });
 
-  it("should be able to burn only by router role", async () => {
+  it("should be able to burn only by minter role", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
     await goodDollar.mint(founder.address, 1000);
     await goodDollar.connect(founder).approve(wrapper.address, 1000);
     await expect(
-      wrapper.connect(minter).burn(founder.address, 1000)
+      wrapper.connect(guardian).burn(founder.address, 1000)
     ).to.revertedWith("role");
     await expect(wrapper.connect(router).burn(founder.address, 1000)).to.not
       .reverted;
@@ -391,7 +463,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     expect(await wrapper.totalMinted()).eq(0);
 
     const minterInfo = await wrapper.minterSupply(minter.address);
-    expect(minterInfo.total).eq(0);
+    expect(minterInfo.totalIn).eq(0);
   });
 
   it("should update global stats when minter!=burner after burn when already minted", async () => {
@@ -407,7 +479,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     expect(await wrapper.totalMinted()).eq(500);
 
     const minterInfo = await wrapper.minterSupply(minter.address);
-    expect(minterInfo.total).eq(1000);
+    expect(minterInfo.totalIn).eq(1000);
   });
 
   it("should update both global and minter stats when minter==burner after burn when already minted", async () => {
@@ -426,7 +498,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     expect(await wrapper.totalMinted()).eq(500);
 
     const minterInfo = await wrapper.minterSupply(minter.address);
-    expect(minterInfo.total).eq(500);
+    expect(minterInfo.totalIn).eq(500);
   });
 
   it("should reset minter total when burn amount > total", async () => {
@@ -445,7 +517,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     expect(await wrapper.totalMinted()).eq(0);
 
     const minterInfo = await wrapper.minterSupply(minter.address);
-    expect(minterInfo.total).eq(0);
+    expect(minterInfo.totalIn).eq(0);
   });
 
   it("should update mint stats after sendOrMint", async () => {
@@ -455,7 +527,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     const minterInfo = await wrapper.minterSupply(rewarder.address);
 
     expect(await goodDollar.balanceOf(signers[0].address)).to.eq(1000);
-    expect(minterInfo.total).eq(1000);
+    expect(minterInfo.totalIn).eq(1000);
     expect(minterInfo.mintedToday).eq(1000);
     expect(minterInfo.totalRewards).eq(1000);
     expect(await wrapper.totalMinted()).eq(1000);
@@ -472,7 +544,7 @@ describe("GoodDollarMintBurnWrapper", () => {
     const minterInfo = await wrapper.minterSupply(rewarder.address);
 
     expect(await goodDollar.balanceOf(signers[0].address)).to.eq(1000);
-    expect(minterInfo.total).eq(0);
+    expect(minterInfo.totalIn).eq(0);
     expect(minterInfo.totalRewards).eq(1000);
     expect(minterInfo.mintedToday).eq(0);
     expect(await wrapper.totalMinted()).eq(0);
@@ -490,7 +562,7 @@ describe("GoodDollarMintBurnWrapper", () => {
 
     expect(await goodDollar.balanceOf(signers[0].address)).to.eq(1000);
     expect(await goodDollar.balanceOf(wrapper.address)).to.eq(0);
-    expect(minterInfo.total).eq(500);
+    expect(minterInfo.totalIn).eq(500);
     expect(minterInfo.totalRewards).eq(1000);
     expect(minterInfo.mintedToday).eq(500);
     expect(await wrapper.totalMinted()).eq(500);
@@ -525,40 +597,41 @@ describe("GoodDollarMintBurnWrapper", () => {
 
     await wrapper
       .connect(rewarder)
-      .sendOrMint(signers[0].address, minterInfo.dailyCap.add(1000));
+      .sendOrMint(signers[0].address, minterInfo.dailyCapIn.add(1000));
 
     minterInfo = await wrapper.minterSupply(rewarder.address);
 
     expect(await goodDollar.balanceOf(signers[0].address)).to.eq(
-      minterInfo.dailyCap
+      minterInfo.dailyCapIn
     );
-    expect(minterInfo.total).eq(minterInfo.dailyCap);
-    expect(minterInfo.totalRewards).eq(minterInfo.dailyCap);
-    expect(minterInfo.mintedToday).eq(minterInfo.dailyCap);
-    expect(await wrapper.totalMinted()).eq(minterInfo.dailyCap);
-    expect(await wrapper.totalMintDebt()).eq(minterInfo.dailyCap);
-    expect(await wrapper.totalRewards()).eq(minterInfo.dailyCap);
+    expect(minterInfo.totalIn).eq(minterInfo.dailyCapIn);
+    expect(minterInfo.totalRewards).eq(minterInfo.dailyCapIn);
+    expect(minterInfo.mintedToday).eq(minterInfo.dailyCapIn);
+    expect(await wrapper.totalMinted()).eq(minterInfo.dailyCapIn);
+    expect(await wrapper.totalMintDebt()).eq(minterInfo.dailyCapIn);
+    expect(await wrapper.totalRewards()).eq(minterInfo.dailyCapIn);
   });
 
-  it("should reset rewarder mintedToday after day passed", async () => {
+  it("should reset rewarder and minter mintedToday after day passed", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
-    const minterInfo = await wrapper.minterSupply(rewarder.address);
-    await wrapper
-      .connect(rewarder)
-      .sendOrMint(signers[0].address, minterInfo.dailyCap);
+    await wrapper.connect(rewarder).sendOrMint(signers[0].address, "1000");
+
+    await wrapper.connect(minter).mint(signers[0].address, "1000");
 
     await increaseTime(60 * 60 * 24);
 
     await expect(
-      wrapper
-        .connect(rewarder)
-        .sendOrMint(signers[0].address, minterInfo.dailyCap)
+      wrapper.connect(rewarder).sendOrMint(signers[0].address, "1001")
     ).to.not.reverted;
 
-    expect(await goodDollar.balanceOf(signers[0].address)).to.eq(
-      minterInfo.dailyCap.mul(2)
-    );
+    await expect(wrapper.connect(minter).mint(signers[0].address, "1001")).to
+      .not.reverted;
+
+    expect(await goodDollar.balanceOf(signers[0].address)).to.eq("4002");
+    const minterInfo = await wrapper.minterSupply(rewarder.address);
+    const minterInfo2 = await wrapper.minterSupply(minter.address);
+    expect(minterInfo.mintedToday).eq(minterInfo2.mintedToday).eq("1001");
   });
 
   it("should update rewarder daily limit after updateFrequency days passed", async () => {
@@ -573,12 +646,12 @@ describe("GoodDollarMintBurnWrapper", () => {
 
     await wrapper
       .connect(rewarder)
-      .sendOrMint(signers[0].address, minterInfo.dailyCap.add(1000));
+      .sendOrMint(signers[0].address, minterInfo.dailyCapIn.add(1000));
 
     let minterInfoAfter = await wrapper.minterSupply(rewarder.address);
 
-    expect(minterInfoAfter.dailyCap).gt(minterInfo.dailyCap);
-    expect(minterInfoAfter.dailyCap).eq(
+    expect(minterInfoAfter.dailyCapIn).gt(minterInfo.dailyCapIn);
+    expect(minterInfoAfter.dailyCapIn).eq(
       totalSupplyBeforeMint.mul(REWARD_BPS).div(10000)
     ); //we doubled the G$ supply so bps relative to supply should be double now
   });
@@ -589,12 +662,12 @@ describe("GoodDollarMintBurnWrapper", () => {
     const minterInfo = await wrapper.minterSupply(rewarder.address);
     await wrapper
       .connect(rewarder)
-      .sendOrMint(signers[0].address, minterInfo.dailyCap);
+      .sendOrMint(signers[0].address, minterInfo.dailyCapIn);
 
     const tx = await (
       await wrapper
         .connect(rewarder)
-        .sendOrMint(signers[1].address, minterInfo.dailyCap)
+        .sendOrMint(signers[1].address, minterInfo.dailyCapIn)
     ).wait();
 
     const sendOrMintEvent = tx.events.find(_ => _.event === "SendOrMint");
@@ -608,22 +681,33 @@ describe("GoodDollarMintBurnWrapper", () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
     await expect(
-      wrapper.setMinterCaps(minter.address, 0, 0, 0)
+      wrapper.setMinterCaps(minter.address, 0, 0, 0, 0, 0, 0)
     ).to.be.revertedWith("role");
 
     await expect(
-      wrapper.connect(guardian).setMinterCaps(minter.address, 0, 0, 50)
+      wrapper
+        .connect(guardian)
+        .setMinterCaps(minter.address, 0, 0, 50, 0, 0, 60)
     ).to.not.reverted;
 
     const minterInfo = await wrapper.minterSupply(minter.address);
-    expect(minterInfo.cap).to.eq(0);
-    expect(minterInfo.max).to.eq(0);
-    expect(minterInfo.dailyCap).eq(
+    const minterOutLimits = await wrapper.minterOutLimits(minter.address);
+
+    expect(minterInfo.capIn).to.eq(0);
+    expect(minterInfo.maxIn).to.eq(0);
+    expect(minterInfo.bpsPerDayIn).to.eq(50);
+    expect(minterOutLimits.capOut).to.eq(0);
+    expect(minterOutLimits.maxOut).to.eq(0);
+    expect(minterOutLimits.bpsPerDayOut).to.eq(60);
+    expect(minterInfo.dailyCapIn).eq(
       (await goodDollar.totalSupply()).mul(50).div(10000)
+    );
+    expect(minterOutLimits.dailyCapOut).eq(
+      (await goodDollar.totalSupply()).mul(60).div(10000)
     );
   });
 
-  it("should allow guardian to update totalMintCap", async () => {
+  xit("should allow guardian to update totalMintCap", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
     await expect(wrapper.setTotalMintCap(0)).to.be.revertedWith("role");
