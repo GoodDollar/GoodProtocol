@@ -45,14 +45,16 @@ contract GoodDollarStaking is
 	/**
 	 * @dev Emitted when `staker` stakes an `amount` of GoodDollars
 	 */
-	event Staked(address indexed staker, uint256 amount, uint32 donationRatio);
+	event Staked(address indexed staker, uint256 amount);
 
 	/**
 	 * @dev Emitted when `staker` withdraws an `amount` of staked GoodDollars
 	 */
 	event StakeWithdraw(
 		address indexed staker,
-		uint256 amount, //amount withdrawn including gdRewards
+		uint256 actualSharesRedeemed, //shares withdrawn , if not all rewards minted then this can be lower than sharesRequested
+		uint256 amount, //amount withdrawn including actualRewardsSent
+		uint256 sharesRequested, //shares requested to redeem
 		uint256 goodRewards,
 		uint256 gdRewards,
 		uint256 actualRewardsSent //maybe rewards could not be minted
@@ -112,65 +114,57 @@ contract GoodDollarStaking is
 	 * needed to be executed before the execution of this method.
 	 * Can be executed only when the contract is not paused.
 	 * @param _amount The amount of GD to stake
-	 * @param _donationRatio percentage between 0-100
 	 */
-	function stake(uint256 _amount, uint32 _donationRatio) external {
+	function stake(uint256 _amount) external {
 		require(
 			token.transferFrom(msg.sender, address(this), _amount),
 			"transferFrom failed, make sure you approved token transfer"
 		);
-		_stakeFrom(msg.sender, _amount, _donationRatio);
+		_stakeFrom(msg.sender, _amount);
 	}
 
 	/**
 	 * @dev helper for staking
 	 * @param _from address of staker
 	 * @param _amount The amount of GD to stake
-	 * @param _donationRatio percentage between 0-100
 	 */
-	function _stakeFrom(
-		address _from,
-		uint256 _amount,
-		uint32 _donationRatio
-	) internal whenNotPaused {
+	function _stakeFrom(address _from, uint256 _amount) internal whenNotPaused {
+		/* G$ rewards updates */
+		uint256 shares = _stake(_from, _amount); //this will validate _amount
+		_mint(_from, shares); // mint Staking token for staker
+
 		/* GOOD rewards Updates */
-		_increaseProductivity(address(this), _from, _amount, 0, block.number);
-		_mint(_from, _amount); // mint Staking token for staker
+		_increaseProductivity(address(this), _from, shares, 0, block.number);
 		_mintGOODRewards(_from);
 		/* end GOOD rewards Updates */
 
-		/* G$ rewards updates */
-		_stake(_from, _amount, _donationRatio); //this will validate _amount and _donation ratio
-
-		emit Staked(_from, _amount, _donationRatio);
+		emit Staked(_from, _amount);
 	}
 
 	/**
 	 * @notice helper for staking through G$ transferAndCall without approve
 	 * @param _from address of sender
 	 * @param _amount The amount of GD to stake
-	 * @param data should be the donationRatio abi encoded as uint32
 	 */
 	function onTokenTransfer(
 		address _from,
 		uint256 _amount,
-		bytes calldata data
+		bytes calldata
 	) external returns (bool success) {
 		require(msg.sender == address(token), "unsupported token");
-		uint32 donationRatio = abi.decode(data, (uint32));
 
-		_stakeFrom(_from, _amount, donationRatio);
+		_stakeFrom(_from, _amount);
 		return true;
 	}
 
 	/**
 	 * @notice Withdraws _amount from the staker principle
 	 * in _withdraw we use getPrinciple and not getProductivity because the user can have more G$ to withdraw than he staked
-	 * @param _amount amount to withdraw
+	 * @param _shares amount to withdraw
 	 * @return goodRewards how much GOOD rewards were transfered to staker
 	 * @return gdRewards out of withdrawn amount how much was taken from earned interest (amount-gdRewards = taken from deposit)
 	 */
-	function withdrawStake(uint256 _amount)
+	function withdrawStake(uint256 _shares)
 		public
 		nonReentrant
 		returns (uint256 goodRewards, uint256 gdRewards)
@@ -178,11 +172,20 @@ contract GoodDollarStaking is
 		uint256 depositComponent;
 
 		//in case amount is 0 this will just withdraw the GOOD rewards, this is required for withdrawRewards
-		if (_amount > 0) {
+		uint256 originalBalance = sharesOf(msg.sender);
+		if (_shares > 0) {
 			/* G$ rewards update */
 			//we get the relative part user is withdrawing from his original deposit, his principle is composed of deposit+earned interest
-			(depositComponent, gdRewards) = _withdraw(msg.sender, _amount);
-			_burn(msg.sender, depositComponent); // burn their staking tokens
+			(depositComponent, gdRewards) = _withdraw(msg.sender, _shares);
+			/* Good rewards update */
+			_decreaseProductivity(
+				address(this),
+				msg.sender,
+				_shares,
+				0,
+				block.number
+			);
+			_burn(msg.sender, _shares); // burn their staking tokens
 		}
 
 		// console.log(
@@ -191,24 +194,15 @@ contract GoodDollarStaking is
 		// 	gdRewards
 		// );
 
-		/* Good rewards update */
-		if (depositComponent > 0) {
-			_decreaseProductivity(
-				address(this),
-				msg.sender,
-				depositComponent,
-				0,
-				block.number
-			);
-		}
 		goodRewards = _mintGOODRewards(msg.sender);
-		/* end Good rewards update */
 
 		//rewards are paid via the rewards distribution contract
 		uint256 actualRewardsSent;
 		if (gdRewards > 0) {
 			actualRewardsSent = _mintGDRewards(msg.sender, gdRewards);
 		}
+
+		uint256 actualSharesRedeemed = originalBalance - sharesOf(msg.sender);
 
 		//stake is withdrawn from original deposit sent to this contract
 		if (depositComponent > 0) {
@@ -219,7 +213,9 @@ contract GoodDollarStaking is
 		}
 		emit StakeWithdraw(
 			msg.sender,
-			_amount,
+			actualSharesRedeemed,
+			depositComponent + actualRewardsSent,
+			_shares,
 			goodRewards,
 			gdRewards,
 			actualRewardsSent
@@ -238,18 +234,22 @@ contract GoodDollarStaking is
 	{
 		//make sure RewardsMinter failure doesnt prevent withdrawl of stake
 		//console.log("_mintGDRewards: sending amount: %s to: %s", _amount, _to);
-		try
-			RewardsMinter(nameService.getAddress("MINTBURN_WRAPPER")).sendOrMint(
-				_to,
-				_amount
-			)
-		returns (uint256 _res) {
-			//console.log("sendOrMint result: %s", _res);
-			actualSent = _res;
-		} catch {
-			//console.log("sendOrMint threw an error");
-			actualSent = 0;
+		address minter = nameService.getAddress("MINTBURN_WRAPPER");
+		if (minter != address(0)) {
+			try
+				RewardsMinter(nameService.getAddress("MINTBURN_WRAPPER")).sendOrMint(
+					_to,
+					_amount
+				)
+			returns (uint256 _res) {
+				//console.log("sendOrMint result: %s", _res);
+				actualSent = _res;
+			} catch {
+				//console.log("sendOrMint threw an error");
+				actualSent = 0;
+			}
 		}
+
 		//it could be that rewards minter doesnt have enough or passed cap
 		//so we keep track of debt to user
 		if (actualSent < _amount) {
@@ -258,7 +258,9 @@ contract GoodDollarStaking is
 			// 	actualSent,
 			// 	_amount - actualSent
 			// );
-			_undoReward(_to, _amount - actualSent);
+			uint256 shares = _undoReward(_to, _amount - actualSent);
+			_increaseProductivity(address(this), _to, shares, 0, block.number); //increase productivity back for GOOD rewards
+			_mint(_to, shares); //mint shares worth of undone rewards
 			emit RewardsNotSent(_to, _amount, actualSent);
 		}
 	}
@@ -272,10 +274,10 @@ contract GoodDollarStaking is
 		public
 		returns (uint256 goodRewards, uint256 gdRewards)
 	{
-		(, uint256 gdRewardsAfterDonation) = earned(msg.sender);
+		uint256 gdRewardsShares = amountToShares(earned(msg.sender));
 
 		//this will trigger a withdraw only of rewards part
-		return withdrawStake(gdRewardsAfterDonation);
+		return withdrawStake(gdRewardsShares);
 	}
 
 	/**
@@ -306,7 +308,21 @@ contract GoodDollarStaking is
 	 * @dev Returns the number of decimals used for the staking reciept token precision
 	 */
 	function decimals() public view virtual override returns (uint8) {
-		return 2;
+		return 18; //SHARE_PERCISION
+	}
+
+	function sharesOf(address _account)
+		public
+		view
+		virtual
+		override
+		returns (uint256)
+	{
+		return balanceOf(_account);
+	}
+
+	function sharesSupply() public view virtual override returns (uint256) {
+		return totalSupply();
 	}
 
 	/**
@@ -316,30 +332,25 @@ contract GoodDollarStaking is
 	function _transfer(
 		address from,
 		address to,
-		uint256 value
+		uint256 shares
 	) internal override {
-		(uint256 depositComponent, ) = _withdraw(from, value); //update G$ rewards
-
-		//we only update GOOD staking amount if user is transfering G$s from his original stake and not just from the principle rewards
-		if (depositComponent > 0)
-			_decreaseProductivity(
-				address(this),
-				from,
-				depositComponent,
-				0,
-				block.number
-			);
-
+		_decreaseProductivity(address(this), from, shares, 0, block.number);
 		//the recipient sent G$ are considered like he is staking them, so they will also earn GOOD rewards
-		//even if sender transfered G$s from his rewardsComponent which doesnt earn GOOD rewards
-		_increaseProductivity(address(this), to, value, 0, block.number);
-		_stake(to, value, uint32(stakersInfo[to].avgDonationRatio / PRECISION)); //update G$ rewards, receiver keeps his avg donation ratio
+		_increaseProductivity(address(this), to, shares, 0, block.number);
+
+		//recipient inherits the rewards part also, this is important so deposit part is sent from contract balance and rewards from rewards contract
+		uint256 recipientShares = balanceOf(to);
+		stakersInfo[to].lastSharePrice = uint128(
+			((stakersInfo[to].lastSharePrice * recipientShares) +
+				(stakersInfo[from].lastSharePrice * shares)) /
+				(recipientShares + shares)
+		);
 
 		//mint GOOD rewards
 		_mintGOODRewards(from);
 		_mintGOODRewards(to);
 
-		super._transfer(from, to, value);
+		super._transfer(from, to, shares);
 	}
 
 	/**
@@ -401,18 +412,18 @@ contract GoodDollarStaking is
 
 	/**
 	 * @dev returns user pending GOOD and G$ rewards
-	 * @return _goodReward GOOD nominal rewards pending
-	 * @return _gdRewardAfterDonation the G$ nominal rewards earned from interest rate after deducting user donation percentage
+	 * @return goodReward GOOD nominal rewards pending
+	 * @return gdReward the G$ nominal rewards earned from interest rate
 	 */
 	function getUserPendingReward(address _user)
 		external
 		view
-		returns (uint256 _goodReward, uint256 _gdRewardAfterDonation)
+		returns (uint256 goodReward, uint256 gdReward)
 	{
 		// GOOD rewards
-		_goodReward = getUserPendingReward(address(this), 0, block.number, _user);
+		goodReward = getUserPendingReward(address(this), 0, block.number, _user);
 
-		(, _gdRewardAfterDonation) = earned(_user);
+		gdReward = earned(_user);
 	}
 
 	/**
@@ -427,10 +438,10 @@ contract GoodDollarStaking is
 	{
 		_goodRewardPerShare = super.totalRewardsPerShare(address(this));
 
-		_gdRewardPerShare = stats.totalShares == 0
+		_gdRewardPerShare = totalSupply() == 0
 			? 0
 			: ((_compound() - stats.totalStaked * PRECISION) * SHARE_PRECISION) /
-				(stats.totalShares * PRECISION);
+				(totalSupply() * PRECISION);
 	}
 
 	/// @dev helper function for multibase
