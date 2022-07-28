@@ -155,7 +155,7 @@ contract GoodReserveCDai is
 		return 2;
 	}
 
-	function setAddresses() internal {
+	function setAddresses() public {
 		daiAddress = nameService.getAddress("DAI");
 		cDaiAddress = nameService.getAddress("CDAI");
 		// Approve transfer to cDAI contract
