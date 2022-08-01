@@ -1,5 +1,6 @@
 import { countBy, chunk, difference, flatten, sortBy } from "lodash";
 import fs from "fs";
+import fetch from "node-fetch";
 import { network, ethers, upgrades } from "hardhat";
 import { Contract, Provider, setMulticallAddress } from "ethers-multicall";
 import Identity from "../../artifacts/contracts/Interfaces.sol/IIdentity.json";
@@ -8,7 +9,8 @@ setMulticallAddress(122, "0x3CE6158b7278Bf6792e014FA7B4f3c6c46fe9410");
 const CLAIM_START_BLOCK = 17896430;
 
 const fuseProvider = new ethers.providers.JsonRpcBatchProvider(
-  "https://rpc.fuse.io"
+  "https://explorer-node.fuse.io/"
+  // "https://rpc.fuse.io"
 );
 const ethcallProvider = new Provider(fuseProvider, 122);
 
@@ -45,15 +47,33 @@ const hasBalanceToRefund = async wallets => {
 };
 
 const hasRefunded = async wallets => {
-  const events = await gd.queryFilter(
-    gd.filters.Transfer(
-      undefined,
-      "0xd253A5203817225e9768C05E5996d642fb96bA86"
-    ),
-    17896430
-  );
-  const refunded = events.filter(e => e.args.amount >= 9622260);
-  return refunded.map(_ => _.args.from.toLowerCase());
+  const curBlock = (await gd.provider.getBlockNumber()) - 1;
+  console.log({ curBlock });
+  let toBlock = CLAIM_START_BLOCK + 50000;
+  let refunded = [];
+  let startBlock = CLAIM_START_BLOCK;
+  while (startBlock <= curBlock) {
+    const events = await gd.queryFilter(
+      gd.filters.Transfer(
+        undefined,
+        "0xd253A5203817225e9768C05E5996d642fb96bA86"
+      ),
+      startBlock,
+      toBlock
+    );
+    const accounts = events
+      .filter(e => e.args.amount >= 9622260)
+      .map(_ => _.args.from.toLowerCase());
+    refunded.push(...accounts);
+    console.log("has refunded:", {
+      startBlock,
+      toBlock,
+      accounts: accounts.length
+    });
+    toBlock = Math.min(curBlock, toBlock + 50000);
+    startBlock += 50000;
+  }
+  return refunded;
 };
 
 const whereIsTheMoney = async noBalance => {
