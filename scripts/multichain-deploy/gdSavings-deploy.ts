@@ -37,10 +37,14 @@ const BLOCKS_PER_YEAR = (12 * 60 * 24 * 365).toString();
 const BLOCK_APY = "1000000007735630000";
 
 export const deploySidechain = async () => {
+  const isProduction = networkName.includes("production");
   let release: { [key: string]: any } = dao[networkName];
 
   let [root, ...signers] = await ethers.getSigners();
-  const proposer = new ethers.Wallet(process.env.PROPOSER_KEY, ethers.provider); //need proposer with 0.3% of GOOD tokens
+  const proposer =
+    networkName !== "fuse"
+      ? new ethers.Wallet(process.env.PROPOSER_KEY, ethers.provider)
+      : root; //need proposer with 0.3% of GOOD tokens
 
   console.log("got signers:", {
     networkName,
@@ -69,10 +73,7 @@ export const deploySidechain = async () => {
     GDSavings = (await deployDeterministic(
       {
         name: "GoodDollarStaking",
-        salt:
-          networkName !== "production"
-            ? "GoodDollarStakingV2"
-            : "GoodDollarStaking",
+        salt: isProduction ? "GoodDollarStaking" : "GoodDollarStakingV3",
         isUpgradeable: false
       },
       [
@@ -121,7 +122,7 @@ export const deploySidechain = async () => {
   const proposalEthValues = proposalContracts.map(_ => 0);
 
   const proposalFunctionSignatures = [
-    "addMinter(address,uint256,uint256,uint32,bool)",
+    "addMinter(address,uint256,uint256,uint32,uint256,uint256,uint32,bool)",
     "registerScheme(address,bytes32,bytes4,address)",
     "registerScheme(address,bytes32,bytes4,address)",
     "setAddress(string,address)"
@@ -129,8 +130,17 @@ export const deploySidechain = async () => {
 
   const proposalFunctionInputs = [
     ethers.utils.defaultAbiCoder.encode(
-      ["address", "uint256", "uint256", "uint32", "bool"],
-      [GDSavings.address, 0, 0, 30, true]
+      [
+        "address",
+        "uint256",
+        "uint256",
+        "uint32",
+        "uint256",
+        "uint256",
+        "uint32",
+        "bool"
+      ],
+      [GDSavings.address, 0, 0, 30, 0, 0, 0, true]
     ), //function addMinter(
     ethers.utils.defaultAbiCoder.encode(
       ["address", "bytes32", "bytes4", "address"],
