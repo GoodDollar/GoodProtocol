@@ -54,8 +54,6 @@
   },
   "homepage": "https://gooddollar.org",
   "dependencies": {
-    "@celo-tools/celo-ethers-wrapper": "^0.1.0",
-    "@celo/contractkit": "^2.0.0",
     "@gooddollar/goodcontracts": "^2.6.2",
     "@jsier/retrier": "^1.2.4",
     "@openzeppelin/contracts": "^4.5.0",
