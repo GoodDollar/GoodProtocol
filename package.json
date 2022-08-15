@@ -32,7 +32,8 @@
     "truffle-config.js",
     "tsconfig.json",
     "test",
-    "types"
+    "types",
+    "patches"
   ],
   "repository": {
     "type": "git",
