@@ -121,6 +121,13 @@ const hhconfig: HardhatUserConfig = {
       gas: 6000000,
       gasPrice: 1000000000
     },
+    fuseexplorer: {
+      accounts: { mnemonic },
+      url: "https://explorer-node.fuse.io/",
+      chainId: 122,
+      gas: 6000000,
+      gasPrice: 1000000000
+    },
     fusespark: {
       accounts: { mnemonic },
       url: "https://rpc.fusespark.io/",
