@@ -14,10 +14,10 @@
     "daoUpgrade": "hardhat run scripts/upgradeToV2/upgradeToV2.ts",
     "deployOldDAO": "hardhat run scripts/test/localOldDaoDeploy.ts",
     "runNode": "hardhat node &",
-    "testDAOUpgrade": "yarn runNode && yarn compile && yarn deployOldDAO --network develop-mainnet && yarn daoUpgrade --network develop-mainnet",
-    "testDAOUpgradeFuse": "yarn runNode && yarn compile && yarn deployOldDAO --network develop && yarn daoUpgrade --network develop",
-    "deployTestOld": "yarn runNode && yarn compile && hardhat run scripts/test/singleOldDaoDeploy.ts --network dapptest && yarn daoUpgrade --network dapptest && yarn daoUpgrade --network dapptest-mainnet && hardhat run scripts/test/simulateInterest.ts --network dapptest",
-    "deployTest": "yarn runNode && yarn compile && hardhat run scripts/deployFullDAO.ts --network dapptest && hardhat run scripts/deployFullDAO.ts --network dapptest-mainnet && hardhat run scripts/test/simulateInterest.ts --network dapptest"
+    "testDAOUpgrade": "yarn runNode & yarn compile && yarn deployOldDAO --network develop-mainnet && yarn daoUpgrade --network develop-mainnet",
+    "testDAOUpgradeFuse": "yarn runNode & yarn compile && yarn deployOldDAO --network develop && yarn daoUpgrade --network develop",
+    "deployTestOld": "yarn runNode & yarn compile && hardhat run scripts/test/singleOldDaoDeploy.ts --network dapptest && yarn daoUpgrade --network dapptest && yarn daoUpgrade --network dapptest-mainnet && hardhat run scripts/test/simulateInterest.ts --network dapptest",
+    "deployTest": "yarn runNode & yarn compile && hardhat run scripts/deployFullDAO.ts --network dapptest && hardhat run scripts/deployFullDAO.ts --network dapptest-mainnet && hardhat run scripts/test/simulateInterest.ts --network dapptest"
   },
   "files": [
     "artifacts/contracts",

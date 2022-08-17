@@ -88,8 +88,8 @@ export const main = async (
     };
   }
 
-  const isBackendTest = networkName.startsWith("dapptest");
-  const isTest = network.name === "hardhat" || isBackendTest;
+  const isDappTest = networkName.startsWith("dapptest");
+  const isTest = network.name === "hardhat" || isDappTest;
   const isCoverage = process.env.CODE_COVERAGE;
   const isDevelop = !isProduction;
   const isMainnet = networkName.includes("mainnet");
@@ -99,7 +99,7 @@ export const main = async (
   };
   console.log(`networkName ${networkName}`, {
     isTest,
-    isBackendTest,
+    isDappTest,
     isCoverage,
     isMainnet,
     isDevelop
@@ -843,14 +843,30 @@ export const main = async (
     //   Promise.resolve(["0x9999c40c8b88c740076b15d2e708db6a7a071b53", 13888])
     // ];
     let deployed;
-    if (!isRopsten || isTest) {
+    if (!isDappTest && (!isRopsten || isTest)) {
       const aaveps = aaveTokens.map(async token => {
         let rewardsPerBlock = (protocolSettings.staking.rewardsPerBlock / 2) //aave gets half of the rewards
           .toFixed(0);
-        console.log("deployStakingContracts", {
+        console.log("deployStakingContracts aave", {
           token,
           settings: protocolSettings.staking,
-          rewardsPerBlock
+          rewardsPerBlock,
+          params: [
+            token.address,
+            get(protocolSettings, "aave.lendingPool", dao.AaveLendingPool),
+            release.NameService,
+            protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
+            token.usdOracle,
+
+            get(
+              protocolSettings,
+              "aave.incentiveController",
+              dao.AaveIncentiveController
+            ),
+            token.aaveUsdOracle,
+            token.swapPath,
+            GAS_SETTINGS
+          ]
         });
         const tx = await (
           await aavefactory[
@@ -861,7 +877,6 @@ export const main = async (
             release.NameService,
             protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
             token.usdOracle,
-
             get(
               protocolSettings,
               "aave.incentiveController",
