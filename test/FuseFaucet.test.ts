@@ -128,12 +128,12 @@ describe("FuseFaucet", () => {
   // });
 
   it("should not let user top over weekly limit", async () => {
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 3; i++) {
       await ethers.provider.send("evm_increaseTime", [60 * 60 * 24]);
       await (await faucet.topWallet(user1.address)).wait();
       await user1.sendTransaction({
         to: ethers.constants.AddressZero,
-        value: ethers.utils.parseUnits("400000", "gwei")
+        value: ethers.utils.parseUnits("500000", "gwei")
       });
       // await (await faucet.topWallet(user1.address)).wait();
       // await user1.sendTransaction({
