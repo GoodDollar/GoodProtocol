@@ -54,7 +54,17 @@ const hhconfig: HardhatUserConfig = {
     apiKey: {
       mainnet: etherscan_key,
       celo: celoscan_key
-    }
+    },
+    customChains: [
+      {
+        network: "celo",
+        chainId: 42220,
+        urls: {
+          apiURL: "https://api.celoscan.io",
+          browserURL: "https://celoscan.io"
+        }
+      }
+    ]
   },
   contractSizer: {
     alphaSort: false,

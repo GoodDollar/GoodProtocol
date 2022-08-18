@@ -8,7 +8,6 @@
  */
 
 import { network, ethers, upgrades, run } from "hardhat";
-import { networkNames } from "@openzeppelin/upgrades-core";
 import { isFunction, get, omitBy } from "lodash";
 import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 
@@ -53,7 +52,6 @@ const countTotalGas = async (tx, name) => {
 };
 
 console.log({
-  networkNames,
   network: network.name,
   upgrade: process.env.UPGRADE
 });
@@ -64,12 +62,6 @@ export const main = async (
   isPerformUpgrade = true,
   olddao?
 ): Promise<{ [key: string]: any }> => {
-  if (networkName.startsWith("dapptest") === false) {
-    networkNames[1] = networkName;
-    networkNames[122] = networkName;
-    networkNames[3] = networkName;
-  }
-
   const isProduction = networkName.startsWith("production");
   if (isProduction && networkName.includes("mainnet")) {
     GAS_SETTINGS.gasLimit = 6000000;

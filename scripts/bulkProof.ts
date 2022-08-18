@@ -1,7 +1,6 @@
 import fs from "fs";
 import { chunk } from "lodash";
 import { ethers, upgrades, network } from "hardhat";
-import { networkNames } from "@openzeppelin/upgrades-core";
 import GReputationABI from "../artifacts/contracts/governance/GReputation.sol/GReputation.json";
 import BulkProofABI from "../artifacts/contracts/utils/BulkProof.sol/BulkProof.json";
 
@@ -12,14 +11,10 @@ import MerkleTree, {
 import { BigNumber } from "ethers";
 
 console.log({
-  networkNames,
   network: network.name,
   upgrade: process.env.UPGRADE
 });
 const { name: networkName } = network;
-networkNames[1] = networkName;
-networkNames[122] = networkName;
-networkNames[3] = networkName;
 
 export const bulkProof = async () => {
   console.log("signer", await ethers.getSigners());

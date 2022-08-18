@@ -1,5 +1,4 @@
 import { network, ethers, upgrades, run } from "hardhat";
-import { networkNames } from "@openzeppelin/upgrades-core";
 import { isFunction, get, omitBy } from "lodash";
 import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 import pressAnyKey from "press-any-key";
