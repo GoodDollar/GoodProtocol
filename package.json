@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "1.0.27",
+  "version": "1.0.28",
   "description": "GoodDollar Protocol",
   "scripts": {
     "build": "scripts/build.sh deploy",
