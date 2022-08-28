@@ -31,16 +31,16 @@ contract FuseFaucet is Initializable {
 
 	mapping(address => Wallet) public wallets;
 	uint32 public maxDailyToppings;
-	uint32 public gasPrice;
+	uint64 public gasPrice;
 	uint32 public maxPerWeekMultiplier;
 	uint32 public maxSwapAmount;
 	address public goodDollar;
 
 	function initialize(address _identity) public initializer {
-		toppingAmount = 600000 * 1e9; //0.6M gwei
+		gasPrice = 1e10;
+		toppingAmount = 600000 * gasPrice; //0.6M gwei
 		perDayRoughLimit = 2 * toppingAmount;
 		maxDailyToppings = 3;
-		gasPrice = 1e9;
 		startTime = block.timestamp;
 		identity = IIdentity(_identity);
 		maxPerWeekMultiplier = 2;
@@ -55,10 +55,10 @@ contract FuseFaucet is Initializable {
 	}
 
 	function upgrade1() public {
-		toppingAmount = 600000 * 1e9; //1M gwei
+		gasPrice = 1e10;
+		toppingAmount = 600000 * gasPrice; //1M gwei
 		perDayRoughLimit = 2 * toppingAmount;
 		maxDailyToppings = 3;
-		gasPrice = 1e9;
 		maxPerWeekMultiplier = 2;
 		maxSwapAmount = 1000;
 		goodDollar = address(0x495d133B938596C9984d462F007B676bDc57eCEC);
@@ -112,12 +112,12 @@ contract FuseFaucet is Initializable {
 
 	function canTop(address _user) public view returns (bool) {
 		uint256 _currentDay = (block.timestamp - startTime) / 1 days;
-		bool can = (wallets[_user].lastDayTopped != uint128(currentDay) ||
+		bool can = (wallets[_user].lastDayTopped != uint128(_currentDay) ||
 			wallets[_user].dailyToppingCount < 3) &&
 			(identity.isWhitelisted(_user) || notFirstTime[_user] == false);
 
 		uint128 weekTotal = 0;
-		uint256 dayOfWeek = currentDay % 7;
+		uint256 dayOfWeek = _currentDay % 7;
 		for (uint256 i = 0; i <= dayOfWeek; i++) {
 			weekTotal += wallets[_user].lastWeekToppings[uint256(i)];
 		}

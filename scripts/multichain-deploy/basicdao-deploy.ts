@@ -1,9 +1,6 @@
 import { network, ethers, upgrades, run } from "hardhat";
-import { isFunction, get, omitBy } from "lodash";
-import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 import pressAnyKey from "press-any-key";
 import { Contract } from "ethers";
-import { range } from "lodash";
 // import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollar.json";
 import DAOCreatorABI from "../../../GoodBootstrap/packages/contracts/build/contracts/DaoCreatorGoodDollarWithRep.json";
 // import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
@@ -11,13 +8,6 @@ import IdentityABI from "../../../GoodBootstrap/packages/contracts/build/contrac
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
 // import AddFoundersABI from "@gooddollar/goodcontracts/build/contracts/AddFoundersGoodDollar.json";
 import AddFoundersABI from "../../../GoodBootstrap/packages/contracts/build/contracts/AddFoundersGoodDollarWithRep.json";
-import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
-import FirstClaimPool from "@gooddollar/goodcontracts/stakingModel/build/contracts/FirstClaimPool.json";
-import BridgeMock from "@gooddollar/goodcontracts/stakingModel/build/contracts/BridgeMock.json";
-import AdminWalletABI from "@gooddollar/goodcontracts/build/contracts/AdminWallet.json";
-import OTPABI from "@gooddollar/goodcontracts/build/contracts/OneTimePayments.json";
-import HomeBridgeABI from "@gooddollar/goodcontracts/build/contracts/DeployHomeBridge.json";
-import ForeignBridgeABI from "@gooddollar/goodcontracts/build/contracts/DeployForeignBridge.json";
 
 import { deployDeterministic } from "./helpers";
 import releaser from "../../scripts/releaser";

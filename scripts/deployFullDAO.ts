@@ -509,18 +509,26 @@ const deployAdminWallet = async identity => {
     hdNode.derivePath(`m/44'/60'/0'/0/${i}`)
   );
 
-  const adminWallet = (await new ethers.ContractFactory(
-    AdminWalletABI.abi,
-    AdminWalletABI.bytecode,
-    root
-  )
-    .deploy(
+  const adminWallet = (await upgrades
+    .deployProxy(await ethers.getContractFactory("AdminWallet"), [
       admins.slice(0, 20).map(_ => _.address),
-      ethers.utils.parseUnits("1000000", "gwei"),
-      4,
+      root.address,
       identity
-    )
+    ])
     .then(printDeploy)) as Contract;
+
+  // const adminWallet = (await new ethers.ContractFactory(
+  //   AdminWalletABI.abi,
+  //   AdminWalletABI.bytecode,
+  //   root
+  // )
+  //   .deploy(
+  //     admins.slice(0, 20).map(_ => _.address),
+  //     ethers.utils.parseUnits("1000000", "gwei"),
+  //     4,
+  //     identity
+  //   )
+  //   .then(printDeploy)) as Contract;
 
   const id = await ethers.getContractAt("IIdentity", identity);
   await id.addIdentityAdmin(adminWallet.address).then(printDeploy);
