@@ -128,30 +128,26 @@ describe("FuseFaucet", () => {
   // });
 
   it("should not let user top over weekly limit", async () => {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 5; i++) {
       await ethers.provider.send("evm_increaseTime", [60 * 60 * 24]);
       await (await faucet.topWallet(user1.address)).wait();
       await user1.sendTransaction({
         to: ethers.constants.AddressZero,
-        value: ethers.utils.parseUnits("500000", "gwei")
+        value: ethers.utils.parseUnits("5000000", "gwei")
       });
-      // await (await faucet.topWallet(user1.address)).wait();
-      // await user1.sendTransaction({
-      //   to: ethers.constants.AddressZero,
-      //   value: ethers.utils.parseUnits("500000", "gwei"),
-      // });
     }
-    // await (await faucet.topWallet(user1.address)).wait();
-    // await user1.sendTransaction({
-    //   to: ethers.constants.AddressZero,
-    //   value: ethers.utils.parseUnits("500000", "gwei"),
-    // });
     await ethers.provider.send("evm_increaseTime", [60 * 60 * 24]);
 
     expect(await faucet.canTop(user1.address)).to.false;
     await expect(faucet.topWallet(user1.address)).to.revertedWith(
       "User wallet has been topped too many times this week"
     );
+
+    //should be able to top again after some days passed
+    await ethers.provider.send("evm_increaseTime", [60 * 60 * 24 * 3]);
+    await ethers.provider.send("evm_mine", []);
+
+    expect(await faucet.canTop(user1.address)).to.true;
   });
 
   it("should reimburse gas costs", async () => {

@@ -110,18 +110,27 @@ contract FuseFaucet is Initializable {
 		currentDay = (block.timestamp - startTime) / 1 days;
 	}
 
-	function canTop(address _user) public view returns (bool) {
+	function canTop(address _user) external view returns (bool) {
 		uint256 _currentDay = (block.timestamp - startTime) / 1 days;
 		bool can = (wallets[_user].lastDayTopped != uint128(_currentDay) ||
 			wallets[_user].dailyToppingCount < 3) &&
 			(identity.isWhitelisted(_user) || notFirstTime[_user] == false);
 
-		uint128 weekTotal = 0;
+		uint128[7] memory lastWeekToppings = wallets[_user].lastWeekToppings;
+		//reset inactive days
 		uint256 dayOfWeek = _currentDay % 7;
-		for (uint256 i = 0; i <= dayOfWeek; i++) {
-			weekTotal += wallets[_user].lastWeekToppings[uint256(i)];
+		uint256 dayDiff = (_currentDay - wallets[_user].lastDayTopped);
+		dayDiff = dayDiff > 7 ? 7 : dayDiff;
+		dayDiff = dayDiff > dayOfWeek ? dayOfWeek + 1 : dayDiff;
+
+		for (uint256 day = dayOfWeek + 1 - dayDiff; day <= dayOfWeek; day++) {
+			lastWeekToppings[day] = 0;
 		}
 
+		uint128 weekTotal = 0;
+		for (uint256 i = 0; i <= dayOfWeek; i++) {
+			weekTotal += lastWeekToppings[uint256(i)];
+		}
 		can = can && weekTotal < perDayRoughLimit * maxPerWeekMultiplier;
 		return can;
 	}
