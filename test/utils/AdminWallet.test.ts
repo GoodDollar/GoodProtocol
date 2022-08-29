@@ -27,7 +27,18 @@ describe("AdminWallet", () => {
 
   before(async () => {
     signers = await ethers.getSigners();
-    [founder, whitelisted, stranger, stranger2, blacklisted] = signers;
+    [
+      founder,
+      whitelisted,
+      stranger,
+      stranger2,
+      blacklisted,
+      newUser,
+      newUser2,
+      admin,
+      admin2,
+      toWhitelist
+    ] = signers;
     let { identity: id } = await createDAO();
     identity = await ethers.getContractAt("IIdentity", id);
 
@@ -41,12 +52,25 @@ describe("AdminWallet", () => {
 
     toppingTimes = await adminWallet.toppingTimes();
     toppingAmount = await adminWallet.toppingAmount();
+    const startBalance = await ethers.provider.getBalance(newUser.address);
+    await Promise.all(
+      [newUser, newUser2, admin, admin2, toWhitelist].map(acc =>
+        acc.sendTransaction({
+          to: ethers.constants.AddressZero,
+          value: startBalance.sub(ethers.BigNumber.from("21000000000000")),
+          gasLimit: 21000,
+          gasPrice: 1e9
+        })
+      )
+    );
+  });
 
-    newUser = (await ethers.Wallet.createRandom()).connect(ethers.provider);
-    newUser2 = (await ethers.Wallet.createRandom()).connect(ethers.provider);
-    admin = (await ethers.Wallet.createRandom()).connect(ethers.provider);
-    admin2 = (await ethers.Wallet.createRandom()).connect(ethers.provider);
-    toWhitelist = (await ethers.Wallet.createRandom()).connect(ethers.provider);
+  it("should have zero balance for test accouts", async () => {
+    await Promise.all(
+      [newUser, newUser2, admin, admin2, toWhitelist].map(async acc => {
+        expect(await ethers.provider.getBalance(acc.address)).eq(0);
+      })
+    );
   });
 
   it("should transfer to admins", async () => {
