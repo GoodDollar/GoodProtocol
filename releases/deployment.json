@@ -155,7 +155,9 @@
         "DAI": "0x0000000000000000000000000000000000000000",
         "cDAI": "0x0000000000000000000000000000000000000000",
         "COMP": "0x0000000000000000000000000000000000000000",
-        "ProxyAdmin": "0x0dd5e1869DA5C9C7D7c49364687534bda7fB7020"
+        "ProxyAdmin": "0x0dd5e1869DA5C9C7D7c49364687534bda7fB7020",
+        "GoodDollarMintBurnWrapper": "0x46cF05f93539F4735Cb0D7b2B1cA6A70fa49510a",
+        "GoodDollarStaking": "0x4E44E4a72d9e40D1CabeEf1d10b747d6ACEF48B0"
     },
     "fuse-mainnet": {
         "NameService": "0x3baeEff20Cb02a5b8eF413C611c015E69221663e",
@@ -329,7 +331,9 @@
         "FeeFormula": "0x05eb1C46bd539Fd2A098b06D83a5bB81E5a58e63",
         "DAI": "0x0000000000000000000000000000000000000000",
         "cDAI": "0x0000000000000000000000000000000000000000",
-        "COMP": "0x0000000000000000000000000000000000000000"
+        "COMP": "0x0000000000000000000000000000000000000000",
+        "GoodDollarMintBurnWrapper": "0x08CaFF2331040c9998a91B50eEee85c4AE953ece",
+        "GoodDollarStaking": "0xff64BD8b7d730737B39AE831abbc7Afbee13BD8b"
     },
     "test": {
         "ProxyFactory": "0x36dE29DB57062A583436Ae071e141404dFE2311C",
@@ -553,7 +557,10 @@
         "Identity": "0x96B81f82A29e78C5ba9E2034Ce8490fd641a24eb",
         "NameService": "0x563a80a452264a9e1aa37c6FA0B46D04C3c71b24",
         "GReputation": "0xAC132ECe25217867E318eA8ff63420C90d5a74A6",
+        "GuardiansSafe": "0xC9D09BA972B4EB6Bb7347F2229FB6d50434fFCa6",
         "network": "production-celo",
-        "networkId": 42220
+        "networkId": 42220,
+        "GoodDollarMintBurnWrapper": "0x5566b6E4962BA83e05a426Ad89031ec18e9CadD3",
+        "MultichainRouter": "0xf27Ee99622C3C9b264583dACB2cCE056e194494f"
     }
 }

@@ -203,7 +203,7 @@ describe("ClaimersDistribution", () => {
       await increaseTime(60 * 60 * 24);
       const tx = await (await ubiScheme.connect(claimer3).claim()).wait();
       totalGas += tx.gasUsed.toNumber();
-      console.log({ totalGas }, tx.gasUsed.toNumber());
+      // console.log({ totalGas }, tx.gasUsed.toNumber());
     }
     expect(totalGas / 30).lt(310000);
   });

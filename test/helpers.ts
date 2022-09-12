@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import hre from "hardhat";
 import { expect } from "chai";
 import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollar.json";
 import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
@@ -80,7 +81,7 @@ export const createDAO = async () => {
 
   await Identity.setAuthenticationPeriod(365);
   await daoCreator.forgeOrg(
-    "G$",
+    "GoodDollar",
     "G$",
     0,
     FeeFormula.address,
@@ -223,12 +224,13 @@ export const createDAO = async () => {
   };
 
   const runAsAvatarOnly = async (contract, functionAbi, ...parameters) => {
-    const funcNameEnd = functionAbi.indexOf('(');;
+    const funcNameEnd = functionAbi.indexOf("(");
     expect(funcNameEnd).to.be.gt(-1);
     const functionName = functionAbi.substring(0, funcNameEnd);
 
-    const tx = await contract[functionAbi](...parameters).catch(e=>e);
-    expect(tx.message.toUpperCase()).to.contain("AVATAR");
+    await expect(contract[functionAbi](...parameters)).to.revertedWith(
+      "avatar"
+    );
     const encoded = contract.interface.encodeFunctionData(functionName, [
       ...parameters
     ]);
@@ -442,14 +444,9 @@ export async function increaseTime(seconds) {
 }
 
 export const advanceBlocks = async (blocks: number) => {
-  let ps = [];
-  for (let i = 0; i < blocks; i++) {
-    ps.push(ethers.provider.send("evm_mine", []));
-    if (i % 5000 === 0) {
-      await Promise.all(ps);
-      ps = [];
-    }
-  }
+  await ethers.provider.send("hardhat_mine", ["0x" + blocks.toString(16)]);
+  // required for bug https://github.com/sc-forks/solidity-coverage/issues/707
+  await ethers.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
 };
 
 export const deployOldVoting = async dao => {

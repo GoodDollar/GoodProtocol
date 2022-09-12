@@ -79,7 +79,7 @@ const hhconfig: HardhatUserConfig = {
       accounts: {
         accountsBalance: "10000000000000000000000000"
       },
-      initialDate: "2021-12-01"
+      initialDate: "2021-12-01" //required for DAO tests like guardian
     },
     test: {
       allowUnlimitedContractSize: true,
@@ -292,7 +292,9 @@ task(
 task("cleanflat", "Cleans multiple SPDX and Pragma from flattened file")
   .addPositionalParam("file", "flattened sol file")
   .setAction(async ({ file }, { run }) => {
-    let flattened = readFileSync(file).toString();
+    let flattened = await run("flatten:get-flattened-sources", {
+      files: [file]
+    });
 
     // Remove every line started with "// SPDX-License-Identifier:"
     flattened = flattened.replace(
@@ -319,5 +321,5 @@ task("cleanflat", "Cleans multiple SPDX and Pragma from flattened file")
     );
 
     flattened = flattened.trim();
-    writeFileSync(file, flattened);
+    writeFileSync("flat.sol", flattened);
   });
