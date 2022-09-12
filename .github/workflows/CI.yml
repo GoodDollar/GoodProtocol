@@ -28,6 +28,9 @@ jobs:
         chunk: ${{ fromJson(needs.setup.outputs['test-chunk-ids']) }}
     env:
       CHUNKS: ${{ needs.setup.outputs['test-chunks'] }}
+      HARDHAT_MAX_MEMORY: 6096
+      NODE_OPTIONS: "--max-old-space-size=6096"
+
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v2
@@ -67,6 +70,9 @@ jobs:
         chunk: ${{ fromJson(needs.setup.outputs['test-chunk-ids']) }}
     env:
       CHUNKS: ${{ needs.setup.outputs['test-chunks'] }}
+      HARDHAT_MAX_MEMORY: 6096
+      NODE_OPTIONS: "--max-old-space-size=6096"
+
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v2
