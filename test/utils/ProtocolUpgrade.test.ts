@@ -2,7 +2,6 @@ import { default as hre, ethers, upgrades, network } from "hardhat";
 import { BigNumber, Contract, Signer } from "ethers";
 import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
-import { networkNames } from "@openzeppelin/upgrades-core";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { deploy } from "../../scripts/test/localOldDaoDeploy";
 import deploySettings from "../../releases/deploy-settings.json";
@@ -66,9 +65,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
     fuseController,
     goodReserve;
   const { name: networkName } = network;
-  networkNames[1] = networkName;
-  networkNames[122] = networkName;
-  networkNames[3] = networkName;
+
   before(async () => {
     [founder, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();

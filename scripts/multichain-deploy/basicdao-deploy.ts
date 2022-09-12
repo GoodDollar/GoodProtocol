@@ -6,8 +6,10 @@
  */
 import { network, ethers, upgrades, run } from "hardhat";
 import { Contract } from "ethers";
-import DAOCreatorABI from "@gooddollar/goodcontracts/contracts/build/contracts/DaoCreatorGoodDollarWithRep.json";
-import IdentityABI from "@gooddollar/goodcontracts/contracts/build/contracts/IdentityWithOwner.json";
+// import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollar.json";
+import DAOCreatorABI from "../../../GoodBootstrap/packages/contracts/build/contracts/DaoCreatorGoodDollarWithRep.json";
+// import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
+import IdentityABI from "../../../GoodBootstrap/packages/contracts/build/contracts/IdentityWithOwner.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
 import AddFoundersABI from "@gooddollar/goodcontracts/contracts/build/contracts/AddFoundersGoodDollarWithRep.json";
 

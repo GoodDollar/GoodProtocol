@@ -1,4 +1,6 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIXED
+
+// License-Identifier: MIT
 pragma solidity >=0.8.0;
 
 import "../utils/DAOUpgradeableContract.sol";
@@ -103,6 +105,8 @@ contract UBIScheme is DAOUpgradeableContract {
 	// Emits when a user is activated
 	event ActivatedUser(address indexed account);
 
+	bool public paused;
+
 	// Emits when a fish has been succeded
 	event InactiveUserFished(
 		address indexed caller,
@@ -191,8 +195,8 @@ contract UBIScheme is DAOUpgradeableContract {
 
 	modifier requireStarted() {
 		require(
-			periodStart > 0 && block.timestamp >= periodStart,
-			"not in periodStarted"
+			paused == false && periodStart > 0 && block.timestamp >= periodStart,
+			"not in periodStarted or paused"
 		);
 		_;
 	}
@@ -232,6 +236,7 @@ contract UBIScheme is DAOUpgradeableContract {
 		_onlyAvatar();
 		require(_newLength > 0, "cycle must be at least 1 day long");
 		cycleLength = _newLength;
+		currentCycleLength = 0; //this will trigger a distributionFormula on next claim day
 		emit CycleLengthSet(_newLength);
 	}
 
@@ -516,7 +521,9 @@ contract UBIScheme is DAOUpgradeableContract {
 		// making sure that the calculation will be with the correct number of active users in case
 		// that the fisher is the first to make the calculation today
 		uint256 newDistribution = distributionFormula();
-		activeUsersCount -= 1;
+		if (activeUsersCount > 0) {
+			activeUsersCount -= 1;
+		}
 		_transferTokens(msg.sender, newDistribution, false, false);
 		emit InactiveUserFished(msg.sender, _account, newDistribution);
 		return true;
@@ -558,5 +565,28 @@ contract UBIScheme is DAOUpgradeableContract {
 		_onlyAvatar();
 		shouldWithdrawFromDAO = _shouldWithdraw;
 		emit ShouldWithdrawFromDAOSet(shouldWithdrawFromDAO);
+	}
+
+	function pause(bool _pause) public {
+		_onlyAvatar();
+		paused = _pause;
+	}
+
+	function upgrade() public {
+		_onlyAvatar();
+		paused = true;
+		activeUsersCount = 50000; //estimated
+		dailyUbi = 0; //required so distributionformula will trigger
+		cycleLength = 30;
+		currentCycleLength = 0; //this will trigger a new cycle calculation in distribution formula
+		startOfCycle = block.timestamp - 91 days; //this will trigger a new calculation in distributionFormula
+		periodStart = 1646136000;
+		distributionFormula();
+		emit CycleLengthSet(cycleLength);
+	}
+
+	function setActiveUserCount(uint256 _activeUserCount) public {
+		_onlyAvatar();
+		activeUsersCount = _activeUserCount;
 	}
 }

@@ -146,7 +146,8 @@
         "FuseFaucet": "0x09Ad3430D146aa662eA8c20cBEBceBC0bbB3FB0a",
         "Invites": "0x187fc9fB37DF0fbf75149913a97B17c968Fc90d0",
         "OneTimePayments": "0x184C1F83b3eB75a2dac483D4a6b9FBD59Df961f8",
-        "AdminWallet": "0x14204288286823042263156146334B1a4d61227c",
+        "AdminWallet": "0xC1526892198796d30D33355cfF9Af10EED5B86A0",
+        "AdminWalletOld": "0x14204288286823042263156146334B1a4d61227c",
         "network": "fuse",
         "networkId": 122,
         "ProxyFactory": "0x4136dfD47F47792fC820E2354e9F0ce8e9c586A6",
@@ -154,6 +155,7 @@
         "DAI": "0x0000000000000000000000000000000000000000",
         "cDAI": "0x0000000000000000000000000000000000000000",
         "COMP": "0x0000000000000000000000000000000000000000",
+        "ProxyAdmin": "0x0dd5e1869DA5C9C7D7c49364687534bda7fB7020",
         "GoodDollarMintBurnWrapper": "0x46cF05f93539F4735Cb0D7b2B1cA6A70fa49510a",
         "GoodDollarStaking": "0x4E44E4a72d9e40D1CabeEf1d10b747d6ACEF48B0"
     },
@@ -302,9 +304,8 @@
     },
     "staging": {
         "FuseFaucet": "0x70f361EDB97B245E8A68573637A31886A427fe2a",
-        "ProxyAdmin": "0x2Ea4aAA8351CfE63B537E81Cd4a13c435B945C1D",
+        "ProxyAdmin": "0x83EEE673ba91ff49b7e608E761e7Bda93bBB5900",
         "Invites": "0x763b49F901DC894F2dEc1c7d19e46250B4452679",
-        "ProxyAdmin2": "0x23D8492444DA663fcb2bDa8cA9A0e84989D1f59e",
         "GoodDollar": "0xe39236a9Cf13f65DB8adD06BD4b834C65c523d2b",
         "NameService": "0xE63402A7dc11AB4D03c477cc92209463a55A5134",
         "GReputation": "0x80312bad9dd71d3a159e794B7fb1B2386F82F07F",
@@ -318,7 +319,8 @@
         "Controller": "0xb6808120fB648c0bdc483Ec423d933a7eBf6BB0a",
         "AbsoluteVote": "0x7b58A5737440Bc05ca3972fDeFf8ac3bA984536B",
         "SchemeRegistrar": "0x0E79f80809180aB8FAE189D4e76fC814672d9a40",
-        "AdminWallet": "0x2961a6C2Fe39F0FFC4f4b1D9E037CD95f4e9C993",
+        "AdminWallet": "0x11C9dBcA722770E8802F0C3d65C38768E91Ac53C",
+        "AdminWalletOld": "0x2961a6C2Fe39F0FFC4f4b1D9E037CD95f4e9C993",
         "UpgradeScheme": "0xfC9F6F5E3ff7BAAB3fEf82e66f56917D625ba38B",
         "OneTimePayments": "0x7912636D68E5d92708862b38698f764BF1EC297C",
         "network": "staging",
@@ -517,7 +519,9 @@
                 "0x3ff2d8eb2573819a9ef7167d2ba6fd6d31b17f4f",
                 6944
             ]
-        ]
+        ],
+        "MultichainRouter": "0x765277eebeca2e31912c9946eae1021199b39c61",
+        "anyGoodDollar": "0xd17652350cfd2a37ba2f947c910987a3b1a1c60d"
     },
     "production": {
         "NameService": "0xec6dcE387B1616a0c44fF2E4fA9E90E53Cf14eb0",
@@ -534,7 +538,8 @@
         "SignupBonus": "0x0000000000000000000000000000000000000000",
         "OneTimePayments": "0xd9Aa86e0Ddb932bD78ab8c71C1B98F83cF610Bd4",
         "Invites": "0xCa2F09c3ccFD7aD5cB9276918Bd1868f2b922ea0",
-        "AdminWallet": "0x9F75dAcB77419b87f568d417eBc84346e134144E",
+        "AdminWallet": "0x9A34822112BC73BDc941C62dCc311Ca905Aef2a3",
+        "AdminWalletOld": "0x9F75dAcB77419b87f568d417eBc84346e134144E",
         "Identity": "0xFa8d865A962ca8456dF331D78806152d3aC5B84F",
         "GoodDollar": "0x495d133B938596C9984d462F007B676bDc57eCEC",
         "Controller": "0xBcE053b99e22158f8B62f4DBFbEdE1f936b2D4e4",

@@ -54,7 +54,17 @@ const hhconfig: HardhatUserConfig = {
     apiKey: {
       mainnet: etherscan_key,
       celo: celoscan_key
-    }
+    },
+    customChains: [
+      {
+        network: "celo",
+        chainId: 42220,
+        urls: {
+          apiURL: "https://api.celoscan.io",
+          browserURL: "https://celoscan.io"
+        }
+      }
+    ]
   },
   contractSizer: {
     alphaSort: false,
@@ -117,6 +127,13 @@ const hhconfig: HardhatUserConfig = {
     fuse: {
       accounts: { mnemonic },
       url: "https://rpc.fuse.io/",
+      chainId: 122,
+      gas: 6000000,
+      gasPrice: 1000000000
+    },
+    fuseexplorer: {
+      accounts: { mnemonic },
+      url: "https://explorer-node.fuse.io/",
       chainId: 122,
       gas: 6000000,
       gasPrice: 1000000000

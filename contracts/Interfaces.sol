@@ -250,6 +250,12 @@ interface IIdentity {
 
 	function removeWhitelisted(address account) external;
 
+	function addBlacklisted(address account) external;
+
+	function removeBlacklisted(address account) external;
+
+	function isBlacklisted(address user) external view returns (bool);
+
 	function addIdentityAdmin(address account) external returns (bool);
 
 	function setAvatar(address _avatar) external;
@@ -288,6 +294,12 @@ interface ProxyAdmin {
 	function owner() external view returns (address);
 
 	function transferOwnership(address newOwner) external;
+
+	function upgradeAndCall(
+		address proxy,
+		address implementation,
+		bytes memory data
+	) external;
 }
 
 /**
