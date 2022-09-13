@@ -259,6 +259,7 @@ contract IdentityV2 is
 		identities[account].dateAdded = block.timestamp;
 		identities[account].dateAuthenticated = block.timestamp;
 		identities[account].whitelistedOnChainId = orgChain;
+		connectedAccounts[account] = address(0);
 
 		if (isContract(account)) {
 			whitelistedContracts += 1;
