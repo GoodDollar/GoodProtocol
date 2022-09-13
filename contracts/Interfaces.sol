@@ -264,7 +264,24 @@ interface IIdentity {
 
 	function owner() external view returns (address);
 
+	function removeContract(address account) external;
+
+	function isDAOContract(address account) external view returns (bool);
+
 	event WhitelistedAdded(address user);
+}
+
+interface IIdentityV2 is IIdentity {
+	function addWhitelistedWithDID(
+		address account,
+		string memory did,
+		uint256 orgChainId
+	) external;
+
+	function getWhitelistedRoot(address account)
+		external
+		view
+		returns (address root);
 }
 
 interface IUBIScheme {

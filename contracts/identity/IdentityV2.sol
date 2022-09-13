@@ -344,6 +344,8 @@ contract IdentityV2 is
 			"invalid account"
 		);
 		require(connectedAccounts[_account] == address(0x0), "already connected");
+		//signature ensures the whitelisted (msg.sender) has submited a signature by connected account
+		//that connects both accounts
 		require(
 			SignatureChecker.isValidSignatureNow(
 				_account,
