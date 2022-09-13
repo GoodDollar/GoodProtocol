@@ -56,7 +56,7 @@ contract AdminWallet is
 		__AccessControl_init_unchained();
 		__Ownable_init_unchained();
 		_setupRole(DEFAULT_ADMIN_ROLE, _owner);
-		_setDefaults(600000, 9e6, 3, 1e10, 5000);
+		_setDefaults(600000, 9e6, 3, 1e10);
 		identity = _identity;
 		if (_admins.length > 0) {
 			addAdmins(_admins);
@@ -69,19 +69,14 @@ contract AdminWallet is
 		uint256 _toppingTimes,
 		uint256 _gasPrice
 	) external onlyOwner {
-		_setDefaults(
-			_toppingAmount,
-			_adminToppingAmount,
-			_toppingTimes,
-			_gasPrice
-		);
+		_setDefaults(_toppingAmount, _adminToppingAmount, _toppingTimes, _gasPrice);
 	}
 
 	function _setDefaults(
 		uint256 _toppingAmount,
 		uint256 _adminToppingAmount,
 		uint256 _toppingTimes,
-		uint256 _gasPrice,
+		uint256 _gasPrice
 	) internal {
 		gasPrice = _gasPrice;
 		toppingAmount = _toppingAmount * _gasPrice;

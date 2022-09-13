@@ -3,14 +3,23 @@
 pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "../Interfaces.sol";
 
 /**
  * @title DonationStaking contract that receives funds in ETH/DAI
  * and stake them in the SimpleStaking contract
  */
-contract FuseFaucet is Initializable {
-	event WalletTopped(address indexed user, uint256 amount);
+contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
+	bytes32 public constant RELAYER_ROLE = keccak256("relayer");
+
+	event WalletTopped(
+		address indexed account, //address topped
+		uint256 amount,
+		address whitelistedRoot, //if account is connected to a whitelisted account, this will be it
+		address indexed relayerOrWhitelisted //the sender of the tx
+	);
 
 	uint256 public perDayRoughLimit;
 	uint256 public toppingAmount;
@@ -18,7 +27,7 @@ contract FuseFaucet is Initializable {
 	uint256 public startTime;
 	uint256 public currentDay;
 
-	IIdentity public identity;
+	IIdentityV2 public identity;
 
 	mapping(uint256 => mapping(address => uint256)) public toppings;
 	mapping(address => bool) public notFirstTime;
@@ -34,17 +43,37 @@ contract FuseFaucet is Initializable {
 	uint64 public gasPrice;
 	uint32 public maxPerWeekMultiplier;
 	uint32 public maxSwapAmount;
-	address public goodDollar;
+	address public goodDollar_unused; //kept because of upgrades
+	uint64 public maxDailyNewWallets;
+	uint64 public dailyNewWalletsCount;
 
-	function initialize(address _identity) public initializer {
-		gasPrice = 1e10;
+	function initialize(
+		address _identity,
+		uint64 _gasPrice,
+		address relayer
+	) public initializer {
+		__AccessControl_init_unchained();
+		_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+		if (relayer != address(0)) _setupRole(RELAYER_ROLE, relayer);
+		gasPrice = _gasPrice;
 		toppingAmount = 600000 * gasPrice; //0.6M gwei
 		perDayRoughLimit = 2 * toppingAmount;
 		maxDailyToppings = 3;
 		startTime = block.timestamp;
-		identity = IIdentity(_identity);
+		identity = IIdentityV2(_identity);
 		maxPerWeekMultiplier = 2;
 		maxSwapAmount = 1000;
+		maxDailyNewWallets = 5000;
+	}
+
+	function _authorizeUpgrade(address newImplementation)
+		internal
+		override
+		onlyRole(DEFAULT_ADMIN_ROLE)
+	{}
+
+	function upgrade() public {
+		if (maxDailyNewWallets == 0) maxDailyNewWallets = 5000;
 	}
 
 	modifier reimburseGas() {
@@ -54,24 +83,31 @@ contract FuseFaucet is Initializable {
 		payable(msg.sender).transfer(_gasRefund * gasPrice); //gas price assumed 1e9 = 1gwei
 	}
 
-	function upgrade1() public {
-		gasPrice = 1e10;
-		toppingAmount = 600000 * gasPrice; //1M gwei
-		perDayRoughLimit = 2 * toppingAmount;
-		maxDailyToppings = 3;
-		maxPerWeekMultiplier = 2;
-		maxSwapAmount = 1000;
-		goodDollar = address(0x495d133B938596C9984d462F007B676bDc57eCEC);
-		cERC20(goodDollar).approve(
-			address(0xE3F85aAd0c8DD7337427B9dF5d0fB741d65EEEB5),
-			type(uint256).max
-		); //voltage swap
-	}
-
 	receive() external payable {}
 
+	/*
+	 * only whitelisted account or relayer can top non whitelisted accounts
+	 * if target account is whitelisted anyone can top it
+	 */
+	modifier onlyAuthorized(address toTop) {
+		require(
+			identity.getWhitelistedRoot(toTop) != address(0) ||
+				identity.getWhitelistedRoot(msg.sender) != address(0) ||
+				hasRole(RELAYER_ROLE, msg.sender)
+		);
+		_;
+	}
+
 	modifier toppingLimit(address _user) {
+		//switch wallet to the account we do the accounting for
+		address whitelistedRoot = identity.getWhitelistedRoot(_user);
+		_user = whitelistedRoot == address(0) ? _user : payable(whitelistedRoot);
+
+		uint256 prevDay = currentDay;
+
 		setDay();
+		if (currentDay != prevDay) dailyNewWalletsCount = 0;
+
 		require(
 			wallets[_user].lastDayTopped != uint128(currentDay) ||
 				wallets[_user].dailyToppingCount < maxDailyToppings,
@@ -79,7 +115,9 @@ contract FuseFaucet is Initializable {
 		);
 
 		require(
-			identity.isWhitelisted(_user) || notFirstTime[_user] == false,
+			(notFirstTime[_user] == false &&
+				dailyNewWalletsCount < maxDailyNewWallets) ||
+				whitelistedRoot != address(0),
 			"User not whitelisted or not first time"
 		);
 
@@ -111,10 +149,15 @@ contract FuseFaucet is Initializable {
 	}
 
 	function canTop(address _user) external view returns (bool) {
+		address whitelistedRoot = identity.getWhitelistedRoot(_user);
+		_user = whitelistedRoot == address(0) ? _user : whitelistedRoot;
+
 		uint256 _currentDay = (block.timestamp - startTime) / 1 days;
 		bool can = (wallets[_user].lastDayTopped != uint128(_currentDay) ||
 			wallets[_user].dailyToppingCount < 3) &&
-			(identity.isWhitelisted(_user) || notFirstTime[_user] == false);
+			((notFirstTime[_user] == false &&
+				dailyNewWalletsCount < maxDailyNewWallets) ||
+				whitelistedRoot != address(0));
 
 		uint128[7] memory lastWeekToppings = wallets[_user].lastWeekToppings;
 		//reset inactive days
@@ -143,11 +186,20 @@ contract FuseFaucet is Initializable {
 		public
 		reimburseGas
 		toppingLimit(_user)
+		onlyAuthorized(_user)
 	{
 		_topWallet(_user);
 	}
 
 	function _topWallet(address payable _wallet) internal {
+		address payable target = _wallet;
+
+		//switch wallet to the account we do the accounting for
+		address whitelistedRoot = identity.getWhitelistedRoot(_wallet);
+		_wallet = whitelistedRoot == address(0)
+			? _wallet
+			: payable(whitelistedRoot);
+
 		require(toppingAmount > address(_wallet).balance);
 		uint256 toTop = toppingAmount - address(_wallet).balance;
 
@@ -159,22 +211,28 @@ contract FuseFaucet is Initializable {
 		wallets[_wallet].lastDayTopped = uint128(currentDay);
 		wallets[_wallet].lastWeekToppings[dayOfWeek] += uint128(toTop);
 
+		if (notFirstTime[_wallet] == false && whitelistedRoot == address(0)) {
+			dailyNewWalletsCount++;
+		}
 		notFirstTime[_wallet] = true;
-		_wallet.transfer(toTop);
-		emit WalletTopped(_wallet, toTop);
+
+		target.transfer(toTop);
+		emit WalletTopped(target, toTop, whitelistedRoot, msg.sender);
 	}
 
 	function onTokenTransfer(
 		address payable _from,
 		uint256 amount,
-		bytes calldata
+		bytes calldata data
 	) external returns (bool) {
-		require(msg.sender == address(goodDollar), "not G$");
 		require(amount <= maxSwapAmount, "slippage");
-		Uniswap uniswap = Uniswap(0xE3F85aAd0c8DD7337427B9dF5d0fB741d65EEEB5);
+		address uniswapLike = abi.decode(data, (address));
+		Uniswap uniswap = Uniswap(uniswapLike);
 		address[] memory path = new address[](2);
 		path[0] = address(msg.sender);
 		path[1] = uniswap.WETH();
+
+		cERC20(msg.sender).approve(address(uniswapLike), type(uint256).max);
 		uniswap.swapExactTokensForETH(amount, 0, path, _from, block.timestamp);
 		return true;
 	}
