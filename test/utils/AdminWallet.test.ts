@@ -87,6 +87,10 @@ describe("AdminWallet", () => {
     });
   });
 
+  it("should have owner", async () => {
+    expect(await adminWallet.owner()).to.eq(signers[0].address);
+  });
+
   it("should not top admin list when empty", async () => {
     await expect(adminWallet["topAdmins(uint256)"](0)).revertedWith(
       "Admin list is empty"
