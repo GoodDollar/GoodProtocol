@@ -67,15 +67,13 @@ contract AdminWallet is
 		uint256 _toppingAmount,
 		uint256 _adminToppingAmount,
 		uint256 _toppingTimes,
-		uint256 _gasPrice,
-		uint64 _maxDailyNewWallets
+		uint256 _gasPrice
 	) external onlyOwner {
 		_setDefaults(
 			_toppingAmount,
 			_adminToppingAmount,
 			_toppingTimes,
-			_gasPrice,
-			_maxDailyNewWallets
+			_gasPrice
 		);
 	}
 
@@ -84,13 +82,11 @@ contract AdminWallet is
 		uint256 _adminToppingAmount,
 		uint256 _toppingTimes,
 		uint256 _gasPrice,
-		uint64 _maxDailyNewWallets
 	) internal {
 		gasPrice = _gasPrice;
 		toppingAmount = _toppingAmount * _gasPrice;
 		adminToppingAmount = _adminToppingAmount * _gasPrice;
 		toppingTimes = _toppingTimes;
-		maxDailyNewWallets = _maxDailyNewWallets;
 	}
 
 	function _authorizeUpgrade(address newImplementation)
