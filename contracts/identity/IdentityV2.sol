@@ -1,55 +1,87 @@
-pragma solidity >0.5.4;
+pragma solidity >=0.8.0;
 
-import "openzeppelin-solidity/contracts/access/Roles.sol";
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
+// SPDX-License-Identifier: MIT
 
-import "@daostack/arc/contracts/controller/Avatar.sol";
+pragma solidity >=0.8.0;
 
-import "../dao/schemes/SchemeGuard.sol";
-import "./IdentityAdminRole.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+
+import "../utils/DAOUpgradeableContract.sol";
+import "../utils/NameService.sol";
+import "../Interfaces.sol";
 
 /* @title Identity contract responsible for whitelisting
  * and keeping track of amount of whitelisted users
  */
-contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
-	using Roles for Roles.Role;
-	using SafeMath for uint256;
+contract IdentityV2 is
+	DAOUpgradeableContract,
+	AccessControlUpgradeable,
+	PausableUpgradeable
+{
+	struct Identity {
+		uint256 dateAuthenticated;
+		uint256 dateAdded;
+		string did;
+		uint256 whitelistedOnChainId;
+		uint8 status; //0 nothing, 1 whitelisted, 2 daocontract, 255 blacklisted
+	}
 
-	Roles.Role private blacklist;
-	Roles.Role private whitelist;
-	Roles.Role private contracts;
+	bytes32 public IDENTITY_ADMIN_ROLE = keccak256("identity_admin");
+	bytes32 public PAUSER_ROLE = keccak256("pause_admin");
 
-	uint256 public whitelistedCount = 0;
-	uint256 public whitelistedContracts = 0;
-	uint256 public authenticationPeriod = 14;
+	uint256 public whitelistedCount;
+	uint256 public whitelistedContracts;
+	uint256 public authenticationPeriod;
 
-	mapping(address => uint256) public dateAuthenticated;
-	mapping(address => uint256) public dateAdded;
+	mapping(address => Identity) public identities;
 
-	mapping(address => string) public addrToDID;
 	mapping(bytes32 => address) public didHashToAddress;
+
+	mapping(address => address) public connectedAccounts;
+
+	IIdentity public oldIdentity;
 
 	event BlacklistAdded(address indexed account);
 	event BlacklistRemoved(address indexed account);
 
 	event WhitelistedAdded(address indexed account);
 	event WhitelistedRemoved(address indexed account);
+	event WhitelistedAuthenticated(address indexed account, uint256 timestamp);
 
 	event ContractAdded(address indexed account);
 	event ContractRemoved(address indexed account);
 
-	constructor() public SchemeGuard(Avatar(0)) {}
+	function initialize(
+		INameService _nameService,
+		address _identityAdmin,
+		IIdentity _oldIdentity
+	) public initializer {
+		__AccessControl_init_unchained();
+		__Pausable_init_unchained();
+		setDAO(_nameService);
+		authenticationPeriod = 365 * 3;
+		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
+		_setupRole(DEFAULT_ADMIN_ROLE, address(this));
+		_setupRole(PAUSER_ROLE, avatar);
+		_setupRole(IDENTITY_ADMIN_ROLE, _identityAdmin);
+		_setupRole(IDENTITY_ADMIN_ROLE, avatar);
+
+		oldIdentity = _oldIdentity;
+	}
+
+	modifier onlyWhitelisted() {
+		require(isWhitelisted(msg.sender), "not whitelisted");
+		_;
+	}
 
 	/* @dev Sets a new value for authenticationPeriod.
 	 * Can only be called by Identity Administrators.
 	 * @param period new value for authenticationPeriod
 	 */
-	function setAuthenticationPeriod(uint256 period)
-		public
-		onlyOwner
-		whenNotPaused
-	{
+	function setAuthenticationPeriod(uint256 period) public whenNotPaused {
+		_onlyAvatar();
 		authenticationPeriod = period;
 	}
 
@@ -60,11 +92,12 @@ contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
 	 */
 	function authenticate(address account)
 		public
-		onlyRegistered
-		onlyIdentityAdmin
+		onlyRole(IDENTITY_ADMIN_ROLE)
 		whenNotPaused
 	{
-		dateAuthenticated[account] = now;
+		require(identities[account].status == 1, "not whitelisted");
+		identities[account].dateAuthenticated = block.timestamp;
+		emit WhitelistedAuthenticated(account, block.timestamp);
 	}
 
 	/* @dev Adds an address as whitelisted.
@@ -73,11 +106,22 @@ contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
 	 */
 	function addWhitelisted(address account)
 		public
-		onlyRegistered
-		onlyIdentityAdmin
+		onlyRole(IDENTITY_ADMIN_ROLE)
 		whenNotPaused
 	{
-		_addWhitelisted(account);
+		_addWhitelisted(account, _chainId());
+	}
+
+	/* @dev Adds an address as whitelisted under a specific ID
+	 * @param account The address to add
+	 * @param did the ID to add account under
+	 */
+	function addWhitelistedWithDIDAndChain(
+		address account,
+		string memory did,
+		uint256 orgChain
+	) public onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
+		_addWhitelistedWithDID(account, did, orgChain);
 	}
 
 	/* @dev Adds an address as whitelisted under a specific ID
@@ -86,11 +130,10 @@ contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
 	 */
 	function addWhitelistedWithDID(address account, string memory did)
 		public
-		onlyRegistered
-		onlyIdentityAdmin
+		onlyRole(IDENTITY_ADMIN_ROLE)
 		whenNotPaused
 	{
-		_addWhitelistedWithDID(account, did);
+		_addWhitelistedWithDID(account, did, _chainId());
 	}
 
 	/* @dev Removes an address as whitelisted.
@@ -99,16 +142,19 @@ contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
 	 */
 	function removeWhitelisted(address account)
 		public
-		onlyRegistered
-		onlyIdentityAdmin
+		onlyRole(IDENTITY_ADMIN_ROLE)
 		whenNotPaused
 	{
+		if (address(oldIdentity) != address(0))
+			oldIdentity.removeWhitelisted(account);
 		_removeWhitelisted(account);
 	}
 
 	/* @dev Renounces message sender from whitelisted
 	 */
 	function renounceWhitelisted() public whenNotPaused {
+		if (address(oldIdentity) != address(0))
+			oldIdentity.removeWhitelisted(msg.sender);
 		_removeWhitelisted(msg.sender);
 	}
 
@@ -117,11 +163,13 @@ contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
 	 * @return a bool indicating weather the address is present in whitelist
 	 */
 	function isWhitelisted(address account) public view returns (bool) {
-		uint256 daysSinceAuthentication = (now.sub(dateAuthenticated[account])) /
-			1 days;
+		uint256 daysSinceAuthentication = (block.timestamp -
+			identities[account].dateAuthenticated) / 1 days;
 		return
-			(daysSinceAuthentication <= authenticationPeriod) &&
-			whitelist.has(account);
+			((daysSinceAuthentication <= authenticationPeriod) &&
+				identities[account].status == 1) ||
+			(address(oldIdentity) != address(0) &&
+				oldIdentity.isWhitelisted(account));
 	}
 
 	/* @dev Function that gives the date the given user was added
@@ -129,36 +177,8 @@ contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
 	 * @return The date the address was added
 	 */
 	function lastAuthenticated(address account) public view returns (uint256) {
-		return dateAuthenticated[account];
+		return identities[account].dateAuthenticated;
 	}
-
-	// /**
-	//  *
-	//  * @dev Function to transfer whitelisted privilege to another address
-	//  * relocates did of sender to give address
-	//  * @param account The address to transfer to
-	//  */
-	// function transferAccount(address account) public whenNotPaused {
-	//     ERC20 token = avatar.nativeToken();
-	//     require(!isBlacklisted(account), "Cannot transfer to blacklisted");
-	//     require(token.balanceOf(account) == 0, "Account is already in use");
-	//     require(isWhitelisted(msg.sender), "Requester need to be whitelisted");
-
-	//     require(
-	//         keccak256(bytes(addrToDID[account])) == keccak256(bytes("")),
-	//         "address already has DID"
-	//     );
-
-	//     string memory did = addrToDID[msg.sender];
-	//     bytes32 pHash = keccak256(bytes(did));
-
-	//     uint256 balance = token.balanceOf(msg.sender);
-	//     token.transferFrom(msg.sender, account, balance);
-	//     _removeWhitelisted(msg.sender);
-	//     _addWhitelisted(account);
-	//     addrToDID[account] = did;
-	//     didHashToAddress[pHash] = account;
-	// }
 
 	/* @dev Adds an address to blacklist.
 	 * Can only be called by Identity Administrators.
@@ -166,11 +186,10 @@ contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
 	 */
 	function addBlacklisted(address account)
 		public
-		onlyRegistered
-		onlyIdentityAdmin
+		onlyRole(IDENTITY_ADMIN_ROLE)
 		whenNotPaused
 	{
-		blacklist.add(account);
+		identities[account].status = 255;
 		emit BlacklistAdded(account);
 	}
 
@@ -180,11 +199,13 @@ contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
 	 */
 	function removeBlacklisted(address account)
 		public
-		onlyRegistered
-		onlyIdentityAdmin
+		onlyRole(IDENTITY_ADMIN_ROLE)
 		whenNotPaused
 	{
-		blacklist.remove(account);
+		if (address(oldIdentity) != address(0))
+			oldIdentity.removeBlacklisted(account);
+
+		identities[account].status = 0;
 		emit BlacklistRemoved(account);
 	}
 
@@ -193,13 +214,12 @@ contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
 	 */
 	function addContract(address account)
 		public
-		onlyRegistered
-		onlyIdentityAdmin
+		onlyRole(IDENTITY_ADMIN_ROLE)
 		whenNotPaused
 	{
 		require(isContract(account), "Given address is not a contract");
-		contracts.add(account);
-		_addWhitelisted(account);
+		_addWhitelisted(account, _chainId());
+		identities[account].status = 2;
 
 		emit ContractAdded(account);
 	}
@@ -209,11 +229,11 @@ contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
 	 */
 	function removeContract(address account)
 		public
-		onlyRegistered
-		onlyIdentityAdmin
+		onlyRole(IDENTITY_ADMIN_ROLE)
 		whenNotPaused
 	{
-		contracts.remove(account);
+		if (address(oldIdentity) != address(0)) oldIdentity.removeContract(account);
+
 		_removeWhitelisted(account);
 
 		emit ContractRemoved(account);
@@ -224,18 +244,21 @@ contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
 	 * @return a bool indicating if address is on list of contracts
 	 */
 	function isDAOContract(address account) public view returns (bool) {
-		return contracts.has(account);
+		return
+			identities[account].status == 2 ||
+			(address(oldIdentity) != address(0) &&
+				oldIdentity.isDAOContract(account));
 	}
 
 	/* @dev Internal function to add to whitelisted
 	 * @param account the address to add
 	 */
-	function _addWhitelisted(address account) internal {
-		whitelist.add(account);
-
+	function _addWhitelisted(address account, uint256 orgChain) internal {
 		whitelistedCount += 1;
-		dateAdded[account] = now;
-		dateAuthenticated[account] = now;
+		identities[account].status = 1;
+		identities[account].dateAdded = block.timestamp;
+		identities[account].dateAuthenticated = block.timestamp;
+		identities[account].whitelistedOnChainId = orgChain;
 
 		if (isContract(account)) {
 			whitelistedContracts += 1;
@@ -248,37 +271,45 @@ contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
 	 * @param account the address to add
 	 * @param did the id to register account under
 	 */
-	function _addWhitelistedWithDID(address account, string memory did) internal {
+	function _addWhitelistedWithDID(
+		address account,
+		string memory did,
+		uint256 orgChain
+	) internal {
 		bytes32 pHash = keccak256(bytes(did));
 		require(didHashToAddress[pHash] == address(0), "DID already registered");
 
-		addrToDID[account] = did;
+		identities[account].did = did;
 		didHashToAddress[pHash] = account;
 
-		_addWhitelisted(account);
+		_addWhitelisted(account, orgChain);
 	}
 
 	/* @dev Internal function to remove from whitelisted
 	 * @param account the address to add
 	 */
 	function _removeWhitelisted(address account) internal {
-		whitelist.remove(account);
-
 		whitelistedCount -= 1;
-		delete dateAuthenticated[account];
 
 		if (isContract(account)) {
 			whitelistedContracts -= 1;
 		}
 
-		string memory did = addrToDID[account];
+		string memory did = identities[account].did;
 		bytes32 pHash = keccak256(bytes(did));
 
-		delete dateAuthenticated[account];
-		delete addrToDID[account];
+		delete identities[account];
 		delete didHashToAddress[pHash];
 
 		emit WhitelistedRemoved(account);
+	}
+
+	/// @notice helper function to get current chain id
+	/// @return chainId id
+	function _chainId() internal view returns (uint256 chainId) {
+		assembly {
+			chainId := chainid()
+		}
 	}
 
 	/* @dev Returns true if given address has been added to the blacklist
@@ -286,7 +317,10 @@ contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
 	 * @return a bool indicating weather the address is present in the blacklist
 	 */
 	function isBlacklisted(address account) public view returns (bool) {
-		return blacklist.has(account);
+		return
+			identities[account].status == 255 ||
+			(address(oldIdentity) != address(0) &&
+				oldIdentity.isBlacklisted(account));
 	}
 
 	/* @dev Function to see if given address is a contract
@@ -298,5 +332,52 @@ contract Identity is IdentityAdminRole, SchemeGuard, Pausable {
 			length := extcodesize(_addr)
 		}
 		return length > 0;
+	}
+
+	function connectAccount(address _account, bytes memory signature)
+		external
+		onlyWhitelisted
+	{
+		require(
+			!isWhitelisted(_account) && !isBlacklisted(_account),
+			"invalid account"
+		);
+		require(connectedAccounts[_account] == address(0x0), "already connected");
+		require(
+			SignatureChecker.isValidSignatureNow(
+				_account,
+				keccak256(abi.encode(msg.sender, _account)),
+				signature
+			),
+			"invalid signature"
+		);
+		connectedAccounts[_account] = msg.sender;
+	}
+
+	function getWhitelistedRoot(address _account)
+		external
+		view
+		returns (address whitelisted)
+	{
+		if (isWhitelisted(_account)) return _account;
+		if (isWhitelisted(connectedAccounts[_account]))
+			return connectedAccounts[_account];
+
+		return address(0x0);
+	}
+
+	function pause(bool _toPause) external onlyRole(PAUSER_ROLE) {
+		if (_toPause) _pause();
+		else _unpause();
+	}
+
+	function setDID(string calldata did) external onlyWhitelisted {
+		bytes32 pHash = keccak256(bytes(did));
+		require(didHashToAddress[pHash] == address(0), "DID already registered");
+
+		bytes32 oldHash = keccak256(bytes(identities[msg.sender].did));
+		delete didHashToAddress[oldHash];
+		identities[msg.sender].did = did;
+		didHashToAddress[pHash] = msg.sender;
 	}
 }
