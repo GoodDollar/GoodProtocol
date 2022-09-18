@@ -3,6 +3,7 @@
   "version": "1.0.29-beta.0",
   "description": "GoodDollar Protocol",
   "scripts": {
+    "prepack": "npm run minimize",
     "build": "scripts/build.sh deploy",
     "coverage:report": "export COVERALLS_REPO_TOKEN='qiXNelh1HXMAsoPah9yRD2yG2WlqrDfLh' && cat ../coverage/lcov.info coverage/lcov.info | coveralls",
     "coverage": "export CODE_COVERAGE=true; hardhat --max-memory 6096 coverage",
@@ -55,7 +56,7 @@
   },
   "homepage": "https://gooddollar.org",
   "dependencies": {
-    "@gooddollar/goodcontracts": "^2.6.2",
+    "@gooddollar/goodcontracts": "^2.6.4",
     "@jsier/retrier": "^1.2.4",
     "@openzeppelin/contracts": "^4.5.0",
     "@openzeppelin/contracts-upgradeable": "^4.3.2",

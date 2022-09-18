@@ -43,6 +43,7 @@ contract IdentityV2 is
 
 	IIdentity public oldIdentity;
 
+	address ns; //initial name service
 	event BlacklistAdded(address indexed account);
 	event BlacklistRemoved(address indexed account);
 
@@ -55,20 +56,29 @@ contract IdentityV2 is
 
 	function initialize(
 		INameService _nameService,
-		address _identityAdmin,
+		address _owner,
 		IIdentity _oldIdentity
 	) public initializer {
 		__AccessControl_init_unchained();
 		__Pausable_init_unchained();
-		setDAO(_nameService);
+		ns = address(_nameService);
 		authenticationPeriod = 365 * 3;
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
-		_setupRole(DEFAULT_ADMIN_ROLE, address(this));
+		_setupRole(DEFAULT_ADMIN_ROLE, _owner);
 		_setupRole(PAUSER_ROLE, avatar);
-		_setupRole(IDENTITY_ADMIN_ROLE, _identityAdmin);
+		_setupRole(PAUSER_ROLE, _owner);
+		_setupRole(IDENTITY_ADMIN_ROLE, _owner);
 		_setupRole(IDENTITY_ADMIN_ROLE, avatar);
 
 		oldIdentity = _oldIdentity;
+	}
+
+	function initDAO() external {
+		require(address(nameService) == address(0), "already initialized");
+		setDAO(INameService(ns));
+		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
+		_setupRole(PAUSER_ROLE, avatar);
+		_setupRole(IDENTITY_ADMIN_ROLE, avatar);
 	}
 
 	modifier onlyWhitelisted() {
@@ -119,9 +129,15 @@ contract IdentityV2 is
 	function addWhitelistedWithDIDAndChain(
 		address account,
 		string memory did,
-		uint256 orgChain
+		uint256 orgChain,
+		uint256 dateAuthenticated
 	) public onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
 		_addWhitelistedWithDID(account, did, orgChain);
+
+		//in case we are whitelisting on a new chain an already whitelisted account, we need to make sure it expires at the same time
+		if (dateAuthenticated > 0) {
+			identities[account].dateAuthenticated = dateAuthenticated;
+		}
 	}
 
 	/* @dev Adds an address as whitelisted under a specific ID

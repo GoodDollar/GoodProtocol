@@ -271,7 +271,7 @@ contract GoodDollarStaking is
 	 * @return gdRewards recieved G$ rewards
 	 */
 	function withdrawRewards()
-		public
+		external
 		returns (uint256 goodRewards, uint256 gdRewards)
 	{
 		uint256 gdRewardsShares = amountToShares(earned(msg.sender));
@@ -361,6 +361,11 @@ contract GoodDollarStaking is
 		_onlyAvatar();
 		_setMonthlyRewards(address(this), _monthlyAmount);
 		emit GOODRewardsSet(_monthlyAmount);
+	}
+
+	function setBlockPerYear(uint128 _blocksPerYear) external {
+		_onlyAvatar();
+		numberOfBlocksPerYear = _blocksPerYear;
 	}
 
 	/**
@@ -465,14 +470,19 @@ contract GoodDollarStaking is
 		emit GOODRewardsSet(2 ether * 1e6);
 
 		//this will make sure rewards are set at 0, so no withdraw issue will happen.
-		//on governacnestaking anyone withdrawing from now on will get 0 GOOD, not matter how long he has been staking
-		(bool ok, ) = dao.genericCall(
-			nameService.getAddress("GDAO_STAKING"),
-			abi.encodeWithSignature("setMonthlyRewards(uint256)", 0),
-			avatar,
-			0
-		);
-		require(ok, "calling setMonthlyRewards failed");
+		address curStaking = nameService.getAddress("GDAO_STAKING");
+		bool ok;
+		if (curStaking != address(0)) {
+			//this will trigger updating of accumulated rewards, so everyone's rewards are updated to this point
+			GoodDollarStaking(curStaking).withdrawRewards();
+			(ok, ) = dao.genericCall(
+				curStaking,
+				abi.encodeWithSignature("setMonthlyRewards(uint256)", 0),
+				avatar,
+				0
+			);
+			require(ok, "calling setMonthlyRewards failed");
+		}
 
 		//this will set this contract as the GDAO_STAKING contract and give us minting rights on the reputation token
 		(ok, ) = dao.genericCall(

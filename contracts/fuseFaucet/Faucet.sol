@@ -48,19 +48,20 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	uint64 public dailyNewWalletsCount;
 
 	function initialize(
-		address _identity,
+		IIdentityV2 _identity,
 		uint64 _gasPrice,
-		address relayer
+		address relayer,
+		address owner
 	) public initializer {
 		__AccessControl_init_unchained();
-		_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+		_setupRole(DEFAULT_ADMIN_ROLE, owner);
 		if (relayer != address(0)) _setupRole(RELAYER_ROLE, relayer);
 		gasPrice = _gasPrice;
 		toppingAmount = 600000 * gasPrice; //0.6M gwei
 		perDayRoughLimit = 2 * toppingAmount;
 		maxDailyToppings = 3;
 		startTime = block.timestamp;
-		identity = IIdentityV2(_identity);
+		identity = _identity;
 		maxPerWeekMultiplier = 2;
 		maxSwapAmount = 1000;
 		maxDailyNewWallets = 5000;

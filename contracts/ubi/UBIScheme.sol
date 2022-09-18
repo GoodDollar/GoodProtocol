@@ -528,7 +528,7 @@ contract UBIScheme is DAOUpgradeableContract {
 		if (activeUsersCount > 0) {
 			activeUsersCount -= 1;
 		}
-		_transferTokens(msg.sender, newDistribution, false, false);
+		_transferTokens(msg.sender, msg.sender, newDistribution, false, false);
 		emit InactiveUserFished(msg.sender, _account, newDistribution);
 		return true;
 	}

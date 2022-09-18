@@ -198,19 +198,19 @@
         "FeeFormula": "0x416B5A5e12235De6838D62Fd053e7Ce59E944426"
     },
     "dapptest": {
-        "NameService": "0x9059f66843F564f7870f7135fB039EB2034a23a3",
-        "GReputation": "0x90dE2F86DBdB2110a798326e880c83bc8779d149",
-        "CompoundVotingMachine": "0x2EF9f88EEB737655FF01F9b5017f1e3399726AF1",
-        "ClaimersDistribution": "0x035A59F228e776Cc396a8F5E1cEF989E235B0035",
+        "NameService": "0x4d0239e9b5dBb215Cb267D3Cdc42dC9E85c600F9",
+        "GReputation": "0x198e5677e7972781375A8CE80eF2E8357d9376d5",
+        "CompoundVotingMachine": "0xf3a11d2Ef44ef849804241796974d36e404fb591",
+        "ClaimersDistribution": "0x689497Cd3eF3D15E687E4b59786ef49593d082E5",
         "GovernanceStaking": "0xC65cCB966873969179B6b0bA53D67D14Bbf1204C",
-        "UBIScheme": "0xBb02F06762FBc51aD222915e6855f7482a93F9Cd",
+        "UBIScheme": "0x9B3228849d6C3212352487c3b8fE5DF5fADAdB87",
         "ProtocolUpgradeFuse": "0xBb976201B607f16dc76586dB8Ca5EF6C50C41c22",
         "HomeBridge": "0x180FAF09AdD6a27554b11a131DCe6f6A3ddF4cBf",
-        "AdminWallet": "0xB8357F7f41125d4b24AD052c1b7288BeF5C43446",
-        "Identity": "0x63766F0efAa46a86E9055bB46e41ff7bc64CBEA2",
-        "GoodDollar": "0x94a9D2532DA2d9153336159907604A01c3E91C11",
-        "Controller": "0x0B57Fd12F7A95c322aD176D23765507ce09892Cb",
-        "Avatar": "0xf6Ee31185AC05C2b558fF2a561C600AF3E9486dd",
+        "AdminWallet": "0x574ef57a55754fdA767A0c5670eB197ef334BbA9",
+        "Identity": "0xbc40e95a5609a59690CCD7cEFb19B3E22ce5A726",
+        "GoodDollar": "0xF91c35aC09261d269687Fb85B5B6D7Ab45013139",
+        "Controller": "0x0fa348B1D994E75cDA33e2FA0DA998480DfBd7Dd",
+        "Avatar": "0x93cDEaCD43EB3eD80105cd36f3A6D5eA5558468f",
         "FirstClaimPool": "0xC20654dB7F9483f10c91dc94924dC8F04F79bfd5",
         "BancorFormula": "0x6852Adb5Fce1D73c08A9b3Aa7edE9A03437ac2fE",
         "DAI": "0x0000000000000000000000000000000000000000",
@@ -220,9 +220,12 @@
         "network": "dapptest",
         "FeeFormula": "0x24ef01de6baE76eE73Da210940A296F739d87952",
         "OneTimePayments": "0xB10982193B39Eda3428d6AaeBbd7986f2A2Baa1a",
-        "Invites": "0x74156A1F9736307b7AD34e3691f3A5B54A0B3Eb8",
+        "Invites": "0x5C524D25674d2E3d969FaCe2B6000BaBc2F1e338",
         "FuseFaucet": "0x0Db32f0b116773fDD78C2e1b5E6609CC502e6784",
-        "ProxyFactory": "0xCD8a1C3ba11CF5ECfa6267617243239504a98d90"
+        "ProxyFactory": "0xaC47e91215fb80462139756f43438402998E4A3a",
+        "Faucet": "0x7bEf5612eC11446539C55ffD43B625b3472Cb7df",
+        "GoodDollarMintBurnWrapper": "0x214a2cCD52eC9c1A0e0E4719C3c5115aa297A9c5",
+        "GoodDollarStaking": "0x29be9D4e2aEe72C6Edbd6231f276A544296cc4F9"
     },
     "dapptest-mainnet": {
         "NameService": "0xe528aaCA8E7cD3ce503bB4a2dEadFD4088229E1F",
@@ -562,5 +565,22 @@
         "networkId": 42220,
         "GoodDollarMintBurnWrapper": "0x5566b6E4962BA83e05a426Ad89031ec18e9CadD3",
         "MultichainRouter": "0xf27Ee99622C3C9b264583dACB2cCE056e194494f"
+    },
+    "staging-celo": {
+        "ProxyFactory": "0xA441cd89b0964B51d23201d65E037DA7aF8F74E9",
+        "GoodDollar": "0xAB89A70d1Af04ED8badf915Ba1f5b28E9F322624",
+        "Avatar": "0xE0e3BFb1A1850bdFe36ED1563CC2abB6A8B6De78",
+        "Controller": "0x6717A1948328C8eCCb5C933Fae90e0631C2486fE",
+        "Identity": "0xC7456D20E777E061BF521e29E043Fc822B2aF049",
+        "NameService": "0x266E5a0931E52229CC241376bC701Ab6199Aec4D",
+        "GReputation": "0x6614823763EAd52aCc4952b9634624439B738683",
+        "AdminWallet": "0x333A368b9b3BA2AD5Df1B98Cfd8CB65208937f6A",
+        "Faucet": "0x6D91874398B3245589189080c2071C4f91974390",
+        "Invites": "0x30B042EA30f9e70447f05fed97fB03A4f38B78bf",
+        "GoodDollarMintBurnWrapper": "0x3fa553a5a044D5c4f5C70878148568410305f953",
+        "GoodDollarStaking": "0xCfa54Ad5a00b0AAd3873B4E269Feb331e6293682",
+        "UBIScheme": "0x2d42e6220af2485d1e6E5B4d3661A74671AA9a79",
+        "ClaimersDistribution": "0x80018e6Dd79f6B892Fca6b592746136a3aa5ef6d",
+        "CompoundVotingMachine": "0x00e44d746F3931cAB775099F4C6451f893BB9378"
     }
 }

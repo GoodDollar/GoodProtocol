@@ -272,10 +272,11 @@ interface IIdentity {
 }
 
 interface IIdentityV2 is IIdentity {
-	function addWhitelistedWithDID(
+	function addWhitelistedWithDIDAndChain(
 		address account,
 		string memory did,
-		uint256 orgChainId
+		uint256 orgChainId,
+		uint256 dateAuthenticated
 	) external;
 
 	function getWhitelistedRoot(address account)

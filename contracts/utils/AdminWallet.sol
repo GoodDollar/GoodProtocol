@@ -4,7 +4,6 @@ pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 import "../Interfaces.sol";
@@ -15,7 +14,6 @@ import "../Interfaces.sol";
 contract AdminWallet is
 	Initializable,
 	UUPSUpgradeable,
-	OwnableUpgradeable,
 	AccessControlUpgradeable
 {
 	bytes32 public constant WALLET_ADMIN_ROLE = keccak256("WALLET_ADMIN_ROLE");
@@ -28,7 +26,7 @@ contract AdminWallet is
 	uint256 public toppingTimes;
 	uint256 public gasPrice;
 
-	IIdentity public identity;
+	IIdentityV2 public identity;
 
 	mapping(uint256 => mapping(address => uint256)) toppings;
 
@@ -50,17 +48,24 @@ contract AdminWallet is
 	 */
 	function initialize(
 		address payable[] memory _admins,
-		address _owner,
-		IIdentity _identity
+		IIdentityV2 _identity,
+		address _owner
 	) public initializer {
 		__AccessControl_init_unchained();
-		__Ownable_init_unchained();
 		_setupRole(DEFAULT_ADMIN_ROLE, _owner);
+		_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
 		_setDefaults(600000, 9e6, 3, 1e10);
 		identity = _identity;
 		if (_admins.length > 0) {
 			addAdmins(_admins);
 		}
+		revokeRole(DEFAULT_ADMIN_ROLE, msg.sender);
+	}
+
+	modifier onlyOwner() {
+		require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "not owner");
+		_;
 	}
 
 	function setDefaults(
@@ -175,6 +180,23 @@ contract AdminWallet is
 		reimburseGas
 	{
 		identity.addWhitelistedWithDID(_user, _did);
+	}
+
+	/* @dev Function to add given address to whitelist of identity contract
+	 * can only be done by admins of wallet and if wallet is an IdentityAdmin
+	 */
+	function whitelist(
+		address _user,
+		string memory _did,
+		uint256 orgChain,
+		uint256 dateAuthenticated
+	) public onlyAdmin reimburseGas {
+		identity.addWhitelistedWithDIDAndChain(
+			_user,
+			_did,
+			orgChain,
+			dateAuthenticated
+		);
 	}
 
 	/* @dev Function to remove given address from whitelist of identity contract

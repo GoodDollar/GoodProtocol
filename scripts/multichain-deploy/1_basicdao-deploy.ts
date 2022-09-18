@@ -6,20 +6,18 @@
  */
 import { network, ethers, upgrades, run } from "hardhat";
 import { Contract } from "ethers";
+import { defaultsDeep } from "lodash";
 // import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollar.json";
 import DAOCreatorABI from "../../../GoodBootstrap/packages/contracts/build/contracts/DaoCreatorGoodDollarWithRep.json";
 // import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
-import IdentityABI from "../../../GoodBootstrap/packages/contracts/build/contracts/IdentityWithOwner.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
-import AddFoundersABI from "@gooddollar/goodcontracts/contracts/build/contracts/AddFoundersGoodDollarWithRep.json";
+import AddFoundersABI from "@gooddollar/goodcontracts/build/contracts/AddFoundersGoodDollarWithRep.json";
 
 import { deployDeterministic } from "./helpers";
-import releaser from "../../scripts/releaser";
+import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
 import { TransactionResponse } from "@ethersproject/providers";
-
-const { name } = network;
 
 const printDeploy = async (
   c: Contract | TransactionResponse
@@ -36,22 +34,30 @@ const printDeploy = async (
 };
 
 export const createDAO = async () => {
-  const fusedao = dao[network.name.split("-")[0]];
-  const protocolSettings = ProtocolSettings["production"];
-  let release: { [key: string]: any } = {};
+  let protocolSettings = defaultsDeep(
+    {},
+    ProtocolSettings[network.name],
+    ProtocolSettings["default"]
+  );
 
-  let [root, ...signers] = await ethers.getSigners();
+  let release: { [key: string]: any } = dao[network.name];
+
+  let [root] = await ethers.getSigners();
+  const daoOwner = protocolSettings.guardiansSafe || root.address;
+  if (!daoOwner) throw new Error("missing DAO_OWNER owner in env");
   //generic call permissions
   let schemeMock = root;
   const isMainnet = network.name.includes("main");
 
   console.log("got signers:", {
     network,
+    daoOwner,
     root: root.address,
     schemeMock: schemeMock.address,
     balance: await ethers.provider
       .getBalance(root.address)
-      .then(_ => _.toString())
+      .then(_ => _.toString()),
+    release
   });
 
   if (network.name.includes("production")) {
@@ -71,11 +77,6 @@ export const createDAO = async () => {
     root
   );
 
-  const IdentityFactory = new ethers.ContractFactory(
-    IdentityABI.abi,
-    IdentityABI.bytecode,
-    root
-  );
   const FeeFormulaFactory = new ethers.ContractFactory(
     FeeFormulaABI.abi,
     FeeFormulaABI.bytecode,
@@ -90,23 +91,26 @@ export const createDAO = async () => {
   const AddFounders = (await AddFoundersFactory.deploy().then(
     printDeploy
   )) as Contract;
-  // const AddFounders = await ethers.getContractAt(
-  //   AddFoundersABI.abi,
-  //   "0x6F1BAbfF5E119d61F0c6d8653d84E8B284B87091"
-  // );
 
+  const proxyFactory = await ethers.getContractAt(
+    "ProxyFactory1967",
+    release.ProxyFactory
+  );
+  const salt = ethers.BigNumber.from(
+    ethers.utils.keccak256(ethers.utils.toUtf8Bytes("NameService"))
+  );
+  const nameserviceFutureAddress = await proxyFactory[
+    "getDeploymentAddress(uint256,address)"
+  ](salt, root.address);
+  console.log("deploying identity", { nameserviceFutureAddress });
   const Identity = (await deployDeterministic(
     {
-      name: "Identity",
-      factory: IdentityFactory
+      name: "IdentityV2",
+      salt: "Identity",
+      isUpgradeable: true
     },
-    [root.address]
+    [nameserviceFutureAddress, daoOwner, ethers.constants.AddressZero]
   ).then(printDeploy)) as Contract;
-
-  // const Identity = await ethers.getContractAt(
-  //   IdentityABI.abi,
-  //   release.Identity
-  // );
 
   const daoCreator = await DAOCreatorFactory.deploy(AddFounders.address);
 
@@ -129,8 +133,8 @@ export const createDAO = async () => {
     ]
   ).then(printDeploy)) as Contract;
 
-  console.log("setting identity auth period");
-  await Identity.setAuthenticationPeriod(365).then(printDeploy);
+  // console.log("setting identity auth period");
+  // await Identity.setAuthenticationPeriod(365).then(printDeploy);
 
   console.log("creating dao");
   await daoCreator
@@ -156,20 +160,9 @@ export const createDAO = async () => {
     root
   );
 
-  // const Avatar = new ethers.Contract(
-  //   release.Avatar,
-  //   [
-  //     "function owner() view returns (address)",
-  //     "function nativeToken() view returns (address)"
-  //   ],
-  //   root
-  // );
-
-  await Identity.setAvatar(Avatar.address).then(printDeploy);
-
   console.log("Done deploying DAO, setting schemes permissions");
 
-  let schemes = [process.env.DAO_OWNER, Identity.address];
+  let schemes = [daoOwner, Identity.address];
 
   const gd = await Avatar.nativeToken();
 
@@ -191,24 +184,30 @@ export const createDAO = async () => {
     { name: "NameService", isUpgradeable: true },
     [
       controller,
-      ["CONTROLLER", "AVATAR", "IDENTITY", "GOODDOLLAR"].map(_ =>
+      ["CONTROLLER", "AVATAR", "IDENTITY", "GOODDOLLAR", "REPUTATION"].map(_ =>
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))
       ),
-      [controller, Avatar.address, Identity.address, gd]
+      [controller, Avatar.address, Identity.address, gd, GReputation.address]
     ]
   );
 
-  await (await GReputation.updateDAO(NameService.address)).wait();
   console.log("GRep nameservice:");
+  await (await GReputation.updateDAO(NameService.address)).wait();
+  console.log("Identity nameservice:");
+
+  await Identity.initDAO().then(printDeploy);
+
   //verifications
   const Controller = await ethers.getContractAt("Controller", controller);
   const GoodDollar = await ethers.getContractAt("IGoodDollar", gd);
 
-  await GoodDollar.renounceMinter().then(printDeploy);
-  await Identity.transferOwnership(process.env.DAO_OWNER).then(printDeploy);
+  if (network.name.includes("production")) {
+    console.log("renouncing minting rights on production env");
+    await GoodDollar.renounceMinter().then(printDeploy);
+  }
 
   const daoOwnerDaoPermissions = await Controller.getSchemePermissions(
-    process.env.DAO_OWNER,
+    daoOwner,
     Avatar.address
   );
 
@@ -223,8 +222,10 @@ export const createDAO = async () => {
     GReputation.MINTER_ROLE(),
     Avatar.address
   );
-  const daoOwnerIsIdentityOwner =
-    process.env.DAO_OWNER === (await Identity.owner());
+  const daoOwnerIsIdentityOwner = await Identity.hasRole(
+    ethers.constants.HashZero,
+    daoOwner
+  );
 
   //try to modify DAO -> should not succeed
   await (await GReputation.updateDAO(ethers.constants.AddressZero)).wait();
@@ -243,7 +244,7 @@ export const createDAO = async () => {
   });
 
   release = {
-    ProxyFactory: "0x99C22e78A579e2176311c736C4c9F0b0D5A47806",
+    // ProxyFactory: "0x99C22e78A579e2176311c736C4c9F0b0D5A47806",
     GoodDollar: gd,
     Avatar: Avatar.address,
     Controller: controller,
@@ -254,7 +255,7 @@ export const createDAO = async () => {
   await releaser(release, network.name, "deployment", false);
 };
 
-export const main = async (networkName = name) => {
+export const main = async () => {
   await createDAO().catch(console.log);
 };
 main();

@@ -1,8 +1,13 @@
 {
   "default": {
     "governance": {
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
+      "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
     },
+    "guardiansSafe": null,
+    "walletAdminsCount": 10,
+    "gasPrice": 100000000,
     "compound": {},
     "aave": {},
     "expansionRatio": {
@@ -20,6 +25,14 @@
     "GoodAaveStaking": {
       "stkAaveClaimCost": 50000,
       "CollectInterestGasCost": 250000
+    },
+    "savings": {
+      "blockAPY": "1000000007735630000",
+      "daysUntilUpgrade": "7",
+      "blocksPerYear": "6307200"
+    },
+    "ubi": {
+      "maxInactiveDays": 14
     }
   },
   "develop": {
@@ -47,7 +60,9 @@
       "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
-    }
+    },
+    "walletAdminsCount": 10,
+    "gasPrice": 1000000000
   },
   "dapptest-mainnet": {
     "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
@@ -84,6 +99,9 @@
       "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
       "proposalVotingPeriod": 241920
+    },
+    "savings": {
+      "daysUntilUpgrade": "7"
     }
   },
   "fuse-mainnet": {
@@ -193,6 +211,9 @@
       "gdaoTotalSupply": "96000000000000000000000000",
       "proposalVotingPeriod": 241920,
       "guardian": "0x914dA3B2508634998d244059dAb5488D9bA1814f"
+    },
+    "savings": {
+      "daysUntilUpgrade": 30
     }
   },
   "production-mainnet": {
@@ -224,5 +245,19 @@
       "eth_usd": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"
     },
     "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+  },
+  "staging-celo": {
+    "guardiansSafe": "0xdF3e980a175904a26A7BA627048a789Ae6A141cD",
+    "gasPrice": 150000000
+  },
+  "production-celo": {
+    "governance": {
+      "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
+      "gdaoTotalSupply": "96000000000000000000000000",
+      "proposalVotingPeriod": 241920,
+      "guardian": "0x914dA3B2508634998d244059dAb5488D9bA1814f"
+    },
+    "gasPrice": 150000000,
+    "guardiansSafe": "0xC9D09BA972B4EB6Bb7347F2229FB6d50434fFCa6"
   }
 }

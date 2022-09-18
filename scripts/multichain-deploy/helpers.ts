@@ -1,6 +1,5 @@
 import { Contract, ContractFactory, Signer } from "ethers";
 import { network, ethers, upgrades, run } from "hardhat";
-import { Contract } from "ethers";
 import { TransactionResponse } from "@ethersproject/providers";
 import dao from "../../releases/deployment.json";
 
