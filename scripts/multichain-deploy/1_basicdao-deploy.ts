@@ -250,7 +250,10 @@ export const createDAO = async () => {
     Controller: controller,
     Identity: Identity.address,
     NameService: NameService.address,
-    GReputation: GReputation.address
+    GReputation: GReputation.address,
+    FeeFormula: FeeFormula.address,
+    DAOCreator: daoCreator.address,
+    AddFounders: AddFounders.address
   };
   await releaser(release, network.name, "deployment", false);
 };

@@ -10,7 +10,6 @@ import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
 import { TransactionResponse } from "@ethersproject/providers";
-import { InvitesV1__factory } from "../../types";
 
 const { name } = network;
 

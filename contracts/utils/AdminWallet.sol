@@ -49,13 +49,14 @@ contract AdminWallet is
 	function initialize(
 		address payable[] memory _admins,
 		IIdentityV2 _identity,
-		address _owner
+		address _owner,
+		uint256 _gasPrice
 	) public initializer {
 		__AccessControl_init_unchained();
 		_setupRole(DEFAULT_ADMIN_ROLE, _owner);
 		_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-		_setDefaults(600000, 9e6, 3, 1e10);
+		_setDefaults(600000, 9e6, 3, _gasPrice);
 		identity = _identity;
 		if (_admins.length > 0) {
 			addAdmins(_admins);

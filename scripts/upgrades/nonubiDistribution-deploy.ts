@@ -11,18 +11,15 @@
  *  - add to the distributionHelper the GoodDollarMintBurnWrapper contract address on fuse as recipient with 100% bps
  */
 
-import { network, ethers, upgrades, run } from "hardhat";
-import { Contract, Signer } from "ethers";
+import { network, ethers } from "hardhat";
 
 import {
   deployDeterministic,
   printDeploy,
   executeViaGuardian
-} from "./helpers";
+} from "../multichain-deploy/helpers";
 import releaser from "../releaser";
-import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
-import { deployWrapper } from "./multichainWrapper-deploy";
 import {
   CompoundVotingMachine,
   DistributionHelper,

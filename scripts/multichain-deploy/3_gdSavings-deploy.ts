@@ -193,7 +193,7 @@ const executeProposal = async (
     //on fuse staging also use voting for testing
     console.log("upgrading via guardian...");
 
-    executeViaGuardian(
+    await executeViaGuardian(
       proposalContracts,
       proposalEthValues,
       proposalFunctionSignatures,
