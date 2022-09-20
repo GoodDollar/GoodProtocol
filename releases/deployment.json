@@ -567,7 +567,7 @@
         "GoodDollarMintBurnWrapper": "0x5566b6E4962BA83e05a426Ad89031ec18e9CadD3",
         "MultichainRouter": "0xf27Ee99622C3C9b264583dACB2cCE056e194494f"
     },
-    "staging-celo-old": {
+    "development-celo": {
         "ProxyFactory": "0xA441cd89b0964B51d23201d65E037DA7aF8F74E9",
         "GoodDollar": "0xAB89A70d1Af04ED8badf915Ba1f5b28E9F322624",
         "Avatar": "0xE0e3BFb1A1850bdFe36ED1563CC2abB6A8B6De78",

@@ -268,6 +268,8 @@ interface IIdentity {
 
 	function isDAOContract(address account) external view returns (bool);
 
+	function addrToDID(address account) external view returns (string memory);
+
 	event WhitelistedAdded(address user);
 }
 

@@ -90,7 +90,7 @@ contract IdentityV2 is
 	 * Can only be called by Identity Administrators.
 	 * @param period new value for authenticationPeriod
 	 */
-	function setAuthenticationPeriod(uint256 period) public whenNotPaused {
+	function setAuthenticationPeriod(uint256 period) external whenNotPaused {
 		_onlyAvatar();
 		authenticationPeriod = period;
 	}
@@ -131,7 +131,7 @@ contract IdentityV2 is
 		string memory did,
 		uint256 orgChain,
 		uint256 dateAuthenticated
-	) public onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
+	) external onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
 		_addWhitelistedWithDID(account, did, orgChain);
 
 		//in case we are whitelisting on a new chain an already whitelisted account, we need to make sure it expires at the same time
@@ -161,16 +161,12 @@ contract IdentityV2 is
 		onlyRole(IDENTITY_ADMIN_ROLE)
 		whenNotPaused
 	{
-		if (address(oldIdentity) != address(0))
-			oldIdentity.removeWhitelisted(account);
 		_removeWhitelisted(account);
 	}
 
 	/* @dev Renounces message sender from whitelisted
 	 */
-	function renounceWhitelisted() public whenNotPaused {
-		if (address(oldIdentity) != address(0))
-			oldIdentity.removeWhitelisted(msg.sender);
+	function renounceWhitelisted() external whenNotPaused {
 		_removeWhitelisted(msg.sender);
 	}
 
@@ -181,18 +177,26 @@ contract IdentityV2 is
 	function isWhitelisted(address account) public view returns (bool) {
 		uint256 daysSinceAuthentication = (block.timestamp -
 			identities[account].dateAuthenticated) / 1 days;
-		return
-			((daysSinceAuthentication <= authenticationPeriod) &&
-				identities[account].status == 1) ||
-			(address(oldIdentity) != address(0) &&
-				oldIdentity.isWhitelisted(account));
+		if (
+			(daysSinceAuthentication <= authenticationPeriod) &&
+			identities[account].status == 1
+		) return true;
+
+		if (address(oldIdentity) != address(0)) {
+			try oldIdentity.isWhitelisted(account) returns (bool res) {
+				return res;
+			} catch {
+				return false;
+			}
+		}
+		return false;
 	}
 
 	/* @dev Function that gives the date the given user was added
 	 * @param account The address to check
 	 * @return The date the address was added
 	 */
-	function lastAuthenticated(address account) public view returns (uint256) {
+	function lastAuthenticated(address account) external view returns (uint256) {
 		return identities[account].dateAuthenticated;
 	}
 
@@ -214,12 +218,12 @@ contract IdentityV2 is
 	 * @param account address to remove as blacklisted
 	 */
 	function removeBlacklisted(address account)
-		public
+		external
 		onlyRole(IDENTITY_ADMIN_ROLE)
 		whenNotPaused
 	{
 		if (address(oldIdentity) != address(0))
-			oldIdentity.removeBlacklisted(account);
+			try oldIdentity.removeBlacklisted(account) {} catch {}
 
 		identities[account].status = 0;
 		emit BlacklistRemoved(account);
@@ -248,8 +252,6 @@ contract IdentityV2 is
 		onlyRole(IDENTITY_ADMIN_ROLE)
 		whenNotPaused
 	{
-		if (address(oldIdentity) != address(0)) oldIdentity.removeContract(account);
-
 		_removeWhitelisted(account);
 
 		emit ContractRemoved(account);
@@ -259,11 +261,16 @@ contract IdentityV2 is
 	 * @param address to check
 	 * @return a bool indicating if address is on list of contracts
 	 */
-	function isDAOContract(address account) public view returns (bool) {
-		return
-			identities[account].status == 2 ||
-			(address(oldIdentity) != address(0) &&
-				oldIdentity.isDAOContract(account));
+	function isDAOContract(address account) external view returns (bool) {
+		if (identities[account].status == 2) return true;
+		if (address(oldIdentity) != address(0)) {
+			try oldIdentity.isDAOContract(account) returns (bool res) {
+				return res;
+			} catch {
+				return false;
+			}
+		}
+		return false;
 	}
 
 	/* @dev Internal function to add to whitelisted
@@ -310,6 +317,12 @@ contract IdentityV2 is
 
 		if (isContract(account)) {
 			whitelistedContracts -= 1;
+			if (address(oldIdentity) != address(0)) {
+				try oldIdentity.removeContract(account) {} catch {}
+			}
+		}
+		if (address(oldIdentity) != address(0)) {
+			try oldIdentity.removeWhitelisted(account) {} catch {}
 		}
 
 		string memory did = identities[account].did;
@@ -334,10 +347,14 @@ contract IdentityV2 is
 	 * @return a bool indicating weather the address is present in the blacklist
 	 */
 	function isBlacklisted(address account) public view returns (bool) {
-		return
-			identities[account].status == 255 ||
-			(address(oldIdentity) != address(0) &&
-				oldIdentity.isBlacklisted(account));
+		if (identities[account].status == 255) return true;
+		if (address(oldIdentity) != address(0)) {
+			try oldIdentity.isBlacklisted(account) returns (bool res) {
+				return res;
+			} catch {
+				return false;
+			}
+		}
 	}
 
 	/* @dev Function to see if given address is a contract
@@ -398,5 +415,19 @@ contract IdentityV2 is
 		delete didHashToAddress[oldHash];
 		identities[msg.sender].did = did;
 		didHashToAddress[pHash] = msg.sender;
+	}
+
+	function addrToDID(address account)
+		external
+		view
+		returns (string memory did)
+	{
+		did = identities[msg.sender].did;
+		if (bytes(did).length > 0) return did;
+		try oldIdentity.addrToDID(account) returns (string memory _did) {
+			return _did;
+		} catch {
+			return "";
+		}
 	}
 }
