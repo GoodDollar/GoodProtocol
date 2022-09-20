@@ -27,8 +27,8 @@ describe("AdminWallet", () => {
 
   before(async () => {
     signers = await ethers.getSigners();
+    founder = signers[0];
     [
-      founder,
       whitelisted,
       stranger,
       stranger2,
@@ -38,7 +38,7 @@ describe("AdminWallet", () => {
       admin,
       admin2,
       toWhitelist
-    ] = signers;
+    ] = signers.slice(10);
     let { identity: id } = await createDAO();
     identity = await ethers.getContractAt("IIdentity", id);
 
@@ -272,6 +272,11 @@ describe("AdminWallet", () => {
     await expect(adminWallet.connect(founder).upgradeTo(newver.address)).not
       .reverted;
 
+    await upgrades.forceImport(
+      adminWallet.address,
+      await ethers.getContractFactory("AdminWallet"),
+      { kind: "uups" }
+    );
     await expect(
       upgrades.upgradeProxy(
         adminWallet.address,
