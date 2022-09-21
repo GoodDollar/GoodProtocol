@@ -17,6 +17,10 @@ interface RewardsMinter {
 	function sendOrMint(address to, uint256 amount) external returns (uint256);
 }
 
+interface GovernanceStaking {
+	function withdrawRewards() external returns (uint256);
+}
+
 /**
  * @title Staking contract that allows citizens to stake G$ to get GOOD + G$ rewards
  * it implements
@@ -474,7 +478,7 @@ contract GoodDollarStaking is
 		bool ok;
 		if (curStaking != address(0)) {
 			//this will trigger updating of accumulated rewards, so everyone's rewards are updated to this point
-			GoodDollarStaking(curStaking).withdrawRewards();
+			GovernanceStaking(curStaking).withdrawRewards();
 			(ok, ) = dao.genericCall(
 				curStaking,
 				abi.encodeWithSignature("setMonthlyRewards(uint256)", 0),
