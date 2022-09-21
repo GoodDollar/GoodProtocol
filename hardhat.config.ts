@@ -200,6 +200,13 @@ const hhconfig: HardhatUserConfig = {
       gas: 3000000,
       gasPrice: 150000000,
       chainId: 42220
+    },
+    "development-celo": {
+      accounts: { mnemonic },
+      url: "https://forno.celo.org",
+      gas: 3000000,
+      gasPrice: 150000000,
+      chainId: 42220
     }
   },
   mocha: {

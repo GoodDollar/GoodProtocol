@@ -40,7 +40,7 @@ describe("AdminWallet", () => {
       toWhitelist
     ] = signers.slice(10);
     let { identity: id } = await createDAO();
-    identity = await ethers.getContractAt("IIdentity", id);
+    identity = await ethers.getContractAt("IdentityV2", id);
 
     adminWallet = (await upgrades.deployProxy(
       await ethers.getContractFactory("AdminWallet"),
@@ -48,7 +48,10 @@ describe("AdminWallet", () => {
       { kind: "uups" }
     )) as AdminWallet;
 
-    identity.addIdentityAdmin(adminWallet.address);
+    await identity.grantRole(
+      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("identity_admin")),
+      adminWallet.address
+    );
 
     toppingTimes = await adminWallet.toppingTimes();
     toppingAmount = await adminWallet.toppingAmount();

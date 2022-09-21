@@ -55,11 +55,8 @@ export const createDAO = async () => {
     root
   );
 
-  const IdentityFactory = new ethers.ContractFactory(
-    IdentityABI.abi,
-    IdentityABI.bytecode,
-    root
-  );
+  const IdentityFactory = await ethers.getContractFactory("IdentityV2");
+
   const FeeFormulaFactory = new ethers.ContractFactory(
     FeeFormulaABI.abi,
     FeeFormulaABI.bytecode,
@@ -75,11 +72,16 @@ export const createDAO = async () => {
     await ethers.getContractFactory("BancorFormula")
   ).deploy();
   const AddFounders = await AddFoundersFactory.deploy();
-  const Identity = await IdentityFactory.deploy();
+  const Identity = await upgrades.deployProxy(
+    IdentityFactory,
+    [root.address, ethers.constants.AddressZero],
+    { kind: "uups" }
+  );
+
   const daoCreator = await DAOCreatorFactory.deploy(AddFounders.address);
   const FeeFormula = await FeeFormulaFactory.deploy(0);
 
-  await Identity.setAuthenticationPeriod(365);
+  // await Identity.setAuthenticationPeriod(365);
   await daoCreator.forgeOrg(
     "GoodDollar",
     "G$",
@@ -100,7 +102,7 @@ export const createDAO = async () => {
     root
   );
 
-  await Identity.setAvatar(Avatar.address);
+  // await Identity.setAvatar(Avatar.address);
   const controller = await Avatar.owner();
 
   const ccFactory = new ethers.ContractFactory(
@@ -158,6 +160,8 @@ export const createDAO = async () => {
       kind: "uups"
     }
   );
+
+  await Identity.initDAO(nameService.address);
 
   console.log("deploying reserve...");
   let goodReserve = await upgrades.deployProxy(

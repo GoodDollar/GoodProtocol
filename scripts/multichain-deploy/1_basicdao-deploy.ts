@@ -109,7 +109,7 @@ export const createDAO = async () => {
       salt: "Identity",
       isUpgradeable: true
     },
-    [nameserviceFutureAddress, daoOwner, ethers.constants.AddressZero]
+    [daoOwner, ethers.constants.AddressZero]
   ).then(printDeploy)) as Contract;
 
   const daoCreator = await DAOCreatorFactory.deploy(AddFounders.address);
@@ -195,7 +195,7 @@ export const createDAO = async () => {
   await (await GReputation.updateDAO(NameService.address)).wait();
   console.log("Identity nameservice:");
 
-  await Identity.initDAO().then(printDeploy);
+  await Identity.initDAO(NameService.address).then(printDeploy);
 
   //verifications
   const Controller = await ethers.getContractAt("Controller", controller);

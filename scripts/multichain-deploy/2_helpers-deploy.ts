@@ -65,15 +65,23 @@ export const deployHelpers = async () => {
       // address _owner,
       // IIdentityV2 _identity
       name: "AdminWallet",
+      salt: "AdminWallet",
       isUpgradeable: true
     },
-    [walletAdmins, release.Identity, root.address, protocolSettings.gasPrice]
+    [walletAdmins, release.NameService, root.address, protocolSettings.gasPrice]
   ).then(printDeploy)) as Contract;
 
+  console.log("giving AdminWallet identity_admin permissions");
+  const identity = await ethers.getContractAt("IdentityV2", release.Identity);
+  await identity.grantRole(
+    ethers.utils.keccak256(ethers.utils.toUtf8Bytes("identity_admin")),
+    AdminWallet.address
+  );
+
   const Faucet = await deployDeterministic(
-    { name: "Faucet", isUpgradeable: true },
+    { name: "Faucet", salt: "Faucet", isUpgradeable: true },
     [
-      release.Identity,
+      release.NameService,
       protocolSettings.gasPrice,
       AdminWallet.address,
       root.address
@@ -81,8 +89,14 @@ export const deployHelpers = async () => {
   );
 
   const Invites = await deployDeterministic(
-    { name: "InvitesV2", isUpgradeable: true },
-    [release.Avatar, release.Identity, release.GoodDollar, 10000, root.address]
+    { name: "InvitesV2", salt: "InvitesV2", isUpgradeable: true },
+    [
+      release.Avatar,
+      release.NameService,
+      release.GoodDollar,
+      10000,
+      root.address
+    ]
   );
 
   const adminWalletOwner = await AdminWallet.hasRole(

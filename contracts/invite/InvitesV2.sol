@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "../Interfaces.sol";
+import "../utils/NameService.sol";
 
 // import "hardhat/console.sol";
 
@@ -52,7 +53,7 @@ contract InvitesV2 is Initializable, UUPSUpgradeable {
 	mapping(uint256 => Level) public levels;
 
 	address public owner;
-	IIdentity public identity;
+	NameService public nameService;
 	cERC20 public goodDollar;
 	bool public active;
 	Stats public stats;
@@ -88,13 +89,13 @@ contract InvitesV2 is Initializable, UUPSUpgradeable {
 
 	function initialize(
 		address payable _avatar,
-		address _identity,
+		address _ns,
 		address _gd,
 		uint256 _level0Bounty,
 		address _owner
 	) public initializer {
 		owner = _owner;
-		identity = IIdentity(_identity);
+		nameService = NameService(_ns);
 		active = true;
 		Level storage lvl = levels[0];
 		lvl.bounty = _level0Bounty;
@@ -108,6 +109,10 @@ contract InvitesV2 is Initializable, UUPSUpgradeable {
 		override
 		ownerOrAvatar
 	{}
+
+	function getIdentity() public view returns (IIdentityV2) {
+		return IIdentityV2(nameService.getAddress("IDENTITY"));
+	}
 
 	function setLevelExpirationEnabled(bool _isEnabled) public ownerOrAvatar {
 		levelExpirationEnabled = _isEnabled;
@@ -152,8 +157,8 @@ contract InvitesV2 is Initializable, UUPSUpgradeable {
 		return
 			invitedBy != address(0) &&
 			!users[_invitee].bountyPaid &&
-			identity.isWhitelisted(_invitee) &&
-			identity.isWhitelisted(invitedBy) &&
+			getIdentity().isWhitelisted(_invitee) &&
+			getIdentity().isWhitelisted(invitedBy) &&
 			isLevelExpired == false;
 	}
 

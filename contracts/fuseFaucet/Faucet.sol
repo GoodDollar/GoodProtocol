@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "../Interfaces.sol";
+import "../utils/NameService.sol";
 
 /**
  * @title DonationStaking contract that receives funds in ETH/DAI
@@ -27,7 +28,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	uint256 public startTime;
 	uint256 public currentDay;
 
-	IIdentityV2 public identity;
+	NameService public nameService;
 
 	mapping(uint256 => mapping(address => uint256)) public toppings;
 	mapping(address => bool) public notFirstTime;
@@ -48,7 +49,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	uint64 public dailyNewWalletsCount;
 
 	function initialize(
-		IIdentityV2 _identity,
+		NameService _ns,
 		uint64 _gasPrice,
 		address relayer,
 		address owner
@@ -61,7 +62,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		perDayRoughLimit = 2 * toppingAmount;
 		maxDailyToppings = 3;
 		startTime = block.timestamp;
-		identity = _identity;
+		nameService = _ns;
 		maxPerWeekMultiplier = 2;
 		maxSwapAmount = 1000;
 		maxDailyNewWallets = 5000;
@@ -72,6 +73,10 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		override
 		onlyRole(DEFAULT_ADMIN_ROLE)
 	{}
+
+	function getIdentity() public view returns (IIdentityV2) {
+		return IIdentityV2(nameService.getAddress("IDENTITY"));
+	}
 
 	function upgrade() public {
 		if (maxDailyNewWallets == 0) maxDailyNewWallets = 5000;
@@ -92,8 +97,8 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	 */
 	modifier onlyAuthorized(address toTop) {
 		require(
-			identity.getWhitelistedRoot(toTop) != address(0) ||
-				identity.getWhitelistedRoot(msg.sender) != address(0) ||
+			getIdentity().getWhitelistedRoot(toTop) != address(0) ||
+				getIdentity().getWhitelistedRoot(msg.sender) != address(0) ||
 				hasRole(RELAYER_ROLE, msg.sender)
 		);
 		_;
@@ -101,7 +106,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 
 	modifier toppingLimit(address _user) {
 		//switch wallet to the account we do the accounting for
-		address whitelistedRoot = identity.getWhitelistedRoot(_user);
+		address whitelistedRoot = getIdentity().getWhitelistedRoot(_user);
 		_user = whitelistedRoot == address(0) ? _user : payable(whitelistedRoot);
 
 		uint256 prevDay = currentDay;
@@ -150,7 +155,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	}
 
 	function canTop(address _user) external view returns (bool) {
-		address whitelistedRoot = identity.getWhitelistedRoot(_user);
+		address whitelistedRoot = getIdentity().getWhitelistedRoot(_user);
 		_user = whitelistedRoot == address(0) ? _user : whitelistedRoot;
 
 		uint256 _currentDay = (block.timestamp - startTime) / 1 days;
@@ -196,7 +201,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		address payable target = _wallet;
 
 		//switch wallet to the account we do the accounting for
-		address whitelistedRoot = identity.getWhitelistedRoot(_wallet);
+		address whitelistedRoot = getIdentity().getWhitelistedRoot(_wallet);
 		_wallet = whitelistedRoot == address(0)
 			? _wallet
 			: payable(whitelistedRoot);

@@ -7,6 +7,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 import "../Interfaces.sol";
+import "../utils/NameService.sol";
 
 /* @title Admin wallet contract allowing whitelisting and topping up of
  * addresses
@@ -26,7 +27,7 @@ contract AdminWallet is
 	uint256 public toppingTimes;
 	uint256 public gasPrice;
 
-	IIdentityV2 public identity;
+	NameService public nameService;
 
 	mapping(uint256 => mapping(address => uint256)) toppings;
 
@@ -48,7 +49,7 @@ contract AdminWallet is
 	 */
 	function initialize(
 		address payable[] memory _admins,
-		IIdentityV2 _identity,
+		NameService _ns,
 		address _owner,
 		uint256 _gasPrice
 	) public initializer {
@@ -57,7 +58,7 @@ contract AdminWallet is
 		_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
 		_setDefaults(600000, 9e6, 3, _gasPrice);
-		identity = _identity;
+		nameService = _ns;
 		if (_admins.length > 0) {
 			addAdmins(_admins);
 		}
@@ -67,6 +68,10 @@ contract AdminWallet is
 	modifier onlyOwner() {
 		require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "not owner");
 		_;
+	}
+
+	function getIdentity() public view returns (IIdentityV2) {
+		return IIdentityV2(nameService.getAddress("IDENTITY"));
 	}
 
 	function setDefaults(
@@ -180,7 +185,7 @@ contract AdminWallet is
 		onlyAdmin
 		reimburseGas
 	{
-		identity.addWhitelistedWithDID(_user, _did);
+		getIdentity().addWhitelistedWithDID(_user, _did);
 	}
 
 	/* @dev Function to add given address to whitelist of identity contract
@@ -192,7 +197,7 @@ contract AdminWallet is
 		uint256 orgChain,
 		uint256 dateAuthenticated
 	) public onlyAdmin reimburseGas {
-		identity.addWhitelistedWithDIDAndChain(
+		getIdentity().addWhitelistedWithDIDAndChain(
 			_user,
 			_did,
 			orgChain,
@@ -204,21 +209,21 @@ contract AdminWallet is
 	 * can only be done by admins of wallet and if wallet is an IdentityAdmin
 	 */
 	function removeWhitelist(address _user) public onlyAdmin reimburseGas {
-		identity.removeWhitelisted(_user);
+		getIdentity().removeWhitelisted(_user);
 	}
 
 	/* @dev Function to add given address to blacklist of identity contract
 	 * can only be done by admins of wallet and if wallet is an IdentityAdmin
 	 */
 	function blacklist(address _user) public onlyAdmin reimburseGas {
-		identity.addBlacklisted(_user);
+		getIdentity().addBlacklisted(_user);
 	}
 
 	/* @dev Function to remove given address from blacklist of identity contract
 	 * can only be done by admins of wallet and if wallet is an IdentityAdmin
 	 */
 	function removeBlacklist(address _user) public onlyAdmin reimburseGas {
-		identity.removeBlacklisted(_user);
+		getIdentity().removeBlacklisted(_user);
 	}
 
 	/* @dev Function to top given address with amount of G$ given in constructor

@@ -25,8 +25,8 @@ contract IdentityV2 is
 		uint8 status; //0 nothing, 1 whitelisted, 2 daocontract, 255 blacklisted
 	}
 
-	bytes32 public IDENTITY_ADMIN_ROLE = keccak256("identity_admin");
-	bytes32 public PAUSER_ROLE = keccak256("pause_admin");
+	bytes32 public constant IDENTITY_ADMIN_ROLE = keccak256("identity_admin");
+	bytes32 public constant PAUSER_ROLE = keccak256("pause_admin");
 
 	uint256 public whitelistedCount;
 	uint256 public whitelistedContracts;
@@ -40,7 +40,6 @@ contract IdentityV2 is
 
 	IIdentity public oldIdentity;
 
-	address ns; //initial name service
 	event BlacklistAdded(address indexed account);
 	event BlacklistRemoved(address indexed account);
 
@@ -51,14 +50,12 @@ contract IdentityV2 is
 	event ContractAdded(address indexed account);
 	event ContractRemoved(address indexed account);
 
-	function initialize(
-		INameService _nameService,
-		address _owner,
-		IIdentity _oldIdentity
-	) public initializer {
+	function initialize(address _owner, IIdentity _oldIdentity)
+		public
+		initializer
+	{
 		__AccessControl_init_unchained();
 		__Pausable_init_unchained();
-		ns = address(_nameService);
 		authenticationPeriod = 365 * 3;
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
 		_setupRole(DEFAULT_ADMIN_ROLE, _owner);
@@ -70,9 +67,9 @@ contract IdentityV2 is
 		oldIdentity = _oldIdentity;
 	}
 
-	function initDAO() external {
+	function initDAO(address _ns) external onlyRole(DEFAULT_ADMIN_ROLE) {
 		require(address(nameService) == address(0), "already initialized");
-		setDAO(INameService(ns));
+		setDAO(INameService(_ns));
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
 		_setupRole(PAUSER_ROLE, avatar);
 		_setupRole(IDENTITY_ADMIN_ROLE, avatar);
@@ -426,5 +423,12 @@ contract IdentityV2 is
 		} catch {
 			return "";
 		}
+	}
+
+	/**
+	 * compatability with IdentityV1 that GoodDollar token checks if the identity contract is registered
+	 */
+	function isRegistered() external pure returns (bool) {
+		return true;
 	}
 }
