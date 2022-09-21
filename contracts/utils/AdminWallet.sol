@@ -62,7 +62,7 @@ contract AdminWallet is
 		if (_admins.length > 0) {
 			addAdmins(_admins);
 		}
-		revokeRole(DEFAULT_ADMIN_ROLE, msg.sender);
+		if (msg.sender != _owner) revokeRole(DEFAULT_ADMIN_ROLE, msg.sender);
 	}
 
 	modifier onlyOwner() {
