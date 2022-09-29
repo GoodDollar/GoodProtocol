@@ -6,13 +6,11 @@ import { network, ethers, upgrades } from "hardhat";
 import { Contract } from "ethers";
 import { range } from "lodash";
 import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollar.json";
-import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
 import AddFoundersABI from "@gooddollar/goodcontracts/build/contracts/AddFoundersGoodDollar.json";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
 import FirstClaimPool from "@gooddollar/goodcontracts/stakingModel/build/contracts/FirstClaimPool.json";
 import BridgeMock from "@gooddollar/goodcontracts/stakingModel/build/contracts/BridgeMock.json";
-import AdminWalletABI from "@gooddollar/goodcontracts/build/contracts/AdminWallet.json";
 import OTPABI from "@gooddollar/goodcontracts/build/contracts/OneTimePayments.json";
 import HomeBridgeABI from "@gooddollar/goodcontracts/build/contracts/DeployHomeBridge.json";
 import ForeignBridgeABI from "@gooddollar/goodcontracts/build/contracts/DeployForeignBridge.json";
@@ -65,11 +63,14 @@ export const createDAO = async () => {
     root
   );
 
-  const IdentityFactory = new ethers.ContractFactory(
-    IdentityABI.abi,
-    IdentityABI.bytecode,
-    root
-  );
+  // const IdentityFactory = new ethers.ContractFactory(
+  //   IdentityABI.abi,
+  //   IdentityABI.bytecode,
+  //   root
+  // );
+
+  const IdentityFactory = await ethers.getContractFactory("IdentityV2");
+
   const FeeFormulaFactory = new ethers.ContractFactory(
     FeeFormulaABI.abi,
     FeeFormulaABI.bytecode,
@@ -95,9 +96,15 @@ export const createDAO = async () => {
   //   "0x6F1BAbfF5E119d61F0c6d8653d84E8B284B87091"
   // );
 
-  const Identity = (await IdentityFactory.deploy().then(
-    printDeploy
-  )) as Contract;
+  // const Identity = (await IdentityFactory.deploy().then(
+  //   printDeploy
+  // )) as Contract;
+
+  const Identity = await upgrades.deployProxy(
+    IdentityFactory,
+    [root.address, ethers.constants.AddressZero],
+    { kind: "uups" }
+  );
   // const Identity = await ethers.getContractAt(
   //   IdentityABI.abi,
   //   release.Identity
@@ -111,8 +118,8 @@ export const createDAO = async () => {
     printDeploy
   )) as Contract;
 
-  await Identity.setAuthenticationPeriod(365).then(printDeploy);
-  console.log("setAuthPeriod");
+  // await Identity.setAuthenticationPeriod(365).then(printDeploy);
+  // console.log("setAuthPeriod");
   await daoCreator
     .forgeOrg(
       "GoodDollar",
@@ -144,7 +151,7 @@ export const createDAO = async () => {
   //   root
   // );
 
-  await Identity.setAvatar(Avatar.address).then(printDeploy);
+  // await Identity.setAvatar(Avatar.address).then(printDeploy);
 
   console.log("Done deploying DAO, setting schemes permissions");
 
@@ -201,9 +208,7 @@ export const createDAO = async () => {
       gd
     );
     schemes.push(sidechain.OneTimePayments.address);
-    const adminWallet = await deployAdminWallet(Identity.address);
     Object.entries(sidechain).forEach(([k, v]) => (release[k] = v.address));
-    release["AdminWallet"] = adminWallet.address;
   }
 
   await releaser(release, network.name);
@@ -242,7 +247,17 @@ export const createDAO = async () => {
     UpgradeScheme: ethers.constants.AddressZero
   };
 
+  console.log("deploying v2...");
   const v2 = await deployV2(network.name, false, olddao);
+  console.log("deploying adminWallet...");
+  const adminWallet = await deployAdminWallet(Identity.address, v2.NameService);
+  console.log("setting up identity:", {
+    ns: v2.NameService,
+    identity: Identity.address
+  });
+  await Identity.initDAO(v2.NameService);
+  release["AdminWallet"] = adminWallet.address;
+
   release = { ...v2, ...release };
   await releaser(release, network.name);
   // await pressAnyKey();
@@ -329,6 +344,7 @@ const deployBridge = async (Avatar, gd, setSchemes, isMainnet) => {
 };
 
 const deployMainnet = async (Avatar, Identity) => {
+  console.log("deploying mainnet...");
   const [root] = await ethers.getSigners();
 
   const cdaiFactory = await ethers.getContractFactory("cDAIMock");
@@ -415,6 +431,7 @@ export const deploySidechain = async (
   identity,
   gd
 ) => {
+  console.log("deploying sidechain...");
   const root = (await ethers.getSigners())[0];
   const fcFactory = new ethers.ContractFactory(
     FirstClaimPool.abi,
@@ -502,7 +519,7 @@ export const deploySidechain = async (
   };
 };
 
-const deployAdminWallet = async identity => {
+const deployAdminWallet = async (identity, ns) => {
   const root = (await ethers.getSigners())[0];
   const hdNode = ethers.utils.HDNode.fromMnemonic(process.env.ADMIN_MNEMONIC);
   const admins = range(0, 50).map(i =>
@@ -512,8 +529,9 @@ const deployAdminWallet = async identity => {
   const adminWallet = (await upgrades
     .deployProxy(await ethers.getContractFactory("AdminWallet"), [
       admins.slice(0, 20).map(_ => _.address),
+      ns,
       root.address,
-      identity
+      1e9
     ])
     .then(printDeploy)) as Contract;
 
@@ -530,8 +548,10 @@ const deployAdminWallet = async identity => {
   //   )
   //   .then(printDeploy)) as Contract;
 
-  const id = await ethers.getContractAt("IIdentity", identity);
-  await id.addIdentityAdmin(adminWallet.address).then(printDeploy);
+  const id = await ethers.getContractAt("IdentityV2", identity);
+  await id
+    .grantRole(await id.IDENTITY_ADMIN_ROLE(), adminWallet.address)
+    .then(printDeploy);
   await root
     .sendTransaction({
       to: adminWallet.address,
