@@ -107,17 +107,27 @@ contract GReputation is Reputation {
 		);
 	}
 
-	/// @notice internal function that overrides Reputation.sol with consideration to delegation
-	/// @param _user the address to mint for
-	/// @param _amount the amount of rep to mint
-	/// @return the actual amount minted
 	function _mint(address _user, uint256 _amount)
 		internal
 		override
 		returns (uint256)
 	{
+		return _mint(_user, _amount, false);
+	}
+
+	/// @notice internal function that overrides Reputation.sol with consideration to delegation
+	/// @param _user the address to mint for
+	/// @param _amount the amount of rep to mint
+	/// @return the actual amount minted
+	function _mint(
+		address _user,
+		uint256 _amount,
+		bool ignoreRepTarget
+	) internal returns (uint256) {
 		address repTarget = reputationRecipients[_user];
-		repTarget = repTarget != address(0) ? repTarget : _user;
+		repTarget = ignoreRepTarget == false && repTarget != address(0)
+			? repTarget
+			: _user;
 
 		super._mint(repTarget, _amount);
 
@@ -414,7 +424,10 @@ contract GReputation is Reputation {
 		//if initiial state then set real balance
 		if (idHash == ROOT_STATE) {
 			uint256 curTotalSupply = totalSupplyLocalAt(block.number);
-			_mint(_user, _balance);
+			// on proof for ROOT_HASH we force to ignore the repTarget, so it is the same wallet address receiving the reputation (prevent double voting power on snapshot)
+			// also it should behave the same as blockchain sync proof which also doesnt use repTarget, but updates the same address as in the proof
+			_mint(_user, _balance, true);
+
 			updateValueAtNow(totalSupplyHistory, curTotalSupply); // we undo the totalsupply, as we alredy set the totalsupply of the airdrop
 		}
 
