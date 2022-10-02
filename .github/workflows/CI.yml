@@ -158,10 +158,11 @@ jobs:
           default: prerelease
           preid: beta
           rc-wording: ""
+          target-branch: $GITHUB_REF_NAME
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish to npm
         uses: aliberkhsl/npm-publish@master
         with:
           token: ${{ secrets.NPM_KEY_4BF8 }}
-          access: "public"
+          access: "public",
