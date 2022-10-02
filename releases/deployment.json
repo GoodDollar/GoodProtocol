@@ -582,7 +582,9 @@
         "GoodDollarStaking": "0xCfa54Ad5a00b0AAd3873B4E269Feb331e6293682",
         "UBIScheme": "0x2d42e6220af2485d1e6E5B4d3661A74671AA9a79",
         "ClaimersDistribution": "0x80018e6Dd79f6B892Fca6b592746136a3aa5ef6d",
-        "CompoundVotingMachine": "0x00e44d746F3931cAB775099F4C6451f893BB9378"
+        "CompoundVotingMachine": "0x00e44d746F3931cAB775099F4C6451f893BB9378",
+        "network": "development-celo",
+        "networkId": 42220
     },
     "staging-celo": {
         "ProxyFactory": "0x7e8292481EA8EbEb49e486B7e99c00C50fBa2689",
@@ -602,6 +604,8 @@
         "GoodDollarStaking": "0xDcB36664440937E4f11002C2471a456AEeD9b7DC",
         "UBIScheme": "0x04f2Cf8865e2ddfEf0047FdfA7A1b05ade614288",
         "ClaimersDistribution": "0x83186CE77ef296BA6561096447938AE05D1F026e",
-        "CompoundVotingMachine": "0xEdde78b850a08B6b8AB3E84f61cD6dC70Cc7f156"
+        "CompoundVotingMachine": "0xEdde78b850a08B6b8AB3E84f61cD6dC70Cc7f156",
+        "network": "staging-celo",
+        "networkId": 42220
     }
 }
