@@ -165,4 +165,4 @@ jobs:
         uses: aliberkhsl/npm-publish@master
         with:
           token: ${{ secrets.NPM_KEY_4BF8 }}
-          access: "public",
+          access: "public"
