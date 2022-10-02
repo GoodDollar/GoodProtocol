@@ -129,20 +129,20 @@ const hhconfig: HardhatUserConfig = {
       url: "https://rpc.fuse.io/",
       chainId: 122,
       gas: 6000000,
-      gasPrice: 1000000000
+      gasPrice: 10000000000
     },
     fuseexplorer: {
       accounts: { mnemonic },
       url: "https://explorer-node.fuse.io/",
       chainId: 122,
       gas: 6000000,
-      gasPrice: 1000000000
+      gasPrice: 10000000000
     },
     fusespark: {
       accounts: { mnemonic },
       url: "https://rpc.fusespark.io/",
       gas: 3000000,
-      gasPrice: 1000000000,
+      gasPrice: 10000000000,
       chainId: 123
     },
     "fuse-mainnet": {
@@ -157,7 +157,7 @@ const hhconfig: HardhatUserConfig = {
       url: "https://rpc.fuse.io/",
       chainId: 122,
       gas: 6000000,
-      gasPrice: 1000000000
+      gasPrice: 10000000000
     },
     "staging-mainnet": {
       accounts: { mnemonic },
@@ -170,7 +170,7 @@ const hhconfig: HardhatUserConfig = {
       accounts: [deployerPrivateKey],
       url: "https://rpc.fuse.io/",
       gas: 3000000,
-      gasPrice: 1000000000,
+      gasPrice: 10000000000,
       chainId: 122
     },
     "production-mainnet": {
