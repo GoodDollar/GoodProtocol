@@ -1,6 +1,7 @@
 import { run, network, ethers } from "hardhat";
-import { omit } from "lodash";
+import { omit, pick, defaultsDeep } from "lodash";
 import dao from "../../releases/deployment.json";
+import ProtocolSettings from "../../releases/deploy-settings.json";
 
 const getImplementationAddress = async addr => {
   console.log("finding impl for:", addr);
@@ -21,9 +22,15 @@ const getImplementationAddress = async addr => {
 
 const main = async () => {
   const release = dao[network.name];
+  let settings = defaultsDeep(
+    {},
+    ProtocolSettings[network.name],
+    ProtocolSettings["default"]
+  );
+
   //   const impl = await getImplementationAddress(release.AdminWallet);
   //   console.log({ impl, aw: release.AdminWallet });
-  const toVerify = omit(release, [
+  let toVerify = omit(release, [
     "GoodDollar",
     "Avatar",
     "Controller",
@@ -39,7 +46,10 @@ const main = async () => {
   }).catch(e =>
     console.log("failed verifying proxy:", identityProxy, e.message)
   );
+
+  // toVerify = pick(release, ["GoodDollarStaking"]);
   for (let key in toVerify) {
+    let constructorArguments = [];
     const address = toVerify[key];
     //   }
     //   const ps = Object.entries(toVerify).map(([key, address]) => {
@@ -66,14 +76,32 @@ const main = async () => {
       case "Identity":
         contract = "contracts/identity/IdentityV2.sol:IdentityV2";
         break;
+      case "GoodDollarStaking":
+        contract =
+          "contracts/governance/GoodDollarStaking.sol:GoodDollarStaking";
+        constructorArguments = [
+          release.NameService,
+          ethers.BigNumber.from(settings.savings.blockAPY),
+          ethers.BigNumber.from(settings.savings.blocksPerYear),
+          settings.savings.daysUntilUpgrade
+        ];
+        break;
       default:
         contract = undefined;
     }
-    console.log("verifying:", address, contract);
-    await run("verify", {
+
+    let task = "verify";
+    let params = {
       address,
       contract
-    }).catch(e =>
+    };
+    if (constructorArguments.length > 0) {
+      task = "verify:verify";
+      params["constructorArguments"] = constructorArguments;
+    }
+    console.log("verifying:", task, params);
+
+    await run(task, params).catch(e =>
       console.log("failed verifying:", address, contract, e.message)
     );
   }
