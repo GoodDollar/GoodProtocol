@@ -155,6 +155,8 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	}
 
 	function canTop(address _user) external view returns (bool) {
+		if (toppingAmount < address(_user).balance) return false;
+
 		address whitelistedRoot = getIdentity().getWhitelistedRoot(_user);
 		_user = whitelistedRoot == address(0) ? _user : whitelistedRoot;
 
