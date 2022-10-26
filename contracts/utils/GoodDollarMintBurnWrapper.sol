@@ -129,11 +129,11 @@ contract GoodDollarMintBurnWrapper is
 		uint256 maxIn; // single limit of each mint
 		uint256 capIn; // total limit of all mint
 		uint256 totalIn; // total minted minus burned
-		uint128 dailyCapIn; //cap per day
+		uint128 dailyCapIn; //cap per day (rewards sendOrMint only)
 		uint128 mintedToday; //total minted today
 		uint128 lastUpdate; //last update of dailyCap
-		uint128 totalRewards; // total rewards sent (sent + minted)
-		uint32 bpsPerDayIn; //basis points relative to token supply daily limit
+		uint128 totalRewards; // total rewards sent (sent + minted) (rewards sendOrMint only)
+		uint32 bpsPerDayIn; //basis points relative to token supply daily limit (rewards sendOrMint only)
 		uint128 lastDayReset; //last day we reset the daily limits
 	}
 
@@ -202,16 +202,6 @@ contract GoodDollarMintBurnWrapper is
 		updateFrequency = 90 days;
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
 		_setupRole(DEFAULT_ADMIN_ROLE, _admin);
-	}
-
-	function upgrade1() external {
-		if (updateFrequency == 0) {
-			updateFrequency = 90 days;
-		}
-	}
-
-	function upgrade2() external {
-		IGoodDollar(token).renounceMinter(); //moving to mint via Controller
 	}
 
 	function decimals() external view returns (uint8) {
