@@ -1,7 +1,7 @@
 import { ethers, upgrades } from "hardhat";
 import hre from "hardhat";
 import { expect } from "chai";
-import DAOCreatorABI from "../../GoodBootstrap/packages/contracts/build/contracts/DaoCreatorGoodDollarWithTokens.json";
+import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollarWithTokens.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
 import FirstClaimPool from "@gooddollar/goodcontracts/stakingModel/build/contracts/FirstClaimPool.json";
