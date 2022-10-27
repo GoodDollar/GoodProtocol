@@ -99,10 +99,11 @@ contract GReputation is Reputation {
 
 	function _canMint() internal view override {
 		require(
-			_msgSender() == nameService.getAddress("GDAO_CLAIMERS") ||
-				_msgSender() == nameService.getAddress("GDAO_STAKING") ||
-				_msgSender() == nameService.getAddress("GDAO_STAKERS") ||
-				hasRole(MINTER_ROLE, _msgSender()),
+			hasRole(MINTER_ROLE, _msgSender()) ||
+				(address(nameService) != address(0) &&
+					(_msgSender() == nameService.getAddress("GDAO_CLAIMERS") ||
+						_msgSender() == nameService.getAddress("GDAO_STAKING") ||
+						_msgSender() == nameService.getAddress("GDAO_STAKERS"))),
 			"GReputation: need minter role or be GDAO contract"
 		);
 	}

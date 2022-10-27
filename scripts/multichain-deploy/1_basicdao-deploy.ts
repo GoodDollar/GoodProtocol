@@ -8,10 +8,9 @@ import { network, ethers, upgrades, run } from "hardhat";
 import { Contract } from "ethers";
 import { defaultsDeep } from "lodash";
 // import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollar.json";
-import DAOCreatorABI from "../../../GoodBootstrap/packages/contracts/build/contracts/DaoCreatorGoodDollarWithRep.json";
+import DAOCreatorABI from "../../../GoodBootstrap/packages/contracts/build/contracts/DaoCreatorGoodDollarWithTokens.json";
 // import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
-import AddFoundersABI from "@gooddollar/goodcontracts/build/contracts/AddFoundersGoodDollarWithRep.json";
 
 import { deployDeterministic } from "./helpers";
 import releaser from "../releaser";
@@ -60,7 +59,8 @@ export const createDAO = async () => {
     release
   });
 
-  if (network.name.includes("production")) {
+  const isProduction = network.name.includes("production");
+  if (isProduction) {
     const txCount = await root.getTransactionCount();
     if (txCount !== 7) {
       console.error(
@@ -82,15 +82,6 @@ export const createDAO = async () => {
     FeeFormulaABI.bytecode,
     root
   );
-  const AddFoundersFactory = new ethers.ContractFactory(
-    AddFoundersABI.abi,
-    AddFoundersABI.bytecode,
-    root
-  );
-
-  const AddFounders = (await AddFoundersFactory.deploy().then(
-    printDeploy
-  )) as Contract;
 
   const proxyFactory = await ethers.getContractAt(
     "ProxyFactory1967",
@@ -112,11 +103,29 @@ export const createDAO = async () => {
     [daoOwner, ethers.constants.AddressZero]
   ).then(printDeploy)) as Contract;
 
-  const daoCreator = await DAOCreatorFactory.deploy(AddFounders.address);
+  const daoCreator = await DAOCreatorFactory.deploy();
 
   const FeeFormula = (await deployDeterministic(
     { name: "FeeFormula", factory: FeeFormulaFactory },
     [0]
+  ).then(printDeploy)) as Contract;
+
+  const GoodDollar = (await deployDeterministic(
+    {
+      name: "GoodDollar",
+      isUpgradeable: true,
+      initializer:
+        "initialize(string, string, uint256, address, address, address,address)"
+    },
+    [
+      isProduction ? "GoodDollar" : "GoodDollar Dev",
+      "G$",
+      0,
+      FeeFormula.address,
+      Identity.address,
+      ethers.constants.AddressZero,
+      daoCreator.address
+    ]
   ).then(printDeploy)) as Contract;
 
   const GReputation = (await deployDeterministic(
@@ -138,17 +147,7 @@ export const createDAO = async () => {
 
   console.log("creating dao");
   await daoCreator
-    .forgeOrg(
-      "GoodDollar",
-      "G$",
-      0,
-      FeeFormula.address,
-      Identity.address,
-      GReputation.address,
-      [],
-      0,
-      []
-    )
+    .forgeOrg(GoodDollar.address, GReputation.address, [], 0, [])
     .then(printDeploy);
   console.log("forgeOrg done ");
   const Avatar = new ethers.Contract(
@@ -199,9 +198,8 @@ export const createDAO = async () => {
 
   //verifications
   const Controller = await ethers.getContractAt("Controller", controller);
-  const GoodDollar = await ethers.getContractAt("IGoodDollar", gd);
 
-  if (network.name.includes("production")) {
+  if (isProduction) {
     console.log("renouncing minting rights on production env");
     await GoodDollar.renounceMinter().then(printDeploy);
   }
@@ -213,7 +211,11 @@ export const createDAO = async () => {
 
   const deployerIsNotGDMinter =
     (await GoodDollar.isMinter(root.address)) === false;
+
   const avatarIsGDMinter = await GoodDollar.isMinter(Avatar.address);
+
+  const deployerIsNotGDPauser =
+    (await GoodDollar.isPauser(root.address)) === false;
 
   const deployerIsNotRepMinter =
     (await GReputation.hasRole(GReputation.MINTER_ROLE(), root.address)) ===
@@ -233,10 +235,26 @@ export const createDAO = async () => {
   const grepHasDAOSet =
     (await GReputation.nameService()) === NameService.address;
 
+  const factoryIsNotGoodOwner =
+    (await GReputation.hasRole(
+      ethers.constants.HashZero,
+      proxyFactory.address
+    )) === false;
+
+  const factoryIsNotGDMinter =
+    (await GoodDollar.isMinter(proxyFactory.address)) === false;
+
+  const factoryIsNotGDPauser =
+    (await GoodDollar.isPauser(root.address)) === false;
+
   console.log({
     daoOwnerDaoPermissions,
     deployerIsNotGDMinter,
     deployerIsNotRepMinter,
+    deployerIsNotGDPauser,
+    factoryIsNotGoodOwner,
+    factoryIsNotGDMinter,
+    factoryIsNotGDPauser,
     avatarIsRepMinter,
     daoOwnerIsIdentityOwner,
     avatarIsGDMinter,
@@ -252,8 +270,7 @@ export const createDAO = async () => {
     NameService: NameService.address,
     GReputation: GReputation.address,
     FeeFormula: FeeFormula.address,
-    DAOCreator: daoCreator.address,
-    AddFounders: AddFounders.address
+    DAOCreator: daoCreator.address
   };
   await releaser(release, network.name, "deployment", false);
 };

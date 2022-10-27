@@ -111,6 +111,12 @@ describe("GoodReserve - Enforce token cap", () => {
       .connect(founder)
       .mintRewardFromRR(cDai, founder.address, 10);
     expect(await goodDollar.balanceOf(founder.address)).to.equal(1020);
+
+    encodedCall = goodDollar.interface.encodeFunctionData("addMinter", [
+      avatar
+    ]);
+
+    await ictrl.genericCall(goodDollar.address, encodedCall, avatar, 0);
   });
 
   it("should not be able to mint if not core contract and GoodReserve is minter", async () => {
