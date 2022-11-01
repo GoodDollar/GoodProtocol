@@ -9,8 +9,7 @@ import "../Interfaces.sol";
 import "../utils/NameService.sol";
 
 /**
- * @title DonationStaking contract that receives funds in ETH/DAI
- * and stake them in the SimpleStaking contract
+ * @title FuseFaucet contract that can top up users wallets
  */
 contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	bytes32 public constant RELAYER_ROLE = keccak256("relayer");
@@ -99,7 +98,8 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		require(
 			getIdentity().getWhitelistedRoot(toTop) != address(0) ||
 				getIdentity().getWhitelistedRoot(msg.sender) != address(0) ||
-				hasRole(RELAYER_ROLE, msg.sender)
+				hasRole(RELAYER_ROLE, msg.sender),
+			"not authorized"
 		);
 		_;
 	}

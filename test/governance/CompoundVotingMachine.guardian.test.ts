@@ -1,4 +1,5 @@
 import hre, { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 // import { deployContract, deployMockContract, MockContract } from "ethereum-waffle";
 import { GReputation, CompoundVotingMachine } from "../../types";
@@ -60,7 +61,7 @@ describe("CompoundVotingMachine#Guardian", () => {
       genericCall,
       nameService: ns,
       votingMachine
-    } = await createDAO();
+    } = await loadFixture(createDAO);
 
     Controller = controller;
     avatar = av;
@@ -75,7 +76,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     gov = votingMachine;
 
     //this will give root minter permissions
-    setDAOAddress("GDAO_CLAIMERS", root.address);
+    await setDAOAddress("GDAO_CLAIMERS", root.address);
 
     //set voting machiine as scheme with permissions
     await setSchemes([gov.address]);

@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { GReputation, CompoundVotingMachine } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
@@ -23,7 +24,7 @@ describe("CompoundVotingMachine#cross blockchain", () => {
     [root, acct, ...signers] = await ethers.getSigners();
 
     let { reputation, setDAOAddress, votingMachine, cdaiAddress, controller } =
-      await createDAO();
+      await loadFixture(createDAO);
     testaddr = controller;
     grep = (await ethers.getContractAt(
       "GReputation",
@@ -33,7 +34,7 @@ describe("CompoundVotingMachine#cross blockchain", () => {
     gov = votingMachine;
 
     //this will give root minter permissions
-    setDAOAddress("GDAO_CLAIMERS", root.address);
+    await setDAOAddress("GDAO_CLAIMERS", root.address);
 
     await grep.mint(root.address, ethers.BigNumber.from("1000000"));
     targets = [root.address];

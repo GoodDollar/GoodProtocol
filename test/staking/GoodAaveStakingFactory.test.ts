@@ -1,7 +1,13 @@
 import { default as hre, ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
-import { CERC20, GoodAaveStaking, GoodAaveStakingV2, AaveStakingFactory } from "../../types";
+import {
+  CERC20,
+  GoodAaveStaking,
+  GoodAaveStakingV2,
+  AaveStakingFactory
+} from "../../types";
 import { createDAO, deployUniswap } from "../helpers";
 import { Contract } from "ethers";
 
@@ -25,7 +31,7 @@ describe("AaveStakingFactory", () => {
 
   before(async () => {
     [founder, ...signers] = await ethers.getSigners();
-    dao = await createDAO();
+    dao = await loadFixture(createDAO);
     const usdcFactory = await ethers.getContractFactory("USDCMock");
     const lendingPoolFactory = await ethers.getContractFactory(
       "LendingPoolMock"
@@ -128,33 +134,33 @@ describe("AaveStakingFactory", () => {
       "GoodAaveStakingV2",
       await stakingFactory.impl()
     )) as GoodAaveStakingV2;
-    await expect(goodAaveStakingV2.init(
-      usdc.address,
-      lendingPool.address,
-      dao.nameService.address,
-      "USDC",
-      "USDC",
-      5760,
-      stakingFactory.address,
-      incentiveController.address,
-      aaveUsdOracle.address,
-      [cdai, dai]           // violates tokenToDaiSwapPath[0] == _token (cdai != usdc)
-    )).to.be.revertedWith(
-      "invalid _tokenToDaiSwapPath"
-    );
-    await expect(goodAaveStakingV2.init(
-      usdc.address,
-      lendingPool.address,
-      dao.nameService.address,
-      "USDC",
-      "USDC",
-      5760,
-      stakingFactory.address,
-      incentiveController.address,
-      aaveUsdOracle.address,
-      [usdc.address, cdai]  // violates _tokenToDaiSwapPath[] path leading to dai
-    )).to.be.revertedWith(
-      "invalid _tokenToDaiSwapPath"
-    );
+    await expect(
+      goodAaveStakingV2.init(
+        usdc.address,
+        lendingPool.address,
+        dao.nameService.address,
+        "USDC",
+        "USDC",
+        5760,
+        stakingFactory.address,
+        incentiveController.address,
+        aaveUsdOracle.address,
+        [cdai, dai] // violates tokenToDaiSwapPath[0] == _token (cdai != usdc)
+      )
+    ).to.be.revertedWith("invalid _tokenToDaiSwapPath");
+    await expect(
+      goodAaveStakingV2.init(
+        usdc.address,
+        lendingPool.address,
+        dao.nameService.address,
+        "USDC",
+        "USDC",
+        5760,
+        stakingFactory.address,
+        incentiveController.address,
+        aaveUsdOracle.address,
+        [usdc.address, cdai] // violates _tokenToDaiSwapPath[] path leading to dai
+      )
+    ).to.be.revertedWith("invalid _tokenToDaiSwapPath");
   });
 });

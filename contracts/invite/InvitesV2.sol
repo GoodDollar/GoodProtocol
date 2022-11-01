@@ -7,6 +7,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "../Interfaces.sol";
 import "../utils/NameService.sol";
+import "../utils/DAOUpgradeableContract.sol";
 
 // import "hardhat/console.sol";
 
@@ -15,7 +16,7 @@ import "../utils/NameService.sol";
  * 1.1 adds invitee bonus
  * 2 uses uups upgradeable - not compatible upgrade for v1
  */
-contract InvitesV2 is Initializable, UUPSUpgradeable {
+contract InvitesV2 is DAOUpgradeableContract {
 	using SafeMathUpgradeable for uint256;
 
 	struct Stats {
@@ -48,12 +49,10 @@ contract InvitesV2 is Initializable, UUPSUpgradeable {
 
 	mapping(bytes32 => address) public codeToUser;
 	mapping(address => User) public users;
-	address payable public avatar;
 
 	mapping(uint256 => Level) public levels;
 
 	address public owner;
-	NameService public nameService;
 	cERC20 public goodDollar;
 	bool public active;
 	Stats public stats;
@@ -77,30 +76,23 @@ contract InvitesV2 is Initializable, UUPSUpgradeable {
 		_;
 	}
 
-	modifier onlyAvatar() {
-		require(msg.sender == avatar, "Only DAO avatar can perform this action");
-		_;
-	}
-
 	modifier isActive() {
-		require(active);
+		require(active, "not active");
 		_;
 	}
 
 	function initialize(
-		address payable _avatar,
-		address _ns,
+		INameService _ns,
 		address _gd,
 		uint256 _level0Bounty,
 		address _owner
 	) public initializer {
+		setDAO(_ns);
 		owner = _owner;
-		nameService = NameService(_ns);
 		active = true;
 		Level storage lvl = levels[0];
 		lvl.bounty = _level0Bounty;
 		goodDollar = cERC20(_gd);
-		avatar = _avatar;
 		levelExpirationEnabled = false;
 	}
 
@@ -299,7 +291,7 @@ contract InvitesV2 is Initializable, UUPSUpgradeable {
 	function end() public ownerOrAvatar isActive {
 		uint256 gdBalance = goodDollar.balanceOf(address(this));
 		goodDollar.transfer(avatar, gdBalance);
-		avatar.transfer(address(this).balance);
+		payable(msg.sender).transfer(address(this).balance);
 		active = false;
 	}
 
@@ -309,8 +301,9 @@ contract InvitesV2 is Initializable, UUPSUpgradeable {
 	 * 1.3.0 - allow to set inviter later
 	 * 1.4.0 - improve gas for bounty collection
 	 * 1.5.0 - more gas improvements
+	 * 2 uses uups upgradeable - not compatible upgrade for v1
 	 */
 	function version() public pure returns (string memory) {
-		return "1.5.0";
+		return "2.0";
 	}
 }

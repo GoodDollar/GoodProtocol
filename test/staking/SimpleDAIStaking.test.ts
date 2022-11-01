@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { Contract } from "ethers";
 import { expect } from "chai";
 import { GoodMarketMaker, GoodReserveCDai } from "../../types";
@@ -57,8 +58,8 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       cdaiAddress,
       reserve,
       setReserveToken,
-      runAsAvatarOnly: raao,
-    } = await createDAO();
+      runAsAvatarOnly: raao
+    } = await loadFixture(createDAO);
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
     avatar = av;
@@ -94,7 +95,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
     const daiFactory = await ethers.getContractFactory("DAIMock");
 
-    setDAOAddress("UNISWAP_ROUTER", signers[0].address); // need this address for initialize simplestaking
+    await setDAOAddress("UNISWAP_ROUTER", signers[0].address); // need this address for initialize simplestaking
     const compUsdOracleFactory = await ethers.getContractFactory(
       "CompUSDMockOracle"
     );
@@ -1264,17 +1265,12 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
   it("should not be able to withdraw stake when the withdrawn amount is higher than the staked amount", async () => {
     const stakeAmount = ethers.utils.parseEther("100");
     const higherThanStakeAmount = ethers.utils.parseEther("101");
-    await cDAI["mint(address,uint256)"](
-      staker.address,
-      stakeAmount
-    );
+    await cDAI["mint(address,uint256)"](staker.address, stakeAmount);
     await cDAI
       .connect(staker)
       .approve(goodCompoundStaking.address, higherThanStakeAmount);
 
-    await goodCompoundStaking
-      .connect(staker)
-      .stake(stakeAmount, "100", true);
+    await goodCompoundStaking.connect(staker).stake(stakeAmount, "100", true);
 
     const tx = await goodCompoundStaking
       .connect(staker)
@@ -1283,9 +1279,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
 
     expect(tx.message).to.be.not.empty;
     // revent to original state
-    await goodCompoundStaking
-      .connect(staker)
-      .withdrawStake(stakeAmount, true);
+    await goodCompoundStaking.connect(staker).withdrawStake(stakeAmount, true);
   });
 
   it("should pause the contract", async () => {
@@ -1456,14 +1450,16 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
 
   it("should set max liquidity percentage swap when avatar", async () => {
     goodCompoundStaking = await deployStaking();
-    const percentageBeforeSet = await goodCompoundStaking.maxLiquidityPercentageSwap();
+    const percentageBeforeSet =
+      await goodCompoundStaking.maxLiquidityPercentageSwap();
     const percentageToSet = 21;
     await runAsAvatarOnly(
       goodCompoundStaking,
       "setMaxLiquidityPercentageSwap(uint24)",
       percentageToSet
-    )
-    const percentageAfterSet = await goodCompoundStaking.maxLiquidityPercentageSwap();
+    );
+    const percentageAfterSet =
+      await goodCompoundStaking.maxLiquidityPercentageSwap();
     expect(percentageAfterSet).to.be.equal(percentageToSet);
     expect(percentageAfterSet).to.not.equal(percentageBeforeSet);
   });

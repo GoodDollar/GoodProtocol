@@ -1,4 +1,5 @@
 import { default as hre, ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Signer } from "ethers";
 import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
@@ -50,7 +51,7 @@ describe("GDX Token", () => {
       cdaiAddress,
       genericCall: gn,
       runAsAvatarOnly: raao
-    } = await createDAO();
+    } = await loadFixture(createDAO);
 
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);

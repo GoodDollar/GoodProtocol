@@ -1,4 +1,5 @@
 import { default as hre, ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { GoodMarketMaker, CERC20, GoodReserveCDai } from "../../types";
 import { createDAO, increaseTime, advanceBlocks } from "../helpers";
@@ -36,7 +37,7 @@ describe("GoodReserve - Enforce token cap", () => {
       marketMaker: mm,
       reserve,
       cdaiAddress
-    } = await createDAO();
+    } = await loadFixture(createDAO);
 
     cDai = cdaiAddress;
     avatar = av;

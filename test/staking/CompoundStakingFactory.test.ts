@@ -1,4 +1,5 @@
 import { default as hre, ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
 import {
@@ -27,7 +28,7 @@ describe("CompoundStakingFactory", () => {
 
   before(async () => {
     [founder, ...signers] = await ethers.getSigners();
-    dao = await createDAO();
+    dao = await loadFixture(createDAO);
 
     const compUsdOracleFactory = await ethers.getContractFactory(
       "CompUSDMockOracle"
@@ -128,13 +129,16 @@ describe("CompoundStakingFactory", () => {
 
     const INITIAL_COLLECT_INTEREST_GAS_COST = 250000;
     const INITIAL_COLLECT_COMP_GAS_COST = 150000;
-    const gasCostForInterestTransfer = await goodCompoundStakingV2.getGasCostForInterestTransfer();
-    expect(gasCostForInterestTransfer).to.equal(INITIAL_COLLECT_INTEREST_GAS_COST);
+    const gasCostForInterestTransfer =
+      await goodCompoundStakingV2.getGasCostForInterestTransfer();
+    expect(gasCostForInterestTransfer).to.equal(
+      INITIAL_COLLECT_INTEREST_GAS_COST
+    );
 
     const settings = await goodCompoundStakingV2.getSettings();
     const collectInteresetGasCost = settings[0];
     const compCollectGasCost = settings[1];
     expect(collectInteresetGasCost).to.equal(INITIAL_COLLECT_INTEREST_GAS_COST);
     expect(compCollectGasCost).to.equal(INITIAL_COLLECT_COMP_GAS_COST);
-    });
+  });
 });

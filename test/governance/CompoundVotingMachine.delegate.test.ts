@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { TypedDataUtils } from "ethers-eip712";
 import { expect } from "chai";
 // import { deployContract, deployMockContract, MockContract } from "ethereum-waffle";
@@ -69,7 +70,7 @@ describe("CompoundVotingMachine#Delegation", () => {
       setDAOAddress,
       nameService,
       votingMachine
-    } = await createDAO();
+    } = await loadFixture(createDAO);
     grep = (await ethers.getContractAt(
       "GReputation",
       reputation
@@ -78,7 +79,7 @@ describe("CompoundVotingMachine#Delegation", () => {
     gov = votingMachine;
 
     //this will give root minter permissions
-    setDAOAddress("GDAO_CLAIMERS", root.address);
+    await setDAOAddress("GDAO_CLAIMERS", root.address);
 
     await grep.mint(root.address, ethers.BigNumber.from("1000000"));
     await grep.mint(acct.address, ethers.BigNumber.from("500000"));

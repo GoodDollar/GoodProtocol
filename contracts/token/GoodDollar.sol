@@ -100,7 +100,7 @@ contract GoodDollar is
 	}
 
 	function addPauser(address _pauser) external {
-		grantRole(MINTER_ROLE, _pauser);
+		grantRole(PAUSER_ROLE, _pauser);
 	}
 
 	function isPauser(address _pauser) external view returns (bool) {

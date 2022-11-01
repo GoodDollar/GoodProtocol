@@ -6,8 +6,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../Interfaces.sol";
 
 /**
- * @title DonationStaking contract that receives funds in ETH/DAI
- * and stake them in the SimpleStaking contract
+ * @title FuseFaucet contract that can top up users wallets
  */
 contract FuseFaucet is Initializable {
 	event WalletTopped(address indexed user, uint256 amount);

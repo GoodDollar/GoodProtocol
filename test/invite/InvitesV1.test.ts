@@ -1,8 +1,9 @@
 import hre, { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
-import { InvitesV1, IGoodDollar, IIdentity } from "../types";
+import { InvitesV1, IGoodDollar, IIdentity } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { createDAO } from "./helpers";
+import { createDAO } from "../helpers";
 
 const BN = ethers.BigNumber;
 
@@ -44,7 +45,7 @@ describe("InvitesV1", () => {
       avatar: av,
       gd: gooddollar,
       identity
-    } = await createDAO();
+    } = await loadFixture(createDAO);
 
     Controller = controller;
     avatar = av;

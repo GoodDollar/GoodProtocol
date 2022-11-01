@@ -160,7 +160,7 @@ contract IdentityV2 is
 
 	/* @dev Renounces message sender from whitelisted
 	 */
-	function renounceWhitelisted() external whenNotPaused {
+	function renounceWhitelisted() external whenNotPaused onlyWhitelisted {
 		_removeWhitelisted(msg.sender);
 	}
 
@@ -233,7 +233,7 @@ contract IdentityV2 is
 	{
 		require(isContract(account), "Given address is not a contract");
 		_addWhitelisted(account, _chainId());
-		identities[account].status = 2;
+		identities[account].status = 2; //this must come after _addWhitelisted
 
 		emit ContractAdded(account);
 	}
@@ -246,6 +246,9 @@ contract IdentityV2 is
 		onlyRole(IDENTITY_ADMIN_ROLE)
 		whenNotPaused
 	{
+		if (address(oldIdentity) != address(0)) {
+			try oldIdentity.removeContract(account) {} catch {}
+		}
 		_removeWhitelisted(account);
 
 		emit ContractRemoved(account);
@@ -271,6 +274,7 @@ contract IdentityV2 is
 	 * @param account the address to add
 	 */
 	function _addWhitelisted(address account, uint256 orgChain) internal {
+		require(identities[account].status == 0, "already has status");
 		whitelistedCount += 1;
 		identities[account].status = 1;
 		identities[account].dateAdded = block.timestamp;
@@ -307,13 +311,14 @@ contract IdentityV2 is
 	 * @param account the address to add
 	 */
 	function _removeWhitelisted(address account) internal {
+		require(
+			identities[account].status == 1 || identities[account].status == 2,
+			"not whitelisted"
+		);
 		whitelistedCount -= 1;
 
 		if (isContract(account)) {
 			whitelistedContracts -= 1;
-			if (address(oldIdentity) != address(0)) {
-				try oldIdentity.removeContract(account) {} catch {}
-			}
 		}
 		if (address(oldIdentity) != address(0)) {
 			try oldIdentity.removeWhitelisted(account) {} catch {}
@@ -401,7 +406,19 @@ contract IdentityV2 is
 		else _unpause();
 	}
 
-	function setDID(string calldata did) external onlyWhitelisted {
+	function setDID(address account, string calldata did)
+		external
+		onlyRole(IDENTITY_ADMIN_ROLE)
+	{
+		_setDID(account, did);
+	}
+
+	function setDID(string calldata did) external {
+		_setDID(msg.sender, did);
+	}
+
+	function _setDID(address account, string memory did) internal {
+		require(isWhitelisted(account), "not whitelisted");
 		bytes32 pHash = keccak256(bytes(did));
 		require(didHashToAddress[pHash] == address(0), "DID already registered");
 

@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { UBIScheme } from "../../types";
 import { createDAO, deployUBI, advanceBlocks, increaseTime } from "../helpers";
@@ -55,7 +56,7 @@ describe("UBIScheme", () => {
       FirstClaimPool.bytecode,
       (await ethers.getSigners())[0]
     );
-    const deployedDAO = await createDAO();
+    const deployedDAO = await loadFixture(createDAO);
     let {
       nameService: ns,
       genericCall: gn,
@@ -610,7 +611,7 @@ describe("UBIScheme", () => {
       [200]
     );
 
-    genericCall(firstClaimPool.address, encodedCall);
+    await genericCall(firstClaimPool.address, encodedCall);
     const claimAmount = await firstClaimPool.claimAmount();
     expect(claimAmount.toString()).to.be.equal("200");
   });

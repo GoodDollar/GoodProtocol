@@ -90,13 +90,7 @@ export const deployHelpers = async () => {
 
   const Invites = await deployDeterministic(
     { name: "InvitesV2", salt: "InvitesV2", isUpgradeable: true },
-    [
-      release.Avatar,
-      release.NameService,
-      release.GoodDollar,
-      10000,
-      root.address
-    ]
+    [release.NameService, release.GoodDollar, 10000, root.address]
   );
 
   const adminWalletOwner = await AdminWallet.hasRole(

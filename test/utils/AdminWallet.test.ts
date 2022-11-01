@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import { ethers, upgrades, network } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { createDAO } from "../helpers";
 import { Contract } from "ethers";
 import { AdminWallet } from "../../types";
@@ -39,7 +40,7 @@ describe("AdminWallet", () => {
       admin2,
       toWhitelist
     ] = signers.slice(10);
-    let { identity: id, nameService } = await createDAO();
+    let { identity: id, nameService } = await loadFixture(createDAO);
     identity = await ethers.getContractAt("IdentityV2", id);
 
     adminWallet = (await upgrades.deployProxy(

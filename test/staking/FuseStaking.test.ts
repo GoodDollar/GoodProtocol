@@ -1,8 +1,8 @@
-import { ethers, network as networkConfig } from "hardhat";
+import hre, { ethers, network as networkConfig } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { FuseStakingV3 } from "../../types";
 import { expect } from "chai";
 import { deployMockContract, MockContract } from "ethereum-waffle";
-import hre from "hardhat";
 import { abi as ubiabi } from "../../artifacts/contracts/ubi/UBIScheme.sol/UBIScheme.json";
 import { BigNumber } from "ethers";
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";

@@ -1,4 +1,5 @@
 import { default as hre, ethers, waffle } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Contract, Signer } from "ethers";
 import { expect } from "chai";
 import { GoodReserveCDai, GReputation, GoodDollarStaking } from "../../types";
@@ -43,7 +44,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
       cdaiAddress,
       reserve,
       reputation
-    } = await createDAO();
+    } = await loadFixture(createDAO);
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
     avatar = av;

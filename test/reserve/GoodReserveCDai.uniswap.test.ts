@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
 import { GoodMarketMaker, GoodReserveCDai } from "../../types";
@@ -43,6 +44,24 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
+
+    let {
+      controller: ctrl,
+      avatar: av,
+      gd,
+      identity,
+      daoCreator,
+      nameService: ns,
+      setDAOAddress: sda,
+      setSchemes,
+      marketMaker: mm,
+      daiAddress,
+      cdaiAddress,
+      reserve,
+      setReserveToken,
+      COMP
+    } = await loadFixture(createDAO);
+
     const cdaiFactory = await ethers.getContractFactory("cDAIMock");
     const daiFactory = await ethers.getContractFactory("DAIMock");
     const routerFactory = new ethers.ContractFactory(
@@ -68,23 +87,6 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     tokenA = await daiFactory.deploy(); // Another erc20 token for uniswap router test
 
     tokenB = await daiFactory.deploy(); // another erc20 for uniswap router test
-
-    let {
-      controller: ctrl,
-      avatar: av,
-      gd,
-      identity,
-      daoCreator,
-      nameService: ns,
-      setDAOAddress: sda,
-      setSchemes,
-      marketMaker: mm,
-      daiAddress,
-      cdaiAddress,
-      reserve,
-      setReserveToken,
-      COMP
-    } = await createDAO();
 
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
@@ -118,7 +120,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
     });
     goodReserve = reserve;
 
-    setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
+    await setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
     const exchangeHelperFactory = await ethers.getContractFactory(
       "ExchangeHelper"
     );

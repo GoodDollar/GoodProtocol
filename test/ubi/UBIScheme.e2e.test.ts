@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import {
   UBIScheme,
@@ -85,7 +86,7 @@ describe("UBIScheme - network e2e tests", () => {
     const goodCompoundStakingFactory = await getStakingFactory(
       "GoodCompoundStakingV2"
     );
-    const deployedDAO = await createDAO();
+    const deployedDAO = await loadFixture(createDAO);
     let {
       controller: ctrl,
       avatar: av,
@@ -160,8 +161,8 @@ describe("UBIScheme - network e2e tests", () => {
     const ubiScheme = await deployUBI(deployedDAO);
     ubi = ubiScheme.ubiScheme;
     firstClaimPool = ubiScheme.firstClaim;
-    setDAOAddress("CDAI", cDAI.address);
-    setDAOAddress("DAI", dai.address);
+    await setDAOAddress("CDAI", cDAI.address);
+    await setDAOAddress("DAI", dai.address);
     await goodReserve.setAddresses();
     const ictrl = await ethers.getContractAt(
       "Controller",

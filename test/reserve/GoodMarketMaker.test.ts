@@ -1,4 +1,5 @@
 import { default as hre, ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
 import { GoodMarketMaker, CERC20 } from "../../types";
@@ -42,8 +43,6 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
 
   before(async () => {
     [founder, staker, fakeReserve, ...signers] = await ethers.getSigners();
-    cdai = await deploycDAIMock();
-    dai = await deployDAIMock();
 
     let {
       controller: ctrl,
@@ -56,7 +55,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       setSchemes,
       setReserveToken,
       setDAOAddress
-    } = await createDAO();
+    } = await loadFixture(createDAO);
     avatar = av;
     marketMaker = mm.connect(fakeReserve);
     controller = ctrl;
@@ -64,9 +63,12 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
 
     console.log("deployed dao", { goodDollar, identity, controller, avatar });
 
+    cdai = await deploycDAIMock();
+    dai = await deployDAIMock();
+
     //give founder generic call permission
     await setSchemes([founder.address]);
-    setDAOAddress("RESERVE", fakeReserve.address);
+    await setDAOAddress("RESERVE", fakeReserve.address);
     console.log("starting tests...");
   });
 
@@ -600,12 +602,17 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
 
   it("should not set reserve ratio daily expansion with illigal values", async () => {
     const invalidZeroDenominator = 0;
-    await expect(marketMaker.setReserveRatioDailyExpansion(1, invalidZeroDenominator)).to.be.
-      revertedWith("denominator must be above 0");
+    await expect(
+      marketMaker.setReserveRatioDailyExpansion(1, invalidZeroDenominator)
+    ).to.be.revertedWith("denominator must be above 0");
 
     const denominator = 1;
     const nominatorHigherThanDenom = 2;
-    await expect(marketMaker.setReserveRatioDailyExpansion(nominatorHigherThanDenom, denominator)).to.be.
-      revertedWith("Invalid nom or denom value");
+    await expect(
+      marketMaker.setReserveRatioDailyExpansion(
+        nominatorHigherThanDenom,
+        denominator
+      )
+    ).to.be.revertedWith("Invalid nom or denom value");
   });
 });

@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { UBIScheme } from "../../types";
 import { createDAO, deployUBI, advanceBlocks, increaseTime } from "../helpers";
@@ -26,7 +27,7 @@ describe("UBIScheme cycle", () => {
     [root, acct, claimer1, claimer2, claimer3, ...signers] =
       await ethers.getSigners();
 
-    const deployedDAO = await createDAO();
+    const deployedDAO = await loadFixture(createDAO);
     let {
       nameService: ns,
       genericCall: gn,

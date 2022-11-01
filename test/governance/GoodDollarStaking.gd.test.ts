@@ -1,4 +1,5 @@
 import { default as hre, ethers, upgrades, waffle } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { Contract, Signer } from "ethers";
 import { expect } from "chai";
 import {
@@ -65,7 +66,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
       runAsAvatarOnly: ras,
       setSchemes: ss,
       genericCall: gc
-    } = await createDAO();
+    } = await loadFixture(createDAO);
 
     setSchemes = ss;
     runAsAvatarOnly = ras;

@@ -1,4 +1,5 @@
 import { default as hre, ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
 import { GoodMarketMaker } from "../../types";
@@ -37,17 +38,6 @@ describe("UsdcAaveStakingV2 - staking with USDC mocks to AAVE interface", () => 
     [founder, staker, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
 
-    const cUsdcFactory = await ethers.getContractFactory("cUSDCMock");
-    const goodFundManagerFactory = await ethers.getContractFactory(
-      "GoodFundManager"
-    );
-    goodAaveStakingFactory = await getStakingFactory("GoodAaveStakingV2");
-
-    const lendingPoolFactory = await ethers.getContractFactory(
-      "LendingPoolMock"
-    );
-
-    const usdcFactory = await ethers.getContractFactory("USDCMock");
     let {
       controller: ctrl,
       avatar: av,
@@ -60,7 +50,20 @@ describe("UsdcAaveStakingV2 - staking with USDC mocks to AAVE interface", () => 
       genericCall: gc,
       COMP,
       runAsAvatarOnly: raao
-    } = await createDAO();
+    } = await loadFixture(createDAO);
+
+    const cUsdcFactory = await ethers.getContractFactory("cUSDCMock");
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    goodAaveStakingFactory = await getStakingFactory("GoodAaveStakingV2");
+
+    const lendingPoolFactory = await ethers.getContractFactory(
+      "LendingPoolMock"
+    );
+
+    const usdcFactory = await ethers.getContractFactory("USDCMock");
+
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     avatar = av;
     controller = ctrl;
@@ -96,7 +99,7 @@ describe("UsdcAaveStakingV2 - staking with USDC mocks to AAVE interface", () => 
     const uniswap = await deployUniswap(comp, dai);
     uniswapRouter = uniswap.router;
     const { factory, weth } = uniswap;
-    setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
+    await setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
     await factory.createPair(usdc.address, dai.address); // Create tokenA and dai pair
     const pairAddress = factory.getPair(usdc.address, dai.address);
     pair = new Contract(
@@ -139,23 +142,21 @@ describe("UsdcAaveStakingV2 - staking with USDC mocks to AAVE interface", () => 
     ).deploy();
     await setDAOAddress("AAVE", aave.address);
     deployStaking = async () => {
-      return await goodAaveStakingFactory
-        .deploy()
-        .then(async contract => {
-          await contract.init(
-            usdc.address,
-            lendingPool.address,
-            nameService.address,
-            "Good USDC",
-            "gUSDC",
-            "172800",
-            daiUsdOracle.address,
-            incentiveController.address,
-            aaveUsdOracle.address,
-            [usdc.address, dai.address]
-          );
-          return contract;
-        });
+      return await goodAaveStakingFactory.deploy().then(async contract => {
+        await contract.init(
+          usdc.address,
+          lendingPool.address,
+          nameService.address,
+          "Good USDC",
+          "gUSDC",
+          "172800",
+          daiUsdOracle.address,
+          incentiveController.address,
+          aaveUsdOracle.address,
+          [usdc.address, dai.address]
+        );
+        return contract;
+      });
     };
     goodAaveStaking = await deployStaking();
     await usdc["mint(address,uint256)"](
@@ -318,15 +319,17 @@ describe("UsdcAaveStakingV2 - staking with USDC mocks to AAVE interface", () => 
   it("should set gas cost to interest collection parameters", async () => {
     const stakingContract = await deployStaking();
     const collectGasCostBefore = await stakingContract.collectInterestGasCost();
-    const claimStakeGasCostBefore = await stakingContract.collectInterestGasCost();
+    const claimStakeGasCostBefore =
+      await stakingContract.collectInterestGasCost();
     await runAsAvatarOnly(
       stakingContract,
       "setcollectInterestGasCostParams(uint32,uint32)",
       999,
       999
-    )
+    );
     const collectGasCostAfter = await stakingContract.collectInterestGasCost();
-    const claimStakeGasCostAfter = await stakingContract.collectInterestGasCost();
+    const claimStakeGasCostAfter =
+      await stakingContract.collectInterestGasCost();
     expect(collectGasCostAfter).to.not.equal(collectGasCostBefore);
     expect(collectGasCostAfter).to.equal(999);
     expect(claimStakeGasCostAfter).to.not.equal(claimStakeGasCostBefore);

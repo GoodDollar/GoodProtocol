@@ -1,5 +1,4 @@
 import { ethers, upgrades } from "hardhat";
-import hre from "hardhat";
 import { expect } from "chai";
 import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorGoodDollarWithTokens.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
@@ -131,9 +130,10 @@ export const createDAO = async () => {
   const controller = await Avatar.owner();
 
   console.log(
-    "is controller/avatar minters",
+    "is controller/avatar minters and pauser",
     await GoodDollar.isMinter(controller),
-    await GoodDollar.isMinter(Avatar.address)
+    await GoodDollar.isMinter(Avatar.address),
+    await GoodDollar.isPauser(Avatar.address)
   );
 
   const ccFactory = new ethers.ContractFactory(
@@ -413,7 +413,7 @@ export const deployUBI = async deployedDAO => {
   console.log("set firstclaim,ubischeme as scheme and starting...");
   await setSchemes([firstClaim.address, ubiScheme.address]);
   await firstClaim.start();
-  setDAOAddress("UBISCHEME", ubiScheme.address);
+  await setDAOAddress("UBISCHEME", ubiScheme.address);
   return { firstClaim, ubiScheme };
 };
 export const deployOldUBI = async deployedDAO => {

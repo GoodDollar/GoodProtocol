@@ -1,6 +1,7 @@
 // import { GReputationInstance } from "../types/GReputation";
 import MerkleTree, { checkProofOrdered } from "merkle-tree-solidity";
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Signer } from "ethers";
 import { sign } from "crypto";
 import { expect } from "chai";
@@ -19,7 +20,7 @@ type BlockChainState = {
   blockNumber: BigNumber;
 };
 
-export const getMerkleAndProof = (data, proofIdx) => {
+export const getMerkleAndProof = async (data, proofIdx) => {
   const elements = data.map(e =>
     Buffer.from(
       ethers.utils
@@ -35,7 +36,7 @@ export const getMerkleAndProof = (data, proofIdx) => {
   );
 
   //this will give repOwner minter permissions
-  setDAOAddress("GDAO_CLAIMERS", repOwner);
+  await setDAOAddress("GDAO_CLAIMERS", repOwner);
 
   const merkleTree = new MerkleTree(elements, true);
 
@@ -78,7 +79,7 @@ describe("GReputation", () => {
       setDAOAddress: sda,
       avatar: av,
       genericCall
-    } = await createDAO();
+    } = await loadFixture(createDAO);
 
     setDAOAddress = sda;
     avatar = av;
@@ -99,7 +100,7 @@ describe("GReputation", () => {
     // create merkle tree
     // expects unique 32 byte buffers as inputs (no hex strings)
     // if using web3.sha3, convert first -> Buffer(web3.sha3('a'), 'hex')
-    const merkleData = getMerkleAndProof(
+    const merkleData = await getMerkleAndProof(
       [
         [rep1, 1],
         [rep2, 2],
@@ -213,7 +214,7 @@ describe("GReputation", () => {
     });
 
     it("should allow multiple delegates", async () => {
-      const { merkleRoot, proof } = getMerkleAndProof(
+      const { merkleRoot, proof } = await getMerkleAndProof(
         [
           [rep1, 1],
           [rep2, 2],
@@ -396,7 +397,7 @@ describe("GReputation", () => {
 
   describe("setting a blockchain merkle hash", async () => {
     it("should set new merkle hash", async () => {
-      const { merkleRoot, proof } = getMerkleAndProof(
+      const { merkleRoot, proof } = await getMerkleAndProof(
         [
           [rep1, 100],
           [rep2, 200],
@@ -436,7 +437,7 @@ describe("GReputation", () => {
     it("should prove balance in new state", async () => {
       const prevRep = await grep.balanceOfLocal(rep2);
       const prevVotes = await grep.getVotes(rep2);
-      const { proof } = getMerkleAndProof(
+      const { proof } = await getMerkleAndProof(
         [
           [rep1, 100],
           [rep2, 200],
@@ -474,7 +475,7 @@ describe("GReputation", () => {
 
     it("should not effect delegate balance after new state hash", async () => {
       const prevDelegated = await grep.getVotes(rep3);
-      const { merkleRoot, proof } = getMerkleAndProof(
+      const { merkleRoot, proof } = await getMerkleAndProof(
         [
           [rep1, 100],
           [rep2, 200],
@@ -497,7 +498,7 @@ describe("GReputation", () => {
 
     it("should not effect delegate balance after new blockchain proof", async () => {
       const prevVotes = await grep.getVotes(rep3);
-      const { merkleRoot, proof } = getMerkleAndProof(
+      const { merkleRoot, proof } = await getMerkleAndProof(
         [
           [rep1, 100],
           [rep2, 200],
@@ -512,7 +513,7 @@ describe("GReputation", () => {
 
     it("should include own rep in votes balance after new state", async () => {
       const prevVotes = await grep.getVotes(rep3);
-      const { merkleRoot, proof } = getMerkleAndProof(
+      const { merkleRoot, proof } = await getMerkleAndProof(
         [
           [rep1, 100],
           [rep2, 200],
@@ -743,17 +744,21 @@ describe("GReputation", () => {
 
     it("it should be able to get totalSupplyLocal for particular block", async () => {
       let currentBlock = await ethers.provider.getBlockNumber();
-      const totalSupplyLocalBefore = await grep["totalSupplyLocal(uint256)"](currentBlock);
+      const totalSupplyLocalBefore = await grep["totalSupplyLocal(uint256)"](
+        currentBlock
+      );
       await grepWithOwner["mint(address,uint256)"](
         founder,
         ethers.utils.parseEther("1")
       );
       currentBlock = await ethers.provider.getBlockNumber();
-      const totalSupplyLocalAfter = await grep["totalSupplyLocal(uint256)"](currentBlock);
+      const totalSupplyLocalAfter = await grep["totalSupplyLocal(uint256)"](
+        currentBlock
+      );
       expect(totalSupplyLocalAfter).to.equal(
         totalSupplyLocalBefore.add(ethers.utils.parseEther("1"))
       );
-      
+
       await grepWithOwner["burn(address,uint256)"](
         founder,
         ethers.utils.parseEther("1")
@@ -870,7 +875,10 @@ describe("GReputation", () => {
       await advanceBlocks(1);
       await (await grepWithOwner["mint(address,uint256)"](rep2, 1)).wait();
       await advanceBlocks(1);
-      const priorSelectedBlockVotes = await grep.getPriorVotes(rep2, selectedBlock);
+      const priorSelectedBlockVotes = await grep.getPriorVotes(
+        rep2,
+        selectedBlock
+      );
       const votesAfterAdvancing = await grep.getCurrentVotes(rep2);
       expect(priorSelectedBlockVotes).to.eq(selectedBlockVotes);
       expect(priorSelectedBlockVotes).to.be.not.eq(votesAfterAdvancing);

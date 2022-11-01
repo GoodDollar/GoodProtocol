@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ClaimersDistribution, GReputation } from "../../types";
 import { createDAO, deployUBI, advanceBlocks, increaseTime } from "../helpers";
@@ -20,7 +21,7 @@ describe("ClaimersDistribution", () => {
     [root, acct, claimer1, claimer2, claimer3, ...signers] =
       await ethers.getSigners();
 
-    const deployedDAO = await createDAO();
+    const deployedDAO = await loadFixture(createDAO);
     let {
       nameService: ns,
       genericCall: gn,
@@ -49,7 +50,7 @@ describe("ClaimersDistribution", () => {
     )) as ClaimersDistribution;
 
     ubiScheme = ubi.ubiScheme;
-    setDAOAddress("GDAO_CLAIMERS", cd.address);
+    await setDAOAddress("GDAO_CLAIMERS", cd.address);
     addWhitelisted(claimer1.address, "claimer1");
     await addWhitelisted(claimer2.address, "claimer2");
     await addWhitelisted(claimer3.address, "claimer3");
