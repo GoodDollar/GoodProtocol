@@ -4,6 +4,7 @@ pragma solidity >=0.8.0;
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
@@ -217,7 +218,7 @@ contract IdentityV2 is
 		whenNotPaused
 	{
 		if (address(oldIdentity) != address(0))
-			try oldIdentity.removeBlacklisted(account) {} catch {}
+			oldIdentity.removeBlacklisted(account);
 
 		identities[account].status = 0;
 		emit BlacklistRemoved(account);
@@ -247,7 +248,7 @@ contract IdentityV2 is
 		whenNotPaused
 	{
 		if (address(oldIdentity) != address(0)) {
-			try oldIdentity.removeContract(account) {} catch {}
+			oldIdentity.removeContract(account);
 		}
 		_removeWhitelisted(account);
 
@@ -311,26 +312,25 @@ contract IdentityV2 is
 	 * @param account the address to add
 	 */
 	function _removeWhitelisted(address account) internal {
-		require(
-			identities[account].status == 1 || identities[account].status == 2,
-			"not whitelisted"
-		);
-		whitelistedCount -= 1;
+		if (identities[account].status == 1 || identities[account].status == 2) {
+			whitelistedCount -= 1;
 
-		if (isContract(account)) {
-			whitelistedContracts -= 1;
+			if (isContract(account)) {
+				whitelistedContracts -= 1;
+			}
+
+			string memory did = identities[account].did;
+			bytes32 pHash = keccak256(bytes(did));
+
+			delete identities[account];
+			delete didHashToAddress[pHash];
+
+			emit WhitelistedRemoved(account);
 		}
+
 		if (address(oldIdentity) != address(0)) {
-			try oldIdentity.removeWhitelisted(account) {} catch {}
+			oldIdentity.removeWhitelisted(account);
 		}
-
-		string memory did = identities[account].did;
-		bytes32 pHash = keccak256(bytes(did));
-
-		delete identities[account];
-		delete didHashToAddress[pHash];
-
-		emit WhitelistedRemoved(account);
 	}
 
 	/// @notice helper function to get current chain id
@@ -354,6 +354,7 @@ contract IdentityV2 is
 				return false;
 			}
 		}
+		return false;
 	}
 
 	/* @dev Function to see if given address is a contract
@@ -381,12 +382,22 @@ contract IdentityV2 is
 		require(
 			SignatureChecker.isValidSignatureNow(
 				_account,
-				keccak256(abi.encode(msg.sender, _account)),
+				ECDSA.toEthSignedMessageHash(
+					keccak256(abi.encode(msg.sender, _account))
+				),
 				signature
 			),
 			"invalid signature"
 		);
 		connectedAccounts[_account] = msg.sender;
+	}
+
+	function disconnectAccount(address _connected) external {
+		require(
+			connectedAccounts[_connected] == msg.sender || msg.sender == _connected,
+			"unauthorized"
+		);
+		delete connectedAccounts[_connected];
 	}
 
 	function getWhitelistedRoot(address _account)
@@ -419,13 +430,28 @@ contract IdentityV2 is
 
 	function _setDID(address account, string memory did) internal {
 		require(isWhitelisted(account), "not whitelisted");
+		require(bytes(did).length > 0, "did empty");
 		bytes32 pHash = keccak256(bytes(did));
 		require(didHashToAddress[pHash] == address(0), "DID already registered");
 
-		bytes32 oldHash = keccak256(bytes(identities[msg.sender].did));
+		if (address(oldIdentity) != address(0)) {
+			address oldDIDOwner;
+			try oldIdentity.didHashToAddress(pHash) returns (address _didOwner) {
+				oldDIDOwner = _didOwner;
+			} catch {}
+			//if owner not the same and doesnt have a new did set then revert
+			require(
+				oldDIDOwner == address(0) ||
+					oldDIDOwner == account ||
+					bytes(identities[oldDIDOwner].did).length > 0,
+				"DID already registered oldIdentity"
+			);
+		}
+
+		bytes32 oldHash = keccak256(bytes(identities[account].did));
 		delete didHashToAddress[oldHash];
-		identities[msg.sender].did = did;
-		didHashToAddress[pHash] = msg.sender;
+		identities[account].did = did;
+		didHashToAddress[pHash] = account;
 	}
 
 	function addrToDID(address account)
@@ -433,13 +459,21 @@ contract IdentityV2 is
 		view
 		returns (string memory did)
 	{
-		did = identities[msg.sender].did;
-		if (bytes(did).length > 0) return did;
-		try oldIdentity.addrToDID(account) returns (string memory _did) {
-			return _did;
-		} catch {
-			return "";
+		did = identities[account].did;
+		bytes32 pHash = keccak256(bytes(did));
+
+		//if did was set in this contract return it, otherwise check oldidentity
+		if (didHashToAddress[pHash] == account) return did;
+
+		if (address(oldIdentity) != address(0)) {
+			try oldIdentity.addrToDID(account) returns (string memory _did) {
+				return _did;
+			} catch {
+				return "";
+			}
 		}
+
+		return "";
 	}
 
 	/**

@@ -4,6 +4,7 @@ import { expect } from "chai";
 import { IGoodDollar, IIdentityV2, IIdentity, IdentityV2 } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { createDAO, increaseTime } from "../helpers";
+import { load } from "dotenv";
 
 const BN = ethers.BigNumber;
 
@@ -12,6 +13,7 @@ describe("Identity", () => {
   let user1 = ethers.Wallet.createRandom().connect(ethers.provider);
   let user2 = ethers.Wallet.createRandom().connect(ethers.provider);
   let signers;
+  let genericCall;
 
   let avatar, gd: IGoodDollar, Controller, id: IIdentity;
 
@@ -22,9 +24,11 @@ describe("Identity", () => {
       controller,
       avatar: av,
       gd: gooddollar,
-      identity: idv2
+      identity: idv2,
+      genericCall: gc
     } = await loadFixture(createDAO);
 
+    genericCall = gc;
     identity = (await ethers.getContractAt("IdentityV2", idv2)) as IdentityV2;
     Controller = controller;
     avatar = av;
@@ -126,7 +130,23 @@ describe("Identity", () => {
       .reverted;
   });
 
-  it("should let admin set auth period", async () => {});
+  it("should let owner set auth period", async () => {
+    const encoded = identity.interface.encodeFunctionData(
+      "setAuthenticationPeriod",
+      [10]
+    );
+    await genericCall(identity.address, encoded);
+    expect(await identity.authenticationPeriod()).eq(10);
+  });
+
+  it("should revert when non admin tries to pause", async () => {
+    await expect(identity.connect(signers[2]).pause(true)).reverted;
+  });
+
+  it("should let admin pause", async () => {
+    await expect(identity.pause(true)).not.reverted;
+    await expect(identity.pause(false)).not.reverted;
+  });
 
   it("should revert when non admin tries to authentice a user", async () => {
     let authuser = signers[0].address;
@@ -223,16 +243,239 @@ describe("Identity", () => {
     expect(wasAdded).to.be.true;
   });
 
-  it("should allow to connect account", async () => {});
-  it("should not allow to connect account already whitelisted", async () => {});
-  it("should allow to disconnect account by owner or connected", async () => {});
-  it("should not allow to disconnect account by owner or by connected", async () => {});
-  it("should not allow to connect to an already connected account", async () => {});
-  it("should return same root for multiple connected accounts", async () => {});
+  const connectedFixture = async () => {
+    const toconnect = signers[10];
+    const toconnect2 = signers[11];
+    let whitelisted = signers[1];
+    const signed = await toconnect.signMessage(
+      ethers.utils.arrayify(
+        ethers.utils.keccak256(
+          ethers.utils.defaultAbiCoder.encode(
+            ["address", "address"],
+            [whitelisted.address, toconnect.address]
+          )
+        )
+      )
+    );
+    const signed2 = await toconnect2.signMessage(
+      ethers.utils.arrayify(
+        ethers.utils.keccak256(
+          ethers.utils.defaultAbiCoder.encode(
+            ["address", "address"],
+            [whitelisted.address, toconnect2.address]
+          )
+        )
+      )
+    );
 
-  it("should add whitelisted with orgchain and dateauthenticated", async () => {});
+    await identity
+      .connect(whitelisted)
+      .connectAccount(toconnect.address, signed);
+    await identity
+      .connect(whitelisted)
+      .connectAccount(toconnect2.address, signed2);
+  };
 
-  it("should default to old identity isWhitelisted, isBlacklisted, isContract", async () => {});
-  it("should not default,if set, to old identity isWhitelisted, isBlacklisted, isContract", async () => {});
-  it("should remove whitelisted,blacklisted,contract from old identity", async () => {});
+  it("should allow to connect account", async () => {
+    const toconnect = signers[10];
+    let whitelisted = signers[1];
+
+    expect(await identity.getWhitelistedRoot(toconnect.address)).eq(
+      ethers.constants.AddressZero
+    );
+
+    await loadFixture(connectedFixture);
+
+    expect(await identity.getWhitelistedRoot(whitelisted.address)).eq(
+      whitelisted.address
+    );
+
+    expect(await identity.getWhitelistedRoot(toconnect.address)).eq(
+      whitelisted.address
+    );
+  });
+
+  it("should not allow to connect account already whitelisted", async () => {
+    await loadFixture(connectedFixture);
+
+    await identity.addWhitelisted(signers[2].address);
+    let whitelisted = signers[1];
+    const signed = await signers[1].signMessage(
+      ethers.utils.keccak256(
+        ethers.utils.defaultAbiCoder.encode(
+          ["address", "address"],
+          [whitelisted.address, signers[2].address]
+        )
+      )
+    );
+    await expect(
+      identity.connect(whitelisted).connectAccount(signers[2].address, signed)
+    ).revertedWith("invalid account");
+  });
+
+  it("should allow to disconnect account by owner or connected", async () => {
+    await loadFixture(connectedFixture);
+
+    const connected = signers[10];
+    const whitelisted = signers[1];
+    await identity.connect(connected).disconnectAccount(connected.address);
+    expect(await identity.getWhitelistedRoot(connected.address)).eq(
+      ethers.constants.AddressZero
+    );
+    await loadFixture(connectedFixture);
+    await identity.connect(whitelisted).disconnectAccount(connected.address);
+    expect(await identity.getWhitelistedRoot(connected.address)).eq(
+      ethers.constants.AddressZero
+    );
+  });
+
+  it("should not allow to disconnect account not by owner or by connected", async () => {
+    await loadFixture(connectedFixture);
+
+    const connected = signers[10];
+    const whitelisted = signers[1];
+    await expect(identity.disconnectAccount(connected.address)).revertedWith(
+      "unauthorized"
+    );
+  });
+
+  it("should not allow to connect to an already connected account", async () => {
+    await loadFixture(connectedFixture);
+
+    await identity.addWhitelisted(signers[2].address);
+    expect(await identity.isWhitelisted(signers[2].address)).true;
+    const connected = signers[10];
+
+    const signed = await connected.signMessage(
+      ethers.utils.arrayify(
+        ethers.utils.keccak256(
+          ethers.utils.defaultAbiCoder.encode(
+            ["address", "address"],
+            [signers[2].address, connected.address]
+          )
+        )
+      )
+    );
+
+    await expect(
+      identity.connect(signers[2]).connectAccount(connected.address, signed)
+    ).revertedWith("already connected");
+  });
+
+  it("should return same root for multiple connected accounts", async () => {
+    await loadFixture(connectedFixture);
+
+    const connected = signers[10];
+    const connected2 = signers[11];
+    const whitelisted = signers[1];
+    expect(await identity.getWhitelistedRoot(connected.address))
+      .eq(await identity.getWhitelistedRoot(connected2.address))
+      .eq(whitelisted.address);
+  });
+
+  it("should add whitelisted with orgchain and dateauthenticated", async () => {
+    await loadFixture(connectedFixture);
+    const toWhitelist = signers[2];
+
+    const ts = (Date.now() / 1000 - 100000).toFixed(0);
+    await identity.addWhitelistedWithDIDAndChain(
+      toWhitelist.address,
+      "xxx",
+      1234,
+      ts
+    );
+    const record = await identity.identities(toWhitelist.address);
+    expect(record.whitelistedOnChainId).eq(1234);
+    expect(record.dateAuthenticated).eq(ts);
+  });
+
+  const oldidFixture = async () => {
+    const newid = (await upgrades.deployProxy(
+      await ethers.getContractFactory("IdentityV2"),
+      [founder.address, identity.address]
+    )) as IdentityV2;
+
+    await identity.grantRole(
+      await identity.IDENTITY_ADMIN_ROLE(),
+      newid.address
+    );
+    await identity.addBlacklisted(signers[4].address);
+    await identity.addContract(identity.address);
+    await identity.removeWhitelisted(signers[3].address);
+    await identity.addWhitelistedWithDID(signers[3].address, "testolddid");
+    return { newid };
+  };
+
+  it("should default to old identity isWhitelisted, isBlacklisted, isContract", async () => {
+    const { newid } = await loadFixture(oldidFixture);
+    expect(await (await identity.identities(signers[3].address)).did).eq(
+      "testolddid"
+    );
+    expect(await (await newid.identities(signers[3].address)).did).eq("");
+
+    expect(await identity.addrToDID(signers[3].address)).eq("testolddid");
+    expect(await newid.addrToDID(signers[3].address)).eq("testolddid");
+    expect(await newid.isBlacklisted(signers[4].address)).true;
+    expect(await newid.isWhitelisted(signers[3].address)).true;
+    expect(await newid.isDAOContract(identity.address)).true;
+  });
+
+  it("should remove whitelisted,blacklisted,contract from old identity", async () => {
+    const { newid } = await loadFixture(oldidFixture);
+    await newid.removeBlacklisted(signers[4].address);
+    await newid.removeWhitelisted(signers[3].address);
+    await newid.removeContract(identity.address);
+
+    expect(await newid.addrToDID(signers[3].address)).eq("");
+    expect(await newid.isBlacklisted(signers[4].address)).false;
+    expect(await newid.isWhitelisted(signers[3].address)).false;
+    expect(await newid.isDAOContract(identity.address)).false;
+
+    expect(await identity.isBlacklisted(signers[4].address)).false;
+    expect(await identity.isWhitelisted(signers[3].address)).false;
+    expect(await identity.isDAOContract(identity.address)).false;
+  });
+
+  it("should not set did if set in oldidentity", async () => {
+    const { newid } = await loadFixture(oldidFixture);
+
+    await expect(
+      newid.connect(signers[1])["setDID(string)"]("testolddid")
+    ).revertedWith("DID already registered oldIdentity");
+  });
+
+  it("should set did if set in oldidentity by same owner", async () => {
+    const { newid } = await loadFixture(oldidFixture);
+
+    await expect(newid.connect(signers[3])["setDID(string)"]("testolddid")).not
+      .reverted;
+    expect(await newid.addrToDID(signers[3].address)).eq("testolddid");
+  });
+  it("should set did if set in oldidentity by different owner but updated in new identity", async () => {
+    const { newid } = await loadFixture(oldidFixture);
+
+    await expect(newid.connect(signers[3])["setDID(string)"]("newdid")).not
+      .reverted;
+    expect(await newid.addrToDID(signers[3].address)).eq("newdid");
+
+    await expect(newid.connect(signers[1])["setDID(string)"]("testolddid")).not
+      .reverted;
+    expect(await newid.addrToDID(signers[1].address)).eq("testolddid");
+  });
+
+  it("should let admin setDID", async () => {
+    await expect(
+      identity["setDID(address,string)"](signers[1].address, "admindid")
+    ).not.reverted;
+    expect(await identity.addrToDID(signers[1].address)).eq("admindid");
+    await expect(
+      identity
+        .connect(signers[2])
+        ["setDID(address,string)"](signers[1].address, "admindid")
+    ).reverted;
+  });
+
+  it("should be registered for v1 compatability", async () => {
+    expect(await identity.isRegistered()).true;
+  });
 });

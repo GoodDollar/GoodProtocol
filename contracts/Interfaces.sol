@@ -276,6 +276,8 @@ interface IIdentity {
 
 	function addrToDID(address account) external view returns (string memory);
 
+	function didHashToAddress(bytes32 hash) external view returns (address);
+
 	event WhitelistedAdded(address user);
 }
 
