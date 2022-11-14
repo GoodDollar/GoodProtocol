@@ -524,7 +524,8 @@
             ]
         ],
         "MultichainRouter": "0x765277eebeca2e31912c9946eae1021199b39c61",
-        "anyGoodDollar": "0xd17652350cfd2a37ba2f947c910987a3b1a1c60d"
+        "anyGoodDollar": "0xd17652350cfd2a37ba2f947c910987a3b1a1c60d",
+        "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"
     },
     "production": {
         "NameService": "0xec6dcE387B1616a0c44fF2E4fA9E90E53Cf14eb0",
@@ -550,7 +551,8 @@
         "FirstClaimPool": "0x18BcdF79A724648bF34eb06701be81bD072A2384",
         "ProxyAdmin": "0x57179b2A8eB019157b0C3E761cdB26c82C982a3B",
         "FuseFaucet": "0x01ab5966C1d742Ae0CFF7f14cC0F4D85156e83d9",
-        "FuseStaking": "0xA199F0C353E25AdF022378B0c208D600f39a6505"
+        "FuseStaking": "0xA199F0C353E25AdF022378B0c208D600f39a6505",
+        "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"
     },
     "production-celo": {
         "ProxyFactory": "0x99C22e78A579e2176311c736C4c9F0b0D5A47806",
@@ -561,7 +563,8 @@
         "Identity": "0x96B81f82A29e78C5ba9E2034Ce8490fd641a24eb",
         "NameService": "0x563a80a452264a9e1aa37c6FA0B46D04C3c71b24",
         "GReputation": "0xAC132ECe25217867E318eA8ff63420C90d5a74A6",
-        "GuardiansSafe": "0xC9D09BA972B4EB6Bb7347F2229FB6d50434fFCa6",
+        "GuardiansSafeOld": "0xC9D09BA972B4EB6Bb7347F2229FB6d50434fFCa6",
+        "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8",
         "network": "production-celo",
         "networkId": 42220,
         "GoodDollarMintBurnWrapper": "0x5566b6E4962BA83e05a426Ad89031ec18e9CadD3",
