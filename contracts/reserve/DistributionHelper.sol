@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "../utils/DAOUpgradeableContract.sol";
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 /***
  * @dev DistributionHelper receives funds and distributes them to recipients

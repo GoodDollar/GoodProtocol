@@ -13,7 +13,7 @@ import "../DAOStackInterfaces.sol";
 import "./MultiBaseGovernanceShareField.sol";
 import "../staking/utils/StakingRewardsFixedAPY.sol";
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 interface RewardsMinter {
 	function sendOrMint(address to, uint256 amount) external returns (uint256);
