@@ -19,20 +19,22 @@ describe("proxyfactory", () => {
     factory = (await f.deploy()) as unknown as ProxyFactory1967;
   });
 
-  it("[@skip-on-coverage] [hardhat BUG] should deploy with linked library", async () => {
+  it("should deploy with linked library", async () => {
     const uf = await ethers.getContractFactory("UniswapV2SwapHelper");
     const uniswap = await uf.deploy();
     const Contract = await ethers.getContractFactory("CompoundStakingFactory", {
       libraries: { UniswapV2SwapHelper: uniswap.address }
     });
-    expect(
-      await factory.deployCode(308932532, Contract.bytecode).catch(e => e)
-    ).to.be.an("error");
-    // const tx = await (
-    //   await factory.deployCode(308932532, Contract.bytecode)
-    // ).wait();
-    // const event = tx.events.find(_ => _.event === "ContractDeployed");
-    // expect(event).not.empty;
+    // expect(
+    //   await factory.deployCode(308932532, Contract.bytecode).catch(e => e)
+    // ).to.be.an("error");
+    const tx = await (
+      await factory.deployCode(308932532, Contract.bytecode, {
+        gasLimit: 30000000 //required for hardhat, reverts without putting a specific gaslimit
+      })
+    ).wait();
+    const event = tx.events.find(_ => _.event === "ContractCreated");
+    expect(event).not.empty;
   });
 
   it("should deploy non upgradable code", async () => {
