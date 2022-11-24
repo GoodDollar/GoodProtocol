@@ -12,6 +12,7 @@ import "hardhat-contract-sizer";
 import { task, types } from "hardhat/config";
 import { sha3 } from "web3-utils";
 import { config } from "dotenv";
+/*
 import { airdrop } from "./scripts/governance/airdropCalculation";
 import { airdrop as repAirdropRecover } from "./scripts/governance/airdropCalculationRecover";
 import {
@@ -19,6 +20,7 @@ import {
   airdropRecover as gdxAirdropRecover
 } from "./scripts/gdx/gdxAirdropCalculation";
 import { sumStakersGdRewards } from "./scripts/staking/stakersGdRewardsCalculation";
+ */
 import { verify } from "./scripts/verify";
 import { ethers } from "ethers";
 import { fstat, readFileSync, writeFileSync } from "fs";
@@ -39,7 +41,7 @@ const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
 // console.log({ mnemonic: sha3(mnemonic) });
 const hhconfig: HardhatUserConfig = {
   solidity: {
-    version: "0.8.8",
+    version: "0.8.16",
     settings: {
       optimizer: {
         enabled: true,
@@ -207,6 +209,11 @@ const hhconfig: HardhatUserConfig = {
       gas: 3000000,
       gasPrice: 150000000,
       chainId: 42220
+    },
+    "avafuji": {
+      accounts: { mnemonic },
+      url: process.env.AVAFUJI_PROVIDER_URL,
+      chainId: 43113
     }
   },
   mocha: {
@@ -214,6 +221,7 @@ const hhconfig: HardhatUserConfig = {
   }
 };
 
+/*
 task("repAirdrop", "Calculates airdrop data and merkle tree")
   .addParam("action", "calculate/tree/proof")
   .addOptionalParam("fusesnapshotblock", "fuse block for calculate")
@@ -287,6 +295,7 @@ task("gdxAirdropRecover", "Calculates new airdrop data for recovery")
         console.log("unknown action use addition or tree");
     }
   });
+ */
 
 task("verifyjson", "verify contracts on etherscan").setAction(
   async (taskArgs, hre) => {
@@ -295,6 +304,7 @@ task("verifyjson", "verify contracts on etherscan").setAction(
 );
 export default hhconfig;
 
+/*
 task(
   "sumStakersGdRewards",
   "Sums the GoodDollar reward for each staker"
@@ -302,7 +312,7 @@ task(
   const actions = sumStakersGdRewards(hre.ethers);
   return actions.getStakersGdRewards();
 });
-
+*/
 task("cleanflat", "Cleans multiple SPDX and Pragma from flattened file")
   .addPositionalParam("file", "flattened sol file")
   .setAction(async ({ file }, { run }) => {

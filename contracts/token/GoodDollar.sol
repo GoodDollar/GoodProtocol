@@ -8,15 +8,157 @@ import "./ERC20PresetMinterPauserUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-/**
- * @title The GoodDollar V2 ERC677 token contract
- */
+import {
+	ISuperfluid,
+	ISuperToken,
+	ISuperTokenFactory
+} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 
-contract GoodDollar is
-	UUPSUpgradeable,
-	ERC677,
-	ERC20PresetMinterPauserUpgradeable
+import {
+	ISuperToken,
+	CustomSuperTokenBase
+} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/CustomSuperTokenBase.sol";
+import { UUPSProxy } from "@superfluid-finance/ethereum-contracts/contracts/upgradability/UUPSProxy.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+
+abstract contract SuperTokenBase is CustomSuperTokenBase {
+	//uint256[32] internal _storagePaddings; // added by CustomSuperTokenBase
+
+	/// @dev Gets totalSupply
+	/// @return t total supply
+	function _totalSupply() internal view returns (uint256 t) {
+		return ISuperToken(address(this)).totalSupply();
+	}
+
+	/// @dev Internal mint, calling functions should perform important checks!
+	/// @param account Address receiving minted tokens
+	/// @param amount Amount of tokens minted
+	/// @param userData Optional user data for ERC777 send callback
+	function _mint(address account, uint256 amount, bytes memory userData) internal {
+		ISuperToken(address(this)).selfMint(account, amount, userData);
+	}
+
+	/// @dev Internal burn, calling functions should perform important checks!
+	/// @param from Address from which to burn tokens
+	/// @param amount Amount to burn
+	/// @param userData Optional user data for ERC777 send callback
+	function _burn(address from, uint256 amount, bytes memory userData) internal {
+		ISuperToken(address(this)).selfBurn(from, amount, userData);
+	}
+
+	/// @dev Internal approve, calling functions should perform important checks!
+	/// @param account Address of approving party
+	/// @param spender Address of spending party
+	/// @param amount Approval amount
+	function _approve(address account, address spender, uint256 amount) internal {
+		ISuperToken(address(this)).selfApproveFor(account, spender, amount);
+	}
+
+	/// @dev Internal transferFrom, calling functions should perform important checks!
+	/// @param holder Owner of the tranfserred tokens
+	/// @param spender Address of spending party (approved/operator)
+	/// @param recipient Address of recipient party
+	/// @param amount Amount to be tranfserred
+	function _transferFrom(
+		address holder,
+		address spender,
+		address recipient,
+		uint256 amount
+	) internal {
+		ISuperToken(address(this)).selfTransferFrom(holder, spender, recipient, amount);
+	}
+}
+
+// minimal interface for an auxiliary logic contract
+interface IAuxLogic {
+	// returns true if calls matching the given selector shall be delegated ot the auxiliary logic contract
+	function implementsFn(bytes4 selector) external pure returns(bool);
+}
+
+abstract contract ProxyStoragePadding {
+	uint256[1] internal _proxyStoragePaddings; // reserve 1 slot for the address of the 2nd logic contract
+}
+
+/**
+ * @title The GoodDollar V2 token contract proxy
+ * delegates to both SuperToken logic and GoodDollar logic
+ */
+contract GoodDollarProxy is
+	CustomSuperTokenBase, // adds 32 storage slots
+	Ownable, // adds 1 storage slot
+	UUPSProxy
 {
+	IAuxLogic internal _auxLogic;
+
+	// The first version of the auxiliary logic can already be defined when deploying.
+	constructor(IAuxLogic auxLogic) {
+		_auxLogic = auxLogic;
+	}
+
+	// Allows upgrading to a new version of auxLogic.
+	// The caller is fully responsible for keeping compatibility with the previous storage structure when upgrading.
+	// An incompatible new logic contract can brick the whole contract, e.g. by omitting storage paddings.
+	event AuxLogicUpgraded(IAuxLogic newAuxLogix);
+	function upgradeAuxLogic(IAuxLogic newAuxLogic) external onlyOwner {
+		_auxLogic = newAuxLogic;
+		emit AuxLogicUpgraded(newAuxLogic);
+	}
+
+	/// @dev Initializes SuperToken functionality through its factory
+	/// should be called instead of initializeProxy()!
+	/// @param factory super token factory for initialization
+	/// @param name super token name
+	/// @param symbol super token symbol
+	function initialize(ISuperTokenFactory factory, string memory name, string memory symbol, address _owner)
+		external
+	{
+		factory.initializeCustomSuperToken(address(this));
+		ISuperToken(address(this)).initialize(IERC20(address(0)), 18, name, symbol);
+		if (_owner != msg.sender) {
+			transferOwnership(_owner);
+		}
+	}
+
+	// Dispatcher for all other calls
+	// Checks if the auxLogic wants to handle before delegating to the UUPSProxy implementation.
+	function _fallback() internal virtual override {
+		_beforeFallback();
+
+		// check if it targets the auxLogic
+		if (_auxLogic.implementsFn(msg.sig)) {
+			_delegate(address(_auxLogic));
+		} else {
+			_delegate(_implementation());
+		}
+	}
+
+}
+
+interface IGoodDollarCustom {
+	function feeRecipient() external returns(address);
+	function formula() external returns(IFeesFormula);
+	function identity() external returns(IIdentity);
+	function cap() external returns(uint256);
+
+	function setFormula(IFeesFormula _formula) external;
+	function setIdentity(IIdentityV2 _identity) external;
+	function transferAndCall(address to, uint256 value, bytes calldata data) external returns (bool);
+	function mint(address to, uint256 value) external returns (bool);
+
+}
+
+contract GoodDollarLogic is
+	SuperTokenBase,
+	Ownable,
+	ProxyStoragePadding,
+	Initializable,
+	ERC677, // base contract without storage
+	IAuxLogic,
+	IGoodDollarCustom
+{
+	// IMPORTANT! Never change the type (storage size) or order of state variables.
+	// If a variable isn't needed anymore, leave it as padding.
 	address public feeRecipient;
 
 	IFeesFormula public formula;
@@ -25,68 +167,59 @@ contract GoodDollar is
 
 	uint256 public cap;
 
+	// Append new state variables here!
+
+
+
+	// allows to mark the logic contract itself as initialized
+	function markAsInitialized() public initializer {}
+
+	// Allows the proxy to check if this contract wants to handle a given call.
+	// All functions supposed to be reachable via proxy need to be included here.
+	function implementsFn(bytes4 selector) external override pure returns(bool) {
+		return
+			selector == this.initializeAux.selector ||
+			selector == this.feeRecipient.selector ||
+			selector == this.formula.selector ||
+			selector == this.identity.selector ||
+			selector == this.cap.selector ||
+			selector == this.setFormula.selector ||
+			selector == this.setIdentity.selector ||
+			selector == this.transferAndCall.selector ||
+			selector == this.mint.selector
+		;
+	}
+
+	// ============== Functionality to be executed on the proxy via delegateCall ==============
+
 	/**
 	 * @dev constructor
-	 * @param _name The name of the token
-	 * @param _symbol The symbol of the token
 	 * @param _cap the cap of the token. no cap if 0
 	 * @param _formula the fee formula contract
 	 * @param _identity the identity contract
 	 * @param _feeRecipient the address that receives transaction fees
 	 */
-	function initialize(
-		string memory _name,
-		string memory _symbol,
+	function initializeAux(
 		uint256 _cap,
 		IFeesFormula _formula,
 		IIdentity _identity,
-		address _feeRecipient,
-		address _owner
+		address _feeRecipient
 	) public initializer {
-		__ERC20PresetMinterPauser_init(_name, _symbol);
 		feeRecipient = _feeRecipient;
 		identity = _identity;
 		formula = _formula;
 		cap = _cap;
-		if (_owner != _msgSender()) {
-			transferOwnership(_owner);
-			renounceRole(MINTER_ROLE, _msgSender());
-			renounceRole(PAUSER_ROLE, _msgSender());
-		}
 	}
 
-	modifier onlyOwner() {
-		require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "not owner");
-		_;
-	}
-
-	function _authorizeUpgrade(address newImplementation)
-		internal
-		override
-		onlyOwner
-	{}
-
-	function decimals() public view virtual override returns (uint8) {
-		return 2;
-	}
-
-	function setFormula(IFeesFormula _formula) external onlyOwner {
+	function setFormula(IFeesFormula _formula) external override onlyOwner {
 		formula = _formula;
 	}
 
-	function setIdentity(IIdentityV2 _identity) external onlyOwner {
+	function setIdentity(IIdentityV2 _identity) external override onlyOwner {
 		identity = _identity;
 	}
 
-	function transferOwnership(address _owner) public onlyOwner {
-		grantRole(DEFAULT_ADMIN_ROLE, _owner);
-		renounceRole(DEFAULT_ADMIN_ROLE, _msgSender());
-	}
-
-	function owner() external view returns (address) {
-		return getRoleMember(DEFAULT_ADMIN_ROLE, 0);
-	}
-
+	/*
 	function isMinter(address _minter) external view returns (bool) {
 		return hasRole(MINTER_ROLE, _minter);
 	}
@@ -106,6 +239,7 @@ contract GoodDollar is
 	function isPauser(address _pauser) external view returns (bool) {
 		return hasRole(PAUSER_ROLE, _pauser);
 	}
+	*/
 
 	/**
 	 * @dev Processes fees from given value and sends
@@ -115,6 +249,7 @@ contract GoodDollar is
 	 * transferred
 	 * @return a boolean that indicates if the operation was successful
 	 */
+	/*
 	function transfer(address to, uint256 value)
 		public
 		override(ERC20Upgradeable, ERC677)
@@ -123,6 +258,7 @@ contract GoodDollar is
 		uint256 bruttoValue = _processFees(msg.sender, to, value);
 		return ERC20Upgradeable.transfer(to, bruttoValue);
 	}
+	*/
 
 	/**
 	 * @dev Transfer tokens from one address to another
@@ -131,6 +267,7 @@ contract GoodDollar is
 	 * @param value the amount of tokens to be transferred
 	 * @return a boolean that indicates if the operation was successful
 	 */
+	/*
 	function transferFrom(
 		address from,
 		address to,
@@ -139,6 +276,7 @@ contract GoodDollar is
 		uint256 bruttoValue = _processFees(from, to, value);
 		return super.transferFrom(from, to, bruttoValue);
 	}
+	*/
 
 	/**
 	 * @dev Processes transfer fees and calls ERC677Token transferAndCall function
@@ -151,9 +289,15 @@ contract GoodDollar is
 		address to,
 		uint256 value,
 		bytes calldata data
-	) external returns (bool) {
-		uint256 bruttoValue = _processFees(msg.sender, to, value);
+	) external override returns (bool) {
+		//uint256 bruttoValue = _processFees(msg.sender, to, value);
+		uint256 bruttoValue = value;
 		return super._transferAndCall(to, bruttoValue, data);
+	}
+	// override for transferAndCall
+	function _transfer(address to, uint256 value) internal override returns (bool) {
+		_transferFrom(msg.sender, msg.sender, to, value);
+		return true;
 	}
 
 	/**
@@ -161,74 +305,34 @@ contract GoodDollar is
 	 * @param to the address that will receive the minted tokens
 	 * @param value the amount of tokens to mint
 	 */
-	function mint(address to, uint256 value) public override returns (bool) {
+	function mint(address to, uint256 value) public override onlyOwner returns (bool) {
 		if (cap > 0) {
 			require(
-				totalSupply() + value <= cap,
+				_totalSupply() + value <= cap,
 				"Cannot increase supply beyond cap"
 			);
 		}
-		return super.mint(to, value);
-	}
-
-	/**
-	 * @dev Gets the current transaction fees
-	 * @return fee senderPays  that represents the current transaction fees and bool true if sender pays the fee or receiver
-	 */
-	function getFees(uint256 value)
-		public
-		view
-		returns (uint256 fee, bool senderPays)
-	{
-		return formula.getTxFees(value, address(0), address(0));
-	}
-
-	/**
-	 * @dev Gets the current transaction fees
-	 * @return fee senderPays  that represents the current transaction fees and bool true if sender pays the fee or receiver
-	 */
-	function getFees(
-		uint256 value,
-		address sender,
-		address recipient
-	) public view returns (uint256 fee, bool senderPays) {
-		return formula.getTxFees(value, sender, recipient);
-	}
-
-	/**
-	 * @dev Sets the address that receives the transactional fees.
-	 * can only be called by owner
-	 * @param _feeRecipient The new address to receive transactional fees
-	 */
-	function setFeeRecipient(address _feeRecipient) public onlyOwner {
-		feeRecipient = _feeRecipient;
-	}
-
-	/**
-	 * @dev Sends transactional fees to feeRecipient address from given address
-	 * @param account The account that sends the fees
-	 * @param value The amount to subtract fees from
-	 * @return an uint256 that represents the given value minus the transactional fees
-	 */
-	function _processFees(
-		address account,
-		address recipient,
-		uint256 value
-	) internal returns (uint256) {
-		(uint256 txFees, bool senderPays) = getFees(value, account, recipient);
-		if (txFees > 0 && !identity.isDAOContract(msg.sender)) {
-			require(
-				senderPays == false || value + txFees <= balanceOf(account),
-				"Not enough balance to pay TX fee"
-			);
-			if (account == msg.sender) {
-				super.transfer(feeRecipient, txFees);
-			} else {
-				super.transferFrom(account, feeRecipient, txFees);
-			}
-
-			return senderPays ? value : value - txFees;
-		}
-		return value;
+		_mint(to, value, new bytes(0));
+		return true;
 	}
 }
+
+interface ISuperGoodDollar is IGoodDollarCustom, ISuperToken {}
+
+
+/*
+hardhat:
+
+(avafuji)
+factoryAddr = "0xA25dbEa94C5824892006b30a629213E7Bf238624"
+
+signer = await ethers.getSigner()
+GDP = await ethers.getContractFactory("GoodDollarProxy")
+GDL = await ethers.getContractFactory("GoodDollarLogic")
+
+gdl = await GDL.deploy()
+gdp = await GDP.deploy(gdl.address)
+
+await gdp.initialize(factoryAddr, "test", "TST", signer.address)
+
+*/
