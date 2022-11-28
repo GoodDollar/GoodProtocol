@@ -115,7 +115,11 @@ contract GoodReserveCDai is
 		address indexed receiverAddress
 	);
 
-	event NonUBIMinted(address distributionHelper, uint256 amountMinted);
+	event NonUBIMinted(
+		address distributionHelper,
+		uint256 amountMinted,
+		bool distributionSucceeded
+	);
 
 	event DistributionHelperSet(address distributionHelper, uint32 bps);
 
@@ -386,8 +390,11 @@ contract GoodReserveCDai is
 			nonUBI = (gdExpansionToMint * nonUbiBps) / 10000;
 			gdUBI -= nonUBI;
 			_mintGoodDollars(address(distributionHelper), nonUBI, false);
-			try distributionHelper.onDistribution(nonUBI) {} catch {} //should not prevent mintUBI from completing
-			emit NonUBIMinted(address(distributionHelper), nonUBI);
+			bool success = true;
+			try distributionHelper.onDistribution(nonUBI) {} catch {
+				success = false;
+			} //should not prevent mintUBI from completing
+			emit NonUBIMinted(address(distributionHelper), nonUBI, success);
 		}
 
 		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE

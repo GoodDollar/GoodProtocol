@@ -4,6 +4,9 @@ import PromisePool from "async-promise-pool";
 import fs from "fs";
 import { ethers } from "hardhat";
 
+/**
+ * in/out G$ to a specific address (here used for invites)
+ */
 const main = async () => {
   let address = "0xCa2F09c3ccFD7aD5cB9276918Bd1868f2b922ea0";
   let token = "0x495d133B938596C9984d462F007B676bDc57eCEC";
@@ -44,7 +47,6 @@ const main = async () => {
     "tokenInOut.json",
     JSON.stringify({ incoming, outgoing, ins })
   );
-
 };
 
 main().catch(e => console.log(e));

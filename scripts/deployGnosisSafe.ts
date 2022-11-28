@@ -31,7 +31,7 @@ export const deploySafe = async (defaultAdmin = null) => {
     txType === "1"
       ? {
           maxFeePerGas: 12e9,
-          maxPriorityFeePerGas: 2e9
+          maxPriorityFeePerGas: 1e9
         }
       : {};
 
@@ -44,26 +44,26 @@ export const deploySafe = async (defaultAdmin = null) => {
     type2
   });
 
-  //   //1st dummy tx
-  //   await (
-  //     await root.sendTransaction({ to: root.address, value: 0, ...type2 })
-  //   ).wait();
+  //1st dummy tx
+  await (
+    await root.sendTransaction({ to: root.address, value: 0, ...type2 })
+  ).wait();
 
-  //   const proxytx = await (
-  //     await root.sendTransaction({
-  //       value: 0,
-  //       gasLimit: 1500000,
-  //       data: PROXYFACTORY_CODE,
-  //       ...type2
-  //     })
-  //   ).wait();
+  const proxytx = await (
+    await root.sendTransaction({
+      value: 0,
+      gasLimit: 1500000,
+      data: PROXYFACTORY_CODE,
+      ...type2
+    })
+  ).wait();
 
-  //   console.log({ proxytx });
+  console.log({ proxytx });
 
-  //2nd dummy tx
-  //   await (
-  //     await root.sendTransaction({ to: root.address, value: 0, ...type2 })
-  //   ).wait();
+  // 2nd dummy tx
+  await (
+    await root.sendTransaction({ to: root.address, value: 0, ...type2 })
+  ).wait();
 
   const fallbacktx = await (
     await root.sendTransaction({

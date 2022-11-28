@@ -1,14 +1,19 @@
 import { Contract, ContractFactory, Signer } from "ethers";
 import { network, ethers, upgrades, run } from "hardhat";
-import { Contract } from "ethers";
+import * as safeethers from "ethers";
 import { TransactionResponse } from "@ethersproject/providers";
+import Safe from "@gnosis.pm/safe-core-sdk";
+import EthersAdapter from "@gnosis.pm/safe-ethers-lib";
+import { MetaTransactionData } from "@gnosis.pm/safe-core-sdk-types";
+
 import dao from "../../releases/deployment.json";
 
-const networkName = network.name;
+const networkName =
+  network.name === "localhost" ? "production-mainnet" : network.name;
 let totalGas = 0;
 const gasUsage = {};
 const GAS_SETTINGS = { gasLimit: 5000000 };
-let release: { [key: string]: any } = dao[network.name];
+let release: { [key: string]: any } = dao[networkName];
 
 export const printDeploy = async (
   c: Contract | TransactionResponse
@@ -42,7 +47,7 @@ export const deployDeterministic = async (
 ) => {
   try {
     let proxyFactory;
-    if (network.name.startsWith("develop")) {
+    if (networkName.startsWith("develop")) {
       proxyFactory = await (
         await ethers.getContractFactory("ProxyFactory1967")
       ).deploy();
@@ -152,10 +157,107 @@ export const executeViaGuardian = async (
         .sendTransaction({ to: contract, data: encoded })
         .then(printDeploy);
     } else {
-      console.log("executing genericCall:", sigHash, encoded);
+      const simulationResult = await ctrl.callStatic.genericCall(
+        contract,
+        encoded,
+        release.Avatar,
+        ethValues[i],
+        { from: await guardian.getAddress() }
+      );
+      console.log("executing genericCall:", {
+        sigHash,
+        encoded,
+        simulationResult
+      });
       await ctrl
         .genericCall(contract, encoded, release.Avatar, ethValues[i])
         .then(printDeploy);
     }
   }
+};
+
+export const executeViaSafe = async (
+  contracts,
+  ethValues,
+  functionSigs,
+  functionInputs,
+  safeAddress: string,
+  safeSigner: Signer
+) => {
+  const ethAdapter = new EthersAdapter({
+    ethers,
+    signer: safeSigner
+  } as any);
+  const safeSdk = await Safe.create({ ethAdapter, safeAddress });
+
+  let release: { [key: string]: any } = dao[networkName];
+  const ctrl = await await ethers.getContractAt(
+    "Controller",
+    release.Controller
+  );
+
+  const safeTransactionData: MetaTransactionData[] = [];
+
+  for (let i = 0; i < contracts.length; i++) {
+    const contract = contracts[i];
+    console.log(
+      "creating tx:",
+      contracts[i],
+      functionSigs[i],
+      functionInputs[i]
+    );
+    const sigHash = ethers.utils
+      .keccak256(ethers.utils.toUtf8Bytes(functionSigs[i]))
+      .slice(0, 10);
+    const encoded = ethers.utils.solidityPack(
+      ["bytes4", "bytes"],
+      [sigHash, functionInputs[i]]
+    );
+    if (contract === ctrl.address) {
+      const simulationResult = await ctrl.callStatic[functionSigs[i]](
+        ...functionInputs[i],
+        { from: safeAddress, value: ethValues[i] }
+      );
+      console.log("executing directly on controller:", {
+        sigHash,
+        encoded,
+        simulationResult
+      });
+      safeTransactionData.push({
+        to: ctrl.address,
+        value: ethValues[i],
+        data: encoded
+      });
+    } else {
+      const simulationResult = await ctrl.callStatic.genericCall(
+        contract,
+        encoded,
+        release.Avatar,
+        ethValues[i],
+        { from: safeAddress }
+      );
+      console.log("executing genericCall:", {
+        sigHash,
+        encoded,
+        simulationResult
+      });
+      const genericEncode = ctrl.interface.encodeFunctionData("genericCall", [
+        contract,
+        encoded,
+        release.Avatar,
+        ethValues[i]
+      ]);
+      safeTransactionData.push({
+        to: ctrl.address,
+        value: ethValues[i],
+        data: genericEncode
+      });
+    }
+  }
+
+  const safeTransaction = await safeSdk.createTransaction({
+    safeTransactionData
+  });
+  console.log({ safeTransaction });
+  const signedTx = await safeSdk.signTransaction(safeTransaction);
 };
