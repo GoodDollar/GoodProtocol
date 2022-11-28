@@ -5,6 +5,7 @@ import { TransactionResponse } from "@ethersproject/providers";
 import Safe from "@gnosis.pm/safe-core-sdk";
 import EthersAdapter from "@gnosis.pm/safe-ethers-lib";
 import { MetaTransactionData } from "@gnosis.pm/safe-core-sdk-types";
+import SafeClient from "@gnosis.pm/safe-service-client";
 
 import dao from "../../releases/deployment.json";
 
@@ -182,30 +183,33 @@ export const executeViaSafe = async (
   functionSigs,
   functionInputs,
   safeAddress: string,
-  safeSigner: Signer
+  safeSigner: Signer,
+  txServiceUrl = "https://safe-transaction-mainnet.safe.global"
 ) => {
   const ethAdapter = new EthersAdapter({
-    ethers,
-    signer: safeSigner
-  } as any);
+    ethers: safeethers,
+    signerOrProvider: safeSigner
+  });
+
+  const safeService = new SafeClient({
+    txServiceUrl,
+    ethAdapter
+  });
+
   const safeSdk = await Safe.create({ ethAdapter, safeAddress });
 
   let release: { [key: string]: any } = dao[networkName];
-  const ctrl = await await ethers.getContractAt(
+  const ctrl = await ethers.getContractAt(
     "Controller",
-    release.Controller
+    release.Controller,
+    null
   );
 
   const safeTransactionData: MetaTransactionData[] = [];
 
   for (let i = 0; i < contracts.length; i++) {
     const contract = contracts[i];
-    console.log(
-      "creating tx:",
-      contracts[i],
-      functionSigs[i],
-      functionInputs[i]
-    );
+
     const sigHash = ethers.utils
       .keccak256(ethers.utils.toUtf8Bytes(functionSigs[i]))
       .slice(0, 10);
@@ -213,12 +217,19 @@ export const executeViaSafe = async (
       ["bytes4", "bytes"],
       [sigHash, functionInputs[i]]
     );
+    console.log(
+      "creating tx:",
+      contracts[i],
+      functionSigs[i],
+      functionInputs[i],
+      encoded
+    );
     if (contract === ctrl.address) {
       const simulationResult = await ctrl.callStatic[functionSigs[i]](
         ...functionInputs[i],
         { from: safeAddress, value: ethValues[i] }
       );
-      console.log("executing directly on controller:", {
+      console.log("executing controller call:", {
         sigHash,
         encoded,
         simulationResult
@@ -229,6 +240,13 @@ export const executeViaSafe = async (
         data: encoded
       });
     } else {
+      console.log("executing genericCall:", {
+        sigHash,
+        encoded,
+        contract,
+        avatar: release.Avatar,
+        value: ethValues[i]
+      });
       const simulationResult = await ctrl.callStatic.genericCall(
         contract,
         encoded,
@@ -238,7 +256,6 @@ export const executeViaSafe = async (
       );
       console.log("executing genericCall:", {
         sigHash,
-        encoded,
         simulationResult
       });
       const genericEncode = ctrl.interface.encodeFunctionData("genericCall", [
@@ -258,6 +275,23 @@ export const executeViaSafe = async (
   const safeTransaction = await safeSdk.createTransaction({
     safeTransactionData
   });
-  console.log({ safeTransaction });
-  const signedTx = await safeSdk.signTransaction(safeTransaction);
+
+  const safeTxHash = await safeSdk.getTransactionHash(safeTransaction);
+  const signedHash = await safeSdk.signTransactionHash(safeTxHash);
+
+  const senderAddress = await safeSigner.getAddress();
+  console.log("propose safe transaction", {
+    safeAddress,
+    safeTransactionData: safeTransaction.data,
+    safeTxHash,
+    senderSignature: signedHash,
+    senderAddress
+  });
+  await safeService.proposeTransaction({
+    safeAddress,
+    safeTransactionData: safeTransaction.data,
+    safeTxHash,
+    senderSignature: signedHash.data,
+    senderAddress
+  });
 };

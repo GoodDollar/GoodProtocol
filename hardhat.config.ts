@@ -74,7 +74,9 @@ const hhconfig: HardhatUserConfig = {
 
   networks: {
     hardhat: {
-      chainId: 4447,
+      chainId: process.env.FORK_CHAIN_ID
+        ? Number(process.env.FORK_CHAIN_ID)
+        : 4447,
       allowUnlimitedContractSize: true,
       accounts: {
         accountsBalance: "10000000000000000000000000"

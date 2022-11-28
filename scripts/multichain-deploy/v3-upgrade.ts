@@ -37,16 +37,22 @@ export const deployMainnet = async () => {
   let release: { [key: string]: any } = dao[networkKey];
 
   let [root, ...signers] = await ethers.getSigners();
+  let safeOwner = new ethers.Wallet(
+    process.env.SAFEOWNER_PRIVATE_KEY || ethers.constants.HashZero,
+    ethers.provider
+  );
   //test with guardians safe on hardhat mainnet fork
-  if (network.name === "localhost")
+  if (network.name === "localhost") {
     root = await ethers.getImpersonatedSigner(
       "0xF0652a820dd39EC956659E0018Da022132f2f40a"
     );
+  }
 
   console.log("got signers:", {
     networkName,
     networkKey,
     root: root.address,
+    safeOwner: safeOwner.address,
     balance: await ethers.provider
       .getBalance(root.address)
       .then(_ => _.toString())
@@ -195,8 +201,10 @@ export const deployMainnet = async () => {
       proposalEthValues,
       proposalFunctionSignatures,
       proposalFunctionInputs,
-      "0xF0652a820dd39EC956659E0018Da022132f2f40a",
-      root
+      networkName === "localhost"
+        ? "0xF0652a820dd39EC956659E0018Da022132f2f40a"
+        : release.GuardiansSafe,
+      safeOwner
     );
   } else {
     return executeViaGuardian(
@@ -212,5 +220,4 @@ export const deployMainnet = async () => {
 export const main = async () => {
   await deployMainnet().catch(console.log);
 };
-console.log(process.argv);
 if (process.argv[1].includes("v3-upgrade")) main();

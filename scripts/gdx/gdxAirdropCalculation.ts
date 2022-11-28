@@ -3,7 +3,7 @@ import fs from "fs";
 import MerkleTree from "merkle-tree-solidity";
 import stakingContracts from "@gooddollar/goodcontracts/stakingModel/releases/deployment.json";
 import { ethers as Ethers } from "hardhat";
-import { BigNumber } from "ethereum-waffle/node_modules/ethers";
+import { BigNumber } from "ethers";
 
 type Tree = {
   [key: string]: {
