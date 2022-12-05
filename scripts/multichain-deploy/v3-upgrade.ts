@@ -8,7 +8,7 @@
  * - create proposal that:
  *  - upgrades the reserve
  *  - sets the distributionHelper at reserve with the agreed bps
- *  - add to the distributionHelper the GoodDollarMintBurnWrapper contract address on fuse as recipient with 100% bps
+ *  - add to the distributionHelper the contracts addresses to receive part of the UBI
  */
 
 import { network, ethers } from "hardhat";
@@ -31,12 +31,15 @@ import {
 const { name: networkName } = network;
 
 export const deployMainnet = async () => {
+  let [root, ...signers] = await ethers.getSigners();
+
   let executionMethod = "guardians";
+  let communitySafe = "0x5Eb5f5fE13d1D5e6440DbD5913412299Bc5B5564";
+
   const networkKey =
     networkName === "localhost" ? "production-mainnet" : networkName;
   let release: { [key: string]: any } = dao[networkKey];
 
-  let [root, ...signers] = await ethers.getSigners();
   let safeOwner = new ethers.Wallet(
     process.env.SAFEOWNER_PRIVATE_KEY || ethers.constants.HashZero,
     ethers.provider
@@ -93,17 +96,6 @@ export const deployMainnet = async () => {
   }
   DHelper;
 
-  // //create proposal
-  // const vm = (await ethers.getContractAt(
-  //   "CompoundVotingMachine",
-  //   release.CompoundVotingMachine
-  // )) as CompoundVotingMachine;
-
-  // const ctrl = (await ethers.getContractAt(
-  //   "Controller",
-  //   release.Controller
-  // )) as Controller;
-
   const ns = (await ethers.getContractAt(
     "NameService",
     release.NameService
@@ -112,10 +104,10 @@ export const deployMainnet = async () => {
   const proposalContracts = [
     ns.address, //nameservice add DistributionHelper,MultiChainRouter,MultiChain AnyGoodDollar,
     DHelper.address, //update addresses from nameservice
-    DHelper.address, //distribution helper -> add fuse GoodDollarMintBurnWrapper as recipient with 100%
+    DHelper.address, //distribution helper -> add fuse community pool as recipient with 100%
     release.GoodReserveCDai, //upgradeTo
     release.GoodReserveCDai, //Reserve -> set distribution helper + non ubi bps
-    release.GoodReserveCDai, //Reserve -> set new decline ratio
+    release.GoodReserveCDai, //Reserve -> set new decline rate
     release.GoodFundManager, //Fundmanager -> set staking rewards compound to 0
     release.GoodFundManager //Fundmanager -> set staking rewards aave to 0
   ];
@@ -154,9 +146,9 @@ export const deployMainnet = async () => {
       ["uint32", "uint32", "address", "uint8"],
       [
         10000, //100% bps
-        42220, //chainid
-        release.GuardiansSafe, //recipient address,
-        1 //recipient type via multichain bridge
+        122, //chainid
+        communitySafe, //recipient address,
+        0 //recipient type via fuse bridge
       ]
     ), //addOrUpdateRecipient((uint32,uint32,address,uint8))
     ethers.utils.defaultAbiCoder.encode(["address"], [reserveImpl.address]), //upgradeTo(address)
