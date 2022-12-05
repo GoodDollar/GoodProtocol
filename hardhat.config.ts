@@ -24,7 +24,9 @@ import { ethers } from "ethers";
 import { fstat, readFileSync, writeFileSync } from "fs";
 config();
 
-const mnemonic = process.env.MNEMONIC;
+const mnemonic =
+  process.env.MNEMONIC ||
+  "test test test test test test test test test test test junk";
 const deployerPrivateKey =
   process.env.PRIVATE_KEY || ethers.utils.hexZeroPad("0x11", 32);
 const infura_api = process.env.INFURA_API;

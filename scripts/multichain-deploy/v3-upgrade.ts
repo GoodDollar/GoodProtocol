@@ -31,7 +31,7 @@ import {
 const { name: networkName } = network;
 
 export const deployMainnet = async () => {
-  let executionMethod = "safe";
+  let executionMethod = "guardians";
   const networkKey =
     networkName === "localhost" ? "production-mainnet" : networkName;
   let release: { [key: string]: any } = dao[networkKey];
@@ -44,8 +44,12 @@ export const deployMainnet = async () => {
   //test with guardians safe on hardhat mainnet fork
   if (network.name === "localhost") {
     root = await ethers.getImpersonatedSigner(
-      "0xF0652a820dd39EC956659E0018Da022132f2f40a"
+      "0xE0c5daa7CC6F88d29505f702a53bb5E67600e7Ec"
     );
+    await signers[0].sendTransaction({
+      to: root.address,
+      value: ethers.constants.WeiPerEther
+    });
   }
 
   console.log("got signers:", {
@@ -202,7 +206,7 @@ export const deployMainnet = async () => {
       proposalFunctionSignatures,
       proposalFunctionInputs,
       networkName === "localhost"
-        ? "0xF0652a820dd39EC956659E0018Da022132f2f40a"
+        ? "0xE0c5daa7CC6F88d29505f702a53bb5E67600e7Ec"
         : release.GuardiansSafe,
       safeOwner
     );
