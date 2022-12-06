@@ -5,7 +5,6 @@ import TransferAndCallMockABI from "@gooddollar/goodcontracts/build/contracts/Tr
 
 import { Framework } from "@superfluid-finance/sdk-core";
 import frameworkDeployer from "@superfluid-finance/ethereum-contracts/scripts/deploy-test-framework";
-import TestToken from "@superfluid-finance/ethereum-contracts/build/contracts/TestToken.json";
 
 let contractsFramework,
   sfDeployer, sf,
