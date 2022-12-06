@@ -20,7 +20,7 @@ abstract contract ERC677 {
 		bytes data
 	);
 
-	function _transfer(address to, uint256 value) internal virtual returns (bool);
+	function transfer(address to, uint256 value) public virtual returns (bool);
 
 	/**
 	 * @dev transfer token to a contract address with additional data if the recipient is a contact.
@@ -34,7 +34,7 @@ abstract contract ERC677 {
 		uint256 _value,
 		bytes memory _data
 	) internal returns (bool) {
-		bool res = _transfer(_to, _value);
+		bool res = transfer(_to, _value);
 		emit Transfer(msg.sender, _to, _value, _data);
 
 		if (isContract(_to)) {
