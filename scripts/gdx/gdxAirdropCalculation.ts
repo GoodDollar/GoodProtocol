@@ -1,9 +1,10 @@
 import { get, range, chunk, flatten, mergeWith, sortBy } from "lodash";
 import fs from "fs";
-import MerkleTree from "merkle-tree-solidity";
+import MerkleTree from "merkletreejs";
 import stakingContracts from "@gooddollar/goodcontracts/stakingModel/releases/deployment.json";
 import { ethers as Ethers } from "hardhat";
 import { BigNumber } from "ethers";
+import { keccak256 } from "ethers/lib/utils";
 
 type Tree = {
   [key: string]: {
@@ -178,13 +179,13 @@ export const airdrop = (ethers: typeof Ethers, ethSnapshotBlock) => {
     });
 
     console.log(elements);
-    const merkleTree = new MerkleTree(elements, false);
+    const merkleTree = new MerkleTree(elements, keccak256);
     // get the merkle root
     // returns 32 byte buffer
-    const merkleRoot = merkleTree.getRoot().toString("hex");
+    const merkleRoot = merkleTree.getHexRoot();
     // generate merkle proof
     // returns array of 32 byte buffers
-    const proof = merkleTree.getProof(elements[0]).map(_ => _.toString("hex"));
+    const proof = merkleTree.getPositionalHexProof();
     console.log({ merkleRoot, proof, sampleProofFor: toTree[0] });
     fs.writeFileSync(
       "airdrop/gdxairdrop.json",
@@ -201,10 +202,8 @@ export const airdrop = (ethers: typeof Ethers, ethSnapshotBlock) => {
       Buffer.from(e[1].hash.slice(2), "hex")
     );
 
-    const merkleTree = new MerkleTree(elements, false);
-    const proof = merkleTree
-      .getProof(Buffer.from(treeData[addr].hash.slice(2), "hex"))
-      .map(_ => "0x" + _.toString("hex"));
+    const merkleTree = new MerkleTree(elements, keccak256);
+    const proof = merkleTree.getPositionalHexProof(treeData[addr].hash);
     console.log({ proof, [addr]: treeData[addr] });
   };
 
@@ -398,13 +397,13 @@ export const airdropRecover = (ethers: typeof Ethers) => {
     });
 
     console.log(elements);
-    const merkleTree = new MerkleTree(elements, false);
+    const merkleTree = new MerkleTree(elements, keccak256);
     // get the merkle root
     // returns 32 byte buffer
-    const merkleRoot = merkleTree.getRoot().toString("hex");
+    const merkleRoot = merkleTree.getHexRoot();
     // generate merkle proof
     // returns array of 32 byte buffers
-    const proof = merkleTree.getProof(elements[0]).map(_ => _.toString("hex"));
+    const proof = merkleTree.getPositionalHexProof(elements[0]);
     console.log({ merkleRoot, proof, sampleProofFor: toTree[0] });
     fs.writeFileSync(
       "airdrop/gdxAirdropRecovery.json",
