@@ -12,7 +12,7 @@ import "hardhat-contract-sizer";
 import { task, types } from "hardhat/config";
 import { sha3 } from "web3-utils";
 import { config } from "dotenv";
-import { airdrop } from "./scripts/governance/airdropCalculation";
+import { airdrop } from "./scripts/governance/airdropCalculationSorted";
 import { airdrop as repAirdropRecover } from "./scripts/governance/airdropCalculationRecover";
 import {
   airdrop as gdxAirdrop,

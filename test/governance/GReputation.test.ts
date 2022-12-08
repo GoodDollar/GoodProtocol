@@ -160,7 +160,14 @@ describe("GReputation", () => {
     });
 
     it("should update core balances and not change totalsupply after proof of rootState", async () => {
-      await grep.proveBalanceOfAtBlockchain("rootState", rep1, 1, proof, 1);
+      await grep.proveBalanceOfAtBlockchainLegacy(
+        "rootState",
+        rep1,
+        1,
+        proof,
+        [],
+        1
+      );
 
       //root states changes the core balance
       const newRep = await grep.balanceOfLocal(rep1);
@@ -192,7 +199,7 @@ describe("GReputation", () => {
 
     it("should reject invalid merkle proof", async () => {
       const e = await grep
-        .proveBalanceOfAtBlockchain("rootState", rep3, 10, proof, 1)
+        .proveBalanceOfAtBlockchainLegacy("rootState", rep3, 10, proof, [], 1)
         .catch(e => e);
       expect(e.message).to.match(/invalid merkle proof/);
     });
@@ -223,7 +230,14 @@ describe("GReputation", () => {
         ],
         1
       );
-      await grep.proveBalanceOfAtBlockchain("rootState", rep2, 2, proof, 2);
+      await grep.proveBalanceOfAtBlockchainLegacy(
+        "rootState",
+        rep2,
+        2,
+        proof,
+        [],
+        2
+      );
       await grep.connect(signers[3]).delegateTo(rep3); //rep2 -> rep3
 
       //verify delegators list has been updated
@@ -447,7 +461,14 @@ describe("GReputation", () => {
         1
       );
 
-      await grep.proveBalanceOfAtBlockchain("fuse", rep2, 200, proof, 2);
+      await grep.proveBalanceOfAtBlockchainLegacy(
+        "fuse",
+        rep2,
+        200,
+        proof,
+        [],
+        2
+      );
       const newRep = await grep.balanceOfLocal(rep2);
       expect(newRep).to.be.equal(prevRep); //core rep should not change
       const newVotes = await grep.getVotes(rep2);
@@ -507,7 +528,14 @@ describe("GReputation", () => {
         ],
         1
       );
-      await grep.proveBalanceOfAtBlockchain("fuse", rep2, 200, proof, 2);
+      await grep.proveBalanceOfAtBlockchainLegacy(
+        "fuse",
+        rep2,
+        200,
+        proof,
+        [],
+        2
+      );
       expect(await grep.getVotes(rep3)).to.be.eq(prevVotes); //be equal to rep2
     });
 
@@ -522,7 +550,14 @@ describe("GReputation", () => {
         ],
         2
       );
-      await grep.proveBalanceOfAtBlockchain("fuse", rep3, 10, proof, 3);
+      await grep.proveBalanceOfAtBlockchainLegacy(
+        "fuse",
+        rep3,
+        10,
+        proof,
+        [],
+        3
+      );
       expect(await grep.getVotes(rep3)).to.be.eq(prevVotes.add(10)); //add new blockchain rep
     });
 
@@ -655,11 +690,12 @@ describe("GReputation", () => {
         "0x6c8e26b04a1bdd3eb15e76dd4de8b3b097759bcf1a2e568b4847a4ef9a70602e"
       ];
       const rep = ethers.utils.parseEther("21492275.377107453");
-      await grep.proveBalanceOfAtBlockchain(
+      await grep.proveBalanceOfAtBlockchainLegacy(
         "realState",
         "0xf79b804bae955ae4cd8e8b0331c4bc437104804f",
         rep,
         proof,
+        [],
         1
       );
       expect(
@@ -690,11 +726,12 @@ describe("GReputation", () => {
         "0x46e9fa8d0157acbd5891643c3d16ddc9dcb67cbd0c5cd0cd289b01c6e2fd93fc"
       ];
       const rep = 139216138927630;
-      await grep.proveBalanceOfAtBlockchain(
+      await grep.proveBalanceOfAtBlockchainLegacy(
         "realState",
         "0x68b064891efb77b87fe1e872205e795f75a72a6d",
         rep,
         proof,
+        [],
         238576
       );
       expect(
@@ -806,11 +843,12 @@ describe("GReputation", () => {
       const rep = ethers.utils.parseEther("21492275.377107453");
 
       const tx = await grep
-        .proveBalanceOfAtBlockchain(
+        .proveBalanceOfAtBlockchainLegacy(
           "realState",
           "0xf79b804bae955ae4cd8e8b0331c4bc437104804f",
           rep,
           proof,
+          [],
           1
         )
         .catch(e => e);
@@ -835,11 +873,12 @@ describe("GReputation", () => {
         "0x2c8245c2d4c0e4ac0ae22754005d62d994aabe2bdb05f46cfe3ac63a4bf72a32"
       ];
       let tx = await grep
-        .proveBalanceOfAtBlockchain(
+        .proveBalanceOfAtBlockchainLegacy(
           "notExist",
           "0xe28f701A8a94E18220A5d800Bb06ae20e8eDd6c8",
           1199,
           proof,
+          [],
           1
         )
         .catch(e => e);

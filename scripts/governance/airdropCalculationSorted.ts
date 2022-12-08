@@ -1,3 +1,8 @@
+/**
+ * this version is for testing purposes only, to test greputation initial rootstate with the fixed merkle v2
+ * which uses sorted pairs so no position is required and it uses double hash for preimage attack
+ * future blockchain state hashes should be recalculated and created using similar method done here
+ */
 import { get, range, chunk, flatten, mergeWith, sortBy, uniq } from "lodash";
 import fs from "fs";
 import { MerkleTree } from "merkletreejs";
@@ -242,6 +247,7 @@ export const airdrop = (
     const { treeData } = JSON.parse(
       fs.readFileSync("airdrop/airdropPrev.json").toString()
     );
+
     const fuseMints = JSON.parse(
       fs.readFileSync("airdrop/repRecoverFuse.json").toString()
     );
@@ -255,10 +261,13 @@ export const airdrop = (
       const repInWei = BigNumber.from(
         treeData[addr.toLowerCase()]?.rep || "0"
       ).add(rep);
+      //double hash to prevent preimage attack
       const hash = ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
-          ["address", "uint256"],
-          [addr, repInWei.toString()]
+        ethers.utils.keccak256(
+          ethers.utils.defaultAbiCoder.encode(
+            ["address", "uint256"],
+            [addr, repInWei.toString()]
+          )
         )
       );
       treeData[addr.toLowerCase()] = {
@@ -268,6 +277,23 @@ export const airdrop = (
         addr
       };
     });
+
+    //we need to recalculate all hashes with double hash
+    Object.entries(treeData)
+      .filter((_: any) => !_[1].addr)
+      .forEach(([addr, data]) => {
+        const repInWei = BigNumber.from((data as any).rep);
+        treeData[addr].addr = addr;
+        const hash = ethers.utils.keccak256(
+          ethers.utils.keccak256(
+            ethers.utils.defaultAbiCoder.encode(
+              ["address", "uint256"],
+              [addr, repInWei.toString()]
+            )
+          )
+        );
+        treeData[addr].hash = hash;
+      });
 
     const ethRestore = Object.entries(mainnetMints).map(
       ([k, v]: [string, any]) => {
@@ -318,10 +344,12 @@ export const airdrop = (
     // );
     const items = Object.values(treeData);
     const elements = items.map((e: any) => Buffer.from(e.hash.slice(2), "hex"));
-    console.log("creating merkletree...", elements.length);
+    console.log("creating merkletree sorted...", elements.length);
     //NOTICE: we use a non sorted merkletree to save generation time, this requires also a different proof verification algorithm which
     //is not in the default openzeppelin library
-    const merkleTree = new MerkleTree(elements, ethers.utils.keccak256, {});
+    const merkleTree = new MerkleTree(elements, ethers.utils.keccak256, {
+      sortPairs: true
+    });
 
     // get the merkle root
     // returns 32 byte buffer
@@ -330,12 +358,10 @@ export const airdrop = (
 
     // generate merkle proof
     // returns array of 32 byte buffers
-    const proof = merkleTree.getPositionalHexProof(elements[0]);
+    const proof = merkleTree.getHexProof(elements[0]);
     const validProof = merkleTree.verify(proof, elements[0], merkleRoot);
 
-    const lastProof = merkleTree.getPositionalHexProof(
-      elements[elements.length - 1]
-    );
+    const lastProof = merkleTree.getHexProof(elements[elements.length - 1]);
     const lastValidProof = merkleTree.verify(
       lastProof,
       elements[elements.length - 1],
@@ -353,7 +379,7 @@ export const airdrop = (
       validProof,
       lastProof,
       lastValidProof,
-      proofFor: toTree[0],
+      proofFor: items[0],
       lastProofFor: items[items.length - 1],
       index: elements.length,
       leaf: elements[elements.length - 1].toString("hex")
@@ -375,12 +401,10 @@ export const airdrop = (
     let entries = Object.entries(treeData as Tree);
     let elements = entries.map(e => Buffer.from(e[1].hash.slice(2), "hex"));
 
-    console.log(
-      "creating merkletree...",
-      elements.length,
-      entries[entries.length - 4]
-    );
-    const merkleTree = new MerkleTree(elements, ethers.utils.keccak256, {});
+    console.log("creating merkletree sorted pairs...", elements.length);
+    const merkleTree = new MerkleTree(elements, ethers.utils.keccak256, {
+      sortPairs: true
+    });
 
     const calcMerkleRoot = merkleTree.getHexRoot();
     console.log("merkleroots:", {
@@ -391,13 +415,11 @@ export const airdrop = (
     const addrData = treeData[addr] || treeData[addr.toLowerCase()];
     const proofFor = Buffer.from(addrData.hash.slice(2), "hex");
 
-    const proof = merkleTree.getPositionalHexProof(proofFor);
+    const proof = merkleTree.getHexProof(proofFor);
     const proofIndex =
       elements.findIndex(_ => "0x" + _.toString("hex") === addrData.hash) + 1;
 
-    const isRightNode = proof.map(_ => !!_[0]);
-    const path = proof.map(_ => _[1]);
-    console.log({ proofIndex, proof: { isRightNode, path }, [addr]: addrData });
+    console.log({ proofIndex, proof, [addr]: addrData });
     console.log(
       "checkProof:",
       merkleTree.verify(proof, proofFor, calcMerkleRoot)
