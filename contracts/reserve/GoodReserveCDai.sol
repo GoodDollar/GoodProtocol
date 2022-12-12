@@ -292,7 +292,10 @@ contract GoodReserveCDai is
 			tokenReturn >= _minReturn,
 			"Token return must be above the minReturn"
 		);
-		cERC20(cDaiAddress).transfer(_target, tokenReturn);
+		require(
+			cERC20(cDaiAddress).transfer(_target, tokenReturn),
+			"cdai transfer failed"
+		);
 
 		emit TokenSold(
 			_seller,
