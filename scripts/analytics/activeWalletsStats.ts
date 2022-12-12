@@ -4,6 +4,10 @@ import PromisePool from "async-promise-pool";
 import fs from "fs";
 import { ethers } from "hardhat";
 
+/****
+ * Fetch token holders and their last activity date
+ * can be used to create stats about active users and how much G$ isnt active
+ */
 const main = async () => {
   let result = [];
   let balances = {};

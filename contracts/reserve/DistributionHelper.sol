@@ -51,6 +51,10 @@ contract DistributionHelper is
 		__AccessControlEnumerable_init();
 		setDAO(_ns);
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar); //this needs to happen after setDAO for avatar to be non empty
+		updateAddresses();
+	}
+
+	function updateAddresses() public {
 		fuseBridge = nameService.getAddress("BRIDGE_CONTRACT");
 		multiChainBridge = IMultichainRouter(
 			nameService.getAddress("MULTICHAIN_ROUTER")
