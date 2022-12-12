@@ -522,7 +522,8 @@
         ],
         "MultichainRouter": "0x765277eebeca2e31912c9946eae1021199b39c61",
         "AnyGoodDollar": "0xd17652350cfd2a37ba2f947c910987a3b1a1c60d",
-        "GuardiansSafe": "0xE0c5daa7CC6F88d29505f702a53bb5E67600e7Ec"
+        "GuardiansSafe": "0xE0c5daa7CC6F88d29505f702a53bb5E67600e7Ec",
+        "DistributionHelper": "0xAcadA0C9795fdBb6921AE96c4D7Db2F8B8c52Fd0"
     },
     "production": {
         "NameService": "0xec6dcE387B1616a0c44fF2E4fA9E90E53Cf14eb0",
