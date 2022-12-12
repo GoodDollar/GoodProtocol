@@ -3,8 +3,9 @@ pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/SignatureCheckerUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 
 import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
@@ -16,7 +17,8 @@ import "../Interfaces.sol";
 contract IdentityV2 is
 	DAOUpgradeableContract,
 	AccessControlUpgradeable,
-	PausableUpgradeable
+	PausableUpgradeable,
+	EIP712Upgradeable
 {
 	struct Identity {
 		uint256 dateAuthenticated;
@@ -57,6 +59,7 @@ contract IdentityV2 is
 	{
 		__AccessControl_init_unchained();
 		__Pausable_init_unchained();
+		__EIP712_init_unchained("Identity", "1.0.0");
 		authenticationPeriod = 365 * 3;
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
 		_setupRole(DEFAULT_ADMIN_ROLE, _owner);
@@ -315,7 +318,7 @@ contract IdentityV2 is
 		if (identities[account].status == 1 || identities[account].status == 2) {
 			whitelistedCount -= 1;
 
-			if (isContract(account)) {
+			if (isContract(account) && whitelistedContracts > 0) {
 				whitelistedContracts -= 1;
 			}
 
@@ -368,23 +371,39 @@ contract IdentityV2 is
 		return length > 0;
 	}
 
-	function connectAccount(address _account, bytes memory signature)
-		external
-		onlyWhitelisted
-	{
+	function connectAccount(
+		address _account,
+		bytes memory signature,
+		uint256 blockDeadline
+	) external onlyWhitelisted {
+		require(
+			blockDeadline > 0 && blockDeadline >= block.number,
+			"invalid deadline"
+		);
 		require(
 			!isWhitelisted(_account) && !isBlacklisted(_account),
 			"invalid account"
 		);
 		require(connectedAccounts[_account] == address(0x0), "already connected");
+
+		bytes32 digest = _hashTypedDataV4(
+			keccak256(
+				abi.encode(
+					keccak256(
+						"ConnectIdentity(address whitelisted,address connected,uint256 deadline)"
+					),
+					msg.sender,
+					_account,
+					blockDeadline
+				)
+			)
+		);
 		//signature ensures the whitelisted (msg.sender) has submited a signature by connected account
 		//that connects both accounts
 		require(
-			SignatureChecker.isValidSignatureNow(
+			SignatureCheckerUpgradeable.isValidSignatureNow(
 				_account,
-				ECDSA.toEthSignedMessageHash(
-					keccak256(abi.encode(msg.sender, _account))
-				),
+				digest,
 				signature
 			),
 			"invalid signature"

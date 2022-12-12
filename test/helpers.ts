@@ -36,6 +36,7 @@ export const getStakingFactory = async (
 };
 
 export const createDAO = async () => {
+  console.log("createDAO...");
   let [root, ...signers] = await ethers.getSigners();
 
   const cdaiFactory = await ethers.getContractFactory("cDAIMock");
@@ -64,6 +65,8 @@ export const createDAO = async () => {
     await ethers.getContractFactory("BancorFormula")
   ).deploy();
 
+  console.log("deploy upgradeable identity...");
+
   const Identity = await upgrades.deployProxy(
     IdentityFactory,
     [root.address, ethers.constants.AddressZero],
@@ -75,6 +78,7 @@ export const createDAO = async () => {
   const GoodDollarFactory = await ethers.getContractFactory("GoodDollar");
   const GReputation = await ethers.getContractFactory("GReputation");
 
+  console.log("deploy upgradeable rep...");
   let reputation = await upgrades.deployProxy(
     GReputation,
     [ethers.constants.AddressZero, "", ethers.constants.HashZero, 0],
@@ -84,6 +88,7 @@ export const createDAO = async () => {
     }
   );
 
+  console.log("deploy upgradeable G$...");
   const GoodDollar = await upgrades.deployProxy(
     GoodDollarFactory,
     [

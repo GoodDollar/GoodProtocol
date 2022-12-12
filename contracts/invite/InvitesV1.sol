@@ -132,6 +132,7 @@ contract InvitesV1 is Initializable {
 		uint256 daysToComplete = levels[users[invitedBy].level].daysToComplete;
 		bool isLevelExpired = levelExpirationEnabled == true &&
 			daysToComplete > 0 &&
+			users[_invitee].joinedAt > users[invitedBy].levelStarted &&
 			daysToComplete <
 			users[_invitee].joinedAt.sub(users[invitedBy].levelStarted).div(1 days);
 
