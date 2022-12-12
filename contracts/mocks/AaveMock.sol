@@ -9,7 +9,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 contract AaveMock is ERC20PresetMinterPauserUpgradeable {
 	using SafeMathUpgradeable for uint256;
 
-	constructor() {
+	constructor() initializer {
 		__ERC20PresetMinterPauser_init("AAVE", "Aave");
 	}
 

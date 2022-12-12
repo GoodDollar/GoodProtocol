@@ -4,7 +4,7 @@ pragma solidity >=0.8.0;
 import "../staking/GoodFundManager.sol";
 
 contract GoodFundManagerTest is GoodFundManager {
-	constructor(INameService _ns) GoodFundManager() {
+	constructor(INameService _ns) initializer GoodFundManager() {
 		initialize(_ns);
 	}
 

@@ -14,7 +14,7 @@ contract cDAINonMintableMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 
 	uint256 exchangeRate = uint256(100e28).div(99);
 
-	constructor(ERC20PresetMinterPauserUpgradeable _dai) {
+	constructor(ERC20PresetMinterPauserUpgradeable _dai) initializer {
 		__ERC20PresetMinterPauser_init("Compound DAI", "cDAI");
 		dai = _dai;
 	}
@@ -22,19 +22,15 @@ contract cDAINonMintableMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	function mint(uint256 daiAmount) public returns (uint256) {
 		dai.transferFrom(msg.sender, address(this), daiAmount);
 		//mul by 1e10 to match to precision of 1e28 of the exchange rate
-		_mint(
-			msg.sender,
-			rdiv(daiAmount * 1e10, exchangeRateStored()).div(1e19)
-		); //div to reduce precision from RAY 1e27 to 1e8 precision of cDAI
+		_mint(msg.sender, rdiv(daiAmount * 1e10, exchangeRateStored()).div(1e19)); //div to reduce precision from RAY 1e27 to 1e8 precision of cDAI
 		return 1;
 	}
 
 	function redeem(uint256 cdaiAmount) public returns (uint256) {
-		uint256 daiAmount =
-			rmul(
-				cdaiAmount * 1e10, //bring cdai 8 decimals to rdai precision
-				exchangeRateStored().div(10)
-			);
+		uint256 daiAmount = rmul(
+			cdaiAmount * 1e10, //bring cdai 8 decimals to rdai precision
+			exchangeRateStored().div(10)
+		);
 		//div to reduce precision from 1e28 of exchange rate to 1e27 that DSMath works on
 		// uint256 daiAmount = cdaiAmount.mul(100).div(99);
 		_burn(msg.sender, cdaiAmount);
@@ -43,8 +39,7 @@ contract cDAINonMintableMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	}
 
 	function redeemUnderlying(uint256 daiAmount) public returns (uint256) {
-		uint256 cdaiAmount =
-			rdiv(daiAmount * 1e10, exchangeRateStored()).div(1e19);
+		uint256 cdaiAmount = rdiv(daiAmount * 1e10, exchangeRateStored()).div(1e19);
 		_burn(msg.sender, cdaiAmount);
 		dai.transfer(msg.sender, daiAmount);
 		return 0;

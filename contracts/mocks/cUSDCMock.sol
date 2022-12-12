@@ -15,7 +15,7 @@ contract cUSDCMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	uint256 exchangeRate = 200000000000000; // initial exchange rate 0.02 from original cToken
 	uint256 mantissa = 16;
 
-	constructor(ERC20PresetMinterPauserUpgradeable _usdc) {
+	constructor(ERC20PresetMinterPauserUpgradeable _usdc) initializer {
 		__ERC20PresetMinterPauser_init("Compound USDC", "cUSDC");
 		usdc = _usdc;
 	}
@@ -31,8 +31,8 @@ contract cUSDCMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	}
 
 	function redeem(uint256 cUsdcAmount) public returns (uint256) {
-		uint256 usdcAmount =
-			((cUsdcAmount / 1e2) * exchangeRateStored()) / 10**mantissa; // based on https://compound.finance/docs#protocol-math
+		uint256 usdcAmount = ((cUsdcAmount / 1e2) * exchangeRateStored()) /
+			10**mantissa; // based on https://compound.finance/docs#protocol-math
 
 		_burn(msg.sender, cUsdcAmount);
 		usdc.transfer(msg.sender, usdcAmount);
@@ -40,8 +40,8 @@ contract cUSDCMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	}
 
 	function redeemUnderlying(uint256 usdcAmount) public returns (uint256) {
-		uint256 cUsdcAmount =
-			(usdcAmount * 1e2 * (10**mantissa)) / exchangeRateStored(); // based on https://compound.finance/docs#protocol-math
+		uint256 cUsdcAmount = (usdcAmount * 1e2 * (10**mantissa)) /
+			exchangeRateStored(); // based on https://compound.finance/docs#protocol-math
 		_burn(msg.sender, cUsdcAmount);
 		usdc.transfer(msg.sender, usdcAmount);
 		return 0;

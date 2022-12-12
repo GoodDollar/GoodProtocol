@@ -14,7 +14,7 @@ contract cSDTMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	uint256 exchangeRate = 2000000000000000000000000; // initial exchange rate 0.02 from original cToken
 	uint256 mantissa = 26;
 
-	constructor(ERC20PresetMinterPauserUpgradeable _edt) {
+	constructor(ERC20PresetMinterPauserUpgradeable _edt) initializer {
 		__ERC20PresetMinterPauser_init("Compound SDT", "cSDT");
 		edt = _edt;
 	}
@@ -38,8 +38,8 @@ contract cSDTMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	}
 
 	function redeemUnderlying(uint256 edtAmount) public returns (uint256) {
-		uint256 cEdtAmount =
-			((edtAmount / 1e8) * (10**mantissa)) / exchangeRateStored(); // based on https://compound.finance/docs#protocol-math
+		uint256 cEdtAmount = ((edtAmount / 1e8) * (10**mantissa)) /
+			exchangeRateStored(); // based on https://compound.finance/docs#protocol-math
 		_burn(msg.sender, cEdtAmount);
 		edt.transfer(msg.sender, edtAmount);
 		return 0;
