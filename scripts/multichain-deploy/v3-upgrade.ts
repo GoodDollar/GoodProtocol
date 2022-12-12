@@ -33,7 +33,7 @@ const { name: networkName } = network;
 export const deployMainnet = async () => {
   let [root, ...signers] = await ethers.getSigners();
 
-  let executionMethod = "guardians";
+  let executionMethod = "safe";
   let communitySafe = "0x5Eb5f5fE13d1D5e6440DbD5913412299Bc5B5564";
 
   const networkKey =

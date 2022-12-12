@@ -514,8 +514,8 @@ const main = async () => {
   let uniques = [];
   const f = gd.filters.Transfer();
   const STEP_SIZE = 5000;
-  const fromBlocks = range(curBlock - 6e5, curBlock, STEP_SIZE);
-  const pool = new PromisePool({ concurrency: 5 });
+  const fromBlocks = range(curBlock - 6e5, curBlock, STEP_SIZE); //600k blocks roughly a month
+  const pool = new PromisePool({ concurrency: 2 });
   console.log({ curBlock });
   fromBlocks.forEach(fromBlock => {
     pool.add(async () => {
