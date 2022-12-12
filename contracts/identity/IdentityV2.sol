@@ -30,6 +30,8 @@ contract IdentityV2 is
 
 	bytes32 public constant IDENTITY_ADMIN_ROLE = keccak256("identity_admin");
 	bytes32 public constant PAUSER_ROLE = keccak256("pause_admin");
+	string public constant TYPED_STRUCTURE =
+		"ConnectIdentity(address whitelisted,address connected,uint256 deadline)";
 
 	uint256 public whitelistedCount;
 	uint256 public whitelistedContracts;
@@ -71,6 +73,9 @@ contract IdentityV2 is
 		oldIdentity = _oldIdentity;
 	}
 
+	/**
+	 * @dev used to initialize after deployment once nameservice is available
+	 */
 	function initDAO(address _ns) external onlyRole(DEFAULT_ADMIN_ROLE) {
 		require(address(nameService) == address(0), "already initialized");
 		setDAO(INameService(_ns));
@@ -84,7 +89,8 @@ contract IdentityV2 is
 		_;
 	}
 
-	/* @dev Sets a new value for authenticationPeriod.
+	/**
+	 * @dev Sets a new value for authenticationPeriod.
 	 * Can only be called by Identity Administrators.
 	 * @param period new value for authenticationPeriod
 	 */
@@ -93,7 +99,8 @@ contract IdentityV2 is
 		authenticationPeriod = period;
 	}
 
-	/* @dev Sets the authentication date of `account`
+	/**
+	 * @dev Sets the authentication date of `account`
 	 * to the current time.
 	 * Can only be called by Identity Administrators.
 	 * @param account address to change its auth date
@@ -108,7 +115,8 @@ contract IdentityV2 is
 		emit WhitelistedAuthenticated(account, block.timestamp);
 	}
 
-	/* @dev Adds an address as whitelisted.
+	/**
+	 * @dev Adds an address as whitelisted.
 	 * Can only be called by Identity Administrators.
 	 * @param account address to add as whitelisted
 	 */
@@ -120,9 +128,10 @@ contract IdentityV2 is
 		_addWhitelisted(account, _chainId());
 	}
 
-	/* @dev Adds an address as whitelisted under a specific ID
-	 * @param account The address to add
-	 * @param did the ID to add account under
+	/**
+	  @dev Adds an address as whitelisted under a specific ID
+	  @param account The address to add
+	  @param did the ID to add account under
 	 */
 	function addWhitelistedWithDIDAndChain(
 		address account,
@@ -138,7 +147,8 @@ contract IdentityV2 is
 		}
 	}
 
-	/* @dev Adds an address as whitelisted under a specific ID
+	/**
+	 * @dev Adds an address as whitelisted under a specific ID
 	 * @param account The address to add
 	 * @param did the ID to add account under
 	 */
@@ -150,7 +160,8 @@ contract IdentityV2 is
 		_addWhitelistedWithDID(account, did, _chainId());
 	}
 
-	/* @dev Removes an address as whitelisted.
+	/**
+	 * @dev Removes an address as whitelisted.
 	 * Can only be called by Identity Administrators.
 	 * @param account address to remove as whitelisted
 	 */
@@ -162,13 +173,15 @@ contract IdentityV2 is
 		_removeWhitelisted(account);
 	}
 
-	/* @dev Renounces message sender from whitelisted
+	/**
+	 * @dev Renounces message sender from whitelisted
 	 */
 	function renounceWhitelisted() external whenNotPaused onlyWhitelisted {
 		_removeWhitelisted(msg.sender);
 	}
 
-	/* @dev Returns true if given address has been added to whitelist
+	/**
+	 * @dev Returns true if given address has been added to whitelist
 	 * @param account the address to check
 	 * @return a bool indicating weather the address is present in whitelist
 	 */
@@ -190,7 +203,8 @@ contract IdentityV2 is
 		return false;
 	}
 
-	/* @dev Function that gives the date the given user was added
+	/**
+	 * @dev Function that gives the date the given user was added
 	 * @param account The address to check
 	 * @return The date the address was added
 	 */
@@ -198,7 +212,8 @@ contract IdentityV2 is
 		return identities[account].dateAuthenticated;
 	}
 
-	/* @dev Adds an address to blacklist.
+	/**
+	 * @dev Adds an address to blacklist.
 	 * Can only be called by Identity Administrators.
 	 * @param account address to add as blacklisted
 	 */
@@ -211,7 +226,8 @@ contract IdentityV2 is
 		emit BlacklistAdded(account);
 	}
 
-	/* @dev Removes an address from blacklist
+	/**
+	 * @dev Removes an address from blacklist
 	 * Can only be called by Identity Administrators.
 	 * @param account address to remove as blacklisted
 	 */
@@ -227,7 +243,8 @@ contract IdentityV2 is
 		emit BlacklistRemoved(account);
 	}
 
-	/* @dev Function to add a Contract to list of contracts
+	/**
+	 * @dev Function to add a Contract to list of contracts
 	 * @param account The address to add
 	 */
 	function addContract(address account)
@@ -242,7 +259,8 @@ contract IdentityV2 is
 		emit ContractAdded(account);
 	}
 
-	/* @dev Function to remove a Contract from list of contracts
+	/**
+	 * @dev Function to remove a Contract from list of contracts
 	 * @param account The address to add
 	 */
 	function removeContract(address account)
@@ -258,8 +276,9 @@ contract IdentityV2 is
 		emit ContractRemoved(account);
 	}
 
-	/* @dev Function to check if given contract is on list of contracts.
-	 * @param address to check
+	/**
+	 * @dev Function to check if given contract is on list of contracts.
+	 * @param account to check
 	 * @return a bool indicating if address is on list of contracts
 	 */
 	function isDAOContract(address account) external view returns (bool) {
@@ -274,7 +293,8 @@ contract IdentityV2 is
 		return false;
 	}
 
-	/* @dev Internal function to add to whitelisted
+	/**
+	 * @dev Internal function to add to whitelisted
 	 * @param account the address to add
 	 */
 	function _addWhitelisted(address account, uint256 orgChain) internal {
@@ -293,7 +313,8 @@ contract IdentityV2 is
 		emit WhitelistedAdded(account);
 	}
 
-	/* @dev Internal whitelisting with did function.
+	/**
+	 * @dev Internal whitelisting with did function.
 	 * @param account the address to add
 	 * @param did the id to register account under
 	 */
@@ -311,7 +332,8 @@ contract IdentityV2 is
 		_addWhitelisted(account, orgChain);
 	}
 
-	/* @dev Internal function to remove from whitelisted
+	/**
+	 * @dev Internal function to remove from whitelisted
 	 * @param account the address to add
 	 */
 	function _removeWhitelisted(address account) internal {
@@ -344,7 +366,8 @@ contract IdentityV2 is
 		}
 	}
 
-	/* @dev Returns true if given address has been added to the blacklist
+	/**
+	 * @dev Returns true if given address has been added to the blacklist
 	 * @param account the address to check
 	 * @return a bool indicating weather the address is present in the blacklist
 	 */
@@ -360,7 +383,8 @@ contract IdentityV2 is
 		return false;
 	}
 
-	/* @dev Function to see if given address is a contract
+	/**
+	 * @dev Function to see if given address is a contract
 	 * @return true if address is a contract
 	 */
 	function isContract(address _addr) internal view returns (bool) {
@@ -371,8 +395,14 @@ contract IdentityV2 is
 		return length > 0;
 	}
 
+	/**
+	 @dev allows user to connect more accounts to his identity. msg.sender needs to be whitelisted
+	 @param account the account to connect to msg.sender
+	 @param signature the eip712 signed typed data by _account see TYPED_STRUCTURE
+	 @param blockDeadline the expiration block of the signature as specified in the typed data
+	 */
 	function connectAccount(
-		address _account,
+		address account,
 		bytes memory signature,
 		uint256 blockDeadline
 	) external onlyWhitelisted {
@@ -381,19 +411,17 @@ contract IdentityV2 is
 			"invalid deadline"
 		);
 		require(
-			!isWhitelisted(_account) && !isBlacklisted(_account),
+			!isWhitelisted(account) && !isBlacklisted(account),
 			"invalid account"
 		);
-		require(connectedAccounts[_account] == address(0x0), "already connected");
+		require(connectedAccounts[account] == address(0x0), "already connected");
 
 		bytes32 digest = _hashTypedDataV4(
 			keccak256(
 				abi.encode(
-					keccak256(
-						"ConnectIdentity(address whitelisted,address connected,uint256 deadline)"
-					),
+					keccak256(bytes(TYPED_STRUCTURE)),
 					msg.sender,
-					_account,
+					account,
 					blockDeadline
 				)
 			)
@@ -402,49 +430,60 @@ contract IdentityV2 is
 		//that connects both accounts
 		require(
 			SignatureCheckerUpgradeable.isValidSignatureNow(
-				_account,
+				account,
 				digest,
 				signature
 			),
 			"invalid signature"
 		);
-		connectedAccounts[_account] = msg.sender;
+		connectedAccounts[account] = msg.sender;
 	}
 
-	function disconnectAccount(address _connected) external {
+	/**
+	 @dev disconnect a connected account from identity. can be performed either by identity or the connected account
+	 @param connected the account to disconnect
+	 */
+	function disconnectAccount(address connected) external {
 		require(
-			connectedAccounts[_connected] == msg.sender || msg.sender == _connected,
+			connectedAccounts[connected] == msg.sender || msg.sender == connected,
 			"unauthorized"
 		);
-		delete connectedAccounts[_connected];
+		delete connectedAccounts[connected];
 	}
 
-	function getWhitelistedRoot(address _account)
+	/**
+	 @dev returns the identity in case account is connected or is the identity itself otherwise returns the empty address
+	 @param account address to get its identity
+	 @return whitelisted the identity or address 0 if _account not connected or not identity
+	 **/
+	function getWhitelistedRoot(address account)
 		external
 		view
 		returns (address whitelisted)
 	{
-		if (isWhitelisted(_account)) return _account;
-		if (isWhitelisted(connectedAccounts[_account]))
-			return connectedAccounts[_account];
+		if (isWhitelisted(account)) return account;
+		if (isWhitelisted(connectedAccounts[account]))
+			return connectedAccounts[account];
 
 		return address(0x0);
 	}
 
-	function pause(bool _toPause) external onlyRole(PAUSER_ROLE) {
-		if (_toPause) _pause();
+	function pause(bool toPause) external onlyRole(PAUSER_ROLE) {
+		if (toPause) _pause();
 		else _unpause();
 	}
 
-	function setDID(address account, string calldata did)
-		external
-		onlyRole(IDENTITY_ADMIN_ROLE)
-	{
+	/**
+	  @dev modify account did can be called by account owner or identity admin
+	  @param account the account to modify
+	  @param did the did to set
+	 */
+	function setDID(address account, string calldata did) external {
+		require(
+			msg.sender == account || hasRole(IDENTITY_ADMIN_ROLE, msg.sender),
+			"not authorized"
+		);
 		_setDID(account, did);
-	}
-
-	function setDID(string calldata did) external {
-		_setDID(msg.sender, did);
 	}
 
 	function _setDID(address account, string memory did) internal {
@@ -473,6 +512,11 @@ contract IdentityV2 is
 		didHashToAddress[pHash] = account;
 	}
 
+	/**
+	 @dev for backward compatability with V1
+	 @param account to get DID for
+	 @return did of the account
+	 */
 	function addrToDID(address account)
 		external
 		view
@@ -496,7 +540,7 @@ contract IdentityV2 is
 	}
 
 	/**
-	 * compatability with IdentityV1 that GoodDollar token checks if the identity contract is registered
+	 * backward compatability with IdentityV1 that GoodDollar token checks if the identity contract is registered
 	 */
 	function isRegistered() external pure returns (bool) {
 		return true;

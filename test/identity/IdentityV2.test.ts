@@ -487,26 +487,37 @@ describe("Identity", () => {
     const { newid } = await loadFixture(oldidFixture);
 
     await expect(
-      newid.connect(signers[1])["setDID(string)"]("testolddid")
+      newid
+        .connect(signers[1])
+        ["setDID(address,string)"](signers[1].address, "testolddid")
     ).revertedWith("DID already registered oldIdentity");
   });
 
   it("should set did if set in oldidentity by same owner", async () => {
     const { newid } = await loadFixture(oldidFixture);
 
-    await expect(newid.connect(signers[3])["setDID(string)"]("testolddid")).not
-      .reverted;
+    await expect(
+      newid
+        .connect(signers[3])
+        ["setDID(address,string)"](signers[3].address, "testolddid")
+    ).not.reverted;
     expect(await newid.addrToDID(signers[3].address)).eq("testolddid");
   });
   it("should set did if set in oldidentity by different owner but updated in new identity", async () => {
     const { newid } = await loadFixture(oldidFixture);
 
-    await expect(newid.connect(signers[3])["setDID(string)"]("newdid")).not
-      .reverted;
+    await expect(
+      newid
+        .connect(signers[3])
+        ["setDID(address,string)"](signers[3].address, "newdid")
+    ).not.reverted;
     expect(await newid.addrToDID(signers[3].address)).eq("newdid");
 
-    await expect(newid.connect(signers[1])["setDID(string)"]("testolddid")).not
-      .reverted;
+    await expect(
+      newid
+        .connect(signers[1])
+        ["setDID(address,string)"](signers[1].address, "testolddid")
+    ).not.reverted;
     expect(await newid.addrToDID(signers[1].address)).eq("testolddid");
   });
 
