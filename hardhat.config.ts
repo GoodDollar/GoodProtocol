@@ -24,7 +24,9 @@ import { ethers } from "ethers";
 import { fstat, readFileSync, writeFileSync } from "fs";
 config();
 
-const mnemonic = process.env.MNEMONIC;
+const mnemonic =
+  process.env.MNEMONIC ||
+  "test test test test test test test test test test test junk";
 const deployerPrivateKey =
   process.env.PRIVATE_KEY || ethers.utils.hexZeroPad("0x11", 32);
 const infura_api = process.env.INFURA_API;
@@ -74,7 +76,9 @@ const hhconfig: HardhatUserConfig = {
 
   networks: {
     hardhat: {
-      chainId: 4447,
+      chainId: process.env.FORK_CHAIN_ID
+        ? Number(process.env.FORK_CHAIN_ID)
+        : 4447,
       allowUnlimitedContractSize: true,
       accounts: {
         accountsBalance: "10000000000000000000000000"
@@ -177,7 +181,7 @@ const hhconfig: HardhatUserConfig = {
       accounts: [deployerPrivateKey],
       url: MAINNET_URL,
       gas: 3000000,
-      gasPrice: 50000000000,
+      gasPrice: 15000000000,
       chainId: 1
     },
     "production-celo": {
@@ -207,6 +211,13 @@ const hhconfig: HardhatUserConfig = {
       gas: 3000000,
       gasPrice: 150000000,
       chainId: 42220
+    },
+    gnosis: {
+      accounts: [deployerPrivateKey],
+      url: "https://rpc.gnosischain.com",
+      gas: 3000000,
+      gasPrice: 500000000,
+      chainId: 100
     }
   },
   mocha: {

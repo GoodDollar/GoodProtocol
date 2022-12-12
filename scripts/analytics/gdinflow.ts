@@ -5,6 +5,9 @@ import fs from "fs";
 import { ethers } from "hardhat";
 import { keccak256 } from "web3-utils";
 
+/***
+ * fetch all income to certain accounts
+ */
 const main = async () => {
   const uniques = {};
   let addresses = [];
