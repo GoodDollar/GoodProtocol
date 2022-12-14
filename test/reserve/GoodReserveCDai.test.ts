@@ -405,9 +405,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     let error = await exchangeHelper
       .buy([cDAI.address], amount, 0, 0, NULL_ADDRESS)
       .catch(e => e);
-    expect(error.message).to.have.string(
-      "ERC20: transfer amount exceeds allowance"
-    );
+    expect(error.message).to.have.string("ERC20: insufficient allowance");
   });
 
   it("should not be able to buy gd without enough cDAI funds", async () => {
@@ -888,9 +886,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     let amount = 1e8;
     await cDAI.approve(goodReserve.address, 0);
     const tx = await goodReserve.buy(amount, 0, founder.address).catch(e => e);
-    expect(tx.message).to.have.string(
-      "ERC20: transfer amount exceeds allowance"
-    );
+    expect(tx.message).to.have.string("ERC20: insufficient allowance");
   });
   it("should be able to sell gd directly through reserve", async () => {
     const cdaiBalanceBeforeSell = await cDAI.balanceOf(founder.address);

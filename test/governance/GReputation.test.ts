@@ -1,5 +1,5 @@
 // import { GReputationInstance } from "../types/GReputation";
-import MerkleTree, { checkProofOrdered } from "merkle-tree-solidity";
+import MerkleTree from "merkletreejs";
 import { ethers, upgrades } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Signer } from "ethers";
@@ -38,7 +38,7 @@ export const getMerkleAndProof = async (data, proofIdx) => {
   //this will give repOwner minter permissions
   await setDAOAddress("GDAO_CLAIMERS", repOwner);
 
-  const merkleTree = new MerkleTree(elements, true);
+  const merkleTree = new MerkleTree(elements, ethers.utils.keccak256);
 
   // get the merkle root
   // returns 32 byte buffer
@@ -46,12 +46,11 @@ export const getMerkleAndProof = async (data, proofIdx) => {
 
   // generate merkle proof
   // returns array of 32 byte buffers
-  const proof = merkleTree.getProof(elements[proofIdx]);
-  const isValid = checkProofOrdered(
-    proof,
-    merkleRoot,
+  const proof = merkleTree.getHexProof(elements[proofIdx]);
+  const isValid = merkleTree.verify(
+    merkleTree.getPositionalHexProof(elements[proofIdx]),
     elements[proofIdx],
-    proofIdx + 1
+    merkleRoot
   );
   return { merkleRoot, proof, isValid, index: proofIdx + 1 };
 };

@@ -1,11 +1,9 @@
-import hre, { ethers, upgrades } from "hardhat";
+import hre, { ethers, waffle } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 // import { deployContract, deployMockContract, MockContract } from "ethereum-waffle";
 import { GReputation, CompoundVotingMachine } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { Wallet } from "ethers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
 import { createDAO } from "../helpers";
 
 const BN = ethers.BigNumber;
@@ -94,8 +92,8 @@ describe("CompoundVotingMachine#DAOScheme", () => {
     queuePeriod = await gov.queuePeriod().then(_ => _.toNumber());
 
     let mockABI = ["function rec() payable"];
-    mock = await deployMockContract(root, mockABI);
-    mock.mock.rec.returns();
+    mock = await waffle.deployMockContract(root, mockABI);
+    await mock.mock.rec.returns();
   });
 
   ///cell 0 - votingPeriod blocks, 1 - quoromPercentage, 2 - proposalPercentage,3 - proposalMaxOperations, 4 - voting delay blocks, 5 - queuePeriod time

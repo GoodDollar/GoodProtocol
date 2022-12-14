@@ -1,11 +1,9 @@
-import hre, { ethers, upgrades } from "hardhat";
+import hre, { ethers, upgrades, waffle } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 // import { deployContract, deployMockContract, MockContract } from "ethereum-waffle";
 import { GReputation, CompoundVotingMachine } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { Wallet } from "ethers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
 import { createDAO, increaseTime } from "../helpers";
 
 const BN = ethers.BigNumber;
@@ -87,7 +85,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     queuePeriod = await gov.queuePeriod().then(_ => _.toNumber());
 
     let mockABI = ["function rec() payable"];
-    mock = await deployMockContract(root, mockABI);
+    mock = await waffle.deployMockContract(root, mockABI);
     mock.mock.rec.returns();
   });
 

@@ -1,14 +1,10 @@
-// import { GReputationInstance } from "../types/GReputation";
-import MerkleTree, { checkProofOrdered } from "merkle-tree-solidity";
-import { ethers, upgrades } from "hardhat";
+import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { BigNumber, Signer } from "ethers";
-import { sign } from "crypto";
+import { BigNumber } from "ethers";
 import { expect } from "chai";
 import { GReputation } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { advanceBlocks, createDAO, increaseTime } from "../helpers";
-import { TextDecoder } from "util";
+import { createDAO } from "../helpers";
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;

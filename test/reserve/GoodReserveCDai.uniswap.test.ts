@@ -437,7 +437,7 @@ describe("GoodReserve - buy/sell with any token through uniswap", () => {
         0,
         NULL_ADDRESS
       )
-    ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
+    ).to.be.revertedWith("ERC20: insufficient allowance");
   });
 
   it("shouldn't be able to sell gd to tokenA through UNISWAP without approve", async () => {
