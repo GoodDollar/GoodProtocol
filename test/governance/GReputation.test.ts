@@ -7,7 +7,7 @@ import { sign } from "crypto";
 import { expect } from "chai";
 import { GReputation } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { advanceBlocks, createDAO, increaseTime } from "../helpers";
+import { advanceBlocks, createDAO } from "../helpers";
 import { TextDecoder } from "util";
 
 const BN = ethers.BigNumber;
