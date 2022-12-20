@@ -194,10 +194,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			}
 		}
 
-		if (exist && (_isBlackListed || _rewardsPerBlock == 0)) {
+		if (exist && _isBlackListed) {
 			activeContracts[i] = activeContracts[activeContracts.length - 1];
 			activeContracts.pop();
-		} else if (!exist && !(_isBlackListed || _rewardsPerBlock == 0)) {
+		} else if (!exist && !_isBlackListed) {
 			activeContracts.push(_stakingAddress);
 		}
 		emit StakingRewardSet(
