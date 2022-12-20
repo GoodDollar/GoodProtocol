@@ -100,9 +100,7 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 	 */
 	function initialize() public initializer {
 		__Ownable_init_unchained();
-		consensus = IConsensus(
-			address(0x3014ca10b91cb3D0AD85fEf7A3Cb95BCAc9c0f79)
-		);
+		consensus = IConsensus(address(0x3014ca10b91cb3D0AD85fEf7A3Cb95BCAc9c0f79));
 		validators.push(address(0xcb876A393F05a6677a8a029f1C6D7603B416C0A6));
 	}
 
@@ -114,72 +112,6 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 	modifier onlyGuardian() {
 		require(msg.sender == guardian, "not guardian");
 		_;
-	}
-
-	function upgrade0() external {
-		if (RATIO_BASE == 0) {
-			stakeBackRatio = 33333; //%33
-			communityPoolRatio = 33333; //%33
-			maxSlippageRatio = 3000; //3%
-			keeperFeeRatio = 30; //0.03%
-			RATIO_BASE = 100000; //100%
-		}
-	}
-
-	function upgrade1(
-		address _gd,
-		address _ubischeme,
-		address _uniswap
-	) external {
-		if (address(uniswapPair) == address(0)) {
-			uniswap = Uniswap(
-				_uniswap == address(0)
-					? 0xFB76e9E7d88E308aB530330eD90e84a952570319
-					: _uniswap
-			);
-			GD = IGoodDollar(_gd);
-			ubischeme = UBIScheme(_ubischeme);
-
-			uniswapFactory = UniswapFactory(uniswap.factory());
-			uniswapPair = UniswapPair(
-				uniswapFactory.getPair(uniswap.WETH(), _gd)
-			);
-		}
-	}
-
-	function upgrade2() external {
-		if (USDC == address(0)) {
-			USDC = address(0x620fd5fa44BE6af63715Ef4E65DDFA0387aD13F5);
-			fUSD = address(0x249BE57637D8B013Ad64785404b24aeBaE9B098B);
-		}
-	}
-
-	function upgrade3() external {
-		if (guardian == address(0)) {
-			paused = true;
-			guardian = address(0x5128E3C1f8846724cc1007Af9b4189713922E4BB);
-		}
-	}
-
-	function upgrade4() external {
-		if (address(pegSwap) == address(0)) {
-			pegSwap = PegSwap(0xdfE016328E7BcD6FA06614fE3AF3877E931F7e0a);
-			paused = false;
-		}
-	}
-
-	function upgrade5() external {
-		cERC20(fUSD).approve(address(pegSwap), type(uint256).max);
-		cERC20(USDC).approve(address(uniswap), type(uint256).max);
-	}
-
-	function upgrade6() external {
-		//switch to voltage
-		uniswap = Uniswap(0xE3F85aAd0c8DD7337427B9dF5d0fB741d65EEEB5);
-		uniswapFactory = UniswapFactory(uniswap.factory());
-		uniswapPair = UniswapPair(
-			uniswapFactory.getPair(uniswap.WETH(), address(GD))
-		);
 	}
 
 	function setContracts(address _gd, address _ubischeme) public onlyOwner {
@@ -230,17 +162,15 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 
 	function withdrawAll() public onlyGuardian {
 		for (uint256 i = 0; i < validators.length; i++) {
-			uint256 cur = consensus.delegatedAmount(
-				address(this),
-				validators[i]
-			);
+			uint256 cur = consensus.delegatedAmount(address(this), validators[i]);
 			if (cur == 0) continue;
 			undelegateWithCatch(validators[i], cur);
 		}
 		uint256 effectiveBalance = balance(); //use only undelegated funds
 		pendingFuseEarnings = 0;
 		if (effectiveBalance > 0) {
-			msg.sender.call{ value: effectiveBalance }("");
+			(bool ok, ) = msg.sender.call{ value: effectiveBalance }("");
+			require(ok, "transfer failed");
 		}
 	}
 
@@ -254,10 +184,7 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		);
 		uint256 perValidator = _value.div(validators.length);
 		for (uint256 i = 0; i < validators.length; i++) {
-			uint256 cur = consensus.delegatedAmount(
-				address(this),
-				validators[i]
-			);
+			uint256 cur = consensus.delegatedAmount(address(this), validators[i]);
 			if (cur == 0) continue;
 			if (cur <= perValidator) {
 				undelegateWithCatch(validators[i], cur);
@@ -296,10 +223,7 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		uint256 perValidator = (totalDelegated() + _value) / validators.length;
 		uint256 left = _value;
 		for (uint256 i = 0; i < validators.length && left > 0; i++) {
-			uint256 cur = consensus.delegatedAmount(
-				address(this),
-				validators[i]
-			);
+			uint256 cur = consensus.delegatedAmount(address(this), validators[i]);
 
 			if (cur < perValidator) {
 				uint256 toDelegate = perValidator.sub(cur);
@@ -319,20 +243,14 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 	function totalDelegated() public view returns (uint256) {
 		uint256 total = 0;
 		for (uint256 i = 0; i < validators.length; i++) {
-			uint256 cur = consensus.delegatedAmount(
-				address(this),
-				validators[i]
-			);
+			uint256 cur = consensus.delegatedAmount(address(this), validators[i]);
 			total += cur;
 		}
 		return total;
 	}
 
 	function removeValidator(address _validator) public onlyOwner {
-		uint256 delegated = consensus.delegatedAmount(
-			address(this),
-			_validator
-		);
+		uint256 delegated = consensus.delegatedAmount(address(this), _validator);
 		if (delegated > 0) {
 			uint256 prevBalance = balance();
 			undelegateWithCatch(_validator, delegated);
@@ -356,18 +274,13 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 
 	function collectUBIInterest() public notPaused {
 		uint256 curDay = ubischeme.currentDay();
-		require(
-			curDay != lastDayCollected,
-			"can collect only once in a ubi cycle"
-		);
+		require(curDay != lastDayCollected, "can collect only once in a ubi cycle");
 
 		uint256 earnings = balance() - pendingFuseEarnings;
 		require(pendingFuseEarnings + earnings > 0, "no earnings to collect");
 
 		lastDayCollected = curDay;
-		uint256 fuseUBI = earnings.mul(RATIO_BASE - stakeBackRatio).div(
-			RATIO_BASE
-		);
+		uint256 fuseUBI = earnings.mul(RATIO_BASE - stakeBackRatio).div(RATIO_BASE);
 		uint256 stakeBack = earnings - fuseUBI;
 
 		uint256[] memory fuseswapResult = _buyGD(fuseUBI + pendingFuseEarnings); //buy GD with X% of earnings
@@ -378,9 +291,9 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		uint256 keeperFee = gdBought.mul(keeperFeeRatio).div(RATIO_BASE);
 		if (keeperFee > 0) GD.transfer(msg.sender, keeperFee);
 		gdBought -= keeperFee;
-		uint256 communityPoolContribution = gdBought
-			.mul(communityPoolRatio)
-			.div(RATIO_BASE); //subtract fee // * ommunityPoolRatio // = G$ after fee * communityPoolRatio%
+		uint256 communityPoolContribution = gdBought.mul(communityPoolRatio).div(
+			RATIO_BASE
+		); //subtract fee // * ommunityPoolRatio // = G$ after fee * communityPoolRatio%
 
 		uint256 ubiAfterFeeAndPool = gdBought.sub(communityPoolContribution);
 
@@ -407,13 +320,10 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 	function _buyGD(uint256 _value) internal returns (uint256[] memory) {
 		//buy from uniwasp
 		require(_value > 0, "buy value should be > 0");
-		(uint256 maxFuse, uint256 fuseGDOut) = calcMaxFuseWithPriceImpact(
+		(uint256 maxFuse, uint256 fuseGDOut) = calcMaxFuseWithPriceImpact(_value);
+		(uint256 maxFuseUSDC, uint256 usdcGDOut) = calcMaxFuseUSDCWithPriceImpact(
 			_value
 		);
-		(
-			uint256 maxFuseUSDC,
-			uint256 usdcGDOut
-		) = calcMaxFuseUSDCWithPriceImpact(_value);
 		address[] memory path;
 		if (maxFuse >= maxFuseUSDC) {
 			path = new address[](2);
@@ -471,9 +381,12 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		address[] memory path = new address[](2);
 		path[1] = fUSD;
 		path[0] = uniswap.WETH();
-		uint256[] memory result = uniswap.swapExactETHForTokens{
-			value: maxFuse
-		}((tokenOut * 95) / 100, path, address(this), block.timestamp);
+		uint256[] memory result = uniswap.swapExactETHForTokens{ value: maxFuse }(
+			(tokenOut * 95) / 100,
+			path,
+			address(this),
+			block.timestamp
+		);
 
 		pegSwap.swap(result[1], fUSD, USDC);
 		usedFuse = result[0];
