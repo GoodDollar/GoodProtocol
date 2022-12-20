@@ -1,14 +1,10 @@
 import { ethers, upgrades, network } from "hardhat";
-import { networkNames } from "@openzeppelin/upgrades-core";
 import { getSettings, releaser } from "../../scripts/getMigrationSettings";
 import { SchemeRegistrar } from "../types";
 import { getFounders } from "./getFounders";
 
-console.log({ networkNames, network: network.name, upgrade: process.env.UPGRADE });
+console.log({ network: network.name, upgrade: process.env.UPGRADE });
 const { name: networkName } = network;
-networkNames[1] = networkName;
-networkNames[122] = networkName;
-networkNames[3] = networkName;
 
 export const proposeUpgradeScheme = async (daoAddresses, schemeAddress) => {
   console.log("proposing conntract upgrade to DAO", {
@@ -47,7 +43,10 @@ export const voteUpgradeScheme = async (network, daoAddresses, proposalId) => {
   );
 
   const founders = await getFounders(network);
-  console.log("voteUpgradeScheme", { absoluteVote: absoluteVote.address, founders });
+  console.log("voteUpgradeScheme", {
+    absoluteVote: absoluteVote.address,
+    founders
+  });
   await Promise.all(
     founders.slice(0, Math.ceil(founders.length / 2)).map(f =>
       absoluteVote
@@ -59,12 +58,8 @@ export const voteUpgradeScheme = async (network, daoAddresses, proposalId) => {
 };
 
 const main = async () => {
-  const {
-    daoAddresses,
-    modelAddresses,
-    upgradableAddresses,
-    founders
-  } = await getSettings(networkName);
+  const { daoAddresses, modelAddresses, upgradableAddresses, founders } =
+    await getSettings(networkName);
 
   // const implementation = "0x7fca2b3e1047291f65c2c914083d970c027f4290";
   // const deployedProxy = upgradableAddresses.FuseStaking;

@@ -99,8 +99,8 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		uint256 _minReturn,
 		uint256 _minDAIAmount,
 		address _targetAddress
-	) public nonReentrant payable returns (uint256) {
-		require(_buyPath.length > 0 , "Provide valid path");
+	) public payable nonReentrant returns (uint256) {
+		require(_buyPath.length > 0, "Provide valid path");
 		GoodReserveCDai reserve = GoodReserveCDai(
 			nameService.getAddress("RESERVE")
 		);
@@ -114,7 +114,10 @@ contract ExchangeHelper is DAOUpgradeableContract {
 				"you need to pay with ETH"
 			);
 		} else {
-			require(msg.value == 0 , 'When input token is different than ETH message value should be zero');
+			require(
+				msg.value == 0,
+				"When input token is different than ETH message value should be zero"
+			);
 			require(
 				ERC20(_buyPath[0]).transferFrom(
 					msg.sender,
@@ -133,7 +136,10 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		} else if (_buyPath[0] == daiAddress) {
 			result = _cdaiMintAndBuy(_tokenAmount, _minReturn, receiver);
 		} else {
-			require(_buyPath[_buyPath.length - 1] == daiAddress , "Target token in the path must be DAI");
+			require(
+				_buyPath[_buyPath.length - 1] == daiAddress,
+				"Target token in the path must be DAI"
+			);
 			uint256[] memory swap = _uniswapSwap(
 				_buyPath,
 				_tokenAmount,
@@ -175,7 +181,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		uint256 _minTokenReturn,
 		address _targetAddress
 	) public nonReentrant returns (uint256) {
-		require(_sellPath.length > 0 , "Provide valid path");
+		require(_sellPath.length > 0, "Provide valid path");
 		address receiver = _targetAddress == address(0x0)
 			? msg.sender
 			: _targetAddress;
@@ -193,11 +199,16 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		(result, contributionAmount) = reserve.sell(
 			_gdAmount,
 			_minReturn,
-			(_sellPath.length == 1 && _sellPath[0] == cDaiAddress) ? receiver : address(this), // if the tokens that will received is cDai then return it directly to receiver
+			(_sellPath.length == 1 && _sellPath[0] == cDaiAddress)
+				? receiver
+				: address(this), // if the tokens that will received is cDai then return it directly to receiver
 			msg.sender
 		);
-		if (_sellPath.length == 1 && (_sellPath[0] == daiAddress || _sellPath[0] == cDaiAddress)) {
-			if(_sellPath[0] == daiAddress ){
+		if (
+			_sellPath.length == 1 &&
+			(_sellPath[0] == daiAddress || _sellPath[0] == cDaiAddress)
+		) {
+			if (_sellPath[0] == daiAddress) {
 				result = _redeemDAI(result);
 
 				require(
@@ -205,9 +216,12 @@ contract ExchangeHelper is DAOUpgradeableContract {
 					"Transfer failed"
 				);
 			}
-		} else if(_sellPath[0] != cDaiAddress){
+		} else if (_sellPath[0] != cDaiAddress) {
 			result = _redeemDAI(result);
-			require(_sellPath[0] == daiAddress, "Input token for uniswap must be DAI");
+			require(
+				_sellPath[0] == daiAddress,
+				"Input token for uniswap must be DAI"
+			);
 			uint256[] memory swap = _uniswapSwap(
 				_sellPath,
 				result,
@@ -218,12 +232,12 @@ contract ExchangeHelper is DAOUpgradeableContract {
 
 			result = swap[swap.length - 1];
 			require(result > 0, "token selling failed");
-		}else{
+		} else {
 			revert();
 		}
 
 		emit TokenSold(
-			receiver,
+			msg.sender,
 			_sellPath[_sellPath.length - 1],
 			_gdAmount,
 			contributionAmount,
@@ -295,9 +309,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		uint256 _minTokenReturn,
 		address _receiver
 	) internal returns (uint256[] memory) {
-		Uniswap uniswapContract = Uniswap(
-			nameService.getAddress("UNISWAP_ROUTER")
-		);
+		Uniswap uniswapContract = Uniswap(nameService.getAddress("UNISWAP_ROUTER"));
 		address wETH = uniswapContract.WETH();
 		uint256[] memory swap;
 		bool isBuy = _inputPath[_inputPath.length - 1] == daiAddress; // if outputToken is dai then transaction is buy with any ERC20 token
@@ -322,10 +334,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			return swap;
 		} else {
 			if (isBuy)
-				ERC20(_inputPath[0]).approve(
-					address(uniswapContract),
-					_tokenAmount
-				);
+				ERC20(_inputPath[0]).approve(address(uniswapContract), _tokenAmount);
 			swap = uniswapContract.swapExactTokensForTokens(
 				_tokenAmount,
 				isBuy ? _minDAIAmount : _minTokenReturn,

@@ -119,7 +119,6 @@ describe("GReputation", () => {
   });
 
   it("should have avatar as role manager", async () => {
-    // const invites = await Invites.deployed();
     expect(await grep.hasRole(await grep.DEFAULT_ADMIN_ROLE(), avatar)).to.be
       .true;
   });
@@ -156,10 +155,10 @@ describe("GReputation", () => {
       expect(rootState[0]).to.be.equal("0x" + merkleRoot.toString("hex"));
     });
     it("rootState should not change totalsupply until proof", async () => {
-      expect(await grep.totalSupply()).to.equal(0);
+      expect(await grep.totalSupply()).to.equal(100);
     });
 
-    it("should update core balances after proof", async () => {
+    it("should update core balances and not change totalsupply after proof of rootState", async () => {
       await grep.proveBalanceOfAtBlockchain("rootState", rep1, 1, proof, 1);
 
       //root states changes the core balance
@@ -168,7 +167,7 @@ describe("GReputation", () => {
 
       const newVotes = await grep.getVotes(rep1);
       expect(newVotes.toNumber()).to.be.equal(1);
-      expect(await grep.totalSupply()).to.equal(1);
+      expect(await grep.totalSupply()).to.equal(100); //total supply shouldnt change by proof
     });
     it("should not set rootState again", async () => {
       await setDAOAddress("GDAO_CLAIMERS", repOwner);
@@ -610,6 +609,10 @@ describe("GReputation", () => {
   });
 
   describe("real example of airdrop", async () => {
+    let startSupply = ethers.constants.Zero;
+    before(async () => {
+      startSupply = await grep.totalSupply();
+    });
     it("should set a new state hash", async () => {
       let encodedCall = grep.interface.encodeFunctionData(
         "setBlockchainStateHash",
@@ -621,6 +624,9 @@ describe("GReputation", () => {
       );
 
       expect(await avatarGenericCall(grep.address, encodedCall)).to.not.throw;
+      expect(await grep.totalSupply()).to.eq(
+        startSupply.add(ethers.utils.parseEther("96000000"))
+      );
     });
 
     it("should prove real proof", async () => {
@@ -658,6 +664,9 @@ describe("GReputation", () => {
       expect(
         await grep.getVotes("0xf79b804bae955ae4cd8e8b0331c4bc437104804f")
       ).to.be.eq(prevVotes.add(rep)); //add new blockchain rep
+      expect(await grep.totalSupply()).to.eq(
+        startSupply.add(ethers.utils.parseEther("96000000"))
+      );
     });
 
     it("should prove real proof of last index", async () => {
@@ -690,6 +699,9 @@ describe("GReputation", () => {
       expect(
         await grep.getVotes("0x68b064891efb77b87fe1e872205e795f75a72a6d")
       ).to.be.eq(prevVotes.add(rep)); //add new blockchain rep
+      expect(await grep.totalSupply()).to.eq(
+        startSupply.add(ethers.utils.parseEther("96000000"))
+      );
     });
 
     it("it should be able get votes at the specific block", async () => {
@@ -723,6 +735,25 @@ describe("GReputation", () => {
           .sub(ethers.utils.parseEther("1"))
           .toString()
       ).to.be.equal("0");
+      await grepWithOwner["burn(address,uint256)"](
+        founder,
+        ethers.utils.parseEther("1")
+      );
+    });
+
+    it("it should be able to get totalSupplyLocal for particular block", async () => {
+      let currentBlock = await ethers.provider.getBlockNumber();
+      const totalSupplyLocalBefore = await grep["totalSupplyLocal(uint256)"](currentBlock);
+      await grepWithOwner["mint(address,uint256)"](
+        founder,
+        ethers.utils.parseEther("1")
+      );
+      currentBlock = await ethers.provider.getBlockNumber();
+      const totalSupplyLocalAfter = await grep["totalSupplyLocal(uint256)"](currentBlock);
+      expect(totalSupplyLocalAfter).to.equal(
+        totalSupplyLocalBefore.add(ethers.utils.parseEther("1"))
+      );
+      
       await grepWithOwner["burn(address,uint256)"](
         founder,
         ethers.utils.parseEther("1")
@@ -830,6 +861,19 @@ describe("GReputation", () => {
       await grepWithOwner.mint(rep3, 111);
       expect(await grep.balanceOfLocal(repTarget)).to.equal(111);
       expect(await grep.balanceOfLocal(rep3)).to.equal(startBalance.add(111));
+    });
+
+    it("should get accurate prior votes", async () => {
+      await grep.connect(signers[3]).undelegate();
+      const selectedBlock = await ethers.provider.getBlockNumber();
+      const selectedBlockVotes = await grep.getCurrentVotes(rep2);
+      await advanceBlocks(1);
+      await (await grepWithOwner["mint(address,uint256)"](rep2, 1)).wait();
+      await advanceBlocks(1);
+      const priorSelectedBlockVotes = await grep.getPriorVotes(rep2, selectedBlock);
+      const votesAfterAdvancing = await grep.getCurrentVotes(rep2);
+      expect(priorSelectedBlockVotes).to.eq(selectedBlockVotes);
+      expect(priorSelectedBlockVotes).to.be.not.eq(votesAfterAdvancing);
     });
   });
 });

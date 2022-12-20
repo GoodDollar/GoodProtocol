@@ -1209,6 +1209,7 @@ export const airdrop = (
   const getProof = addr => {
     const { treeData, merkleRoot } = JSON.parse(
       fs.readFileSync("airdrop/airdrop.json").toString()
+      // fs.readFileSync("airdrop/airdropPrev.json").toString()
     );
 
     let entries = Object.entries(treeData as Tree);

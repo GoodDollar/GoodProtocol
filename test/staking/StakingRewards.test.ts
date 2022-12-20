@@ -614,6 +614,45 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       .withdrawStake(stakingAmount, false);
   });
 
+  it("should get user minted and pending rewards", async () => {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    const encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        goodCompoundStaking.address,
+        currentBlockNumber,
+        currentBlockNumber + 5000,
+        false
+      ] // set 10 gd per block
+    );
+    await genericCall(goodFundManager.address, encodedData, avatar, 0);
+
+    const stakingAmount = ethers.utils.parseEther("100");
+
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai
+      .connect(staker)
+      .approve(goodCompoundStaking.address, stakingAmount);
+    await goodCompoundStaking.connect(staker).stake(stakingAmount, 0, false);
+
+    await advanceBlocks(4);
+
+    const userMintedAndPending =
+      await goodCompoundStaking.getUserMintedAndPending(staker.address);
+    const userMintedReward = userMintedAndPending[0].toString();
+    const userPendingReward = userMintedAndPending[1].toString();
+    expect(userMintedReward).to.equal("5000");
+    expect(userPendingReward).to.equal("2000");
+
+    await goodCompoundStaking
+      .connect(staker)
+      .withdrawStake(stakingAmount, false);
+  });
+
   it("it should get rewards with 1x multiplier for after threshold pass", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
@@ -1392,7 +1431,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(data.isBlackListed).to.equal(true);
   });
 
-  it("it should remove staking contract from active staking contracts when it's reward set to zero", async () => {
+  it("it should not remove staking contract from active staking contracts when it's reward set to zero", async () => {
     const simpleStaking1 = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
@@ -1447,16 +1486,17 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const lastActiveContractAfterRemove = await goodFundManager.activeContracts(
       activeContractsCountAfterRemoved.sub(1)
     );
-    expect(lastActiveContractBeforeAdd).to.be.equal(
-      lastActiveContractAfterRemove
+
+    expect(lastActiveContractAfterRemove).to.be.equal(simpleStaking.address);
+    expect(activeContractsCountAfterAdded).to.be.eq(
+      activeContractsCountAfterRemoved
     );
-    expect(lastActiveContractAfterAdd).to.be.equal(simpleStaking.address);
-    expect(activeContractsCountAfterAdded).to.be.gt(activeContractsCount);
-    expect(activeContractsCountAfterAdded).to.be.gt(
+    expect(activeContractsCountAfterAdded).to.be.eq(
       activeContractsCountAfterRemoved
     );
     expect(activeContractsCount).to.be.equal(activeContractsCountAfterRemoved);
   });
+
   it("it should distribute rewards correctly when there is multiple stakers", async () => {
     const simpleStaking1 = await goodCompoundStakingTestFactory.deploy(
       bat.address,

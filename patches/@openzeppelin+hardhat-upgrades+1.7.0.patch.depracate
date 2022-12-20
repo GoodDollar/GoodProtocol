@@ -1,0 +1,67 @@
+diff --git a/node_modules/@openzeppelin/hardhat-upgrades/dist/deploy-proxy.d.ts b/node_modules/@openzeppelin/hardhat-upgrades/dist/deploy-proxy.d.ts
+index 2405883..5879166 100644
+--- a/node_modules/@openzeppelin/hardhat-upgrades/dist/deploy-proxy.d.ts
++++ b/node_modules/@openzeppelin/hardhat-upgrades/dist/deploy-proxy.d.ts
+@@ -7,6 +7,7 @@ export interface DeployFunction {
+ }
+ export interface DeployOptions extends ValidationOptions {
+     initializer?: string | false;
++    proxyFactory?: any;
+ }
+ export declare function makeDeployProxy(hre: HardhatRuntimeEnvironment): DeployFunction;
+ //# sourceMappingURL=deploy-proxy.d.ts.map
+\ No newline at end of file
+diff --git a/node_modules/@openzeppelin/hardhat-upgrades/dist/deploy-proxy.js b/node_modules/@openzeppelin/hardhat-upgrades/dist/deploy-proxy.js
+index 8dbb62a..d0761f4 100644
+--- a/node_modules/@openzeppelin/hardhat-upgrades/dist/deploy-proxy.js
++++ b/node_modules/@openzeppelin/hardhat-upgrades/dist/deploy-proxy.js
+@@ -26,14 +26,15 @@ function makeDeployProxy(hre) {
+         let proxyDeployment;
+         switch (kind) {
+             case 'uups': {
+-                const ProxyFactory = await utils_1.getProxyFactory(hre, ImplFactory.signer);
++                const ProxyFactory = await (opts.proxyFactory || utils_1.getProxyFactory(hre, ImplFactory.signer))
+                 proxyDeployment = Object.assign({ kind }, await utils_1.deploy(ProxyFactory, impl, data));
+                 break;
+             }
+             case 'transparent': {
+                 const AdminFactory = await utils_1.getProxyAdminFactory(hre, ImplFactory.signer);
+                 const adminAddress = await upgrades_core_1.fetchOrDeployAdmin(provider, () => utils_1.deploy(AdminFactory));
+-                const TransparentUpgradeableProxyFactory = await utils_1.getTransparentUpgradeableProxyFactory(hre, ImplFactory.signer);
++                const TransparentUpgradeableProxyFactory = await (opts.proxyFactory || utils_1.getTransparentUpgradeableProxyFactory(hre, ImplFactory.signer))
++
+                 proxyDeployment = Object.assign({ kind }, await utils_1.deploy(TransparentUpgradeableProxyFactory, impl, adminAddress, data));
+                 break;
+             }
+diff --git a/node_modules/@openzeppelin/hardhat-upgrades/src/deploy-proxy.ts b/node_modules/@openzeppelin/hardhat-upgrades/src/deploy-proxy.ts
+index c8beb0d..b187875 100644
+--- a/node_modules/@openzeppelin/hardhat-upgrades/src/deploy-proxy.ts
++++ b/node_modules/@openzeppelin/hardhat-upgrades/src/deploy-proxy.ts
+@@ -25,6 +25,7 @@ export interface DeployFunction {
+ 
+ export interface DeployOptions extends ValidationOptions {
+   initializer?: string | false;
++  proxyFactory?: any;
+ }
+ 
+ export function makeDeployProxy(hre: HardhatRuntimeEnvironment): DeployFunction {
+@@ -59,7 +60,8 @@ export function makeDeployProxy(hre: HardhatRuntimeEnvironment): DeployFunction
+     let proxyDeployment: Required<ProxyDeployment>;
+     switch (kind) {
+       case 'uups': {
+-        const ProxyFactory = await getProxyFactory(hre, ImplFactory.signer);
++        const ProxyFactory = await (opts.proxyFactory || getProxyFactory(hre, ImplFactory.signer));
++
+         proxyDeployment = Object.assign({ kind }, await deploy(ProxyFactory, impl, data));
+         break;
+       }
+@@ -67,7 +69,8 @@ export function makeDeployProxy(hre: HardhatRuntimeEnvironment): DeployFunction
+       case 'transparent': {
+         const AdminFactory = await getProxyAdminFactory(hre, ImplFactory.signer);
+         const adminAddress = await fetchOrDeployAdmin(provider, () => deploy(AdminFactory));
+-        const TransparentUpgradeableProxyFactory = await getTransparentUpgradeableProxyFactory(hre, ImplFactory.signer);
++        const TransparentUpgradeableProxyFactory = await (opts.proxyFactory || getTransparentUpgradeableProxyFactory(hre, ImplFactory.signer););
++
+         proxyDeployment = Object.assign(
+           { kind },
+           await deploy(TransparentUpgradeableProxyFactory, impl, adminAddress, data),

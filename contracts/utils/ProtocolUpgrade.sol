@@ -288,11 +288,12 @@ contract ProtocolUpgrade {
 		(ok, ) = controller.genericCall(
 			ns.getAddress("MARKET_MAKER"),
 			abi.encodeWithSignature(
-				"initializeToken(address,uint256,uint256,uint32)",
+				"initializeToken(address,uint256,uint256,uint32,uint256)",
 				cdai,
 				rToken.gdSupply,
 				rToken.reserveSupply,
-				rToken.reserveRatio
+				rToken.reserveRatio,
+				0
 			),
 			avatar,
 			0

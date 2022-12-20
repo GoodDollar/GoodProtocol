@@ -129,8 +129,18 @@ describe("CompoundVotingMachine#Guardian", () => {
     await gov.connect(acct).setGuardian(root.address); //restore
   });
 
+  it("Should allow set guardian to fix bad guardian deployment", async () => {
+    const badAddress = "0x4659176E962763e7C8A4eF965ecfD0fdf9f52057";
+    await gov.setGuardian(badAddress);
+    expect(await gov.guardian()).to.equal(badAddress);
+
+    await gov.connect(acct).fixGuardian(root.address);
+    expect(await gov.guardian()).to.equal(root.address);
+  });
+
   it("Should be able to set guardian by avatar if foundation expired", async () => {
-    await increaseTime(60 * 60 * 24 * 365 * 2);
+    await ethers.provider.send("evm_setNextBlockTimestamp", [1672531201]); //1672531200
+    await ethers.provider.send("evm_mine", []);
 
     const encoded = gov.interface.encodeFunctionData("setGuardian", [
       acct.address

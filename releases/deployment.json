@@ -87,8 +87,8 @@
         "GoodFundManager": "0xAeEC5Af38c034D2f983dA5948646617Eee3a3372",
         "StakersDistribution": "0x139F5DD0D48b9BDbF9d12e7A2A2fDc42577746ad",
         "ProtocolUpgrade": "0x15Ac42377D9eD4168DFf9126DAf188F20b23E54D",
-        "CompoundStakingFactory": "0x932DC4c08140272D658C5059589A6f862991aB02",
-        "AaveStakingFactory": "0xeB348140d16eacf3BF321247504FeDD448Fd0B8F",
+        "CompoundStakingFactory": "0xba5b519b80d044038159b980d1c8657d53ed08a8",
+        "AaveStakingFactory": "0xd30dacCE904EBACC642Ab6dd3415e6Fc7B7B2E10",
         "StakingContracts": [
             [
                 "0xbc371c5c98d40de18382e3e0eeb58805d76d3d50",
@@ -96,6 +96,16 @@
             ],
             [
                 "0x97336539bF2ab85ED83e63f294af113A7A110Cd3",
+                6944
+            ]
+        ],
+        "StakingContractsV3": [
+            [
+                "0x19afea8633db478a5d7a8910dc2adc982c576045",
+                13888
+            ],
+            [
+                "0x2e34a18CeDf2485fbA4e19495f29245A07869039",
                 6944
             ]
         ],
@@ -136,14 +146,18 @@
         "FuseFaucet": "0x09Ad3430D146aa662eA8c20cBEBceBC0bbB3FB0a",
         "Invites": "0x187fc9fB37DF0fbf75149913a97B17c968Fc90d0",
         "OneTimePayments": "0x184C1F83b3eB75a2dac483D4a6b9FBD59Df961f8",
-        "AdminWallet": "0x14204288286823042263156146334B1a4d61227c",
+        "AdminWallet": "0xC1526892198796d30D33355cfF9Af10EED5B86A0",
+        "AdminWalletOld": "0x14204288286823042263156146334B1a4d61227c",
         "network": "fuse",
         "networkId": 122,
         "ProxyFactory": "0x4136dfD47F47792fC820E2354e9F0ce8e9c586A6",
         "BancorFormula": "0x88e111b2A42457655A34896E5B929a75E7B82F88",
         "DAI": "0x0000000000000000000000000000000000000000",
         "cDAI": "0x0000000000000000000000000000000000000000",
-        "COMP": "0x0000000000000000000000000000000000000000"
+        "COMP": "0x0000000000000000000000000000000000000000",
+        "ProxyAdmin": "0x0dd5e1869DA5C9C7D7c49364687534bda7fB7020",
+        "GoodDollarMintBurnWrapper": "0x46cF05f93539F4735Cb0D7b2B1cA6A70fa49510a",
+        "GoodDollarStaking": "0x4E44E4a72d9e40D1CabeEf1d10b747d6ACEF48B0"
     },
     "fuse-mainnet": {
         "NameService": "0x3baeEff20Cb02a5b8eF413C611c015E69221663e",
@@ -290,9 +304,8 @@
     },
     "staging": {
         "FuseFaucet": "0x70f361EDB97B245E8A68573637A31886A427fe2a",
-        "ProxyAdmin": "0x2Ea4aAA8351CfE63B537E81Cd4a13c435B945C1D",
+        "ProxyAdmin": "0x83EEE673ba91ff49b7e608E761e7Bda93bBB5900",
         "Invites": "0x763b49F901DC894F2dEc1c7d19e46250B4452679",
-        "ProxyAdmin2": "0x23D8492444DA663fcb2bDa8cA9A0e84989D1f59e",
         "GoodDollar": "0xe39236a9Cf13f65DB8adD06BD4b834C65c523d2b",
         "NameService": "0xE63402A7dc11AB4D03c477cc92209463a55A5134",
         "GReputation": "0x80312bad9dd71d3a159e794B7fb1B2386F82F07F",
@@ -306,7 +319,8 @@
         "Controller": "0xb6808120fB648c0bdc483Ec423d933a7eBf6BB0a",
         "AbsoluteVote": "0x7b58A5737440Bc05ca3972fDeFf8ac3bA984536B",
         "SchemeRegistrar": "0x0E79f80809180aB8FAE189D4e76fC814672d9a40",
-        "AdminWallet": "0x2961a6C2Fe39F0FFC4f4b1D9E037CD95f4e9C993",
+        "AdminWallet": "0x11C9dBcA722770E8802F0C3d65C38768E91Ac53C",
+        "AdminWalletOld": "0x2961a6C2Fe39F0FFC4f4b1D9E037CD95f4e9C993",
         "UpgradeScheme": "0xfC9F6F5E3ff7BAAB3fEf82e66f56917D625ba38B",
         "OneTimePayments": "0x7912636D68E5d92708862b38698f764BF1EC297C",
         "network": "staging",
@@ -317,7 +331,9 @@
         "FeeFormula": "0x05eb1C46bd539Fd2A098b06D83a5bB81E5a58e63",
         "DAI": "0x0000000000000000000000000000000000000000",
         "cDAI": "0x0000000000000000000000000000000000000000",
-        "COMP": "0x0000000000000000000000000000000000000000"
+        "COMP": "0x0000000000000000000000000000000000000000",
+        "GoodDollarMintBurnWrapper": "0x08CaFF2331040c9998a91B50eEee85c4AE953ece",
+        "GoodDollarStaking": "0x66846F27F86f02b079e9176C7aCc10Cc32d839b2"
     },
     "test": {
         "ProxyFactory": "0x36dE29DB57062A583436Ae071e141404dFE2311C",
@@ -382,7 +398,7 @@
         "cDAI": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
         "COMP": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
     },
-    "production": {
+    "production-bug": {
         "ProxyFactory": "0x4659176E962763e7C8A4eF965ecfD0fdf9f52057",
         "NameService": "0xe26867DDd22F9342d9F0D566D182f2c960683971",
         "GReputation": "0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf",
@@ -407,7 +423,7 @@
         "FuseFaucet": "0x01ab5966C1d742Ae0CFF7f14cC0F4D85156e83d9",
         "FuseStaking": "0xA199F0C353E25AdF022378B0c208D600f39a6505"
     },
-    "production-mainnet": {
+    "production-mainnet-bug": {
         "ProxyFactory": "0x4659176E962763e7C8A4eF965ecfD0fdf9f52057",
         "NameService": "0xe26867DDd22F9342d9F0D566D182f2c960683971",
         "GReputation": "0x3A9299BE789ac3730e4E4c49d6d2Ad1b8BC34DFf",
@@ -451,5 +467,148 @@
         "DAI": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
         "cDAI": "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
         "COMP": "0xc00e94cb662c3520282e6f5717214004a7f26888"
+    },
+    "production-mainnet": {
+        "ProxyFactory": "0xDa85fceD9Bd193526b7667F2AD1fD4A0F900d3A7",
+        "NameService": "0xec6dcE387B1616a0c44fF2E4fA9E90E53Cf14eb0",
+        "GoodMarketMaker": "0xDAC6A0c973Ba7cF3526dE456aFfA43AB421f659F",
+        "GoodReserveCDai": "0xa150a825d425B36329D8294eeF8bD0fE68f8F6E0",
+        "ExchangeHelper": "0x98FA532Dd5C3a6b66fbf370813803192DE4e0abd",
+        "CompoundStakingFactory": "0x78cc5ab2f0990b5fe58f95baebf8f37879534aeb",
+        "AaveStakingFactory": "0xf4411c22766947DB2da39Ad534A040b770B51153",
+        "StakersDistribution": "0x5766cf4b2fdb09d986eb1783d276013c224e28c8",
+        "GoodFundManager": "0x0c6c80d2061afa35e160f3799411d83bdeea0a5a",
+        "GReputation": "0x603b8c0f110e037b51a381cbcacabb8d6c6e4543",
+        "CompoundVotingMachine": "0x57ee6ceff51cb30ecb1245934a882c500fbec1e9",
+        "ProtocolUpgradeRecover": "0x6f1b4dFDd7156FC5752541Ef35EDF57B48E74475",
+        "network": "production-mainnet",
+        "networkId": 1,
+        "ForeignBridge": "0xD5D11eE582c8931F336fbcd135e98CEE4DB8CCB0",
+        "Contribution": "0x8eEC64bb6807c0178f96277cCE6a334B4e565E5C",
+        "Identity": "0x76e76e10Ac308A1D54a00f9df27EdCE4801F288b",
+        "GoodDollar": "0x67C5870b4A41D4Ebef24d2456547A03F1f3e094B",
+        "Controller": "0x95C0d9dCEA1E243ED696F34CAc5e6559C3c128a3",
+        "Avatar": "0x1ecFD1afb601C406fF0e13c3485f2d75699b6817",
+        "ProxyAdmin": "0xA2db14C68aB35e620fEA5bF07d65e9bff84c994C",
+        "BancorFormula": "0xA049894d5dcaD406b7C827D6dc6A0B58CA4AE73a",
+        "DAI": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+        "cDAI": "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
+        "COMP": "0xc00e94cb662c3520282e6f5717214004a7f26888",
+        "StakingContracts": [
+            [
+                "0xD33bA17C8A644C585089145e86E282fada6F3bfd",
+                310
+            ]
+        ],
+        "StakingContractsV2": [
+            [
+                "0x02416eb83cff1f19163f21010149c3867f3261e1",
+                13888
+            ],
+            [
+                "0xf4c34bed7dd779485692bb1857acf9c561b45010",
+                6944
+            ]
+        ],
+        "StakingContractsV3": [
+            [
+                "0x7b7246c78e2f900d17646ff0cb2ec47d6ba10754",
+                13888
+            ],
+            [
+                "0x3ff2d8eb2573819a9ef7167d2ba6fd6d31b17f4f",
+                6944
+            ]
+        ],
+        "MultichainRouter": "0x765277eebeca2e31912c9946eae1021199b39c61",
+        "AnyGoodDollar": "0xd17652350cfd2a37ba2f947c910987a3b1a1c60d",
+        "GuardiansSafe": "0xE0c5daa7CC6F88d29505f702a53bb5E67600e7Ec",
+        "DistributionHelper": "0xAcadA0C9795fdBb6921AE96c4D7Db2F8B8c52Fd0"
+    },
+    "production": {
+        "NameService": "0xec6dcE387B1616a0c44fF2E4fA9E90E53Cf14eb0",
+        "GReputation": "0x603B8C0F110E037b51A381CBCacAbb8d6c6E4543",
+        "CompoundVotingMachine": "0x57Ee6Ceff51CB30Ecb1245934a882c500Fbec1e9",
+        "ClaimersDistribution": "0x1aE4929090258A9D5000D98Cfb8A27174d345834",
+        "GovernanceStaking": "0xFAF457Fb4A978Be059506F6CD41f9B30fCa753b0",
+        "GovernanceStakingV2": "0xB7C3e738224625289C573c54d402E9Be46205546",
+        "UBIScheme": "0xd253A5203817225e9768C05E5996d642fb96bA86",
+        "ProtocolUpgradeFuseRecover": "0xBE43eCb37Af7F7C4A8606E672c504BE55Fc6226B",
+        "network": "production",
+        "networkId": 122,
+        "HomeBridge": "0xD39021DB018E2CAEadb4B2e6717D31550e7918D0",
+        "SignupBonus": "0x0000000000000000000000000000000000000000",
+        "OneTimePayments": "0xd9Aa86e0Ddb932bD78ab8c71C1B98F83cF610Bd4",
+        "Invites": "0xCa2F09c3ccFD7aD5cB9276918Bd1868f2b922ea0",
+        "AdminWallet": "0x9A34822112BC73BDc941C62dCc311Ca905Aef2a3",
+        "AdminWalletOld": "0x9F75dAcB77419b87f568d417eBc84346e134144E",
+        "Identity": "0xFa8d865A962ca8456dF331D78806152d3aC5B84F",
+        "GoodDollar": "0x495d133B938596C9984d462F007B676bDc57eCEC",
+        "Controller": "0xBcE053b99e22158f8B62f4DBFbEdE1f936b2D4e4",
+        "Avatar": "0xf96dADc6D71113F6500e97590760C924dA1eF70e",
+        "FirstClaimPool": "0x18BcdF79A724648bF34eb06701be81bD072A2384",
+        "ProxyAdmin": "0x57179b2A8eB019157b0C3E761cdB26c82C982a3B",
+        "FuseFaucet": "0x01ab5966C1d742Ae0CFF7f14cC0F4D85156e83d9",
+        "FuseStaking": "0xA199F0C353E25AdF022378B0c208D600f39a6505",
+        "GuardiansSafe": "0x5878123fe880881f1Ecc92D5fd31e5D3F5Fba2e9"
+    },
+    "production-celo": {
+        "ProxyFactory": "0x99C22e78A579e2176311c736C4c9F0b0D5A47806",
+        "GoodDollar": "0xf2283840cE37DAe0a06B40a9A80603977f36fA3F",
+        "Avatar": "0xCD5e8a81B1e02c1837A674f87dF327C14f4e5748",
+        "Controller": "0x3D0bacBdC06A28971855275D511e6249bE67112d",
+        "Identity": "0x96B81f82A29e78C5ba9E2034Ce8490fd641a24eb",
+        "NameService": "0x563a80a452264a9e1aa37c6FA0B46D04C3c71b24",
+        "GReputation": "0xAC132ECe25217867E318eA8ff63420C90d5a74A6",
+        "GuardiansSafeOld": "0xC9D09BA972B4EB6Bb7347F2229FB6d50434fFCa6",
+        "GuardiansSafe": "0xa2521e8F5A990903fdD8Afa6570C52526e7E0D5E",
+        "network": "production-celo",
+        "networkId": 42220,
+        "GoodDollarMintBurnWrapper": "0x5566b6E4962BA83e05a426Ad89031ec18e9CadD3",
+        "MultichainRouter": "0xf27Ee99622C3C9b264583dACB2cCE056e194494f"
+    },
+    "development-celo": {
+        "ProxyFactory": "0xA441cd89b0964B51d23201d65E037DA7aF8F74E9",
+        "GoodDollar": "0xAB89A70d1Af04ED8badf915Ba1f5b28E9F322624",
+        "Avatar": "0xE0e3BFb1A1850bdFe36ED1563CC2abB6A8B6De78",
+        "Controller": "0x6717A1948328C8eCCb5C933Fae90e0631C2486fE",
+        "Identity": "0xec97ee6d70C626044224998192B96fEF05949De1",
+        "NameService": "0x266E5a0931E52229CC241376bC701Ab6199Aec4D",
+        "GReputation": "0x6614823763EAd52aCc4952b9634624439B738683",
+        "AdminWallet": "0xb7b543bfd9e2E0AD1d0aA68f56c883Dd377E3D24",
+        "Faucet": "0x256AFcfEcB5C7f62CE46b54492Bb8ac38163672f",
+        "Invites": "0xdC8F0da3f29A3C419a8EEf36665ba2a3EF737B8f",
+        "GoodDollarMintBurnWrapper": "0x3fa553a5a044D5c4f5C70878148568410305f953",
+        "UBIScheme": "0x2d42e6220af2485d1e6E5B4d3661A74671AA9a79",
+        "ClaimersDistribution": "0x80018e6Dd79f6B892Fca6b592746136a3aa5ef6d",
+        "CompoundVotingMachine": "0x00e44d746F3931cAB775099F4C6451f893BB9378",
+        "network": "development-celo",
+        "networkId": 42220,
+        "GoodDollarStaking": "0x0b13807334C1618D71E5FCe792f40A22007c433A"
+    },
+    "staging-celo": {
+        "ProxyFactory": "0x7e8292481EA8EbEb49e486B7e99c00C50fBa2689",
+        "GoodDollar": "0x33265D74abd5ae87cA02A4Fb0C30B7405C8b0682",
+        "Avatar": "0x2FD18f9de3F581Ca492A485D2b32E361EeAE2e63",
+        "Controller": "0xa229BdD05436362484b10586dAa79a316e3080C5",
+        "Identity": "0xc82d50c667F389906aCA4B72D577fA56Bf7F8910",
+        "NameService": "0x8d0b621796445454180e7DD25f96B1782848338B",
+        "GReputation": "0x759a03326df90b740f6b8b6D31e12a3F95D64C28",
+        "FeeFormula": "0xcf08461E5bAd9C508D482329Eae0f1b4c4D4c489",
+        "DAOCreator": "0xA614d2641c21FEa4c73A2D6e71C6ad341349808B",
+        "AddFounders": "0x558fA360988601601ac410678963Bf785156076D",
+        "AdminWallet": "0x822590F8baf606b1e18dC1FA8Ca39D5C66C20981",
+        "Faucet": "0x9803B5811260Bfd1F5b0b0c9eC9aD4bF96D7ea94",
+        "Invites": "0x4E094c2e35e57c90667AbD6D8FE25CE63F4ae00B",
+        "GoodDollarMintBurnWrapper": "0x156Fd9563973EFB94a297B76CFac32CdC92a8d1A",
+        "UBIScheme": "0x04f2Cf8865e2ddfEf0047FdfA7A1b05ade614288",
+        "ClaimersDistribution": "0x83186CE77ef296BA6561096447938AE05D1F026e",
+        "CompoundVotingMachine": "0xEdde78b850a08B6b8AB3E84f61cD6dC70Cc7f156",
+        "network": "staging-celo",
+        "networkId": 42220,
+        "GoodDollarStaking": "0x1eF9D3Ed46D4B82E7e8089BDdd00a493e9930f46"
+    },
+    "gnosis": {
+        "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"
     }
 }

@@ -11,6 +11,9 @@ import "../utils/NameService.sol";
 import "../DAOStackInterfaces.sol";
 import "../Interfaces.sol";
 import "./GoodMarketMaker.sol";
+import "./DistributionHelper.sol";
+
+import "hardhat/console.sol";
 
 interface ContributionCalc {
 	function calculateContribution(
@@ -50,6 +53,9 @@ contract GoodReserveCDai is
 
 	/// @dev mark if user claimed his GDX
 	mapping(address => bool) public isClaimedGDX;
+
+	uint32 public nonUbiBps; //how much of expansion G$ to allocate for non Ubi causes
+	DistributionHelper public distributionHelper; //in charge of distributing non UBI to different recipients
 
 	// Emits when new GD tokens minted
 	event UBIMinted(
@@ -109,6 +115,14 @@ contract GoodReserveCDai is
 		address indexed receiverAddress
 	);
 
+	event NonUBIMinted(
+		address distributionHelper,
+		uint256 amountMinted,
+		bool distributionSucceeded
+	);
+
+	event DistributionHelperSet(address distributionHelper, uint32 bps);
+
 	function initialize(INameService _ns, bytes32 _gdxAirdrop)
 		public
 		virtual
@@ -133,6 +147,12 @@ contract GoodReserveCDai is
 
 		gdxAirdrop = _gdxAirdrop;
 	}
+
+	//no longer required
+	// function setGDXAirdrop(bytes32 _airdrop) external {
+	// 	_onlyAvatar();
+	// 	gdxAirdrop = _airdrop;
+	// }
 
 	/// @dev GDX decimals
 	function decimals() public pure override returns (uint8) {
@@ -161,7 +181,7 @@ contract GoodReserveCDai is
 	 * `buy` occurs only if the GD return is above the given minimum. It is possible
 	 * to buy only with cDAI and when the contract is set to active. MUST call to
 	 * cDAI `approve` prior this action to allow this contract to accomplish the
-	 * conversion.
+	 * conversion. Will not work when paused (enforced via _mintGoodDollars)
 	 * @param _tokenAmount The amount of cDAI tokens that should be converted to GD tokens
 	 * @param _minReturn The minimum allowed return in GD tokens
 	 * @param _targetAddress address of g$ and gdx recipient if different than msg.sender
@@ -187,20 +207,21 @@ contract GoodReserveCDai is
 		_mintGoodDollars(_targetAddress, gdReturn, true);
 		//mint GDX
 		_mintGDX(_targetAddress, gdReturn);
-		if (msg.sender != exchangeHelper)
-			emit TokenPurchased(
-				msg.sender,
-				cDaiAddress,
-				_tokenAmount,
-				gdReturn,
-				_targetAddress
-			);
+
+		emit TokenPurchased(
+			msg.sender != exchangeHelper ? msg.sender : tx.origin,
+			cDaiAddress,
+			_tokenAmount,
+			gdReturn,
+			_targetAddress
+		);
 		return gdReturn;
 	}
 
 	/**
 	 * @dev Mint rewards for staking contracts in G$ and update RR
-	 * requires minting permissions which is enforced by _mintGoodDollars
+	 * requires minting permissions which is enforced by _mintGoodDollars.
+	 * Will not work when paused
 	 * @param _to Receipent address for rewards
 	 * @param _amount G$ amount to mint for rewards
 	 */
@@ -208,7 +229,7 @@ contract GoodReserveCDai is
 		address _token,
 		address _to,
 		uint256 _amount
-	) public {
+	) external {
 		getMarketMaker().mintFromReserveRatio(ERC20(_token), _amount);
 		_mintGoodDollars(_to, _amount, false);
 		//mint GDX
@@ -219,6 +240,7 @@ contract GoodReserveCDai is
 	 * @dev sell helper function burns GD tokens and update the bonding curve params.
 	 * `sell` occurs only if the token return is above the given minimum. Notice that
 	 * there is a contribution amount from the given GD that remains in the reserve.
+	 * Will not work when paused.
 	 * @param _gdAmount The amount of GD tokens that should be converted to cDAI tokens
 	 * @param _minReturn The minimum allowed `sellTo` tokens return
 	 * @param _target address of the receiver of cDAI when sell G$
@@ -231,6 +253,7 @@ contract GoodReserveCDai is
 		address _target,
 		address _seller
 	) external returns (uint256, uint256) {
+		require(paused() == false, "paused");
 		GoodMarketMaker mm = getMarketMaker();
 		if (msg.sender != nameService.getAddress("EXCHANGE_HELPER")) {
 			IGoodDollar(nameService.getAddress("GOODDOLLAR")).burnFrom(
@@ -245,7 +268,7 @@ contract GoodReserveCDai is
 		uint256 discount = gdx <= _gdAmount ? gdx : _gdAmount;
 
 		//burn gdx used for discount
-		_burn(_seller, discount);
+		if (discount > 0) _burn(_seller, discount);
 
 		uint256 contributionAmount = 0;
 		uint256 gdAmountTemp = _gdAmount; // to prevent stack too deep errors
@@ -269,16 +292,20 @@ contract GoodReserveCDai is
 			tokenReturn >= _minReturn,
 			"Token return must be above the minReturn"
 		);
-		cERC20(cDaiAddress).transfer(_target, tokenReturn);
-		if (_seller == msg.sender)
-			emit TokenSold(
-				msg.sender,
-				cDaiAddress,
-				_gdAmount,
-				contributionAmount,
-				tokenReturn,
-				_target
-			);
+		require(
+			cERC20(cDaiAddress).transfer(_target, tokenReturn),
+			"cdai transfer failed"
+		);
+
+		emit TokenSold(
+			_seller,
+			cDaiAddress,
+			_gdAmount,
+			contributionAmount,
+			tokenReturn,
+			_target
+		);
+
 		return (tokenReturn, contributionAmount);
 	}
 
@@ -286,7 +313,7 @@ contract GoodReserveCDai is
 		return getMarketMaker().currentPrice(ERC20(cDaiAddress));
 	}
 
-	function currentPriceDAI() public view returns (uint256) {
+	function currentPriceDAI() external view returns (uint256) {
 		cERC20 cDai = cERC20(cDaiAddress);
 
 		return (((currentPrice() * 1e10) * cDai.exchangeRateStored()) / 1e28); // based on https://compound.finance/docs#protocol-math
@@ -303,6 +330,8 @@ contract GoodReserveCDai is
 		uint256 _gdToMint,
 		bool _internalCall
 	) internal {
+		require(paused() == false, "paused");
+
 		//enforce minting rules
 		require(
 			_internalCall ||
@@ -338,7 +367,7 @@ contract GoodReserveCDai is
 		uint256 _daiToConvert,
 		uint256 _startingCDAIBalance,
 		ERC20 _interestToken
-	) public returns (uint256, uint256) {
+	) external returns (uint256, uint256) {
 		cERC20(cDaiAddress).mint(_daiToConvert);
 		uint256 interestInCdai = _interestToken.balanceOf(address(this)) -
 			_startingCDAIBalance;
@@ -347,10 +376,32 @@ contract GoodReserveCDai is
 			interestInCdai
 		);
 		uint256 gdExpansionToMint = getMarketMaker().mintExpansion(_interestToken);
+
+		uint256 nonUBI;
+
+		lastMinted = block.number;
 		uint256 gdUBI = gdInterestToMint + gdExpansionToMint;
+
+		// console.log(
+		// 	"nonubi %s, sender: %s, fundManager: %s",
+		// 	nonUbiBps,
+		// 	_msgSender(),
+		// 	nameService.getAddress("FUND_MANAGER")
+		// );
+
+		if (nonUbiBps > 0 && address(distributionHelper) != address(0)) {
+			nonUBI = (gdExpansionToMint * nonUbiBps) / 10000;
+			gdUBI -= nonUBI;
+			_mintGoodDollars(address(distributionHelper), nonUBI, false);
+			bool success = true;
+			try distributionHelper.onDistribution(nonUBI) {} catch {
+				success = false;
+			} //should not prevent mintUBI from completing
+			emit NonUBIMinted(address(distributionHelper), nonUBI, success);
+		}
+
 		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
 		_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), gdUBI, false);
-		lastMinted = block.number;
 		emit UBIMinted(
 			lastMinted,
 			address(_interestToken),
@@ -359,7 +410,22 @@ contract GoodReserveCDai is
 			gdExpansionToMint,
 			gdUBI
 		);
+
 		return (gdUBI, interestInCdai);
+	}
+
+	/**
+	 * @notice allows Avatar to change or set the distribution helper
+	 * @param _helper address of distributionhelper contract
+	 * @param _bps how much of UBI to transfer in basis points
+	 */
+	function setDistributionHelper(DistributionHelper _helper, uint32 _bps)
+		external
+	{
+		_onlyAvatar();
+		distributionHelper = _helper;
+		nonUbiBps = _bps;
+		emit DistributionHelperSet(address(_helper), _bps);
 	}
 
 	/**
@@ -370,7 +436,9 @@ contract GoodReserveCDai is
 	 * @param _nom The numerator to calculate the global `reserveRatioDailyExpansion` from
 	 * @param _denom The denominator to calculate the global `reserveRatioDailyExpansion` from
 	 */
-	function setReserveRatioDailyExpansion(uint256 _nom, uint256 _denom) public {
+	function setReserveRatioDailyExpansion(uint256 _nom, uint256 _denom)
+		external
+	{
 		_onlyAvatar();
 		getMarketMaker().setReserveRatioDailyExpansion(_nom, _denom);
 	}
@@ -379,7 +447,7 @@ contract GoodReserveCDai is
 	 * @dev Remove minting rights after it has transferred the cDAI funds to `_avatar`
 	 * Only the Avatar can execute this method
 	 */
-	function end() public {
+	function end() external {
 		_onlyAvatar();
 		// remaining cDAI tokens in the current reserve contract
 		if (ERC20(cDaiAddress).balanceOf(address(this)) > 0) {
@@ -403,7 +471,7 @@ contract GoodReserveCDai is
 	 * @dev method to recover any stuck erc20 tokens (ie compound COMP)
 	 * @param _token the ERC20 token to recover
 	 */
-	function recover(ERC20 _token) public {
+	function recover(ERC20 _token) external {
 		_onlyAvatar();
 		require(
 			_token.transfer(address(avatar), _token.balanceOf(address(this))),
@@ -411,34 +479,36 @@ contract GoodReserveCDai is
 		);
 	}
 
-	/**
-	 * @notice prove user balance in a specific blockchain state hash
-	 * @dev "rootState" is a special state that can be supplied once, and actually mints reputation on the current blockchain
-	 * @param _user the user to prove his balance
-	 * @param _gdx the balance we are prooving
-	 * @param _proof array of byte32 with proof data (currently merkle tree path)
-	 * @return true if proof is valid
-	 */
-	function claimGDX(
-		address _user,
-		uint256 _gdx,
-		bytes32[] memory _proof
-	) public returns (bool) {
-		require(isClaimedGDX[_user] == false, "already claimed gdx");
-		bytes32 leafHash = keccak256(abi.encode(_user, _gdx));
-		bool isProofValid = MerkleProofUpgradeable.verify(
-			_proof,
-			gdxAirdrop,
-			leafHash
-		);
+	//no longer required all gdx was distributed
+	// /**
+	//  * @notice prove user balance in a specific blockchain state hash
+	//  * @dev "rootState" is a special state that can be supplied once, and actually mints reputation on the current blockchain
+	//  * @param _user the user to prove his balance
+	//  * @param _gdx the balance we are prooving
+	//  * @param _proof array of byte32 with proof data (currently merkle tree path)
+	//  * @return true if proof is valid
+	//  */
 
-		require(isProofValid, "invalid merkle proof");
+	// function claimGDX(
+	// 	address _user,
+	// 	uint256 _gdx,
+	// 	bytes32[] memory _proof
+	// ) public returns (bool) {
+	// 	require(isClaimedGDX[_user] == false, "already claimed gdx");
+	// 	bytes32 leafHash = keccak256(abi.encode(_user, _gdx));
+	// 	bool isProofValid = MerkleProofUpgradeable.verify(
+	// 		_proof,
+	// 		gdxAirdrop,
+	// 		leafHash
+	// 	);
 
-		_mintGDX(_user, _gdx);
+	// 	require(isProofValid, "invalid merkle proof");
 
-		isClaimedGDX[_user] = true;
-		return true;
-	}
+	// 	_mintGDX(_user, _gdx);
+
+	// 	isClaimedGDX[_user] = true;
+	// 	return true;
+	// }
 
 	// implement minting constraints through the GlobalConstraintInterface interface. prevent any minting not through reserve
 	function pre(

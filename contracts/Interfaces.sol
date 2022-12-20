@@ -15,6 +15,8 @@ interface ERC20 {
 
 	function mint(address to, uint256 mintAmount) external returns (uint256);
 
+	function burn(uint256 amount) external;
+
 	function totalSupply() external view returns (uint256);
 
 	function allowance(address owner, address spender)
@@ -255,6 +257,12 @@ interface IIdentity {
 
 	function removeWhitelisted(address account) external;
 
+	function addBlacklisted(address account) external;
+
+	function removeBlacklisted(address account) external;
+
+	function isBlacklisted(address user) external view returns (bool);
+
 	function addIdentityAdmin(address account) external returns (bool);
 
 	function setAvatar(address _avatar) external;
@@ -293,6 +301,12 @@ interface ProxyAdmin {
 	function owner() external view returns (address);
 
 	function transferOwnership(address newOwner) external;
+
+	function upgradeAndCall(
+		address proxy,
+		address implementation,
+		bytes memory data
+	) external;
 }
 
 /**
@@ -453,4 +467,22 @@ interface IAdminWallet {
 	function owner() external view returns (address);
 
 	function transferOwnership(address _owner) external;
+}
+
+interface IMultichainRouter {
+	// Swaps `amount` `token` from this chain to `toChainID` chain with recipient `to`
+	function anySwapOut(
+		address token,
+		address to,
+		uint256 amount,
+		uint256 toChainID
+	) external;
+
+	// Swaps `amount` `token` from this chain to `toChainID` chain with recipient `to`
+	function anySwapOutUnderlying(
+		address token,
+		address to,
+		uint256 amount,
+		uint256 toChainID
+	) external;
 }

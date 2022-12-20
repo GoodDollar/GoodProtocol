@@ -130,4 +130,21 @@ describe("proxyfactory", () => {
     let orgproxy = await ethers.getContractAt("UpgradableMock", proxyAddr);
     expect(await orgproxy.owner()).to.eq(signers[2].address);
   });
+
+  it("should use deploy minimal to deploy proxy with impl and initialize it", async () => {
+    const c1 = await (
+      await ethers.getContractFactory("UpgradableMock")
+    ).deploy();
+
+    const encoded = c1.interface.encodeFunctionData("initialize", [
+      signers[2].address
+    ]);
+    const deployTX = await (
+      await factory.deployMinimal(c1.address, encoded)
+    ).wait();
+    const proxyAddr = deployTX.events.find(_ => _.event === "ProxyCreated").args
+      .proxy;
+    proxy = await ethers.getContractAt("UpgradableMock", proxyAddr);
+    expect(await proxy.owner()).to.eq(signers[2].address);
+  });
 });

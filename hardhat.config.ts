@@ -13,18 +13,30 @@ import { task, types } from "hardhat/config";
 import { sha3 } from "web3-utils";
 import { config } from "dotenv";
 import { airdrop } from "./scripts/governance/airdropCalculation";
-import { airdrop as gdxAirdrop } from "./scripts/gdx/gdxAirdropCalculation";
+import { airdrop as repAirdropRecover } from "./scripts/governance/airdropCalculationRecover";
+import {
+  airdrop as gdxAirdrop,
+  airdropRecover as gdxAirdropRecover
+} from "./scripts/gdx/gdxAirdropCalculation";
+import { sumStakersGdRewards } from "./scripts/staking/stakersGdRewardsCalculation";
 import { verify } from "./scripts/verify";
 import { ethers } from "ethers";
+import { fstat, readFileSync, writeFileSync } from "fs";
 config();
 
-const mnemonic = process.env.MNEMONIC;
+const mnemonic =
+  process.env.MNEMONIC ||
+  "test test test test test test test test test test test junk";
 const deployerPrivateKey =
   process.env.PRIVATE_KEY || ethers.utils.hexZeroPad("0x11", 32);
 const infura_api = process.env.INFURA_API;
 const alchemy_key = process.env.ALCHEMY_KEY;
 const etherscan_key = process.env.ETHERSCAN_KEY;
+const celoscan_key = process.env.CELOSCAN_KEY;
+
 const ethplorer_key = process.env.ETHPLORER_KEY;
+
+const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
 
 // console.log({ mnemonic: sha3(mnemonic) });
 const hhconfig: HardhatUserConfig = {
@@ -41,7 +53,20 @@ const hhconfig: HardhatUserConfig = {
     outDir: "types"
   },
   etherscan: {
-    apiKey: etherscan_key
+    apiKey: {
+      mainnet: etherscan_key,
+      celo: celoscan_key
+    },
+    customChains: [
+      {
+        network: "celo",
+        chainId: 42220,
+        urls: {
+          apiURL: "https://api.celoscan.io",
+          browserURL: "https://celoscan.io"
+        }
+      }
+    ]
   },
   contractSizer: {
     alphaSort: false,
@@ -51,10 +76,16 @@ const hhconfig: HardhatUserConfig = {
 
   networks: {
     hardhat: {
-      chainId: 4447,
+      chainId: process.env.FORK_CHAIN_ID
+        ? Number(process.env.FORK_CHAIN_ID)
+        : 4447,
       allowUnlimitedContractSize: true,
       accounts: {
         accountsBalance: "10000000000000000000000000"
+      },
+      initialDate: "2021-12-01", //required for DAO tests like guardian
+      forking: process.env.FORK_CHAIN_ID && {
+        url: "https://eth-mainnet.alchemyapi.io/v2/" + process.env.ALCHEMY_KEY
       }
     },
     test: {
@@ -105,13 +136,20 @@ const hhconfig: HardhatUserConfig = {
       url: "https://rpc.fuse.io/",
       chainId: 122,
       gas: 6000000,
-      gasPrice: 1000000000
+      gasPrice: 10000000000
+    },
+    fuseexplorer: {
+      accounts: { mnemonic },
+      url: "https://explorer-node.fuse.io/",
+      chainId: 122,
+      gas: 6000000,
+      gasPrice: 10000000000
     },
     fusespark: {
       accounts: { mnemonic },
       url: "https://rpc.fusespark.io/",
       gas: 3000000,
-      gasPrice: 1000000000,
+      gasPrice: 10000000000,
       chainId: 123
     },
     "fuse-mainnet": {
@@ -126,7 +164,7 @@ const hhconfig: HardhatUserConfig = {
       url: "https://rpc.fuse.io/",
       chainId: 122,
       gas: 6000000,
-      gasPrice: 1000000000
+      gasPrice: 10000000000
     },
     "staging-mainnet": {
       accounts: { mnemonic },
@@ -139,15 +177,50 @@ const hhconfig: HardhatUserConfig = {
       accounts: [deployerPrivateKey],
       url: "https://rpc.fuse.io/",
       gas: 3000000,
-      gasPrice: 1000000000,
+      gasPrice: 10000000000,
       chainId: 122
     },
     "production-mainnet": {
       accounts: [deployerPrivateKey],
-      url: "https://mainnet.infura.io/v3/" + infura_api,
+      url: MAINNET_URL,
       gas: 3000000,
       gasPrice: 50000000000,
       chainId: 1
+    },
+    "production-celo": {
+      accounts: [deployerPrivateKey],
+      url: "https://forno.celo.org",
+      gas: 3000000,
+      gasPrice: 500000000,
+      chainId: 42220
+    },
+    celo: {
+      accounts: [deployerPrivateKey],
+      url: "https://forno.celo.org",
+      gas: 3000000,
+      gasPrice: 500000000,
+      chainId: 42220
+    },
+    "staging-celo": {
+      accounts: { mnemonic },
+      url: "https://forno.celo.org",
+      gas: 3000000,
+      gasPrice: 150000000,
+      chainId: 42220
+    },
+    "development-celo": {
+      accounts: { mnemonic },
+      url: "https://forno.celo.org",
+      gas: 3000000,
+      gasPrice: 150000000,
+      chainId: 42220
+    },
+    gnosis: {
+      accounts: [deployerPrivateKey],
+      url: "https://rpc.gnosischain.com",
+      gas: 3000000,
+      gasPrice: 500000000,
+      chainId: 100
     }
   },
   mocha: {
@@ -177,6 +250,26 @@ task("repAirdrop", "Calculates airdrop data and merkle tree")
     }
   });
 
+task(
+  "repAirdropRecover",
+  "Calculates airdrop data and merkle tree after critical bug"
+)
+  .addParam("action", "calculate/tree/proof")
+  .addOptionalPositionalParam("address", "proof for address")
+  .setAction(async (taskArgs, hre) => {
+    const actions = repAirdropRecover(hre.ethers, ethplorer_key, etherscan_key);
+    switch (taskArgs.action) {
+      case "calculate":
+        return actions.collectAirdropData();
+      case "tree":
+        return actions.buildMerkleTree();
+      case "proof":
+        return actions.getProof(taskArgs.address);
+      default:
+        console.log("unknown action use calculate or tree");
+    }
+  });
+
 task("gdxAirdrop", "Calculates airdrop data")
   .addParam("action", "calculate/tree/proof")
   .addOptionalPositionalParam("address", "proof for address")
@@ -195,9 +288,66 @@ task("gdxAirdrop", "Calculates airdrop data")
     }
   });
 
+task("gdxAirdropRecover", "Calculates new airdrop data for recovery")
+  .addParam("action", "addition/tree")
+  .setAction(async (taskArgs, hre) => {
+    const actions = gdxAirdropRecover(hre.ethers);
+    switch (taskArgs.action) {
+      case "addition":
+        return actions.addCalculationsToPreviousData();
+      case "tree":
+        return actions.buildMerkleTree();
+      default:
+        console.log("unknown action use addition or tree");
+    }
+  });
+
 task("verifyjson", "verify contracts on etherscan").setAction(
   async (taskArgs, hre) => {
     return verify(hre);
   }
 );
 export default hhconfig;
+
+task(
+  "sumStakersGdRewards",
+  "Sums the GoodDollar reward for each staker"
+).setAction(async (taskArgs, hre) => {
+  const actions = sumStakersGdRewards(hre.ethers);
+  return actions.getStakersGdRewards();
+});
+
+task("cleanflat", "Cleans multiple SPDX and Pragma from flattened file")
+  .addPositionalParam("file", "flattened sol file")
+  .setAction(async ({ file }, { run }) => {
+    let flattened = await run("flatten:get-flattened-sources", {
+      files: [file]
+    });
+
+    // Remove every line started with "// SPDX-License-Identifier:"
+    flattened = flattened.replace(
+      /SPDX-License-Identifier:/gm,
+      "License-Identifier:"
+    );
+
+    flattened = `// SPDX-License-Identifier: MIXED\n\n${flattened}`;
+
+    // Remove every line started with "pragma experimental ABIEncoderV2;" except the first one
+    flattened = flattened.replace(
+      /pragma experimental ABIEncoderV2;\n/gm,
+      (
+        i => m =>
+          !i++ ? m : ""
+      )(0)
+    );
+    flattened = flattened.replace(
+      /pragma solidity.*\n/gm,
+      (
+        i => m =>
+          !i++ ? m : ""
+      )(0)
+    );
+
+    flattened = flattened.trim();
+    writeFileSync("flat.sol", flattened);
+  });
