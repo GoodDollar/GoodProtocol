@@ -12,8 +12,13 @@ import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
 import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
-import { GoodMarketMaker, CompoundVotingMachine } from "../types";
+import {
+  GoodMarketMaker,
+  CompoundVotingMachine,
+  GoodDollarCustom
+} from "../types";
 import { Contract } from "ethers";
+import frameworkDeployer from "@superfluid-finance/ethereum-contracts/scripts/deploy-test-framework";
 
 export const getStakingFactory = async (
   factory:
@@ -35,9 +40,42 @@ export const getStakingFactory = async (
   return simpleStakingFactory;
 };
 
+export const deploySuperFluid = async () => {
+  // This deploys the whole framework with various contracts
+  const sfDeployer = await frameworkDeployer.deployTestFramework();
+  // returns contract addresses as a struct, see https://github.com/superfluid-finance/protocol-monorepo/blob/dev/packages/ethereum-contracts/contracts/utils/SuperfluidFrameworkDeployer.sol#L48
+  const contractsFramework = await sfDeployer.getFramework();
+
+  return contractsFramework;
+};
+
+export const deploySuperGoodDollar = async (sfContracts, tokenArgs) => {
+  const GoodDollarCustomFactory = await ethers.getContractFactory(
+    "GoodDollarCustom"
+  );
+  const goodDollarCustom = await GoodDollarCustomFactory.deploy();
+
+  const GoodDollarProxyFactory = await ethers.getContractFactory(
+    "GoodDollarProxy"
+  );
+  const GoodDollarProxy = await GoodDollarProxyFactory.deploy();
+
+  await GoodDollarProxy.initialize(
+    sfContracts.host,
+    goodDollarCustom.address,
+    ...tokenArgs
+  );
+
+  const GoodDollar = await ethers.getContractAt(
+    "ISuperGoodDollar",
+    GoodDollarProxy.address
+  );
+  return GoodDollar;
+};
 export const createDAO = async () => {
   let [root, ...signers] = await ethers.getSigners();
 
+  const sfContracts = await deploySuperFluid();
   const cdaiFactory = await ethers.getContractFactory("cDAIMock");
   const daiFactory = await ethers.getContractFactory("DAIMock");
 
@@ -72,7 +110,7 @@ export const createDAO = async () => {
 
   const daoCreator = await DAOCreatorFactory.deploy();
   const FeeFormula = await FeeFormulaFactory.deploy(0);
-  const GoodDollarFactory = await ethers.getContractFactory("GoodDollar");
+  // const GoodDollarFactory = await ethers.getContractFactory("GoodDollar");
   const GReputation = await ethers.getContractFactory("GReputation");
 
   let reputation = await upgrades.deployProxy(
@@ -84,23 +122,33 @@ export const createDAO = async () => {
     }
   );
 
-  const GoodDollar = await upgrades.deployProxy(
-    GoodDollarFactory,
-    [
-      "GoodDollar",
-      "G$",
-      0,
-      FeeFormula.address,
-      Identity.address,
-      ethers.constants.AddressZero,
-      daoCreator.address
-    ],
-    {
-      kind: "uups",
-      initializer:
-        "initialize(string, string, uint256, address, address, address,address)"
-    }
-  );
+  // const GoodDollar = await upgrades.deployProxy(
+  //   GoodDollarFactory,
+  //   [
+  //     "GoodDollar",
+  //     "G$",
+  //     0,
+  //     FeeFormula.address,
+  //     Identity.address,
+  //     ethers.constants.AddressZero,
+  //     daoCreator.address
+  //   ],
+  //   {
+  //     kind: "uups",
+  //     initializer:
+  //       "initialize(string, string, uint256, address, address, address,address)"
+  //   }
+  // );
+
+  const GoodDollar = await deploySuperGoodDollar(sfContracts, [
+    "GoodDollar",
+    "G$",
+    0, // cap
+    FeeFormula.address,
+    Identity.address,
+    ethers.constants.AddressZero,
+    daoCreator.address
+  ]);
 
   console.log("creating DAO...", {
     gdOwner: await GoodDollar.owner(),
@@ -359,7 +407,8 @@ export const createDAO = async () => {
     cdaiAddress: cDAI.address,
     COMP,
     reputation: reputation.address,
-    votingMachine
+    votingMachine,
+    sfContracts
   };
 };
 export const deployUBI = async deployedDAO => {

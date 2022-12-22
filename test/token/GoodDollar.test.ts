@@ -8,9 +8,15 @@ import {
   IIdentityV2,
   IIdentity,
   IdentityV2,
-  GoodDollar
+  GoodDollar,
+  ISuperGoodDollar
 } from "../../types";
-import { advanceBlocks, createDAO, increaseTime } from "../helpers";
+import {
+  advanceBlocks,
+  createDAO,
+  deploySuperGoodDollar,
+  increaseTime
+} from "../helpers";
 import { Contract } from "ethers";
 
 const BN = ethers.BigNumber;
@@ -20,16 +26,16 @@ describe("GoodDollar Token", () => {
     identity,
     feeFormula,
     newFormula,
-    token: GoodDollar,
-    unCappedToken: GoodDollar,
-    cappedToken: GoodDollar,
-    newtoken: GoodDollar,
+    token: ISuperGoodDollar,
+    unCappedToken: ISuperGoodDollar,
+    cappedToken: ISuperGoodDollar,
+    newtoken: ISuperGoodDollar,
     founder,
     outsider,
     whitelisted;
   let signers;
 
-  let avatar, gd: IGoodDollar, Controller, id: IIdentity;
+  let avatar, gd: ISuperGoodDollar, Controller, id: IIdentity, superFluid;
 
   before(async () => {
     [founder, whitelisted, outsider, ...signers] = await ethers.getSigners();
@@ -39,9 +45,11 @@ describe("GoodDollar Token", () => {
       controller,
       avatar: av,
       gd: gooddollar,
-      identity: idv2
+      identity: idv2,
+      sfContracts
     } = await loadFixture(createDAO);
 
+    superFluid = sfContracts;
     avatar = av;
     identity = await ethers.getContractAt("IdentityV2", idv2);
 
@@ -58,9 +66,9 @@ describe("GoodDollar Token", () => {
     ).deploy();
 
     token = (await ethers.getContractAt(
-      "GoodDollar",
+      "ISuperGoodDollar",
       gooddollar
-    )) as GoodDollar;
+    )) as ISuperGoodDollar;
     feeFormula = FeeFormulaFactory.attach(await token.formula());
 
     // isProduction ? "GoodDollar" : "GoodDollar Dev",
@@ -70,56 +78,88 @@ describe("GoodDollar Token", () => {
     //   Identity.address,
     //   ethers.constants.AddressZero,
     //   daoCreator.address
-    unCappedToken = (await upgrades.deployProxy(
-      await ethers.getContractFactory("GoodDollar"),
-      [
-        "Test",
-        "TDD",
-        0,
-        feeFormula.address,
-        identity.address,
-        receiver.address,
-        founder.address
-      ],
-      {
-        initializer:
-          "initialize(string,string,uint256,address,address,address,address)"
-      }
-    )) as GoodDollar;
-    cappedToken = (await upgrades.deployProxy(
-      await ethers.getContractFactory("GoodDollar"),
-      [
-        "Test",
-        "TDD",
-        1000,
-        feeFormula.address,
-        identity.address,
-        receiver.address,
-        founder.address
-      ],
-      {
-        initializer:
-          "initialize(string,string,uint256,address,address,address,address)"
-      }
-    )) as GoodDollar;
+    // unCappedToken = (await upgrades.deployProxy(
+    //   await ethers.getContractFactory("GoodDollar"),
+    //   [
+    //     "Test",
+    //     "TDD",
+    //     0,
+    //     feeFormula.address,
+    //     identity.address,
+    //     receiver.address,
+    //     founder.address
+    //   ],
+    //   {
+    //     initializer:
+    //       "initialize(string,string,uint256,address,address,address,address)"
+    //   }
+    // )) as GoodDollar;
+
+    unCappedToken = (await deploySuperGoodDollar(superFluid, [
+      "Test",
+      "TDD",
+      0,
+      feeFormula.address,
+      identity.address,
+      receiver.address,
+      founder.address
+    ])) as ISuperGoodDollar;
+
+    cappedToken = (await deploySuperGoodDollar(superFluid, [
+      "Test",
+      "TDD",
+      1000,
+      feeFormula.address,
+      identity.address,
+      receiver.address,
+      founder.address
+    ])) as ISuperGoodDollar;
 
     newFormula = await FeeFormulaFactory.deploy(1);
-    newtoken = (await upgrades.deployProxy(
-      await ethers.getContractFactory("GoodDollar"),
-      [
-        "gd",
-        "gd",
-        1000000,
-        newFormula.address,
-        identity.address,
-        av,
-        founder.address
-      ],
-      {
-        initializer:
-          "initialize(string,string,uint256,address,address,address,address)"
-      }
-    )) as GoodDollar;
+
+    newtoken = (await deploySuperGoodDollar(superFluid, [
+      "gd",
+      "gd",
+      1000000,
+      newFormula.address,
+      identity.address,
+      av,
+      founder.address
+    ])) as ISuperGoodDollar;
+
+    // cappedToken = (await upgrades.deployProxy(
+    //   await ethers.getContractFactory("GoodDollar"),
+    //   [
+    //     "Test",
+    //     "TDD",
+    //     1000,
+    //     feeFormula.address,
+    //     identity.address,
+    //     receiver.address,
+    //     founder.address
+    //   ],
+    //   {
+    //     initializer:
+    //       "initialize(string,string,uint256,address,address,address,address)"
+    //   }
+    // )) as GoodDollar;
+
+    // newtoken = (await upgrades.deployProxy(
+    //   await ethers.getContractFactory("GoodDollar"),
+    //   [
+    //     "gd",
+    //     "gd",
+    //     1000000,
+    //     newFormula.address,
+    //     identity.address,
+    //     av,
+    //     founder.address
+    //   ],
+    //   {
+    //     initializer:
+    //       "initialize(string,string,uint256,address,address,address,address)"
+    //   }
+    // )) as GoodDollar;
 
     await token.mint(founder.address, 100000000);
 
@@ -210,7 +250,7 @@ describe("GoodDollar Token", () => {
   });
 
   it("should allow to burn", async () => {
-    expect(token.connect(whitelisted).burn(1000)).not.reverted;
+    expect(token.connect(whitelisted)["burn(uint256)"](1000)).not.reverted;
   });
 
   it("should allow to burn from", async () => {
