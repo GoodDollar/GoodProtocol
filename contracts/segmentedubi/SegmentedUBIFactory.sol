@@ -5,6 +5,7 @@ pragma solidity >=0.8.0;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
@@ -25,7 +26,7 @@ contract SegmentedUBIFactory {
 	function createPoolAndInitialize(
 		address creator,
 		string memory description,
-		bytes data
+		bytes memory data
 	) external returns (address pool) {
 		address proxy = Clones.cloneDeterministic(
 			address(proxyImpl),

@@ -10,19 +10,17 @@ import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "../utils/BeaconProxyImpl.sol";
 
-import "../Interfaces.sol";
+import "./Interfaces.sol";
 import "./SegmentedUBIFactory.sol";
 
 contract SegmentedIdentity is DAOUpgradeableContract, AccessControlUpgradeable {
 	struct PoolInfo {
-		address creator;
-		address membersAdmin;
 		string description;
-		address pool;
+		IMembersValidator membersValidator;
 		IIdentity uniqueIdentity;
-		bytes32 merkleDrop;
 		mapping(bytes32 => address) identifierToMember;
 		mapping(address => bool) members;
+		mapping(bytes32 => bool) identifiers;
 		uint256 membersCount;
 	}
 
@@ -32,8 +30,20 @@ contract SegmentedIdentity is DAOUpgradeableContract, AccessControlUpgradeable {
 
 	modifier onlyMembersAdmin(address pool) {
 		require(
-			pools[pool].membersAdmin == msg.sender,
-			"SegIdentity: only members admin"
+			hasRole(keccak256(abi.encode("POOL_MEMBERS_ADMIN", pool)), msg.sender) ||
+				hasRole(keccak256(abi.encode("POOL_MEMBERS_ADMIN", pool)), address(0)),
+			"not pool members admin"
+		);
+		_;
+	}
+
+	modifier onlyIdentifiersAdmin(address pool) {
+		require(
+			hasRole(
+				keccak256(abi.encode("POOL_IDENTIFIERS_ADMIN", pool)),
+				msg.sender
+			),
+			"not pool identifiers admin"
 		);
 		_;
 	}
@@ -49,76 +59,96 @@ contract SegmentedIdentity is DAOUpgradeableContract, AccessControlUpgradeable {
 	}
 
 	function setupPool(
+		address owner,
 		address membersAdmin,
+		address identifiersAdmin,
 		string memory description,
 		bool allowFoundationAdmin,
 		IIdentity uniqueness,
-		bytes32 merkleDrop
+		IMembersValidator membersValidator,
+		UBIPoolSettings memory settings
 	) public {
-		PoolInfo storage poolInfo = pools[address(pool)];
-		poolInfo.creator = msg.sender;
-		poolInfo.membersAdmin = membersAdmin;
-		poolInfo.uniqueIdentity = uniqueness;
-		poolInfo.description = description;
-		poolInfo.merkleDrop = merkleDrop;
-
-		//function initialize(INameService _ns,uint256 _maxInactiveDays,uint256 _dailyCap,bool _isDAOOwned,address _owner,bool _canWithdrawFunds)
+		//function initialize(INameService _ns, address _owner, uint256 _claimPeriod, uint256 _maxInactiveDays, uint256 _dailyCap, bool _isFixedAmount, bool _isDAOOwned, bool _canWithdrawFunds)
 		address pool = SegmentedUBIFactory(
 			nameService.getAddress("SEGMENTEDUBI_FACTORY")
 		).createPoolAndInitialize(
-				creator,
+				owner,
 				description,
 				abi.encodeWithSignature(
-					"initialize(address,uint256,uint256,bool,address,bool)",
-					nameService,
-					7,
-					6000,
-					true,
-					address(0),
-					true
+					"initialize(address,address,uint256,uint256,uint256,bool,bool,bool)",
+					settings
 				)
 			);
 
-		poolInfo.pool = address(pool);
+		PoolInfo storage poolInfo = pools[address(pool)];
+		poolInfo.membersValidator = membersValidator;
+		poolInfo.uniqueIdentity = uniqueness;
+		poolInfo.description = description;
+
+		_setupRole(keccak256(abi.encode("POOL_OWNER", pool)), owner);
+		_setRoleAdmin(
+			keccak256(abi.encode("POOL_OWNER", pool)),
+			keccak256(abi.encode("POOL_OWNER", pool))
+		);
+		_setRoleAdmin(
+			keccak256(abi.encode("POOL_MEMBERS_ADMIN", pool)),
+			keccak256(abi.encode("POOL_OWNER", pool))
+		);
+		_setRoleAdmin(
+			keccak256(abi.encode("POOL_IDENTIFIER_ADMIN", pool)),
+			keccak256(abi.encode("POOL_OWNER", pool))
+		);
 
 		if (membersAdmin != address(0))
-			_setupRole(keccak256(abi.encode("INCLUSION_", pool)), membersAdmin);
-		if (allowFoundationAdmin && membersAdmin != foundationAdminWallet)
 			_setupRole(
-				keccak256(abi.encode("INCLUSION_", pool)),
+				keccak256(abi.encode("POOL_MEMBERS_ADMIN", pool)),
+				membersAdmin
+			);
+		if (identifiersAdmin != address(0))
+			_setupRole(
+				keccak256(abi.encode("POOL_IDENTIFIERS_ADMIN", pool)),
+				identifiersAdmin
+			);
+
+		if (membersAdmin != address(0))
+			_setupRole(
+				keccak256(abi.encode("POOL_MEMBERS_ADMIN", pool)),
 				foundationAdminWallet
 			);
 	}
 
-	function addMemberWithProof(
-		address pool,
-		bytes32 memberIdentifier,
-		bytes32[] memory proof,
-		uint256 proofIndex
-	) public {
-		bytes32 leafHash = keccak256(abi.encode(msg.sender, memberIdentifier));
-		bool isValidProof = checkProofOrdered(
-			proof,
-			pools[pool].merkleDrop,
-			leafHash,
-			proofIndex
-		);
-		require(isValidProof, "invalid proof");
-		_addMember(pool, msg.sender, memberIdentifier);
+	function whitelistIdentifier(address pool, bytes32 identifier)
+		external
+		onlyIdentifiersAdmin(pool)
+	{
+		pools[pool].identifiers[identifier] = true;
 	}
 
-	function addMember(
+	function blacklistIdentifier(address pool, bytes32 identifier)
+		external
+		onlyIdentifiersAdmin(pool)
+	{
+		pools[pool].identifiers[identifier] = false;
+	}
+
+	/**
+		@dev connect a member to identifier making him a valid member of the pool
+		@param extraData any extra data to pass to the identifiers validator. usually would be proof of identifier ownership
+	 */
+	function whitelistMember(
 		address pool,
 		address member,
-		bytes32 identifier
+		bytes32 identifier,
+		bytes memory extraData
 	) public onlyMembersAdmin(pool) {
-		_addMember(pool, member, identifier);
+		_whitelistMember(pool, member, identifier, extraData);
 	}
 
-	function _addMember(
+	function _whitelistMember(
 		address pool,
 		address member,
-		bytes32 identifier
+		bytes32 identifier,
+		bytes memory extraData
 	) internal {
 		if (pools[pool].members[member] == false) {
 			pools[pool].members[member] = true;
@@ -132,6 +162,19 @@ contract SegmentedIdentity is DAOUpgradeableContract, AccessControlUpgradeable {
 				"identifier exists"
 			);
 			pools[pool].identifierToMember[identifier] = member;
+		}
+		IMembersValidator membersValidator = pools[pool].membersValidator;
+		if (address(membersValidator) != address(0)) {
+			require(
+				membersValidator.isValid(
+					pool,
+					member,
+					identifier,
+					extraData,
+					pools[pool].identifiers[identifier]
+				),
+				"invalid member identifier"
+			);
 		}
 	}
 

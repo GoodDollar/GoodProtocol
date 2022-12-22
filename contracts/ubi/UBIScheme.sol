@@ -197,7 +197,7 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * @dev function that gets count of claimers and amount claimed for the current day
 	 * @return the count of claimers and the amount claimed.
 	 */
-	function getDailyStats() public view returns (uint256, uint256) {
+	function getDailyStats() public view virtual returns (uint256, uint256) {
 		uint256 today = (block.timestamp - periodStart) / 1 days;
 		return (getClaimerCount(today), getClaimAmount(today));
 	}
@@ -309,7 +309,7 @@ contract UBIScheme is DAOUpgradeableContract {
 	 *@dev Sets the currentDay variable to amount of days
 	 * since start of contract.
 	 */
-	function setDay() public {
+	function setDay() public virtual {
 		uint256 day = (block.timestamp - periodStart) / (1 days);
 		if (day > currentDay) {
 			currentDay = day;
@@ -434,7 +434,12 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * or fish has already been executed today.
 	 * @return The amount of GD tokens the address can claim.
 	 */
-	function checkEntitlement(address _member) public view returns (uint256) {
+	function checkEntitlement(address _member)
+		public
+		view
+		virtual
+		returns (uint256)
+	{
 		if (block.timestamp < periodStart) return 0; //not started
 		// new user or inactive should recieve the first claim reward
 		if (
