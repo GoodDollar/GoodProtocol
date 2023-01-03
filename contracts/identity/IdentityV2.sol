@@ -11,6 +11,8 @@ import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
 
+// import "hardhat/console.sol";
+
 /* @title Identity contract responsible for whitelisting
  * and keeping track of amount of whitelisted users
  */
@@ -537,6 +539,15 @@ contract IdentityV2 is
 		}
 
 		return "";
+	}
+
+	function getWhitelistedOnChainId(address account)
+		external
+		view
+		returns (uint256 chainId)
+	{
+		chainId = identities[account].whitelistedOnChainId;
+		return chainId > 0 ? chainId : _chainId();
 	}
 
 	/**
