@@ -224,4 +224,129 @@ describe("SuperGoodDollar", async function () {
       "code address unchanged"
     );
   });
+
+  describe("ERC20Permit", () => {
+    const name = "SuperGoodDollar";
+    const version = "1";
+    const EIP712Domain = [
+      { name: "name", type: "string" },
+      { name: "version", type: "string" },
+      { name: "chainId", type: "uint256" },
+      { name: "verifyingContract", type: "address" }
+    ];
+
+    const Permit = [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+      { name: "value", type: "uint256" },
+      { name: "nonce", type: "uint256" },
+      { name: "deadline", type: "uint256" }
+    ];
+
+    function bufferToHexString(buffer) {
+      return "0x" + buffer.toString("hex");
+    }
+
+    function hexStringToBuffer(hexstr) {
+      return Buffer.from(hexstr.replace(/^0x/, ""), "hex");
+    }
+
+    it("initial nonce is 0", async function () {
+      expect(await sgd.nonces(alice.address)).to.equal(0);
+    });
+
+    it("domain separator", async function () {
+      const hashedDomain = await ethers.utils._TypedDataEncoder.hashDomain({
+        name,
+        version,
+        chainId: 4447,
+        verifyingContract: sgd.address
+      });
+      expect(await sgd.DOMAIN_SEPARATOR()).to.equal(hashedDomain);
+    });
+
+    describe("permit", function () {
+      const wallet = ethers.Wallet.createRandom();
+
+      const chainId = 4447;
+      const owner = wallet.address;
+      const value = 42;
+      const nonce = 0;
+      const maxDeadline = ethers.constants.MaxUint256;
+
+      const buildData = (
+        chainId,
+        verifyingContract,
+        deadline = maxDeadline
+      ) => ({
+        primaryType: "Permit",
+        types: { Permit },
+        domain: { name, version, chainId, verifyingContract },
+        message: { owner, spender: bob.address, value, nonce, deadline }
+      });
+
+      it("accepts owner signature", async function () {
+        const data = buildData(chainId, sgd.address);
+        const signature = await wallet._signTypedData(
+          data.domain,
+          data.types,
+          data.message
+        );
+        const { v, r, s } = ethers.utils.splitSignature(signature);
+
+        await sgd.permit(owner, bob.address, value, maxDeadline, v, r, s);
+
+        expect(await sgd.nonces(owner)).to.equal(1);
+        expect(await sgd.allowance(owner, bob.address)).to.equal(value);
+      });
+
+      it("rejects reused signature", async function () {
+        const data = buildData(chainId, sgd.address);
+        const signature = await wallet._signTypedData(
+          data.domain,
+          data.types,
+          data.message
+        );
+        const { v, r, s } = ethers.utils.splitSignature(signature);
+
+        await sgd.permit(owner, bob.address, value, maxDeadline, v, r, s);
+
+        await expect(
+          sgd.permit(owner, bob.address, value, maxDeadline, v, r, s)
+        ).revertedWith("ERC20Permit: invalid signature");
+      });
+
+      it("rejects other signature", async function () {
+        const otherWallet = ethers.Wallet.createRandom();
+        const data = buildData(chainId, sgd.address);
+        const signature = await otherWallet._signTypedData(
+          data.domain,
+          data.types,
+          data.message
+        );
+        const { v, r, s } = ethers.utils.splitSignature(signature);
+
+        await expect(
+          sgd.permit(owner, bob.address, value, maxDeadline, v, r, s)
+        ).revertedWith("ERC20Permit: invalid signature");
+      });
+
+      it("rejects expired permit", async function () {
+        const block = await ethers.provider.getBlock("latest");
+        const deadline = ethers.BigNumber.from(block.timestamp.toFixed(0));
+
+        const data = buildData(chainId, sgd.address, deadline);
+        const signature = await wallet._signTypedData(
+          data.domain,
+          data.types,
+          data.message
+        );
+        const { v, r, s } = ethers.utils.splitSignature(signature);
+
+        await expect(
+          sgd.permit(owner, bob.address, value, deadline, v, r, s)
+        ).revertedWith("ERC20Permit: expired deadline");
+      });
+    });
+  });
 });

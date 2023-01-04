@@ -7,6 +7,9 @@ import "./FeesFormula.sol";
 import "../Interfaces.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-IERC20PermitUpgradeable.sol";
+
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
@@ -25,7 +28,11 @@ import "./AuxProxiable.sol";
  * Occupies storage slots through the base contract
  */
 abstract contract SuperTokenBase is CustomSuperTokenBase {
-	function _totalSupply() internal view returns (uint256 t) {
+	function _name() internal view returns (string memory name) {
+		return ISuperToken(address(this)).name();
+	}
+
+	function _totalSupply() internal view returns (uint256 totalSupply) {
 		return ISuperToken(address(this)).totalSupply();
 	}
 
@@ -67,11 +74,11 @@ abstract contract SuperTokenBase is CustomSuperTokenBase {
 		);
 	}
 
-	function _balanceOf(address account) internal view returns (uint256) {
+	function _balanceOf(address account) internal view returns (uint256 balance) {
 		return ISuperToken(address(this)).balanceOf(account);
 	}
 
-	function allowance(address owner, address spender)
+	function _allowance(address owner, address spender)
 		internal
 		view
 		returns (uint256)
@@ -114,7 +121,7 @@ contract GoodDollarProxy is
 		AuxUtils.setImplementation(address(auxLogic));
 
 		// this invokes the Initializer of UUPSProxiable of the primary logic contract
-		ISuperToken(address(this)).initialize(IERC20(address(0)), 2, name, symbol);
+		ISuperToken(address(this)).initialize(IERC20(address(0)), 18, name, symbol);
 		// this invokes the Initializer of AuxProxiable of the secondary (aux) logic contract
 		GoodDollarCustom(address(this)).initializeAux(
 			cap,
@@ -204,7 +211,101 @@ interface IGoodDollarCustom {
 	function unpause() external;
 }
 
-interface ISuperGoodDollar is IGoodDollarCustom, ISuperToken {}
+interface ISuperGoodDollar is
+	IGoodDollarCustom,
+	ISuperToken,
+	IERC20PermitUpgradeable
+{}
+
+contract ERC20Permit is
+	SuperTokenBase,
+	Initializable,
+	IERC20PermitUpgradeable,
+	EIP712Upgradeable
+{
+	mapping(address => uint256) private _nonces;
+
+	// solhint-disable-next-line var-name-mixedcase
+	bytes32 private _PERMIT_TYPEHASH;
+
+	/**
+	 * @dev Initializes the {EIP712} domain separator using the `name` parameter, and setting `version` to `"1"`.
+	 *
+	 * It's a good idea to use the same `name` that is defined as the ERC20 token name.
+	 */
+	function __ERC20Permit_init(string memory name) internal initializer {
+		__EIP712_init_unchained(name, "1");
+		__ERC20Permit_init_unchained(name);
+	}
+
+	function __ERC20Permit_init_unchained(string memory name)
+		internal
+		initializer
+	{
+		_PERMIT_TYPEHASH = keccak256(
+			"Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+		);
+	}
+
+	/**
+	 * @dev See {IERC20Permit-permit}.
+	 */
+	function permit(
+		address owner,
+		address spender,
+		uint256 value,
+		uint256 deadline,
+		uint8 v,
+		bytes32 r,
+		bytes32 s
+	) public virtual {
+		require(block.timestamp <= deadline, "ERC20Permit: expired deadline");
+
+		bytes32 structHash = keccak256(
+			abi.encode(
+				_PERMIT_TYPEHASH,
+				owner,
+				spender,
+				value,
+				_useNonce(owner),
+				deadline
+			)
+		);
+
+		bytes32 hash = _hashTypedDataV4(structHash);
+
+		address signer = ECDSAUpgradeable.recover(hash, v, r, s);
+		require(signer == owner, "ERC20Permit: invalid signature");
+
+		_approve(owner, spender, value);
+	}
+
+	/**
+	 * @dev See {IERC20Permit-nonces}.
+	 */
+	function nonces(address owner) public view virtual returns (uint256) {
+		return _nonces[owner];
+	}
+
+	/**
+	 * @dev See {IERC20Permit-DOMAIN_SEPARATOR}.
+	 */
+	// solhint-disable-next-line func-name-mixedcase
+	function DOMAIN_SEPARATOR() external view returns (bytes32) {
+		return _domainSeparatorV4();
+	}
+
+	/**
+	 * @dev "Consume a nonce": return the current value and increment.
+	 *
+	 * _Available since v4.1._
+	 */
+
+	function _useNonce(address owner) internal virtual returns (uint256 current) {
+		current = _nonces[owner];
+		_nonces[owner]++;
+	}
+}
 
 // IMPORTANT: The order of base contracts with storage MUST REMAIN AS IS after the initial deployment.
 // Changing order can result in storage corruption when upgrading.
@@ -212,6 +313,7 @@ contract GoodDollarCustom is
 	SuperTokenBase, // includes 32 storage slots padding for SuperToken
 	AccessControlEnumerableUpgradeable, // with storage
 	PausableUpgradeable, // with storage
+	ERC20Permit, //with storage
 	AuxProxiable, // without storage
 	ERC677, // without storage
 	IGoodDollarCustom // without storage
@@ -287,6 +389,10 @@ contract GoodDollarCustom is
 			// ERC20 overrides
 			selector == this.transfer.selector ||
 			selector == this.transferFrom.selector ||
+			// ERC20Permit overrides
+			selector == this.nonces.selector ||
+			selector == this.DOMAIN_SEPARATOR.selector ||
+			selector == this.permit.selector ||
 			// SuperfluidToken overrides
 			selector == this.createAgreement.selector;
 	}
@@ -306,6 +412,7 @@ contract GoodDollarCustom is
 	) public initializer {
 		__AccessControl_init_unchained();
 		__Pausable_init_unchained();
+		__ERC20Permit_init(_name());
 		_setupRole(DEFAULT_ADMIN_ROLE, _owner);
 		_setupRole(MINTER_ROLE, _owner);
 		_setupRole(PAUSER_ROLE, _owner);
@@ -325,6 +432,16 @@ contract GoodDollarCustom is
 
 	function updateAuxCode(address newAddress) external override onlyOwner {
 		AuxProxiable._updateCodeAddress(newAddress);
+	}
+
+	// ============ SuperFluid ============
+
+	/// override Superfluid agreement function in order to make it pausable
+	/// that is, no new streams can be started when the contract is paused
+	function createAgreement(bytes32 id, bytes32[] calldata data) external {
+		require(!paused(), "Pausable: createAgreement while paused");
+		// otherwise the wrapper of SuperToken.createAgreement does the actual job
+		_createAgreement(id, data);
 	}
 
 	// ============ IGoodDollarCustom ============
@@ -389,8 +506,13 @@ contract GoodDollarCustom is
 		_unpause();
 	}
 
-	// why is there no "renouncePauser"?
-
+	/**
+	 * @dev Processes transfer fees and calls ERC677Token transferAndCall function
+	 * @param to address to transfer to
+	 * @param value the amount to transfer
+	 * @param data The data to pass to transferAndCall
+	 * @return a bool indicating if transfer function succeeded
+	 */
 	function transferAndCall(
 		address to,
 		uint256 value,
@@ -401,13 +523,30 @@ contract GoodDollarCustom is
 		return super._transferAndCall(to, value, data);
 	}
 
-	/// override ERC20 transfer function in order to make it pausable
-	/// also required by ERC677
+	/**
+	 * @dev Processes fees from given value and sends
+	 * remainder to given address
+	 * override ERC20 transfer function in order to make it pausable
+	 * also required by ERC677
+	 * @param to the address to be sent to
+	 * @param value the value to be processed and then
+	 * transferred
+	 * @return a boolean that indicates if the operation was successful
+	 */
 	function transfer(address to, uint256 value) public override returns (bool) {
 		return transferFrom(msg.sender, to, value);
 	}
 
-	/// override ERC20 transferFrom function in order to make it pausable
+	/**
+	 * @dev Processes fees from given value and sends
+	 * remainder to given address
+	 * override ERC20 transfer function in order to make it pausable
+	 * @param from The address which you want to send tokens from
+	 * @param to the address to be sent to
+	 * @param value the value to be processed and then
+	 * transferred
+	 * @return a boolean that indicates if the operation was successful
+	 */
 	function transferFrom(
 		address from,
 		address to,
@@ -418,14 +557,6 @@ contract GoodDollarCustom is
 		// handing over to the wrapper of SuperToken.transferFrom
 		_transferFrom(from, msg.sender, to, bruttoValue);
 		return true;
-	}
-
-	/// override Superfluid agreement function in order to make it pausable
-	/// that is, no new streams can be started when the contract is paused
-	function createAgreement(bytes32 id, bytes32[] calldata data) external {
-		require(!paused(), "Pausable: createAgreement while paused");
-		// otherwise the wrapper of SuperToken.createAgreement does the actual job
-		_createAgreement(id, data);
 	}
 
 	/**
@@ -439,7 +570,8 @@ contract GoodDollarCustom is
 		onlyMinter
 		returns (bool)
 	{
-		// TODO: may want to require ! paused()
+		require(!paused(), "Pausable: token transfer while paused");
+
 		if (cap > 0) {
 			require(
 				_totalSupply() + value <= cap,
@@ -451,8 +583,10 @@ contract GoodDollarCustom is
 	}
 
 	function burnFrom(address account, uint256 amount) public {
-		uint256 currentAllowance = allowance(account, _msgSender());
+		uint256 currentAllowance = _allowance(account, _msgSender());
 		require(currentAllowance >= amount, "ERC20: burn amount exceeds allowance");
+		require(!paused(), "Pausable: token transfer while paused");
+
 		unchecked {
 			_approve(account, _msgSender(), currentAllowance - amount);
 		}
@@ -460,10 +594,15 @@ contract GoodDollarCustom is
 	}
 
 	function burn(uint256 amount) public {
-		// TODO: may want to require ! paused()
+		require(!paused(), "Pausable: token transfer while paused");
+
 		_burn(msg.sender, amount, new bytes(0));
 	}
 
+	/**
+	 * @dev Gets the current transaction fees
+	 * @return fee senderPays  that represents the current transaction fees and bool true if sender pays the fee or receiver
+	 */
 	function getFees(uint256 value)
 		public
 		view
@@ -472,6 +611,10 @@ contract GoodDollarCustom is
 		return formula.getTxFees(value, address(0), address(0));
 	}
 
+	/**
+	 * @dev Gets the current transaction fees
+	 * @return fee senderPays  that represents the current transaction fees and bool true if sender pays the fee or receiver
+	 */
 	function getFees(
 		uint256 value,
 		address sender,
@@ -480,12 +623,23 @@ contract GoodDollarCustom is
 		return formula.getTxFees(value, sender, recipient);
 	}
 
+	/**
+	 * @dev Sets the address that receives the transactional fees.
+	 * can only be called by owner
+	 * @param _feeRecipient The new address to receive transactional fees
+	 */
 	function setFeeRecipient(address _feeRecipient) public onlyOwner {
 		feeRecipient = _feeRecipient;
 	}
 
 	// internal functions
 
+	/**
+	 * @dev Sends transactional fees to feeRecipient address from given address
+	 * @param account The account that sends the fees
+	 * @param value The amount to subtract fees from
+	 * @return an uint256 that represents the given value minus the transactional fees
+	 */
 	function _processFees(
 		address account,
 		address recipient,
