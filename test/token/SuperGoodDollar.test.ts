@@ -1,26 +1,20 @@
 import hre, { ethers } from "hardhat";
 import { assert, expect } from "chai";
-
-import TransferAndCallMockABI from "@gooddollar/goodcontracts/build/contracts/TransferAndCallMock.json";
-
-import { Framework } from "@superfluid-finance/sdk-core";
-import frameworkDeployer from "@superfluid-finance/ethereum-contracts/scripts/deploy-test-framework";
-import { deploySuperGoodDollar } from "../helpers";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { Framework } from "@superfluid-finance/sdk-core";
+import TransferAndCallMockABI from "@gooddollar/goodcontracts/build/contracts/TransferAndCallMock.json";
+import { createDAO, deploySuperGoodDollar } from "../helpers";
+import { ISuperGoodDollar } from "../../types";
 
-let contractsFramework,
-  sfDeployer,
-  sf,
+let sf,
   founder,
   alice,
   bob,
   eve,
-  bridge,
-  sgd, // stands for "SuperGoodDollar"
-  feesFormula0PctMock,
-  feesFormula10PctMock,
   identityMock,
-  receiverMock;
+  receiverMock,
+  sgd, // stands for "SuperGoodDollar"
+  feesFormula10PctMock;
 
 const alotOfDollars = ethers.utils.parseEther("100000");
 const tenDollars = ethers.utils.parseEther("10");
@@ -31,20 +25,17 @@ const initialState = async () => {};
 
 before(async function () {
   //get accounts from hardhat
-  [founder, alice, bob, eve, bridge] = await ethers.getSigners();
+  [founder, alice, bob, eve] = await ethers.getSigners();
 
   // Superfluid specific init
 
-  // This deploys the whole framework with various contracts
-  sfDeployer = await frameworkDeployer.deployTestFramework();
-  // returns contract addresses as a struct, see https://github.com/superfluid-finance/protocol-monorepo/blob/dev/packages/ethereum-contracts/contracts/utils/SuperfluidFrameworkDeployer.sol#L48
-  contractsFramework = await sfDeployer.getFramework();
+  let { sfContracts } = await loadFixture(createDAO);
 
   // initialize sdk-core to get a framework handle for more convenient access to Superfluid functionality
   sf = await Framework.create({
     chainId: ethers.provider.network.chainId,
     provider: ethers.provider,
-    resolverAddress: contractsFramework.resolver,
+    resolverAddress: sfContracts.resolver,
     protocolReleaseVersion: "test"
   });
 
@@ -53,7 +44,9 @@ before(async function () {
     "FeesFormulaMock",
     founder
   );
-  feesFormula0PctMock = await FeesFormulaMockFactory.deploy(0);
+
+  const feesFormula0PctMock = await FeesFormulaMockFactory.deploy(0);
+
   feesFormula10PctMock = await FeesFormulaMockFactory.deploy(100000);
 
   // the zero address is a placeholder for the dao contract
@@ -71,7 +64,7 @@ before(async function () {
     founder
   ).deploy();
 
-  sgd = await deploySuperGoodDollar(contractsFramework, [
+  sgd = await deploySuperGoodDollar(sfContracts, [
     "SuperGoodDollar",
     "SGD",
     0, // cap
@@ -85,16 +78,12 @@ before(async function () {
   await loadFixture(initialState);
 });
 
-beforeEach(async function () {
-  await loadFixture(initialState);
-});
-
 describe("SuperGoodDollar", async function () {
   it("check ERC20 metadata", async function () {
     const symbol = await sgd.symbol();
     const name = await sgd.name();
     assert.equal(symbol, "SGD", "symbol mismatch");
-    assert.equal(name, "SuperGoodDollar", "ame mismatch");
+    assert.equal(name, "SuperGoodDollar", "name mismatch");
   });
 
   it("mint to alice", async function () {
@@ -121,6 +110,7 @@ describe("SuperGoodDollar", async function () {
   });
 
   it("do ERC20 transferFrom", async function () {
+    await loadFixture(initialState);
     await sgd.approve(alice.address, tenDollars);
     await sgd
       .connect(alice)
@@ -158,7 +148,7 @@ describe("SuperGoodDollar", async function () {
   });
 
   it("pauseable", async function () {
-    await sgd.pause();
+    await sgd.connect(founder).pause();
     await expect(sgd.transfer(bob.address, tenDollars)).revertedWith(
       "Pausable: token transfer while paused"
     );
@@ -174,12 +164,14 @@ describe("SuperGoodDollar", async function () {
         .exec(alice)
     ).reverted;
 
-    await sgd.unpause();
+    await sgd.connect(founder).unpause();
     await sgd.transfer(bob.address, tenDollars);
   });
 
   it("non-zero fees are applied", async function () {
-    await sgd.mint(alice.address, tenDollars);
+    await loadFixture(initialState);
+
+    await sgd.connect(founder).mint(alice.address, tenDollars);
     await sgd.setFormula(feesFormula10PctMock.address);
 
     await expect(
@@ -236,7 +228,7 @@ describe("SuperGoodDollar", async function () {
       sgdProxiable.connect(eve).updateAuxCode(newLogic.address)
     ).revertedWith("not owner");
 
-    await sgdProxiable.updateAuxCode(newLogic.address);
+    await sgdProxiable.connect(founder).updateAuxCode(newLogic.address);
 
     const auxCodeAddrAfter = await sgdProxiable.getAuxCodeAddress();
 
@@ -250,12 +242,6 @@ describe("SuperGoodDollar", async function () {
   describe("ERC20Permit", () => {
     const name = "SuperGoodDollar";
     const version = "1";
-    const EIP712Domain = [
-      { name: "name", type: "string" },
-      { name: "version", type: "string" },
-      { name: "chainId", type: "uint256" },
-      { name: "verifyingContract", type: "address" }
-    ];
 
     const Permit = [
       { name: "owner", type: "address" },
@@ -264,14 +250,6 @@ describe("SuperGoodDollar", async function () {
       { name: "nonce", type: "uint256" },
       { name: "deadline", type: "uint256" }
     ];
-
-    function bufferToHexString(buffer) {
-      return "0x" + buffer.toString("hex");
-    }
-
-    function hexStringToBuffer(hexstr) {
-      return Buffer.from(hexstr.replace(/^0x/, ""), "hex");
-    }
 
     it("initial nonce is 0", async function () {
       expect(await sgd.nonces(alice.address)).to.equal(0);
@@ -323,6 +301,8 @@ describe("SuperGoodDollar", async function () {
       });
 
       it("rejects reused signature", async function () {
+        await loadFixture(initialState);
+
         const data = buildData(chainId, sgd.address);
         const signature = await wallet._signTypedData(
           data.domain,

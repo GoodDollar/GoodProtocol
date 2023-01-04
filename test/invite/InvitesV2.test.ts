@@ -164,8 +164,12 @@ describe("InvitesV2", () => {
       .then(_ => _.toNumber());
 
     pending = await invites.getPendingInvitees(inviter1.address);
-    const txFee = await gd.getFees(bounty).then(_ => _["0"].toNumber()); //gd might have a tx fee
-    const txFee2 = await gd.getFees(bounty / 2).then(_ => _["0"].toNumber()); //gd might have a tx fee
+    const txFee = await gd["getFees(uint256)"](bounty).then(_ =>
+      _["0"].toNumber()
+    ); //gd might have a tx fee
+    const txFee2 = await gd["getFees(uint256)"](bounty / 2).then(_ =>
+      _["0"].toNumber()
+    ); //gd might have a tx fee
 
     expect(pending.length, "pending").to.be.equal(0);
     expect(invitee.bountyPaid).to.be.true;
