@@ -144,13 +144,13 @@ describe("InvitesV2", () => {
     ).to.revertedWith("user not elligble for bounty yet");
   });
 
-  it("should allow to pay bounty for non whitelisted inviter", async () => {
+  it("should not allow to pay bounty for non whitelisted inviter", async () => {
     await id.addWhitelistedWithDID(invitee1.address, Math.random() + "");
     expect(await id.isWhitelisted(invitee1.address)).to.be.true;
     expect(await id.isWhitelisted(inviter1.address)).to.be.false;
     expect(await id.getWhitelistedOnChainId(invitee1.address)).eq(4447);
-    expect(await invites.canCollectBountyFor(invitee1.address)).to.be.true;
-    await expect(invites.callStatic.bountyFor(invitee1.address)).not.reverted;
+    expect(await invites.canCollectBountyFor(invitee1.address)).to.be.false;
+    await expect(invites.bountyFor(invitee1.address)).reverted;
   });
 
   it("should pay bounty for whitelisted invitee and inviter", async () => {
@@ -374,6 +374,7 @@ describe("InvitesV2", () => {
         );
 
       await oldId.addWhitelistedWithDID(invitee2.address, Math.random() + "");
+      await oldId.addWhitelistedWithDID(inviter1.address, Math.random() + "");
       await invites.connect(inviter1).bountyFor(invitee2.address);
     });
 
@@ -442,6 +443,8 @@ describe("InvitesV2", () => {
           ethers.utils.hexZeroPad("0xfa", 32)
         );
 
+      await id.addWhitelistedWithDID(inviter1.address, Math.random() + "");
+
       await id.addWhitelistedWithDIDAndChain(
         invitee2.address,
         Math.random() + "",
@@ -451,6 +454,32 @@ describe("InvitesV2", () => {
       expect(await id.getWhitelistedOnChainId(invitee2.address)).equal(4447);
       await expect(invites.connect(inviter1).bountyFor(invitee2.address)).not
         .reverted;
+    });
+
+    it("should pay bounty on join for whitelisted invitee and inviter", async () => {
+      await loadFixture(initialState);
+      await id
+        .addWhitelistedWithDID(inviter1.address, Math.random() + "")
+        .catch(e => e);
+      await id
+        .addWhitelistedWithDID(invitee1.address, Math.random() + "")
+        .catch(e => e);
+
+      await invites
+        .connect(inviter1)
+        .join(
+          ethers.utils.hexZeroPad(inviter1.address, 32),
+          ethers.constants.HashZero
+        );
+      const tx = await invites
+        .connect(invitee1)
+        .join(
+          ethers.utils.hexZeroPad(invitee1.address, 32),
+          ethers.utils.hexZeroPad(inviter1.address, 32)
+        );
+      const { events } = await tx.wait();
+      const bountyEvent = events.find(_ => _.event === "InviterBounty");
+      expect(bountyEvent).not.empty;
     });
   });
 

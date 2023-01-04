@@ -114,6 +114,7 @@ contract InvitesV2 is DAOUpgradeableContract {
 				address(uint160(uint256(_myCode))) == msg.sender,
 			"invite code already in use"
 		);
+		require(_myCode != _inviterCode, "self invite");
 		User storage user = users[msg.sender]; // this is not expensive as user is new
 		address inviter = codeToUser[_inviterCode];
 		//allow user to set inviter if doesnt have one
@@ -129,10 +130,14 @@ contract InvitesV2 is DAOUpgradeableContract {
 			codeToUser[_myCode] = msg.sender;
 		}
 		if (inviter != address(0)) {
+			require(inviter != msg.sender, "self invite");
 			user.invitedBy = inviter;
 			users[inviter].invitees.push(msg.sender);
 			users[inviter].pending.push(msg.sender);
 			stats.totalInvited += 1;
+		}
+		if (canCollectBountyFor(msg.sender)) {
+			_bountyFor(msg.sender, true);
 		}
 		emit InviteeJoined(inviter, msg.sender);
 	}
@@ -164,6 +169,7 @@ contract InvitesV2 is DAOUpgradeableContract {
 			invitedBy != address(0) &&
 			!users[_invitee].bountyPaid &&
 			getIdentity().isWhitelisted(_invitee) &&
+			getIdentity().isWhitelisted(invitedBy) &&
 			_whitelistedOnChainOrDefault(_invitee) == _chainId() &&
 			isLevelExpired == false;
 	}
