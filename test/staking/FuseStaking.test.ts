@@ -71,10 +71,8 @@ describe("FuseStakingV3", () => {
       await ethers.getContractFactory("FuseStakingV3")
     ).deploy()) as FuseStakingV3;
 
-    await staking.initialize();
-    await staking.upgrade0();
-    await staking.upgrade1(NULL_ADDRESS, ubiMock.address, uniswap.address);
-    await staking.upgrade2();
+    await staking.initialize(uniswap.address, NULL_ADDRESS);
+    await staking.setUBIScheme(ubiMock.address);
   });
 
   it("should have owner", async () => {
