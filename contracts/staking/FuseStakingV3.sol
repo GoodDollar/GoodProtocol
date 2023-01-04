@@ -98,10 +98,27 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 	/**
 	 * @dev initialize
 	 */
-	function initialize() public initializer {
+	function initialize(address _uniswap, address _gd) public initializer {
 		__Ownable_init_unchained();
 		consensus = IConsensus(address(0x3014ca10b91cb3D0AD85fEf7A3Cb95BCAc9c0f79));
 		validators.push(address(0xcb876A393F05a6677a8a029f1C6D7603B416C0A6));
+		stakeBackRatio = 33333; //%33
+		communityPoolRatio = 33333; //%33
+		maxSlippageRatio = 3000; //3%
+		keeperFeeRatio = 30; //0.03%
+		RATIO_BASE = 100000; //100%
+		uniswap = Uniswap(
+			_uniswap == address(0)
+				? 0xE3F85aAd0c8DD7337427B9dF5d0fB741d65EEEB5
+				: _uniswap
+		);
+
+		GD = IGoodDollar(_gd);
+		uniswapFactory = UniswapFactory(uniswap.factory());
+		uniswapPair = UniswapPair(uniswapFactory.getPair(uniswap.WETH(), _gd));
+		pegSwap = PegSwap(0xdfE016328E7BcD6FA06614fE3AF3877E931F7e0a);
+		USDC = address(0x620fd5fa44BE6af63715Ef4E65DDFA0387aD13F5);
+		fUSD = address(0x249BE57637D8B013Ad64785404b24aeBaE9B098B);
 	}
 
 	modifier notPaused() {
@@ -114,13 +131,13 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		_;
 	}
 
-	function setContracts(address _gd, address _ubischeme) public onlyOwner {
-		if (_gd != address(0)) {
-			GD = IGoodDollar(_gd);
-		}
-		if (_ubischeme != address(0)) {
-			ubischeme = UBIScheme(_ubischeme);
-		}
+	function approve() external {
+		cERC20(fUSD).approve(address(pegSwap), type(uint256).max);
+		cERC20(USDC).approve(address(uniswap), type(uint256).max);
+	}
+
+	function setUBIScheme(address _ubischeme) public onlyOwner {
+		ubischeme = UBIScheme(_ubischeme);
 	}
 
 	function stake() public payable returns (bool) {
