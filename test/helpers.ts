@@ -12,11 +12,7 @@ import IUniswapV2Pair from "@uniswap/v2-core/build/IUniswapV2Pair.json";
 import UniswapV2Factory from "@uniswap/v2-core/build/UniswapV2Factory.json";
 import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
-import {
-  GoodMarketMaker,
-  CompoundVotingMachine,
-  GoodDollarCustom
-} from "../types";
+import { GoodMarketMaker, CompoundVotingMachine } from "../types";
 import { Contract } from "ethers";
 import frameworkDeployer from "@superfluid-finance/ethereum-contracts/scripts/deploy-test-framework";
 
@@ -50,19 +46,19 @@ export const deploySuperFluid = async () => {
 };
 
 export const deploySuperGoodDollar = async (sfContracts, tokenArgs) => {
-  const GoodDollarCustomFactory = await ethers.getContractFactory(
-    "GoodDollarCustom"
+  const SuperGoodDollarFactory = await ethers.getContractFactory(
+    "SuperGoodDollar"
   );
-  const goodDollarCustom = await GoodDollarCustomFactory.deploy();
+  const SuperGoodDollar = await SuperGoodDollarFactory.deploy();
 
   const GoodDollarProxyFactory = await ethers.getContractFactory(
-    "GoodDollarProxy"
+    "SuperGoodDollarProxy"
   );
   const GoodDollarProxy = await GoodDollarProxyFactory.deploy();
 
   await GoodDollarProxy.initialize(
     sfContracts.host,
-    goodDollarCustom.address,
+    SuperGoodDollar.address,
     ...tokenArgs
   );
 

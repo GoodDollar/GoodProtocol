@@ -9,6 +9,7 @@ import "@openzeppelin/hardhat-upgrades";
 import "solidity-coverage";
 import "hardhat-gas-reporter";
 import "hardhat-contract-sizer";
+import "hardhat-storage-layout";
 import { task, types } from "hardhat/config";
 import { sha3 } from "web3-utils";
 import { config } from "dotenv";

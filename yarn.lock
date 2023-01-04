@@ -6765,6 +6765,13 @@ console-control-strings@^1.0.0, console-control-strings@~1.1.0:
   resolved "https://registry.yarnpkg.com/console-control-strings/-/console-control-strings-1.1.0.tgz#3d7cf4464db6446ea644bf4b39507f9851008e8e"
   integrity sha1-PXz0Rk22RG6mRL9LOVB/mFEAjo4=
 
+console-table-printer@^2.9.0:
+  version "2.11.1"
+  resolved "https://registry.yarnpkg.com/console-table-printer/-/console-table-printer-2.11.1.tgz#c2dfe56e6343ea5bcfa3701a4be29fe912dbd9c7"
+  integrity sha512-8LfFpbF/BczoxPwo2oltto5bph8bJkGOATXsg3E9ddMJOGnWJciKHldx2zDj5XIBflaKzPfVCjOTl6tMh7lErg==
+  dependencies:
+    simple-wcswidth "^1.0.1"
+
 constant-case@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/constant-case/-/constant-case-2.0.0.tgz#4175764d389d3fa9c8ecd29186ed6005243b6a46"
@@ -10319,6 +10326,13 @@ hardhat-gas-reporter@^1.0.8:
     eth-gas-reporter "^0.2.24"
     sha1 "^1.1.1"
 
+hardhat-storage-layout@^0.1.7:
+  version "0.1.7"
+  resolved "https://registry.yarnpkg.com/hardhat-storage-layout/-/hardhat-storage-layout-0.1.7.tgz#ad8a5afd8593ee51031eb1dd9476b4a2ed981785"
+  integrity sha512-q723g2iQnJpRdMC6Y8fbh/stG6MLHKNxa5jq/ohjtD5znOlOzQ6ojYuInY8V4o4WcPyG3ty4hzHYunLf66/1+A==
+  dependencies:
+    console-table-printer "^2.9.0"
+
 hardhat@^2.10.2:
   version "2.10.2"
   resolved "https://registry.yarnpkg.com/hardhat/-/hardhat-2.10.2.tgz#ff94ee4cb144a9c114641581ff5e4d7bea5f93a9"
@@ -12932,10 +12946,10 @@ merkle-patricia-tree@^4.2.4:
     readable-stream "^3.6.0"
     semaphore-async-await "^1.5.1"
 
-merkle-tree-solidity@*:
+merkle-tree-solidity@^1.0.8:
   version "1.0.8"
   resolved "https://registry.yarnpkg.com/merkle-tree-solidity/-/merkle-tree-solidity-1.0.8.tgz#c4dc7bdad03270ca16c72cadc8b0e616dfc3a77a"
-  integrity sha1-xNx72tAycMoWxyytyLDmFt/Dp3o=
+  integrity sha512-OrmVSGhAWAaPg5eYevZeppaCh21n9zJSJyQyjxWkrNBetMjVJ7WpHxJJq0chH0n7SCN8TvDcwTEsgHf0LM1mQw==
   dependencies:
     es6-promisify "^5.0.0"
     ether-pudding "^3.2.0"
@@ -16491,6 +16505,11 @@ simple-get@^2.7.0:
     decompress-response "^3.3.0"
     once "^1.3.1"
     simple-concat "^1.0.0"
+
+simple-wcswidth@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/simple-wcswidth/-/simple-wcswidth-1.0.1.tgz#8ab18ac0ae342f9d9b629604e54d2aa1ecb018b2"
+  integrity sha512-xMO/8eNREtaROt7tJvWJqHBDTMFN4eiQ5I4JRMuilwfnFcV5W9u7RUkueNkdw0jPqGMX36iCywelS5yilTuOxg==
 
 single-line-log@^1.1.2:
   version "1.1.2"

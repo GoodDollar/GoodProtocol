@@ -6,6 +6,7 @@ import TransferAndCallMockABI from "@gooddollar/goodcontracts/build/contracts/Tr
 import { Framework } from "@superfluid-finance/sdk-core";
 import frameworkDeployer from "@superfluid-finance/ethereum-contracts/scripts/deploy-test-framework";
 import { deploySuperGoodDollar } from "../helpers";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 
 let contractsFramework,
   sfDeployer,
@@ -25,6 +26,8 @@ const alotOfDollars = ethers.utils.parseEther("100000");
 const tenDollars = ethers.utils.parseEther("10");
 const oneDollar = ethers.utils.parseEther("1");
 const tenDollarsPerDay = "124378109452730"; // flowrate per second
+
+const initialState = async () => {};
 
 before(async function () {
   //get accounts from hardhat
@@ -67,9 +70,7 @@ before(async function () {
     TransferAndCallMockABI.bytecode,
     founder
   ).deploy();
-});
 
-beforeEach(async function () {
   sgd = await deploySuperGoodDollar(contractsFramework, [
     "SuperGoodDollar",
     "SGD",
@@ -81,6 +82,11 @@ beforeEach(async function () {
   ]);
 
   await sgd.mint(founder.address, alotOfDollars);
+  await loadFixture(initialState);
+});
+
+beforeEach(async function () {
+  await loadFixture(initialState);
 });
 
 describe("SuperGoodDollar", async function () {
@@ -197,6 +203,22 @@ describe("SuperGoodDollar", async function () {
     );
   });
 
+  it("should not be able to initialize again", async () => {
+    await expect(
+      sgd.initializeAux(
+        1,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero
+      )
+    ).revertedWith("Initializable: contract is already initialized");
+
+    await expect(
+      sgd.initialize(ethers.constants.AddressZero, 2, "GD", "GD")
+    ).revertedWith("Initializable: contract is already initialized");
+  });
+
   it("update the GoodDollar logic", async function () {
     const sgdProxiable = await ethers.getContractAt(
       "AuxProxiable",
@@ -207,7 +229,7 @@ describe("SuperGoodDollar", async function () {
     const auxCodeAddrBefore = await sgdProxiable.getAuxCodeAddress();
 
     const newLogic = await (
-      await ethers.getContractFactory("GoodDollarCustom", founder)
+      await ethers.getContractFactory("SuperGoodDollar", founder)
     ).deploy();
 
     await expect(
