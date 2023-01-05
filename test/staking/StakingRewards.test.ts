@@ -1450,9 +1450,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
     const activeContractsCount =
       await goodFundManager.getActiveContractsCount();
-    const lastActiveContractBeforeAdd = await goodFundManager.activeContracts(
-      activeContractsCount.sub(1)
-    );
 
     const simpleStaking = await goodCompoundStakingTestFactory.deploy(
       bat.address,
@@ -1472,9 +1469,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
     const activeContractsCountAfterAdded =
       await goodFundManager.getActiveContractsCount();
-    const lastActiveContractAfterAdd = await goodFundManager.activeContracts(
-      activeContractsCountAfterAdded.sub(1)
-    );
+
+    expect(activeContractsCountAfterAdded).equal(activeContractsCount.add(1));
+
     encodedData = goodFundManager.interface.encodeFunctionData(
       "setStakingReward",
       ["0", simpleStaking.address, 10, 1000, false] // set 10 gd per block
@@ -1491,10 +1488,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(activeContractsCountAfterAdded).to.be.eq(
       activeContractsCountAfterRemoved
     );
-    expect(activeContractsCountAfterAdded).to.be.eq(
-      activeContractsCountAfterRemoved
-    );
-    expect(activeContractsCount).to.be.equal(activeContractsCountAfterRemoved);
+
+    expect(activeContractsCount).to.be.lt(activeContractsCountAfterRemoved);
   });
 
   it("it should distribute rewards correctly when there is multiple stakers", async () => {
