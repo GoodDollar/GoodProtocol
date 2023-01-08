@@ -3,20 +3,8 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/SenderFeeFormula.json";
 import TransferAndCallMockABI from "@gooddollar/goodcontracts/build/contracts/TransferAndCallMock.json";
-import {
-  IGoodDollar,
-  IIdentityV2,
-  IIdentity,
-  IdentityV2,
-  GoodDollar,
-  ISuperGoodDollar
-} from "../../types";
-import {
-  advanceBlocks,
-  createDAO,
-  deploySuperGoodDollar,
-  increaseTime
-} from "../helpers";
+import { IIdentity, GoodDollar, ISuperGoodDollar } from "../../types";
+import { createDAO, deploySuperGoodDollar } from "../helpers";
 import { Contract } from "ethers";
 
 const BN = ethers.BigNumber;
@@ -36,6 +24,20 @@ describe("GoodDollar Token", () => {
   let signers;
 
   let avatar, gd: ISuperGoodDollar, Controller, id: IIdentity, superFluid;
+
+  const regularTokenState = async () => {
+    const deployedDAO = createDAO("regular");
+    const token = (await ethers.getContractAt(
+      "GoodDollar",
+      (
+        await deployedDAO
+      ).gd
+    )) as GoodDollar;
+
+    await token.mint(founder.address, 100000000);
+
+    return token;
+  };
 
   before(async () => {
     [founder, whitelisted, outsider, ...signers] = await ethers.getSigners();
@@ -169,6 +171,29 @@ describe("GoodDollar Token", () => {
     await token.transfer(outsider.address, 1000);
     await identity.addWhitelisted(whitelisted.address);
     await identity.addWhitelisted(outsider.address);
+  });
+
+  it("should have low gas cost for transfer with regular token", async () => {
+    const token = await loadFixture(regularTokenState);
+    const firstTime = await (
+      await token.transfer(signers[2].address, 1000)
+    ).wait();
+    const secondTime = await (
+      await token.transfer(signers[2].address, 1000)
+    ).wait();
+    expect(firstTime.gasUsed).lt(70000);
+    expect(secondTime.gasUsed).lt(55000);
+  });
+
+  it("should have high gas cost for transfer with superfluid token", async () => {
+    const firstTime = await (
+      await token.transfer(signers[2].address, 1000)
+    ).wait();
+    const secondTime = await (
+      await token.transfer(signers[2].address, 1000)
+    ).wait();
+    expect(firstTime.gasUsed).gt(170000);
+    expect(secondTime.gasUsed).gt(155000);
   });
 
   it("should have avatar as default pauser", async () => {

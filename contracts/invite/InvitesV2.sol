@@ -262,7 +262,7 @@ contract InvitesV2 is DAOUpgradeableContract {
 		address[] storage pendings = users[msg.sender].pending;
 		uint256 totalBounties = 0;
 		for (int256 i = int256(pendings.length) - 1; i >= 0; i--) {
-			if (gasleft() < 100000) break;
+			if (gasleft() < 185000) break; // leave enough gas for the token transfer around 150k if we are using supertoken
 			address pending = pendings[uint256(i)];
 			if (canCollectBountyFor(pending)) {
 				totalBounties += _bountyFor(pending, false);

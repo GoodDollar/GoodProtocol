@@ -17,6 +17,35 @@ describe("ClaimersDistribution", () => {
     ubiScheme,
     cd: ClaimersDistribution;
 
+  const regularTokenState = async () => {
+    const deployedDAO = await createDAO("regular");
+    let ubi = await deployUBI(deployedDAO, false);
+    const currentTime = (await ethers.provider.getBlock("latest")).timestamp;
+    if (currentTime % 2592000 > 2505600) {
+      await increaseTime(60 * 60 * 24);
+    }
+
+    if (currentTime % 86400 <= 43200) {
+      const increaseAmount = 50000 - (currentTime % 86400); // make sure that it passes noon
+      await increaseTime(increaseAmount);
+    }
+
+    cd = (await upgrades.deployProxy(
+      await ethers.getContractFactory("ClaimersDistribution"),
+      [deployedDAO.nameService.address],
+      { kind: "uups" }
+    )) as ClaimersDistribution;
+
+    ubiScheme = ubi.ubiScheme;
+    await deployedDAO.setDAOAddress("GDAO_CLAIMERS", cd.address);
+    await deployedDAO.addWhitelisted(claimer1.address, "claimer1");
+    await deployedDAO.addWhitelisted(claimer2.address, "claimer2");
+    await deployedDAO.addWhitelisted(claimer3.address, "claimer3");
+
+    await increaseTime(60 * 60 * 24);
+    return ubiScheme;
+  };
+
   before(async () => {
     [root, acct, claimer1, claimer2, claimer3, ...signers] =
       await ethers.getSigners();
@@ -42,7 +71,7 @@ describe("ClaimersDistribution", () => {
       const increaseAmount = 50000 - (currentTime % 86400); // make sure that it passes noon
       await increaseTime(increaseAmount);
     }
-    let ubi = await deployUBI(deployedDAO);
+    let ubi = await deployUBI(deployedDAO, false);
     cd = (await upgrades.deployProxy(
       await ethers.getContractFactory("ClaimersDistribution"),
       [ns.address],
@@ -198,14 +227,36 @@ describe("ClaimersDistribution", () => {
     expect(endCount).to.be.equal(startCount.add(2));
   });
 
-  it("should not cost alot of gas to claim with reputation distribution [@skip-on-coverage]", async () => {
+  it("should cost alot of gas to claim with reputation distribution with superfluid [@skip-on-coverage]", async () => {
     let totalGas = 0;
+    let gasCosts = {};
     for (let i = 0; i < 31; i++) {
       await increaseTime(60 * 60 * 24);
       const tx = await (await ubiScheme.connect(claimer3).claim()).wait();
+      // const tx2 = await (await ubiScheme.connect(claimer2).claim()).wait();
+      gasCosts[tx.gasUsed.toString()] = true;
+      // gasCosts[tx2.gasUsed.toString()] = true;
       totalGas += tx.gasUsed.toNumber();
-      // console.log({ totalGas }, tx.gasUsed.toNumber());
+      // console.log({ totalGas }, tx.gasUsed.toNumber(), tx2.gasUsed.toNumber());
     }
-    expect(totalGas / 30).lt(310000);
+    console.log(Object.keys(gasCosts));
+    expect(totalGas / 30).gt(500000);
+  });
+
+  it("should not cost alot of gas to claim with reputation distribution with regular token [@skip-on-coverage]", async () => {
+    const ubiScheme = await loadFixture(regularTokenState);
+    let totalGas = 0;
+    let gasCosts = {};
+    for (let i = 0; i < 31; i++) {
+      await increaseTime(60 * 60 * 24);
+      const tx = await (await ubiScheme.connect(claimer3).claim()).wait();
+      // const tx2 = await (await ubiScheme.connect(claimer2).claim()).wait();
+      gasCosts[tx.gasUsed.toString()] = true;
+      // gasCosts[tx2.gasUsed.toString()] = true;
+      totalGas += tx.gasUsed.toNumber();
+      // console.log({ totalGas }, tx.gasUsed.toNumber(), tx2.gasUsed.toNumber());
+    }
+    console.log(Object.keys(gasCosts));
+    expect(totalGas / 30).lt(315000);
   });
 });

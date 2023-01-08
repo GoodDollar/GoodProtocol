@@ -271,7 +271,7 @@ describe("UBIScheme", () => {
       .connect(fisherman)
       .fish(claimer1.address)
       .catch(e => e);
-    expect(error.message).to.have.string("is not an inactive user");
+    expect(error.message).to.have.string("can't fish");
   });
 
   it("should not initiate the scheme balance and distribution formula when a new user execute claim", async () => {
@@ -352,7 +352,7 @@ describe("UBIScheme", () => {
       .fish(claimer4.address)
       .catch(e => e);
     expect(isActiveUser).to.be.true;
-    expect(error.message).to.have.string("is not an inactive use");
+    expect(error.message).to.have.string("can't fish");
   });
 
   it("should not be able to execute claim twice a day", async () => {
@@ -414,7 +414,7 @@ describe("UBIScheme", () => {
       .catch(e => e);
     let isFishedAfter = await ubi.fishedUsersAddresses(claimer1.address);
     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4.address);
-    expect(error.message).to.have.string("already fished");
+    expect(error.message).to.have.string("can't fish");
     expect(isFishedBefore).to.be.true;
     expect(isFishedAfter).to.be.true;
     expect(claimer4BalanceAfter.toNumber()).to.be.equal(
@@ -453,7 +453,7 @@ describe("UBIScheme", () => {
       .catch(e => e);
     let isFishedAfter = await ubi.fishedUsersAddresses(claimer2.address);
     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4.address);
-    expect(error.message).to.have.string("is not an inactive user");
+    expect(error.message).to.have.string("can't fish");
     expect(isFishedBefore).to.be.false;
     expect(isFishedAfter).to.be.false;
     expect(claimer4BalanceAfter.toNumber()).to.be.equal(
