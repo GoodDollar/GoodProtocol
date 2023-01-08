@@ -1,13 +1,10 @@
 import { default as hre, ethers, upgrades } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Contract, Signer } from "ethers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
-import { GoodMarketMaker, CERC20, GoodReserveCDai } from "../../types";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
+import { GoodMarketMaker } from "../../types";
 import { createDAO, increaseTime, advanceBlocks } from "../helpers";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
-import { parseUnits } from "@ethersproject/units";
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;

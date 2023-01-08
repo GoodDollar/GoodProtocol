@@ -13,7 +13,7 @@ describe("DAOUpgradeableContract", () => {
       avatar: av,
       genericCall: gc,
       nameService: ns
-    } = await loadFixture(createDAO);
+    } = await createDAO(); //await loadFixture(createDAO) doesnt work here when other tests use deployMockContract (FuseStaking)
 
     avatar = av;
     genericCall = gc;

@@ -1,6 +1,5 @@
 import { default as hre, ethers, upgrades } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
 import { GoodMarketMaker, CERC20 } from "../../types";
 import { createDAO, increaseTime } from "../helpers";
@@ -26,18 +25,15 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
 
   const deployDAIMock = async () => {
     let [signer] = await ethers.getSigners();
-    let cdai = await hre.artifacts.readArtifact("cERC20");
-    let dai = await deployMockContract(signer, cdai.abi);
-    dai.mock.decimals.returns(18);
+    let dai = await (await ethers.getContractFactory("DAIMock")).deploy();
 
     return dai.address;
   };
 
   const deploycDAIMock = async () => {
     let [signer] = await ethers.getSigners();
-    let cdai = await hre.artifacts.readArtifact("cERC20");
-    let dai = await deployMockContract(signer, cdai.abi);
-    dai.mock.decimals.returns(8);
+    let dai = await (await ethers.getContractFactory("cDAIMock")).deploy();
+
     return dai.address;
   };
 

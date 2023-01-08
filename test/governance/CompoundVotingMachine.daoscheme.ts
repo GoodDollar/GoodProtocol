@@ -3,8 +3,6 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { GReputation, CompoundVotingMachine } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { Wallet } from "ethers";
-import { deployMockContract } from "ethereum-waffle";
 import { createDAO } from "../helpers";
 
 const BN = ethers.BigNumber;

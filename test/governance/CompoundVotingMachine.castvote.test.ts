@@ -1,7 +1,6 @@
 import { ethers, upgrades } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
-// import { deployContract, deployMockContract, MockContract } from "ethereum-waffle";
 import { GReputation, CompoundVotingMachine } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { createDAO } from "../helpers";
