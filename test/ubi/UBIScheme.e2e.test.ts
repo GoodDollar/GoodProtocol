@@ -241,7 +241,7 @@ describe("UBIScheme - network e2e tests", () => {
       .fish(claimer.address)
       .catch(e => e);
     await goodDollar.balanceOf(fisherman.address);
-    expect(error.message).to.have.string("is not an inactive user");
+    expect(error.message).to.have.string("can't fish");
   });
 
   it("should be able to fish inactive user", async () => {
@@ -262,7 +262,7 @@ describe("UBIScheme - network e2e tests", () => {
       .connect(fisherman)
       .fish(claimer.address)
       .catch(e => e);
-    expect(error.message).to.have.string("already fished");
+    expect(error.message).to.have.string("can't fish");
   });
 
   it("should recieves a claim reward when call claim after being fished", async () => {

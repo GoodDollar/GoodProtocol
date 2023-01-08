@@ -21,15 +21,8 @@ const tenDollars = ethers.utils.parseEther("10");
 const oneDollar = ethers.utils.parseEther("1");
 const tenDollarsPerDay = "124378109452730"; // flowrate per second
 
-const initialState = async () => {};
-
-before(async function () {
-  //get accounts from hardhat
-  [founder, alice, bob, eve] = await ethers.getSigners();
-
-  // Superfluid specific init
-
-  let { sfContracts } = await loadFixture(createDAO);
+const initialState = async () => {
+  let { sfContracts } = await createDAO();
 
   // initialize sdk-core to get a framework handle for more convenient access to Superfluid functionality
   sf = await Framework.create({
@@ -75,11 +68,18 @@ before(async function () {
   ]);
 
   await sgd.mint(founder.address, alotOfDollars);
-  await loadFixture(initialState);
+};
+
+before(async function () {
+  //get accounts from hardhat
+  [founder, alice, bob, eve] = await ethers.getSigners();
+
+  // Superfluid specific init
 });
 
 describe("SuperGoodDollar", async function () {
   it("check ERC20 metadata", async function () {
+    await loadFixture(initialState);
     const symbol = await sgd.symbol();
     const name = await sgd.name();
     assert.equal(symbol, "SGD", "symbol mismatch");
@@ -87,6 +87,7 @@ describe("SuperGoodDollar", async function () {
   });
 
   it("mint to alice", async function () {
+    await loadFixture(initialState);
     await sgd.mint(alice.address, alotOfDollars);
     const balAfter = await sgd.balanceOf(alice.address);
 
@@ -98,6 +99,7 @@ describe("SuperGoodDollar", async function () {
   });
 
   it("do ERC20 transfer", async function () {
+    await loadFixture(initialState);
     await sgd.mint(alice.address, tenDollars);
     await sgd.connect(alice).transfer(bob.address, tenDollars);
     const balAfter = await sgd.balanceOf(bob.address);
@@ -123,6 +125,7 @@ describe("SuperGoodDollar", async function () {
   });
 
   it("start stream", async function () {
+    await loadFixture(initialState);
     await sgd.mint(alice.address, alotOfDollars);
 
     await sf.cfaV1
@@ -148,6 +151,7 @@ describe("SuperGoodDollar", async function () {
   });
 
   it("pauseable", async function () {
+    await loadFixture(initialState);
     await sgd.connect(founder).pause();
     await expect(sgd.transfer(bob.address, tenDollars)).revertedWith(
       "Pausable: token transfer while paused"
@@ -196,6 +200,7 @@ describe("SuperGoodDollar", async function () {
   });
 
   it("should not be able to initialize again", async () => {
+    await loadFixture(initialState);
     await expect(
       sgd.initializeAux(
         1,
@@ -212,6 +217,7 @@ describe("SuperGoodDollar", async function () {
   });
 
   it("update the GoodDollar logic", async function () {
+    await loadFixture(initialState);
     const sgdProxiable = await ethers.getContractAt(
       "AuxProxiable",
       sgd.address,

@@ -456,6 +456,9 @@ export const deployUBI = async (deployedDAO, withFirstClaim = true) => {
 
   await genericCall(gd, encoded);
 
+  console.log("set firstclaim,ubischeme as scheme and starting...");
+  await setSchemes([firstClaim.address, ubiScheme.address]);
+
   if (withFirstClaim) {
     encoded = firstClaim.interface.encodeFunctionData("setUBIScheme", [
       ubiScheme.address
@@ -464,8 +467,7 @@ export const deployUBI = async (deployedDAO, withFirstClaim = true) => {
     await genericCall(firstClaim.address, encoded);
     await firstClaim.start();
   }
-  console.log("set firstclaim,ubischeme as scheme and starting...");
-  await setSchemes([firstClaim.address, ubiScheme.address]);
+
   await setDAOAddress("UBISCHEME", ubiScheme.address);
   return { firstClaim, ubiScheme };
 };

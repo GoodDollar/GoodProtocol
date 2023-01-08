@@ -1,11 +1,10 @@
-import hre, { ethers, upgrades } from "hardhat";
+import hre, { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
-// import { deployContract, deployMockContract, MockContract } from "ethereum-waffle";
 import { GReputation, CompoundVotingMachine } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { Wallet } from "ethers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
+import { deployMockContract } from "ethereum-waffle";
 import { createDAO } from "../helpers";
 
 const BN = ethers.BigNumber;
@@ -92,10 +91,6 @@ describe("CompoundVotingMachine#DAOScheme", () => {
     await grep.mint(acct.address, ethers.BigNumber.from("500000"));
 
     queuePeriod = await gov.queuePeriod().then(_ => _.toNumber());
-
-    let mockABI = ["function rec() payable"];
-    mock = await deployMockContract(root, mockABI);
-    mock.mock.rec.returns();
   });
 
   ///cell 0 - votingPeriod blocks, 1 - quoromPercentage, 2 - proposalPercentage,3 - proposalMaxOperations, 4 - voting delay blocks, 5 - queuePeriod time
@@ -257,6 +252,10 @@ describe("CompoundVotingMachine#DAOScheme", () => {
   });
 
   it("Should use value passed to execute", async () => {
+    const mock = await (
+      await ethers.getContractFactory("PayableMock")
+    ).deploy();
+
     let wallet = ethers.Wallet.createRandom();
     let targets = [mock.address];
     let values = [ethers.utils.parseEther("10")];

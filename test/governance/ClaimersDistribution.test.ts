@@ -30,13 +30,13 @@ describe("ClaimersDistribution", () => {
       await increaseTime(increaseAmount);
     }
 
-    cd = (await upgrades.deployProxy(
+    const cd = (await upgrades.deployProxy(
       await ethers.getContractFactory("ClaimersDistribution"),
       [deployedDAO.nameService.address],
       { kind: "uups" }
     )) as ClaimersDistribution;
 
-    ubiScheme = ubi.ubiScheme;
+    const ubiScheme = ubi.ubiScheme;
     await deployedDAO.setDAOAddress("GDAO_CLAIMERS", cd.address);
     await deployedDAO.addWhitelisted(claimer1.address, "claimer1");
     await deployedDAO.addWhitelisted(claimer2.address, "claimer2");
