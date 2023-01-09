@@ -8,6 +8,8 @@ import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../governance/ClaimersDistribution.sol";
 
+// import "hardhat/console.sol";
+
 /* @title Dynamic amount-per-day UBI scheme allowing claim once a day
  */
 contract UBIScheme is DAOUpgradeableContract {
@@ -155,7 +157,7 @@ contract UBIScheme is DAOUpgradeableContract {
 		firstClaimPool = _firstClaimPool;
 		shouldWithdrawFromDAO = false;
 		cycleLength = 90; //90 days
-		iterationGasLimit = 150000;
+		iterationGasLimit = 185000; //token transfer cost under superfluid
 		periodStart = (block.timestamp / (1 days)) * 1 days + 12 hours; //set start time to GMT noon
 		startOfCycle = periodStart;
 		useFirstClaimPool = address(_firstClaimPool) != address(0);
@@ -269,8 +271,10 @@ contract UBIScheme is DAOUpgradeableContract {
 				currentDayInCycle() >= currentCycleLength || shouldStartEarlyCycle
 			) //start of cycle or first time
 			{
-				if (shouldWithdrawFromDAO) _withdrawFromDao();
-				currentBalance = token.balanceOf(address(this));
+				if (shouldWithdrawFromDAO) {
+					_withdrawFromDao();
+					currentBalance = token.balanceOf(address(this));
+				}
 				dailyCyclePool = currentBalance / cycleLength;
 				currentCycleLength = cycleLength;
 				startOfCycle = (block.timestamp / (1 hours)) * 1 hours; //start at a round hour
@@ -502,6 +506,28 @@ contract UBIScheme is DAOUpgradeableContract {
 		return didClaim;
 	}
 
+	function _canFish(address _account) internal view returns (bool) {
+		return
+			isNotNewUser(_account) &&
+			!isActiveUser(_account) &&
+			!fishedUsersAddresses[_account];
+	}
+
+	function _fish(address _account, bool _withTransfer) internal returns (bool) {
+		fishedUsersAddresses[_account] = true; // marking the account as fished so it won't refish
+
+		// making sure that the calculation will be with the correct number of active users in case
+		// that the fisher is the first to make the calculation today
+		uint256 newDistribution = distributionFormula();
+		if (activeUsersCount > 0) {
+			activeUsersCount -= 1;
+		}
+		if (_withTransfer)
+			_transferTokens(msg.sender, msg.sender, newDistribution, false, false);
+		emit InactiveUserFished(msg.sender, _account, newDistribution);
+		return true;
+	}
+
 	/**
 	 * @dev In order to update users from active to inactive, we give out incentive to people
 	 * to update the status of inactive users, this action is called "Fishing". Anyone can
@@ -515,22 +541,9 @@ contract UBIScheme is DAOUpgradeableContract {
 	function fish(address _account) public requireStarted returns (bool) {
 		// checking if the account exists. that's been done because that
 		// will prevent trying to fish non-existence accounts in the system
-		require(
-			isNotNewUser(_account) && !isActiveUser(_account),
-			"is not an inactive user"
-		);
-		require(!fishedUsersAddresses[_account], "already fished");
-		fishedUsersAddresses[_account] = true; // marking the account as fished so it won't refish
+		require(_canFish(_account), "can't fish");
 
-		// making sure that the calculation will be with the correct number of active users in case
-		// that the fisher is the first to make the calculation today
-		uint256 newDistribution = distributionFormula();
-		if (activeUsersCount > 0) {
-			activeUsersCount -= 1;
-		}
-		_transferTokens(msg.sender, msg.sender, newDistribution, false, false);
-		emit InactiveUserFished(msg.sender, _account, newDistribution);
-		return true;
+		return _fish(_account, true);
 	}
 
 	/**
@@ -544,21 +557,23 @@ contract UBIScheme is DAOUpgradeableContract {
 		requireStarted
 		returns (uint256)
 	{
-		for (uint256 i = 0; i < _accounts.length; ++i) {
+		uint256 i;
+		uint256 bounty;
+
+		for (; i < _accounts.length; ++i) {
 			if (gasleft() < iterationGasLimit) {
-				emit TotalFished(i);
-				return i;
+				break;
 			}
-			if (
-				isNotNewUser(_accounts[i]) &&
-				!isActiveUser(_accounts[i]) &&
-				!fishedUsersAddresses[_accounts[i]]
-			) {
-				require(fish(_accounts[i]), "fish has failed");
+			if (_canFish(_accounts[i])) {
+				require(_fish(_accounts[i], false), "fish has failed");
+				bounty += dailyUbi;
 			}
 		}
-		emit TotalFished(_accounts.length);
-		return _accounts.length;
+		if (bounty > 0) {
+			_transferTokens(msg.sender, msg.sender, bounty, false, false);
+		}
+		emit TotalFished(i);
+		return i;
 	}
 
 	/**

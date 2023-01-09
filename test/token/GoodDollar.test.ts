@@ -3,14 +3,8 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/SenderFeeFormula.json";
 import TransferAndCallMockABI from "@gooddollar/goodcontracts/build/contracts/TransferAndCallMock.json";
-import {
-  IGoodDollar,
-  IIdentityV2,
-  IIdentity,
-  IdentityV2,
-  GoodDollar
-} from "../../types";
-import { advanceBlocks, createDAO, increaseTime } from "../helpers";
+import { IIdentity, GoodDollar, ISuperGoodDollar } from "../../types";
+import { createDAO, deploySuperGoodDollar } from "../helpers";
 import { Contract } from "ethers";
 
 const BN = ethers.BigNumber;
@@ -20,16 +14,30 @@ describe("GoodDollar Token", () => {
     identity,
     feeFormula,
     newFormula,
-    token: GoodDollar,
-    unCappedToken: GoodDollar,
-    cappedToken: GoodDollar,
-    newtoken: GoodDollar,
+    token: ISuperGoodDollar,
+    unCappedToken: ISuperGoodDollar,
+    cappedToken: ISuperGoodDollar,
+    newtoken: ISuperGoodDollar,
     founder,
     outsider,
     whitelisted;
   let signers;
 
-  let avatar, gd: IGoodDollar, Controller, id: IIdentity;
+  let avatar, gd: ISuperGoodDollar, Controller, id: IIdentity, superFluid;
+
+  const regularTokenState = async () => {
+    const deployedDAO = createDAO("regular");
+    const token = (await ethers.getContractAt(
+      "GoodDollar",
+      (
+        await deployedDAO
+      ).gd
+    )) as GoodDollar;
+
+    await token.mint(founder.address, 100000000);
+
+    return token;
+  };
 
   before(async () => {
     [founder, whitelisted, outsider, ...signers] = await ethers.getSigners();
@@ -39,9 +47,11 @@ describe("GoodDollar Token", () => {
       controller,
       avatar: av,
       gd: gooddollar,
-      identity: idv2
+      identity: idv2,
+      sfContracts
     } = await loadFixture(createDAO);
 
+    superFluid = sfContracts;
     avatar = av;
     identity = await ethers.getContractAt("IdentityV2", idv2);
 
@@ -58,9 +68,9 @@ describe("GoodDollar Token", () => {
     ).deploy();
 
     token = (await ethers.getContractAt(
-      "GoodDollar",
+      "ISuperGoodDollar",
       gooddollar
-    )) as GoodDollar;
+    )) as ISuperGoodDollar;
     feeFormula = FeeFormulaFactory.attach(await token.formula());
 
     // isProduction ? "GoodDollar" : "GoodDollar Dev",
@@ -70,56 +80,88 @@ describe("GoodDollar Token", () => {
     //   Identity.address,
     //   ethers.constants.AddressZero,
     //   daoCreator.address
-    unCappedToken = (await upgrades.deployProxy(
-      await ethers.getContractFactory("GoodDollar"),
-      [
-        "Test",
-        "TDD",
-        0,
-        feeFormula.address,
-        identity.address,
-        receiver.address,
-        founder.address
-      ],
-      {
-        initializer:
-          "initialize(string,string,uint256,address,address,address,address)"
-      }
-    )) as GoodDollar;
-    cappedToken = (await upgrades.deployProxy(
-      await ethers.getContractFactory("GoodDollar"),
-      [
-        "Test",
-        "TDD",
-        1000,
-        feeFormula.address,
-        identity.address,
-        receiver.address,
-        founder.address
-      ],
-      {
-        initializer:
-          "initialize(string,string,uint256,address,address,address,address)"
-      }
-    )) as GoodDollar;
+    // unCappedToken = (await upgrades.deployProxy(
+    //   await ethers.getContractFactory("GoodDollar"),
+    //   [
+    //     "Test",
+    //     "TDD",
+    //     0,
+    //     feeFormula.address,
+    //     identity.address,
+    //     receiver.address,
+    //     founder.address
+    //   ],
+    //   {
+    //     initializer:
+    //       "initialize(string,string,uint256,address,address,address,address)"
+    //   }
+    // )) as GoodDollar;
+
+    unCappedToken = (await deploySuperGoodDollar(superFluid, [
+      "Test",
+      "TDD",
+      0,
+      feeFormula.address,
+      identity.address,
+      receiver.address,
+      founder.address
+    ])) as ISuperGoodDollar;
+
+    cappedToken = (await deploySuperGoodDollar(superFluid, [
+      "Test",
+      "TDD",
+      1000,
+      feeFormula.address,
+      identity.address,
+      receiver.address,
+      founder.address
+    ])) as ISuperGoodDollar;
 
     newFormula = await FeeFormulaFactory.deploy(1);
-    newtoken = (await upgrades.deployProxy(
-      await ethers.getContractFactory("GoodDollar"),
-      [
-        "gd",
-        "gd",
-        1000000,
-        newFormula.address,
-        identity.address,
-        av,
-        founder.address
-      ],
-      {
-        initializer:
-          "initialize(string,string,uint256,address,address,address,address)"
-      }
-    )) as GoodDollar;
+
+    newtoken = (await deploySuperGoodDollar(superFluid, [
+      "gd",
+      "gd",
+      1000000,
+      newFormula.address,
+      identity.address,
+      av,
+      founder.address
+    ])) as ISuperGoodDollar;
+
+    // cappedToken = (await upgrades.deployProxy(
+    //   await ethers.getContractFactory("GoodDollar"),
+    //   [
+    //     "Test",
+    //     "TDD",
+    //     1000,
+    //     feeFormula.address,
+    //     identity.address,
+    //     receiver.address,
+    //     founder.address
+    //   ],
+    //   {
+    //     initializer:
+    //       "initialize(string,string,uint256,address,address,address,address)"
+    //   }
+    // )) as GoodDollar;
+
+    // newtoken = (await upgrades.deployProxy(
+    //   await ethers.getContractFactory("GoodDollar"),
+    //   [
+    //     "gd",
+    //     "gd",
+    //     1000000,
+    //     newFormula.address,
+    //     identity.address,
+    //     av,
+    //     founder.address
+    //   ],
+    //   {
+    //     initializer:
+    //       "initialize(string,string,uint256,address,address,address,address)"
+    //   }
+    // )) as GoodDollar;
 
     await token.mint(founder.address, 100000000);
 
@@ -129,6 +171,29 @@ describe("GoodDollar Token", () => {
     await token.transfer(outsider.address, 1000);
     await identity.addWhitelisted(whitelisted.address);
     await identity.addWhitelisted(outsider.address);
+  });
+
+  it("should have low gas cost for transfer with regular token", async () => {
+    const token = await loadFixture(regularTokenState);
+    const firstTime = await (
+      await token.transfer(signers[2].address, 1000)
+    ).wait();
+    const secondTime = await (
+      await token.transfer(signers[2].address, 1000)
+    ).wait();
+    expect(firstTime.gasUsed).lt(70000);
+    expect(secondTime.gasUsed).lt(55000);
+  });
+
+  it("should have high gas cost for transfer with superfluid token", async () => {
+    const firstTime = await (
+      await token.transfer(signers[2].address, 1000)
+    ).wait();
+    const secondTime = await (
+      await token.transfer(signers[2].address, 1000)
+    ).wait();
+    expect(firstTime.gasUsed).gt(170000);
+    expect(secondTime.gasUsed).gt(155000);
   });
 
   it("should have avatar as default pauser", async () => {
@@ -210,7 +275,7 @@ describe("GoodDollar Token", () => {
   });
 
   it("should allow to burn", async () => {
-    expect(token.connect(whitelisted).burn(1000)).not.reverted;
+    expect(token.connect(whitelisted)["burn(uint256)"](1000)).not.reverted;
   });
 
   it("should allow to burn from", async () => {

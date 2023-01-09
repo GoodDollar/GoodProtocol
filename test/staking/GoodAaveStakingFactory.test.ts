@@ -1,6 +1,5 @@
 import { default as hre, ethers, upgrades } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
 import {
   CERC20,

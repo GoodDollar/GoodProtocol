@@ -24,20 +24,15 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     fakeReserve;
 
   const deployDAIMock = async () => {
-    let [signer] = await ethers.getSigners();
-    let cdai = await hre.artifacts.readArtifact("cERC20");
-    let dai = await waffle.deployMockContract(signer, cdai.abi);
-    dai.mock.decimals.returns(18);
+    let dai = await (await ethers.getContractFactory("DAIMock")).deploy();
 
     return dai.address;
   };
 
   const deploycDAIMock = async () => {
-    let [signer] = await ethers.getSigners();
-    let cdai = await hre.artifacts.readArtifact("cERC20");
-    let dai = await waffle.deployMockContract(signer, cdai.abi);
-    dai.mock.decimals.returns(8);
-    return dai.address;
+    let cdai = await (await ethers.getContractFactory("cDAIMock")).deploy(dai);
+
+    return cdai.address;
   };
 
   before(async () => {
@@ -62,8 +57,8 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
 
     console.log("deployed dao", { goodDollar, identity, controller, avatar });
 
-    cdai = await deploycDAIMock();
     dai = await deployDAIMock();
+    cdai = await deploycDAIMock();
 
     //give founder generic call permission
     await setSchemes([founder.address]);

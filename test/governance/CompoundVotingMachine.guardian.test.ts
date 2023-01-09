@@ -1,7 +1,6 @@
 import hre, { ethers, upgrades, waffle } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
-// import { deployContract, deployMockContract, MockContract } from "ethereum-waffle";
 import { GReputation, CompoundVotingMachine } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { createDAO, increaseTime } from "../helpers";
@@ -44,7 +43,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     acct: SignerWithAddress;
 
   let queuePeriod, avatarGenericCall;
-  let avatar, mock, Controller;
+  let avatar, Controller;
 
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
@@ -83,10 +82,6 @@ describe("CompoundVotingMachine#Guardian", () => {
     await grep.mint(acct.address, ethers.BigNumber.from("500000"));
 
     queuePeriod = await gov.queuePeriod().then(_ => _.toNumber());
-
-    let mockABI = ["function rec() payable"];
-    mock = await waffle.deployMockContract(root, mockABI);
-    mock.mock.rec.returns();
   });
 
   it("should set guardian from initializer", async () => {

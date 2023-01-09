@@ -1434,7 +1434,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(data.isBlackListed).to.equal(true);
   });
 
-  it("it should remove staking contract from active staking contracts when it's reward set to zero", async () => {
+  it("it should not remove staking contract from active staking contracts when it's reward set to zero", async () => {
     const simpleStaking1 = await goodCompoundStakingTestFactory.deploy(
       bat.address,
       cBat.address,
@@ -1453,9 +1453,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
     const activeContractsCount =
       await goodFundManager.getActiveContractsCount();
-    const lastActiveContractBeforeAdd = await goodFundManager.activeContracts(
-      activeContractsCount.sub(1)
-    );
 
     const simpleStaking = await goodCompoundStakingTestFactory.deploy(
       bat.address,
@@ -1475,9 +1472,9 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
     const activeContractsCountAfterAdded =
       await goodFundManager.getActiveContractsCount();
-    const lastActiveContractAfterAdd = await goodFundManager.activeContracts(
-      activeContractsCountAfterAdded.sub(1)
-    );
+
+    expect(activeContractsCountAfterAdded).equal(activeContractsCount.add(1));
+
     encodedData = goodFundManager.interface.encodeFunctionData(
       "setStakingReward",
       ["0", simpleStaking.address, 10, 1000, false] // set 10 gd per block
@@ -1489,16 +1486,15 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const lastActiveContractAfterRemove = await goodFundManager.activeContracts(
       activeContractsCountAfterRemoved.sub(1)
     );
-    expect(lastActiveContractBeforeAdd).to.be.equal(
-      lastActiveContractAfterRemove
-    );
-    expect(lastActiveContractAfterAdd).to.be.equal(simpleStaking.address);
-    expect(activeContractsCountAfterAdded).to.be.gt(activeContractsCount);
-    expect(activeContractsCountAfterAdded).to.be.gt(
+
+    expect(lastActiveContractAfterRemove).to.be.equal(simpleStaking.address);
+    expect(activeContractsCountAfterAdded).to.be.eq(
       activeContractsCountAfterRemoved
     );
-    expect(activeContractsCount).to.be.equal(activeContractsCountAfterRemoved);
+
+    expect(activeContractsCount).to.be.lt(activeContractsCountAfterRemoved);
   });
+
   it("it should distribute rewards correctly when there is multiple stakers", async () => {
     const simpleStaking1 = await goodCompoundStakingTestFactory.deploy(
       bat.address,

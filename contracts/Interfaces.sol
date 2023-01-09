@@ -58,7 +58,41 @@ interface cERC20 is ERC20 {
 }
 
 interface IGoodDollar is ERC20 {
+	// view functions
+	function feeRecipient() external view returns (address);
+
+	function getFees(
+		uint256 value,
+		address sender,
+		address recipient
+	) external view returns (uint256 fee, bool senderPays);
+
+	function cap() external view returns (uint256);
+
+	function isPauser(address _pauser) external view returns (bool);
+
 	function getFees(uint256 value) external view returns (uint256, bool);
+
+	function isMinter(address minter) external view returns (bool);
+
+	function formula() external view returns (address);
+
+	function identity() external view returns (address);
+
+	function owner() external view returns (address);
+
+	// state changing functions
+	function setFeeRecipient(address _feeRecipient) external;
+
+	function setFormula(address _formula) external;
+
+	function transferOwnership(address _owner) external;
+
+	function addPauser(address _pauser) external;
+
+	function pause() external;
+
+	function unpause() external;
 
 	function burn(uint256 amount) external;
 
@@ -68,21 +102,13 @@ interface IGoodDollar is ERC20 {
 
 	function addMinter(address minter) external;
 
-	function isMinter(address minter) external view returns (bool);
-
 	function transferAndCall(
 		address to,
 		uint256 value,
 		bytes calldata data
 	) external returns (bool);
 
-	function formula() external view returns (address);
-
 	function setIdentity(address identity) external;
-
-	function identity() external view returns (address);
-
-	function owner() external view returns (address);
 }
 
 interface IERC2917 is ERC20 {

@@ -9,6 +9,7 @@ import "@openzeppelin/hardhat-upgrades";
 import "solidity-coverage";
 import "hardhat-gas-reporter";
 import "hardhat-contract-sizer";
+import "hardhat-storage-layout";
 import { task, types } from "hardhat/config";
 import { sha3 } from "web3-utils";
 import { config } from "dotenv";
@@ -43,7 +44,7 @@ const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
 // console.log({ mnemonic: sha3(mnemonic) });
 const hhconfig: HardhatUserConfig = {
   solidity: {
-    version: "0.8.8",
+    version: "0.8.16",
     settings: {
       optimizer: {
         enabled: true,
@@ -85,7 +86,10 @@ const hhconfig: HardhatUserConfig = {
       accounts: {
         accountsBalance: "10000000000000000000000000"
       },
-      initialDate: "2021-12-01" //required for DAO tests like guardian
+      initialDate: "2021-12-01", //required for DAO tests like guardian
+      forking: process.env.FORK_CHAIN_ID && {
+        url: "https://eth-mainnet.alchemyapi.io/v2/" + process.env.ALCHEMY_KEY
+      }
     },
     test: {
       allowUnlimitedContractSize: true,

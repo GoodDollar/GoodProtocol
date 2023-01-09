@@ -225,7 +225,7 @@ describe("GoodDollarMintBurnWrapper", () => {
   it("should have erc20 token info", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
-    expect(await wrapper.decimals()).to.equal(2);
+    expect(await wrapper.decimals()).to.equal(await goodDollar.decimals());
     expect(await wrapper.name()).to.equal("GoodDollar");
     expect(await wrapper.symbol()).to.equal("G$");
   });

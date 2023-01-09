@@ -418,5 +418,8 @@
         "network": "staging-celo",
         "networkId": 42220,
         "GoodDollarStaking": "0x1eF9D3Ed46D4B82E7e8089BDdd00a493e9930f46"
+    },
+    "gnosis": {
+        "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"
     }
 }
