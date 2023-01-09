@@ -21,7 +21,12 @@ const tenDollars = ethers.utils.parseEther("10");
 const oneDollar = ethers.utils.parseEther("1");
 const tenDollarsPerDay = "124378109452730"; // flowrate per second
 
-const initialState = async () => {
+const initialState = async () => {};
+
+before(async function () {
+  //get accounts from hardhat
+  [founder, alice, bob, eve] = await ethers.getSigners();
+
   let { sfContracts } = await createDAO();
 
   // initialize sdk-core to get a framework handle for more convenient access to Superfluid functionality
@@ -68,13 +73,6 @@ const initialState = async () => {
   ]);
 
   await sgd.mint(founder.address, alotOfDollars);
-};
-
-before(async function () {
-  //get accounts from hardhat
-  [founder, alice, bob, eve] = await ethers.getSigners();
-
-  // Superfluid specific init
 });
 
 describe("SuperGoodDollar", async function () {
