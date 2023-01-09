@@ -31,7 +31,7 @@ before(async function () {
 
   // initialize sdk-core to get a framework handle for more convenient access to Superfluid functionality
   sf = await Framework.create({
-    chainId: ethers.provider.network.chainId,
+    chainId: 4447,
     provider: ethers.provider,
     resolverAddress: sfContracts.resolver,
     protocolReleaseVersion: "test"
