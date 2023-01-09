@@ -29,7 +29,7 @@ contract GovernanceStaking is
 	 * @dev Emitted when `staker` earns an `amount` of GOOD tokens
 	 */
 	event ReputationEarned(address indexed staker, uint256 amount);
-	
+
 	/**
 	 * @dev Emitted when `staker` stakes an `amount` of GoodDollars
 	 */
@@ -44,7 +44,7 @@ contract GovernanceStaking is
 	 * @dev Constructor
 	 * @param _ns The address of the INameService contract
 	 */
-	constructor(INameService _ns) {
+	constructor(INameService _ns) initializer {
 		setDAO(_ns);
 		token = ERC20(nameService.getAddress("GOODDOLLAR"));
 		__ERC20_init("G$ Staking For GOOD", "sG$");

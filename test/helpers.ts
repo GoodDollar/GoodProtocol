@@ -98,6 +98,8 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
     await ethers.getContractFactory("BancorFormula")
   ).deploy();
 
+  console.log("deploy upgradeable identity...");
+
   const Identity = await upgrades.deployProxy(
     IdentityFactory,
     [root.address, ethers.constants.AddressZero],
@@ -108,6 +110,7 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
   const FeeFormula = await FeeFormulaFactory.deploy(0);
   const GReputation = await ethers.getContractFactory("GReputation");
 
+  console.log("deploy upgradeable rep...");
   let reputation = await upgrades.deployProxy(
     GReputation,
     [ethers.constants.AddressZero, "", ethers.constants.HashZero, 0],
@@ -119,6 +122,7 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
 
   let GoodDollar;
   if (tokenType === "regular") {
+    console.log("deploy regular G$...");
     const GoodDollarFactory = await ethers.getContractFactory("GoodDollar");
 
     GoodDollar = await upgrades.deployProxy(
@@ -139,6 +143,7 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
       }
     );
   } else {
+    console.log("deploy super G$...");
     GoodDollar = await deploySuperGoodDollar(sfContracts, [
       "GoodDollar",
       "G$",

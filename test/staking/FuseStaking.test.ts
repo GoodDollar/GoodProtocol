@@ -1,8 +1,8 @@
-import hre, { ethers, network as networkConfig } from "hardhat";
+import hre, { ethers, network as networkConfig, waffle } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { FuseStakingV3 } from "../../types";
 import { expect } from "chai";
-import { deployMockContract, MockContract } from "ethereum-waffle";
+import { MockContract } from "ethereum-waffle";
 import { abi as ubiabi } from "../../artifacts/contracts/ubi/UBIScheme.sol/UBIScheme.json";
 import { BigNumber } from "ethers";
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -23,14 +23,14 @@ describe("FuseStakingV3", () => {
     let u = await hre.artifacts.readArtifact("Uniswap");
     let uf = await hre.artifacts.readArtifact("UniswapFactory");
     let up = await hre.artifacts.readArtifact("UniswapPair");
-    uniswap = await deployMockContract(signers[0], u.abi);
-    uniswapFactory = await deployMockContract(signers[0], uf.abi);
-    uniswapPair = await deployMockContract(signers[0], up.abi);
+    uniswap = await waffle.deployMockContract(signers[0], u.abi);
+    uniswapFactory = await waffle.deployMockContract(signers[0], uf.abi);
+    uniswapPair = await waffle.deployMockContract(signers[0], up.abi);
 
-    gdusdcPair = await deployMockContract(signers[0], up.abi);
-    fusefusdPair = await deployMockContract(signers[0], up.abi);
+    gdusdcPair = await waffle.deployMockContract(signers[0], up.abi);
+    fusefusdPair = await waffle.deployMockContract(signers[0], up.abi);
 
-    ubiMock = await deployMockContract(signers[0], ubiabi);
+    ubiMock = await waffle.deployMockContract(signers[0], ubiabi);
     await uniswap.mock.factory.returns(uniswapFactory.address);
     await uniswap.mock.WETH.returns(signers[3].address);
     await uniswapFactory.mock.getPair.returns(uniswapPair.address);

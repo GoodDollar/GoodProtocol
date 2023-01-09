@@ -14,7 +14,7 @@ contract cBATMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 
 	uint256 exchangeRate = uint256(100e28).div(99);
 
-	constructor(ERC20PresetMinterPauserUpgradeable _bat) {
+	constructor(ERC20PresetMinterPauserUpgradeable _bat) initializer {
 		__ERC20PresetMinterPauser_init("Compound BAT", "cBAT");
 		bat = _bat;
 	}
@@ -22,19 +22,15 @@ contract cBATMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	function mint(uint256 batAmount) public returns (uint256) {
 		bat.transferFrom(msg.sender, address(this), batAmount);
 		//mul by 1e10 to match to precision of 1e28 of the exchange rate
-		_mint(
-			msg.sender,
-			rdiv(batAmount * 1e10, exchangeRateStored()).div(1e19)
-		); //div to reduce precision from RAY 1e27 to 1e8 precision of cDAI
+		_mint(msg.sender, rdiv(batAmount * 1e10, exchangeRateStored()).div(1e19)); //div to reduce precision from RAY 1e27 to 1e8 precision of cDAI
 		return 0;
 	}
 
 	function redeem(uint256 cBatAmount) public returns (uint256) {
-		uint256 daiAmount =
-			rmul(
-				cBatAmount * 1e10, //bring cdai 8 decimals to rdai precision
-				exchangeRateStored().div(10)
-			);
+		uint256 daiAmount = rmul(
+			cBatAmount * 1e10, //bring cdai 8 decimals to rdai precision
+			exchangeRateStored().div(10)
+		);
 		//div to reduce precision from 1e28 of exchange rate to 1e27 that DSMath works on
 		// uint256 daiAmount = cdaiAmount.mul(100).div(99);
 		_burn(msg.sender, cBatAmount);
@@ -43,8 +39,7 @@ contract cBATMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	}
 
 	function redeemUnderlying(uint256 batAmount) public returns (uint256) {
-		uint256 cdaiAmount =
-			rdiv(batAmount * 1e10, exchangeRateStored()).div(1e19);
+		uint256 cdaiAmount = rdiv(batAmount * 1e10, exchangeRateStored()).div(1e19);
 		_burn(msg.sender, cdaiAmount);
 		bat.transfer(msg.sender, batAmount);
 		return 0;

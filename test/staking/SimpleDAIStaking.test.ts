@@ -1104,9 +1104,7 @@ describe("SimpleDAISTAking - staking with cDAI mocks", () => {
       .connect(staker)
       .stake(stakingAmount, 100, true)
       .catch(e => e);
-    expect(transaction.message).to.have.string(
-      "ERC20: transfer amount exceeds allowance"
-    );
+    expect(transaction.message).to.have.string("ERC20: insufficient allowance");
   });
   it("it should be able stake and withdraw their stake in iToken", async () => {
     const stakingAmount = ethers.utils.parseUnits("100", 8);

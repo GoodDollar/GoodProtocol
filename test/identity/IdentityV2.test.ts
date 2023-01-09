@@ -2,9 +2,8 @@ import hre, { ethers, upgrades } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { IGoodDollar, IIdentityV2, IIdentity, IdentityV2 } from "../../types";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { createDAO, increaseTime } from "../helpers";
-import { load } from "dotenv";
+import { createDAO, increaseTime, advanceBlocks } from "../helpers";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 const BN = ethers.BigNumber;
 
@@ -12,14 +11,13 @@ describe("Identity", () => {
   let identity: IdentityV2, founder: SignerWithAddress;
   let user1 = ethers.Wallet.createRandom().connect(ethers.provider);
   let user2 = ethers.Wallet.createRandom().connect(ethers.provider);
-  let signers;
+  let signers: Array<SignerWithAddress>;
   let genericCall;
 
   let avatar, gd: IGoodDollar, Controller, id: IIdentity;
 
   before(async () => {
     [founder, ...signers] = await ethers.getSigners();
-
     let {
       controller,
       avatar: av,
@@ -247,33 +245,58 @@ describe("Identity", () => {
     const toconnect = signers[10];
     const toconnect2 = signers[11];
     let whitelisted = signers[1];
-    const signed = await toconnect.signMessage(
-      ethers.utils.arrayify(
-        ethers.utils.keccak256(
-          ethers.utils.defaultAbiCoder.encode(
-            ["address", "address"],
-            [whitelisted.address, toconnect.address]
-          )
-        )
-      )
+    const curBlock = await ethers.provider.getBlockNumber();
+    const deadline = curBlock + 10;
+
+    const signed = await toconnect._signTypedData(
+      {
+        name: "Identity",
+        version: "1.0.0",
+        chainId: 4447,
+        verifyingContract: identity.address
+      },
+      {
+        ConnectIdentity: [
+          { name: "whitelisted", type: "address" },
+          { name: "connected", type: "address" },
+          { name: "deadline", type: "uint256" }
+        ]
+      },
+      {
+        whitelisted: whitelisted.address,
+        connected: toconnect.address,
+        deadline
+      }
     );
-    const signed2 = await toconnect2.signMessage(
-      ethers.utils.arrayify(
-        ethers.utils.keccak256(
-          ethers.utils.defaultAbiCoder.encode(
-            ["address", "address"],
-            [whitelisted.address, toconnect2.address]
-          )
-        )
-      )
+
+    const signed2 = await toconnect2._signTypedData(
+      {
+        name: "Identity",
+        version: "1.0.0",
+        chainId: 4447,
+        verifyingContract: identity.address
+      },
+      {
+        ConnectIdentity: [
+          { name: "whitelisted", type: "address" },
+          { name: "connected", type: "address" },
+          { name: "deadline", type: "uint256" }
+        ]
+      },
+      {
+        whitelisted: whitelisted.address,
+        connected: toconnect2.address,
+        deadline
+      }
     );
 
     await identity
       .connect(whitelisted)
-      .connectAccount(toconnect.address, signed);
+      .connectAccount(toconnect.address, signed, deadline);
     await identity
       .connect(whitelisted)
-      .connectAccount(toconnect2.address, signed2);
+      .connectAccount(toconnect2.address, signed2, deadline);
+    return { signed };
   };
 
   it("should allow to connect account", async () => {
@@ -295,21 +318,54 @@ describe("Identity", () => {
     );
   });
 
+  it("should require valid deadline", async () => {
+    const toconnect = signers[10];
+    let whitelisted = signers[1];
+
+    await expect(
+      identity
+        .connect(whitelisted)
+        .connectAccount(
+          toconnect.address,
+          "0x",
+          await ethers.provider.getBlockNumber()
+        )
+    ).revertedWith("invalid deadline");
+
+    await expect(
+      identity.connect(whitelisted).connectAccount(toconnect.address, "0x", 0)
+    ).revertedWith("invalid deadline");
+  });
+
+  it("should not allow to replay signature", async () => {
+    const toconnect = signers[10];
+    let whitelisted = signers[1];
+    const { signed } = await loadFixture(connectedFixture);
+    await expect(
+      identity.connect(whitelisted).disconnectAccount(toconnect.address)
+    ).not.reverted;
+
+    await expect(
+      identity
+        .connect(whitelisted)
+        .connectAccount(
+          toconnect.address,
+          signed,
+          (await ethers.provider.getBlockNumber()) + 10
+        )
+    ).revertedWith("invalid signature");
+  });
+
   it("should not allow to connect account already whitelisted", async () => {
     await loadFixture(connectedFixture);
 
     await identity.addWhitelisted(signers[2].address);
     let whitelisted = signers[1];
-    const signed = await signers[1].signMessage(
-      ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
-          ["address", "address"],
-          [whitelisted.address, signers[2].address]
-        )
-      )
-    );
+
     await expect(
-      identity.connect(whitelisted).connectAccount(signers[2].address, signed)
+      identity
+        .connect(whitelisted)
+        .connectAccount(signers[2].address, "0x", 20000000)
     ).revertedWith("invalid account");
   });
 
@@ -346,19 +402,10 @@ describe("Identity", () => {
     expect(await identity.isWhitelisted(signers[2].address)).true;
     const connected = signers[10];
 
-    const signed = await connected.signMessage(
-      ethers.utils.arrayify(
-        ethers.utils.keccak256(
-          ethers.utils.defaultAbiCoder.encode(
-            ["address", "address"],
-            [signers[2].address, connected.address]
-          )
-        )
-      )
-    );
-
     await expect(
-      identity.connect(signers[2]).connectAccount(connected.address, signed)
+      identity
+        .connect(signers[2])
+        .connectAccount(connected.address, "0x", 200000)
     ).revertedWith("already connected");
   });
 
@@ -440,26 +487,37 @@ describe("Identity", () => {
     const { newid } = await loadFixture(oldidFixture);
 
     await expect(
-      newid.connect(signers[1])["setDID(string)"]("testolddid")
+      newid
+        .connect(signers[1])
+        ["setDID(address,string)"](signers[1].address, "testolddid")
     ).revertedWith("DID already registered oldIdentity");
   });
 
   it("should set did if set in oldidentity by same owner", async () => {
     const { newid } = await loadFixture(oldidFixture);
 
-    await expect(newid.connect(signers[3])["setDID(string)"]("testolddid")).not
-      .reverted;
+    await expect(
+      newid
+        .connect(signers[3])
+        ["setDID(address,string)"](signers[3].address, "testolddid")
+    ).not.reverted;
     expect(await newid.addrToDID(signers[3].address)).eq("testolddid");
   });
   it("should set did if set in oldidentity by different owner but updated in new identity", async () => {
     const { newid } = await loadFixture(oldidFixture);
 
-    await expect(newid.connect(signers[3])["setDID(string)"]("newdid")).not
-      .reverted;
+    await expect(
+      newid
+        .connect(signers[3])
+        ["setDID(address,string)"](signers[3].address, "newdid")
+    ).not.reverted;
     expect(await newid.addrToDID(signers[3].address)).eq("newdid");
 
-    await expect(newid.connect(signers[1])["setDID(string)"]("testolddid")).not
-      .reverted;
+    await expect(
+      newid
+        .connect(signers[1])
+        ["setDID(address,string)"](signers[1].address, "testolddid")
+    ).not.reverted;
     expect(await newid.addrToDID(signers[1].address)).eq("testolddid");
   });
 

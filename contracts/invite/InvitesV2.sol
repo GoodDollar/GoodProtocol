@@ -4,7 +4,6 @@ pragma solidity >=0.8;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "../Interfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOUpgradeableContract.sol";
@@ -17,8 +16,6 @@ import "../utils/DAOUpgradeableContract.sol";
  * 2 uses uups upgradeable - not compatible upgrade for v1
  */
 contract InvitesV2 is DAOUpgradeableContract {
-	using SafeMathUpgradeable for uint256;
-
 	struct Stats {
 		uint256 totalApprovedInvites;
 		uint256 totalBountiesPaid;
@@ -112,9 +109,12 @@ contract InvitesV2 is DAOUpgradeableContract {
 
 	function join(bytes32 _myCode, bytes32 _inviterCode) public isActive {
 		require(
-			codeToUser[_myCode] == address(0) || codeToUser[_myCode] == msg.sender,
+			codeToUser[_myCode] == address(0) ||
+				codeToUser[_myCode] == msg.sender ||
+				address(uint160(uint256(_myCode))) == msg.sender,
 			"invite code already in use"
 		);
+		require(_myCode != _inviterCode, "self invite");
 		User storage user = users[msg.sender]; // this is not expensive as user is new
 		address inviter = codeToUser[_inviterCode];
 		//allow user to set inviter if doesnt have one
@@ -130,12 +130,31 @@ contract InvitesV2 is DAOUpgradeableContract {
 			codeToUser[_myCode] = msg.sender;
 		}
 		if (inviter != address(0)) {
+			require(inviter != msg.sender, "self invite");
 			user.invitedBy = inviter;
 			users[inviter].invitees.push(msg.sender);
 			users[inviter].pending.push(msg.sender);
 			stats.totalInvited += 1;
 		}
+		if (canCollectBountyFor(msg.sender)) {
+			_bountyFor(msg.sender, true);
+		}
 		emit InviteeJoined(inviter, msg.sender);
+	}
+
+	function _whitelistedOnChainOrDefault(address _invitee)
+		internal
+		view
+		returns (uint256 chainId)
+	{
+		(bool success, bytes memory result) = address(getIdentity()).staticcall(
+			abi.encodeWithSignature("getWhitelistedOnChainId(address)", _invitee)
+		);
+		if (success == false) {
+			return _chainId();
+		}
+
+		return abi.decode(result, (uint256));
 	}
 
 	function canCollectBountyFor(address _invitee) public view returns (bool) {
@@ -144,13 +163,14 @@ contract InvitesV2 is DAOUpgradeableContract {
 		bool isLevelExpired = levelExpirationEnabled == true &&
 			daysToComplete > 0 &&
 			daysToComplete <
-			users[_invitee].joinedAt.sub(users[invitedBy].levelStarted).div(1 days);
+			(users[_invitee].joinedAt - users[invitedBy].levelStarted) / 1 days;
 
 		return
 			invitedBy != address(0) &&
 			!users[_invitee].bountyPaid &&
 			getIdentity().isWhitelisted(_invitee) &&
 			getIdentity().isWhitelisted(invitedBy) &&
+			_whitelistedOnChainOrDefault(_invitee) == _chainId() &&
 			isLevelExpired == false;
 	}
 
@@ -223,7 +243,7 @@ contract InvitesV2 is DAOUpgradeableContract {
 		bool isLevelExpired = level.daysToComplete > 0 &&
 			joinedAt > users[invitedBy].levelStarted && //prevent overflow in subtraction
 			level.daysToComplete <
-			joinedAt.sub(users[invitedBy].levelStarted).div(1 days); //how long after level started did invitee join
+			(joinedAt - users[invitedBy].levelStarted) / 1 days; //how long after level started did invitee join
 
 		users[_invitee].bountyPaid = true;
 		users[invitedBy].totalApprovedInvites += 1;
@@ -243,7 +263,7 @@ contract InvitesV2 is DAOUpgradeableContract {
 		}
 
 		if (isSingleBounty) goodDollar.transfer(invitedBy, level.bounty);
-		goodDollar.transfer(_invitee, level.bounty.div(2)); //pay invitee half the bounty
+		goodDollar.transfer(_invitee, level.bounty / 2); //pay invitee half the bounty
 		emit InviterBounty(
 			invitedBy,
 			_invitee,
@@ -295,6 +315,14 @@ contract InvitesV2 is DAOUpgradeableContract {
 		active = false;
 	}
 
+	/// @notice helper function to get current chain id
+	/// @return chainId id
+	function _chainId() internal view returns (uint256 chainId) {
+		assembly {
+			chainId := chainid()
+		}
+	}
+
 	/**
 	 * @dev
 	 * 1.2.0 - final changes before release
@@ -302,8 +330,9 @@ contract InvitesV2 is DAOUpgradeableContract {
 	 * 1.4.0 - improve gas for bounty collection
 	 * 1.5.0 - more gas improvements
 	 * 2 uses uups upgradeable - not compatible upgrade for v1
+	 * 2.1 prevent multichain claims
 	 */
 	function version() public pure returns (string memory) {
-		return "2.0";
+		return "2.1";
 	}
 }

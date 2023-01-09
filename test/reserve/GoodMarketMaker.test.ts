@@ -1,4 +1,4 @@
-import { default as hre, ethers, upgrades } from "hardhat";
+import { default as hre, ethers, upgrades, waffle } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { GoodMarketMaker, CERC20 } from "../../types";
