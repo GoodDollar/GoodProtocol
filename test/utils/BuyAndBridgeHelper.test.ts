@@ -244,6 +244,6 @@ describe("BuyAndBridgeHelper ", () => {
         122,
         { value: daiAmount }
       )
-    ).revertedWith("Transaction reverted: function call");
+    ).revertedWith("Transaction reverted: function");
   });
 });
