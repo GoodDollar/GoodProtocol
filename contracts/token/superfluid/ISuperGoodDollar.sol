@@ -72,7 +72,9 @@ interface ISuperGoodDollar is
 	ISuperToken,
 	IERC20PermitUpgradeable
 {
-	function initializeAux(
+	function initializeSuperGoodDollar(
+		string calldata name,
+		string calldata symbol,
 		uint256 _cap,
 		IFeesFormula _formula,
 		IIdentity _identity,

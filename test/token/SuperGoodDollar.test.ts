@@ -7,10 +7,12 @@ import { createDAO, deploySuperGoodDollar } from "../helpers";
 import { ISuperGoodDollar } from "../../types";
 
 let sf,
+  sfHost,
   founder,
   alice,
   bob,
   eve,
+  newHost,
   identityMock,
   receiverMock,
   sgd, // stands for "SuperGoodDollar"
@@ -25,10 +27,11 @@ const initialState = async () => {};
 
 before(async function () {
   //get accounts from hardhat
-  [founder, alice, bob, eve] = await ethers.getSigners();
+  [founder, alice, bob, eve, newHost] = await ethers.getSigners();
 
   let { sfContracts } = await createDAO();
 
+  sfHost = sfContracts.host;
   // initialize sdk-core to get a framework handle for more convenient access to Superfluid functionality
   sf = await Framework.create({
     chainId: 4447,
@@ -76,6 +79,10 @@ before(async function () {
 });
 
 describe("SuperGoodDollar", async function () {
+  it("check superfluid host", async () => {
+    expect(await sgd.getHost()).equal(sfHost);
+  });
+
   it("check ERC20 metadata", async function () {
     await loadFixture(initialState);
     const symbol = await sgd.symbol();
@@ -197,10 +204,49 @@ describe("SuperGoodDollar", async function () {
     );
   });
 
+  it("non-zero fees are applied for transferFrom (verify override of _transferForm)", async function () {
+    await loadFixture(initialState);
+
+    await sgd.connect(founder).mint(alice.address, tenDollars);
+    await sgd.setFormula(feesFormula10PctMock.address);
+
+    await sgd.connect(alice).approve(founder.address, tenDollars.mul(2));
+
+    await expect(
+      sgd.connect(founder).transferFrom(alice.address, bob.address, tenDollars)
+    ).revertedWith("Not enough balance to pay TX fee");
+
+    // mint the extra amount needed for 10% fees
+    await sgd.connect(founder).mint(alice.address, oneDollar);
+    assert.equal(
+      (await sgd.balanceOf(alice.address)).toString(),
+      tenDollars.add(oneDollar).toString(),
+      "alice: wrong balance after mint"
+    );
+
+    await sgd
+      .connect(founder)
+      .transferFrom(alice.address, bob.address, tenDollars);
+
+    // since the sender pays the fee, alice should have spent 11$ and bob received 10$
+    assert.equal(
+      (await sgd.balanceOf(alice.address)).toString(),
+      "0",
+      "alice: wrong balance after transfer"
+    );
+    assert.equal(
+      (await sgd.balanceOf(bob.address)).toString(),
+      tenDollars.toString(),
+      "bob: wrong balance after transfer"
+    );
+  });
+
   it("should not be able to initialize again", async () => {
     await loadFixture(initialState);
     await expect(
-      sgd.initializeAux(
+      sgd.initializeSuperGoodDollar(
+        "x",
+        "y",
         1,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
@@ -211,36 +257,49 @@ describe("SuperGoodDollar", async function () {
 
     await expect(
       sgd.initialize(ethers.constants.AddressZero, 2, "GD", "GD")
-    ).revertedWith("Initializable: contract is already initialized");
+    ).revertedWith("Initializable: contract is not initializing");
   });
 
   it("update the GoodDollar logic", async function () {
     await loadFixture(initialState);
     const sgdProxiable = await ethers.getContractAt(
-      "AuxProxiable",
+      "UUPSProxiable",
       sgd.address,
       founder.signer
     );
 
-    const auxCodeAddrBefore = await sgdProxiable.getAuxCodeAddress();
+    const auxCodeAddrBefore = await sgdProxiable.getCodeAddress();
 
     const newLogic = await (
       await ethers.getContractFactory("SuperGoodDollar", founder)
-    ).deploy();
+    ).deploy(newHost.address);
 
     await expect(
-      sgdProxiable.connect(eve).updateAuxCode(newLogic.address)
+      sgdProxiable.connect(eve).updateCode(newLogic.address)
     ).revertedWith("not owner");
 
-    await sgdProxiable.connect(founder).updateAuxCode(newLogic.address);
+    await sgdProxiable.connect(founder).updateCode(newLogic.address);
 
-    const auxCodeAddrAfter = await sgdProxiable.getAuxCodeAddress();
+    const auxCodeAddrAfter = await sgdProxiable.getCodeAddress();
 
     assert.notEqual(
       auxCodeAddrBefore,
       auxCodeAddrAfter,
       "code address unchanged"
     );
+
+    expect(await sgd.getHost()).equal(newHost.address);
+    await expect(
+      sgd.initializeSuperGoodDollar(
+        "x",
+        "y",
+        1,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero
+      )
+    ).revertedWith("Initializable: contract is already initialized");
   });
 
   describe("ERC20Permit", () => {
