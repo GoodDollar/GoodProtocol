@@ -41,14 +41,47 @@ export const countTotalGas = async (tx, name) => {
   } else console.log("no gas data", { res, tx });
 };
 
+export const deploySuperGoodDollar = async (superfluidHost, tokenArgs) => {
+  const SuperGoodDollarFactory = await ethers.getContractFactory(
+    "SuperGoodDollar"
+  );
+
+  const SuperGoodDollar = (await deployDeterministic(
+    {
+      name: "SuperGoodDollar"
+    },
+    []
+  ).then(printDeploy)) as Contract;
+
+  const GoodDollarProxy = (await deployDeterministic(
+    {
+      name: "SuperGoodDollarProxy"
+    },
+    []
+  ).then(printDeploy)) as Contract;
+
+  await GoodDollarProxy.initialize(
+    superfluidHost,
+    SuperGoodDollar.address,
+    ...tokenArgs
+  );
+
+  const GoodDollar = await ethers.getContractAt(
+    "ISuperGoodDollar",
+    GoodDollarProxy.address
+  );
+  return GoodDollar;
+};
+
 export const deployDeterministic = async (
   contract,
   args: any[],
-  factoryOpts = {}
+  factoryOpts = {},
+  redeployProxyFactory = false
 ) => {
   try {
     let proxyFactory;
-    if (networkName.startsWith("develop")) {
+    if (networkName.startsWith("develop") && redeployProxyFactory) {
       proxyFactory = await (
         await ethers.getContractFactory("ProxyFactory1967")
       ).deploy();
@@ -183,9 +216,29 @@ export const executeViaSafe = async (
   functionSigs,
   functionInputs,
   safeAddress: string,
-  safeSigner: Signer,
-  txServiceUrl = "https://safe-transaction-mainnet.safe.global"
+  safeSigner?: Signer
 ) => {
+  if (!safeSigner && !process.env.SAFEOWNER_PRIVATE_KEY) {
+    throw new Error("safe signer is missing");
+  }
+  safeSigner =
+    safeSigner ||
+    new ethers.Wallet(process.env.SAFEOWNER_PRIVATE_KEY, ethers.provider);
+
+  const chainId = await safeSigner.getChainId();
+  let txServiceUrl;
+  switch (chainId) {
+    case 1:
+      txServiceUrl = "https://safe-transaction-mainnet.safe.global";
+      break;
+    case 122:
+      txServiceUrl = "https://gateway.safe.fuse.io";
+      break;
+    case 42220:
+      txServiceUrl =
+        "https://client-gateway.celo-safe-prod.celo-networks-dev.org/";
+      break;
+  }
   const ethAdapter = new EthersAdapter({
     ethers: safeethers,
     signerOrProvider: safeSigner

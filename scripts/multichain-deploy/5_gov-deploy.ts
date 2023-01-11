@@ -5,7 +5,11 @@
 import { network, ethers, upgrades, run } from "hardhat";
 import { Contract } from "ethers";
 import { defaultsDeep } from "lodash";
-import { deployDeterministic, executeViaGuardian } from "./helpers";
+import {
+  deployDeterministic,
+  executeViaGuardian,
+  executeViaSafe
+} from "./helpers";
 import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
@@ -37,15 +41,12 @@ export const deployGov = async () => {
   let release: { [key: string]: any } = dao[network.name];
 
   let [root] = await ethers.getSigners();
-  const daoOwner = protocolSettings.guardiansSafe || root.address;
-
-  //generic call permissions
-  let schemeMock = root;
+  const isProduction = name.includes("production");
+  const daoOwner = isProduction ? protocolSettings.guardiansSafe : root.address;
 
   console.log("got signers:", {
     network,
     root: root.address,
-    schemeMock: schemeMock.address,
     balance: await ethers.provider
       .getBalance(root.address)
       .then(_ => _.toString())
@@ -66,6 +67,15 @@ export const deployGov = async () => {
     ]
   ).then(printDeploy)) as Contract;
 
+  const torelease = {
+    CompoundVotingMachine: VotingMachine.address
+  };
+  release = {
+    ...release,
+    ...torelease
+  };
+  await releaser(torelease, network.name, "deployment", false);
+
   console.log("adding genericcall permissions to voting contract.");
   const proposalContracts = [
     release.Controller //nameservice add MinterWrapper
@@ -81,7 +91,7 @@ export const deployGov = async () => {
     ethers.utils.defaultAbiCoder.encode(
       ["address", "bytes32", "bytes4", "address"],
       [
-        VotingMachine.address,
+        release.CompoundVotingMachine,
         ethers.constants.HashZero,
         "0x000000f1",
         release.Avatar
@@ -89,13 +99,27 @@ export const deployGov = async () => {
     )
   ];
 
-  await executeViaGuardian(
-    proposalContracts,
-    proposalEthValues,
-    proposalFunctionSignatures,
-    proposalFunctionInputs,
-    root
-  );
+  try {
+    if (isProduction) {
+      await executeViaSafe(
+        proposalContracts,
+        proposalEthValues,
+        proposalFunctionSignatures,
+        proposalFunctionInputs,
+        protocolSettings.guardiansSafe
+      );
+    } else {
+      await executeViaGuardian(
+        proposalContracts,
+        proposalEthValues,
+        proposalFunctionSignatures,
+        proposalFunctionInputs,
+        root
+      );
+    }
+  } catch (e) {
+    console.error("proposal execution failed...", e.message);
+  }
 
   const Controller = await ethers.getContractAt(
     "Controller",
@@ -110,11 +134,6 @@ export const deployGov = async () => {
   console.log({
     votingMachineDaoPermissions
   });
-
-  release = {
-    CompoundVotingMachine: VotingMachine.address
-  };
-  await releaser(release, network.name, "deployment", false);
 };
 
 export const main = async (networkName = name) => {

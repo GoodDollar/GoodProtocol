@@ -7,28 +7,77 @@ import dao from "../../releases/deployment.json";
 
 const { name } = network;
 
+export const deployUniversalProxyFactory = async () => {
+  const f = await ethers.getContractFactory("ProxyFactory1967");
+  const deployTx = {
+    nonce: 0,
+    gasPrice: 50e9,
+    gasLimit: 900000,
+    data: f.bytecode
+  };
+
+  let signer = {
+    v: 27,
+    r: "0x2222222222222222222222222222222222222222222222222222222222222222",
+    s: "0x2222222222222222222222222222222222222222222222222222222222222222"
+  };
+  //modify tx data a little so we get different contract address for different envs
+  if (name.includes("staging")) {
+    deployTx.gasLimit = 900001;
+  } else if (name.includes("production")) {
+    deployTx.gasLimit = 890000;
+  }
+
+  const rawTx = ethers.utils.serializeTransaction(deployTx);
+  const txHash = ethers.utils.keccak256(rawTx);
+  const deployer = ethers.utils.recoverAddress(txHash, signer);
+  let [funder] = await ethers.getSigners();
+
+  let tx = await (
+    await funder.sendTransaction({
+      to: deployer,
+      value: ethers.BigNumber.from(deployTx.gasPrice).mul(deployTx.gasLimit)
+    })
+  ).wait();
+
+  console.log({
+    fundingTx: tx.transactionHash,
+    deployer,
+    funder: funder.address,
+    deployerBalance: ethers.utils.formatUnits(
+      await ethers.provider.getBalance(deployer)
+    )
+  });
+  const signedTx = ethers.utils.serializeTransaction(deployTx, signer);
+  const result = await (await ethers.provider.sendTransaction(signedTx)).wait();
+  console.log({ result });
+  return ethers.getContractAt("ProxyFactory1967", result.contractAddress);
+};
+
 export const deployProxy = async (defaultAdmin = null) => {
   let release: { [key: string]: any } = dao[network.name] || {};
 
   if (network.name.match(/production|staging|fuse/) && release.ProxyFactory) {
     throw new Error("ProxyFactory already exists for env");
   }
-  let [root] = await ethers.getSigners();
-  //generic call permissions
-  let schemeMock = root;
+  // let [root] = await ethers.getSigners();
+  // //generic call permissions
+  // let schemeMock = root;
 
-  console.log("got signers:", {
-    network,
-    root: root.address,
-    schemeMock: schemeMock.address,
-    balance: await ethers.provider
-      .getBalance(root.address)
-      .then(_ => _.toString())
-  });
+  // console.log("got signers:", {
+  //   network,
+  //   root: root.address,
+  //   schemeMock: schemeMock.address,
+  //   balance: await ethers.provider
+  //     .getBalance(root.address)
+  //     .then(_ => _.toString())
+  // });
 
-  const proxyFactory = await (
-    await ethers.getContractFactory("ProxyFactory1967")
-  ).deploy();
+  // const proxyFactory = await (
+  //   await ethers.getContractFactory("ProxyFactory1967")
+  // ).deploy();
+
+  const proxyFactory = await deployUniversalProxyFactory();
 
   release = {
     ProxyFactory: proxyFactory.address

@@ -31,13 +31,13 @@ const main = async () => {
   //   const impl = await getImplementationAddress(release.AdminWallet);
   //   console.log({ impl, aw: release.AdminWallet });
   let toVerify = omit(release, [
-    "GoodDollar",
     "Avatar",
     "Controller",
     "DAOCreator",
     "AddFounders",
     "FeeFormula"
   ]);
+
   //verify the first proxy
   const identityProxy = toVerify["Identity"];
   await run("verify:verify", {

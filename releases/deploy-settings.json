@@ -214,7 +214,8 @@
     },
     "savings": {
       "daysUntilUpgrade": 30
-    }
+    },
+    "guardiansSafe": "0x5878123fe880881f1Ecc92D5fd31e5D3F5Fba2e9"
   },
   "production-mainnet": {
     "gdxAirdrop": "0x707f775d730a9b17ee62c21e00188da4dff26602a58c338269cd115f30acbe2f",
@@ -244,20 +245,28 @@
       "dai_eth": "0x773616E4d11A78F511299002da57A0a94577F1f4",
       "eth_usd": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"
     },
-    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+    "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    "guardiansSafe": "0xE0c5daa7CC6F88d29505f702a53bb5E67600e7Ec"
+  },
+  "development-celo": {
+    "guardiansSafe": "0xdF3e980a175904a26A7BA627048a789Ae6A141cD",
+    "gasPrice": 150000000,
+    "superfluidHost": "0xA4Ff07cF81C02CFD356184879D953970cA957585"
   },
   "staging-celo": {
     "guardiansSafe": "0xdF3e980a175904a26A7BA627048a789Ae6A141cD",
-    "gasPrice": 150000000
+    "gasPrice": 150000000,
+    "superfluidHost": "0xA4Ff07cF81C02CFD356184879D953970cA957585"
   },
   "production-celo": {
     "governance": {
       "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "96000000000000000000000000",
       "proposalVotingPeriod": 241920,
-      "guardian": "0x914dA3B2508634998d244059dAb5488D9bA1814f"
+      "guardian": "0xa2521e8F5A990903fdD8Afa6570C52526e7E0D5E"
     },
     "gasPrice": 150000000,
-    "guardiansSafe": "0xC9D09BA972B4EB6Bb7347F2229FB6d50434fFCa6"
+    "guardiansSafe": "0xC9D09BA972B4EB6Bb7347F2229FB6d50434fFCa6",
+    "superfluidHost": "0xA4Ff07cF81C02CFD356184879D953970cA957585"
   }
 }

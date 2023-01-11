@@ -5,7 +5,11 @@
 import { network, ethers, upgrades, run } from "hardhat";
 import { Contract } from "ethers";
 import { defaultsDeep } from "lodash";
-import { deployDeterministic, executeViaGuardian } from "./helpers";
+import {
+  deployDeterministic,
+  executeViaGuardian,
+  executeViaSafe
+} from "./helpers";
 import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
@@ -94,15 +98,7 @@ export const deployHelpers = async () => {
     )
   ];
 
-  await executeViaGuardian(
-    proposalContracts,
-    proposalEthValues,
-    proposalFunctionSignatures,
-    proposalFunctionInputs,
-    root
-  );
-
-  if (!network.name.includes("production")) {
+  if (!name.includes("production")) {
     console.log("minting G$s to pool on dev envs");
     const gd = await ethers.getContractAt("IGoodDollar", release.GoodDollar);
     await gd.mint(UBIScheme.address, 1e8); //1million GD (2 decimals)
@@ -113,6 +109,28 @@ export const deployHelpers = async () => {
     ClaimersDistribution: ClaimersDistribution.address
   };
   await releaser(release, network.name, "deployment", false);
+
+  try {
+    if (name.includes("production")) {
+      await executeViaSafe(
+        proposalContracts,
+        proposalEthValues,
+        proposalFunctionSignatures,
+        proposalFunctionInputs,
+        protocolSettings.guardiansSafe
+      );
+    } else {
+      await executeViaGuardian(
+        proposalContracts,
+        proposalEthValues,
+        proposalFunctionSignatures,
+        proposalFunctionInputs,
+        root
+      );
+    }
+  } catch (e) {
+    console.error("proposal execution failed...", e.message);
+  }
 };
 
 export const main = async (networkName = name) => {

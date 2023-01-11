@@ -12,7 +12,7 @@ import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorG
 // import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
 
-import { deployDeterministic } from "./helpers";
+import { deployDeterministic, deploySuperGoodDollar } from "./helpers";
 import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
@@ -110,14 +110,9 @@ export const createDAO = async () => {
     [0]
   ).then(printDeploy)) as Contract;
 
-  const GoodDollar = (await deployDeterministic(
-    {
-      name: "GoodDollar",
-      isUpgradeable: true,
-      initializer:
-        "initialize(string, string, uint256, address, address, address,address)"
-    },
-    [
+  let GoodDollar;
+  if (protocolSettings.superfluidHost) {
+    GoodDollar = await deploySuperGoodDollar(protocolSettings.superfluidHost, [
       isProduction ? "GoodDollar" : "GoodDollar Dev",
       "G$",
       0,
@@ -125,8 +120,26 @@ export const createDAO = async () => {
       Identity.address,
       ethers.constants.AddressZero,
       daoCreator.address
-    ]
-  ).then(printDeploy)) as Contract;
+    ]);
+  } else {
+    GoodDollar = (await deployDeterministic(
+      {
+        name: "GoodDollar",
+        isUpgradeable: true,
+        initializer:
+          "initialize(string, string, uint256, address, address, address,address)"
+      },
+      [
+        isProduction ? "GoodDollar" : "GoodDollar Dev",
+        "G$",
+        0,
+        FeeFormula.address,
+        Identity.address,
+        ethers.constants.AddressZero,
+        daoCreator.address
+      ]
+    ).then(printDeploy)) as Contract;
+  }
 
   const GReputation = (await deployDeterministic(
     {
@@ -190,9 +203,9 @@ export const createDAO = async () => {
     ]
   );
 
-  console.log("GRep nameservice:");
+  console.log("set GRep nameservice..");
   await (await GReputation.updateDAO(NameService.address)).wait();
-  console.log("Identity nameservice:");
+  console.log("set Identity nameservice..");
 
   await Identity.initDAO(NameService.address).then(printDeploy);
 

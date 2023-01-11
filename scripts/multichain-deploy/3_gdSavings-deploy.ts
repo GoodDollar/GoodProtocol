@@ -24,7 +24,8 @@ import { defaultsDeep } from "lodash";
 import {
   deployDeterministic,
   printDeploy,
-  executeViaGuardian
+  executeViaGuardian,
+  executeViaSafe
 } from "./helpers";
 import releaser from "../../scripts/releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
@@ -103,12 +104,17 @@ export const deploySidechain = async () => {
       "Skipping proposal/upgrade for production, need to perform manually"
     );
 
-  await executeProposal(GDSavings.address, Wrapper.address);
+  await executeProposal(
+    GDSavings.address,
+    Wrapper.address,
+    settings.guardiansSafe
+  );
 };
 
 const executeProposal = async (
   savingsAddress: string,
-  wrapperAddress: string
+  wrapperAddress: string,
+  guardiansSafe: string
 ) => {
   console.log("executing savings + wrapper proposal");
   const isProduction = networkName.includes("production");
@@ -117,13 +123,14 @@ const executeProposal = async (
   wrapperAddress = wrapperAddress || release.GoodDollarMintBurnWrapper;
 
   let [root] = await ethers.getSigners();
+  /// we now use guardians and not direct onchain voting, so no need for proposer
   //on celo we dont need voting yet to deploy it.
   //dev env dont use voting for test purposes
-  const proposer =
-    !networkName.includes("celo") &&
-    (isProduction || networkName.includes("staging"))
-      ? new ethers.Wallet(process.env.PROPOSER_KEY, ethers.provider)
-      : root; //need proposer with 0.3% of GOOD tokens
+  // const proposer =
+  //   !networkName.includes("celo") &&
+  //   (isProduction || networkName.includes("staging"))
+  //     ? new ethers.Wallet(process.env.PROPOSER_KEY, ethers.provider)
+  //     : root; //need proposer with 0.3% of GOOD tokens
 
   const ctrl = (await ethers.getContractAt(
     "Controller",
@@ -203,21 +210,29 @@ const executeProposal = async (
   } else if (isProduction) {
     console.log("creating proposal...");
     //create proposal
-    const vm = (await ethers.getContractAt(
-      "CompoundVotingMachine",
-      release.CompoundVotingMachine
-    )) as CompoundVotingMachine;
+    await executeViaSafe(
+      proposalContracts,
+      proposalEthValues,
+      proposalFunctionSignatures,
+      proposalFunctionInputs,
+      guardiansSafe
+    );
 
-    await vm
-      .connect(proposer)
-      ["propose(address[],uint256[],string[],bytes[],string)"](
-        proposalContracts,
-        proposalEthValues,
-        proposalFunctionSignatures,
-        proposalFunctionInputs,
-        "https://discourse.gooddollar.org/t/gip-5-allocating-part-of-ubi-inflation-towards-g-savings-account/114/20"
-      )
-      .then(printDeploy);
+    // const vm = (await ethers.getContractAt(
+    //   "CompoundVotingMachine",
+    //   release.CompoundVotingMachine
+    // )) as CompoundVotingMachine;
+
+    // await vm
+    //   .connect(proposer)
+    //   ["propose(address[],uint256[],string[],bytes[],string)"](
+    //     proposalContracts,
+    //     proposalEthValues,
+    //     proposalFunctionSignatures,
+    //     proposalFunctionInputs,
+    //     "https://discourse.gooddollar.org/t/gip-5-allocating-part-of-ubi-inflation-towards-g-savings-account/114/20"
+    //   )
+    //   .then(printDeploy);
   }
 
   const Controller = await ethers.getContractAt(
