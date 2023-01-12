@@ -5,14 +5,17 @@ pragma solidity >=0.8;
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-IERC20PermitUpgradeable.sol";
 
-import "./SuperTokenBase.sol";
+import "./SuperToken.sol";
 
-contract ERC20Permit is
-	SuperTokenBase,
-	Initializable,
-	IERC20PermitUpgradeable,
-	EIP712Upgradeable
-{
+interface SelfApprove {
+	function selfApproveFor(
+		address account,
+		address spender,
+		uint256 amount
+	) external virtual;
+}
+
+abstract contract ERC20Permit is IERC20PermitUpgradeable, EIP712Upgradeable {
 	mapping(address => uint256) private _nonces;
 
 	// solhint-disable-next-line var-name-mixedcase
@@ -67,7 +70,7 @@ contract ERC20Permit is
 		address signer = ECDSAUpgradeable.recover(hash, v, r, s);
 		require(signer == owner, "ERC20Permit: invalid signature");
 
-		_approve(owner, spender, value);
+		SelfApprove(address(this)).selfApproveFor(owner, spender, value);
 	}
 
 	/**

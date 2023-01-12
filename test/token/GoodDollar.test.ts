@@ -192,8 +192,8 @@ describe("GoodDollar Token", () => {
     const secondTime = await (
       await token.transfer(signers[2].address, 1000)
     ).wait();
-    expect(firstTime.gasUsed).gt(170000);
-    expect(secondTime.gasUsed).gt(155000);
+    expect(firstTime.gasUsed).gt(160000);
+    expect(secondTime.gasUsed).gt(149000);
   });
 
   it("should have avatar as default pauser", async () => {

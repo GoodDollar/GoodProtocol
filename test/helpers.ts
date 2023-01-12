@@ -49,19 +49,14 @@ export const deploySuperGoodDollar = async (sfContracts, tokenArgs) => {
   const SuperGoodDollarFactory = await ethers.getContractFactory(
     "SuperGoodDollar"
   );
-  const SuperGoodDollar = await SuperGoodDollarFactory.deploy();
+  const SuperGoodDollar = await SuperGoodDollarFactory.deploy(sfContracts.host);
 
-  const GoodDollarProxyFactory = await ethers.getContractFactory(
-    "SuperGoodDollarProxy"
-  );
+  const GoodDollarProxyFactory = await ethers.getContractFactory("UUPSProxy");
   const GoodDollarProxy = await GoodDollarProxyFactory.deploy();
 
-  await GoodDollarProxy.initialize(
-    sfContracts.host,
-    SuperGoodDollar.address,
-    ...tokenArgs
-  );
-
+  await SuperGoodDollar.attach(
+    GoodDollarProxy.address
+  ).initializeSuperGoodDollar(...tokenArgs);
   const GoodDollar = await ethers.getContractAt(
     "ISuperGoodDollar",
     GoodDollarProxy.address
