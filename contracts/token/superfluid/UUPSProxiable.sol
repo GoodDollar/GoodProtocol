@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: AGPLv3
-pragma solidity 0.8.16;
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8;
 
 import { UUPSUtils } from "@superfluid-finance/ethereum-contracts/contracts/upgradability/UUPSUtils.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";

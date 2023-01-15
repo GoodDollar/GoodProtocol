@@ -52,11 +52,13 @@ export const deploySuperGoodDollar = async (sfContracts, tokenArgs) => {
   const SuperGoodDollar = await SuperGoodDollarFactory.deploy(sfContracts.host);
 
   const GoodDollarProxyFactory = await ethers.getContractFactory("UUPSProxy");
-  const GoodDollarProxy = await GoodDollarProxyFactory.deploy();
 
-  await SuperGoodDollar.attach(
-    GoodDollarProxy.address
-  ).initializeSuperGoodDollar(...tokenArgs);
+  const GoodDollarProxy = await GoodDollarProxyFactory.deploy();
+  await GoodDollarProxy.initializeProxy(SuperGoodDollar.address);
+
+  await SuperGoodDollar.attach(GoodDollarProxy.address)[
+    "initialize(string,string,uint256,address,address,address,address)"
+  ](...tokenArgs);
   const GoodDollar = await ethers.getContractAt(
     "ISuperGoodDollar",
     GoodDollarProxy.address

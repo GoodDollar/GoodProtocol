@@ -67,7 +67,7 @@
     "openzeppelin-solidity": "^4.3.2",
     "patch-package": "latest",
     "press-any-key": "^0.1.1",
-    "truffle-plugin-verify": "^0.5.11",
+    "truffle-plugin-verify": "^0.6.1",
     "truffle-source-verify": "^0.0.6"
   },
   "devDependencies": {

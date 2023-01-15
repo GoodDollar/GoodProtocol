@@ -276,6 +276,6 @@ export const createDAO = async () => {
 };
 
 export const main = async () => {
-  await createDAO().catch(console.log);
+  await createDAO();
 };
 main();

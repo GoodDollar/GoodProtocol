@@ -13,7 +13,7 @@ const networkName =
   network.name === "localhost" ? "production-mainnet" : network.name;
 let totalGas = 0;
 const gasUsage = {};
-const GAS_SETTINGS = { gasLimit: 5000000 };
+const GAS_SETTINGS = { gasLimit: 10000000 };
 let release: { [key: string]: any } = dao[networkName];
 
 export const printDeploy = async (
@@ -39,6 +39,37 @@ export const countTotalGas = async (tx, name) => {
     gasUsage[name] = gasUsage[name] || 0;
     gasUsage[name] += parseInt(res.gasUsed);
   } else console.log("no gas data", { res, tx });
+};
+
+export const deploySuperGoodDollar = async (superfluidHost, tokenArgs) => {
+  const SuperGoodDollar = (await deployDeterministic(
+    {
+      name: "SuperGoodDollar",
+      salt: "SuperGoodDollarLogic"
+    },
+    [superfluidHost]
+  ).then(printDeploy)) as Contract;
+
+  const uupsFactory = await ethers.getContractFactory("UUPSProxy");
+  const GoodDollarProxy = (await deployDeterministic(
+    {
+      name: "SuperGoodDollar",
+      factory: uupsFactory
+    },
+    []
+  ).then(printDeploy)) as Contract;
+
+  await GoodDollarProxy.initializeProxy(SuperGoodDollar.address);
+
+  await SuperGoodDollar.attach(GoodDollarProxy.address)[
+    "initialize(string,string,uint256,address,address,address,address)"
+  ](...tokenArgs);
+
+  const GoodDollar = await ethers.getContractAt(
+    "ISuperGoodDollar",
+    GoodDollarProxy.address
+  );
+  return GoodDollar;
 };
 
 export const deployDeterministic = async (

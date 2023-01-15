@@ -31,7 +31,6 @@ import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
 import { deployWrapper } from "./multichainWrapper-deploy";
 import {
-  CompoundVotingMachine,
   GoodDollarMintBurnWrapper,
   Controller,
   NameService
@@ -76,7 +75,6 @@ export const deploySidechain = async () => {
     GDSavings = (await deployDeterministic(
       {
         name: "GoodDollarStaking",
-        salt: isProduction ? "GoodDollarStaking" : "GoodDollarStakingV3",
         isUpgradeable: false
       },
       [
@@ -189,8 +187,7 @@ const executeProposal = async (
     )
   ];
 
-  if (!isProduction && networkName != "staging") {
-    //on fuse staging also use voting for testing
+  if (!isProduction) {
     console.log("upgrading via guardian...");
 
     await executeViaGuardian(
@@ -200,7 +197,7 @@ const executeProposal = async (
       proposalFunctionInputs,
       root
     );
-  } else if (isProduction) {
+  } else {
     console.log("creating proposal...");
     //create proposal
     const vm = (await ethers.getContractAt(
@@ -240,7 +237,7 @@ const executeProposal = async (
 };
 
 export const main = async () => {
-  await deploySidechain().catch(console.log);
+  await deploySidechain();
   // await executeProposal(undefined, undefined);
 };
 if (process.argv[1].includes("gdSavings")) main();

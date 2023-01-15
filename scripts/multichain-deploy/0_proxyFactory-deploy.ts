@@ -7,10 +7,60 @@ import dao from "../../releases/deployment.json";
 
 const { name } = network;
 
+export const deployUniversalProxyFactory = async () => {
+  const f = await ethers.getContractFactory("ProxyFactory1967");
+  const deployTx = {
+    nonce: 0,
+    gasPrice: 50e9,
+    gasLimit: 891002,
+    data: f.bytecode
+  };
+
+  let signer = {
+    v: 27,
+    r: "0x2222222222222222222222222222222222222222222222222222222222222222",
+    s: "0x2222222222222222222222222222222222222222222222222222222222222222"
+  };
+  //modify tx data a little so we get different contract address for different envs
+  if (name.includes("staging")) {
+    deployTx.gasLimit = 892000;
+  } else if (name.includes("production")) {
+    deployTx.gasLimit = 890000;
+  }
+
+  const rawTx = ethers.utils.serializeTransaction(deployTx);
+  const txHash = ethers.utils.keccak256(rawTx);
+  const deployer = ethers.utils.recoverAddress(txHash, signer);
+  let [funder] = await ethers.getSigners();
+
+  let tx = await (
+    await funder.sendTransaction({
+      to: deployer,
+      value: ethers.BigNumber.from(deployTx.gasPrice).mul(deployTx.gasLimit)
+    })
+  ).wait();
+
+  console.log({
+    fundingTx: tx.transactionHash,
+    deployer,
+    funder: funder.address,
+    deployerBalance: ethers.utils.formatUnits(
+      await ethers.provider.getBalance(deployer)
+    )
+  });
+  const signedTx = ethers.utils.serializeTransaction(deployTx, signer);
+  const result = await (await ethers.provider.sendTransaction(signedTx)).wait();
+  console.log({ result });
+  return ethers.getContractAt("ProxyFactory1967", result.contractAddress);
+};
+
 export const deployProxy = async (defaultAdmin = null) => {
   let release: { [key: string]: any } = dao[network.name] || {};
 
-  if (network.name.match(/production|staging|fuse/) && release.ProxyFactory) {
+  if (
+    network.name.match(/production|staging|fuse|development/) &&
+    release.ProxyFactory
+  ) {
     throw new Error("ProxyFactory already exists for env");
   }
   let [root] = await ethers.getSigners();
@@ -37,7 +87,7 @@ export const deployProxy = async (defaultAdmin = null) => {
 };
 
 export const main = async (networkName = name) => {
-  await deployProxy().catch(console.log);
+  await deployProxy();
 };
 
 if (process.argv[1].includes("proxyFactory-deploy")) {
