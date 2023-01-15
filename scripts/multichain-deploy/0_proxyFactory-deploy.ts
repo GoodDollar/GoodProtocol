@@ -12,7 +12,7 @@ export const deployUniversalProxyFactory = async () => {
   const deployTx = {
     nonce: 0,
     gasPrice: 50e9,
-    gasLimit: 900000,
+    gasLimit: 891002,
     data: f.bytecode
   };
 
@@ -23,7 +23,7 @@ export const deployUniversalProxyFactory = async () => {
   };
   //modify tx data a little so we get different contract address for different envs
   if (name.includes("staging")) {
-    deployTx.gasLimit = 900001;
+    deployTx.gasLimit = 892000;
   } else if (name.includes("production")) {
     deployTx.gasLimit = 890000;
   }
@@ -57,7 +57,10 @@ export const deployUniversalProxyFactory = async () => {
 export const deployProxy = async (defaultAdmin = null) => {
   let release: { [key: string]: any } = dao[network.name] || {};
 
-  if (network.name.match(/production|staging|fuse/) && release.ProxyFactory) {
+  if (
+    network.name.match(/production|staging|fuse|development/) &&
+    release.ProxyFactory
+  ) {
     throw new Error("ProxyFactory already exists for env");
   }
   // let [root] = await ethers.getSigners();
@@ -86,7 +89,7 @@ export const deployProxy = async (defaultAdmin = null) => {
 };
 
 export const main = async (networkName = name) => {
-  await deployProxy().catch(console.log);
+  await deployProxy();
 };
 
 if (process.argv[1].includes("proxyFactory-deploy")) {

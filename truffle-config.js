@@ -18,7 +18,7 @@
  *
  */
 
-// const HDWalletProvider = require('@truffle/hdwallet-provider');
+const Web3 = require("web3");
 // const infuraKey = "fj4jll3k.....";
 //
 // const fs = require('fs');
@@ -98,6 +98,14 @@ module.exports = {
       confirmations: 1, // # of confs to wait between deployments. (default: 0)
       timeoutBlocks: 20, // # of blocks before a deployment times out  (minimum/default: 50)
       skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
+    },
+    celo: {
+      provider: () => new Web3.providers.HttpProvider(`https://forno.celo.org`),
+      network_id: 42220, // Ropsten's id
+      gas: 150000, // Ropsten has a lower block limit than mainnet
+      confirmations: 1, // # of confs to wait between deployments. (default: 0)
+      timeoutBlocks: 20, // # of blocks before a deployment times out  (minimum/default: 50)
+      skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
     }
 
     // Useful for private networks
@@ -116,7 +124,7 @@ module.exports = {
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.8.8", // Fetch exact version from solc-bin (default: truffle's version)
+      version: "0.8.16", // Fetch exact version from solc-bin (default: truffle's version)
       settings: {
         // See the solidity docs for advice about optimization and evmVersion
         optimizer: {
@@ -137,7 +145,8 @@ module.exports = {
     enabled: false
   },
   api_keys: {
-    etherscan: process.env.ETHERSCAN_KEY
+    etherscan: process.env.ETHERSCAN_KEY,
+    celoscan: process.env.CELOSCAN_KEY
   },
-  plugins: ["truffle-source-verify"]
+  plugins: ["truffle-plugin-verify"]
 };

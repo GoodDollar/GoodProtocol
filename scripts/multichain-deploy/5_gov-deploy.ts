@@ -137,6 +137,6 @@ export const deployGov = async () => {
 };
 
 export const main = async (networkName = name) => {
-  await deployGov().catch(console.log);
+  await deployGov();
 };
 main();

@@ -101,7 +101,11 @@ export const deployHelpers = async () => {
   if (!name.includes("production")) {
     console.log("minting G$s to pool on dev envs");
     const gd = await ethers.getContractAt("IGoodDollar", release.GoodDollar);
-    await gd.mint(UBIScheme.address, 1e8); //1million GD (2 decimals)
+    const decimals = await gd.decimals();
+    await gd.mint(
+      UBIScheme.address,
+      ethers.BigNumber.from(1e6).mul(ethers.BigNumber.from("10").pow(decimals))
+    ); //1million GD
   }
 
   release = {
@@ -134,6 +138,6 @@ export const deployHelpers = async () => {
 };
 
 export const main = async (networkName = name) => {
-  await deployHelpers().catch(console.log);
+  await deployHelpers();
 };
 main();

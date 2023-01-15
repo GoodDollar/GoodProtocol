@@ -244,7 +244,7 @@ describe("SuperGoodDollar", async function () {
   it("should not be able to initialize again", async () => {
     await loadFixture(initialState);
     await expect(
-      sgd.initializeSuperGoodDollar(
+      sgd["initialize(string,string,uint256,address,address,address,address)"](
         "x",
         "y",
         1,
@@ -256,7 +256,12 @@ describe("SuperGoodDollar", async function () {
     ).revertedWith("Initializable: contract is already initialized");
 
     await expect(
-      sgd.initialize(ethers.constants.AddressZero, 2, "GD", "GD")
+      sgd["initialize(address,uint8,string,string)"](
+        ethers.constants.AddressZero,
+        2,
+        "GD",
+        "GD"
+      )
     ).revertedWith("Initializable: contract is not initializing");
   });
 
@@ -290,7 +295,7 @@ describe("SuperGoodDollar", async function () {
 
     expect(await sgd.getHost()).equal(newHost.address);
     await expect(
-      sgd.initializeSuperGoodDollar(
+      sgd["initialize(string,string,uint256,address,address,address,address)"](
         "x",
         "y",
         1,

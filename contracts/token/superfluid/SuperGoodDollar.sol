@@ -51,7 +51,7 @@ contract SuperGoodDollar is
 
 	/// initializes state specific to the GoodDollar token
 	/// When upgrading to a new logic contract,
-	function initializeSuperGoodDollar(
+	function initialize(
 		string calldata n,
 		string calldata s,
 		uint256 _cap,
@@ -77,6 +77,7 @@ contract SuperGoodDollar is
 
 	constructor(ISuperfluid _host) SuperToken(_host) {}
 
+	/// @dev override superfluid initializer with onlyInitializing modifier, so our main initializer must be called
 	function initialize(
 		IERC20 underlyingToken,
 		uint8 underlyingDecimals,
