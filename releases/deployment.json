@@ -404,6 +404,23 @@
     },
     "staging-celo": {
         "network": "staging-celo",
-        "networkId": 42220
+        "networkId": 42220,
+        "ProxyFactory": "0xFecb7467D29A65bb46D7E5c8a67884178A3f8657",
+        "GoodDollar": "0x61FA0fB802fd8345C06da558240E0651886fec69",
+        "Avatar": "0xbC20139f6e6ad0B34E5E044a02E5a8eCB35e6C43",
+        "Controller": "0x3DF1472f1dB87c11e1D5fB55da77c3E617719D85",
+        "Identity": "0x0108BBc09772973aC27983Fc17c7D82D8e87ef4D",
+        "NameService": "0x852bA371f5DF80D1B8E96Ec1D69F07B1043e3e03",
+        "GReputation": "0x5Abd4DEeeDa7a7b7725c40c165dE7006cE0e5B40",
+        "FeeFormula": "0xa59F28fc940AF3afcd81d72a02E65e62a775d67C",
+        "DAOCreator": "0x84786bE3774fc79c18710a0e809cdB66B4024512",
+        "AdminWallet": "0xF6f3F9889E2E47A0632e6758387Fe7dFd4531d3E",
+        "Faucet": "0x9A0F8AEc626A0f493941Ceb1dA6021cFB0567293",
+        "Invites": "0x06EE642b036f05aA97c8d346Deb8A7E78385e0a9",
+        "GoodDollarMintBurnWrapper": "0x8B29D92ec4BBE5D6Db63c2c48e9972d3ABB42f84",
+        "GoodDollarStaking": "0xae1b807C3fEfdf37589dbA33F98F26cbD7CB72E8",
+        "UBIScheme": "0x2881d417dA066600372753E73A3570F0781f18cB",
+        "ClaimersDistribution": "0x671123F1c7a5B5445467Ff765a5E2Bc86878B245",
+        "CompoundVotingMachine": "0xCd25fB84AB22582F1034bcd80c399a3126f2E775"
     }
 }

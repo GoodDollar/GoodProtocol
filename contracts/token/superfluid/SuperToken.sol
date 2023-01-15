@@ -4,7 +4,7 @@ pragma solidity >=0.8;
 import { UUPSProxiable } from "./UUPSProxiable.sol";
 
 import { ISuperfluid, ISuperfluidGovernance, ISuperToken, ISuperAgreement, IERC20, IERC777, TokenInfo } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
-import { ISuperfluidToken } from "@superfluid-finance/ethereum-contracts/contracts/superfluid/SuperfluidToken.sol";
+import { ISuperfluidToken } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluidToken.sol";
 
 import { ERC777Helper } from "@superfluid-finance/ethereum-contracts/contracts/libs/ERC777Helper.sol";
 

@@ -6,6 +6,8 @@ import util from "util";
 
 const exec = util.promisify(require("child_process").exec);
 
+const delay = ms => new Promise(res => setTimeout(res, 1000));
+
 const getImplementationAddress = async addr => {
   console.log("finding impl for:", addr);
   let proxy = await ethers.provider.getStorageAt(
@@ -25,6 +27,7 @@ const getImplementationAddress = async addr => {
 
 const main = async () => {
   let withTruffle = true;
+  let ps = [];
   const release = dao[network.name];
   let settings = defaultsDeep(
     {},
@@ -136,16 +139,31 @@ const main = async () => {
     }
 
     if (withTruffle) {
+      if (key === "GoodDollar") {
+        //verify the proxy first without constructor args (truffle verify plugin bug)
+        const cmd = `npx truffle run verify ${proxy} ${contractName}@${address} --network ${networkProvider}`;
+
+        await exec(cmd).then(({ stdout, stderr }) => {
+          console.log("Result for:", cmd);
+          console.log(stdout);
+          console.log(stderr);
+        });
+      }
       const cmd = `npx truffle run verify ${proxy} ${contractName}@${address} ${
         forcedConstructorArguments
           ? "--forceConstructorArgs string:" +
             forcedConstructorArguments.slice(2)
           : ""
       } --network ${networkProvider}`;
-      console.log(cmd);
-      const { stdout, stderr } = await exec(cmd);
-      console.log(stdout);
-      console.log(stderr);
+
+      ps.push(
+        exec(cmd).then(({ stdout, stderr }) => {
+          console.log("Result for:", cmd);
+          console.log(stdout);
+          console.log(stderr);
+        })
+      );
+      await delay(1000);
     } else {
       let task = "verify";
       let params = {
@@ -167,7 +185,7 @@ const main = async () => {
     }
   }
 
-  //   await Promise.all(ps);
+  await Promise.all(ps);
 };
 
 main().catch(e => console.log(e));
