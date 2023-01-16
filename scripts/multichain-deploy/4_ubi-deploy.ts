@@ -8,7 +8,8 @@ import { defaultsDeep } from "lodash";
 import {
   deployDeterministic,
   executeViaGuardian,
-  executeViaSafe
+  executeViaSafe,
+  verifyProductionSigner
 } from "./helpers";
 import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
@@ -42,6 +43,9 @@ export const deployHelpers = async () => {
   let release: { [key: string]: any } = dao[network.name];
 
   let [root, ...signers] = await ethers.getSigners();
+  const isProduction = network.name.includes("production");
+  const viaGuardians = false;
+  if (isProduction) verifyProductionSigner(root);
   //generic call permissions
   let schemeMock = root;
 
@@ -115,7 +119,7 @@ export const deployHelpers = async () => {
   await releaser(release, network.name, "deployment", false);
 
   try {
-    if (name.includes("production")) {
+    if (viaGuardians) {
       await executeViaSafe(
         proposalContracts,
         proposalEthValues,

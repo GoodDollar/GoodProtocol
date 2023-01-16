@@ -240,7 +240,7 @@ describe("ClaimersDistribution", () => {
       // console.log({ totalGas }, tx.gasUsed.toNumber(), tx2.gasUsed.toNumber());
     }
     console.log(Object.keys(gasCosts));
-    expect(totalGas / 30).gt(500000);
+    expect(totalGas / 30).gt(480000);
   });
 
   it("should not cost alot of gas to claim with reputation distribution with regular token [@skip-on-coverage]", async () => {

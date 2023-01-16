@@ -12,7 +12,11 @@ import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorG
 // import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
 
-import { deployDeterministic, deploySuperGoodDollar } from "./helpers";
+import {
+  deployDeterministic,
+  deploySuperGoodDollar,
+  verifyProductionSigner
+} from "./helpers";
 import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
@@ -40,36 +44,21 @@ export const createDAO = async () => {
   );
 
   let release: { [key: string]: any } = dao[network.name];
+  const isProduction = network.name.includes("production");
 
   let [root] = await ethers.getSigners();
-  const daoOwner = protocolSettings.guardiansSafe || root.address;
-  if (!daoOwner) throw new Error("missing DAO_OWNER owner in env");
-  //generic call permissions
-  let schemeMock = root;
-  const isMainnet = network.name.includes("main");
+  const daoOwner = root.address;
+  if (isProduction) verifyProductionSigner(root);
 
   console.log("got signers:", {
     network,
     daoOwner,
     root: root.address,
-    schemeMock: schemeMock.address,
     balance: await ethers.provider
       .getBalance(root.address)
       .then(_ => _.toString()),
     release
   });
-
-  const isProduction = network.name.includes("production");
-  if (isProduction) {
-    const txCount = await root.getTransactionCount();
-    if (txCount !== 7) {
-      console.error(
-        "nonce doesnt match expected 7, to have same contract address",
-        { txCount }
-      );
-      return;
-    }
-  }
 
   const DAOCreatorFactory = new ethers.ContractFactory(
     DAOCreatorABI.abi,
@@ -100,7 +89,7 @@ export const createDAO = async () => {
       salt: "Identity",
       isUpgradeable: true
     },
-    [daoOwner, ethers.constants.AddressZero]
+    [root, ethers.constants.AddressZero]
   ).then(printDeploy)) as Contract;
 
   const daoCreator = await DAOCreatorFactory.deploy();
@@ -237,9 +226,15 @@ export const createDAO = async () => {
     GReputation.MINTER_ROLE(),
     Avatar.address
   );
-  const daoOwnerIsIdentityOwner = await Identity.hasRole(
+
+  const deployerIsIdentityOwner = await Identity.hasRole(
     ethers.constants.HashZero,
-    daoOwner
+    root.address
+  );
+
+  const avatarIsIdentityOwner = await Identity.hasRole(
+    ethers.constants.HashZero,
+    Avatar.address
   );
 
   //try to modify DAO -> should not succeed
@@ -269,7 +264,8 @@ export const createDAO = async () => {
     factoryIsNotGDMinter,
     factoryIsNotGDPauser,
     avatarIsRepMinter,
-    daoOwnerIsIdentityOwner,
+    deployerIsIdentityOwner,
+    avatarIsIdentityOwner,
     avatarIsGDMinter,
     grepHasDAOSet
   });

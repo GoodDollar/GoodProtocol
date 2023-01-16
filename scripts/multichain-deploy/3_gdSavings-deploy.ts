@@ -25,7 +25,8 @@ import {
   deployDeterministic,
   printDeploy,
   executeViaGuardian,
-  executeViaSafe
+  executeViaSafe,
+  verifyProductionSigner
 } from "./helpers";
 import releaser from "../../scripts/releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
@@ -40,14 +41,16 @@ const { name: networkName } = network;
 
 export const deploySidechain = async () => {
   const isProduction = networkName.includes("production");
+  let [root] = await ethers.getSigners();
+
+  if (isProduction) verifyProductionSigner(root);
+
   let release: { [key: string]: any } = dao[networkName];
   let settings = defaultsDeep(
     {},
     ProtocolSettings[networkName],
     ProtocolSettings["default"]
   );
-
-  let [root] = await ethers.getSigners();
 
   console.log("got signers:", {
     networkName,
@@ -116,6 +119,7 @@ const executeProposal = async (
 ) => {
   console.log("executing savings + wrapper proposal");
   const isProduction = networkName.includes("production");
+  const viaGuardians = false;
   let release: { [key: string]: any } = dao[networkName];
   savingsAddress = savingsAddress || release.GoodDollarStaking;
   wrapperAddress = wrapperAddress || release.GoodDollarMintBurnWrapper;
@@ -194,8 +198,8 @@ const executeProposal = async (
     )
   ];
 
-  if (!isProduction) {
-    console.log("upgrading via guardian...");
+  if (!viaGuardians) {
+    console.log("upgrading via owner...");
 
     await executeViaGuardian(
       proposalContracts,
@@ -205,7 +209,7 @@ const executeProposal = async (
       root
     );
   } else {
-    console.log("creating proposal...");
+    console.log("upgrading via guardians safe...");
     //create proposal
     await executeViaSafe(
       proposalContracts,

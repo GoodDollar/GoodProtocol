@@ -16,6 +16,16 @@ const gasUsage = {};
 const GAS_SETTINGS = { gasLimit: 10000000 };
 let release: { [key: string]: any } = dao[networkName];
 
+export const verifyProductionSigner = signer => {
+  if (
+    signer.address.toLowerCase() !==
+    "0x5128E3C1f8846724cc1007Af9b4189713922E4BB".toLowerCase()
+  ) {
+    throw new Error(
+      "signer not 0x5128E3C1f8846724cc1007Af9b4189713922E4BB to get same deployed addresses on production"
+    );
+  }
+};
 export const printDeploy = async (
   c: Contract | TransactionResponse
 ): Promise<Contract | TransactionResponse> => {

@@ -57,8 +57,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		_setupRole(DEFAULT_ADMIN_ROLE, owner);
 		if (relayer != address(0)) _setupRole(RELAYER_ROLE, relayer);
 		gasPrice = _gasPrice;
-		toppingAmount = 600000 * gasPrice; //0.6M gwei
-		perDayRoughLimit = 2 * toppingAmount;
+		setToppingAmount(600000 * gasPrice); //0.6M gwei
 		maxDailyToppings = 3;
 		startTime = block.timestamp;
 		nameService = _ns;
@@ -243,5 +242,17 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		cERC20(msg.sender).approve(address(uniswapLike), type(uint256).max);
 		uniswap.swapExactTokensForETH(amount, 0, path, _from, block.timestamp);
 		return true;
+	}
+
+	function setToppingAmount(uint256 _amount)
+		public
+		onlyRole(DEFAULT_ADMIN_ROLE)
+	{
+		toppingAmount = _amount;
+		perDayRoughLimit = 2 * toppingAmount;
+	}
+
+	function setGasPrice(uint64 _price) external onlyRole(DEFAULT_ADMIN_ROLE) {
+		gasPrice = _price;
 	}
 }

@@ -1,7 +1,7 @@
 import { network, ethers, upgrades, run } from "hardhat";
 import { Contract } from "ethers";
 
-import { deployDeterministic, printDeploy } from "./helpers";
+import { verifyProductionSigner } from "./helpers";
 import releaser from "../../scripts/releaser";
 import dao from "../../releases/deployment.json";
 
@@ -9,6 +9,7 @@ const { name } = network;
 
 export const deployUniversalProxyFactory = async () => {
   const f = await ethers.getContractFactory("ProxyFactory1967");
+  const isProduction = name.includes("production");
   const deployTx = {
     nonce: 0,
     gasPrice: 50e9,
@@ -39,6 +40,8 @@ export const deployUniversalProxyFactory = async () => {
       value: ethers.BigNumber.from(deployTx.gasPrice).mul(deployTx.gasLimit)
     })
   ).wait();
+
+  if (isProduction) verifyProductionSigner(funder);
 
   console.log({
     fundingTx: tx.transactionHash,

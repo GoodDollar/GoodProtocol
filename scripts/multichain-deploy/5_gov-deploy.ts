@@ -8,7 +8,8 @@ import { defaultsDeep } from "lodash";
 import {
   deployDeterministic,
   executeViaGuardian,
-  executeViaSafe
+  executeViaSafe,
+  verifyProductionSigner
 } from "./helpers";
 import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
@@ -42,6 +43,10 @@ export const deployGov = async () => {
 
   let [root] = await ethers.getSigners();
   const isProduction = name.includes("production");
+  const viaGuardians = false;
+
+  if (isProduction) verifyProductionSigner(root);
+
   const daoOwner = isProduction ? protocolSettings.guardiansSafe : root.address;
 
   console.log("got signers:", {
@@ -62,7 +67,7 @@ export const deployGov = async () => {
     [
       release.NameService,
       protocolSettings.governance.proposalVotingPeriod,
-      daoOwner,
+      protocolSettings.governance.guardian,
       release.GReputation
     ]
   ).then(printDeploy)) as Contract;
@@ -100,7 +105,7 @@ export const deployGov = async () => {
   ];
 
   try {
-    if (isProduction) {
+    if (viaGuardians) {
       await executeViaSafe(
         proposalContracts,
         proposalEthValues,

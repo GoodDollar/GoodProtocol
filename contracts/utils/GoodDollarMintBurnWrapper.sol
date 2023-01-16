@@ -625,4 +625,9 @@ contract GoodDollarMintBurnWrapper is
 			minterSupply[minter].lastDayReset = currentDay;
 		}
 	}
+
+	function upgradeDAO(address _newns) external {
+		_onlyAvatar();
+		setDAO(INameService(_newns));
+	}
 }

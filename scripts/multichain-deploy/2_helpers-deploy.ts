@@ -5,7 +5,7 @@
 import { network, ethers, upgrades, run } from "hardhat";
 import { Contract } from "ethers";
 import { defaultsDeep } from "lodash";
-import { deployDeterministic } from "./helpers";
+import { deployDeterministic, verifyProductionSigner } from "./helpers";
 import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
@@ -36,7 +36,11 @@ export const deployHelpers = async () => {
 
   let release: { [key: string]: any } = dao[network.name];
 
-  let [root, ...signers] = await ethers.getSigners();
+  let [root] = await ethers.getSigners();
+  const isProduction = network.name.includes("production");
+
+  if (isProduction) verifyProductionSigner(root);
+
   //generic call permissions
   let schemeMock = root;
 
@@ -72,6 +76,10 @@ export const deployHelpers = async () => {
   ).then(printDeploy)) as Contract;
 
   console.log("giving AdminWallet identity_admin permissions");
+  const gd = await ethers.getContractAt("IGoodDollar", release.GoodDollar);
+
+  const decimals = await gd.decimals();
+
   const identity = await ethers.getContractAt("IdentityV2", release.Identity);
   await identity.grantRole(
     ethers.utils.keccak256(ethers.utils.toUtf8Bytes("identity_admin")),
@@ -90,7 +98,12 @@ export const deployHelpers = async () => {
 
   const Invites = await deployDeterministic(
     { name: "InvitesV2", salt: "InvitesV2", isUpgradeable: true },
-    [release.NameService, release.GoodDollar, 10000, root.address]
+    [
+      release.NameService,
+      release.GoodDollar,
+      ethers.BigNumber.from(100).mul(ethers.BigNumber.from("10").pow(decimals)),
+      root.address
+    ]
   );
 
   const adminWalletOwner = await AdminWallet.hasRole(
@@ -114,8 +127,6 @@ export const deployHelpers = async () => {
 
   if (!network.name.includes("production")) {
     console.log("minting G$s to invites on dev envs");
-    const gd = await ethers.getContractAt("IGoodDollar", release.GoodDollar);
-    const decimals = await gd.decimals();
     await gd.mint(
       Invites.address,
       ethers.BigNumber.from(1e6).mul(ethers.BigNumber.from("10").pow(decimals))

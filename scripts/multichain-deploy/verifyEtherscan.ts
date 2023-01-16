@@ -41,6 +41,7 @@ const main = async () => {
 
   //   const impl = await getImplementationAddress(release.AdminWallet);
   //   console.log({ impl, aw: release.AdminWallet });
+
   let toVerify = omit(release, [
     "Avatar",
     "Controller",
@@ -142,7 +143,7 @@ const main = async () => {
       if (key === "GoodDollar") {
         //verify the proxy first without constructor args (truffle verify plugin bug)
         const cmd = `npx truffle run verify ${proxy} ${contractName}@${address} --network ${networkProvider}`;
-
+        console.log("running...:", cmd);
         await exec(cmd).then(({ stdout, stderr }) => {
           console.log("Result for:", cmd);
           console.log(stdout);
@@ -155,6 +156,8 @@ const main = async () => {
             forcedConstructorArguments.slice(2)
           : ""
       } --network ${networkProvider}`;
+
+      console.log("running...:", cmd);
 
       ps.push(
         exec(cmd).then(({ stdout, stderr }) => {
