@@ -376,6 +376,12 @@ abstract contract SuperfluidToken is ISuperfluidToken {
 		);
 	}
 
+	function allowHostOperations()
+		internal
+		view
+		virtual
+		returns (bool hostEnabled);
+
 	/**************************************************************************
 	 * Modifiers
 	 *************************************************************************/
@@ -388,7 +394,7 @@ abstract contract SuperfluidToken is ISuperfluidToken {
 	}
 
 	modifier onlyHost() {
-		if (address(_host) != msg.sender) {
+		if (address(_host) != msg.sender || allowHostOperations() == false) {
 			revert SF_TOKEN_ONLY_HOST();
 		}
 		_;
