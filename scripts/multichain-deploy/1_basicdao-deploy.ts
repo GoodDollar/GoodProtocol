@@ -89,7 +89,7 @@ export const createDAO = async () => {
       salt: "Identity",
       isUpgradeable: true
     },
-    [root, ethers.constants.AddressZero]
+    [root.address, ethers.constants.AddressZero]
   ).then(printDeploy)) as Contract;
 
   const daoCreator = await DAOCreatorFactory.deploy();

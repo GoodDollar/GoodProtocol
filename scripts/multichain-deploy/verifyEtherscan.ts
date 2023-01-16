@@ -49,7 +49,10 @@ const main = async () => {
     "AddFounders",
     "FeeFormula",
     "network",
-    "networkId"
+    "networkId",
+    "GuardiansSafe",
+    "GuardiansSafeOld",
+    "MultichainRouter"
   ]);
 
   if (withTruffle) {

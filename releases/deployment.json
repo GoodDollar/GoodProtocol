@@ -362,7 +362,7 @@
         "FuseStaking": "0xA199F0C353E25AdF022378B0c208D600f39a6505",
         "GuardiansSafe": "0x5878123fe880881f1Ecc92D5fd31e5D3F5Fba2e9"
     },
-    "production-celo": {
+    "pre-production-celo": {
         "ProxyFactory": "0x99C22e78A579e2176311c736C4c9F0b0D5A47806",
         "GoodDollar": "0xf2283840cE37DAe0a06B40a9A80603977f36fA3F",
         "FeeFormula": "0xb25de92ce16127ebf6659a7a30a9f395c7bbf182",
@@ -376,6 +376,23 @@
         "network": "production-celo",
         "networkId": 42220,
         "GoodDollarMintBurnWrapper": "0x5566b6E4962BA83e05a426Ad89031ec18e9CadD3",
+        "MultichainRouter": "0xf27Ee99622C3C9b264583dACB2cCE056e194494f"
+    },
+    "production-celo": {
+        "network": "production-celo",
+        "networkId": 42220,
+        "ProxyFactory": "0xD86cd6Bb3c2a576b2C2CEF4e047b1A7adC5Be62D",
+        "GoodDollar": "0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A",
+        "Avatar": "0x495d133B938596C9984d462F007B676bDc57eCEC",
+        "Controller": "0x0be7C592374EE0bD0CcBFC76Be758a138BcaEc6E",
+        "Identity": "0xC361A6E67822a0EDc17D899227dd9FC50BD62F42",
+        "NameService": "0x0F5dB7a64A6a64052693676CA898EC7F7A94FF4e",
+        "GReputation": "0xa9000Aa66903b5E26F88Fa8462739CdCF7956EA6",
+        "FeeFormula": "0x1151867dA39003695eed28Fafa871079C91884C9",
+        "DAOCreator": "0x76e76e10Ac308A1D54a00f9df27EdCE4801F288b",
+        "GoodDollarMintBurnWrapper": "0x5566b6E4962BA83e05a426Ad89031ec18e9CadD3",
+        "GuardiansSafeOld": "0xC9D09BA972B4EB6Bb7347F2229FB6d50434fFCa6",
+        "GuardiansSafe": "0xa2521e8F5A990903fdD8Afa6570C52526e7E0D5E",
         "MultichainRouter": "0xf27Ee99622C3C9b264583dACB2cCE056e194494f"
     },
     "gnosis": {
