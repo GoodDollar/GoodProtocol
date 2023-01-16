@@ -658,6 +658,16 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	 * Superfluid Batch Operations
 	 *************************************************************************/
 
+	function allowHostOperations()
+		internal
+		view
+		virtual
+		override
+		returns (bool hostEnabled)
+	{
+		return true;
+	}
+
 	function operationApprove(
 		address account,
 		address spender,

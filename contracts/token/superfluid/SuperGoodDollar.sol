@@ -38,6 +38,7 @@ contract SuperGoodDollar is
 	IFeesFormula public formula;
 	IIdentity public identity;
 	uint256 public cap;
+	bool public disableHostOperations;
 	// Append additional state variables here!
 
 	// ============== constants and immutables ==============
@@ -121,6 +122,21 @@ contract SuperGoodDollar is
 		require(!paused(), "Pausable: createAgreement while paused");
 		// otherwise the wrapper of SuperToken.createAgreement does the actual job
 		super.createAgreement(id, data);
+	}
+
+	/// failsafe in case we don't want to trust superfluid host for batch operations
+	function allowHostOperations()
+		internal
+		view
+		virtual
+		override
+		returns (bool hostEnabled)
+	{
+		return !disableHostOperations;
+	}
+
+	function enableHostOperations(bool enabled) external onlyOwner {
+		disableHostOperations = !enabled;
 	}
 
 	// ============ IGoodDollarCustom ============
