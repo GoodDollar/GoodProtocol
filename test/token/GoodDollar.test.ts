@@ -2,6 +2,7 @@ import hre, { ethers, upgrades } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/SenderFeeFormula.json";
+import FeeFormulaRecipientABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
 import TransferAndCallMockABI from "@gooddollar/goodcontracts/build/contracts/TransferAndCallMock.json";
 import { IIdentity, GoodDollar, ISuperGoodDollar } from "../../types";
 import { createDAO, deploySuperGoodDollar } from "../helpers";
@@ -18,6 +19,7 @@ describe("GoodDollar Token", () => {
     unCappedToken: ISuperGoodDollar,
     cappedToken: ISuperGoodDollar,
     newtoken: ISuperGoodDollar,
+    feetoken: ISuperGoodDollar,
     founder,
     outsider,
     whitelisted;
@@ -58,6 +60,12 @@ describe("GoodDollar Token", () => {
     const FeeFormulaFactory = new ethers.ContractFactory(
       FeeFormulaABI.abi,
       FeeFormulaABI.bytecode,
+      founder
+    );
+
+    const FeeFormulaRecipientFactory = new ethers.ContractFactory(
+      FeeFormulaRecipientABI.abi,
+      FeeFormulaRecipientABI.bytecode,
       founder
     );
 
@@ -118,12 +126,23 @@ describe("GoodDollar Token", () => {
     ])) as ISuperGoodDollar;
 
     newFormula = await FeeFormulaFactory.deploy(1);
+    const newFormulaRecipient = await FeeFormulaRecipientFactory.deploy(1);
 
     newtoken = (await deploySuperGoodDollar(superFluid, [
       "gd",
       "gd",
       1000000,
       newFormula.address,
+      identity.address,
+      av,
+      founder.address
+    ])) as ISuperGoodDollar;
+
+    feetoken = (await deploySuperGoodDollar(superFluid, [
+      "gd",
+      "gd",
+      1000000,
+      newFormulaRecipient.address,
       identity.address,
       av,
       founder.address
@@ -165,8 +184,10 @@ describe("GoodDollar Token", () => {
 
     await token.mint(founder.address, 100000000);
 
-    await newtoken.mint(whitelisted.address, 30000);
-    await token.transfer(whitelisted.address, 30000);
+    await newtoken.mint(whitelisted.address, 100000);
+    await feetoken.mint(whitelisted.address, 100000);
+
+    await token.transfer(whitelisted.address, 100000);
     await token.transfer(founder.address, 10000);
     await token.transfer(outsider.address, 1000);
     await identity.addWhitelisted(whitelisted.address);
@@ -293,16 +314,97 @@ describe("GoodDollar Token", () => {
   });
 
   it("should collect transaction fee", async () => {
-    const oldReserve = await token.balanceOf(avatar);
+    const oldReserve = await newtoken.balanceOf(avatar);
+    const initBalance = await newtoken.balanceOf(whitelisted.address);
 
-    await token.connect(whitelisted).transfer(founder.address, 20000);
+    await newtoken.connect(whitelisted).transfer(outsider.address, 20000);
+    const postBalance = await newtoken.balanceOf(whitelisted.address);
 
     // Check that reserve has received fees
-    const reserve = (await token.balanceOf(avatar)) as any;
+    const reserve = (await newtoken.balanceOf(avatar)) as any;
 
     const reserveDiff = reserve.sub(oldReserve);
-    const totalFees = await token["getFees(uint256)"](20000).then(_ => _["0"]);
+    const totalFees = await newtoken["getFees(uint256)"](20000).then(
+      _ => _["0"]
+    );
+    expect(totalFees).gt(0);
+    expect(postBalance).eq(initBalance.sub(20000).sub(totalFees)); //senderpays
     expect(reserveDiff.toString()).to.be.equal(totalFees.toString());
+  });
+
+  it("should collect transaction fee for transferAndCall", async () => {
+    const oldReserve = await newtoken.balanceOf(avatar);
+    const initBalance = await newtoken.balanceOf(whitelisted.address);
+
+    const tx = await newtoken
+      .connect(whitelisted)
+      .transferAndCall(outsider.address, 20000, "0x00");
+    const postBalance = await newtoken.balanceOf(whitelisted.address);
+
+    const events = (await tx.wait()).events;
+    const parser = await ethers.getContractFactory("SuperGoodDollar");
+    const parsedEvents = events.map(_ => {
+      try {
+        return parser.interface.parseLog(_);
+      } catch (e) {
+        return {};
+      }
+    }) as any;
+    const transferEvents = parsedEvents.filter(
+      _ => _.name === "Transfer" && _.args.to === outsider.address
+    );
+    // Check that reserve has received fees
+    const reserve = (await newtoken.balanceOf(avatar)) as any;
+
+    const reserveDiff = reserve.sub(oldReserve);
+    const totalFees = await newtoken["getFees(uint256)"](20000).then(
+      _ => _["0"]
+    );
+    expect(totalFees).gt(0);
+    expect(reserveDiff.toString()).to.be.equal(totalFees.toString());
+    expect(postBalance).eq(initBalance.sub(20000).sub(totalFees)); //senderpays
+
+    expect(transferEvents.length).gt(1); //atleast regular + erc677 Transfer
+    transferEvents.forEach(_ => {
+      expect(_.args.value || _.args.amount).eq(20000);
+    });
+  });
+
+  it("should collect transaction fee from recipient for transferAndCall", async () => {
+    const oldReserve = await feetoken.balanceOf(avatar);
+    const initBalance = await feetoken.balanceOf(whitelisted.address);
+
+    const tx = await feetoken
+      .connect(whitelisted)
+      .transferAndCall(outsider.address, 5000, "0x00");
+    const postBalance = await feetoken.balanceOf(whitelisted.address);
+
+    const events = (await tx.wait()).events;
+    const parser = await ethers.getContractFactory("SuperGoodDollar");
+    const parsedEvents = events.map(_ => {
+      try {
+        return parser.interface.parseLog(_);
+      } catch (e) {
+        return {};
+      }
+    }) as any;
+    const transferEvents = parsedEvents.filter(
+      _ => _.name === "Transfer" && _.args.to === outsider.address
+    );
+    // Check that reserve has received fees
+    const reserve = (await feetoken.balanceOf(avatar)) as any;
+
+    const reserveDiff = reserve.sub(oldReserve);
+    const totalFees = await feetoken["getFees(uint256)"](5000).then(
+      _ => _["0"]
+    );
+    expect(totalFees).gt(0);
+    expect(reserveDiff.toString()).to.be.equal(totalFees.toString());
+    expect(postBalance).eq(initBalance.sub(5000)); //recipient pays fee
+    expect(transferEvents.length).gt(1); //atleast regular + erc677 Transfer
+    transferEvents.forEach(_ => {
+      expect(_.args.value || _.args.amount).eq(5000 - totalFees.toNumber());
+    });
   });
 
   it("should get same results from overloaded getFees method", async () => {
@@ -335,6 +437,7 @@ describe("GoodDollar Token", () => {
     const totalFees = await newtoken["getFees(uint256)"](20000).then(
       _ => _["0"]
     );
+    expect(totalFees).gt(0);
     expect(reserveDiff.toString()).to.be.equal(totalFees.toString());
     expect(founderDiff.toString()).to.be.equal("20000");
     expect(newWhitelistedBefore.sub(newWhitelisted)).to.be.equal("20200"); //20000 + 1%

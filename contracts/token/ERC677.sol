@@ -50,7 +50,7 @@ abstract contract ERC677 {
 		address _to,
 		uint256 _value,
 		bytes memory _data
-	) private returns (bool) {
+	) internal virtual returns (bool) {
 		ERC677Receiver receiver = ERC677Receiver(_to);
 		require(
 			receiver.onTokenTransfer(msg.sender, _value, _data),

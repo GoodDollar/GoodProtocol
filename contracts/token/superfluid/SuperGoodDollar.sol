@@ -46,6 +46,14 @@ contract SuperGoodDollar is
 	bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 	bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
+	event TransferFee(
+		address from,
+		address to,
+		uint256 amount,
+		uint256 fee,
+		bool senderPays
+	);
+
 	// ========================================================================================
 	// ============== Functionality to be executed on the proxy via delegateCall ==============
 	// ========================================================================================
@@ -213,9 +221,19 @@ contract SuperGoodDollar is
 		uint256 amount,
 		bytes calldata data
 	) external override returns (bool) {
-		// this will invoke the overriding transfer(),
-		// where pause state and fees are considered
-		return super._transferAndCall(to, amount, data);
+		//duplicated code from _transferAndCall so we can get the amount after fees correctly for transferAndCall event + callback
+		require(!paused(), "Pausable: token transfer while paused");
+		uint256 bruttoValue = _processFees(msg.sender, to, amount);
+		// handing over to the wrapper of SuperToken.transferFrom skipping this _transferFrom which also collects fees
+		bool res = super._transferFrom(msg.sender, msg.sender, to, bruttoValue);
+		emit ERC677.Transfer(msg.sender, to, bruttoValue, data);
+		if (isContract(to)) {
+			require(
+				contractFallback(to, bruttoValue, data),
+				"Contract fallback failed"
+			);
+		}
+		return res;
 	}
 
 	function transfer(address to, uint256 amount)
@@ -227,6 +245,7 @@ contract SuperGoodDollar is
 		return _transferFrom(msg.sender, msg.sender, to, amount);
 	}
 
+	/// make sure supertoken erc20 methods include fees and pausable
 	function _transferFrom(
 		address spender,
 		address holder,
@@ -238,6 +257,30 @@ contract SuperGoodDollar is
 		// handing over to the wrapper of SuperToken.transferFrom
 		super._transferFrom(spender, holder, recipient, bruttoValue);
 		return true;
+	}
+
+	/// make sure supertoken erc777 methods include fees and pausable
+	function _send(
+		address operator,
+		address from,
+		address to,
+		uint256 amount,
+		bytes memory userData,
+		bytes memory operatorData,
+		bool requireReceptionAck
+	) internal virtual override {
+		require(!paused(), "Pausable: token transfer while paused");
+		uint256 bruttoValue = _processFees(from, to, amount);
+		// handing over to the wrapper of SuperToken.transferFrom
+		super._send(
+			operator,
+			from,
+			to,
+			bruttoValue,
+			userData,
+			operatorData,
+			requireReceptionAck
+		);
 	}
 
 	/**
@@ -341,6 +384,7 @@ contract SuperGoodDollar is
 				"Not enough balance to pay TX fee"
 			);
 			super._transferFrom(account, account, feeRecipient, txFees);
+			emit TransferFee(account, recipient, amount, txFees, senderPays);
 			return senderPays ? amount : amount - txFees;
 		}
 		return amount;
