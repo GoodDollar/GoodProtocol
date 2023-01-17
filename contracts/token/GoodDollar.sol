@@ -153,7 +153,16 @@ contract GoodDollar is
 		bytes calldata data
 	) external returns (bool) {
 		uint256 bruttoValue = _processFees(msg.sender, to, value);
-		return super._transferAndCall(to, bruttoValue, data);
+		bool res = ERC20Upgradeable.transfer(to, bruttoValue);
+		emit Transfer(msg.sender, to, bruttoValue, data);
+
+		if (isContract(to)) {
+			require(
+				contractFallback(to, bruttoValue, data),
+				"Contract fallback failed"
+			);
+		}
+		return res;
 	}
 
 	/**

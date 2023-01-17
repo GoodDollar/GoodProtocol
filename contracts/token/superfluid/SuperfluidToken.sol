@@ -16,6 +16,7 @@ import { FixedSizeData } from "@superfluid-finance/ethereum-contracts/contracts/
  * @author Superfluid
  * @dev Modified for SuperGoodDollar
  * 1. made createAgreement public and virtual
+ * 2. added allowHostOperations to disable host actions by G$ governance in case of security issues
  */
 abstract contract SuperfluidToken is ISuperfluidToken {
 	bytes32 private constant _REWARD_ADDRESS_CONFIG_KEY =

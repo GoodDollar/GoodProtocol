@@ -22,9 +22,10 @@ import { SuperfluidToken } from "./SuperfluidToken.sol";
  *
  * @author Superfluid
  * @dev Modified for SuperGoodDollar
- * 1. made virtual - transfer,_transferFrom, proxiableuuid, initialize, updateCode
+ * 1. made virtual - transfer,_transferFrom,_send, proxiableuuid, initialize, updateCode
  * 2. removed upgrade/downgrade internal methods, all external/public using _upgrade/_downgrade will revert
  * 3. use modified UUPSProxy with openzep upgradeable Initializable instead of openzep regular Initializable used by superfluid
+ * 4.
  */
 contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	using SafeMath for uint256;
@@ -193,7 +194,7 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		bytes memory userData,
 		bytes memory operatorData,
 		bool requireReceptionAck
-	) private {
+	) internal virtual {
 		if (from == address(0)) {
 			revert SUPER_TOKEN_TRANSFER_FROM_ZERO_ADDRESS();
 		}
