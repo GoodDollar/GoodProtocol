@@ -22,10 +22,11 @@ import { SuperfluidToken } from "./SuperfluidToken.sol";
  *
  * @author Superfluid
  * @dev Modified for SuperGoodDollar
- * 1. made virtual - transfer,_transferFrom,_send, proxiableuuid, initialize, updateCode
+ * 1. made virtual - transfer,_transferFrom,_send,_burn, proxiableuuid, initialize, updateCode
  * 2. removed upgrade/downgrade internal methods, all external/public using _upgrade/_downgrade will revert
  * 3. use modified UUPSProxy with openzep upgradeable Initializable instead of openzep regular Initializable used by superfluid
- * 4.
+ * 4. fixed erc777 burn and operator burn to work for puresupertokens
+ * 5. removed unused "self" functions
  */
 contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	using SafeMath for uint256;
@@ -289,7 +290,7 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		uint256 amount,
 		bytes memory userData,
 		bytes memory operatorData
-	) internal {
+	) internal virtual {
 		if (from == address(0)) {
 			revert SUPER_TOKEN_BURN_FROM_ZERO_ADDRESS();
 		}
@@ -512,8 +513,8 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		_send(msg.sender, msg.sender, recipient, amount, data, "", true);
 	}
 
-	function burn(uint256 amount, bytes calldata data) external override {
-		revert();
+	function burn(uint256 amount, bytes calldata data) external virtual override {
+		_burn(msg.sender, msg.sender, amount, data, new bytes(0));
 	}
 
 	function isOperatorFor(address operator, address tokenHolder)
@@ -565,7 +566,10 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		bytes calldata data,
 		bytes calldata operatorData
 	) external override {
-		revert();
+		address operator = msg.sender;
+		if (!_operators.isOperatorFor(operator, account))
+			revert SUPER_TOKEN_CALLER_IS_NOT_OPERATOR_FOR_HOLDER();
+		_burn(operator, account, amount, data, operatorData);
 	}
 
 	function _setupDefaultOperators(address[] memory operators) internal {
@@ -576,29 +580,25 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	 * SuperToken custom token functions
 	 *************************************************************************/
 
+	/// unused - place holder
 	function selfMint(
 		address account,
 		uint256 amount,
 		bytes memory userData
 	) external override onlySelf {
-		_mint(
-			msg.sender,
-			account,
-			amount,
-			false, /* requireReceptionAck */
-			userData,
-			new bytes(0)
-		);
+		revert();
 	}
 
+	/// unused - place holder
 	function selfBurn(
 		address account,
 		uint256 amount,
 		bytes memory userData
 	) external override onlySelf {
-		_burn(msg.sender, account, amount, userData, new bytes(0));
+		revert();
 	}
 
+	/// still used by erc20permit
 	function selfApproveFor(
 		address account,
 		address spender,
@@ -607,13 +607,14 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		_approve(account, spender, amount);
 	}
 
+	/// unused - place holder
 	function selfTransferFrom(
 		address holder,
 		address spender,
 		address recipient,
 		uint256 amount
 	) external override onlySelf {
-		_transferFrom(spender, holder, recipient, amount);
+		revert();
 	}
 
 	/**************************************************************************
