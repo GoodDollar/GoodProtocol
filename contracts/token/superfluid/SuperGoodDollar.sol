@@ -283,6 +283,19 @@ contract SuperGoodDollar is
 		);
 	}
 
+	/// make sure supertoken erc777 methods include pausable
+	function _burn(
+		address operator,
+		address from,
+		uint256 amount,
+		bytes memory userData,
+		bytes memory operatorData
+	) internal virtual override {
+		require(!paused(), "Pausable: token transfer while paused");
+		// handing over to the wrapper of SuperToken.transferFrom
+		super._burn(operator, from, amount, userData, operatorData);
+	}
+
 	/**
 	 * @dev Minting function
 	 * @param to the address that will receive the minted tokens
@@ -317,8 +330,6 @@ contract SuperGoodDollar is
 	function burnFrom(address account, uint256 amount) public {
 		uint256 currentAllowance = allowance(account, _msgSender());
 		require(currentAllowance >= amount, "ERC20: burn amount exceeds allowance");
-		require(!paused(), "Pausable: token transfer while paused");
-
 		unchecked {
 			_approve(account, _msgSender(), currentAllowance - amount);
 		}
@@ -326,8 +337,6 @@ contract SuperGoodDollar is
 	}
 
 	function burn(uint256 amount) external override {
-		require(!paused(), "Pausable: token transfer while paused");
-
 		_burn(msg.sender, msg.sender, amount, new bytes(0), new bytes(0));
 	}
 
