@@ -12,7 +12,7 @@ interface SelfApprove {
 		address account,
 		address spender,
 		uint256 amount
-	) external virtual;
+	) external;
 }
 
 abstract contract ERC20Permit is IERC20PermitUpgradeable, EIP712Upgradeable {

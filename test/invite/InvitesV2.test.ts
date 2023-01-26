@@ -64,7 +64,7 @@ describe("InvitesV2", () => {
 
     invites = (await upgrades.deployProxy(
       InvitesV2,
-      [nameService.address, gooddollar, 500, founder.address],
+      [nameService.address, 500, founder.address],
       {
         kind: "uups"
       }
@@ -84,6 +84,23 @@ describe("InvitesV2", () => {
     await gd["mint(address,uint256)"](invites.address, BN.from(5000));
     await loadFixture(initialState);
     // await gd.transfer(invites.address, BN.from(5000));
+  });
+
+  it.only("v1 should be upgradeable via old proxy method", async () => {
+    const InvitesV1 = await ethers.getContractFactory("InvitesV1");
+    const invites = await upgrades.deployProxy(
+      InvitesV1,
+      [avatar, id.address, gd.address, 500],
+      {
+        kind: "transparent"
+      }
+    );
+    const res = await upgrades.upgradeProxy(
+      invites.address,
+      await ethers.getContractFactory("InvitesFuse"),
+      { kind: "transparent", unsafeAllowRenames: true }
+    );
+    expect(res).not.empty;
   });
 
   it("should have balance", async () => {

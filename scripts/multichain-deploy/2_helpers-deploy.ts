@@ -100,7 +100,6 @@ export const deployHelpers = async () => {
     { name: "InvitesV2", salt: "InvitesV2", isUpgradeable: true },
     [
       release.NameService,
-      release.GoodDollar,
       ethers.BigNumber.from(100).mul(ethers.BigNumber.from("10").pow(decimals)),
       root.address
     ]

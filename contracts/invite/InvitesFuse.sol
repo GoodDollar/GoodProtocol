@@ -3,19 +3,15 @@
 pragma solidity >=0.8;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "../Interfaces.sol";
-import "../utils/NameService.sol";
-import "../utils/DAOUpgradeableContract.sol";
 
 // import "hardhat/console.sol";
 
 /**
- * @title InvitesV1 contract that handles invites with pre allocated bounty pool
- * 1.1 adds invitee bonus
- * 2 uses uups upgradeable - not compatible upgrade for v1
+ * @title InvitesFuse is based on older transparent proxy for fuse. celo and new blockchains will use uups
  */
-contract InvitesV2 is DAOUpgradeableContract {
+contract InvitesFuse is Initializable {
 	struct Stats {
 		uint256 totalApprovedInvites;
 		uint256 totalBountiesPaid;
@@ -46,10 +42,14 @@ contract InvitesV2 is DAOUpgradeableContract {
 
 	mapping(bytes32 => address) public codeToUser;
 	mapping(address => User) public users;
+	address payable public avatar;
 
 	mapping(uint256 => Level) public levels;
 
 	address public owner;
+
+	IIdentityV2 public identity;
+
 	cERC20 public goodDollar;
 	bool public active;
 	Stats public stats;
@@ -79,35 +79,27 @@ contract InvitesV2 is DAOUpgradeableContract {
 	}
 
 	function initialize(
-		INameService _ns,
-		uint256 _level0Bounty,
-		address _owner
+		address payable _avatar,
+		address _identity,
+		address _gd,
+		uint256 level0Bounty
 	) public initializer {
-		__init_invites(_ns, _level0Bounty, _owner);
+		identity = IIdentityV2(_identity);
+		avatar = _avatar;
+		_init_invites(_gd, level0Bounty, msg.sender);
 	}
 
-	function __init_invites(
-		INameService _ns,
+	function _init_invites(
+		address _gd,
 		uint256 _level0Bounty,
 		address _owner
 	) internal virtual {
-		setDAO(_ns);
 		owner = _owner;
 		active = true;
 		Level storage lvl = levels[0];
 		lvl.bounty = _level0Bounty;
-		goodDollar = cERC20(nameService.getAddress("GOODDOLLAR"));
+		goodDollar = cERC20(_gd);
 		levelExpirationEnabled = false;
-	}
-
-	function _authorizeUpgrade(address newImplementation)
-		internal
-		override
-		ownerOrAvatar
-	{}
-
-	function getIdentity() public view returns (IIdentityV2) {
-		return IIdentityV2(nameService.getAddress("IDENTITY"));
 	}
 
 	function setLevelExpirationEnabled(bool _isEnabled) public ownerOrAvatar {
@@ -154,7 +146,7 @@ contract InvitesV2 is DAOUpgradeableContract {
 		view
 		returns (uint256 chainId)
 	{
-		(bool success, bytes memory result) = address(getIdentity()).staticcall(
+		(bool success, bytes memory result) = address(identity).staticcall(
 			abi.encodeWithSignature("getWhitelistedOnChainId(address)", _invitee)
 		);
 		if (success == false) {
@@ -175,8 +167,8 @@ contract InvitesV2 is DAOUpgradeableContract {
 		return
 			invitedBy != address(0) &&
 			!users[_invitee].bountyPaid &&
-			getIdentity().isWhitelisted(_invitee) &&
-			getIdentity().isWhitelisted(invitedBy) &&
+			identity.isWhitelisted(_invitee) &&
+			identity.isWhitelisted(invitedBy) &&
 			_whitelistedOnChainOrDefault(_invitee) == _chainId() &&
 			isLevelExpired == false;
 	}

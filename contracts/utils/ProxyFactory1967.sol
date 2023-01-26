@@ -42,7 +42,7 @@ contract ProxyFactory1967 {
 
 	bytes32 private contractCodeHash;
 
-	constructor() public {
+	constructor() {
 		contractCodeHash = keccak256(type(ERC1967Proxy).creationCode);
 	}
 
