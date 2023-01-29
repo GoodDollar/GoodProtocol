@@ -9,9 +9,9 @@ import "../Interfaces.sol";
 // import "hardhat/console.sol";
 
 /**
- * @title InvitesFuse is based on older transparent proxy for fuse. celo and new blockchains will use uups
+ * @title V2 Invites for Fuse. InvitesFuse is based on older transparent proxy for fuse. celo and new blockchains will use uups
  */
-contract InvitesFuse is Initializable {
+contract InvitesFuseV2 is Initializable {
 	struct Stats {
 		uint256 totalApprovedInvites;
 		uint256 totalBountiesPaid;
