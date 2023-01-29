@@ -81,7 +81,7 @@
         "GovernanceStaking": "0xe3E75Ee6895F8b30d8eC3260dAa20ec1aba6DA77",
         "UBIScheme": "0x3bdeB796950301FfC9568fAF89B7370f8B217321",
         "ProtocolUpgradeFuse": "0x4dB8602482576321F829baa593150393f7595439",
-        "Identity": "0x7ccF1011610138b484fCc921858e7971342d213c",
+        "Identity": "0x1e006225cff7d37411db28f652e0Da9D20325eBb",
         "GoodDollar": "0x79BeecC4b165Ccf547662cB4f7C0e83b3796E5b3",
         "Controller": "0xb453024495525908E6cC1e3C115f4B6B30cc56b9",
         "Avatar": "0x71ddE7b8362724bd65D88Fe29d42636a9F8f9064",
@@ -100,7 +100,9 @@
         "COMP": "0x0000000000000000000000000000000000000000",
         "ProxyAdmin": "0x0dd5e1869DA5C9C7D7c49364687534bda7fB7020",
         "GoodDollarMintBurnWrapper": "0x46cF05f93539F4735Cb0D7b2B1cA6A70fa49510a",
-        "GoodDollarStaking": "0x4E44E4a72d9e40D1CabeEf1d10b747d6ACEF48B0"
+        "GoodDollarStaking": "0x4E44E4a72d9e40D1CabeEf1d10b747d6ACEF48B0",
+        "IdentityOld": "0x7ccF1011610138b484fCc921858e7971342d213c",
+        "GuardiansSafe": "0x84C10B45fE51bfB4f86c19A47Fdbc187d4572Fb8"
     },
     "fuse-mainnet": {
         "NameService": "0x3baeEff20Cb02a5b8eF413C611c015E69221663e",
@@ -187,7 +189,7 @@
         "GovernanceStaking": "0x18525875Bd0259d3efE1c04927A027fAd8cA0b86",
         "UBIScheme": "0x54469071Ca82B46A2C01C09D38ca6Ca4347EB21d",
         "ProtocolUpgradeFuse": "0x1495D6f5434376981778F64c63d2E15dA25B0541",
-        "Identity": "0x0af5eF8cdCeddDD9033cEf1E83B0Ae54f3a793A5",
+        "Identity": "0xb0cD4828Cc90C5BC28f4920Adf2Fd8F025003D7E",
         "Avatar": "0x28523b680d4ffBd6e4FC95c3c12F5485F9635E00",
         "Controller": "0xb6808120fB648c0bdc483Ec423d933a7eBf6BB0a",
         "AbsoluteVote": "0x7b58A5737440Bc05ca3972fDeFf8ac3bA984536B",
@@ -206,7 +208,9 @@
         "cDAI": "0x0000000000000000000000000000000000000000",
         "COMP": "0x0000000000000000000000000000000000000000",
         "GoodDollarMintBurnWrapper": "0x08CaFF2331040c9998a91B50eEee85c4AE953ece",
-        "GoodDollarStaking": "0x66846F27F86f02b079e9176C7aCc10Cc32d839b2"
+        "GoodDollarStaking": "0x66846F27F86f02b079e9176C7aCc10Cc32d839b2",
+        "IdentityOld": "0x0af5eF8cdCeddDD9033cEf1E83B0Ae54f3a793A5",
+        "GuardiansSafe": "0x84C10B45fE51bfB4f86c19A47Fdbc187d4572Fb8"
     },
     "production-bug": {
         "ProxyFactory": "0x4659176E962763e7C8A4eF965ecfD0fdf9f52057",
@@ -417,7 +421,8 @@
         "GoodDollarStaking": "0x9c22bD642f0B0c5C53Aa54f8ea8ABE49Fba69B01",
         "UBIScheme": "0x6B86F82293552C3B9FE380FC038A89e0328C7C5f",
         "ClaimersDistribution": "0x6e3c0ad79FA7ccDFa27bE14C2630511415A2F635",
-        "CompoundVotingMachine": "0xC2C303131939370ed75c95686F691f290b56Be66"
+        "CompoundVotingMachine": "0xC2C303131939370ed75c95686F691f290b56Be66",
+        "GuardiansSafe": "0x84C10B45fE51bfB4f86c19A47Fdbc187d4572Fb8"
     },
     "staging-celo": {
         "network": "staging-celo",
@@ -438,6 +443,7 @@
         "GoodDollarStaking": "0xae1b807C3fEfdf37589dbA33F98F26cbD7CB72E8",
         "UBIScheme": "0x2881d417dA066600372753E73A3570F0781f18cB",
         "ClaimersDistribution": "0x671123F1c7a5B5445467Ff765a5E2Bc86878B245",
-        "CompoundVotingMachine": "0xCd25fB84AB22582F1034bcd80c399a3126f2E775"
+        "CompoundVotingMachine": "0xCd25fB84AB22582F1034bcd80c399a3126f2E775",
+        "GuardiansSafe": "0x84C10B45fE51bfB4f86c19A47Fdbc187d4572Fb8"
     }
 }

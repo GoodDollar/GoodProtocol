@@ -3,7 +3,9 @@
     "governance": {
       "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
       "gdaoTotalSupply": "24000000000000000000000000",
-      "proposalVotingPeriod": 241920
+      "proposalVotingPeriod": 241920,
+      "claimersGOODMonthly": "1000000000000000000000000",
+      "stakersGOODMonthly": "1000000000000000000000000"
     },
     "guardiansSafe": null,
     "walletAdminsCount": 10,
@@ -251,12 +253,20 @@
   "development-celo": {
     "guardiansSafe": "0xdF3e980a175904a26A7BA627048a789Ae6A141cD",
     "gasPrice": 150000000,
-    "superfluidHost": "0xA4Ff07cF81C02CFD356184879D953970cA957585"
+    "superfluidHost": "0xA4Ff07cF81C02CFD356184879D953970cA957585",
+    "governance": {
+      "claimersGOODMonthly": "1000000000000000000000000",
+      "stakersGOODMonthly": "1000000000000000000000000"
+    }
   },
   "staging-celo": {
     "guardiansSafe": "0xdF3e980a175904a26A7BA627048a789Ae6A141cD",
     "gasPrice": 150000000,
-    "superfluidHost": "0xA4Ff07cF81C02CFD356184879D953970cA957585"
+    "superfluidHost": "0xA4Ff07cF81C02CFD356184879D953970cA957585",
+    "governance": {
+      "claimersGOODMonthly": "1000000000000000000000000",
+      "stakersGOODMonthly": "1000000000000000000000000"
+    }
   },
   "production-celo": {
     "governance": {
