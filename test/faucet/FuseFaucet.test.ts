@@ -46,7 +46,7 @@ describe("FuseFaucet", () => {
     });
   });
 
-  it.only("v1 should be upgradeable via old proxy method (for fuse)", async () => {
+  it("v1 should be upgradeable via old proxy method (for fuse)", async () => {
     const FaucetV1 = await ethers.getContractFactory("FuseFaucet");
     const faucet = await upgrades.deployProxy(FaucetV1, [id.address], {
       kind: "transparent"
