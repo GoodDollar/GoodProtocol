@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import { ethers, upgrades, network } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { createDAO } from "../helpers";
 import { Contract } from "ethers";
 import { AdminWallet } from "../../types";
@@ -39,16 +40,19 @@ describe("AdminWallet", () => {
       admin2,
       toWhitelist
     ] = signers.slice(10);
-    let { identity: id } = await createDAO();
-    identity = await ethers.getContractAt("IIdentity", id);
+    let { identity: id, nameService } = await loadFixture(createDAO);
+    identity = await ethers.getContractAt("IdentityV2", id);
 
     adminWallet = (await upgrades.deployProxy(
       await ethers.getContractFactory("AdminWallet"),
-      [[], signers[0].address, id],
+      [[], nameService.address, signers[0].address, 1e10],
       { kind: "uups" }
     )) as AdminWallet;
 
-    identity.addIdentityAdmin(adminWallet.address);
+    await identity.grantRole(
+      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("identity_admin")),
+      adminWallet.address
+    );
 
     toppingTimes = await adminWallet.toppingTimes();
     toppingAmount = await adminWallet.toppingAmount();
@@ -85,6 +89,12 @@ describe("AdminWallet", () => {
       to: adminWallet.address,
       value: ethers.utils.parseUnits("50", "ether")
     });
+  });
+
+  it("should have owner", async () => {
+    expect(
+      await adminWallet.hasRole(ethers.constants.HashZero, signers[0].address)
+    ).to.eq(true);
   });
 
   it("should not top admin list when empty", async () => {
@@ -142,7 +152,10 @@ describe("AdminWallet", () => {
 
     await adminWallet
       .connect(admin2)
-      .whitelist(toWhitelist.address, "did:test" + Math.random());
+      ["whitelist(address,string)"](
+        toWhitelist.address,
+        "did:test" + Math.random()
+      );
     const newBalance = await ethers.provider.getBalance(admin2.address);
     expect(newBalance).to.be.gte(expectedTopping);
   });
@@ -154,7 +167,9 @@ describe("AdminWallet", () => {
 
   it("should allow admin to whitelist and remove whitelist", async () => {
     expect(await identity.isWhitelisted(whitelisted.address)).to.false;
-    await adminWallet.connect(admin).whitelist(whitelisted.address, "did:test");
+    await adminWallet
+      .connect(admin)
+      ["whitelist(address,string)"](whitelisted.address, "did:test");
 
     expect(await identity.isWhitelisted(whitelisted.address)).to.true;
     await adminWallet.connect(admin).removeWhitelist(whitelisted.address);
@@ -164,10 +179,14 @@ describe("AdminWallet", () => {
   it("should not allow non-admin to whitelist and remove whitelist", async () => {
     expect(await identity.isWhitelisted(whitelisted.address)).to.false;
     await expect(
-      adminWallet.connect(stranger).whitelist(whitelisted.address, "did:test")
+      adminWallet
+        .connect(stranger)
+        ["whitelist(address,string)"](whitelisted.address, "did:test")
     ).revertedWith("Caller is not admin");
     expect(await identity.isWhitelisted(whitelisted.address)).to.false;
-    await adminWallet.connect(admin).whitelist(whitelisted.address, "did:test");
+    await adminWallet
+      .connect(admin)
+      ["whitelist(address,string)"](whitelisted.address, "did:test");
     expect(await identity.isWhitelisted(whitelisted.address)).to.true;
     await expect(
       adminWallet.connect(stranger).removeWhitelist(whitelisted.address)
@@ -245,20 +264,24 @@ describe("AdminWallet", () => {
 
   it("should whitelist user", async () => {
     expect(await identity.isWhitelisted(stranger2.address)).to.false;
-    await adminWallet.connect(admin2).whitelist(stranger2.address, "did:test3");
+    await adminWallet
+      .connect(admin2)
+      ["whitelist(address,string)"](stranger2.address, "did:test3");
     expect(await identity.isWhitelisted(stranger2.address)).to.true;
   });
 
   it("should not allow whitelisting with existing did", async () => {
     await expect(
-      adminWallet.connect(admin2).whitelist(stranger.address, "did:test")
+      adminWallet
+        .connect(admin2)
+        ["whitelist(address,string)"](stranger.address, "did:test")
     ).revertedWith("DID already registered");
   });
 
   it("should not allow anyone to upgrade", async () => {
     await expect(
       adminWallet.connect(admin2).upgradeTo(adminWallet.address)
-    ).revertedWith("Ownable: caller is not the owner");
+    ).revertedWith("not owner");
   });
 
   it("should allow owner to upgrade", async () => {

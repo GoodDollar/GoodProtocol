@@ -124,7 +124,7 @@ jobs:
     runs-on: ubuntu-latest
     name: "version bump and publish to npm"
     needs: test
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' || contains(github.event.head_commit.message, 'BETA:')
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v2
@@ -158,6 +158,7 @@ jobs:
           default: prerelease
           preid: beta
           rc-wording: ""
+          target-branch: ${{ env.GITHUB_REF_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish to npm

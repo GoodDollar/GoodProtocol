@@ -18,7 +18,7 @@
  *
  */
 
-// const HDWalletProvider = require('@truffle/hdwallet-provider');
+const Web3 = require("web3");
 // const infuraKey = "fj4jll3k.....";
 //
 // const fs = require('fs');
@@ -59,11 +59,7 @@ module.exports = {
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
     kovan: {
-      provider: () =>
-        new HDWalletProvider(
-          mnemonic,
-          `https://ropsten.infura.io/v3/YOUR-PROJECT-ID`
-        ),
+      provider: () => new Web3.providers.HttpProvider(`https://ropsten.infura.io/v3/YOUR-PROJECT-ID`),
       network_id: 42, // Ropsten's id
       gas: 5500000, // Ropsten has a lower block limit than mainnet
       confirmations: 2, // # of confs to wait between deployments. (default: 0)
@@ -71,11 +67,7 @@ module.exports = {
       skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
     },
     ropsten: {
-      provider: () =>
-        new HDWalletProvider(
-          mnemonic,
-          `https://ropsten.infura.io/v3/YOUR-PROJECT-ID`
-        ),
+      provider: () => new Web3.providers.HttpProvider(`https://ropsten.infura.io/v3/YOUR-PROJECT-ID`),
       network_id: 3, // Ropsten's id
       gas: 5000000, // Ropsten has a lower block limit than mainnet
       confirmations: 2, // # of confs to wait between deployments. (default: 0)
@@ -83,7 +75,7 @@ module.exports = {
       skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
     },
     fuse: {
-      provider: () => new HDWalletProvider(mnemonic, `https://rpc.fuse.io`),
+      provider: () => new Web3.providers.HttpProvider(`https://rpc.fuse.io`),
       network_id: 122, // Ropsten's id
       gas: 8000000, // Ropsten has a lower block limit than mainnet
       confirmations: 1, // # of confs to wait between deployments. (default: 0)
@@ -91,10 +83,17 @@ module.exports = {
       skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
     },
     fusespark: {
-      provider: () =>
-        new HDWalletProvider(mnemonic, `https://rpc.fusespark.io`),
+      provider: () => new Web3.providers.HttpProvider(`https://rpc.fusespark.io`),
       network_id: 123, // Ropsten's id
       gas: 8000000, // Ropsten has a lower block limit than mainnet
+      confirmations: 1, // # of confs to wait between deployments. (default: 0)
+      timeoutBlocks: 20, // # of blocks before a deployment times out  (minimum/default: 50)
+      skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
+    },
+    celo: {
+      provider: () => new Web3.providers.HttpProvider(`https://forno.celo.org`),
+      network_id: 42220, // Ropsten's id
+      gas: 150000, // Ropsten has a lower block limit than mainnet
       confirmations: 1, // # of confs to wait between deployments. (default: 0)
       timeoutBlocks: 20, // # of blocks before a deployment times out  (minimum/default: 50)
       skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
@@ -102,7 +101,7 @@ module.exports = {
 
     // Useful for private networks
     // private: {
-    // provider: () => new HDWalletProvider(mnemonic, `https://network.io`),
+    // provider: () => new new Web3.providers.HttpProvider(`https://network.io`),
     // network_id: 2111,   // This network is yours, in the cloud.
     // production: true    // Treats this network as if it was a public net. (default: false)
     // }
@@ -116,7 +115,7 @@ module.exports = {
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.8.8", // Fetch exact version from solc-bin (default: truffle's version)
+      version: "0.8.16", // Fetch exact version from solc-bin (default: truffle's version)
       settings: {
         // See the solidity docs for advice about optimization and evmVersion
         optimizer: {
@@ -137,7 +136,8 @@ module.exports = {
     enabled: false
   },
   api_keys: {
-    etherscan: process.env.ETHERSCAN_KEY
+    etherscan: process.env.ETHERSCAN_KEY,
+    celoscan: process.env.CELOSCAN_KEY
   },
-  plugins: ["truffle-source-verify"]
+  plugins: ["truffle-plugin-verify"]
 };

@@ -1,4 +1,5 @@
 import { ethers, waffle, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import {
   GoodReserveCDai,
@@ -59,7 +60,7 @@ describe("GoodDollarMintBurnWrapper", () => {
       cdaiAddress,
       genericCall: gc,
       nameService: ns
-    } = await createDAO();
+    } = await loadFixture(createDAO);
 
     nameService = ns;
     genericCall = gc;
@@ -224,7 +225,7 @@ describe("GoodDollarMintBurnWrapper", () => {
   it("should have erc20 token info", async () => {
     const { wrapper } = await waffle.loadFixture(fixture);
 
-    expect(await wrapper.decimals()).to.equal(2);
+    expect(await wrapper.decimals()).to.equal(await goodDollar.decimals());
     expect(await wrapper.name()).to.equal("GoodDollar");
     expect(await wrapper.symbol()).to.equal("G$");
   });

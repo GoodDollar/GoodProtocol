@@ -1,4 +1,5 @@
 import { default as hre, ethers, upgrades, waffle } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { Contract, Signer } from "ethers";
 import { expect } from "chai";
 import {
@@ -65,7 +66,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
       runAsAvatarOnly: ras,
       setSchemes: ss,
       genericCall: gc
-    } = await createDAO();
+    } = await loadFixture(createDAO);
 
     setSchemes = ss;
     runAsAvatarOnly = ras;
@@ -555,5 +556,86 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
           .div(1e6)
       )
       .to.gt(0);
+  });
+
+  it("it should not upgrade if no balance or target is not approved by dao", async () => {
+    const { staking } = await waffle.loadFixture(fixture_ready);
+    await expect(
+      staking.connect(staker1).upgradeTo(signers[10].address)
+    ).revertedWith("no balance");
+    await stake(staker1, STAKE_AMOUNT, staking);
+    await expect(
+      staking.connect(staker1).upgradeTo(signers[10].address)
+    ).revertedWith("not DAO approved");
+  });
+
+  it("it should not upgrade if cant mint rewards", async () => {
+    const { staking, goodDollarMintBurnWrapper } = await waffle.loadFixture(
+      fixture_ready
+    );
+    await stake(staker1, STAKE_AMOUNT, staking);
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock //has scheme permissions set by createDAO()
+    );
+
+    await ictrl.registerScheme(
+      signers[10].address,
+      ethers.constants.HashZero,
+      "0x00000001",
+      avatar
+    );
+
+    const PAUSE_ALL_ROLE = await goodDollarMintBurnWrapper.PAUSE_ALL_ROLE();
+    // pause goodDollarMintBurnWrapper
+    let encodedCall = goodDollarMintBurnWrapper.interface.encodeFunctionData(
+      "pause",
+      [PAUSE_ALL_ROLE]
+    );
+
+    await genericCall(goodDollarMintBurnWrapper.address, encodedCall);
+
+    await expect(
+      staking.connect(staker1).upgradeTo(signers[10].address)
+    ).revertedWith("unable to mint rewards");
+  });
+
+  it("it should upgrade and transfer funds to new staking contract", async () => {
+    const { staking, goodDollarMintBurnWrapper } = await waffle.loadFixture(
+      fixture_ready
+    );
+    await stake(staker1, STAKE_AMOUNT, staking);
+    await advanceBlocks(BLOCKS_ONE_YEAR);
+
+    const f = await ethers.getContractFactory("GoodDollarStakingMock");
+    const newStaking = await f.deploy(
+      nameService.address,
+      BN.from("1000000007735630000"),
+      518400 * 12,
+      30
+    );
+
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock //has scheme permissions set by createDAO()
+    );
+
+    await ictrl.registerScheme(
+      newStaking.address,
+      ethers.constants.HashZero,
+      "0x00000001",
+      avatar
+    );
+
+    const balance = await staking.getSavings(staker1.address);
+    console.log("balance:", balance.toNumber());
+    await staking.connect(staker1).upgradeTo(newStaking.address);
+    expect(await goodDollar.balanceOf(newStaking.address))
+      .eq(balance)
+      .gt(0);
   });
 });

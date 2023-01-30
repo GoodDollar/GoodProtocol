@@ -2,7 +2,6 @@
 
 pragma solidity >=0.8;
 
-
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "../Interfaces.sol";
@@ -75,16 +74,8 @@ contract InvitesV1 is Initializable {
 		_;
 	}
 
-	modifier onlyAvatar() {
-		require(
-			msg.sender == avatar,
-			"Only DAO avatar can perform this action"
-		);
-		_;
-	}
-
 	modifier isActive() {
-		require(active);
+		require(active, "not active");
 		_;
 	}
 
@@ -110,8 +101,7 @@ contract InvitesV1 is Initializable {
 
 	function join(bytes32 _myCode, bytes32 _inviterCode) public isActive {
 		require(
-			codeToUser[_myCode] == address(0) ||
-				codeToUser[_myCode] == msg.sender,
+			codeToUser[_myCode] == address(0) || codeToUser[_myCode] == msg.sender,
 			"invite code already in use"
 		);
 		User storage user = users[msg.sender]; // this is not expensive as user is new
@@ -142,10 +132,9 @@ contract InvitesV1 is Initializable {
 		uint256 daysToComplete = levels[users[invitedBy].level].daysToComplete;
 		bool isLevelExpired = levelExpirationEnabled == true &&
 			daysToComplete > 0 &&
+			users[_invitee].joinedAt > users[invitedBy].levelStarted &&
 			daysToComplete <
-			users[_invitee].joinedAt.sub(users[invitedBy].levelStarted).div(
-				1 days
-			);
+			users[_invitee].joinedAt.sub(users[invitedBy].levelStarted).div(1 days);
 
 		return
 			invitedBy != address(0) &&
@@ -189,11 +178,7 @@ contract InvitesV1 is Initializable {
 		return result;
 	}
 
-	function getPendingBounties(address _inviter)
-		public
-		view
-		returns (uint256)
-	{
+	function getPendingBounties(address _inviter) public view returns (uint256) {
 		address[] memory pending = users[_inviter].pending;
 		uint256 total = 0;
 		for (uint256 i; i < pending.length; i++) {
@@ -213,10 +198,7 @@ contract InvitesV1 is Initializable {
 		isActive
 		returns (uint256 bounty)
 	{
-		require(
-			canCollectBountyFor(_invitee),
-			"user not elligble for bounty yet"
-		);
+		require(canCollectBountyFor(_invitee), "user not elligble for bounty yet");
 		return _bountyFor(_invitee, true);
 	}
 

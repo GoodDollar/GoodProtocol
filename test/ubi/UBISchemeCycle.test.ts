@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { UBIScheme } from "../../types";
 import { createDAO, deployUBI, advanceBlocks, increaseTime } from "../helpers";
@@ -26,7 +27,7 @@ describe("UBIScheme cycle", () => {
     [root, acct, claimer1, claimer2, claimer3, ...signers] =
       await ethers.getSigners();
 
-    const deployedDAO = await createDAO();
+    const deployedDAO = await loadFixture(createDAO);
     let {
       nameService: ns,
       genericCall: gn,
@@ -125,12 +126,13 @@ describe("UBIScheme cycle", () => {
     expect(
       await ubiScheme.currentDayInCycle().then(_ => _.toNumber())
     ).to.be.equal(10); //10 days passed total
+
     let transaction = await (await ubiScheme.connect(claimer1).claim()).wait(); //claims in new ubi cycle
-    expect(
-      await goodDollar.balanceOf(claimer1.address).then(_ => _.toNumber())
-    ).to.be.equal(
-      1000 + 58593 //58 amount of new ubicycle
-    );
+    let dailyClaimAmount = (await ubiScheme.dailyCyclePool()).div(1000); //initialy we have by default min 1000 active users
+
+    expect(await goodDollar.balanceOf(claimer1.address)).to.be.equal(
+      dailyClaimAmount.add(1000)
+    ); //intial 10 from first claim pool + daily
     const cycleEvent = transaction.events.find(
       e => e.event === "UBICycleCalculated"
     );
@@ -140,7 +142,8 @@ describe("UBIScheme cycle", () => {
     expect(
       await ubiScheme.currentDayInCycle().then(_ => _.toNumber())
     ).to.be.equal(0); //new cycle started
-    expect(cycleEvent.args.dailyUBIPool).to.be.equal(117187); //pool balance: (1000000 - 62500 given to first claimer) divided by 8 days - only first claimer got 62500 in first cycle
+    //intial balance on cycle start 1000000 - 125(one user that claimed) = 999875, divide by cycle length (8) = 124984
+    expect(cycleEvent.args.dailyUBIPool).to.be.equal(124984);
   });
 
   it("should calculate cycle early if we can increase current daily pool", async () => {
@@ -177,7 +180,7 @@ describe("UBIScheme cycle", () => {
     //increase ubi pool balance
     let encoded = goodDollar.interface.encodeFunctionData("mint", [
       ubiScheme.address,
-      1000
+      100
     ]);
     await genericCall(goodDollar.address, encoded);
     let balance = await goodDollar.balanceOf(ubiScheme.address);

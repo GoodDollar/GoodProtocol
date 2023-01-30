@@ -11,6 +11,8 @@ import "../Interfaces.sol";
  * to return the current reputation token.
  * The DAO avatar will be the owner of this reputation token and not the Controller.
  * Minting by the DAO will be done using controller.genericCall and not via controller.mintReputation
+ *
+ * V2 fixes merkle tree bug
  */
 contract GReputation is Reputation {
 	bytes32 public constant ROOT_STATE = keccak256("rootState");
@@ -99,25 +101,36 @@ contract GReputation is Reputation {
 
 	function _canMint() internal view override {
 		require(
-			_msgSender() == nameService.getAddress("GDAO_CLAIMERS") ||
-				_msgSender() == nameService.getAddress("GDAO_STAKING") ||
-				_msgSender() == nameService.getAddress("GDAO_STAKERS") ||
-				hasRole(MINTER_ROLE, _msgSender()),
+			hasRole(MINTER_ROLE, _msgSender()) ||
+				(address(nameService) != address(0) &&
+					(_msgSender() == nameService.getAddress("GDAO_CLAIMERS") ||
+						_msgSender() == nameService.getAddress("GDAO_STAKING") ||
+						_msgSender() == nameService.getAddress("GDAO_STAKERS"))),
 			"GReputation: need minter role or be GDAO contract"
 		);
+	}
+
+	function _mint(address _user, uint256 _amount)
+		internal
+		override
+		returns (uint256)
+	{
+		return _mint(_user, _amount, false);
 	}
 
 	/// @notice internal function that overrides Reputation.sol with consideration to delegation
 	/// @param _user the address to mint for
 	/// @param _amount the amount of rep to mint
 	/// @return the actual amount minted
-	function _mint(address _user, uint256 _amount)
-		internal
-		override
-		returns (uint256)
-	{
+	function _mint(
+		address _user,
+		uint256 _amount,
+		bool ignoreRepTarget
+	) internal returns (uint256) {
 		address repTarget = reputationRecipients[_user];
-		repTarget = repTarget != address(0) ? repTarget : _user;
+		repTarget = ignoreRepTarget == false && repTarget != address(0)
+			? repTarget
+			: _user;
 
 		super._mint(repTarget, _amount);
 
@@ -368,6 +381,35 @@ contract GReputation is Reputation {
 	}
 
 	/**
+	 * @notice prove user balance in a specific blockchain state hash, uses new sorted pairs trees and double hash for preimage attack mitigation
+	 * @dev "rootState" is a special state that can be supplied once, and actually mints reputation on the current blockchain
+	 * we use non sorted merkle tree, as sorting while preparing merkle tree is heavy
+	 * @param _id the string id of the blockchain we supply proof for
+	 * @param _user the user to prove his balance
+	 * @param _balance the balance we are prooving
+	 * @param _proof array of byte32 with proof data (currently merkle tree path)
+	 * @return true if proof is valid
+	 */
+	function proveBalanceOfAtBlockchain(
+		string memory _id,
+		address _user,
+		uint256 _balance,
+		bytes32[] memory _proof
+	) public returns (bool) {
+		return
+			_proveBalanceOfAtBlockchain(
+				_id,
+				_user,
+				_balance,
+				_proof,
+				new bool[](0),
+				0,
+				false
+			);
+	}
+
+	/**
+	 * DEPRECATED: future state hashes will be with sorted pairs and with double hash leaf values
 	 * @notice prove user balance in a specific blockchain state hash
 	 * @dev "rootState" is a special state that can be supplied once, and actually mints reputation on the current blockchain
 	 * we use non sorted merkle tree, as sorting while preparing merkle tree is heavy
@@ -375,17 +417,39 @@ contract GReputation is Reputation {
 	 * @param _user the user to prove his balance
 	 * @param _balance the balance we are prooving
 	 * @param _proof array of byte32 with proof data (currently merkle tree path)
- 	 * @param _nodeIndex index of node in the tree (for unsorted merkle tree proof)
-
+	 * @param _isRightNode array of bool with indication if should be hashed on right or left
+	 * @param _nodeIndex index of node in the tree (for unsorted merkle tree proof)
 	 * @return true if proof is valid
 	 */
-	function proveBalanceOfAtBlockchain(
+	function proveBalanceOfAtBlockchainLegacy(
 		string memory _id,
 		address _user,
 		uint256 _balance,
 		bytes32[] memory _proof,
+		bool[] memory _isRightNode,
 		uint256 _nodeIndex
 	) public returns (bool) {
+		return
+			_proveBalanceOfAtBlockchain(
+				_id,
+				_user,
+				_balance,
+				_proof,
+				_isRightNode,
+				_nodeIndex,
+				true
+			);
+	}
+
+	function _proveBalanceOfAtBlockchain(
+		string memory _id,
+		address _user,
+		uint256 _balance,
+		bytes32[] memory _proof,
+		bool[] memory _isRightNode,
+		uint256 _nodeIndex,
+		bool legacy
+	) internal returns (bool) {
 		bytes32 idHash = keccak256(bytes(_id));
 		require(
 			blockchainStates[idHash].length > 0,
@@ -402,11 +466,17 @@ contract GReputation is Reputation {
 		);
 
 		bytes32 leafHash = keccak256(abi.encode(_user, _balance));
+		//v2 double hash fix to prevent preimage attack
+		if (legacy == false) {
+			leafHash = keccak256(abi.encode(leafHash));
+		}
 		bool isProofValid = checkProofOrdered(
 			_proof,
+			_isRightNode,
 			stateHash,
 			leafHash,
-			_nodeIndex
+			_nodeIndex,
+			legacy == false
 		);
 
 		require(isProofValid, "invalid merkle proof");
@@ -414,7 +484,10 @@ contract GReputation is Reputation {
 		//if initiial state then set real balance
 		if (idHash == ROOT_STATE) {
 			uint256 curTotalSupply = totalSupplyLocalAt(block.number);
-			_mint(_user, _balance);
+			// on proof for ROOT_HASH we force to ignore the repTarget, so it is the same wallet address receiving the reputation (prevent double voting power on snapshot)
+			// also it should behave the same as blockchain sync proof which also doesnt use repTarget, but updates the same address as in the proof
+			_mint(_user, _balance, true);
+
 			updateValueAtNow(totalSupplyHistory, curTotalSupply); // we undo the totalsupply, as we alredy set the totalsupply of the airdrop
 		}
 
@@ -544,9 +617,11 @@ contract GReputation is Reputation {
 	 */
 	function checkProofOrdered(
 		bytes32[] memory _proof,
+		bool[] memory _isRightNode,
 		bytes32 _root,
 		bytes32 _hash,
-		uint256 _index
+		uint256 _index,
+		bool sorted
 	) public pure returns (bool) {
 		// use the index to determine the node ordering
 		// index ranges 1 to n
@@ -558,6 +633,16 @@ contract GReputation is Reputation {
 		for (uint256 j = 0; j < _proof.length; j++) {
 			proofElement = _proof[j];
 
+			// for new sorted format
+			if (sorted) {
+				computedHash = proofElement < computedHash
+					? keccak256(abi.encodePacked(proofElement, computedHash))
+					: keccak256(abi.encodePacked(computedHash, proofElement));
+				continue;
+			}
+
+			// start of legacy format for the first GOOD airdrop
+
 			// calculate remaining elements in proof
 			remaining = _proof.length - j;
 
@@ -568,7 +653,10 @@ contract GReputation is Reputation {
 				_index = _index / 2 + 1;
 			}
 
-			if (_index % 2 == 0) {
+			if (
+				(_isRightNode.length > 0 && _isRightNode[j] == false) ||
+				(_isRightNode.length == 0 && _index % 2 == 0)
+			) {
 				computedHash = keccak256(abi.encodePacked(proofElement, computedHash));
 				_index = _index / 2;
 			} else {

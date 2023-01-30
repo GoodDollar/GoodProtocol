@@ -1,5 +1,6 @@
 import { expect } from "chai";
-import { ethers, upgrades, network } from 'hardhat';
+import { ethers, upgrades, network } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { createDAO } from "../helpers";
 import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 
@@ -8,7 +9,13 @@ export const NULL_ADDRESS = ethers.constants.AddressZero;
 export const BLOCK_INTERVAL = 1;
 
 describe("NameService - Setup and functionalities", () => {
-  let nameService, dai, avatar, controller, schemeMock, signers, genericCall, 
+  let nameService,
+    dai,
+    avatar,
+    controller,
+    schemeMock,
+    signers,
+    genericCall,
     runAsAvatarOnly;
 
   before(async () => {
@@ -29,8 +36,8 @@ describe("NameService - Setup and functionalities", () => {
       setSchemes,
       marketMaker: mm,
       genericCall: gc,
-      runAsAvatarOnly: raao,
-    } = await createDAO();
+      runAsAvatarOnly: raao
+    } = await loadFixture(createDAO);
 
     controller = ctrl;
     avatar = av;
@@ -60,7 +67,7 @@ describe("NameService - Setup and functionalities", () => {
   it("should set multiple addresses by avatar", async () => {
     await runAsAvatarOnly(
       nameService,
-      "setAddresses(bytes32[],address[])", 
+      "setAddresses(bytes32[],address[])",
       [
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("DAI")),
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes("cDAI"))
@@ -79,32 +86,41 @@ describe("NameService - Setup and functionalities", () => {
       await ethers.getContractFactory("NameService"),
       [
         controller,
-        [
-          "CONTROLLER",
-        ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
-        [
-          controller
-        ]
+        ["CONTROLLER"].map(_ =>
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))
+        ),
+        [controller]
       ],
       {
         kind: "uups"
       }
     );
-    const implementationBeforeUpgrade =
-      await getImplementationAddress(network.provider, nameServiceProxy.address);
-    const newNameServiceLogic = await (await ethers.getContractFactory("NameService")).deploy();
+    const implementationBeforeUpgrade = await getImplementationAddress(
+      network.provider,
+      nameServiceProxy.address
+    );
+    const newNameServiceLogic = await (
+      await ethers.getContractFactory("NameService")
+    ).deploy();
     const encodedData = nameServiceProxy.interface.encodeFunctionData(
       "upgradeTo",
       [newNameServiceLogic.address]
     );
     await (await genericCall(nameServiceProxy.address, encodedData)).wait();
-    const implementationAfterUpgrade =
-      await getImplementationAddress(network.provider, nameServiceProxy.address);
-    expect(implementationBeforeUpgrade).to.not.equal(implementationAfterUpgrade);
+    const implementationAfterUpgrade = await getImplementationAddress(
+      network.provider,
+      nameServiceProxy.address
+    );
+    expect(implementationBeforeUpgrade).to.not.equal(
+      implementationAfterUpgrade
+    );
     expect(implementationAfterUpgrade).to.equal(newNameServiceLogic.address);
 
-    const newNameServiceLogic2 = await (await ethers.getContractFactory("NameService")).deploy();
-    await expect(nameServiceProxy.upgradeTo(newNameServiceLogic2.address)).
-      to.be.revertedWith("only avatar can call this method");
-  });  
+    const newNameServiceLogic2 = await (
+      await ethers.getContractFactory("NameService")
+    ).deploy();
+    await expect(
+      nameServiceProxy.upgradeTo(newNameServiceLogic2.address)
+    ).to.be.revertedWith("only avatar can call this method");
+  });
 });

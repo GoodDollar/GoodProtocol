@@ -15,7 +15,7 @@ contract cDecimalsMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	uint256 exchangeRate = 20000000000000000; // initial exchange rate 0.02 from original cToken
 	uint256 mantissa = 18;
 
-	constructor(ERC20PresetMinterPauserUpgradeable _edt) {
+	constructor(ERC20PresetMinterPauserUpgradeable _edt) initializer {
 		__ERC20PresetMinterPauser_init("Compound EDT", "cEDT");
 		edt = _edt;
 		mantissa = 18 + _edt.decimals() - 8;

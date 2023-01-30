@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import { ethers, waffle } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { createDAO, advanceBlocks } from "../helpers";
 import { StakingMockFixedAPY } from "../../types";
 import { default as StakingABI } from "../../artifacts/contracts/mocks/StakingMockFixedAPY.sol/StakingMockFixedAPY.json";
@@ -61,7 +62,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
       gd,
       nameService: ns,
       setDAOAddress
-    } = await createDAO();
+    } = await loadFixture(createDAO);
 
     setNSAddress = setDAOAddress;
     nameService = ns;

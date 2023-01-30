@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { UBIScheme } from "../../types";
 import { createDAO, deployUBI, advanceBlocks, increaseTime } from "../helpers";
@@ -55,7 +56,7 @@ describe("UBIScheme", () => {
       FirstClaimPool.bytecode,
       (await ethers.getSigners())[0]
     );
-    const deployedDAO = await createDAO();
+    const deployedDAO = await loadFixture(createDAO);
     let {
       nameService: ns,
       genericCall: gn,
@@ -127,13 +128,11 @@ describe("UBIScheme", () => {
 
   it("should return zero entitlement before UBI started", async () => {
     let blockTimestamp = (await ethers.provider.getBlock("latest")).timestamp;
-    const timeInDay = (blockTimestamp % (ONE_DAY));
+    const timeInDay = blockTimestamp % ONE_DAY;
     // Move to before 12pm of the current day
     if (timeInDay > 12 * ONE_HOUR) {
       blockTimestamp += 12 * ONE_HOUR;
-      await ethers.provider.send("evm_setNextBlockTimestamp", [
-        blockTimestamp
-      ]);
+      await ethers.provider.send("evm_setNextBlockTimestamp", [blockTimestamp]);
       await ethers.provider.send("evm_mine", []);
     }
     const ubiNew = await deployNewUbi();
@@ -200,24 +199,26 @@ describe("UBIScheme", () => {
     expect(error.message).to.have.string("Only UBIScheme can call this method");
   });
 
-  it("should estimate next daily UBI to default value when no claimers and not using first claim pool", async () => {
+  it("should estimate next daily UBI to according to min value when no claimers and not using first claim pool", async () => {
     const nextDailyUBIBefore = await ubi.estimateNextDailyUBI();
-    const defaultDailyUbi = await ubi.defaultDailyUbi();
-    let encodedCall = ubi.interface.encodeFunctionData(
-      "setUseFirstClaimPool",
-      [false]
-    );
+    const minActiveUsers = await ubi.minActiveUsers();
+    const cycleLength = await ubi.cycleLength();
+    const pool = await goodDollar.balanceOf(ubi.address);
+    const dailyPool = pool.div(cycleLength);
+    const defaultDailyClaim = dailyPool.div(minActiveUsers);
+    let encodedCall = ubi.interface.encodeFunctionData("setUseFirstClaimPool", [
+      false
+    ]);
     await genericCall(ubi.address, encodedCall);
     const nextDailyUBIAfter = await ubi.estimateNextDailyUBI();
 
     expect(nextDailyUBIBefore.eq(0));
     expect(nextDailyUBIAfter.gt(nextDailyUBIBefore));
-    expect(nextDailyUBIAfter.eq(defaultDailyUbi));
+    expect(nextDailyUBIAfter.eq(defaultDailyClaim));
 
-    encodedCall = ubi.interface.encodeFunctionData(
-      "setUseFirstClaimPool",
-      [true]
-    );
+    encodedCall = ubi.interface.encodeFunctionData("setUseFirstClaimPool", [
+      true
+    ]);
     await genericCall(ubi.address, encodedCall);
   });
 
@@ -270,7 +271,7 @@ describe("UBIScheme", () => {
       .connect(fisherman)
       .fish(claimer1.address)
       .catch(e => e);
-    expect(error.message).to.have.string("is not an inactive user");
+    expect(error.message).to.have.string("can't fish");
   });
 
   it("should not initiate the scheme balance and distribution formula when a new user execute claim", async () => {
@@ -315,8 +316,8 @@ describe("UBIScheme", () => {
     await genericCall(ubi.address, encodedCall); // we should set cyclelength to one cause this tests was implemented according to it
     const currentDay = await ubi.currentDayInCycle().then(_ => _.toNumber());
     await increaseTime(ONE_DAY);
-    await goodDollar.mint(avatar, "901");
-    //ubi will have 902GD in pool so daily ubi is now 902/1(cycle)/3(claimers) = 300
+    await goodDollar.mint(avatar, "300002");
+    //ubi will have 902GD in pool so daily ubi is now 300002/1(cycle)/1000(min claimers) = 300
     await ubi.connect(claimer1).claim();
     await increaseTime(ONE_DAY);
     await goodDollar.mint(avatar, "1");
@@ -326,8 +327,8 @@ describe("UBIScheme", () => {
     let avatarBalance = await goodDollar.balanceOf(avatar);
     let claimer1Balance = await goodDollar.balanceOf(claimer1.address);
     expect(avatarBalance.toString()).to.be.equal("0");
-    // 300 GD from first day and 201 from the second day claimed in this test
-    expect(claimer1Balance.toString()).to.be.equal("501");
+    // 300 GD from first day and 299 (30002 - 300 /1 / 1000)  from the second day claimed in this test
+    expect(claimer1Balance.toString()).to.be.equal("599");
   });
 
   it("should return the reward value for entitlement user", async () => {
@@ -351,7 +352,7 @@ describe("UBIScheme", () => {
       .fish(claimer4.address)
       .catch(e => e);
     expect(isActiveUser).to.be.true;
-    expect(error.message).to.have.string("is not an inactive use");
+    expect(error.message).to.have.string("can't fish");
   });
 
   it("should not be able to execute claim twice a day", async () => {
@@ -413,7 +414,7 @@ describe("UBIScheme", () => {
       .catch(e => e);
     let isFishedAfter = await ubi.fishedUsersAddresses(claimer1.address);
     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4.address);
-    expect(error.message).to.have.string("already fished");
+    expect(error.message).to.have.string("can't fish");
     expect(isFishedBefore).to.be.true;
     expect(isFishedAfter).to.be.true;
     expect(claimer4BalanceAfter.toNumber()).to.be.equal(
@@ -452,7 +453,7 @@ describe("UBIScheme", () => {
       .catch(e => e);
     let isFishedAfter = await ubi.fishedUsersAddresses(claimer2.address);
     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4.address);
-    expect(error.message).to.have.string("is not an inactive user");
+    expect(error.message).to.have.string("can't fish");
     expect(isFishedBefore).to.be.false;
     expect(isFishedAfter).to.be.false;
     expect(claimer4BalanceAfter.toNumber()).to.be.equal(
@@ -519,11 +520,11 @@ describe("UBIScheme", () => {
   });
 
   it("distribute formula should return correct value", async () => {
-    await goodDollar.mint(avatar, "20");
+    await goodDollar.mint(avatar, "20000");
     await increaseTime(ONE_DAY);
     let ubiBalance = await goodDollar.balanceOf(ubi.address);
     let avatarBalance = await goodDollar.balanceOf(avatar);
-    let activeUsersCount = await ubi.activeUsersCount();
+    let activeUsersCount = await ubi.minActiveUsers(); // await ubi.activeUsersCount();
     let claimer4BalanceBefore = await goodDollar.balanceOf(claimer2.address);
     await ubi.connect(claimer2).claim();
     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer2.address);
@@ -539,7 +540,7 @@ describe("UBIScheme", () => {
     await increaseTime(ONE_DAY);
     let ubiBalance = await goodDollar.balanceOf(ubi.address);
     let avatarBalance = await goodDollar.balanceOf(avatar);
-    let activeUsersCount = await ubi.activeUsersCount();
+    let activeUsersCount = await ubi.minActiveUsers(); // await ubi.activeUsersCount();
     let claimer4BalanceBefore = await goodDollar.balanceOf(claimer2.address);
     await ubi.connect(claimer2).claim();
     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer2.address);
@@ -565,12 +566,12 @@ describe("UBIScheme", () => {
     let claimer1Balance1 = await goodDollar.balanceOf(claimer1.address);
     // regular claim
     await ubi.connect(claimer1).claim();
-    const ubiGdBalance = await goodDollar.balanceOf(ubi.address);
     let claimer1Balance2 = await goodDollar.balanceOf(claimer1.address);
-    // there are 3 claimers and the total ubi balance after the minting include the previous balance and
-    // the dailyCyclePool is 948439324947 minting tokens. that divides into 3
+    let dailyCyclePool = await ubi.dailyCyclePool();
+    let activeUsersCount = await ubi.minActiveUsers(); // await ubi.activeUsersCount();
+    // the dailyCyclePool  divided by max(activeUser,minActiveUsers) should give the daily claim (diff between ubipool balances)
     expect(claimer1Balance2.sub(claimer1Balance1).toString()).to.be.equal(
-      BN.from("948439324947").div(3)
+      dailyCyclePool.div(activeUsersCount)
     );
   });
 
@@ -610,7 +611,7 @@ describe("UBIScheme", () => {
       [200]
     );
 
-    genericCall(firstClaimPool.address, encodedCall);
+    await genericCall(firstClaimPool.address, encodedCall);
     const claimAmount = await firstClaimPool.claimAmount();
     expect(claimAmount.toString()).to.be.equal("200");
   });
@@ -627,8 +628,8 @@ describe("UBIScheme", () => {
 
   it("should award first claimer with default value when not using first claim pool", async () => {
     const ubiNew = await deployNewUbi();
-    const defaultDailyUbi = await ubiNew.defaultDailyUbi();
-    await goodDollar.mint(ubiNew.address, defaultDailyUbi);
+    await goodDollar.mint(ubiNew.address, 1000);
+    const expectedDailyUbi = 1; // 1000 divided by minActiveUsers which is also 1000 by default
     await addWhitelisted(claimer8.address, "claimer8");
     const encodedCall = ubiNew.interface.encodeFunctionData(
       "setUseFirstClaimPool",
@@ -638,8 +639,8 @@ describe("UBIScheme", () => {
     const claimerBalanceBefore = await goodDollar.balanceOf(claimer8.address);
     await (await ubiNew.connect(claimer8).claim()).wait();
     const claimerBalanceAfter = await goodDollar.balanceOf(claimer8.address);
-    
+
     expect(claimerBalanceAfter.gt(claimerBalanceBefore));
-    expect(claimerBalanceAfter.sub(claimerBalanceBefore).eq(defaultDailyUbi));
+    expect(claimerBalanceAfter.sub(claimerBalanceBefore).eq(expectedDailyUbi));
   });
 });

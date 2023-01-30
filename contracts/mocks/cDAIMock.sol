@@ -15,7 +15,7 @@ contract cDAIMock is DSMath, ERC20PresetMinterPauserUpgradeable {
 	uint256 exchangeRate = 200000000000000000000000000; // initial exchange rate 0.02 from original cToken
 	uint256 mantissa = 28;
 
-	constructor(ERC20PresetMinterPauserUpgradeable _dai) {
+	constructor(ERC20PresetMinterPauserUpgradeable _dai) initializer {
 		__ERC20PresetMinterPauser_init("Compound DAI", "cDAI");
 		dai = _dai;
 	}

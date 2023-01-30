@@ -1,6 +1,6 @@
 import { default as hre, ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Contract, Signer } from "ethers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
 import {
   GoodMarketMaker,
@@ -66,7 +66,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       reserve,
       reputation,
       setReserveToken
-    } = await createDAO();
+    } = await loadFixture(createDAO);
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
     avatar = av;
@@ -111,8 +111,8 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
       nameService.address
     );
 
-    setDAOAddress("CDAI", cDAI.address);
-    setDAOAddress("DAI", dai.address);
+    await setDAOAddress("CDAI", cDAI.address);
+    await setDAOAddress("DAI", dai.address);
 
     //This set addresses should be another function because when we put this initialization of addresses in initializer then nameservice is not ready yet so no proper addresses
     await goodReserve.setAddresses();

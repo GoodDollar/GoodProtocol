@@ -13,8 +13,20 @@ import "../DAOStackInterfaces.sol";
 import "./MultiBaseGovernanceShareField.sol";
 import "../staking/utils/StakingRewardsFixedAPY.sol";
 
+// import "hardhat/console.sol";
+
 interface RewardsMinter {
 	function sendOrMint(address to, uint256 amount) external returns (uint256);
+}
+
+interface IGovernanceStaking {
+	function withdrawRewards() external returns (uint256);
+}
+
+interface IStakingUpgrade {
+	function upgradeFrom(address staker, uint256 amount)
+		external
+		returns (uint256 newShares);
 }
 
 /**
@@ -58,6 +70,15 @@ contract GoodDollarStaking is
 		uint256 goodRewards,
 		uint256 gdRewards,
 		uint256 actualRewardsSent //maybe rewards could not be minted
+	);
+
+	event StakeUpgraded(
+		address indexed staker,
+		uint256 amount, //amount withdrawn including actualRewardsSent
+		uint256 sharesRedeemed, //shares requested to redeem
+		uint256 goodRewards,
+		uint256 gdRewards,
+		uint256 newShares
 	);
 
 	/**
@@ -157,6 +178,47 @@ contract GoodDollarStaking is
 		return true;
 	}
 
+	function _withdrawStake(
+		address from,
+		address to,
+		uint256 _shares
+	)
+		internal
+		returns (
+			uint256 goodRewards,
+			uint256 gdRewards,
+			uint256 actualRewardsSent,
+			uint256 depositComponent
+		)
+	{
+		if (_shares > 0) {
+			/* G$ rewards update */
+			//we get the relative part user is withdrawing from his original deposit, his principle is composed of deposit+earned interest
+			(depositComponent, gdRewards) = _withdraw(from, _shares);
+			/* Good rewards update */
+			_decreaseProductivity(address(this), from, _shares, 0, block.number);
+			_burn(from, _shares); // burn their staking tokens
+		}
+
+		// console.log(
+		// 	"withdraStake: fromDeposit: %s, fromRewards: %s",
+		// 	depositComponent,
+		// 	gdRewards
+		// );
+
+		goodRewards = _mintGOODRewards(from);
+
+		//rewards are paid via the rewards distribution contract
+		if (gdRewards > 0) {
+			actualRewardsSent = _mintGDRewards(from, to, gdRewards);
+		}
+
+		//stake is withdrawn from original deposit sent to this contract
+		if (depositComponent > 0) {
+			require(token.transfer(to, depositComponent), "withdraw transfer failed");
+		}
+	}
+
 	/**
 	 * @notice Withdraws _amount from the staker principle
 	 * in _withdraw we use getPrinciple and not getProductivity because the user can have more G$ to withdraw than he staked
@@ -169,48 +231,20 @@ contract GoodDollarStaking is
 		nonReentrant
 		returns (uint256 goodRewards, uint256 gdRewards)
 	{
-		uint256 depositComponent;
-
 		//in case amount is 0 this will just withdraw the GOOD rewards, this is required for withdrawRewards
 		uint256 originalBalance = sharesOf(msg.sender);
-		if (_shares > 0) {
-			/* G$ rewards update */
-			//we get the relative part user is withdrawing from his original deposit, his principle is composed of deposit+earned interest
-			(depositComponent, gdRewards) = _withdraw(msg.sender, _shares);
-			/* Good rewards update */
-			_decreaseProductivity(
-				address(this),
-				msg.sender,
-				_shares,
-				0,
-				block.number
-			);
-			_burn(msg.sender, _shares); // burn their staking tokens
-		}
-
-		// console.log(
-		// 	"withdraStake: fromDeposit: %s, fromRewards: %s",
-		// 	depositComponent,
-		// 	gdRewards
-		// );
-
-		goodRewards = _mintGOODRewards(msg.sender);
-
-		//rewards are paid via the rewards distribution contract
+		uint256 depositComponent;
 		uint256 actualRewardsSent;
-		if (gdRewards > 0) {
-			actualRewardsSent = _mintGDRewards(msg.sender, gdRewards);
-		}
+
+		(
+			goodRewards,
+			gdRewards,
+			actualRewardsSent,
+			depositComponent
+		) = _withdrawStake(msg.sender, msg.sender, _shares);
 
 		uint256 actualSharesRedeemed = originalBalance - sharesOf(msg.sender);
 
-		//stake is withdrawn from original deposit sent to this contract
-		if (depositComponent > 0) {
-			require(
-				token.transfer(msg.sender, depositComponent),
-				"withdraw transfer failed"
-			);
-		}
 		emit StakeWithdraw(
 			msg.sender,
 			actualSharesRedeemed,
@@ -224,21 +258,23 @@ contract GoodDollarStaking is
 
 	/**
 	 * @notice helper to mint/send G$ rewards from fixed APY
-	 * @param _to address of recipient
+	 * @param _account address of the staker
+	 * @param _recipient address of G$ recipient
 	 * @param _amount how much to mint/send
 	 * @return actualSent how much rewards were actually minted/sent. If RewardsMinter is passed its limit it could be that not all requested amount was awarded.
 	 */
-	function _mintGDRewards(address _to, uint256 _amount)
-		internal
-		returns (uint256 actualSent)
-	{
+	function _mintGDRewards(
+		address _account,
+		address _recipient,
+		uint256 _amount
+	) internal returns (uint256 actualSent) {
 		//make sure RewardsMinter failure doesnt prevent withdrawl of stake
-		//console.log("_mintGDRewards: sending amount: %s to: %s", _amount, _to);
+		//console.log("_mintGDRewards: sending amount: %s to: %s", _amount, _account);
 		address minter = nameService.getAddress("MINTBURN_WRAPPER");
 		if (minter != address(0)) {
 			try
 				RewardsMinter(nameService.getAddress("MINTBURN_WRAPPER")).sendOrMint(
-					_to,
+					_recipient,
 					_amount
 				)
 			returns (uint256 _res) {
@@ -258,10 +294,10 @@ contract GoodDollarStaking is
 			// 	actualSent,
 			// 	_amount - actualSent
 			// );
-			uint256 shares = _undoReward(_to, _amount - actualSent);
-			_increaseProductivity(address(this), _to, shares, 0, block.number); //increase productivity back for GOOD rewards
-			_mint(_to, shares); //mint shares worth of undone rewards
-			emit RewardsNotSent(_to, _amount, actualSent);
+			uint256 shares = _undoReward(_account, _amount - actualSent);
+			_increaseProductivity(address(this), _account, shares, 0, block.number); //increase productivity back for GOOD rewards
+			_mint(_account, shares); //mint shares worth of undone rewards
+			emit RewardsNotSent(_account, _amount, actualSent);
 		}
 	}
 
@@ -271,7 +307,7 @@ contract GoodDollarStaking is
 	 * @return gdRewards recieved G$ rewards
 	 */
 	function withdrawRewards()
-		public
+		external
 		returns (uint256 goodRewards, uint256 gdRewards)
 	{
 		uint256 gdRewardsShares = amountToShares(earned(msg.sender));
@@ -361,6 +397,11 @@ contract GoodDollarStaking is
 		_onlyAvatar();
 		_setMonthlyRewards(address(this), _monthlyAmount);
 		emit GOODRewardsSet(_monthlyAmount);
+	}
+
+	function setBlockPerYear(uint128 _blocksPerYear) external {
+		_onlyAvatar();
+		numberOfBlocksPerYear = _blocksPerYear;
 	}
 
 	/**
@@ -465,14 +506,19 @@ contract GoodDollarStaking is
 		emit GOODRewardsSet(2 ether * 1e6);
 
 		//this will make sure rewards are set at 0, so no withdraw issue will happen.
-		//on governacnestaking anyone withdrawing from now on will get 0 GOOD, not matter how long he has been staking
-		(bool ok, ) = dao.genericCall(
-			nameService.getAddress("GDAO_STAKING"),
-			abi.encodeWithSignature("setMonthlyRewards(uint256)", 0),
-			avatar,
-			0
-		);
-		require(ok, "calling setMonthlyRewards failed");
+		address curStaking = nameService.getAddress("GDAO_STAKING");
+		bool ok;
+		if (curStaking != address(0)) {
+			//this will trigger updating of accumulated rewards, so everyone's rewards are updated to this point
+			IGovernanceStaking(curStaking).withdrawRewards();
+			(ok, ) = dao.genericCall(
+				curStaking,
+				abi.encodeWithSignature("setMonthlyRewards(uint256)", 0),
+				avatar,
+				0
+			);
+			require(ok, "calling setMonthlyRewards failed");
+		}
 
 		//this will set this contract as the GDAO_STAKING contract and give us minting rights on the reputation token
 		(ok, ) = dao.genericCall(
@@ -506,5 +552,45 @@ contract GoodDollarStaking is
 			_unpause();
 		}
 		setGdApy(_interestRatePerBlock);
+	}
+
+	/**
+	 * @dev allow to withdraw the balance (principle+rewards) to a new staking contract
+	 * @param _newStaking the addres of the new staking contract, needs to be a registered DAO scheme and implement IStakingUpgrade
+	 */
+	function upgradeTo(address _newStaking) external nonReentrant {
+		//in case amount is 0 this will just withdraw the GOOD rewards, this is required for withdrawRewards
+		uint256 _shares = sharesOf(msg.sender);
+		require(_shares > 0, "no balance");
+
+		//check that target contract was approved by the dao to prevent possible fraud
+		require(
+			dao.isSchemeRegistered(_newStaking, avatar),
+			"not DAO approved upgrade"
+		);
+
+		(
+			uint256 goodRewards,
+			uint256 gdRewards,
+			uint256 actualRewardsSent,
+			uint256 depositComponent
+		) = _withdrawStake(msg.sender, _newStaking, _shares);
+
+		require(actualRewardsSent == gdRewards, "unable to mint rewards");
+
+		//target new staking contract need to trust we transfered the tokens
+		uint256 newShares = IStakingUpgrade(_newStaking).upgradeFrom(
+			msg.sender,
+			depositComponent + gdRewards
+		);
+
+		emit StakeUpgraded(
+			msg.sender,
+			depositComponent + actualRewardsSent,
+			_shares,
+			goodRewards,
+			gdRewards,
+			newShares
+		);
 	}
 }

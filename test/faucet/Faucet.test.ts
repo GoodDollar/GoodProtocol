@@ -1,13 +1,14 @@
 import hre, { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
-import { FuseFaucet, IGoodDollar, IIdentity } from "../types";
+import { Faucet, IGoodDollar, IIdentity } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { createDAO } from "./helpers";
+import { createDAO } from "../helpers";
 
 const BN = ethers.BigNumber;
 
-describe("FuseFaucet", () => {
-  let faucet: FuseFaucet, founder: SignerWithAddress;
+describe("Faucet", () => {
+  let faucet: Faucet, founder: SignerWithAddress;
   let user1 = ethers.Wallet.createRandom().connect(ethers.provider);
   let user2 = ethers.Wallet.createRandom().connect(ethers.provider);
   let signers;
@@ -17,15 +18,9 @@ describe("FuseFaucet", () => {
   before(async () => {
     [founder, ...signers] = await ethers.getSigners();
 
-    const FuseFaucetF = await ethers.getContractFactory("FuseFaucet");
+    const FuseFaucetF = await ethers.getContractFactory("Faucet");
 
-    let {
-      daoCreator,
-      controller,
-      avatar: av,
-      gd: gooddollar,
-      identity
-    } = await createDAO();
+    let { daoCreator, controller, avatar: av, gd: gooddollar, identity, nameService } = await loadFixture(createDAO);
 
     Controller = controller;
     avatar = av;
@@ -37,21 +32,20 @@ describe("FuseFaucet", () => {
     //   ["0x0000001F"],
     //   ""
     // );
+    //NameService _ns,
+    // uint64 _gasPrice,
+    // address relayer,
+    // address owner
+    faucet = (await upgrades.deployProxy(
+      FuseFaucetF,
+      [nameService.address, 1e10, signers[0].address, founder.address],
+      {
+        kind: "uups"
+      }
+    )) as Faucet;
 
-    faucet = (await upgrades.deployProxy(FuseFaucetF, [identity], {
-      kind: "transparent"
-    })) as FuseFaucet;
-
-    gd = (await ethers.getContractAt(
-      "IGoodDollar",
-      gooddollar,
-      founder
-    )) as IGoodDollar;
-    id = (await ethers.getContractAt(
-      "IIdentity",
-      identity,
-      founder
-    )) as IIdentity;
+    gd = (await ethers.getContractAt("IGoodDollar", gooddollar, founder)) as IGoodDollar;
+    id = (await ethers.getContractAt("IIdentity", identity, founder)) as IIdentity;
 
     await founder.sendTransaction({
       value: ethers.utils.parseEther("1"),
@@ -64,9 +58,14 @@ describe("FuseFaucet", () => {
     expect(balance).to.equal(ethers.utils.parseEther("1"));
   });
 
+  it("should not unauthorized to top new user", async () => {
+    expect(await faucet.canTop(user1.address)).to.true;
+    await expect(faucet.topWallet(user1.address)).revertedWith("not authorized");
+  });
+
   it("should let new user top once", async () => {
     expect(await faucet.canTop(user1.address)).to.true;
-    const tx = await (await faucet.topWallet(user1.address)).wait();
+    const tx = await (await faucet.connect(signers[0]).topWallet(user1.address)).wait();
     const balance = await ethers.provider.getBalance(user1.address);
     expect(balance).to.equal(await faucet.toppingAmount());
   });
@@ -77,7 +76,7 @@ describe("FuseFaucet", () => {
       value: ethers.utils.parseUnits("400000", "gwei")
     });
     expect(await faucet.canTop(user1.address)).to.false;
-    await expect(faucet.topWallet(user1.address)).to.revertedWith(
+    await expect(faucet.connect(signers[0]).topWallet(user1.address)).to.revertedWith(
       "User not whitelisted or not first time"
     );
   });
@@ -86,9 +85,7 @@ describe("FuseFaucet", () => {
     const balance = await ethers.provider.getBalance(founder.address);
     const faucetBalance = await ethers.provider.getBalance(faucet.address);
     expect(await faucet.canTop(user1.address)).to.false;
-    await expect(faucet.topWallet(user1.address)).to.revertedWith(
-      "User not whitelisted or not first time"
-    );
+    await expect(faucet.topWallet(user1.address)).to.revertedWith("User not whitelisted or not first time");
     const balanceAfter = await ethers.provider.getBalance(founder.address);
     const faucetBalanceAfter = await ethers.provider.getBalance(faucet.address);
     expect(faucetBalanceAfter).to.eq(faucetBalance);
@@ -115,9 +112,7 @@ describe("FuseFaucet", () => {
       value: ethers.utils.parseUnits("400000", "gwei")
     });
     expect(await faucet.canTop(user1.address)).to.false;
-    await expect(faucet.topWallet(user1.address)).to.revertedWith(
-      "max daily toppings"
-    );
+    await expect(faucet.topWallet(user1.address)).to.revertedWith("max daily toppings");
   });
 
   // it("should not top if wallet not half empty", async () => {
@@ -152,9 +147,7 @@ describe("FuseFaucet", () => {
 
   it("should reimburse gas costs", async () => {
     const balance = await ethers.provider.getBalance(founder.address);
-    const tx = await (
-      await faucet.topWallet(user2.address, { gasPrice: 1e9 })
-    ).wait();
+    const tx = await (await faucet.connect(signers[0]).topWallet(user2.address, { gasPrice: 1e9 })).wait();
     // const gasCosts = tx.gasUsed.mul(1e9);
     // const afterRefund = gasCosts.sub(await faucet["gasRefund()"]());
     const balanceAfter = await ethers.provider.getBalance(founder.address);

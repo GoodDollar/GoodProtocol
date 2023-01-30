@@ -23,6 +23,7 @@ import FundManager from "@gooddollar/goodcontracts/stakingModel/build/contracts/
 import SimpleDAIStaking from "@gooddollar/goodcontracts/stakingModel/build/contracts/SimpleDAIStaking.json";
 import BridgeMock from "@gooddollar/goodcontracts/stakingModel/build/contracts/BridgeMock.json";
 import DonationsStaking from "@gooddollar/goodcontracts/upgradables/build/contracts/DonationsStaking.json";
+import AdminWalletABI from "@gooddollar/goodcontracts/build/contracts/AdminWallet.json";
 import OTPABI from "@gooddollar/goodcontracts/build/contracts/OneTimePayments.json";
 
 import releaser from "../releaser";
@@ -106,9 +107,15 @@ export const deploy = async (networkName = name, single = false) => {
 
 const deployAdminWallet = async dao => {
   const signers = await ethers.getSigners();
-  const adminWallet = await upgrades.deployProxy(
-    await ethers.getContractFactory("AdminWallet"),
-    [signers.slice(0, 20).map(_ => _.address), signers[0].address, dao.identity]
+  const adminWallet = await new ethers.ContractFactory(
+    AdminWalletABI.abi,
+    AdminWalletABI.bytecode,
+    signers[0]
+  ).deploy(
+    signers.slice(0, 10).map(_ => _.address),
+    ethers.utils.parseUnits("1000000", "gwei"),
+    4,
+    dao.identity
   );
 
   const id = await ethers.getContractAt("IIdentity", dao.identity);

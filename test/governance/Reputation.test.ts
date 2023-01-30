@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { Reputation } from "../../types";
 import { createDAO } from "../helpers";
@@ -10,7 +11,7 @@ describe("Reputation", () => {
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
 
-    let { nameService: ns, genericCall: gn } = await createDAO();
+    let { nameService: ns, genericCall: gn } = await loadFixture(createDAO);
     nameService = ns;
     genericCall = gn;
   });

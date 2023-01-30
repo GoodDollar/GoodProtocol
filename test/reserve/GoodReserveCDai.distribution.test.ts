@@ -1,4 +1,5 @@
 import { ethers, waffle } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { GoodReserveCDai, DistributionHelper } from "../../types";
 import { createDAO, increaseTime } from "../helpers";
@@ -34,7 +35,7 @@ describe("GoodReserve - Distribution Helper", () => {
       cdaiAddress,
       genericCall: gc,
       nameService: ns
-    } = await createDAO();
+    } = await loadFixture(createDAO);
 
     nameService = ns;
     genericCall = gc;

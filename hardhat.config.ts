@@ -9,11 +9,14 @@ import "@openzeppelin/hardhat-upgrades";
 import "solidity-coverage";
 import "hardhat-gas-reporter";
 import "hardhat-contract-sizer";
+import "hardhat-storage-layout";
 import { task, types } from "hardhat/config";
 import { sha3 } from "web3-utils";
 import { config } from "dotenv";
-import { airdrop } from "./scripts/governance/airdropCalculation";
+import { airdrop } from "./scripts/governance/airdropCalculationSorted";
 import { airdrop as repAirdropRecover } from "./scripts/governance/airdropCalculationRecover";
+import { airdrop as goodCheckpoint } from "./scripts/governance/goodCheckpointSorted";
+
 import {
   airdrop as gdxAirdrop,
   airdropRecover as gdxAirdropRecover
@@ -41,7 +44,7 @@ const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
 // console.log({ mnemonic: sha3(mnemonic) });
 const hhconfig: HardhatUserConfig = {
   solidity: {
-    version: "0.8.8",
+    version: "0.8.16",
     settings: {
       optimizer: {
         enabled: true,
@@ -62,8 +65,8 @@ const hhconfig: HardhatUserConfig = {
         network: "celo",
         chainId: 42220,
         urls: {
-          apiURL: "https://api.celoscan.io",
-          browserURL: "https://celoscan.io"
+          apiURL: "https://api.celoscan.io/api",
+          browserURL: "https://celoscan.io/"
         }
       }
     ]
@@ -184,13 +187,13 @@ const hhconfig: HardhatUserConfig = {
       accounts: [deployerPrivateKey],
       url: MAINNET_URL,
       gas: 3000000,
-      gasPrice: 50000000000,
+      gasPrice: 15000000000,
       chainId: 1
     },
     "production-celo": {
       accounts: [deployerPrivateKey],
       url: "https://forno.celo.org",
-      gas: 3000000,
+      gas: 8000000,
       gasPrice: 500000000,
       chainId: 42220
     },
@@ -299,6 +302,26 @@ task("gdxAirdropRecover", "Calculates new airdrop data for recovery")
         return actions.buildMerkleTree();
       default:
         console.log("unknown action use addition or tree");
+    }
+  });
+
+task(
+  "goodCheckpoint",
+  "Calculates good checkpoint data and merkle tree for GOOD sync"
+)
+  .addParam("action", "calculate/tree/proof")
+  .addOptionalPositionalParam("address", "proof for address")
+  .setAction(async (taskArgs, hre) => {
+    const actions = goodCheckpoint(hre.ethers, ethplorer_key, etherscan_key);
+    switch (taskArgs.action) {
+      case "calculate":
+        return actions.collectAirdropData();
+      case "tree":
+        return actions.buildMerkleTree();
+      case "proof":
+        return actions.getProof(taskArgs.address);
+      default:
+        console.log("unknown action use calculate or tree");
     }
   });
 

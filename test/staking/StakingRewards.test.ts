@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
 import { GoodMarketMaker } from "../../types";
@@ -51,19 +52,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
-    const cdaiFactory = await ethers.getContractFactory("cDAIMock");
-    const cBatFactory = await ethers.getContractFactory("cBATMock");
-    const goodFundManagerFactory = await ethers.getContractFactory(
-      "GoodFundManager"
-    );
-    goodCompoundStakingFactory = await getStakingFactory(
-      "GoodCompoundStakingV2"
-    );
-    goodCompoundStakingTestFactory = await getStakingFactory(
-      "GoodCompoundStakingTest"
-    );
 
-    const daiFactory = await ethers.getContractFactory("DAIMock");
     let {
       controller: ctrl,
       avatar: av,
@@ -79,7 +68,21 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       setReserveToken,
       genericCall: gc,
       COMP
-    } = await createDAO();
+    } = await loadFixture(createDAO);
+
+    const cdaiFactory = await ethers.getContractFactory("cDAIMock");
+    const cBatFactory = await ethers.getContractFactory("cBATMock");
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+    goodCompoundStakingFactory = await getStakingFactory(
+      "GoodCompoundStakingV2"
+    );
+    goodCompoundStakingTestFactory = await getStakingFactory(
+      "GoodCompoundStakingTest"
+    );
+
+    const daiFactory = await ethers.getContractFactory("DAIMock");
 
     genericCall = gc;
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -129,7 +132,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     const tokenUsdOracleFactory = await ethers.getContractFactory(
       "BatUSDMockOracle"
     );
-    setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
+    await setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
 
     daiUsdOracle = await tokenUsdOracleFactory.deploy();
     const compUsdOracleFactory = await ethers.getContractFactory(
@@ -194,8 +197,8 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       JSON.stringify(IUniswapV2Pair.abi),
       staker
     ).connect(founder);
-    setDAOAddress("CDAI", cDAI.address);
-    setDAOAddress("DAI", dai.address);
+    await setDAOAddress("CDAI", cDAI.address);
+    await setDAOAddress("DAI", dai.address);
 
     batUsdOracle = await tokenUsdOracleFactory.deploy();
 

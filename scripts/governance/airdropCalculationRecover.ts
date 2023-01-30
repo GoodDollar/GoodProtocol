@@ -1,9 +1,7 @@
 import { get, range, chunk, flatten, mergeWith, sortBy, uniq } from "lodash";
 import fs from "fs";
-import MerkleTree, {
-  checkProof,
-  checkProofOrdered
-} from "merkle-tree-solidity";
+import { MerkleTree } from "merkletreejs";
+
 import coreContracts from "@gooddollar/goodcontracts/releases/deployment.json";
 import stakingContracts from "@gooddollar/goodcontracts/stakingModel/releases/deployment.json";
 import upgradablesContracts from "@gooddollar/goodcontracts/upgradables/releases/deployment.json";
@@ -242,7 +240,7 @@ export const airdrop = (
 
   const buildMerkleTree = () => {
     const { treeData } = JSON.parse(
-      fs.readFileSync("airdrop/airdrop.first.json").toString()
+      fs.readFileSync("airdrop/airdropPrev.json").toString()
     );
     const fuseMints = JSON.parse(
       fs.readFileSync("airdrop/repRecoverFuse.json").toString()
@@ -266,7 +264,8 @@ export const airdrop = (
       treeData[addr.toLowerCase()] = {
         ...treeData[addr.toLowerCase()],
         rep: repInWei,
-        hash
+        hash,
+        addr
       };
     });
 
@@ -317,42 +316,47 @@ export const airdrop = (
     //         STAKER_REP_ALLOCATION)
     //   })
     // );
-    const elements = Object.values(treeData).map((e: any) =>
-      Buffer.from(e.hash.slice(2), "hex")
-    );
+    const items = Object.values(treeData);
+    const elements = items.map((e: any) => Buffer.from(e.hash.slice(2), "hex"));
     console.log("creating merkletree...", elements.length);
     //NOTICE: we use a non sorted merkletree to save generation time, this requires also a different proof verification algorithm which
     //is not in the default openzeppelin library
-    const merkleTree = new MerkleTree(elements, true);
+    const merkleTree = new MerkleTree(elements, ethers.utils.keccak256, {});
+
     // get the merkle root
     // returns 32 byte buffer
-    const merkleRoot = merkleTree.getRoot().toString("hex");
+    const merkleRoot = merkleTree.getHexRoot();
+    console.log("Merkle Root:", merkleRoot);
+
     // generate merkle proof
     // returns array of 32 byte buffers
-    const proof = merkleTree.getProof(elements[0]).map(_ => _.toString("hex"));
-    const validProof = checkProofOrdered(
-      proof.map(_ => Buffer.from(_, "hex")),
-      merkleTree.getRoot(),
-      elements[0],
-      1
+    const proof = merkleTree.getPositionalHexProof(elements[0]);
+    const validProof = merkleTree.verify(proof, elements[0], merkleRoot);
+
+    const lastProof = merkleTree.getPositionalHexProof(
+      elements[elements.length - 1]
     );
-    const lastProof = merkleTree
-      .getProof(elements[elements.length - 1])
-      .map(_ => _.toString("hex"));
-    const lastValidProof = checkProofOrdered(
-      lastProof.map(_ => Buffer.from(_, "hex")),
-      merkleTree.getRoot(),
+    const lastValidProof = merkleTree.verify(
+      lastProof,
       elements[elements.length - 1],
-      elements.length
+      merkleRoot
+    );
+
+    //check for possible address preimage
+    const danger = (merkleTree.getHexLayers() as any).map(_ =>
+      _.find(_ => _.startsWith("0x000000"))
     );
     console.log({
+      danger,
       merkleRoot,
       proof,
       validProof,
       lastProof,
       lastValidProof,
       proofFor: toTree[0],
-      lastProofFor: toTree[toTree.length - 1]
+      lastProofFor: items[items.length - 1],
+      index: elements.length,
+      leaf: elements[elements.length - 1].toString("hex")
     });
     fs.writeFileSync(
       `airdrop/airdrop.json`,
@@ -371,10 +375,14 @@ export const airdrop = (
     let entries = Object.entries(treeData as Tree);
     let elements = entries.map(e => Buffer.from(e[1].hash.slice(2), "hex"));
 
-    console.log("creating merkletree...", elements.length);
-    const merkleTree = new MerkleTree(elements, true);
+    console.log(
+      "creating merkletree...",
+      elements.length,
+      entries[entries.length - 4]
+    );
+    const merkleTree = new MerkleTree(elements, ethers.utils.keccak256, {});
 
-    const calcMerkleRoot = merkleTree.getRoot().toString("hex");
+    const calcMerkleRoot = merkleTree.getHexRoot();
     console.log("merkleroots:", {
       fromFile: merkleRoot,
       calculated: calcMerkleRoot
@@ -383,15 +391,17 @@ export const airdrop = (
     const addrData = treeData[addr] || treeData[addr.toLowerCase()];
     const proofFor = Buffer.from(addrData.hash.slice(2), "hex");
 
-    const proof = merkleTree.getProof(proofFor);
-    const proofIndex = entries.findIndex(_ => _[1].hash === addrData.hash) + 1;
+    const proof = merkleTree.getPositionalHexProof(proofFor);
+    const proofIndex =
+      elements.findIndex(_ => "0x" + _.toString("hex") === addrData.hash) + 1;
 
+    const isRightNode = proof.map(_ => !!_[0]);
+    const path = proof.map(_ => _[1]);
+    console.log({ proofIndex, proof: { isRightNode, path }, [addr]: addrData });
     console.log(
       "checkProof:",
-      checkProofOrdered(proof, merkleTree.getRoot(), proofFor, proofIndex)
+      merkleTree.verify(proof, proofFor, calcMerkleRoot)
     );
-    const hexProof = proof.map(_ => "0x" + _.toString("hex"));
-    console.log({ proofIndex, proof: hexProof, [addr]: addrData });
   };
 
   return { buildMerkleTree, collectAirdropData, getProof };

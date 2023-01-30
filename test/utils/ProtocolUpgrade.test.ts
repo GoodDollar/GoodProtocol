@@ -1,6 +1,6 @@
 import { default as hre, ethers, upgrades, network } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Contract, Signer } from "ethers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { deploy } from "../../scripts/test/localOldDaoDeploy";

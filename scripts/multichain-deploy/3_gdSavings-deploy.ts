@@ -19,32 +19,38 @@
 
 import { network, ethers, upgrades, run } from "hardhat";
 import { Contract, Signer } from "ethers";
+import { defaultsDeep } from "lodash";
 
-import { deployDeterministic, printDeploy } from "./helpers";
+import {
+  deployDeterministic,
+  printDeploy,
+  executeViaGuardian,
+  executeViaSafe,
+  verifyProductionSigner
+} from "./helpers";
 import releaser from "../../scripts/releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
 import { deployWrapper } from "./multichainWrapper-deploy";
 import {
-  CompoundVotingMachine,
   GoodDollarMintBurnWrapper,
   Controller,
   NameService
 } from "../../types";
 const { name: networkName } = network;
 
-const BLOCKS_PER_YEAR = (12 * 60 * 24 * 365).toString();
-const BLOCK_APY = "1000000007735630000";
-
 export const deploySidechain = async () => {
   const isProduction = networkName.includes("production");
-  let release: { [key: string]: any } = dao[networkName];
+  let [root] = await ethers.getSigners();
 
-  let [root, ...signers] = await ethers.getSigners();
-  const proposer =
-    networkName !== "fuse"
-      ? new ethers.Wallet(process.env.PROPOSER_KEY, ethers.provider)
-      : root; //need proposer with 0.3% of GOOD tokens
+  if (isProduction) verifyProductionSigner(root);
+
+  let release: { [key: string]: any } = dao[networkName];
+  let settings = defaultsDeep(
+    {},
+    ProtocolSettings[networkName],
+    ProtocolSettings["default"]
+  );
 
   console.log("got signers:", {
     networkName,
@@ -73,14 +79,13 @@ export const deploySidechain = async () => {
     GDSavings = (await deployDeterministic(
       {
         name: "GoodDollarStaking",
-        salt: isProduction ? "GoodDollarStaking" : "GoodDollarStakingV3",
         isUpgradeable: false
       },
       [
         release.NameService,
-        ethers.BigNumber.from(BLOCK_APY),
-        ethers.BigNumber.from(BLOCKS_PER_YEAR),
-        networkName === "fuse" ? 7 : 30 //days until upgrade
+        ethers.BigNumber.from(settings.savings.blockAPY),
+        ethers.BigNumber.from(settings.savings.blocksPerYear),
+        settings.savings.daysUntilUpgrade
       ]
     ).then(printDeploy)) as Contract;
 
@@ -95,12 +100,39 @@ export const deploySidechain = async () => {
       release.GoodDollarStaking
     );
   }
+  if (networkName.includes("production"))
+    return console.log(
+      "Skipping proposal/upgrade for production, need to perform manually"
+    );
 
-  //create proposal
-  const vm = (await ethers.getContractAt(
-    "CompoundVotingMachine",
-    release.CompoundVotingMachine
-  )) as CompoundVotingMachine;
+  await executeProposal(
+    GDSavings.address,
+    Wrapper.address,
+    settings.guardiansSafe
+  );
+};
+
+const executeProposal = async (
+  savingsAddress: string,
+  wrapperAddress: string,
+  guardiansSafe: string
+) => {
+  console.log("executing savings + wrapper proposal");
+  const isProduction = networkName.includes("production");
+  const viaGuardians = false;
+  let release: { [key: string]: any } = dao[networkName];
+  savingsAddress = savingsAddress || release.GoodDollarStaking;
+  wrapperAddress = wrapperAddress || release.GoodDollarMintBurnWrapper;
+
+  let [root] = await ethers.getSigners();
+  /// we now use guardians and not direct onchain voting, so no need for proposer
+  //on celo we dont need voting yet to deploy it.
+  //dev env dont use voting for test purposes
+  // const proposer =
+  //   !networkName.includes("celo") &&
+  //   (isProduction || networkName.includes("staging"))
+  //     ? new ethers.Wallet(process.env.PROPOSER_KEY, ethers.provider)
+  //     : root; //need proposer with 0.3% of GOOD tokens
 
   const ctrl = (await ethers.getContractAt(
     "Controller",
@@ -113,7 +145,7 @@ export const deploySidechain = async () => {
   )) as NameService;
 
   const proposalContracts = [
-    Wrapper.address, //MinterWrapper -> add GDSavings
+    wrapperAddress, //MinterWrapper -> add GDSavings
     ctrl.address, //controller -> add MinterWrapper as scheme
     ctrl.address, // controller -> add GDSavings as scheme
     ns.address //nameservice add MinterWrapper
@@ -122,10 +154,10 @@ export const deploySidechain = async () => {
   const proposalEthValues = proposalContracts.map(_ => 0);
 
   const proposalFunctionSignatures = [
-    "addMinter(address,uint256,uint256,uint32,uint256,uint256,uint32,bool)",
-    "registerScheme(address,bytes32,bytes4,address)",
-    "registerScheme(address,bytes32,bytes4,address)",
-    "setAddress(string,address)"
+    "addMinter(address,uint256,uint256,uint32,uint256,uint256,uint32,bool)", //add gooddollarstaking as minter in gooddollarwrapper
+    "registerScheme(address,bytes32,bytes4,address)", //make sure gooddollarwrapper is a registered scheme so it can mint G$ tokens
+    "registerScheme(address,bytes32,bytes4,address)", //make sure gdsavings has generic call so it can perform the upgrade process
+    "setAddress(string,address)" //add gooddollarwrapper in nameservice
   ];
 
   const proposalFunctionInputs = [
@@ -140,12 +172,12 @@ export const deploySidechain = async () => {
         "uint32",
         "bool"
       ],
-      [GDSavings.address, 0, 0, 30, 0, 0, 0, true]
+      [savingsAddress, 0, 0, 30, 0, 0, 0, true]
     ), //function addMinter(
     ethers.utils.defaultAbiCoder.encode(
       ["address", "bytes32", "bytes4", "address"],
       [
-        Wrapper.address, //scheme
+        wrapperAddress, //scheme
         ethers.constants.HashZero, //paramshash
         "0x00000001", //permissions - minimal
         release.Avatar
@@ -154,7 +186,7 @@ export const deploySidechain = async () => {
     ethers.utils.defaultAbiCoder.encode(
       ["address", "bytes32", "bytes4", "address"],
       [
-        GDSavings.address, //scheme
+        savingsAddress, //scheme
         ethers.constants.HashZero, //paramshash
         "0x000000f1", //permissions - genericcall
         release.Avatar
@@ -162,71 +194,69 @@ export const deploySidechain = async () => {
     ),
     ethers.utils.defaultAbiCoder.encode(
       ["string", "address"],
-      ["MINTBURN_WRAPPER", Wrapper.address]
+      ["MINTBURN_WRAPPER", wrapperAddress]
     )
   ];
 
-  if (networkName === "fuse") {
-    return executeViaGuardian(
+  if (!viaGuardians) {
+    console.log("upgrading via owner...");
+
+    await executeViaGuardian(
       proposalContracts,
       proposalEthValues,
       proposalFunctionSignatures,
       proposalFunctionInputs,
       root
     );
-  }
-
-  console.log("creating proposal...");
-  await vm
-    .connect(proposer)
-    ["propose(address[],uint256[],string[],bytes[],string)"](
+  } else {
+    console.log("upgrading via guardians safe...");
+    //create proposal
+    await executeViaSafe(
       proposalContracts,
       proposalEthValues,
       proposalFunctionSignatures,
       proposalFunctionInputs,
-      "https://discourse.gooddollar.org/t/gip-5-allocating-part-of-ubi-inflation-towards-g-savings-account/114/20"
-    )
-    .then(printDeploy);
-};
-
-const executeViaGuardian = async (
-  contracts,
-  ethValues,
-  functionSigs,
-  functionInputs,
-  guardian: Signer
-) => {
-  let release: { [key: string]: any } = dao[networkName];
-  const ctrl = await (
-    await ethers.getContractAt("Controller", release.Controller)
-  ).connect(guardian);
-
-  for (let i = 0; i < contracts.length; i++) {
-    const contract = contracts[i];
-    console.log("executing:", contracts[i], functionSigs[i], functionInputs[i]);
-    const sigHash = ethers.utils
-      .keccak256(ethers.utils.toUtf8Bytes(functionSigs[i]))
-      .slice(0, 10);
-    const encoded = ethers.utils.solidityPack(
-      ["bytes4", "bytes"],
-      [sigHash, functionInputs[i]]
+      guardiansSafe
     );
-    if (contract === ctrl.address) {
-      console.log("executing directly on controller:", sigHash, encoded);
 
-      await guardian
-        .sendTransaction({ to: contract, data: encoded })
-        .then(printDeploy);
-    } else {
-      console.log("executing genericCall:", sigHash, encoded);
-      await ctrl
-        .genericCall(contract, encoded, release.Avatar, ethValues[i])
-        .then(printDeploy);
-    }
+    // const vm = (await ethers.getContractAt(
+    //   "CompoundVotingMachine",
+    //   release.CompoundVotingMachine
+    // )) as CompoundVotingMachine;
+
+    // await vm
+    //   .connect(proposer)
+    //   ["propose(address[],uint256[],string[],bytes[],string)"](
+    //     proposalContracts,
+    //     proposalEthValues,
+    //     proposalFunctionSignatures,
+    //     proposalFunctionInputs,
+    //     "https://discourse.gooddollar.org/t/gip-5-allocating-part-of-ubi-inflation-towards-g-savings-account/114/20"
+    //   )
+    //   .then(printDeploy);
   }
+
+  const Controller = await ethers.getContractAt(
+    "Controller",
+    release.Controller
+  );
+  const wrapperDaoPermissions = await Controller.getSchemePermissions(
+    wrapperAddress,
+    release.Avatar
+  );
+  const savingsDaoPermissions = await Controller.getSchemePermissions(
+    savingsAddress,
+    release.Avatar
+  );
+
+  console.log({
+    wrapperDaoPermissions,
+    savingsDaoPermissions
+  });
 };
 
 export const main = async () => {
-  await deploySidechain().catch(console.log);
+  await deploySidechain();
+  // await executeProposal(undefined, undefined);
 };
 if (process.argv[1].includes("gdSavings")) main();

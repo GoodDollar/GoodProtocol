@@ -1,5 +1,5 @@
-import { default as hre, ethers, upgrades } from "hardhat";
-import { deployMockContract, MockContract } from "ethereum-waffle";
+import { default as hre, ethers, upgrades, waffle } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { GoodMarketMaker, CERC20 } from "../../types";
 import { createDAO, increaseTime } from "../helpers";
@@ -24,26 +24,19 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     fakeReserve;
 
   const deployDAIMock = async () => {
-    let [signer] = await ethers.getSigners();
-    let cdai = await hre.artifacts.readArtifact("cERC20");
-    let dai = await deployMockContract(signer, cdai.abi);
-    dai.mock.decimals.returns(18);
+    let dai = await (await ethers.getContractFactory("DAIMock")).deploy();
 
     return dai.address;
   };
 
   const deploycDAIMock = async () => {
-    let [signer] = await ethers.getSigners();
-    let cdai = await hre.artifacts.readArtifact("cERC20");
-    let dai = await deployMockContract(signer, cdai.abi);
-    dai.mock.decimals.returns(8);
-    return dai.address;
+    let cdai = await (await ethers.getContractFactory("cDAIMock")).deploy(dai);
+
+    return cdai.address;
   };
 
   before(async () => {
     [founder, staker, fakeReserve, ...signers] = await ethers.getSigners();
-    cdai = await deploycDAIMock();
-    dai = await deployDAIMock();
 
     let {
       controller: ctrl,
@@ -56,7 +49,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       setSchemes,
       setReserveToken,
       setDAOAddress
-    } = await createDAO();
+    } = await loadFixture(createDAO);
     avatar = av;
     marketMaker = mm.connect(fakeReserve);
     controller = ctrl;
@@ -64,9 +57,12 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
 
     console.log("deployed dao", { goodDollar, identity, controller, avatar });
 
+    dai = await deployDAIMock();
+    cdai = await deploycDAIMock();
+
     //give founder generic call permission
     await setSchemes([founder.address]);
-    setDAOAddress("RESERVE", fakeReserve.address);
+    await setDAOAddress("RESERVE", fakeReserve.address);
     console.log("starting tests...");
   });
 
@@ -600,12 +596,17 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
 
   it("should not set reserve ratio daily expansion with illigal values", async () => {
     const invalidZeroDenominator = 0;
-    await expect(marketMaker.setReserveRatioDailyExpansion(1, invalidZeroDenominator)).to.be.
-      revertedWith("denominator must be above 0");
+    await expect(
+      marketMaker.setReserveRatioDailyExpansion(1, invalidZeroDenominator)
+    ).to.be.revertedWith("denominator must be above 0");
 
     const denominator = 1;
     const nominatorHigherThanDenom = 2;
-    await expect(marketMaker.setReserveRatioDailyExpansion(nominatorHigherThanDenom, denominator)).to.be.
-      revertedWith("Invalid nom or denom value");
+    await expect(
+      marketMaker.setReserveRatioDailyExpansion(
+        nominatorHigherThanDenom,
+        denominator
+      )
+    ).to.be.revertedWith("Invalid nom or denom value");
   });
 });

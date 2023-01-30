@@ -1,8 +1,9 @@
 import hre, { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
-import { InvitesV1, IGoodDollar, IIdentity } from "../types";
+import { InvitesV1, IGoodDollar, IIdentity } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { createDAO } from "./helpers";
+import { createDAO } from "../helpers";
 
 const BN = ethers.BigNumber;
 
@@ -44,7 +45,7 @@ describe("InvitesV1", () => {
       avatar: av,
       gd: gooddollar,
       identity
-    } = await createDAO();
+    } = await loadFixture(createDAO);
 
     Controller = controller;
     avatar = av;
@@ -163,8 +164,12 @@ describe("InvitesV1", () => {
       .then(_ => _.toNumber());
 
     pending = await invites.getPendingInvitees(inviter1.address);
-    const txFee = await gd.getFees(bounty).then(_ => _["0"].toNumber()); //gd might have a tx fee
-    const txFee2 = await gd.getFees(bounty / 2).then(_ => _["0"].toNumber()); //gd might have a tx fee
+    const txFee = await gd["getFees(uint256)"](bounty).then(_ =>
+      _["0"].toNumber()
+    ); //gd might have a tx fee
+    const txFee2 = await gd["getFees(uint256)"](bounty / 2).then(_ =>
+      _["0"].toNumber()
+    ); //gd might have a tx fee
 
     expect(pending.length, "pending").to.be.equal(0);
     expect(invitee.bountyPaid).to.be.true;

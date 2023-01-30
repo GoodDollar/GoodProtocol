@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
 import {
@@ -57,14 +58,14 @@ describe("Different decimals staking token", () => {
       genericCall: gc,
       setDAOAddress,
       COMP
-    } = await createDAO();
+    } = await loadFixture(createDAO);
 
     comp = COMP;
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
     uniswap = await deployUniswap(comp, dai);
     uniswapRouter = uniswap.router;
-    setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
+    await setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
     avatar = av;
     controller = ctrl;
     genericCall = gc;

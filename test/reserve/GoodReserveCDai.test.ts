@@ -1,12 +1,10 @@
 import { default as hre, ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Contract, Signer } from "ethers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
-import { GoodMarketMaker, CERC20, GoodReserveCDai } from "../../types";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
+import { GoodMarketMaker } from "../../types";
 import { createDAO, increaseTime, advanceBlocks } from "../helpers";
 import ContributionCalculation from "@gooddollar/goodcontracts/stakingModel/build/contracts/ContributionCalculation.json";
-import { parseUnits } from "@ethersproject/units";
 
 const BN = ethers.BigNumber;
 export const NULL_ADDRESS = ethers.constants.AddressZero;
@@ -48,8 +46,8 @@ describe("GoodReserve - staking with cDAI mocks", () => {
       daiAddress,
       cdaiAddress,
       reserve,
-      runAsAvatarOnly: raao,
-    } = await createDAO();
+      runAsAvatarOnly: raao
+    } = await loadFixture(createDAO);
 
     dai = await ethers.getContractAt("DAIMock", daiAddress);
     cDAI = await ethers.getContractAt("cDAIMock", cdaiAddress);
@@ -86,7 +84,6 @@ describe("GoodReserve - staking with cDAI mocks", () => {
 
     marketMaker = mm;
 
-    const reserveFactory = await ethers.getContractFactory("GoodReserveCDai");
     console.log("deployed contribution, deploying reserve...", {
       founder: founder.address
     });
@@ -117,25 +114,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
 
   it("should set fundManager in the reserve by avatar", async () => {
     await setDAOAddress("FUND_MANAGER", founder.address);
-    // const rFactory = await ethers.getContractFactory("GoodReserveCDai");
-    // const ctrl = await ethers.getContractAt(
-    //   "Controller",
-    //   controller,
-    //   schemeMock
-    // );
-    // const encodedCall = rFactory.interface.encodeFunctionData(
-    //   "setFundManager",
-    //   [founder.address]
-    // );
-    // await ctrl.genericCall(goodReserve.address, encodedCall, avatar, 0);
-    // const newFM = await goodReserve.fundManager();
-    // expect(newFM.toString()).to.be.equal(founder.address);
   });
-
-  // it("should returned true for isActive", async () => {
-  //   const isActive = await goodReserve.isActive();
-  //   expect(isActive.toString()).to.be.equal("true");
-  // });
 
   it("should returned fixed 0.0001 market price", async () => {
     const gdPrice = await goodReserve["currentPrice()"]();
@@ -423,9 +402,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     let error = await exchangeHelper
       .buy([cDAI.address], amount, 0, 0, NULL_ADDRESS)
       .catch(e => e);
-    expect(error.message).to.have.string(
-      "ERC20: transfer amount exceeds allowance"
-    );
+    expect(error.message).to.have.string("ERC20: insufficient allowance");
   });
 
   it("should not be able to buy gd without enough cDAI funds", async () => {
@@ -906,9 +883,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
     let amount = 1e8;
     await cDAI.approve(goodReserve.address, 0);
     const tx = await goodReserve.buy(amount, 0, founder.address).catch(e => e);
-    expect(tx.message).to.have.string(
-      "ERC20: transfer amount exceeds allowance"
-    );
+    expect(tx.message).to.have.string("ERC20: insufficient allowance");
   });
   it("should be able to sell gd directly through reserve", async () => {
     const cdaiBalanceBeforeSell = await cDAI.balanceOf(founder.address);
@@ -1139,22 +1114,23 @@ describe("GoodReserve - staking with cDAI mocks", () => {
 
     await runAsAvatarOnly(
       goodReserve,
-      "setReserveRatioDailyExpansion(uint256,uint256)", 
-      1, 
+      "setReserveRatioDailyExpansion(uint256,uint256)",
+      1,
       1e15
     );
 
     let newReserveRatioDailyExpansion =
       await marketMaker.reserveRatioDailyExpansion();
     console.log(newReserveRatioDailyExpansion.toString());
-    
-    expect(newReserveRatioDailyExpansion).to.not.equal(currentReserveRatioDailyExpansion);
+
+    expect(newReserveRatioDailyExpansion).to.not.equal(
+      currentReserveRatioDailyExpansion
+    );
     expect(newReserveRatioDailyExpansion).to.be.equal(BN.from("1000000000000"));
 
     const encodedCall = goodReserve.interface.encodeFunctionData(
-      "setReserveRatioDailyExpansion", 
-      [BN.from(currentReserveRatioDailyExpansion).div(1e12),
-      1e15]
+      "setReserveRatioDailyExpansion",
+      [BN.from(currentReserveRatioDailyExpansion).div(1e12), 1e15]
     );
     const ctrl = await ethers.getContractAt(
       "Controller",

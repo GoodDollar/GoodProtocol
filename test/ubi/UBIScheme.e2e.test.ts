@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import {
   UBIScheme,
@@ -85,7 +86,7 @@ describe("UBIScheme - network e2e tests", () => {
     const goodCompoundStakingFactory = await getStakingFactory(
       "GoodCompoundStakingV2"
     );
-    const deployedDAO = await createDAO();
+    const deployedDAO = await loadFixture(createDAO);
     let {
       controller: ctrl,
       avatar: av,
@@ -160,8 +161,8 @@ describe("UBIScheme - network e2e tests", () => {
     const ubiScheme = await deployUBI(deployedDAO);
     ubi = ubiScheme.ubiScheme;
     firstClaimPool = ubiScheme.firstClaim;
-    setDAOAddress("CDAI", cDAI.address);
-    setDAOAddress("DAI", dai.address);
+    await setDAOAddress("CDAI", cDAI.address);
+    await setDAOAddress("DAI", dai.address);
     await goodReserve.setAddresses();
     const ictrl = await ethers.getContractAt(
       "Controller",
@@ -240,7 +241,7 @@ describe("UBIScheme - network e2e tests", () => {
       .fish(claimer.address)
       .catch(e => e);
     await goodDollar.balanceOf(fisherman.address);
-    expect(error.message).to.have.string("is not an inactive user");
+    expect(error.message).to.have.string("can't fish");
   });
 
   it("should be able to fish inactive user", async () => {
@@ -261,7 +262,7 @@ describe("UBIScheme - network e2e tests", () => {
       .connect(fisherman)
       .fish(claimer.address)
       .catch(e => e);
-    expect(error.message).to.have.string("already fished");
+    expect(error.message).to.have.string("can't fish");
   });
 
   it("should recieves a claim reward when call claim after being fished", async () => {

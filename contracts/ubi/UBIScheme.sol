@@ -8,6 +8,8 @@ import "../utils/NameService.sol";
 import "../Interfaces.sol";
 import "../governance/ClaimersDistribution.sol";
 
+// import "hardhat/console.sol";
+
 /* @title Dynamic amount-per-day UBI scheme allowing claim once a day
  */
 contract UBIScheme is DAOUpgradeableContract {
@@ -71,7 +73,8 @@ contract UBIScheme is DAOUpgradeableContract {
 	//dont use first claim, and give ubi as usual
 	bool public useFirstClaimPool;
 
-	uint256 public defaultDailyUbi;
+	//minimum amount of users to divide the pool for, renamed from defaultDailyUbi
+	uint256 public minActiveUsers;
 
 	// A pool of GD to give to activated users,
 	// since they will enter the UBI pool
@@ -99,13 +102,13 @@ contract UBIScheme is DAOUpgradeableContract {
 	// Total claims per user stat
 	mapping(address => uint256) public totalClaimsPerUser;
 
+	bool public paused;
+
 	// Emits when a withdraw has been succeded
 	event WithdrawFromDao(uint256 prevBalance, uint256 newBalance);
 
 	// Emits when a user is activated
 	event ActivatedUser(address indexed account);
-
-	bool public paused;
 
 	// Emits when a fish has been succeded
 	event InactiveUserFished(
@@ -154,11 +157,11 @@ contract UBIScheme is DAOUpgradeableContract {
 		firstClaimPool = _firstClaimPool;
 		shouldWithdrawFromDAO = false;
 		cycleLength = 90; //90 days
-		iterationGasLimit = 150000;
+		iterationGasLimit = 185000; //token transfer cost under superfluid
 		periodStart = (block.timestamp / (1 days)) * 1 days + 12 hours; //set start time to GMT noon
 		startOfCycle = periodStart;
-		useFirstClaimPool = true;
-		defaultDailyUbi = 5000;
+		useFirstClaimPool = address(_firstClaimPool) != address(0);
+		minActiveUsers = 1000;
 	}
 
 	function setUseFirstClaimPool(bool _use) public {
@@ -268,8 +271,10 @@ contract UBIScheme is DAOUpgradeableContract {
 				currentDayInCycle() >= currentCycleLength || shouldStartEarlyCycle
 			) //start of cycle or first time
 			{
-				if (shouldWithdrawFromDAO) _withdrawFromDao();
-				currentBalance = token.balanceOf(address(this));
+				if (shouldWithdrawFromDAO) {
+					_withdrawFromDao();
+					currentBalance = token.balanceOf(address(this));
+				}
 				dailyCyclePool = currentBalance / cycleLength;
 				currentCycleLength = cycleLength;
 				startOfCycle = (block.timestamp / (1 hours)) * 1 hours; //start at a round hour
@@ -285,15 +290,18 @@ contract UBIScheme is DAOUpgradeableContract {
 			Funds storage funds = dailyUBIHistory[currentDay];
 			funds.hasWithdrawn = shouldWithdrawFromDAO;
 			funds.openAmount = currentBalance;
-			if (activeUsersCount > 0) {
-				dailyUbi = dailyCyclePool / activeUsersCount;
-			} else if (useFirstClaimPool == false) {
-				dailyUbi = defaultDailyUbi;
-			}
+			dailyUbi = dailyCyclePool / max(activeUsersCount, minActiveUsers);
+			//update minActiveUsers as claimers grow
+			minActiveUsers = max(activeUsersCount / 2, minActiveUsers);
+
 			emit UBICalculated(currentDay, dailyUbi, block.number);
 		}
 
 		return dailyUbi;
+	}
+
+	function max(uint256 a, uint256 b) private pure returns (uint256) {
+		return a >= b ? a : b;
 	}
 
 	/**
@@ -356,12 +364,14 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * and emits an event in case of claimed.
 	 * In case that `isFirstTime` is true, it awards the user.
 	 * @param _account the account which recieves the funds
+	 * @param _target the recipient of funds
 	 * @param _amount the amount to transfer
 	 * @param _isClaimed true for claimed
 	 * @param _isFirstTime true for new user or fished user
 	 */
 	function _transferTokens(
 		address _account,
+		address _target,
 		uint256 _amount,
 		bool _isClaimed,
 		bool _isFirstTime
@@ -377,7 +387,7 @@ contract UBIScheme is DAOUpgradeableContract {
 
 		// awards a new user or a fished user
 		if (_isFirstTime) {
-			uint256 awardAmount = firstClaimPool.awardUser(_account);
+			uint256 awardAmount = firstClaimPool.awardUser(_target);
 			claimDay[currentDay].claimAmount += awardAmount;
 			emit UBIClaimed(_account, awardAmount);
 		} else {
@@ -386,7 +396,7 @@ contract UBIScheme is DAOUpgradeableContract {
 				emit UBIClaimed(_account, _amount);
 			}
 			IGoodDollar token = nativeToken();
-			require(token.transfer(_account, _amount), "claim transfer failed");
+			require(token.transfer(_target, _amount), "claim transfer failed");
 		}
 	}
 
@@ -403,11 +413,9 @@ contract UBIScheme is DAOUpgradeableContract {
 		{
 			_dailyCyclePool = currentBalance / cycleLength;
 		}
-		if (activeUsersCount > 0) {
-			_dailyUbi = _dailyCyclePool / activeUsersCount;
-		} else if (useFirstClaimPool == false) {
-			_dailyUbi = defaultDailyUbi;
-		}
+
+		_dailyUbi = _dailyCyclePool / max(activeUsersCount, minActiveUsers);
+
 		return _dailyUbi;
 	}
 
@@ -447,9 +455,10 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * calculats the amount the account can claims, and transfers the amount to the account.
 	 * Emits the address of account and amount claimed.
 	 * @param _account The claimer account
+	 * @param _target recipient of funds
 	 * @return A bool indicating if UBI was claimed
 	 */
-	function _claim(address _account) internal returns (bool) {
+	function _claim(address _account, address _target) internal returns (bool) {
 		// calculats the formula up today ie on day 0 there are no active users, on day 1 any user
 		// (new or active) will trigger the calculation with the active users count of the day before
 		// and so on. the new or inactive users that will become active today, will not take into account
@@ -462,16 +471,16 @@ contract UBIScheme is DAOUpgradeableContract {
 			!fishedUsersAddresses[_account] &&
 			!hasClaimed(_account)
 		) {
-			_transferTokens(_account, newDistribution, true, false);
+			_transferTokens(_account, _target, newDistribution, true, false);
 			return true;
 		} else if (!isNotNewUser(_account) || fishedUsersAddresses[_account]) {
 			// a unregistered or fished user
 			activeUsersCount += 1;
 			fishedUsersAddresses[_account] = false;
 			if (useFirstClaimPool) {
-				_transferTokens(_account, 0, false, true);
+				_transferTokens(_account, _target, 0, false, true);
 			} else {
-				_transferTokens(_account, newDistribution, true, false);
+				_transferTokens(_account, _target, newDistribution, true, false);
 			}
 			emit ActivatedUser(_account);
 			return true;
@@ -486,16 +495,37 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * @return A bool indicating if UBI was claimed
 	 */
 	function claim() public requireStarted returns (bool) {
-		require(
-			IIdentity(nameService.getAddress("IDENTITY")).isWhitelisted(msg.sender),
-			"UBIScheme: not whitelisted"
-		);
-		bool didClaim = _claim(msg.sender);
+		address whitelistedRoot = IIdentityV2(nameService.getAddress("IDENTITY"))
+			.getWhitelistedRoot(msg.sender);
+		require(whitelistedRoot != address(0), "UBIScheme: not whitelisted");
+		bool didClaim = _claim(whitelistedRoot, msg.sender);
 		address claimerDistribution = nameService.getAddress("GDAO_CLAIMERS");
 		if (didClaim && claimerDistribution != address(0)) {
-			ClaimersDistribution(claimerDistribution).updateClaim(msg.sender);
+			ClaimersDistribution(claimerDistribution).updateClaim(whitelistedRoot);
 		}
 		return didClaim;
+	}
+
+	function _canFish(address _account) internal view returns (bool) {
+		return
+			isNotNewUser(_account) &&
+			!isActiveUser(_account) &&
+			!fishedUsersAddresses[_account];
+	}
+
+	function _fish(address _account, bool _withTransfer) internal returns (bool) {
+		fishedUsersAddresses[_account] = true; // marking the account as fished so it won't refish
+
+		// making sure that the calculation will be with the correct number of active users in case
+		// that the fisher is the first to make the calculation today
+		uint256 newDistribution = distributionFormula();
+		if (activeUsersCount > 0) {
+			activeUsersCount -= 1;
+		}
+		if (_withTransfer)
+			_transferTokens(msg.sender, msg.sender, newDistribution, false, false);
+		emit InactiveUserFished(msg.sender, _account, newDistribution);
+		return true;
 	}
 
 	/**
@@ -511,22 +541,9 @@ contract UBIScheme is DAOUpgradeableContract {
 	function fish(address _account) public requireStarted returns (bool) {
 		// checking if the account exists. that's been done because that
 		// will prevent trying to fish non-existence accounts in the system
-		require(
-			isNotNewUser(_account) && !isActiveUser(_account),
-			"is not an inactive user"
-		);
-		require(!fishedUsersAddresses[_account], "already fished");
-		fishedUsersAddresses[_account] = true; // marking the account as fished so it won't refish
+		require(_canFish(_account), "can't fish");
 
-		// making sure that the calculation will be with the correct number of active users in case
-		// that the fisher is the first to make the calculation today
-		uint256 newDistribution = distributionFormula();
-		if (activeUsersCount > 0) {
-			activeUsersCount -= 1;
-		}
-		_transferTokens(msg.sender, newDistribution, false, false);
-		emit InactiveUserFished(msg.sender, _account, newDistribution);
-		return true;
+		return _fish(_account, true);
 	}
 
 	/**
@@ -540,21 +557,23 @@ contract UBIScheme is DAOUpgradeableContract {
 		requireStarted
 		returns (uint256)
 	{
-		for (uint256 i = 0; i < _accounts.length; ++i) {
+		uint256 i;
+		uint256 bounty;
+
+		for (; i < _accounts.length; ++i) {
 			if (gasleft() < iterationGasLimit) {
-				emit TotalFished(i);
-				return i;
+				break;
 			}
-			if (
-				isNotNewUser(_accounts[i]) &&
-				!isActiveUser(_accounts[i]) &&
-				!fishedUsersAddresses[_accounts[i]]
-			) {
-				require(fish(_accounts[i]), "fish has failed");
+			if (_canFish(_accounts[i])) {
+				require(_fish(_accounts[i], false), "fish has failed");
+				bounty += dailyUbi;
 			}
 		}
-		emit TotalFished(_accounts.length);
-		return _accounts.length;
+		if (bounty > 0) {
+			_transferTokens(msg.sender, msg.sender, bounty, false, false);
+		}
+		emit TotalFished(i);
+		return i;
 	}
 
 	/**
@@ -572,18 +591,19 @@ contract UBIScheme is DAOUpgradeableContract {
 		paused = _pause;
 	}
 
-	function upgrade() public {
-		_onlyAvatar();
-		paused = true;
-		activeUsersCount = 50000; //estimated
-		dailyUbi = 0; //required so distributionformula will trigger
-		cycleLength = 30;
-		currentCycleLength = 0; //this will trigger a new cycle calculation in distribution formula
-		startOfCycle = block.timestamp - 91 days; //this will trigger a new calculation in distributionFormula
-		periodStart = 1646136000;
-		distributionFormula();
-		emit CycleLengthSet(cycleLength);
-	}
+	// function upgrade() public {
+	// 	_onlyAvatar();
+	// 	paused = true;
+	// 	activeUsersCount = 50000; //estimated
+	// 	dailyUbi = 0; //required so distributionformula will trigger
+	// 	cycleLength = 30;
+	// 	currentCycleLength = 0; //this will trigger a new cycle calculation in distribution formula
+	// 	startOfCycle = block.timestamp - 91 days; //this will trigger a new calculation in distributionFormula
+	// 	periodStart = 1646136000;
+	// 	maxDailyUBI = 50000;
+	// 	distributionFormula();
+	// 	emit CycleLengthSet(cycleLength);
+	// }
 
 	function setActiveUserCount(uint256 _activeUserCount) public {
 		_onlyAvatar();

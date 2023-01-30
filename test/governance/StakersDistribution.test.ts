@@ -1,6 +1,6 @@
 import { default as hre, ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Contract, Signer } from "ethers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
 import { expect } from "chai";
 import {
   GoodMarketMaker,
@@ -89,7 +89,7 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
       setReserveToken,
       genericCall: gc,
       COMP
-    } = await createDAO();
+    } = await loadFixture(createDAO);
 
     genericCall = gc;
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -885,9 +885,12 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
 
     let [userMintedRewardBeforeStake, userPendingRewardBeforeStake] =
-      await getUserMintedAndPendingRewards(staker.address, simpleStaking1.address);
-    expect(userMintedRewardBeforeStake).to.eq('0');
-    expect(userPendingRewardBeforeStake).to.eq('0');
+      await getUserMintedAndPendingRewards(
+        staker.address,
+        simpleStaking1.address
+      );
+    expect(userMintedRewardBeforeStake).to.eq("0");
+    expect(userPendingRewardBeforeStake).to.eq("0");
 
     const stakingAmount = ethers.utils.parseEther("1000");
     await dai["mint(address,uint256)"](staker.address, stakingAmount);
@@ -896,7 +899,10 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     await advanceBlocks(5); //should accumulate some gdao rewards
 
     let [userMintedRewardAfterStake, userPendingRewardAfterStake] =
-      await getUserMintedAndPendingRewards(staker.address, simpleStaking1.address);
+      await getUserMintedAndPendingRewards(
+        staker.address,
+        simpleStaking1.address
+      );
     expect(userMintedRewardAfterStake.eq(0));
     expect(userPendingRewardAfterStake.gt(0));
 
@@ -905,16 +911,23 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     ]);
 
     let [userMintedRewardAfterClaim, userPendingRewardAfterClaim] =
-      await getUserMintedAndPendingRewards(staker.address, simpleStaking1.address);
+      await getUserMintedAndPendingRewards(
+        staker.address,
+        simpleStaking1.address
+      );
     expect(userMintedRewardAfterClaim.gt(0));
     expect(userPendingRewardAfterClaim.eq(0));
   });
 
-  async function getUserMintedAndPendingRewards(stakerAddress, stakingContractAddress) {
-    const userMintedAndPending = await stakersDistribution.getUserMintedAndPending(
-      [stakingContractAddress],
-      stakerAddress
-    );
+  async function getUserMintedAndPendingRewards(
+    stakerAddress,
+    stakingContractAddress
+  ) {
+    const userMintedAndPending =
+      await stakersDistribution.getUserMintedAndPending(
+        [stakingContractAddress],
+        stakerAddress
+      );
     const userMintedReward = userMintedAndPending[0];
     const userPendingReward = userMintedAndPending[1];
 

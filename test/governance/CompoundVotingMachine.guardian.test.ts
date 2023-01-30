@@ -1,10 +1,8 @@
-import hre, { ethers, upgrades } from "hardhat";
+import hre, { ethers, upgrades, waffle } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
-// import { deployContract, deployMockContract, MockContract } from "ethereum-waffle";
 import { GReputation, CompoundVotingMachine } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { Wallet } from "ethers";
-import { deployMockContract, MockContract } from "ethereum-waffle";
 import { createDAO, increaseTime } from "../helpers";
 
 const BN = ethers.BigNumber;
@@ -45,7 +43,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     acct: SignerWithAddress;
 
   let queuePeriod, avatarGenericCall;
-  let avatar, mock, Controller;
+  let avatar, Controller;
 
   before(async () => {
     [root, acct, ...signers] = await ethers.getSigners();
@@ -60,7 +58,7 @@ describe("CompoundVotingMachine#Guardian", () => {
       genericCall,
       nameService: ns,
       votingMachine
-    } = await createDAO();
+    } = await loadFixture(createDAO);
 
     Controller = controller;
     avatar = av;
@@ -75,7 +73,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     gov = votingMachine;
 
     //this will give root minter permissions
-    setDAOAddress("GDAO_CLAIMERS", root.address);
+    await setDAOAddress("GDAO_CLAIMERS", root.address);
 
     //set voting machiine as scheme with permissions
     await setSchemes([gov.address]);
@@ -84,10 +82,6 @@ describe("CompoundVotingMachine#Guardian", () => {
     await grep.mint(acct.address, ethers.BigNumber.from("500000"));
 
     queuePeriod = await gov.queuePeriod().then(_ => _.toNumber());
-
-    let mockABI = ["function rec() payable"];
-    mock = await deployMockContract(root, mockABI);
-    mock.mock.rec.returns();
   });
 
   it("should set guardian from initializer", async () => {

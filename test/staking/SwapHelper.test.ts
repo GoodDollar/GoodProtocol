@@ -1,4 +1,5 @@
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
 
@@ -38,6 +39,24 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
   before(async () => {
     [founder, staker, ...signers] = await ethers.getSigners();
     schemeMock = signers.pop();
+
+    let {
+      controller: ctrl,
+      avatar: av,
+      gd,
+      identity,
+      nameService: ns,
+      setDAOAddress: sda,
+      setSchemes,
+      marketMaker: mm,
+      daiAddress,
+      cdaiAddress,
+      reserve,
+      setReserveToken,
+      genericCall: gc,
+      COMP
+    } = await loadFixture(createDAO);
+
     const cdaiFactory = await ethers.getContractFactory("cDAIMock");
     const cBatFactory = await ethers.getContractFactory("cDecimalsMock");
     const goodFundManagerFactory = await ethers.getContractFactory(
@@ -54,22 +73,6 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     );
     swapHelperTest = await swapHelperTestFactory.deploy();
     const daiFactory = await ethers.getContractFactory("DAIMock");
-    let {
-      controller: ctrl,
-      avatar: av,
-      gd,
-      identity,
-      nameService: ns,
-      setDAOAddress: sda,
-      setSchemes,
-      marketMaker: mm,
-      daiAddress,
-      cdaiAddress,
-      reserve,
-      setReserveToken,
-      genericCall: gc,
-      COMP
-    } = await createDAO();
 
     genericCall = gc;
     dai = await ethers.getContractAt("DAIMock", daiAddress);
@@ -109,7 +112,7 @@ describe("SwapHelper - Helper library for swap on the Uniswap", () => {
     const tokenUsdOracleFactory = await ethers.getContractFactory(
       "BatUSDMockOracle"
     );
-    setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
+    await setDAOAddress("UNISWAP_ROUTER", uniswapRouter.address);
 
     const compUsdOracleFactory = await ethers.getContractFactory(
       "CompUSDMockOracle"

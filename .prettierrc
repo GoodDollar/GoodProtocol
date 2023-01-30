@@ -12,7 +12,7 @@
       }
     }
   ],
-  "printWidth": 80,
+  "printWidth": 120,
   "singleQuote": false,
   "bracketSpacing": true,
   "explicitTypes": "always",

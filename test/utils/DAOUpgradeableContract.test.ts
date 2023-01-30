@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import { ethers, upgrades } from "hardhat";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { createDAO } from "../helpers";
 
 describe("DAOUpgradeableContract", () => {
@@ -12,7 +13,7 @@ describe("DAOUpgradeableContract", () => {
       avatar: av,
       genericCall: gc,
       nameService: ns
-    } = await createDAO();
+    } = await createDAO(); //await loadFixture(createDAO) doesnt work here when other tests use deployMockContract (FuseStaking)
 
     avatar = av;
     genericCall = gc;
@@ -24,7 +25,7 @@ describe("DAOUpgradeableContract", () => {
     const upgradableMockFactory = await ethers.getContractFactory(
       "UpgradableMock3"
     );
-    
+
     const daoUpgradableProxy = await upgrades.deployProxy(
       upgradableMockFactory,
       [nameService.address],

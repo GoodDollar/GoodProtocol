@@ -4,10 +4,10 @@ pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 import "../Interfaces.sol";
+import "../utils/NameService.sol";
 
 /* @title Admin wallet contract allowing whitelisting and topping up of
  * addresses
@@ -15,7 +15,6 @@ import "../Interfaces.sol";
 contract AdminWallet is
 	Initializable,
 	UUPSUpgradeable,
-	OwnableUpgradeable,
 	AccessControlUpgradeable
 {
 	bytes32 public constant WALLET_ADMIN_ROLE = keccak256("WALLET_ADMIN_ROLE");
@@ -28,9 +27,12 @@ contract AdminWallet is
 	uint256 public toppingTimes;
 	uint256 public gasPrice;
 
-	IIdentity public identity;
+	NameService public nameService;
 
 	mapping(uint256 => mapping(address => uint256)) toppings;
+
+	uint64 public maxDailyNewWallets;
+	uint64 public day;
 
 	event AdminsAdded(address payable[] indexed admins);
 	event AdminsRemoved(address[] indexed admins);
@@ -47,17 +49,29 @@ contract AdminWallet is
 	 */
 	function initialize(
 		address payable[] memory _admins,
+		NameService _ns,
 		address _owner,
-		IIdentity _identity
+		uint256 _gasPrice
 	) public initializer {
 		__AccessControl_init_unchained();
-		__Ownable_init_unchained();
 		_setupRole(DEFAULT_ADMIN_ROLE, _owner);
-		_setDefaults(600000, 9e6, 3, 1e10);
-		identity = _identity;
+		_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+		_setDefaults(600000, 9e6, 3, _gasPrice);
+		nameService = _ns;
 		if (_admins.length > 0) {
 			addAdmins(_admins);
 		}
+		if (msg.sender != _owner) revokeRole(DEFAULT_ADMIN_ROLE, msg.sender);
+	}
+
+	modifier onlyOwner() {
+		require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "not owner");
+		_;
+	}
+
+	function getIdentity() public view returns (IIdentityV2) {
+		return IIdentityV2(nameService.getAddress("IDENTITY"));
 	}
 
 	function setDefaults(
@@ -171,28 +185,45 @@ contract AdminWallet is
 		onlyAdmin
 		reimburseGas
 	{
-		identity.addWhitelistedWithDID(_user, _did);
+		getIdentity().addWhitelistedWithDID(_user, _did);
+	}
+
+	/* @dev Function to add given address to whitelist of identity contract
+	 * can only be done by admins of wallet and if wallet is an IdentityAdmin
+	 */
+	function whitelist(
+		address _user,
+		string memory _did,
+		uint256 orgChain,
+		uint256 dateAuthenticated
+	) public onlyAdmin reimburseGas {
+		getIdentity().addWhitelistedWithDIDAndChain(
+			_user,
+			_did,
+			orgChain,
+			dateAuthenticated
+		);
 	}
 
 	/* @dev Function to remove given address from whitelist of identity contract
 	 * can only be done by admins of wallet and if wallet is an IdentityAdmin
 	 */
 	function removeWhitelist(address _user) public onlyAdmin reimburseGas {
-		identity.removeWhitelisted(_user);
+		getIdentity().removeWhitelisted(_user);
 	}
 
 	/* @dev Function to add given address to blacklist of identity contract
 	 * can only be done by admins of wallet and if wallet is an IdentityAdmin
 	 */
 	function blacklist(address _user) public onlyAdmin reimburseGas {
-		identity.addBlacklisted(_user);
+		getIdentity().addBlacklisted(_user);
 	}
 
 	/* @dev Function to remove given address from blacklist of identity contract
 	 * can only be done by admins of wallet and if wallet is an IdentityAdmin
 	 */
 	function removeBlacklist(address _user) public onlyAdmin reimburseGas {
-		identity.removeBlacklisted(_user);
+		getIdentity().removeBlacklisted(_user);
 	}
 
 	/* @dev Function to top given address with amount of G$ given in constructor

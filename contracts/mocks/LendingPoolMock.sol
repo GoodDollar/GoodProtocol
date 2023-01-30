@@ -9,7 +9,7 @@ pragma solidity >=0.8.0;
 contract LendingPoolMock is ERC20PresetMinterPauserUpgradeable {
 	address public underlyingAsset;
 
-	constructor(address _asset) {
+	constructor(address _asset) initializer {
 		underlyingAsset = _asset;
 		__ERC20PresetMinterPauser_init("aUSDC", "aUSDC");
 	}
