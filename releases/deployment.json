@@ -101,7 +101,7 @@
         "ProxyAdmin": "0x0dd5e1869DA5C9C7D7c49364687534bda7fB7020",
         "GoodDollarMintBurnWrapper": "0x46cF05f93539F4735Cb0D7b2B1cA6A70fa49510a",
         "GoodDollarStaking": "0x4E44E4a72d9e40D1CabeEf1d10b747d6ACEF48B0",
-        "IdentityOld": "0x7ccF1011610138b484fCc921858e7971342d213c",
+        "IdentityOld": "0x7ccF1011610138b484fCc921858e7971342d213c"
     },
     "fuse-mainnet": {
         "NameService": "0x3baeEff20Cb02a5b8eF413C611c015E69221663e",
