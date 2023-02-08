@@ -68,12 +68,23 @@ contract FuseFaucetV2 is Initializable {
 		return IIdentityV2(nameService.getAddress("IDENTITY"));
 	}
 
-	function upgrade(address _relayer, address _owner) public {
+	function upgrade(
+		address _relayer,
+		address _owner,
+		NameService _ns
+	) public {
 		require(version == 0, "already upgraded");
 		version++;
 		owner = _owner;
 		if (maxDailyNewWallets == 0) maxDailyNewWallets = 5000;
 		relayer = _relayer;
+		upgrade2(_ns);
+	}
+
+	function upgrade2(NameService _ns) public {
+		require(version == 1, "already upgraded");
+		version++;
+		nameService = _ns;
 	}
 
 	modifier reimburseGas() {

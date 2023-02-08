@@ -13,9 +13,7 @@ import { TransactionResponse } from "@ethersproject/providers";
 
 const { name } = network;
 
-const printDeploy = async (
-  c: Contract | TransactionResponse
-): Promise<Contract | TransactionResponse> => {
+const printDeploy = async (c: Contract | TransactionResponse): Promise<Contract | TransactionResponse> => {
   if (c instanceof Contract) {
     await c.deployed();
     console.log("deployed to: ", c.address);
@@ -28,11 +26,7 @@ const printDeploy = async (
 };
 
 export const deployHelpers = async () => {
-  let protocolSettings = defaultsDeep(
-    {},
-    ProtocolSettings[network.name],
-    ProtocolSettings["default"]
-  );
+  let protocolSettings = defaultsDeep({}, ProtocolSettings[network.name], ProtocolSettings["default"]);
 
   let release: { [key: string]: any } = dao[network.name];
 
@@ -48,17 +42,12 @@ export const deployHelpers = async () => {
     network,
     root: root.address,
     schemeMock: schemeMock.address,
-    balance: await ethers.provider
-      .getBalance(root.address)
-      .then(_ => _.toString())
+    balance: await ethers.provider.getBalance(root.address).then(_ => _.toString())
   });
 
   const walletAdmins = [];
   for (let i = 0; i < protocolSettings.walletAdminsCount; i++) {
-    const wallet = ethers.Wallet.fromMnemonic(
-      process.env.ADMIN_WALLET_MNEMONIC,
-      `m/44'/60'/0'/0/${i}`
-    );
+    const wallet = ethers.Wallet.fromMnemonic(process.env.ADMIN_WALLET_MNEMONIC, `m/44'/60'/0'/0/${i}`);
     walletAdmins.push(wallet.address);
   }
 
@@ -81,38 +70,23 @@ export const deployHelpers = async () => {
   const decimals = await gd.decimals();
 
   const identity = await ethers.getContractAt("IdentityV2", release.Identity);
-  await identity.grantRole(
-    ethers.utils.keccak256(ethers.utils.toUtf8Bytes("identity_admin")),
-    AdminWallet.address
-  );
+  await identity.grantRole(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("identity_admin")), AdminWallet.address);
 
-  const Faucet = await deployDeterministic(
-    { name: "Faucet", salt: "Faucet", isUpgradeable: true },
-    [
-      release.NameService,
-      protocolSettings.gasPrice,
-      AdminWallet.address,
-      root.address
-    ]
-  );
-
-  const Invites = await deployDeterministic(
-    { name: "InvitesV2", salt: "InvitesV2", isUpgradeable: true },
-    [
-      release.NameService,
-      ethers.BigNumber.from(100).mul(ethers.BigNumber.from("10").pow(decimals)),
-      root.address
-    ]
-  );
-
-  const adminWalletOwner = await AdminWallet.hasRole(
-    ethers.constants.HashZero,
+  const Faucet = await deployDeterministic({ name: "Faucet", salt: "Faucet", isUpgradeable: true }, [
+    release.NameService,
+    protocolSettings.gasPrice,
+    AdminWallet.address,
     root.address
-  );
-  const faucetOwner = await Faucet.hasRole(
-    ethers.constants.HashZero,
+  ]);
+
+  const Invites = await deployDeterministic({ name: "InvitesV2", salt: "InvitesV2", isUpgradeable: true }, [
+    release.NameService,
+    ethers.BigNumber.from(100).mul(ethers.BigNumber.from("10").pow(decimals)),
     root.address
-  );
+  ]);
+
+  const adminWalletOwner = await AdminWallet.hasRole(ethers.constants.HashZero, root.address);
+  const faucetOwner = await Faucet.hasRole(ethers.constants.HashZero, root.address);
 
   console.log("topping adminwallet and faucet with 1 native token");
   await root.sendTransaction({
@@ -126,10 +100,7 @@ export const deployHelpers = async () => {
 
   if (!network.name.includes("production")) {
     console.log("minting G$s to invites on dev envs");
-    await gd.mint(
-      Invites.address,
-      ethers.BigNumber.from(1e6).mul(ethers.BigNumber.from("10").pow(decimals))
-    ); //1million GD
+    await gd.mint(Invites.address, ethers.BigNumber.from(1e6).mul(ethers.BigNumber.from("10").pow(decimals))); //1million GD
   }
 
   console.log({
@@ -145,7 +116,7 @@ export const deployHelpers = async () => {
   await releaser(release, network.name, "deployment", false);
 };
 
-export const main = async (networkName = name) => {
+export const main = async () => {
   await deployHelpers();
 };
-main();
+if (process.argv[1].includes("2_helpers-deploy")) main();

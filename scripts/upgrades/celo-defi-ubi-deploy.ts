@@ -3,10 +3,15 @@
  * - upgrade Identity on Fuse to support whitelisting with chainid
  *
  * Step 2:
+ * - deploy 2_helpers on Celo
+ * - add 1000 celo to adminwallet and faucet
+ * - monitor adminwallet + faucet on defender
+ *
+ * Step 3:
  * - upgrade AdminWallet+Invites+Faucet on Fuse to support whitelisting chainid
  * - upgrade backend server to support whitelisting with chainid
  *
- * Step 3:
+ * Step 4:
  * 0. deploy 3_gdStaking, deploy 4_ubi
  * 1. guardians vote send X% to celo ubi pool
  * 2. guardians vote on celo set new GOOD distribution for gdstaking + claiming ubi
@@ -29,6 +34,7 @@ import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
 import { upgrade as identityUpgrade } from "./identity-upgrade";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { deployHelpers } from "../multichain-deploy/2_helpers-deploy";
 
 const { name: networkName } = network;
 const isProduction = networkName.includes("production");
@@ -40,6 +46,10 @@ const step1 = async () => {
 };
 
 const step2 = async () => {
+  await deployHelpers();
+};
+
+const step3 = async () => {
   let release: { [key: string]: any } = dao[networkName];
   let [root] = await ethers.getSigners();
 
@@ -67,7 +77,7 @@ const step2 = async () => {
   console.log("upgrade backend contracts abi + call whitelist with chainid....");
 };
 
-const step3 = async () => {
+const step4 = async () => {
   //   let [root, ...signers] = await ethers.getSigners();
 
   const isSafeSimulation = process.env.SAFE_SIMULATION === "true";
@@ -159,6 +169,9 @@ const main = async () => {
       break;
     case "3":
       await step3();
+      break;
+    case "4":
+      await step4();
       break;
   }
 };

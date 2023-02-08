@@ -37,6 +37,8 @@ contract AdminWalletFuse is
 	uint64 public maxDailyNewWallets;
 	uint64 public day;
 
+	uint32 public version;
+
 	event AdminsAdded(address payable[] indexed admins);
 	event AdminsRemoved(address[] indexed admins);
 	event WalletTopped(address indexed user, uint256 amount);
@@ -66,6 +68,12 @@ contract AdminWalletFuse is
 		if (_admins.length > 0) {
 			addAdmins(_admins);
 		}
+	}
+
+	function upgrade(NameService _ns) public {
+		require(version == 0, "already upgraded");
+		version++;
+		nameService = _ns;
 	}
 
 	function getIdentity() public view returns (IIdentityV2) {
