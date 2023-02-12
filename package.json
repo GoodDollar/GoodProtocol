@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "2.0.2",
+  "version": "2.0.3-beta.0",
   "description": "GoodDollar Protocol",
   "scripts": {
     "prepack": "npm run minimize",
