@@ -3,6 +3,7 @@
  * Upgrade Plan:
  * - deploy Identity
  * - give adminWallet admin permissions
+ * - give new identy admin permissions in old identity
  * - revoke deployer permissions
  * - replace pointers to old identity contract in:
  *    - GoodDollar token
@@ -10,9 +11,10 @@
  */
 
 import { network, ethers } from "hardhat";
-import { Contract, Signer } from "ethers";
+import { Contract } from "ethers";
 import { defaultsDeep } from "lodash";
 import { getImplementationAddress } from "@openzeppelin/upgrades-core";
+import OldIdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.min.json";
 
 import {
   deployDeterministic,
@@ -44,6 +46,7 @@ export const upgrade = async () => {
     balance: await ethers.provider.getBalance(root.address).then(_ => _.toString())
   });
 
+  let OldIdentity = await ethers.getContractAt(OldIdentityABI.abi, release.OldIdentity || release.Identity);
   // let Identity = await ethers.getContractAt("IdentityV2", release.Identity);
   // Identity = await ethers.getContractAt("IdentityV2", "0xb0cD4828Cc90C5BC28f4920Adf2Fd8F025003D7E");
   console.log("deploying new identity...");
@@ -65,6 +68,12 @@ export const upgrade = async () => {
 
   console.log("calling initDAO...");
   const tx = await (await Identity.initDAO(release.NameService)).wait();
+  await Identity.grantRole(
+    ethers.utils.keccak256(ethers.utils.toUtf8Bytes("identity_admin")),
+    release.AdminWallet
+  ).then(printDeploy);
+  await OldIdentity.addIdentityAdmin(Identity.address).then(printDeploy);
+
   const impl = await getImplementationAddress(ethers.provider, Identity.address);
   await verifyContract(impl, "IdentityV2", networkName);
 

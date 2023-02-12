@@ -238,8 +238,9 @@ contract IdentityV2 is
 		onlyRole(IDENTITY_ADMIN_ROLE)
 		whenNotPaused
 	{
-		if (address(oldIdentity) != address(0))
-			oldIdentity.removeBlacklisted(account);
+		if (
+			address(oldIdentity) != address(0) && oldIdentity.isBlacklisted(account)
+		) oldIdentity.removeBlacklisted(account);
 
 		identities[account].status = 0;
 		emit BlacklistRemoved(account);
@@ -270,7 +271,9 @@ contract IdentityV2 is
 		onlyRole(IDENTITY_ADMIN_ROLE)
 		whenNotPaused
 	{
-		if (address(oldIdentity) != address(0)) {
+		if (
+			address(oldIdentity) != address(0) && oldIdentity.isDAOContract(account)
+		) {
 			oldIdentity.removeContract(account);
 		}
 		_removeWhitelisted(account);
@@ -355,7 +358,9 @@ contract IdentityV2 is
 			emit WhitelistedRemoved(account);
 		}
 
-		if (address(oldIdentity) != address(0)) {
+		if (
+			address(oldIdentity) != address(0) && oldIdentity.isWhitelisted(account)
+		) {
 			oldIdentity.removeWhitelisted(account);
 		}
 	}
