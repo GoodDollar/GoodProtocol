@@ -13,17 +13,18 @@ describe("FuseFaucet", () => {
   let user2 = ethers.Wallet.createRandom().connect(ethers.provider);
   let signers;
 
-  let avatar, gd: IGoodDollar, Controller, id: IIdentity;
+  let avatar, gd: IGoodDollar, Controller, id: IIdentity, ns;
 
   before(async () => {
     [founder, ...signers] = await ethers.getSigners();
 
     const FuseFaucetF = await ethers.getContractFactory("FuseFaucet");
 
-    let { daoCreator, controller, avatar: av, gd: gooddollar, identity } = await loadFixture(createDAO);
+    let { daoCreator, controller, avatar: av, gd: gooddollar, identity, nameService } = await loadFixture(createDAO);
 
     Controller = controller;
     avatar = av;
+    ns = nameService.address;
 
     // await daoCreator.setSchemes(
     //   avatar,
@@ -54,10 +55,10 @@ describe("FuseFaucet", () => {
     const res = await upgrades.upgradeProxy(faucet.address, await ethers.getContractFactory("FuseFaucetV2"), {
       kind: "transparent",
       unsafeAllowRenames: true,
-      call: { fn: "upgrade", args: [signers[1].address, founder.address] }
+      call: { fn: "upgrade", args: [signers[1].address, founder.address, ns] }
     });
     expect(res).not.empty;
-    await expect(res.upgrade(signers[0].address, signers[0].address)).revertedWith("already upgraded");
+    await expect(res.upgrade(signers[0].address, signers[0].address, ns)).revertedWith("already upgraded");
     expect(await res.owner()).equal(founder.address);
     expect(await res.relayer()).equal(signers[1].address);
   });
