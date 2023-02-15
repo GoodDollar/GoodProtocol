@@ -18,7 +18,7 @@ contract FuseFaucetV2 is Initializable {
 	);
 
 	uint256 public perDayRoughLimit;
-	uint256 public toppingAmount;
+	uint256 public gasTopping;
 	uint256 public gasRefund;
 	uint256 public startTime;
 	uint256 public currentDay;
@@ -55,13 +55,19 @@ contract FuseFaucetV2 is Initializable {
 	) public initializer {
 		if (relayer != address(0)) relayer = _relayer;
 		gasPrice = _gasPrice;
-		setToppingAmount(gweiTopping * gasPrice); //0.6M gwei
+		setGasTopping(gweiTopping);
 		maxDailyToppings = 3;
 		startTime = block.timestamp;
 		nameService = _ns;
 		maxPerWeekMultiplier = 2;
 		maxSwapAmount = 1000;
 		maxDailyNewWallets = 5000;
+	}
+
+	modifier upgrader(uint32 _newversion) {
+		require(version == _newversion - 1, "wrong upgrade version");
+		version++;
+		_;
 	}
 
 	function getIdentity() public view returns (IIdentityV2) {
@@ -72,19 +78,21 @@ contract FuseFaucetV2 is Initializable {
 		address _relayer,
 		address _owner,
 		NameService _ns
-	) public {
-		require(version == 0, "already upgraded");
-		version++;
+	) public upgrader(1) {
 		owner = _owner;
 		if (maxDailyNewWallets == 0) maxDailyNewWallets = 5000;
 		relayer = _relayer;
 		upgrade2(_ns);
 	}
 
-	function upgrade2(NameService _ns) public {
-		require(version == 1, "already upgraded");
-		version++;
+	function upgrade2(NameService _ns) public upgrader(2) {
 		nameService = _ns;
+		upgrade3();
+	}
+
+	function upgrade3() public upgrader(3) {
+		gasTopping = gasTopping / gasPrice;
+		perDayRoughLimit = gasTopping * 2;
 	}
 
 	modifier reimburseGas() {
@@ -153,7 +161,7 @@ contract FuseFaucetV2 is Initializable {
 		}
 
 		require(
-			weekTotal < perDayRoughLimit * maxPerWeekMultiplier,
+			weekTotal < perDayRoughLimit * gasPrice * maxPerWeekMultiplier,
 			"User wallet has been topped too many times this week"
 		);
 		_;
@@ -166,7 +174,7 @@ contract FuseFaucetV2 is Initializable {
 	}
 
 	function canTop(address _user) external view returns (bool) {
-		if (toppingAmount < address(_user).balance) return false;
+		if (getToppingAmount() < address(_user).balance) return false;
 
 		address whitelistedRoot = getIdentity().getWhitelistedRoot(_user);
 		_user = whitelistedRoot == address(0) ? _user : whitelistedRoot;
@@ -193,7 +201,7 @@ contract FuseFaucetV2 is Initializable {
 		for (uint256 i = 0; i <= dayOfWeek; i++) {
 			weekTotal += lastWeekToppings[uint256(i)];
 		}
-		can = can && weekTotal < perDayRoughLimit * maxPerWeekMultiplier;
+		can = can && weekTotal < perDayRoughLimit * gasPrice * maxPerWeekMultiplier;
 		return can;
 	}
 
@@ -219,8 +227,8 @@ contract FuseFaucetV2 is Initializable {
 			? _wallet
 			: payable(whitelistedRoot);
 
-		require(toppingAmount > address(_wallet).balance);
-		uint256 toTop = toppingAmount - address(_wallet).balance;
+		require(getToppingAmount() > address(_wallet).balance);
+		uint256 toTop = getToppingAmount() - address(_wallet).balance;
 
 		uint256 dayOfWeek = currentDay % 7;
 
@@ -256,9 +264,13 @@ contract FuseFaucetV2 is Initializable {
 		return true;
 	}
 
-	function setToppingAmount(uint256 _amount) public onlyOwner {
-		toppingAmount = _amount;
-		perDayRoughLimit = 2 * toppingAmount;
+	function getToppingAmount() public view returns (uint256) {
+		return gasTopping * gasPrice;
+	}
+
+	function setGasTopping(uint256 _gasUnits) public onlyOwner {
+		gasTopping = _gasUnits;
+		perDayRoughLimit = 2 * gasTopping;
 	}
 
 	function setGasPrice(uint64 _price) external onlyOwner {

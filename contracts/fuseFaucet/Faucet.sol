@@ -22,7 +22,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	);
 
 	uint256 public perDayRoughLimit;
-	uint256 public toppingAmount;
+	uint256 public gasTopping;
 	uint256 public gasRefund;
 	uint256 public startTime;
 	uint256 public currentDay;
@@ -46,6 +46,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	address public goodDollar_unused; //kept because of upgrades
 	uint64 public maxDailyNewWallets;
 	uint64 public dailyNewWalletsCount;
+	uint32 public version;
 
 	function initialize(
 		NameService _ns,
@@ -57,7 +58,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		_setupRole(DEFAULT_ADMIN_ROLE, owner);
 		if (relayer != address(0)) _setupRole(RELAYER_ROLE, relayer);
 		gasPrice = _gasPrice;
-		setToppingAmount(600000 * gasPrice); //0.6M gwei
+		setGasTopping(600000); //0.6M gwei
 		maxDailyToppings = 3;
 		startTime = block.timestamp;
 		nameService = _ns;
@@ -77,7 +78,10 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	}
 
 	function upgrade() public {
+		require(version == 0, "already upgraded");
 		if (maxDailyNewWallets == 0) maxDailyNewWallets = 5000;
+		version++;
+		setGasTopping(gasTopping / gasPrice);
 	}
 
 	modifier reimburseGas() {
@@ -141,7 +145,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		}
 
 		require(
-			weekTotal < perDayRoughLimit * maxPerWeekMultiplier,
+			weekTotal < perDayRoughLimit * gasPrice * maxPerWeekMultiplier,
 			"User wallet has been topped too many times this week"
 		);
 		_;
@@ -154,7 +158,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	}
 
 	function canTop(address _user) external view returns (bool) {
-		if (toppingAmount < address(_user).balance) return false;
+		if (getToppingAmount() < address(_user).balance) return false;
 
 		address whitelistedRoot = getIdentity().getWhitelistedRoot(_user);
 		_user = whitelistedRoot == address(0) ? _user : whitelistedRoot;
@@ -181,7 +185,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		for (uint256 i = 0; i <= dayOfWeek; i++) {
 			weekTotal += lastWeekToppings[uint256(i)];
 		}
-		can = can && weekTotal < perDayRoughLimit * maxPerWeekMultiplier;
+		can = can && weekTotal < perDayRoughLimit * gasPrice * maxPerWeekMultiplier;
 		return can;
 	}
 
@@ -207,8 +211,8 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 			? _wallet
 			: payable(whitelistedRoot);
 
-		require(toppingAmount > address(_wallet).balance);
-		uint256 toTop = toppingAmount - address(_wallet).balance;
+		require(getToppingAmount() > address(_wallet).balance);
+		uint256 toTop = getToppingAmount() - address(_wallet).balance;
 
 		uint256 dayOfWeek = currentDay % 7;
 
@@ -244,12 +248,16 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		return true;
 	}
 
-	function setToppingAmount(uint256 _amount)
+	function getToppingAmount() public view returns (uint256) {
+		return gasTopping * gasPrice;
+	}
+
+	function setGasTopping(uint256 _gasUnits)
 		public
 		onlyRole(DEFAULT_ADMIN_ROLE)
 	{
-		toppingAmount = _amount;
-		perDayRoughLimit = 2 * toppingAmount;
+		gasTopping = _gasUnits;
+		perDayRoughLimit = 2 * gasTopping;
 	}
 
 	function setGasPrice(uint64 _price) external onlyRole(DEFAULT_ADMIN_ROLE) {

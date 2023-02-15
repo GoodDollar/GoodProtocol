@@ -67,7 +67,7 @@ describe("Faucet", () => {
     expect(await faucet.canTop(user1.address)).to.true;
     const tx = await (await faucet.connect(signers[0]).topWallet(user1.address)).wait();
     const balance = await ethers.provider.getBalance(user1.address);
-    expect(balance).to.equal(await faucet.toppingAmount());
+    expect(balance).to.equal(await faucet.getToppingAmount());
   });
 
   it("should not let new user top more than once", async () => {
@@ -98,7 +98,7 @@ describe("Faucet", () => {
     const tx = await (await faucet.topWallet(user1.address)).wait();
     console.log(tx.gasUsed.toString());
     const balance = await ethers.provider.getBalance(user1.address);
-    expect(balance).to.equal(await faucet.toppingAmount());
+    expect(balance).to.equal(await faucet.getToppingAmount());
   });
 
   it("should not let identified user top over daily limit", async () => {
