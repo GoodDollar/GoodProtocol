@@ -58,7 +58,7 @@ describe("FuseFaucet", () => {
       call: { fn: "upgrade", args: [signers[1].address, founder.address, ns] }
     });
     expect(res).not.empty;
-    await expect(res.upgrade(signers[0].address, signers[0].address, ns)).revertedWith("already upgraded");
+    await expect(res.upgrade(signers[0].address, signers[0].address, ns)).revertedWith("wrong upgrade version");
     expect(await res.owner()).equal(founder.address);
     expect(await res.relayer()).equal(signers[1].address);
   });
