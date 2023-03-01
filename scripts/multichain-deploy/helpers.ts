@@ -207,7 +207,7 @@ export const executeViaSafe = async (
       txServiceUrl = "https://safe-transaction-mainnet.safe.global";
       break;
     case 122:
-      txServiceUrl = "https://gateway.safe.fuse.io";
+      txServiceUrl = "https://transaction-fuse.safe.fuse.io";
       break;
     case 42220:
       txServiceUrl = "https://mainnet-tx-svc.celo-safe-prod.celo-networks-dev.org";
@@ -236,8 +236,8 @@ export const executeViaSafe = async (
     const contract = contracts[i];
 
     const sigHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(functionSigs[i])).slice(0, 10);
+    console.log("creating tx:", contracts[i], functionSigs[i], functionInputs[i]);
     const encoded = ethers.utils.solidityPack(["bytes4", "bytes"], [sigHash, functionInputs[i]]);
-    console.log("creating tx:", contracts[i], functionSigs[i], functionInputs[i], encoded);
     if (contract === ctrl.address) {
       const simulationResult =
         isSimulation === false &&

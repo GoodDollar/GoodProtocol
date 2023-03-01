@@ -58,7 +58,8 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		_setupRole(DEFAULT_ADMIN_ROLE, owner);
 		if (relayer != address(0)) _setupRole(RELAYER_ROLE, relayer);
 		gasPrice = _gasPrice;
-		setGasTopping(600000); //0.6M gwei
+		gasTopping = 1000000; //1m gwei
+		perDayRoughLimit = 2 * gasTopping;
 		maxDailyToppings = 3;
 		startTime = block.timestamp;
 		nameService = _ns;

@@ -5,24 +5,23 @@
 import { network, ethers, upgrades, run } from "hardhat";
 import { Contract } from "ethers";
 import { defaultsDeep } from "lodash";
+import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 import {
   deployDeterministic,
   executeViaGuardian,
   executeViaSafe,
+  verifyContract,
   verifyProductionSigner
 } from "./helpers";
 import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
 import { TransactionResponse } from "@ethersproject/providers";
-import { InvitesV1__factory } from "../../types";
 import { keccak256, toUtf8Bytes } from "ethers/lib/utils";
 
 const { name } = network;
 
-const printDeploy = async (
-  c: Contract | TransactionResponse
-): Promise<Contract | TransactionResponse> => {
+const printDeploy = async (c: Contract | TransactionResponse): Promise<Contract | TransactionResponse> => {
   if (c instanceof Contract) {
     await c.deployed();
     console.log("deployed to: ", c.address);
@@ -35,16 +34,14 @@ const printDeploy = async (
 };
 
 export const deployHelpers = async () => {
-  let protocolSettings = defaultsDeep(
-    {},
-    ProtocolSettings[network.name],
-    ProtocolSettings["default"]
-  );
+  const viaGuardians = false;
+
+  let protocolSettings = defaultsDeep({}, ProtocolSettings[network.name], ProtocolSettings["default"]);
   let release: { [key: string]: any } = dao[network.name];
 
   let [root, ...signers] = await ethers.getSigners();
   const isProduction = network.name.includes("production");
-  const viaGuardians = false;
+
   if (isProduction) verifyProductionSigner(root);
   //generic call permissions
   let schemeMock = root;
@@ -53,9 +50,7 @@ export const deployHelpers = async () => {
     network,
     root: root.address,
     schemeMock: schemeMock.address,
-    balance: await ethers.provider
-      .getBalance(root.address)
-      .then(_ => _.toString())
+    balance: await ethers.provider.getBalance(root.address).then(_ => _.toString())
   });
 
   console.log("deploying ubi pool");
@@ -64,19 +59,14 @@ export const deployHelpers = async () => {
       name: "UBIScheme",
       isUpgradeable: true
     },
-    [
-      release.NameService,
-      ethers.constants.AddressZero,
-      protocolSettings.ubi.maxInactiveDays
-    ]
+    [release.NameService, ethers.constants.AddressZero, protocolSettings.ubi.maxInactiveDays]
   ).then(printDeploy)) as Contract;
 
   console.log("deploying claimers distribution");
 
-  const ClaimersDistribution = (await deployDeterministic(
-    { name: "ClaimersDistribution", isUpgradeable: true },
-    [release.NameService]
-  ).then(printDeploy)) as Contract;
+  const ClaimersDistribution = (await deployDeterministic({ name: "ClaimersDistribution", isUpgradeable: true }, [
+    release.NameService
+  ]).then(printDeploy)) as Contract;
 
   console.log("setting nameservice addresses via guardian");
   const proposalContracts = [
@@ -93,10 +83,7 @@ export const deployHelpers = async () => {
     ethers.utils.defaultAbiCoder.encode(
       ["bytes32[]", "address[]"],
       [
-        [
-          keccak256(toUtf8Bytes("UBISCHEME")),
-          keccak256(toUtf8Bytes("GDAO_CLAIMERS"))
-        ],
+        [keccak256(toUtf8Bytes("UBISCHEME")), keccak256(toUtf8Bytes("GDAO_CLAIMERS"))],
         [UBIScheme.address, ClaimersDistribution.address]
       ]
     )
@@ -106,17 +93,14 @@ export const deployHelpers = async () => {
     console.log("minting G$s to pool on dev envs");
     const gd = await ethers.getContractAt("IGoodDollar", release.GoodDollar);
     const decimals = await gd.decimals();
-    await gd.mint(
-      UBIScheme.address,
-      ethers.BigNumber.from(1e6).mul(ethers.BigNumber.from("10").pow(decimals))
-    ); //1million GD
+    await gd.mint(UBIScheme.address, ethers.BigNumber.from(1e6).mul(ethers.BigNumber.from("10").pow(decimals))); //1million GD
   }
 
-  release = {
-    UBIScheme: UBIScheme.address,
-    ClaimersDistribution: ClaimersDistribution.address
-  };
-  await releaser(release, network.name, "deployment", false);
+  let impl = await getImplementationAddress(ethers.provider, UBIScheme.address);
+  await verifyContract(impl, "UBIScheme", network.name);
+
+  impl = await getImplementationAddress(ethers.provider, ClaimersDistribution.address);
+  await verifyContract(impl, "ClaimersDistribution", network.name);
 
   try {
     if (viaGuardians) {

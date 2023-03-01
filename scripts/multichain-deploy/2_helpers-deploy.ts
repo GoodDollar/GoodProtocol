@@ -5,7 +5,8 @@
 import { network, ethers, upgrades, run } from "hardhat";
 import { Contract } from "ethers";
 import { defaultsDeep } from "lodash";
-import { deployDeterministic, verifyProductionSigner } from "./helpers";
+import { getImplementationAddress } from "@openzeppelin/upgrades-core";
+import { deployDeterministic, verifyProductionSigner, verifyContract } from "./helpers";
 import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
@@ -51,26 +52,24 @@ export const deployHelpers = async () => {
     walletAdmins.push(wallet.address);
   }
 
-  console.log("deploying adminwallet", { walletAdmins });
+  console.log("deploying adminwallet", { walletAdmins, gasprice: protocolSettings.gasPrice });
   const AdminWallet = (await deployDeterministic(
     {
       //   address payable[] memory _admins,
+      // NameService _ns,
       // address _owner,
-      // IIdentityV2 _identity
+      // uint256 _gasPrice
       name: "AdminWallet",
       salt: "AdminWallet",
       isUpgradeable: true
     },
     [walletAdmins, release.NameService, root.address, protocolSettings.gasPrice]
   ).then(printDeploy)) as Contract;
+  // const AdminWallet = await ethers.getContractAt("AdminWallet", release.AdminWallet);
 
-  console.log("giving AdminWallet identity_admin permissions");
   const gd = await ethers.getContractAt("IGoodDollar", release.GoodDollar);
 
   const decimals = await gd.decimals();
-
-  const identity = await ethers.getContractAt("IdentityV2", release.Identity);
-  await identity.grantRole(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("identity_admin")), AdminWallet.address);
 
   const Faucet = await deployDeterministic({ name: "Faucet", salt: "Faucet", isUpgradeable: true }, [
     release.NameService,
@@ -78,6 +77,7 @@ export const deployHelpers = async () => {
     AdminWallet.address,
     root.address
   ]);
+  // const Faucet = await ethers.getContractAt("Faucet", release.Faucet);
 
   const Invites = await deployDeterministic({ name: "InvitesV2", salt: "InvitesV2", isUpgradeable: true }, [
     release.NameService,
@@ -85,18 +85,42 @@ export const deployHelpers = async () => {
     root.address
   ]);
 
+  // const Invites = await ethers.getContractAt("AdminWallet", release.Invites);
+
+  const torelease = {
+    AdminWallet: AdminWallet.address,
+    Faucet: Faucet.address,
+    Invites: Invites.address
+  };
+  await releaser(torelease, network.name, "deployment", false);
+
   const adminWalletOwner = await AdminWallet.hasRole(ethers.constants.HashZero, root.address);
   const faucetOwner = await Faucet.hasRole(ethers.constants.HashZero, root.address);
 
+  console.log("giving AdminWallet identity_admin permissions");
+  const identity = await ethers.getContractAt("IdentityV2", release.Identity);
+  await identity
+    .grantRole(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("identity_admin")), AdminWallet.address)
+    .then(printDeploy);
+
+  const walletIsIdentityAdmin = await identity.hasRole(
+    ethers.utils.keccak256(ethers.utils.toUtf8Bytes("identity_admin")),
+    AdminWallet.address
+  );
+
   console.log("topping adminwallet and faucet with 1 native token");
-  await root.sendTransaction({
-    to: AdminWallet.address,
-    value: ethers.constants.WeiPerEther
-  });
-  await root.sendTransaction({
-    to: Faucet.address,
-    value: ethers.constants.WeiPerEther
-  });
+  await root
+    .sendTransaction({
+      to: AdminWallet.address,
+      value: ethers.constants.WeiPerEther
+    })
+    .then(printDeploy);
+  await root
+    .sendTransaction({
+      to: Faucet.address,
+      value: ethers.constants.WeiPerEther
+    })
+    .then(printDeploy);
 
   if (!network.name.includes("production")) {
     console.log("minting G$s to invites on dev envs");
@@ -104,16 +128,17 @@ export const deployHelpers = async () => {
   }
 
   console.log({
+    walletIsIdentityAdmin,
     adminWalletOwner,
     faucetOwner
   });
 
-  release = {
-    AdminWallet: AdminWallet.address,
-    Faucet: Faucet.address,
-    Invites: Invites.address
-  };
-  await releaser(release, network.name, "deployment", false);
+  let impl = await getImplementationAddress(ethers.provider, AdminWallet.address);
+  await verifyContract(impl, "AdminWallet", network.name);
+  impl = await getImplementationAddress(ethers.provider, Faucet.address);
+  await verifyContract(impl, "Faucet", network.name);
+  impl = await getImplementationAddress(ethers.provider, Invites.address);
+  await verifyContract(impl, "InvitesV2", network.name);
 };
 
 export const main = async () => {

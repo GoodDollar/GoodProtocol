@@ -156,7 +156,7 @@ contract UBIScheme is DAOUpgradeableContract {
 		maxInactiveDays = _maxInactiveDays;
 		firstClaimPool = _firstClaimPool;
 		shouldWithdrawFromDAO = false;
-		cycleLength = 90; //90 days
+		cycleLength = 30; //30 days
 		iterationGasLimit = 185000; //token transfer cost under superfluid
 		periodStart = (block.timestamp / (1 days)) * 1 days + 12 hours; //set start time to GMT noon
 		startOfCycle = periodStart;

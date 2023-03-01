@@ -43,63 +43,71 @@ export const upgrade = async () => {
   console.log("got signers:", {
     networkName,
     root: root.address,
-    balance: await ethers.provider.getBalance(root.address).then(_ => _.toString())
+    balance: await ethers.provider.getBalance(root.address).then(_ => _.toString()),
+    Identity: release.Identity
   });
 
-  let OldIdentity = await ethers.getContractAt(OldIdentityABI.abi, release.OldIdentity || release.Identity);
+  let OldIdentity = await ethers.getContractAt(OldIdentityABI.abi, release.IdentityOld || release.Identity);
   // let Identity = await ethers.getContractAt("IdentityV2", release.Identity);
   // Identity = await ethers.getContractAt("IdentityV2", "0xb0cD4828Cc90C5BC28f4920Adf2Fd8F025003D7E");
-  console.log("deploying new identity...");
+  console.log("deploying new identity...", { old: OldIdentity.address });
   let Identity = (await deployDeterministic(
     {
       name: "IdentityV2",
       salt: "IdentityV2",
       isUpgradeable: true
     },
-    [root.address, release.Identity]
+    [root.address, OldIdentity.address]
   ).then(printDeploy)) as Contract;
 
   let torelease = {
     Identity: Identity.address,
-    IdentityOld: release.Identity
+    IdentityOld: OldIdentity.address
   };
 
   await releaser(torelease, networkName, "deployment", false);
 
   console.log("calling initDAO...");
-  const tx = await (await Identity.initDAO(release.NameService)).wait();
+  const tx = await Identity.initDAO(release.NameService).then(printDeploy);
   await Identity.grantRole(
     ethers.utils.keccak256(ethers.utils.toUtf8Bytes("identity_admin")),
     release.AdminWallet
   ).then(printDeploy);
-  await OldIdentity.addIdentityAdmin(Identity.address).then(printDeploy);
+
+  //done via Avatar in proposal
+  // await OldIdentity.addIdentityAdmin(Identity.address).then(printDeploy);
 
   const impl = await getImplementationAddress(ethers.provider, Identity.address);
   await verifyContract(impl, "IdentityV2", networkName);
 
   const proposalContracts = [
     release.GoodDollar, //controller -> set new identity in G$
-    release.NameService //nameservice modify to new Identity
+    release.NameService, //nameservice modify to new Identity
+    OldIdentity.address // add new Identity as admin in old identity
   ];
 
   const proposalEthValues = proposalContracts.map(_ => 0);
 
   const proposalFunctionSignatures = [
     "setIdentity(address)", //set Identity on GoodDollar token
-    "setAddress(string,address)" //set new identity address in nameservice
+    "setAddress(string,address)", //set new identity address in nameservice
+    "addIdentityAdmin(address)"
   ];
 
   const proposalFunctionInputs = [
     ethers.utils.defaultAbiCoder.encode(["address"], [Identity.address]),
-    ethers.utils.defaultAbiCoder.encode(["string", "address"], ["IDENTITY", Identity.address])
+    ethers.utils.defaultAbiCoder.encode(["string", "address"], ["IDENTITY", Identity.address]),
+    ethers.utils.defaultAbiCoder.encode(["address"], [Identity.address])
   ];
+
   if (isProduction) {
     await executeViaSafe(
       proposalContracts,
       proposalEthValues,
       proposalFunctionSignatures,
-      proposalFunctionSignatures,
-      protocolSettings.guardiansSafe
+      proposalFunctionInputs,
+      protocolSettings.guardiansSafe,
+      "fuse"
     );
   } else {
     await executeViaGuardian(

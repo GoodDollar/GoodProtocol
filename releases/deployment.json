@@ -409,6 +409,7 @@
         "DistributionHelper": "0xAcadA0C9795fdBb6921AE96c4D7Db2F8B8c52Fd0"
     },
     "production": {
+        "ProxyFactory": "0xDa85fceD9Bd193526b7667F2AD1fD4A0F900d3A7",
         "NameService": "0xec6dcE387B1616a0c44fF2E4fA9E90E53Cf14eb0",
         "GReputation": "0x603B8C0F110E037b51A381CBCacAbb8d6c6E4543",
         "CompoundVotingMachine": "0x57Ee6Ceff51CB30Ecb1245934a882c500Fbec1e9",
@@ -425,7 +426,7 @@
         "Invites": "0xCa2F09c3ccFD7aD5cB9276918Bd1868f2b922ea0",
         "AdminWallet": "0x9A34822112BC73BDc941C62dCc311Ca905Aef2a3",
         "AdminWalletOld": "0x9F75dAcB77419b87f568d417eBc84346e134144E",
-        "Identity": "0xFa8d865A962ca8456dF331D78806152d3aC5B84F",
+        "Identity": "0x2F9C28de9e6d44b71B91b8BA337A5D82e308E7BE",
         "GoodDollar": "0x495d133B938596C9984d462F007B676bDc57eCEC",
         "Controller": "0xBcE053b99e22158f8B62f4DBFbEdE1f936b2D4e4",
         "Avatar": "0xf96dADc6D71113F6500e97590760C924dA1eF70e",
@@ -433,7 +434,8 @@
         "ProxyAdmin": "0x57179b2A8eB019157b0C3E761cdB26c82C982a3B",
         "FuseFaucet": "0x01ab5966C1d742Ae0CFF7f14cC0F4D85156e83d9",
         "FuseStaking": "0xA199F0C353E25AdF022378B0c208D600f39a6505",
-        "GuardiansSafe": "0x5878123fe880881f1Ecc92D5fd31e5D3F5Fba2e9"
+        "GuardiansSafe": "0x5878123fe880881f1Ecc92D5fd31e5D3F5Fba2e9",
+        "IdentityOld": "0xFa8d865A962ca8456dF331D78806152d3aC5B84F"
     },
     "pre-production-celo": {
         "ProxyFactory": "0x99C22e78A579e2176311c736C4c9F0b0D5A47806",
@@ -466,7 +468,11 @@
         "GoodDollarMintBurnWrapper": "0x5566b6E4962BA83e05a426Ad89031ec18e9CadD3",
         "GuardiansSafeOld": "0xC9D09BA972B4EB6Bb7347F2229FB6d50434fFCa6",
         "GuardiansSafe": "0xa2521e8F5A990903fdD8Afa6570C52526e7E0D5E",
-        "MultichainRouter": "0xf27Ee99622C3C9b264583dACB2cCE056e194494f"
+        "MultichainRouter": "0xf27Ee99622C3C9b264583dACB2cCE056e194494f",
+        "AdminWallet": "0x7119CD89D4792aF90277d84cDffa3F2Ab22a0022",
+        "Faucet": "0x4F93Fa058b03953C851eFaA2e4FC5C34afDFAb84",
+        "Invites": "0x36829D1Cda92FFF5782d5d48991620664FC857d3",
+        "UBIScheme": "0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1"
     },
     "gnosis": {
         "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"

@@ -7,7 +7,7 @@
  * - add 1000 celo to adminwallet and faucet
  * - monitor adminwallet + faucet on defender
  *
- * Step 3:
+ * Step 3: (once guardians sign Identity upgrade)
  * - upgrade AdminWallet+Invites+Faucet on Fuse to support whitelisting chainid
  * - upgrade backend server to support whitelisting with chainid
  *
