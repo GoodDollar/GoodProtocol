@@ -57,14 +57,20 @@ const step3 = async () => {
 
   const adminimpl = await (await ethers.getContractFactory("AdminWalletFuse")).deploy();
   const curadmin = adminimpl.attach(release.AdminWallet);
-  const upgradetx = await (await curadmin.upgradeTo(adminimpl.address)).wait();
+  console.log("deployed admin impl", adminimpl.address);
+  const encodedAdmin = adminimpl.interface.encodeFunctionData("upgrade", [release.NameService]);
+  const upgradetx = await (await curadmin.upgradeToAndCall(adminimpl.address, encodedAdmin)).wait();
   const impl = adminimpl.address;
   console.log("AdminWallet upgraded", { impl, txhash: upgradetx.transactionHash });
   await verifyContract(impl, "AdminWalletFuse", networkName);
 
   const faucetimpl = await (await ethers.getContractFactory("FuseFaucetV2")).deploy();
   const proxyAdmin = await ethers.getContractAt("ProxyAdmin", release.ProxyAdmin);
-  const encoded = faucetimpl.interface.encodeFunctionData("upgrade", [release.AdminWallet, root.address]);
+  const encoded = faucetimpl.interface.encodeFunctionData("upgrade", [
+    release.AdminWallet,
+    root.address,
+    release.NameService
+  ]);
   const faucettx = await (await proxyAdmin.upgradeAndCall(release.FuseFaucet, faucetimpl.address, encoded)).wait();
   console.log("Faucet upgraded", faucettx.transactionHash);
   await verifyContract(faucetimpl.address, "FuseFaucetV2", networkName);
