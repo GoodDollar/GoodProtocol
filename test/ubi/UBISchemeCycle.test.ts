@@ -13,19 +13,10 @@ const ONE_DAY = 86400;
 describe("UBIScheme cycle", () => {
   let goodDollar, firstClaimPool;
   let reputation;
-  let root,
-    acct,
-    claimer1,
-    claimer2,
-    claimer3,
-    signers,
-    nameService,
-    genericCall,
-    ubiScheme: UBIScheme;
+  let root, acct, claimer1, claimer2, claimer3, signers, nameService, genericCall, ubiScheme: UBIScheme;
 
   before(async () => {
-    [root, acct, claimer1, claimer2, claimer3, ...signers] =
-      await ethers.getSigners();
+    [root, acct, claimer1, claimer2, claimer3, ...signers] = await ethers.getSigners();
 
     const deployedDAO = await loadFixture(createDAO);
     let {
@@ -53,8 +44,8 @@ describe("UBIScheme cycle", () => {
     // await increaseTime(60 * 60 * 24);
   });
 
-  it("should deploy the ubi with default cycle of 90 days", async () => {
-    expect(await ubiScheme.cycleLength()).to.equal(90);
+  it("should deploy the ubi with default cycle of 30 days", async () => {
+    expect(await ubiScheme.cycleLength()).to.equal(30);
   });
 
   it("should not be able to change cycleLength if not avatar", async () => {
@@ -64,9 +55,7 @@ describe("UBIScheme cycle", () => {
 
   it("should be able to change cycleLength if avatar", async () => {
     // initializing the ubi
-    let encodedCall = ubiScheme.interface.encodeFunctionData("setCycleLength", [
-      8
-    ]);
+    let encodedCall = ubiScheme.interface.encodeFunctionData("setCycleLength", [8]);
     await genericCall(ubiScheme.address, encodedCall);
     expect(await ubiScheme.cycleLength()).to.be.equal(8);
   });
@@ -81,10 +70,7 @@ describe("UBIScheme cycle", () => {
 
   it("should set ubischeme", async () => {
     // initializing the ubi
-    let encodedCall = firstClaimPool.interface.encodeFunctionData(
-      "setUBIScheme",
-      [ubiScheme.address]
-    );
+    let encodedCall = firstClaimPool.interface.encodeFunctionData("setUBIScheme", [ubiScheme.address]);
 
     await genericCall(firstClaimPool.address, encodedCall);
     // await firstClaimPool.start();
@@ -98,9 +84,7 @@ describe("UBIScheme cycle", () => {
     let currentCycle = await ubiScheme.currentCycleLength();
     let balance = await goodDollar.balanceOf(ubiScheme.address);
     expect(currentCycle.toNumber()).to.be.gt(0);
-    const cycleEvent = transaction.events.find(
-      e => e.event === "UBICycleCalculated"
-    );
+    const cycleEvent = transaction.events.find(e => e.event === "UBICycleCalculated");
     expect(cycleEvent.args.day.toNumber()).to.be.a("number");
     expect(cycleEvent.args.pool).to.be.equal(balance);
     expect(cycleEvent.args.cycleLength).to.be.equal(cycleLength);
@@ -110,48 +94,33 @@ describe("UBIScheme cycle", () => {
   it("should  have calculated dailyCyclePool and dailyUbi correctly", async () => {
     increaseTime(ONE_DAY);
     let transaction = await ubiScheme.connect(claimer2).claim();
-    expect(
-      await goodDollar.balanceOf(claimer2.address).then(_ => _.toNumber())
-    ).to.be.equal(1000 + (await ubiScheme.dailyUbi().then(_ => _.toNumber()))); //first day 10G$ (1000 wei), second claim 125000 wei daily pool divided by 2 active users = 625000
-    expect(
-      await ubiScheme.dailyCyclePool().then(_ => _.toNumber())
-    ).to.be.equal(125000);
-    expect(
-      await ubiScheme.currentDayInCycle().then(_ => _.toNumber())
-    ).to.be.equal(1); //1 day passed
+    expect(await goodDollar.balanceOf(claimer2.address).then(_ => _.toNumber())).to.be.equal(
+      1000 + (await ubiScheme.dailyUbi().then(_ => _.toNumber()))
+    ); //first day 10G$ (1000 wei), second claim 125000 wei daily pool divided by 2 active users = 625000
+    expect(await ubiScheme.dailyCyclePool().then(_ => _.toNumber())).to.be.equal(125000);
+    expect(await ubiScheme.currentDayInCycle().then(_ => _.toNumber())).to.be.equal(1); //1 day passed
   });
 
   it("should calculate next cycle even if day passed without claims(setDay)", async () => {
     increaseTime(ONE_DAY * 9);
-    expect(
-      await ubiScheme.currentDayInCycle().then(_ => _.toNumber())
-    ).to.be.equal(10); //10 days passed total
+    expect(await ubiScheme.currentDayInCycle().then(_ => _.toNumber())).to.be.equal(10); //10 days passed total
 
     let transaction = await (await ubiScheme.connect(claimer1).claim()).wait(); //claims in new ubi cycle
     let dailyClaimAmount = (await ubiScheme.dailyCyclePool()).div(1000); //initialy we have by default min 1000 active users
 
-    expect(await goodDollar.balanceOf(claimer1.address)).to.be.equal(
-      dailyClaimAmount.add(1000)
-    ); //intial 10 from first claim pool + daily
-    const cycleEvent = transaction.events.find(
-      e => e.event === "UBICycleCalculated"
-    );
+    expect(await goodDollar.balanceOf(claimer1.address)).to.be.equal(dailyClaimAmount.add(1000)); //intial 10 from first claim pool + daily
+    const cycleEvent = transaction.events.find(e => e.event === "UBICycleCalculated");
 
     expect(cycleEvent).to.be.not.empty;
 
-    expect(
-      await ubiScheme.currentDayInCycle().then(_ => _.toNumber())
-    ).to.be.equal(0); //new cycle started
+    expect(await ubiScheme.currentDayInCycle().then(_ => _.toNumber())).to.be.equal(0); //new cycle started
     //intial balance on cycle start 1000000 - 125(one user that claimed) = 999875, divide by cycle length (8) = 124984
     expect(cycleEvent.args.dailyUBIPool).to.be.equal(124984);
   });
 
   it("should calculate cycle early if we can increase current daily pool", async () => {
     //increase ubi pool balance
-    let encoded = goodDollar.interface.encodeFunctionData("mint", [
-      ubiScheme.address,
-      400000
-    ]);
+    let encoded = goodDollar.interface.encodeFunctionData("mint", [ubiScheme.address, 400000]);
     await genericCall(goodDollar.address, encoded);
     let balance = await goodDollar.balanceOf(ubiScheme.address);
 
@@ -164,9 +133,7 @@ describe("UBIScheme cycle", () => {
     const estimated = await ubiScheme.estimateNextDailyUBI();
     await increaseTime(ONE_DAY); //make sure
     let transaction = await (await ubiScheme.connect(claimer1).claim()).wait();
-    const cycleEvent = transaction.events.find(
-      e => e.event === "UBICycleCalculated"
-    );
+    const cycleEvent = transaction.events.find(e => e.event === "UBICycleCalculated");
     const dailyUBI = await ubiScheme.dailyUbi();
     expect(dailyUBI).to.eq(estimated); //the estimated before actual calculation should be correct, ie equal to actual dailyUBI calculated after first claim.
     expect(cycleEvent).to.be.not.empty;
@@ -178,10 +145,7 @@ describe("UBIScheme cycle", () => {
 
   it("should not calculate cycle early if not possible to increase daily ubi pool", async () => {
     //increase ubi pool balance
-    let encoded = goodDollar.interface.encodeFunctionData("mint", [
-      ubiScheme.address,
-      100
-    ]);
+    let encoded = goodDollar.interface.encodeFunctionData("mint", [ubiScheme.address, 100]);
     await genericCall(goodDollar.address, encoded);
     let balance = await goodDollar.balanceOf(ubiScheme.address);
     const curCycleLen = await ubiScheme.cycleLength();
@@ -191,9 +155,7 @@ describe("UBIScheme cycle", () => {
 
     await increaseTime(ONE_DAY); //make sure
     let transaction = await (await ubiScheme.connect(claimer1).claim()).wait();
-    const cycleEvent = transaction.events.find(
-      e => e.event === "UBICycleCalculated"
-    );
+    const cycleEvent = transaction.events.find(e => e.event === "UBICycleCalculated");
     expect(cycleEvent).to.be.undefined;
   });
 });
