@@ -1,7 +1,8 @@
 import { network, ethers, upgrades, run } from "hardhat";
 import { Contract } from "ethers";
+import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 
-import { deployDeterministic, printDeploy } from "./helpers";
+import { deployDeterministic, printDeploy, verifyContract } from "./helpers";
 import releaser from "../../scripts/releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
@@ -20,9 +21,7 @@ export const deployWrapper = async (defaultAdmin = null) => {
     network,
     root: root.address,
     schemeMock: schemeMock.address,
-    balance: await ethers.provider
-      .getBalance(root.address)
-      .then(_ => _.toString())
+    balance: await ethers.provider.getBalance(root.address).then(_ => _.toString())
   });
 
   console.log("MintBurnWrapper deploy params:", [
@@ -44,6 +43,10 @@ export const deployWrapper = async (defaultAdmin = null) => {
     GoodDollarMintBurnWrapper: Wrapper.address
   };
   await releaser(release, network.name, "deployment", false);
+
+  const impl = await getImplementationAddress(ethers.provider, Wrapper.address);
+  await verifyContract(impl, "GoodDollarMintBurnWrapper", network.name);
+
   return Wrapper;
 };
 

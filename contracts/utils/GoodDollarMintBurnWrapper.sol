@@ -199,7 +199,7 @@ contract GoodDollarMintBurnWrapper is
 		setDAO(_nameService);
 		require(_admin != address(0), "zero admin address");
 		token = address(nativeToken());
-		updateFrequency = 90 days;
+		updateFrequency = 7 days;
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
 		_setupRole(DEFAULT_ADMIN_ROLE, _admin);
 	}
@@ -624,23 +624,5 @@ contract GoodDollarMintBurnWrapper is
 			minterOutLimits[minter].burnedToday = 0;
 			minterSupply[minter].lastDayReset = currentDay;
 		}
-	}
-
-	function upgradeSuperGoodDollar() external onlyRole(DEFAULT_ADMIN_ROLE) {
-		address _newns = 0x0F5dB7a64A6a64052693676CA898EC7F7A94FF4e;
-		_revokeRole(DEFAULT_ADMIN_ROLE, avatar); //old avatar
-		setDAO(INameService(_newns)); //changes avatar + nativeToken
-		token = address(nativeToken());
-		_setupRole(DEFAULT_ADMIN_ROLE, avatar); //new avatar
-		updateFrequency = 3 days;
-		_setMinterCaps(
-			0xf27Ee99622C3C9b264583dACB2cCE056e194494f,
-			0,
-			0,
-			0,
-			0,
-			300 * 1e6 * 1e18, //300M
-			5000 //50%
-		);
 	}
 }

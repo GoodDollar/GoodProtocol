@@ -435,7 +435,9 @@
         "FuseFaucet": "0x01ab5966C1d742Ae0CFF7f14cC0F4D85156e83d9",
         "FuseStaking": "0xA199F0C353E25AdF022378B0c208D600f39a6505",
         "GuardiansSafe": "0x5878123fe880881f1Ecc92D5fd31e5D3F5Fba2e9",
-        "IdentityOld": "0xFa8d865A962ca8456dF331D78806152d3aC5B84F"
+        "IdentityOld": "0xFa8d865A962ca8456dF331D78806152d3aC5B84F",
+        "MultichainRouter": "0x735aBE48e8782948a37C7765ECb76b98CdE97B0F",
+        "GoodDollarMintBurnWrapper": "0x031b2B7C7854dd8EE9C4A644D7e54aD17F56e3cB"
     },
     "pre-production-celo": {
         "ProxyFactory": "0x99C22e78A579e2176311c736C4c9F0b0D5A47806",
