@@ -474,7 +474,8 @@
         "AdminWallet": "0x7119CD89D4792aF90277d84cDffa3F2Ab22a0022",
         "Faucet": "0x4F93Fa058b03953C851eFaA2e4FC5C34afDFAb84",
         "Invites": "0x36829D1Cda92FFF5782d5d48991620664FC857d3",
-        "UBIScheme": "0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1"
+        "UBIScheme": "0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1",
+        "OneTimePayments": "0xB27D247f5C2a61D2Cb6b6E67FEE51d839447e97d"
     },
     "gnosis": {
         "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"
@@ -499,7 +500,8 @@
         "UBIScheme": "0x6B86F82293552C3B9FE380FC038A89e0328C7C5f",
         "ClaimersDistribution": "0x6e3c0ad79FA7ccDFa27bE14C2630511415A2F635",
         "CompoundVotingMachine": "0xC2C303131939370ed75c95686F691f290b56Be66",
-        "GuardiansSafe": "0x84C10B45fE51bfB4f86c19A47Fdbc187d4572Fb8"
+        "GuardiansSafe": "0x84C10B45fE51bfB4f86c19A47Fdbc187d4572Fb8",
+        "OneTimePayments": "0xB23e54fd8c2f35F9d38884Fc1611F5e9004f10ea"
     },
     "staging-celo": {
         "network": "staging-celo",
@@ -521,6 +523,7 @@
         "UBIScheme": "0x2881d417dA066600372753E73A3570F0781f18cB",
         "ClaimersDistribution": "0x671123F1c7a5B5445467Ff765a5E2Bc86878B245",
         "CompoundVotingMachine": "0xCd25fB84AB22582F1034bcd80c399a3126f2E775",
-        "GuardiansSafe": "0x84C10B45fE51bfB4f86c19A47Fdbc187d4572Fb8"
+        "GuardiansSafe": "0x84C10B45fE51bfB4f86c19A47Fdbc187d4572Fb8",
+        "OneTimePayments": "0x514820Af2DaE5F537dE16E576471528176318113"
     }
 }
