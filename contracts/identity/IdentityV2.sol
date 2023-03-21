@@ -211,7 +211,16 @@ contract IdentityV2 is
 	 * @return The date the address was added
 	 */
 	function lastAuthenticated(address account) external view returns (uint256) {
-		return identities[account].dateAuthenticated;
+		if (identities[account].dateAuthenticated > 0)
+			return identities[account].dateAuthenticated;
+		if (address(oldIdentity) != address(0)) {
+			try oldIdentity.lastAuthenticated(account) returns (uint256 _lastAuth) {
+				return _lastAuth;
+			} catch {
+				return 0;
+			}
+		}
+		return 0;
 	}
 
 	/**

@@ -304,6 +304,8 @@ interface IIdentity {
 
 	function didHashToAddress(bytes32 hash) external view returns (address);
 
+	function lastAuthenticated(address account) external view returns (uint256);
+
 	event WhitelistedAdded(address user);
 }
 
