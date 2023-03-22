@@ -5,8 +5,12 @@ import { UUPSProxiable } from "./UUPSProxiable.sol";
 
 import { ISuperfluid, ISuperfluidGovernance, ISuperToken, ISuperAgreement, IERC20, IERC777, TokenInfo } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import { ISuperfluidToken } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluidToken.sol";
-
 import { ERC777Helper } from "@superfluid-finance/ethereum-contracts/contracts/libs/ERC777Helper.sol";
+import { IConstantOutflowNFT } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/IConstantOutflowNFT.sol";
+import { IConstantInflowNFT } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/IConstantInflowNFT.sol";
+import { IPoolAdminNFT } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/IPoolAdminNFT.sol";
+import { IPoolMemberNFT } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/IPoolMemberNFT.sol";
+import { SuperfluidNFTDeployerLibrary } from "@superfluid-finance/ethereum-contracts/contracts/libs/SuperfluidNFTDeployerLibrary.sol";
 
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -36,6 +40,14 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	using SafeERC20 for IERC20;
 
 	uint8 private constant _STANDARD_DECIMALS = 18;
+	address public constant SUPERFLUID_NFT_DEPLOYER_LIBRARY_ADDRESS =
+		address(SuperfluidNFTDeployerLibrary);
+
+	// solhint-disable-next-line var-name-mixedcase
+	IConstantOutflowNFT public immutable CONSTANT_OUTFLOW_NFT_LOGIC;
+
+	// solhint-disable-next-line var-name-mixedcase
+	IConstantInflowNFT public immutable CONSTANT_INFLOW_NFT_LOGIC;
 
 	/* WARNING: NEVER RE-ORDER VARIABLES! Including the base contracts.
        Always double-check that new
@@ -60,31 +72,49 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	/// @dev ERC777 operators support data
 	ERC777Helper.Operators internal _operators;
 
+	/// @notice Constant Outflow NFT proxy address
+	IConstantOutflowNFT public constantOutflowNFT;
+
+	/// @notice Constant Inflow NFT proxy address
+	IConstantInflowNFT public constantInflowNFT;
+
+	/// @notice Pool Admin NFT proxy address
+	IPoolAdminNFT public poolAdminNFT;
+
+	/// @notice Pool Member NFT proxy address
+	IPoolMemberNFT public poolMemberNFT;
+
 	// NOTE: for future compatibility, these are reserved solidity slots
-	// The sub-class of SuperToken solidity slot will start after _reserve22
+	// The sub-class of SuperToken solidity slot will start after _reserve26
 
 	// NOTE: Whenever modifying the storage layout here it is important to update the validateStorageLayout
 	// function in its respective mock contract to ensure that it doesn't break anything or lead to unexpected
 	// behaviors/layout when upgrading
 
-	uint256 internal _reserve22;
-	uint256 private _reserve23;
-	uint256 private _reserve24;
-	uint256 private _reserve25;
-	uint256 private _reserve26;
+	uint256 internal _reserve26;
 	uint256 private _reserve27;
 	uint256 private _reserve28;
 	uint256 private _reserve29;
 	uint256 private _reserve30;
 	uint256 internal _reserve31;
 
-	constructor(ISuperfluid host)
-		SuperfluidToken(host)
-	// solhint-disable-next-line no-empty-blocks
+	constructor(
+		ISuperfluid host,
+		IConstantOutflowNFT constantOutflowNFTLogic,
+		IConstantInflowNFT constantInflowNFTLogic
+	)
+		SuperfluidToken(host) // solhint-disable-next-line no-empty-blocks
 	{
+		// set the immutable canonical NFT logic addresses in construction
+		CONSTANT_OUTFLOW_NFT_LOGIC = constantOutflowNFTLogic;
+		CONSTANT_INFLOW_NFT_LOGIC = constantInflowNFTLogic;
 
+		// immediately initialize (castrate) the logic contracts
+		UUPSProxiable(address(CONSTANT_OUTFLOW_NFT_LOGIC)).castrate();
+		UUPSProxiable(address(CONSTANT_INFLOW_NFT_LOGIC)).castrate();
 	}
 
+	/// @dev Initialize the Super Token proxy
 	function initialize(
 		IERC20 underlyingToken,
 		uint8 underlyingDecimals,
@@ -105,6 +135,12 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		// register interfaces
 		ERC777Helper.register(address(this));
 
+		// deploy NFT proxies in SuperToken.initialize
+		// initialize the proxies, pointing to the canonical NFT logic contracts
+		// set in the constructor
+		// link the deployed NFT proxies to the SuperToken
+		_deployAndSetNFTProxyContractsIfUnset();
+
 		// help tools like explorers detect the token contract
 		emit Transfer(address(0), address(0), 0);
 	}
@@ -117,6 +153,10 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	function updateCode(address newAddress) external virtual override {
 		if (msg.sender != address(_host)) revert SUPER_TOKEN_ONLY_HOST();
 		UUPSProxiable._updateCodeAddress(newAddress);
+
+		// this allows us to deploy and set the nft proxy contracts for existing
+		// supertokens that are in the wild only if the nft proxy contracts are unset
+		_deployAndSetNFTProxyContractsIfUnset();
 	}
 
 	/**************************************************************************
