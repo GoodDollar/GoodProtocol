@@ -38,7 +38,7 @@ const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
 // console.log({ mnemonic: sha3(mnemonic) });
 const hhconfig: HardhatUserConfig = {
   solidity: {
-    version: "0.8.16",
+    version: "0.8.19",
     settings: {
       optimizer: {
         enabled: true,

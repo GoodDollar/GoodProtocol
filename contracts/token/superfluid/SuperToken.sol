@@ -226,6 +226,7 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	 * @param userData bytes extra information provided by the token holder (if any)
 	 * @param operatorData bytes extra information provided by the operator (if any)
 	 * @param requireReceptionAck if true, contract recipients are required to implement ERC777TokensRecipient
+	 * @notice this is overridden in supergooddollar to enforce fees
 	 */
 	function _send(
 		address operator,
@@ -363,11 +364,7 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	 * - `account` cannot be the zero address.
 	 * - `spender` cannot be the zero address.
 	 */
-	function _approve(
-		address account,
-		address spender,
-		uint256 amount
-	) internal {
+	function _approve(address account, address spender, uint256 amount) internal {
 		if (account == address(0)) {
 			revert SUPER_TOKEN_APPROVE_FROM_ZERO_ADDRESS();
 		}
@@ -462,40 +459,32 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		return _totalSupply;
 	}
 
-	function balanceOf(address account)
-		public
-		view
-		override
-		returns (uint256 balance)
-	{
+	function balanceOf(
+		address account
+	) public view override returns (uint256 balance) {
 		// solhint-disable-next-line not-rely-on-time
 		(int256 availableBalance, , , ) = super.realtimeBalanceOfNow(account);
 		return availableBalance < 0 ? 0 : uint256(availableBalance);
 	}
 
-	function transfer(address recipient, uint256 amount)
-		public
-		virtual
-		override
-		returns (bool)
-	{
+	function transfer(
+		address recipient,
+		uint256 amount
+	) public virtual override returns (bool) {
 		return _transferFrom(msg.sender, msg.sender, recipient, amount);
 	}
 
-	function allowance(address account, address spender)
-		public
-		view
-		override
-		returns (uint256)
-	{
+	function allowance(
+		address account,
+		address spender
+	) public view override returns (uint256) {
 		return _allowances[account][spender];
 	}
 
-	function approve(address spender, uint256 amount)
-		public
-		override
-		returns (bool)
-	{
+	function approve(
+		address spender,
+		uint256 amount
+	) public override returns (bool) {
 		_approve(msg.sender, spender, amount);
 		return true;
 	}
@@ -508,11 +497,10 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		return _transferFrom(msg.sender, holder, recipient, amount);
 	}
 
-	function increaseAllowance(address spender, uint256 addedValue)
-		public
-		override
-		returns (bool)
-	{
+	function increaseAllowance(
+		address spender,
+		uint256 addedValue
+	) public override returns (bool) {
 		_approve(
 			msg.sender,
 			spender,
@@ -521,11 +509,10 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		return true;
 	}
 
-	function decreaseAllowance(address spender, uint256 subtractedValue)
-		public
-		override
-		returns (bool)
-	{
+	function decreaseAllowance(
+		address spender,
+		uint256 subtractedValue
+	) public override returns (bool) {
 		_approve(
 			msg.sender,
 			spender,
@@ -557,12 +544,10 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		_burn(msg.sender, msg.sender, amount, data, new bytes(0));
 	}
 
-	function isOperatorFor(address operator, address tokenHolder)
-		external
-		view
-		override
-		returns (bool)
-	{
+	function isOperatorFor(
+		address operator,
+		address tokenHolder
+	) external view override returns (bool) {
 		return _operators.isOperatorFor(operator, tokenHolder);
 	}
 
@@ -696,6 +681,12 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		revert();
 	}
 
+	/// @dev ISuperToken.downgradeTo implementation
+	function downgradeTo(address to, uint256 amount) external override {
+		//keep only for interface override not required for G$
+		revert();
+	}
+
 	/**************************************************************************
 	 * Superfluid Batch Operations
 	 *************************************************************************/
@@ -727,20 +718,76 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		_transferFrom(account, spender, recipient, amount);
 	}
 
-	function operationUpgrade(address account, uint256 amount)
-		external
-		override
-		onlyHost
-	{
+	function operationSend(
+		address spender,
+		address recipient,
+		uint256 amount,
+		bytes memory userData
+	) external override onlyHost {
+		_send(msg.sender, spender, recipient, amount, userData, "", true);
+	}
+
+	function operationIncreaseAllowance(
+		address account,
+		address spender,
+		uint256 addedValue
+	) external override onlyHost {
+		_approve(account, spender, _allowances[account][spender] + addedValue);
+	}
+
+	function operationDecreaseAllowance(
+		address account,
+		address spender,
+		uint256 subtractedValue
+	) external override onlyHost {
+		_approve(
+			account,
+			spender,
+			_allowances[account][spender].sub(
+				subtractedValue,
+				"SuperToken: decreased allowance below zero"
+			)
+		);
+	}
+
+	function operationUpgrade(
+		address account,
+		uint256 amount
+	) external override onlyHost {
 		revert();
 	}
 
-	function operationDowngrade(address account, uint256 amount)
-		external
-		override
-		onlyHost
-	{
+	function operationDowngrade(
+		address account,
+		uint256 amount
+	) external override onlyHost {
 		revert();
+	}
+
+	/**************************************************************************
+	 * ERC20x-specific Functions
+	 *************************************************************************/
+
+	function _deployAndSetNFTProxyContractsIfUnset() internal {
+		if (
+			address(constantOutflowNFT) == address(0) &&
+			address(constantInflowNFT) == address(0)
+		) {
+			(
+				address constantOutflowNFTProxyAddress,
+				address constantInflowNFTProxyAddress
+			) = SuperfluidNFTDeployerLibrary.deployNFTProxyContractsAndInitialize(
+					SuperToken(address(this)),
+					address(CONSTANT_OUTFLOW_NFT_LOGIC),
+					address(CONSTANT_INFLOW_NFT_LOGIC)
+				);
+			constantOutflowNFT = IConstantOutflowNFT(constantOutflowNFTProxyAddress);
+			constantInflowNFT = IConstantInflowNFT(constantInflowNFTProxyAddress);
+
+			// emit NFT proxy creation events
+			emit ConstantOutflowNFTCreated(constantOutflowNFT);
+			emit ConstantInflowNFTCreated(constantInflowNFT);
+		}
 	}
 
 	/**************************************************************************
