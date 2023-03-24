@@ -6,6 +6,8 @@ import Safe from "@gnosis.pm/safe-core-sdk";
 import EthersAdapter from "@gnosis.pm/safe-ethers-lib";
 import { MetaTransactionData } from "@gnosis.pm/safe-core-sdk-types";
 import SafeClient from "@gnosis.pm/safe-service-client";
+import ConstantInflowNFT from "@superfluid-finance/ethereum-contracts/artifacts/contracts/superfluid/ConstantInflowNFT.sol/ConstantInflowNFT.json";
+import ConstantOutflowNFT from "@superfluid-finance/ethereum-contracts/artifacts/contracts/superfluid/ConstantOutflowNFT.sol/ConstantOutflowNFT.json";
 import util from "util";
 import dao from "../../releases/deployment.json";
 
@@ -53,7 +55,10 @@ export const countTotalGas = async (tx, name) => {
   } else console.log("no gas data", { res, tx });
 };
 
-export const deploySuperGoodDollar = async (superfluidHost, tokenArgs) => {
+export const deploySuperGoodDollar = async (
+  { superfluidHost, superfluidInflowNFTLogic, superfluidOutflowNFTLogic },
+  tokenArgs
+) => {
   const SuperGoodDollar = (await deployDeterministic(
     {
       name: "SuperGoodDollar",
@@ -73,14 +78,59 @@ export const deploySuperGoodDollar = async (superfluidHost, tokenArgs) => {
 
   await GoodDollarProxy.initializeProxy(SuperGoodDollar.address);
 
+  const OutFlowNFT = (await deployDeterministic(
+    {
+      name: "SuperGoodDollar OutflowNFT",
+      factory: uupsFactory
+    },
+    []
+  ).then(printDeploy)) as Contract;
+
+  const InFlowNFT = (await deployDeterministic(
+    {
+      name: "SuperGoodDollar InflowNFT",
+      factory: uupsFactory
+    },
+    []
+  ).then(printDeploy)) as Contract;
+
+  await OutFlowNFT.initializeProxy(superfluidOutflowNFTLogic);
+  await InFlowNFT.initializeProxy(superfluidInflowNFTLogic);
+
   await SuperGoodDollar.attach(GoodDollarProxy.address)[
-    "initialize(string,string,uint256,address,address,address,address)"
-  ](...tokenArgs);
+    "initialize(string,string,uint256,address,address,address,address,address,address)"
+  ](...tokenArgs, OutFlowNFT.address, InFlowNFT.address);
 
   const GoodDollar = await ethers.getContractAt(
     "ISuperGoodDollar",
     GoodDollarProxy.address
   );
+
+  const constantInflowNFT = await ethers.getContractAtFromArtifact(
+    ConstantInflowNFT,
+    InFlowNFT.address
+  );
+
+  const constantOutflowNFT = await ethers.getContractAtFromArtifact(
+    ConstantOutflowNFT,
+    OutFlowNFT.address
+  );
+
+  await constantOutflowNFT
+    .attach(OutFlowNFT.address)
+    .initialize(
+      GoodDollarProxy.address,
+      (await GoodDollar.symbol()) + " Outflow NFT",
+      (await GoodDollar.symbol()) + " COF"
+    );
+  await constantInflowNFT
+    .attach(InFlowNFT.address)
+    .initialize(
+      GoodDollarProxy.address,
+      (await GoodDollar.symbol()) + " Inflow NFT",
+      (await GoodDollar.symbol()) + " CIF"
+    );
+
   return GoodDollar;
 };
 

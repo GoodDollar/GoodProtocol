@@ -277,6 +277,8 @@
     },
     "gasPrice": 5e9,
     "guardiansSafe": "0xC9D09BA972B4EB6Bb7347F2229FB6d50434fFCa6",
-    "superfluidHost": "0xA4Ff07cF81C02CFD356184879D953970cA957585"
+    "superfluidHost": "0xA4Ff07cF81C02CFD356184879D953970cA957585",
+    "superfluidInflowNFTLogic": "",
+    "superfluidOutflowNNFTLogic": ""
   }
 }

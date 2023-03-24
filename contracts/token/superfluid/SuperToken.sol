@@ -3,14 +3,13 @@ pragma solidity >=0.8;
 
 import { UUPSProxiable } from "./UUPSProxiable.sol";
 
-import { ISuperfluid, ISuperfluidGovernance, ISuperToken, ISuperAgreement, IERC20, IERC777, TokenInfo } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
+import { ISuperfluid, ISuperfluidGovernance, ISuperToken as ISuperTokenOriginal, ISuperAgreement, IERC20, IERC777, TokenInfo } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import { ISuperfluidToken } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluidToken.sol";
 import { ERC777Helper } from "@superfluid-finance/ethereum-contracts/contracts/libs/ERC777Helper.sol";
 import { IConstantOutflowNFT } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/IConstantOutflowNFT.sol";
 import { IConstantInflowNFT } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/IConstantInflowNFT.sol";
 import { IPoolAdminNFT } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/IPoolAdminNFT.sol";
 import { IPoolMemberNFT } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/IPoolMemberNFT.sol";
-import { SuperfluidNFTDeployerLibrary } from "@superfluid-finance/ethereum-contracts/contracts/libs/SuperfluidNFTDeployerLibrary.sol";
 
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -20,6 +19,7 @@ import { IERC777Sender } from "@openzeppelin/contracts/token/ERC777/IERC777Sende
 import { AddressUpgradeable as Address } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
 import { SuperfluidToken } from "./SuperfluidToken.sol";
+import { ISuperToken } from "./ISuperToken.sol";
 
 /**
  * @title Superfluid's super token implementation
@@ -40,14 +40,6 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	using SafeERC20 for IERC20;
 
 	uint8 private constant _STANDARD_DECIMALS = 18;
-	address public constant SUPERFLUID_NFT_DEPLOYER_LIBRARY_ADDRESS =
-		address(SuperfluidNFTDeployerLibrary);
-
-	// solhint-disable-next-line var-name-mixedcase
-	IConstantOutflowNFT public immutable CONSTANT_OUTFLOW_NFT_LOGIC;
-
-	// solhint-disable-next-line var-name-mixedcase
-	IConstantInflowNFT public immutable CONSTANT_INFLOW_NFT_LOGIC;
 
 	/* WARNING: NEVER RE-ORDER VARIABLES! Including the base contracts.
        Always double-check that new
@@ -99,20 +91,10 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	uint256 internal _reserve31;
 
 	constructor(
-		ISuperfluid host,
-		IConstantOutflowNFT constantOutflowNFTLogic,
-		IConstantInflowNFT constantInflowNFTLogic
+		ISuperfluid host
 	)
 		SuperfluidToken(host) // solhint-disable-next-line no-empty-blocks
-	{
-		// set the immutable canonical NFT logic addresses in construction
-		CONSTANT_OUTFLOW_NFT_LOGIC = constantOutflowNFTLogic;
-		CONSTANT_INFLOW_NFT_LOGIC = constantInflowNFTLogic;
-
-		// immediately initialize (castrate) the logic contracts
-		UUPSProxiable(address(CONSTANT_OUTFLOW_NFT_LOGIC)).castrate();
-		UUPSProxiable(address(CONSTANT_INFLOW_NFT_LOGIC)).castrate();
-	}
+	{}
 
 	/// @dev Initialize the Super Token proxy
 	function initialize(
@@ -120,12 +102,7 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		uint8 underlyingDecimals,
 		string calldata n,
 		string calldata s
-	)
-		external
-		virtual
-		override
-		initializer // OpenZeppelin Initializable
-	{
+	) public virtual override onlyInitializing {
 		_underlyingToken = underlyingToken;
 		_underlyingDecimals = underlyingDecimals;
 
@@ -134,12 +111,6 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 
 		// register interfaces
 		ERC777Helper.register(address(this));
-
-		// deploy NFT proxies in SuperToken.initialize
-		// initialize the proxies, pointing to the canonical NFT logic contracts
-		// set in the constructor
-		// link the deployed NFT proxies to the SuperToken
-		_deployAndSetNFTProxyContractsIfUnset();
 
 		// help tools like explorers detect the token contract
 		emit Transfer(address(0), address(0), 0);
@@ -153,10 +124,6 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	function updateCode(address newAddress) external virtual override {
 		if (msg.sender != address(_host)) revert SUPER_TOKEN_ONLY_HOST();
 		UUPSProxiable._updateCodeAddress(newAddress);
-
-		// this allows us to deploy and set the nft proxy contracts for existing
-		// supertokens that are in the wild only if the nft proxy contracts are unset
-		_deployAndSetNFTProxyContractsIfUnset();
 	}
 
 	/**************************************************************************
@@ -605,24 +572,6 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	 * SuperToken custom token functions
 	 *************************************************************************/
 
-	/// unused - place holder
-	function selfMint(
-		address account,
-		uint256 amount,
-		bytes memory userData
-	) external override onlySelf {
-		revert();
-	}
-
-	/// unused - place holder
-	function selfBurn(
-		address account,
-		uint256 amount,
-		bytes memory userData
-	) external override onlySelf {
-		revert();
-	}
-
 	/// still used by erc20permit
 	function selfApproveFor(
 		address account,
@@ -630,61 +579,6 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		uint256 amount
 	) external override onlySelf {
 		_approve(account, spender, amount);
-	}
-
-	/// unused - place holder
-	function selfTransferFrom(
-		address holder,
-		address spender,
-		address recipient,
-		uint256 amount
-	) external override onlySelf {
-		revert();
-	}
-
-	/**************************************************************************
-	 * SuperToken extra functions
-	 *************************************************************************/
-
-	function transferAll(address recipient) external override {
-		_transferFrom(msg.sender, msg.sender, recipient, balanceOf(msg.sender));
-	}
-
-	/**************************************************************************
-	 * ERC20 wrapping
-	 *************************************************************************/
-
-	/// @dev ISuperfluidGovernance.getUnderlyingToken implementation
-	function getUnderlyingToken() external view override returns (address) {
-		return address(_underlyingToken);
-	}
-
-	/// @dev ISuperToken.upgrade implementation
-	function upgrade(uint256 amount) external override {
-		//keep only for interface override not required for G$
-		revert();
-	}
-
-	/// @dev ISuperToken.upgradeTo implementation
-	function upgradeTo(
-		address to,
-		uint256 amount,
-		bytes calldata data
-	) external override {
-		//keep only for interface override not required for G$
-		revert();
-	}
-
-	/// @dev ISuperToken.downgrade implementation
-	function downgrade(uint256 amount) external override {
-		//keep only for interface override not required for G$
-		revert();
-	}
-
-	/// @dev ISuperToken.downgradeTo implementation
-	function downgradeTo(address to, uint256 amount) external override {
-		//keep only for interface override not required for G$
-		revert();
 	}
 
 	/**************************************************************************

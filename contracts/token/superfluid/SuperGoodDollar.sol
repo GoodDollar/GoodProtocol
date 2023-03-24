@@ -67,7 +67,9 @@ contract SuperGoodDollar is
 		IFeesFormula _formula,
 		IIdentity _identity,
 		address _feeRecipient,
-		address _owner
+		address _owner,
+		IConstantOutflowNFT _outflowNFT,
+		IConstantInflowNFT _inflowNFT
 	) public initializer {
 		initialize(IERC20(address(0)), 18, n, s);
 		__AccessControl_init_unchained();
@@ -80,39 +82,12 @@ contract SuperGoodDollar is
 		identity = _identity;
 		formula = _formula;
 		cap = _cap;
+		_setNFTProxyContracts(_outflowNFT, _inflowNFT);
 	}
 
 	// ============ SuperFluid ============
 
-	constructor(
-		ISuperfluid _host,
-		IConstantOutflowNFT constantOuflowNFTLogic,
-		IConstantInflowNFT constantInflowNFTLogic
-	) SuperToken(_host, constantOuflowNFTLogic, constantInflowNFTLogic) {}
-
-	/// @dev override superfluid initializer with onlyInitializing modifier, so our main initializer must be called
-	function initialize(
-		IERC20 underlyingToken,
-		uint8 underlyingDecimals,
-		string calldata n,
-		string calldata s
-	)
-		public
-		override
-		onlyInitializing // OpenZeppelin Initializable
-	{
-		_underlyingToken = underlyingToken;
-		_underlyingDecimals = underlyingDecimals;
-
-		_name = n;
-		_symbol = s;
-
-		// register interfaces
-		ERC777Helper.register(address(this));
-
-		// help tools like explorers detect the token contract
-		emit Transfer(address(0), address(0), 0);
-	}
+	constructor(ISuperfluid _host) SuperToken(_host) {}
 
 	function proxiableUUID() public pure override returns (bytes32) {
 		return
@@ -396,4 +371,29 @@ contract SuperGoodDollar is
 		}
 		return amount;
 	}
+
+	/**************************************************************************
+	 * ERC20x-specific Functions
+	 *************************************************************************/
+
+	function setNFTProxyContracts(
+		IConstantOutflowNFT _constantOutflowNFT,
+		IConstantInflowNFT _constantInflowNFT
+	) public {
+		_onlyOwner();
+		_setNFTProxyContracts(_constantOutflowNFT, _constantInflowNFT);
+	}
+
+	function _setNFTProxyContracts(
+		IConstantOutflowNFT _constantOutflowNFT,
+		IConstantInflowNFT _constantInflowNFT
+	) internal {
+		constantOutflowNFT = IConstantOutflowNFT(_constantOutflowNFT);
+		constantInflowNFT = IConstantInflowNFT(_constantInflowNFT);
+
+		// emit NFT proxy creation events
+		emit ConstantOutflowNFTCreated(constantOutflowNFT);
+		emit ConstantInflowNFTCreated(constantInflowNFT);
+	}
+
 }

@@ -14,7 +14,9 @@ import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
 import { GoodMarketMaker, CompoundVotingMachine } from "../types";
 import { Contract } from "ethers";
-import frameworkDeployer from "@superfluid-finance/ethereum-contracts/scripts/deploy-test-framework";
+import testDeployer from "@superfluid-finance/ethereum-contracts/dev-scripts/deploy-test-framework";
+import ConstantInflowNFT from "@superfluid-finance/ethereum-contracts/artifacts/contracts/superfluid/ConstantInflowNFT.sol/ConstantInflowNFT.json";
+import ConstantOutflowNFT from "@superfluid-finance/ethereum-contracts/artifacts/contracts/superfluid/ConstantOutflowNFT.sol/ConstantOutflowNFT.json";
 
 export const getStakingFactory = async (
   factory:
@@ -38,9 +40,9 @@ export const getStakingFactory = async (
 
 export const deploySuperFluid = async () => {
   // This deploys the whole framework with various contracts
-  const sfDeployer = await frameworkDeployer.deployTestFramework();
+  const { frameworkDeployer } = await testDeployer.deployTestFramework();
   // returns contract addresses as a struct, see https://github.com/superfluid-finance/protocol-monorepo/blob/dev/packages/ethereum-contracts/contracts/utils/SuperfluidFrameworkDeployer.sol#L48
-  const contractsFramework = await sfDeployer.getFramework();
+  const contractsFramework = await frameworkDeployer.getFramework();
 
   return contractsFramework;
 };
@@ -49,20 +51,60 @@ export const deploySuperGoodDollar = async (sfContracts, tokenArgs) => {
   const SuperGoodDollarFactory = await ethers.getContractFactory(
     "SuperGoodDollar"
   );
+
+  console.log("deploying supergooddollar logic");
   const SuperGoodDollar = await SuperGoodDollarFactory.deploy(sfContracts.host);
 
-  const GoodDollarProxyFactory = await ethers.getContractFactory("UUPSProxy");
-
+  console.log("deploying supergooddollar proxy");
+  const GoodDollarProxyFactory = await ethers.getContractFactory(
+    "contracts/token/superfluid/UUPSProxy.sol:UUPSProxy"
+  );
   const GoodDollarProxy = await GoodDollarProxyFactory.deploy();
+
+  console.log("deploying flow nfts...");
+
+  const constantInflowNFT = await (
+    await ethers.getContractFactoryFromArtifact(ConstantInflowNFT)
+  ).deploy(sfContracts.cfa);
+
+  const constantOutflowNFT = await (
+    await ethers.getContractFactoryFromArtifact(ConstantOutflowNFT)
+  ).deploy(sfContracts.cfa);
+
+  const outNftProxy = await GoodDollarProxyFactory.deploy();
+  const inNftProxy = await GoodDollarProxyFactory.deploy();
+
+  await outNftProxy.initializeProxy(constantOutflowNFT.address);
+  await inNftProxy.initializeProxy(constantInflowNFT.address);
+
+  console.log("deployed supergooddollar proxy, initializing proxy...");
   await GoodDollarProxy.initializeProxy(SuperGoodDollar.address);
 
+  console.log("initializing supergooddollar....");
   await SuperGoodDollar.attach(GoodDollarProxy.address)[
-    "initialize(string,string,uint256,address,address,address,address)"
-  ](...tokenArgs);
+    "initialize(string,string,uint256,address,address,address,address,address,address)"
+  ](...tokenArgs, outNftProxy.address, inNftProxy.address);
   const GoodDollar = await ethers.getContractAt(
-    "ISuperGoodDollar",
+    "SuperGoodDollar",
     GoodDollarProxy.address
   );
+  console.log("supergooddollar created successfully");
+
+  await constantOutflowNFT
+    .attach(outNftProxy.address)
+    .initialize(
+      GoodDollarProxy.address,
+      (await GoodDollar.symbol()) + " Outflow NFT",
+      (await GoodDollar.symbol()) + " COF"
+    );
+  await constantInflowNFT
+    .attach(inNftProxy.address)
+    .initialize(
+      GoodDollarProxy.address,
+      (await GoodDollar.symbol()) + " Inflow NFT",
+      (await GoodDollar.symbol()) + " CIF"
+    );
+
   return GoodDollar;
 };
 export const createDAO = async (tokenType: "super" | "regular" = "super") => {
@@ -265,7 +307,9 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
   let marketMaker = (await upgrades.deployProxy(
     MM,
     [nameService.address, 999388834642296, 1e15],
-    { kind: "uups" }
+    {
+      kind: "uups"
+    }
   )) as unknown as GoodMarketMaker;
 
   await (await reputation.updateDAO(nameService.address)).wait();
