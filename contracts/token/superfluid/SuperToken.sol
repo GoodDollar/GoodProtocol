@@ -644,44 +644,65 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		);
 	}
 
-	function operationUpgrade(
-		address account,
-		uint256 amount
-	) external override onlyHost {
-		revert();
-	}
-
-	function operationDowngrade(
-		address account,
-		uint256 amount
-	) external override onlyHost {
-		revert();
-	}
-
 	/**************************************************************************
-	 * ERC20x-specific Functions
+	 * Celo gas token functions
 	 *************************************************************************/
 
-	function _deployAndSetNFTProxyContractsIfUnset() internal {
-		if (
-			address(constantOutflowNFT) == address(0) &&
-			address(constantInflowNFT) == address(0)
-		) {
-			(
-				address constantOutflowNFTProxyAddress,
-				address constantInflowNFTProxyAddress
-			) = SuperfluidNFTDeployerLibrary.deployNFTProxyContractsAndInitialize(
-					SuperToken(address(this)),
-					address(CONSTANT_OUTFLOW_NFT_LOGIC),
-					address(CONSTANT_INFLOW_NFT_LOGIC)
-				);
-			constantOutflowNFT = IConstantOutflowNFT(constantOutflowNFTProxyAddress);
-			constantInflowNFT = IConstantInflowNFT(constantInflowNFTProxyAddress);
+	/**
+	 * @notice Reserve balance for making payments for gas in this StableToken currency.
+	 * @param from The account to reserve balance from
+	 * @param value The amount of balance to reserve
+	 * @dev Note that this function is called by the protocol when paying for tx fees in this
+	 * currency. After the tx is executed, gas is refunded to the sender and credited to the
+	 * various tx fee recipients via a call to `creditGasFees`. Note too that the events emitted
+	 * by `creditGasFees` reflect the *net* gas fee payments for the transaction.
+	 */
+	function debitGasFees(address from, uint256 value) external {
+		require(msg.sender == address(0), "Only VM can call");
+		SuperfluidToken._burn(from, value);
+	}
 
-			// emit NFT proxy creation events
-			emit ConstantOutflowNFTCreated(constantOutflowNFT);
-			emit ConstantInflowNFTCreated(constantInflowNFT);
+	/**
+	 * @notice Alternative function to credit balance after making payments
+	 * for gas in this StableToken currency.
+	 * @param from The account to debit balance from
+	 * @param feeRecipient Coinbase address
+	 * @param gatewayFeeRecipient Gateway address
+	 * @param communityFund Community fund address
+	 * @param tipTxFee Coinbase fee
+	 * @param baseTxFee Community fund fee
+	 * @param gatewayFee Gateway fee
+	 * @dev Note that this function is called by the protocol when paying for tx fees in this
+	 * currency. Before the tx is executed, gas is debited from the sender via a call to
+	 * `debitGasFees`. Note too that the events emitted by `creditGasFees` reflect the *net* gas fee
+	 * payments for the transaction.
+	 */
+	function creditGasFees(
+		address from,
+		address feeRecipient,
+		address gatewayFeeRecipient,
+		address communityFund,
+		uint256 refund,
+		uint256 tipTxFee,
+		uint256 gatewayFee,
+		uint256 baseTxFee
+	) external {
+		require(msg.sender == address(0), "Only VM can call");
+		SuperfluidToken._mint(from, refund);
+
+		_creditGas(from, communityFund, baseTxFee);
+		_creditGas(from, feeRecipient, tipTxFee);
+		_creditGas(from, gatewayFeeRecipient, gatewayFee);
+
+		_totalSupply = _totalSupply + refund + baseTxFee + tipTxFee + gatewayFee;
+	}
+
+	function _creditGas(address from, address to, uint256 value) internal {
+		if (to == address(0)) {
+			return;
 		}
+		SuperfluidToken._mint(to, value);
+		emit Transfer(from, to, value);
 	}
 
 	/**************************************************************************

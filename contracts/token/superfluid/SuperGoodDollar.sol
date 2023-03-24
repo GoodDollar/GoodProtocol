@@ -96,7 +96,8 @@ contract SuperGoodDollar is
 			);
 	}
 
-	function updateCode(address newAddress) external override onlyOwner {
+	function updateCode(address newAddress) external override {
+		_onlyOwner();
 		UUPSProxiable._updateCodeAddress(newAddress);
 	}
 
@@ -122,40 +123,29 @@ contract SuperGoodDollar is
 		return !disableHostOperations;
 	}
 
-	function enableHostOperations(bool enabled) external onlyOwner {
+	function enableHostOperations(bool enabled) external {
+		_onlyOwner();
 		disableHostOperations = !enabled;
 	}
 
 	// ============ IGoodDollarCustom ============
 
-	modifier onlyOwner() {
-		require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "not owner");
-		_;
-	}
-
-	modifier onlyPauser() {
-		require(hasRole(PAUSER_ROLE, msg.sender), "not pauser");
-		_;
-	}
-
-	modifier onlyMinter() {
-		require(hasRole(MINTER_ROLE, msg.sender), "not minter");
-		_;
-	}
-
 	function owner() external view override returns (address) {
 		return getRoleMember(DEFAULT_ADMIN_ROLE, 0);
 	}
 
-	function setFormula(IFeesFormula _formula) external override onlyOwner {
+	function setFormula(IFeesFormula _formula) external override {
+		_onlyOwner();
 		formula = _formula;
 	}
 
-	function setIdentity(IIdentityV2 _identity) external override onlyOwner {
+	function setIdentity(IIdentityV2 _identity) external override {
+		_onlyOwner();
 		identity = _identity;
 	}
 
-	function transferOwnership(address _owner) public override onlyOwner {
+	function transferOwnership(address _owner) public override {
+		_onlyOwner();
 		grantRole(DEFAULT_ADMIN_ROLE, _owner);
 		renounceRole(DEFAULT_ADMIN_ROLE, _msgSender());
 	}
@@ -180,11 +170,13 @@ contract SuperGoodDollar is
 		grantRole(PAUSER_ROLE, _pauser); // enforces permissions
 	}
 
-	function pause() public override onlyPauser {
+	function pause() public override {
+		_onlyPauser();
 		_pause();
 	}
 
-	function unpause() public override onlyPauser {
+	function unpause() public override {
+		_onlyPauser();
 		_unpause();
 	}
 
@@ -201,7 +193,7 @@ contract SuperGoodDollar is
 		bytes calldata data
 	) external override returns (bool) {
 		//duplicated code from _transferAndCall so we can get the amount after fees correctly for transferAndCall event + callback
-		require(!paused(), "Pausable: token transfer while paused");
+		_onlyNotPaused();
 		uint256 netAmount = _processFees(msg.sender, to, amount);
 		// handing over to the wrapper of SuperToken.transferFrom skipping this _transferFrom which also collects fees
 		bool res = super._transferFrom(msg.sender, msg.sender, to, netAmount);
@@ -229,7 +221,7 @@ contract SuperGoodDollar is
 		address recipient,
 		uint256 amount
 	) internal virtual override returns (bool) {
-		require(!paused(), "Pausable: token transfer while paused");
+		_onlyNotPaused();
 		uint256 bruttoValue = _processFees(holder, recipient, amount);
 		// handing over to the wrapper of SuperToken.transferFrom
 		super._transferFrom(spender, holder, recipient, bruttoValue);
@@ -246,7 +238,7 @@ contract SuperGoodDollar is
 		bytes memory operatorData,
 		bool requireReceptionAck
 	) internal virtual override {
-		require(!paused(), "Pausable: token transfer while paused");
+		_onlyNotPaused();
 		uint256 bruttoValue = _processFees(from, to, amount);
 		// handing over to the wrapper of SuperToken.transferFrom
 		super._send(
@@ -268,7 +260,7 @@ contract SuperGoodDollar is
 		bytes memory userData,
 		bytes memory operatorData
 	) internal virtual override {
-		require(!paused(), "Pausable: token transfer while paused");
+		_onlyNotPaused();
 		// handing over to the wrapper of SuperToken.transferFrom
 		super._burn(operator, from, amount, userData, operatorData);
 	}
@@ -282,7 +274,7 @@ contract SuperGoodDollar is
 		address to,
 		uint256 amount
 	) public override(IGoodDollarCustom) onlyMinter returns (bool) {
-		require(!paused(), "Pausable: token transfer while paused");
+		_onlyNotPaused();
 
 		if (cap > 0) {
 			require(
@@ -342,7 +334,8 @@ contract SuperGoodDollar is
 	 * can only be called by owner
 	 * @param _feeRecipient The new address to receive transactional fees
 	 */
-	function setFeeRecipient(address _feeRecipient) public onlyOwner {
+	function setFeeRecipient(address _feeRecipient) public {
+		_onlyOwner();
 		feeRecipient = _feeRecipient;
 	}
 
@@ -396,4 +389,24 @@ contract SuperGoodDollar is
 		emit ConstantInflowNFTCreated(constantInflowNFT);
 	}
 
+	/**************************************************************************
+	 * Modifiers
+	 *************************************************************************/
+
+	function _onlyOwner() internal view {
+		require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "not owner");
+	}
+
+	function _onlyPauser() internal view {
+		require(hasRole(PAUSER_ROLE, msg.sender), "not pauser");
+	}
+
+	function _onlyNotPaused() internal view {
+		require(!paused(), "Pausable: token transfer while paused");
+	}
+
+	modifier onlyMinter() {
+		require(hasRole(MINTER_ROLE, msg.sender), "not minter");
+		_;
+	}
 }
