@@ -42,7 +42,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	uint32 public maxDailyToppings;
 	uint64 public gasPrice;
 	uint32 public maxPerWeekMultiplier;
-	uint32 public maxSwapAmount;
+	uint32 public maxSwapAmount_unused; // kept because of upgrades layout
 	address public goodDollar_unused; //kept because of upgrades
 	uint64 public maxDailyNewWallets;
 	uint64 public dailyNewWalletsCount;
@@ -64,15 +64,12 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		startTime = block.timestamp;
 		nameService = _ns;
 		maxPerWeekMultiplier = 2;
-		maxSwapAmount = 1000;
 		maxDailyNewWallets = 5000;
 	}
 
-	function _authorizeUpgrade(address newImplementation)
-		internal
-		override
-		onlyRole(DEFAULT_ADMIN_ROLE)
-	{}
+	function _authorizeUpgrade(
+		address newImplementation
+	) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
 	function getIdentity() public view returns (IIdentityV2) {
 		return IIdentityV2(nameService.getAddress("IDENTITY"));
@@ -194,12 +191,9 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	 * can only be done by admin the amount of times specified in constructor per day
 	 * @param _user The address to transfer to
 	 */
-	function topWallet(address payable _user)
-		public
-		reimburseGas
-		toppingLimit(_user)
-		onlyAuthorized(_user)
-	{
+	function topWallet(
+		address payable _user
+	) public reimburseGas toppingLimit(_user) onlyAuthorized(_user) {
 		_topWallet(_user);
 	}
 
@@ -232,12 +226,14 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		emit WalletTopped(target, toTop, whitelistedRoot, msg.sender);
 	}
 
+	/**
+		@notice only safe for small amounts, since we dont have slippage check
+	 */
 	function onTokenTransfer(
 		address payable _from,
 		uint256 amount,
 		bytes calldata data
 	) external returns (bool) {
-		require(amount <= maxSwapAmount, "slippage");
 		address uniswapLike = abi.decode(data, (address));
 		Uniswap uniswap = Uniswap(uniswapLike);
 		address[] memory path = new address[](2);
@@ -253,10 +249,9 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		return gasTopping * gasPrice;
 	}
 
-	function setGasTopping(uint256 _gasUnits)
-		public
-		onlyRole(DEFAULT_ADMIN_ROLE)
-	{
+	function setGasTopping(
+		uint256 _gasUnits
+	) public onlyRole(DEFAULT_ADMIN_ROLE) {
 		gasTopping = _gasUnits;
 		perDayRoughLimit = 2 * gasTopping;
 	}
