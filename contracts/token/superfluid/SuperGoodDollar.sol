@@ -123,10 +123,10 @@ contract SuperGoodDollar is
 
 	/// override Superfluid agreement function in order to make it pausable
 	/// that is, no new streams can be started when the contract is paused
-	function createAgreement(bytes32 id, bytes32[] calldata data)
-		public
-		override(ISuperfluidToken, SuperfluidToken)
-	{
+	function createAgreement(
+		bytes32 id,
+		bytes32[] calldata data
+	) public override(ISuperfluidToken, SuperfluidToken) {
 		require(!paused(), "Pausable: createAgreement while paused");
 		// otherwise the wrapper of SuperToken.createAgreement does the actual job
 		super.createAgreement(id, data);
@@ -236,12 +236,10 @@ contract SuperGoodDollar is
 		return res;
 	}
 
-	function transfer(address to, uint256 amount)
-		public
-		virtual
-		override(ERC677, SuperToken)
-		returns (bool)
-	{
+	function transfer(
+		address to,
+		uint256 amount
+	) public virtual override(ERC677, SuperToken) returns (bool) {
 		return _transferFrom(msg.sender, msg.sender, to, amount);
 	}
 
@@ -301,12 +299,10 @@ contract SuperGoodDollar is
 	 * @param to the address that will receive the minted tokens
 	 * @param amount the amount of tokens to mint
 	 */
-	function mint(address to, uint256 amount)
-		public
-		override(IGoodDollarCustom)
-		onlyMinter
-		returns (bool)
-	{
+	function mint(
+		address to,
+		uint256 amount
+	) public override(IGoodDollarCustom) onlyMinter returns (bool) {
 		require(!paused(), "Pausable: token transfer while paused");
 
 		if (cap > 0) {
@@ -319,7 +315,7 @@ contract SuperGoodDollar is
 			msg.sender,
 			to,
 			amount,
-			false, /* requireReceptionAck */
+			false /* requireReceptionAck */,
 			new bytes(0),
 			new bytes(0)
 		);
@@ -344,11 +340,9 @@ contract SuperGoodDollar is
 	 * @dev Gets the current transaction fees
 	 * @return fee senderPays  that represents the current transaction fees and bool true if sender pays the fee or receiver
 	 */
-	function getFees(uint256 amount)
-		public
-		view
-		returns (uint256 fee, bool senderPays)
-	{
+	function getFees(
+		uint256 amount
+	) public view returns (uint256 fee, bool senderPays) {
 		return formula.getTxFees(amount, address(0), address(0));
 	}
 

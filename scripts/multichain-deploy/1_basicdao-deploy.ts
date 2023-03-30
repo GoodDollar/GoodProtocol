@@ -12,19 +12,13 @@ import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorG
 // import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
 
-import {
-  deployDeterministic,
-  deploySuperGoodDollar,
-  verifyProductionSigner
-} from "./helpers";
+import { deployDeterministic, deploySuperGoodDollar, verifyProductionSigner } from "./helpers";
 import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
 import { TransactionResponse } from "@ethersproject/providers";
 
-const printDeploy = async (
-  c: Contract | TransactionResponse
-): Promise<Contract | TransactionResponse> => {
+const printDeploy = async (c: Contract | TransactionResponse): Promise<Contract | TransactionResponse> => {
   if (c instanceof Contract) {
     await c.deployed();
     console.log("deployed to: ", c.address);
@@ -37,11 +31,7 @@ const printDeploy = async (
 };
 
 export const createDAO = async () => {
-  let protocolSettings = defaultsDeep(
-    {},
-    ProtocolSettings[network.name],
-    ProtocolSettings["default"]
-  );
+  let protocolSettings = defaultsDeep({}, ProtocolSettings[network.name], ProtocolSettings["default"]);
 
   let release: { [key: string]: any } = dao[network.name];
   const isProduction = network.name.includes("production");
@@ -54,34 +44,17 @@ export const createDAO = async () => {
     network,
     daoOwner,
     root: root.address,
-    balance: await ethers.provider
-      .getBalance(root.address)
-      .then(_ => _.toString()),
+    balance: await ethers.provider.getBalance(root.address).then(_ => _.toString()),
     release
   });
 
-  const DAOCreatorFactory = new ethers.ContractFactory(
-    DAOCreatorABI.abi,
-    DAOCreatorABI.bytecode,
-    root
-  );
+  const DAOCreatorFactory = new ethers.ContractFactory(DAOCreatorABI.abi, DAOCreatorABI.bytecode, root);
 
-  const FeeFormulaFactory = new ethers.ContractFactory(
-    FeeFormulaABI.abi,
-    FeeFormulaABI.bytecode,
-    root
-  );
+  const FeeFormulaFactory = new ethers.ContractFactory(FeeFormulaABI.abi, FeeFormulaABI.bytecode, root);
 
-  const proxyFactory = await ethers.getContractAt(
-    "ProxyFactory1967",
-    release.ProxyFactory
-  );
-  const salt = ethers.BigNumber.from(
-    ethers.utils.keccak256(ethers.utils.toUtf8Bytes("NameService"))
-  );
-  const nameserviceFutureAddress = await proxyFactory[
-    "getDeploymentAddress(uint256,address)"
-  ](salt, root.address);
+  const proxyFactory = await ethers.getContractAt("ProxyFactory1967", release.ProxyFactory);
+  const salt = ethers.BigNumber.from(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("NameService")));
+  const nameserviceFutureAddress = await proxyFactory["getDeploymentAddress(uint256,address)"](salt, root.address);
   console.log("deploying identity", { nameserviceFutureAddress });
   const Identity = (await deployDeterministic(
     {
@@ -92,12 +65,11 @@ export const createDAO = async () => {
     [root.address, ethers.constants.AddressZero]
   ).then(printDeploy)) as Contract;
 
-  const daoCreator = await DAOCreatorFactory.deploy();
+  const daoCreator = (await DAOCreatorFactory.deploy().then(printDeploy)) as Contract;
 
-  const FeeFormula = (await deployDeterministic(
-    { name: "FeeFormula", factory: FeeFormulaFactory },
-    [0]
-  ).then(printDeploy)) as Contract;
+  const FeeFormula = (await deployDeterministic({ name: "FeeFormula", factory: FeeFormulaFactory }, [0]).then(
+    printDeploy
+  )) as Contract;
 
   let GoodDollar;
   if (protocolSettings.superfluidHost) {
@@ -115,8 +87,7 @@ export const createDAO = async () => {
       {
         name: "GoodDollar",
         isUpgradeable: true,
-        initializer:
-          "initialize(string, string, uint256, address, address, address,address)"
+        initializer: "initialize(string, string, uint256, address, address, address,address)"
       },
       [
         isProduction ? "GoodDollar" : "GoodDollar Dev",
@@ -148,16 +119,11 @@ export const createDAO = async () => {
   // await Identity.setAuthenticationPeriod(365).then(printDeploy);
 
   console.log("creating dao");
-  await daoCreator
-    .forgeOrg(GoodDollar.address, GReputation.address, [], 0, [])
-    .then(printDeploy);
+  await daoCreator.forgeOrg(GoodDollar.address, GReputation.address, [], 0, []).then(printDeploy);
   console.log("forgeOrg done ");
   const Avatar = new ethers.Contract(
     await daoCreator.avatar(),
-    [
-      "function owner() view returns (address)",
-      "function nativeToken() view returns (address)"
-    ],
+    ["function owner() view returns (address)", "function nativeToken() view returns (address)"],
     root
   );
 
@@ -181,16 +147,13 @@ export const createDAO = async () => {
     )
     .then(printDeploy);
 
-  const NameService = await deployDeterministic(
-    { name: "NameService", isUpgradeable: true },
-    [
-      controller,
-      ["CONTROLLER", "AVATAR", "IDENTITY", "GOODDOLLAR", "REPUTATION"].map(_ =>
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))
-      ),
-      [controller, Avatar.address, Identity.address, gd, GReputation.address]
-    ]
-  );
+  const NameService = await deployDeterministic({ name: "NameService", isUpgradeable: true }, [
+    controller,
+    ["CONTROLLER", "AVATAR", "IDENTITY", "GOODDOLLAR", "REPUTATION"].map(_ =>
+      ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))
+    ),
+    [controller, Avatar.address, Identity.address, gd, GReputation.address]
+  ]);
 
   console.log("set GRep nameservice..");
   await (await GReputation.updateDAO(NameService.address)).wait();
@@ -206,54 +169,31 @@ export const createDAO = async () => {
     await GoodDollar.renounceMinter().then(printDeploy);
   }
 
-  const daoOwnerDaoPermissions = await Controller.getSchemePermissions(
-    daoOwner,
-    Avatar.address
-  );
+  const daoOwnerDaoPermissions = await Controller.getSchemePermissions(daoOwner, Avatar.address);
 
-  const deployerIsNotGDMinter =
-    (await GoodDollar.isMinter(root.address)) === false;
+  const deployerIsNotGDMinter = (await GoodDollar.isMinter(root.address)) === false;
 
   const avatarIsGDMinter = await GoodDollar.isMinter(Avatar.address);
 
-  const deployerIsNotGDPauser =
-    (await GoodDollar.isPauser(root.address)) === false;
+  const deployerIsNotGDPauser = (await GoodDollar.isPauser(root.address)) === false;
 
-  const deployerIsNotRepMinter =
-    (await GReputation.hasRole(GReputation.MINTER_ROLE(), root.address)) ===
-    false;
-  const avatarIsRepMinter = await GReputation.hasRole(
-    GReputation.MINTER_ROLE(),
-    Avatar.address
-  );
+  const deployerIsNotRepMinter = (await GReputation.hasRole(GReputation.MINTER_ROLE(), root.address)) === false;
+  const avatarIsRepMinter = await GReputation.hasRole(GReputation.MINTER_ROLE(), Avatar.address);
 
-  const deployerIsIdentityOwner = await Identity.hasRole(
-    ethers.constants.HashZero,
-    root.address
-  );
+  const deployerIsIdentityOwner = await Identity.hasRole(ethers.constants.HashZero, root.address);
 
-  const avatarIsIdentityOwner = await Identity.hasRole(
-    ethers.constants.HashZero,
-    Avatar.address
-  );
+  const avatarIsIdentityOwner = await Identity.hasRole(ethers.constants.HashZero, Avatar.address);
 
   //try to modify DAO -> should not succeed
   await (await GReputation.updateDAO(ethers.constants.AddressZero)).wait();
 
-  const grepHasDAOSet =
-    (await GReputation.nameService()) === NameService.address;
+  const grepHasDAOSet = (await GReputation.nameService()) === NameService.address;
 
-  const factoryIsNotGoodOwner =
-    (await GReputation.hasRole(
-      ethers.constants.HashZero,
-      proxyFactory.address
-    )) === false;
+  const factoryIsNotGoodOwner = (await GReputation.hasRole(ethers.constants.HashZero, proxyFactory.address)) === false;
 
-  const factoryIsNotGDMinter =
-    (await GoodDollar.isMinter(proxyFactory.address)) === false;
+  const factoryIsNotGDMinter = (await GoodDollar.isMinter(proxyFactory.address)) === false;
 
-  const factoryIsNotGDPauser =
-    (await GoodDollar.isPauser(root.address)) === false;
+  const factoryIsNotGDPauser = (await GoodDollar.isPauser(root.address)) === false;
 
   console.log({
     daoOwnerDaoPermissions,

@@ -65,11 +65,11 @@ export const deploySuperGoodDollar = async (superfluidHost, tokenArgs) => {
     []
   ).then(printDeploy)) as Contract;
 
-  await GoodDollarProxy.initializeProxy(SuperGoodDollar.address);
+  await GoodDollarProxy.initializeProxy(SuperGoodDollar.address).then(printDeploy);
 
-  await SuperGoodDollar.attach(GoodDollarProxy.address)[
-    "initialize(string,string,uint256,address,address,address,address)"
-  ](...tokenArgs);
+  await SuperGoodDollar.attach(GoodDollarProxy.address)
+    ["initialize(string,string,uint256,address,address,address,address)"](...tokenArgs)
+    .then(printDeploy);
 
   const GoodDollar = await ethers.getContractAt("ISuperGoodDollar", GoodDollarProxy.address);
   return GoodDollar;

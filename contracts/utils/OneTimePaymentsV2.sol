@@ -10,7 +10,7 @@ import "../utils/NameService.sol";
 /* @title One Time payment scheme
  * Scheme that allows address to deposit tokens for any address to withdraw
  */
-contract OneTimePayments is DAOContract {
+contract OneTimePaymentsV2 is DAOContract {
 	struct Payment {
 		bool hasPayment;
 		uint256 paymentAmount;

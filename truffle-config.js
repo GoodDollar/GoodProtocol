@@ -74,6 +74,12 @@ module.exports = {
       timeoutBlocks: 200, // # of blocks before a deployment times out  (minimum/default: 50)
       skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
     },
+    goerli: {
+      provider: () => new Web3.providers.HttpProvider(`https://rpc.ankr.io/eth_goerli`),
+      network_id: 5, // Ropsten's id
+      gas: 3000000, // Ropsten has a lower block limit than mainnet
+      skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
+    },
     fuse: {
       provider: () => new Web3.providers.HttpProvider(`https://rpc.fuse.io`),
       network_id: 122, // Ropsten's id

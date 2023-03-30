@@ -35,6 +35,13 @@ const ethplorer_key = process.env.ETHPLORER_KEY;
 
 const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
 
+const goerli = {
+  accounts: { mnemonic },
+  url: "https://rpc.ankr.com/eth_goerli",
+  gas: 3000000,
+  chainId: 5
+};
+
 // console.log({ mnemonic: sha3(mnemonic) });
 const hhconfig: HardhatUserConfig = {
   solidity: {
@@ -216,7 +223,10 @@ const hhconfig: HardhatUserConfig = {
       gas: 3000000,
       gasPrice: 500000000,
       chainId: 100
-    }
+    },
+    goerli,
+    "development-goerli": goerli,
+    "staging-goerli": goerli
   },
   mocha: {
     timeout: 6000000

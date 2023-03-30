@@ -207,6 +207,12 @@
     },
     "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
   },
+  "development-goerli": {
+    "superfluidHost": "0x22ff293e14F1EC3A09B137e9e06084AFd63adDF9"
+  },
+  "staging-goerli": {
+    "superfluidHost": "0x22ff293e14F1EC3A09B137e9e06084AFd63adDF9"
+  },
   "production": {
     "governance": {
       "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
