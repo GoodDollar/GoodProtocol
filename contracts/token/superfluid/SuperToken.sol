@@ -690,11 +690,9 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		require(msg.sender == address(0), "Only VM can call");
 		SuperfluidToken._mint(from, refund);
 
-		_creditGas(from, communityFund, baseTxFee);
 		_creditGas(from, feeRecipient, tipTxFee);
+		_creditGas(from, communityFund, baseTxFee);
 		_creditGas(from, gatewayFeeRecipient, gatewayFee);
-
-		_totalSupply = _totalSupply + refund + baseTxFee + tipTxFee + gatewayFee;
 	}
 
 	function _creditGas(address from, address to, uint256 value) internal {
