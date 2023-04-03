@@ -668,9 +668,9 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	 * @param from The account to debit balance from
 	 * @param feeRecipient Coinbase address
 	 * @param gatewayFeeRecipient Gateway address
-	 * @param communityFund Community fund address
+	 * @param baseFeeRecipient baseFee recipient address
 	 * @param tipTxFee Coinbase fee
-	 * @param baseTxFee Community fund fee
+	 * @param baseTxFee base fee
 	 * @param gatewayFee Gateway fee
 	 * @dev Note that this function is called by the protocol when paying for tx fees in this
 	 * currency. Before the tx is executed, gas is debited from the sender via a call to
