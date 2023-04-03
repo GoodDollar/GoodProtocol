@@ -21,10 +21,10 @@ contract Multicall {
 		bytes data;
 	}
 
-	function aggregate(Call[] memory calls, bool strict)
-		public
-		returns (uint256 blockNumber, Return[] memory returnData)
-	{
+	function aggregate(
+		Call[] memory calls,
+		bool strict
+	) public returns (uint256 blockNumber, Return[] memory returnData) {
 		blockNumber = block.number;
 		returnData = new Return[](calls.length);
 		for (uint256 i = 0; i < calls.length; i++) {
@@ -43,11 +43,9 @@ contract Multicall {
 		balance = addr.balance;
 	}
 
-	function getBlockHash(uint256 blockNumber)
-		public
-		view
-		returns (bytes32 blockHash)
-	{
+	function getBlockHash(
+		uint256 blockNumber
+	) public view returns (bytes32 blockHash) {
 		blockHash = blockhash(blockNumber);
 	}
 
@@ -64,7 +62,7 @@ contract Multicall {
 		view
 		returns (uint256 difficulty)
 	{
-		difficulty = block.difficulty;
+		difficulty = block.prevrandao;
 	}
 
 	function getCurrentBlockGasLimit() public view returns (uint256 gaslimit) {
