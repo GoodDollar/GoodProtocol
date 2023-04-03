@@ -681,7 +681,7 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		address from,
 		address feeRecipient,
 		address gatewayFeeRecipient,
-		address communityFund,
+		address baseFeeRecipient,
 		uint256 refund,
 		uint256 tipTxFee,
 		uint256 gatewayFee,
@@ -691,7 +691,7 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		SuperfluidToken._mint(from, refund);
 
 		_creditGas(from, feeRecipient, tipTxFee);
-		_creditGas(from, communityFund, baseTxFee);
+		_creditGas(from, baseFeeRecipient, baseTxFee);
 		_creditGas(from, gatewayFeeRecipient, gatewayFee);
 	}
 
