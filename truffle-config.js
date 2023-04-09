@@ -59,7 +59,10 @@ module.exports = {
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
     kovan: {
-      provider: () => new Web3.providers.HttpProvider(`https://ropsten.infura.io/v3/YOUR-PROJECT-ID`),
+      provider: () =>
+        new Web3.providers.HttpProvider(
+          `https://ropsten.infura.io/v3/YOUR-PROJECT-ID`
+        ),
       network_id: 42, // Ropsten's id
       gas: 5500000, // Ropsten has a lower block limit than mainnet
       confirmations: 2, // # of confs to wait between deployments. (default: 0)
@@ -67,7 +70,10 @@ module.exports = {
       skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
     },
     ropsten: {
-      provider: () => new Web3.providers.HttpProvider(`https://ropsten.infura.io/v3/YOUR-PROJECT-ID`),
+      provider: () =>
+        new Web3.providers.HttpProvider(
+          `https://ropsten.infura.io/v3/YOUR-PROJECT-ID`
+        ),
       network_id: 3, // Ropsten's id
       gas: 5000000, // Ropsten has a lower block limit than mainnet
       confirmations: 2, // # of confs to wait between deployments. (default: 0)
@@ -83,7 +89,8 @@ module.exports = {
       skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
     },
     fusespark: {
-      provider: () => new Web3.providers.HttpProvider(`https://rpc.fusespark.io`),
+      provider: () =>
+        new Web3.providers.HttpProvider(`https://rpc.fusespark.io`),
       network_id: 123, // Ropsten's id
       gas: 8000000, // Ropsten has a lower block limit than mainnet
       confirmations: 1, // # of confs to wait between deployments. (default: 0)
@@ -99,7 +106,8 @@ module.exports = {
       skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
     },
     mainnet: {
-      provider: () => new Web3.providers.HttpProvider(`https://cloudflare-eth.com`),
+      provider: () =>
+        new Web3.providers.HttpProvider(`https://cloudflare-eth.com`),
       network_id: 1,
       gas: 150000,
       skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
@@ -121,7 +129,7 @@ module.exports = {
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.8.16", // Fetch exact version from solc-bin (default: truffle's version)
+      version: "0.8.19", // Fetch exact version from solc-bin (default: truffle's version)
       settings: {
         // See the solidity docs for advice about optimization and evmVersion
         optimizer: {

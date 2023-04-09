@@ -82,7 +82,12 @@ contract SuperGoodDollar is
 		identity = _identity;
 		formula = _formula;
 		cap = _cap;
-		_setNFTProxyContracts(_outflowNFT, _inflowNFT);
+		_setNFTProxyContracts(
+			_outflowNFT,
+			_inflowNFT,
+			IPoolAdminNFT(address(0)),
+			IPoolMemberNFT(address(0))
+		);
 	}
 
 	// ============ SuperFluid ============
@@ -371,18 +376,29 @@ contract SuperGoodDollar is
 
 	function setNFTProxyContracts(
 		IConstantOutflowNFT _constantOutflowNFT,
-		IConstantInflowNFT _constantInflowNFT
+		IConstantInflowNFT _constantInflowNFT,
+		IPoolAdminNFT _poolAdminNFT,
+		IPoolMemberNFT _poolMemberNFT
 	) public {
 		_onlyOwner();
-		_setNFTProxyContracts(_constantOutflowNFT, _constantInflowNFT);
+		_setNFTProxyContracts(
+			_constantOutflowNFT,
+			_constantInflowNFT,
+			_poolAdminNFT,
+			_poolMemberNFT
+		);
 	}
 
 	function _setNFTProxyContracts(
 		IConstantOutflowNFT _constantOutflowNFT,
-		IConstantInflowNFT _constantInflowNFT
+		IConstantInflowNFT _constantInflowNFT,
+		IPoolAdminNFT _poolAdminNFT,
+		IPoolMemberNFT _poolMemberNFT
 	) internal {
-		constantOutflowNFT = IConstantOutflowNFT(_constantOutflowNFT);
-		constantInflowNFT = IConstantInflowNFT(_constantInflowNFT);
+		constantOutflowNFT = _constantOutflowNFT;
+		constantInflowNFT = _constantInflowNFT;
+		poolAdminNFT = _poolAdminNFT;
+		poolMemberNFT = _poolMemberNFT;
 
 		// emit NFT proxy creation events
 		emit ConstantOutflowNFTCreated(constantOutflowNFT);
