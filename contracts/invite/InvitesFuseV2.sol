@@ -141,11 +141,9 @@ contract InvitesFuseV2 is Initializable {
 		emit InviteeJoined(inviter, msg.sender);
 	}
 
-	function _whitelistedOnChainOrDefault(address _invitee)
-		internal
-		view
-		returns (uint256 chainId)
-	{
+	function _whitelistedOnChainOrDefault(
+		address _invitee
+	) internal view returns (uint256 chainId) {
 		(bool success, bytes memory result) = address(identity).staticcall(
 			abi.encodeWithSignature("getWhitelistedOnChainId(address)", _invitee)
 		);
@@ -173,19 +171,15 @@ contract InvitesFuseV2 is Initializable {
 			isLevelExpired == false;
 	}
 
-	function getInvitees(address _inviter)
-		public
-		view
-		returns (address[] memory)
-	{
+	function getInvitees(
+		address _inviter
+	) public view returns (address[] memory) {
 		return users[_inviter].invitees;
 	}
 
-	function getPendingInvitees(address _inviter)
-		public
-		view
-		returns (address[] memory)
-	{
+	function getPendingInvitees(
+		address _inviter
+	) public view returns (address[] memory) {
 		address[] memory pending = users[_inviter].pending;
 		uint256 cur = 0;
 		uint256 total = 0;
@@ -222,19 +216,17 @@ contract InvitesFuseV2 is Initializable {
 	 * @dev  pay bounty for the inviter of _invitee
 	 * invitee need to be whitelisted
 	 */
-	function bountyFor(address _invitee)
-		public
-		isActive
-		returns (uint256 bounty)
-	{
+	function bountyFor(
+		address _invitee
+	) public isActive returns (uint256 bounty) {
 		require(canCollectBountyFor(_invitee), "user not elligble for bounty yet");
 		return _bountyFor(_invitee, true);
 	}
 
-	function _bountyFor(address _invitee, bool isSingleBounty)
-		internal
-		returns (uint256 bounty)
-	{
+	function _bountyFor(
+		address _invitee,
+		bool isSingleBounty
+	) internal returns (uint256 bounty) {
 		address invitedBy = users[_invitee].invitedBy;
 		uint256 joinedAt = users[_invitee].joinedAt;
 		Level memory level = levels[users[invitedBy].level];
@@ -289,6 +281,10 @@ contract InvitesFuseV2 is Initializable {
 			}
 		}
 		if (totalBounties > 0) goodDollar.transfer(msg.sender, totalBounties);
+	}
+
+	function setIdentity(IIdentityV2 _identity) external ownerOrAvatar {
+		identity = _identity;
 	}
 
 	function setLevel(
