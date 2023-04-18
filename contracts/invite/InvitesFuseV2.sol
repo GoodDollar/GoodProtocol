@@ -305,7 +305,7 @@ contract InvitesFuseV2 is Initializable {
 
 	function end() public ownerOrAvatar isActive {
 		uint256 gdBalance = goodDollar.balanceOf(address(this));
-		goodDollar.transfer(avatar, gdBalance);
+		goodDollar.transfer(msg.sender, gdBalance);
 		payable(msg.sender).transfer(address(this).balance);
 		active = false;
 	}
