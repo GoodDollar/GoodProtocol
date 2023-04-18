@@ -19,10 +19,10 @@ interface ERC20 {
 
 	function totalSupply() external view returns (uint256);
 
-	function allowance(address owner, address spender)
-		external
-		view
-		returns (uint256);
+	function allowance(
+		address owner,
+		address spender
+	) external view returns (uint256);
 
 	function transferFrom(
 		address sender,
@@ -136,24 +136,25 @@ interface IERC2917 is ERC20 {
 	/// @notice It will get the productivity of given user.
 	/// @dev it will return 0 if user has no productivity proved in the contract.
 	/// @return user's productivity and overall productivity.
-	function getProductivity(address user)
-		external
-		view
-		returns (uint256, uint256);
+	function getProductivity(
+		address user
+	) external view returns (uint256, uint256);
 
 	/// @notice increase a user's productivity.
 	/// @dev Note the best practice will be restrict the callee to prove of productivity's contract address.
 	/// @return true to confirm that the productivity added success.
-	function increaseProductivity(address user, uint256 value)
-		external
-		returns (bool);
+	function increaseProductivity(
+		address user,
+		uint256 value
+	) external returns (bool);
 
 	/// @notice decrease a user's productivity.
 	/// @dev Note the best practice will be restrict the callee to prove of productivity's contract address.
 	/// @return true to confirm that the productivity removed success.
-	function decreaseProductivity(address user, uint256 value)
-		external
-		returns (bool);
+	function decreaseProductivity(
+		address user,
+		uint256 value
+	) external returns (bool);
 
 	/// @notice take() will return the interests that callee will get at current block height.
 	/// @dev it will always calculated by block.number, so it will change when block height changes.
@@ -233,28 +234,24 @@ interface Uniswap {
 		uint256 reserveOut
 	) external pure returns (uint256 amountOut);
 
-	function getAmountsOut(uint256 amountIn, address[] memory path)
-		external
-		pure
-		returns (uint256[] memory amounts);
+	function getAmountsOut(
+		uint256 amountIn,
+		address[] memory path
+	) external pure returns (uint256[] memory amounts);
 }
 
 interface UniswapFactory {
-	function getPair(address tokenA, address tokenB)
-		external
-		view
-		returns (address);
+	function getPair(
+		address tokenA,
+		address tokenB
+	) external view returns (address);
 }
 
 interface UniswapPair {
 	function getReserves()
 		external
 		view
-		returns (
-			uint112 reserve0,
-			uint112 reserve1,
-			uint32 blockTimestampLast
-		);
+		returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
 
 	function kLast() external view returns (uint256);
 
@@ -317,10 +314,9 @@ interface IIdentityV2 is IIdentity {
 		uint256 dateAuthenticated
 	) external;
 
-	function getWhitelistedRoot(address account)
-		external
-		view
-		returns (address root);
+	function getWhitelistedRoot(
+		address account
+	) external view returns (address root);
 }
 
 interface IUBIScheme {
@@ -335,13 +331,14 @@ interface IFirstClaimPool {
 	function awardUser(address user) external returns (uint256);
 
 	function claimAmount() external view returns (uint256);
+
+	function end() external;
 }
 
 interface ProxyAdmin {
-	function getProxyImplementation(address proxy)
-		external
-		view
-		returns (address);
+	function getProxyImplementation(
+		address proxy
+	) external view returns (address);
 
 	function getProxyAdmin(address proxy) external view returns (address);
 
@@ -371,7 +368,9 @@ interface AggregatorV3Interface {
 	// getRoundData and latestRoundData should both raise "No data present"
 	// if they do not have data to report, instead of returning unset values
 	// which could be misinterpreted as actual reported values.
-	function getRoundData(uint80 _roundId)
+	function getRoundData(
+		uint80 _roundId
+	)
 		external
 		view
 		returns (
@@ -429,10 +428,9 @@ interface ILendingPool {
 	 * @param asset The address of the underlying asset of the reserve
 	 * @return The state of the reserve
 	 **/
-	function getReserveData(address asset)
-		external
-		view
-		returns (DataTypes.ReserveData memory);
+	function getReserveData(
+		address asset
+	) external view returns (DataTypes.ReserveData memory);
 }
 
 interface IDonationStaking {
@@ -461,36 +459,23 @@ interface IAaveIncentivesController {
 	 * @param user The address of the user
 	 * @return The rewards
 	 **/
-	function getRewardsBalance(address[] calldata assets, address user)
-		external
-		view
-		returns (uint256);
+	function getRewardsBalance(
+		address[] calldata assets,
+		address user
+	) external view returns (uint256);
 }
 
 interface IGoodStaking {
-	function collectUBIInterest(address recipient)
-		external
-		returns (
-			uint256,
-			uint256,
-			uint256
-		);
+	function collectUBIInterest(
+		address recipient
+	) external returns (uint256, uint256, uint256);
 
 	function iToken() external view returns (address);
 
 	function currentGains(
 		bool _returnTokenBalanceInUSD,
 		bool _returnTokenGainsInUSD
-	)
-		external
-		view
-		returns (
-			uint256,
-			uint256,
-			uint256,
-			uint256,
-			uint256
-		);
+	) external view returns (uint256, uint256, uint256, uint256, uint256);
 
 	function getRewardEarned(address user) external view returns (uint256);
 

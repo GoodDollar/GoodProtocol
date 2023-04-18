@@ -143,6 +143,7 @@ export const executeViaGuardian = async (
   let release: { [key: string]: any } = dao[network || networkName];
   const ctrl = await (await ethers.getContractAt("Controller", release.Controller)).connect(guardian);
 
+  const results = [];
   for (let i = 0; i < contracts.length; i++) {
     const contract = contracts[i];
     console.log("executing:", contracts[i], functionSigs[i], functionInputs[i]);
@@ -151,7 +152,11 @@ export const executeViaGuardian = async (
     if (contract === ctrl.address) {
       console.log("executing directly on controller:", sigHash, encoded);
 
-      await guardian.sendTransaction({ to: contract, data: encoded }).then(printDeploy);
+      const tx = await guardian
+        .sendTransaction({ to: contract, data: encoded })
+        .then(printDeploy)
+        .then(_ => _.wait());
+      results.push(tx);
     } else {
       const simulationResult = await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
         from: await guardian.getAddress()
@@ -162,9 +167,15 @@ export const executeViaGuardian = async (
         simulationResult
       });
       if (simulationResult[0] === false) throw new Error("simulation failed:" + contract);
-      await ctrl.genericCall(contract, encoded, release.Avatar, ethValues[i]).then(printDeploy);
+      const tx = await ctrl
+        .genericCall(contract, encoded, release.Avatar, ethValues[i])
+        .then(printDeploy)
+        .then(_ => _.wait());
+      // console.log("generic call events:", tx.events);
+      results.push(tx);
     }
   }
+  return results;
 };
 
 export const executeViaSafe = async (
