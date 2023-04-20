@@ -47,6 +47,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	uint64 public maxDailyNewWallets;
 	uint64 public dailyNewWalletsCount;
 	uint32 public version;
+	uint8 public minTopping; //percentage of topping amount, that user can request to top
 
 	function initialize(
 		NameService _ns,
@@ -65,6 +66,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		nameService = _ns;
 		maxPerWeekMultiplier = 2;
 		maxDailyNewWallets = 5000;
+		minTopping = 15;
 	}
 
 	function _authorizeUpgrade(
@@ -73,13 +75,6 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 
 	function getIdentity() public view returns (IIdentityV2) {
 		return IIdentityV2(nameService.getAddress("IDENTITY"));
-	}
-
-	function upgrade() public {
-		require(version == 0, "already upgraded");
-		if (maxDailyNewWallets == 0) maxDailyNewWallets = 5000;
-		version++;
-		setGasTopping(gasTopping / gasPrice);
 	}
 
 	modifier reimburseGas() {
@@ -157,6 +152,8 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 
 	function canTop(address _user) external view returns (bool) {
 		if (getToppingAmount() < address(_user).balance) return false;
+		uint256 toTop = getToppingAmount() - address(_user).balance;
+		if ((toTop * 100) / getToppingAmount() < minTopping) return false;
 
 		address whitelistedRoot = getIdentity().getWhitelistedRoot(_user);
 		_user = whitelistedRoot == address(0) ? _user : whitelistedRoot;
@@ -206,8 +203,8 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 			? _wallet
 			: payable(whitelistedRoot);
 
-		require(getToppingAmount() > address(_wallet).balance);
 		uint256 toTop = getToppingAmount() - address(_wallet).balance;
+		require((toTop * 100) / getToppingAmount() >= minTopping, "low toTop");
 
 		uint256 dayOfWeek = currentDay % 7;
 
@@ -258,5 +255,9 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 
 	function setGasPrice(uint64 _price) external onlyRole(DEFAULT_ADMIN_ROLE) {
 		gasPrice = _price;
+	}
+
+	function setMinTopping(uint8 _minTop) external onlyRole(DEFAULT_ADMIN_ROLE) {
+		minTopping = _minTop;
 	}
 }
