@@ -57,10 +57,10 @@ contract IdentityV2 is
 	event ContractAdded(address indexed account);
 	event ContractRemoved(address indexed account);
 
-	function initialize(address _owner, IIdentity _oldIdentity)
-		public
-		initializer
-	{
+	function initialize(
+		address _owner,
+		IIdentity _oldIdentity
+	) public initializer {
 		__AccessControl_init_unchained();
 		__Pausable_init_unchained();
 		__EIP712_init_unchained("Identity", "1.0.0");
@@ -107,14 +107,24 @@ contract IdentityV2 is
 	 * Can only be called by Identity Administrators.
 	 * @param account address to change its auth date
 	 */
-	function authenticate(address account)
-		public
-		onlyRole(IDENTITY_ADMIN_ROLE)
-		whenNotPaused
-	{
+	function authenticate(address account) public {
+		return authenticateWithTimestamp(account, block.timestamp);
+	}
+
+	/**
+	 * @dev Sets the authentication date of `account`
+	 * to the current time.
+	 * Can only be called by Identity Administrators.
+	 * @param account address to change its auth date
+	 * @param timestamp the authentication timestamp
+	 */
+	function authenticateWithTimestamp(
+		address account,
+		uint256 timestamp
+	) public onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
 		require(identities[account].status == 1, "not whitelisted");
-		identities[account].dateAuthenticated = block.timestamp;
-		emit WhitelistedAuthenticated(account, block.timestamp);
+		identities[account].dateAuthenticated = timestamp;
+		emit WhitelistedAuthenticated(account, timestamp);
 	}
 
 	/**
@@ -122,11 +132,9 @@ contract IdentityV2 is
 	 * Can only be called by Identity Administrators.
 	 * @param account address to add as whitelisted
 	 */
-	function addWhitelisted(address account)
-		public
-		onlyRole(IDENTITY_ADMIN_ROLE)
-		whenNotPaused
-	{
+	function addWhitelisted(
+		address account
+	) public onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
 		_addWhitelisted(account, _chainId());
 	}
 
@@ -154,11 +162,10 @@ contract IdentityV2 is
 	 * @param account The address to add
 	 * @param did the ID to add account under
 	 */
-	function addWhitelistedWithDID(address account, string memory did)
-		public
-		onlyRole(IDENTITY_ADMIN_ROLE)
-		whenNotPaused
-	{
+	function addWhitelistedWithDID(
+		address account,
+		string memory did
+	) public onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
 		_addWhitelistedWithDID(account, did, _chainId());
 	}
 
@@ -167,11 +174,9 @@ contract IdentityV2 is
 	 * Can only be called by Identity Administrators.
 	 * @param account address to remove as whitelisted
 	 */
-	function removeWhitelisted(address account)
-		public
-		onlyRole(IDENTITY_ADMIN_ROLE)
-		whenNotPaused
-	{
+	function removeWhitelisted(
+		address account
+	) public onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
 		_removeWhitelisted(account);
 	}
 
@@ -228,11 +233,9 @@ contract IdentityV2 is
 	 * Can only be called by Identity Administrators.
 	 * @param account address to add as blacklisted
 	 */
-	function addBlacklisted(address account)
-		public
-		onlyRole(IDENTITY_ADMIN_ROLE)
-		whenNotPaused
-	{
+	function addBlacklisted(
+		address account
+	) public onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
 		identities[account].status = 255;
 		emit BlacklistAdded(account);
 	}
@@ -242,11 +245,9 @@ contract IdentityV2 is
 	 * Can only be called by Identity Administrators.
 	 * @param account address to remove as blacklisted
 	 */
-	function removeBlacklisted(address account)
-		external
-		onlyRole(IDENTITY_ADMIN_ROLE)
-		whenNotPaused
-	{
+	function removeBlacklisted(
+		address account
+	) external onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
 		if (
 			address(oldIdentity) != address(0) && oldIdentity.isBlacklisted(account)
 		) oldIdentity.removeBlacklisted(account);
@@ -259,11 +260,9 @@ contract IdentityV2 is
 	 * @dev Function to add a Contract to list of contracts
 	 * @param account The address to add
 	 */
-	function addContract(address account)
-		public
-		onlyRole(IDENTITY_ADMIN_ROLE)
-		whenNotPaused
-	{
+	function addContract(
+		address account
+	) public onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
 		require(isContract(account), "Given address is not a contract");
 		_addWhitelisted(account, _chainId());
 		identities[account].status = 2; //this must come after _addWhitelisted
@@ -275,11 +274,9 @@ contract IdentityV2 is
 	 * @dev Function to remove a Contract from list of contracts
 	 * @param account The address to add
 	 */
-	function removeContract(address account)
-		public
-		onlyRole(IDENTITY_ADMIN_ROLE)
-		whenNotPaused
-	{
+	function removeContract(
+		address account
+	) public onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
 		if (
 			address(oldIdentity) != address(0) && oldIdentity.isDAOContract(account)
 		) {
@@ -472,11 +469,9 @@ contract IdentityV2 is
 	 @param account address to get its identity
 	 @return whitelisted the identity or address 0 if _account not connected or not identity
 	 **/
-	function getWhitelistedRoot(address account)
-		external
-		view
-		returns (address whitelisted)
-	{
+	function getWhitelistedRoot(
+		address account
+	) external view returns (address whitelisted) {
 		if (isWhitelisted(account)) return account;
 		if (isWhitelisted(connectedAccounts[account]))
 			return connectedAccounts[account];
@@ -533,11 +528,9 @@ contract IdentityV2 is
 	 @param account to get DID for
 	 @return did of the account
 	 */
-	function addrToDID(address account)
-		external
-		view
-		returns (string memory did)
-	{
+	function addrToDID(
+		address account
+	) external view returns (string memory did) {
 		did = identities[account].did;
 		bytes32 pHash = keccak256(bytes(did));
 
@@ -555,11 +548,9 @@ contract IdentityV2 is
 		return "";
 	}
 
-	function getWhitelistedOnChainId(address account)
-		external
-		view
-		returns (uint256 chainId)
-	{
+	function getWhitelistedOnChainId(
+		address account
+	) external view returns (uint256 chainId) {
 		chainId = identities[account].whitelistedOnChainId;
 		return chainId > 0 ? chainId : _chainId();
 	}
