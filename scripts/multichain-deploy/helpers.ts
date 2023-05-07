@@ -159,7 +159,8 @@ export const executeViaGuardian = async (
       results.push(tx);
     } else {
       const simulationResult = await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
-        from: await guardian.getAddress()
+        from: await guardian.getAddress(),
+        value: ethValues[i]
       });
       console.log("executing genericCall:", {
         sigHash,
@@ -211,7 +212,7 @@ export const executeViaSafe = async (
     safeSigner = safeSignerOrNetwork as any;
   }
   const chainId = await safeSigner.getChainId();
-  console.log("safeSigner:", safeSigner.address, { chainId });
+  console.log("safeSigner:", safeSigner.address, { chainId, safeAddress });
   let txServiceUrl;
   switch (chainId) {
     case 1:
@@ -251,7 +252,7 @@ export const executeViaSafe = async (
     const encoded = ethers.utils.solidityPack(["bytes4", "bytes"], [sigHash, functionInputs[i]]);
     if (contract === ctrl.address) {
       const simulationResult =
-        isSimulation === false &&
+        isSimulation === true &&
         (await ctrl.callStatic[functionSigs[i]](...functionInputs[i], {
           from: safeAddress,
           value: ethValues[i]
@@ -276,15 +277,16 @@ export const executeViaSafe = async (
       });
 
       const simulationResult =
-        isSimulation === false &&
+        isSimulation === true &&
         (await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
-          from: safeAddress
+          from: safeAddress,
+          value: ethValues[i]
         }));
       console.log("executing genericCall simulation result:", {
         sigHash,
         simulationResult
       });
-      if (isSimulation === false && simulationResult[0] === false) throw new Error("simulation failed:" + contract);
+      if (isSimulation === true && simulationResult[0] === false) throw new Error("simulation failed:" + contract);
       const genericEncode = ctrl.interface.encodeFunctionData("genericCall", [
         contract,
         encoded,

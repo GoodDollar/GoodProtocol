@@ -15,21 +15,19 @@ import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
 
 const { name: networkName } = network;
+const isForkSimulation = networkName === "localhost";
 
 export const step1 = async () => {
   const isProduction = networkName.includes("production");
   let [root, ...signers] = await ethers.getSigners();
 
-  if (isProduction) verifyProductionSigner(root);
-
   let networkEnv = networkName.split("-")[0];
-  const isForkSimulation = networkName === "localhost";
   if (isForkSimulation) networkEnv = "production";
   const fuseNetwork = networkEnv;
 
   if (networkEnv === "fuse") networkEnv = "development";
   const celoNetwork = networkEnv + "-celo";
-  const mainnetNetwork = `${networkName === "localhost" ? "production" : networkName}-mainnet`; //simulate production on localhost requires running hardhat node in fork mode
+  const mainnetNetwork = `${networkName === "localhost" ? "production" : networkName.split("-")[0]}-mainnet`; //simulate production on localhost requires running hardhat node in fork mode
 
   let protocolSettings = defaultsDeep({}, ProtocolSettings[networkName], ProtocolSettings["default"]);
 
@@ -133,8 +131,6 @@ export const step2 = async () => {
   const isProduction = networkName.includes("production");
   let [root, ...signers] = await ethers.getSigners();
 
-  if (isProduction) verifyProductionSigner(root);
-
   let networkEnv = networkName.split("-")[0];
   const isForkSimulation = networkName === "localhost";
   if (isForkSimulation) networkEnv = "production";
@@ -208,7 +204,7 @@ export const step2 = async () => {
       fuseProposalEthValues,
       fuseProposalFunctionSignatures,
       fuseProposalFunctionInputs,
-      protocolSettings.guardiansSafe,
+      dao[fuseNetwork].GuardiansSafe,
       "fuse"
     );
   } else {
@@ -237,7 +233,7 @@ export const main = async () => {
   console.log("running step:", { stepNumber });
   switch (stepNumber) {
     case "1":
-      await reset("https://cloudflare-eth.com");
+      isForkSimulation && (await reset("https://cloudflare-eth.com"));
       await step1();
       break;
 
@@ -245,7 +241,7 @@ export const main = async () => {
     //npx hardhat node --fork https://rpc.fuse.io
     //then run npx hardhat run scripts/proposals/gip-14_1.ts --network localhost
     case "2":
-      await reset("https://rpc.fuse.io");
+      isForkSimulation && (await reset("https://rpc.fuse.io"));
       await step2();
       break;
   }
