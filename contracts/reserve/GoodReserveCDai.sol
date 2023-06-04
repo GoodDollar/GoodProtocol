@@ -54,7 +54,7 @@ contract GoodReserveCDai is
 	/// @dev mark if user claimed his GDX
 	mapping(address => bool) public isClaimedGDX;
 
-	uint32 public nonUbiBps; //how much of expansion G$ to allocate for non Ubi causes
+	uint32 private unused_nonUbiBps; //keep for storage structure upgrades. //how much of expansion G$ to allocate for non Ubi causes
 	DistributionHelper public distributionHelper; //in charge of distributing non UBI to different recipients
 
 	// Emits when new GD tokens minted
@@ -123,11 +123,10 @@ contract GoodReserveCDai is
 
 	event DistributionHelperSet(address distributionHelper, uint32 bps);
 
-	function initialize(INameService _ns, bytes32 _gdxAirdrop)
-		public
-		virtual
-		initializer
-	{
+	function initialize(
+		INameService _ns,
+		bytes32 _gdxAirdrop
+	) public virtual initializer {
 		__ERC20PresetMinterPauser_init("GDX", "G$X");
 		setDAO(_ns);
 
@@ -377,8 +376,6 @@ contract GoodReserveCDai is
 		);
 		uint256 gdExpansionToMint = getMarketMaker().mintExpansion(_interestToken);
 
-		uint256 nonUBI;
-
 		lastMinted = block.number;
 		uint256 gdUBI = gdInterestToMint + gdExpansionToMint;
 
@@ -389,19 +386,13 @@ contract GoodReserveCDai is
 		// 	nameService.getAddress("FUND_MANAGER")
 		// );
 
-		if (nonUbiBps > 0 && address(distributionHelper) != address(0)) {
-			nonUBI = (gdExpansionToMint * nonUbiBps) / 10000;
-			gdUBI -= nonUBI;
-			_mintGoodDollars(address(distributionHelper), nonUBI, false);
-			bool success = true;
-			try distributionHelper.onDistribution(nonUBI) {} catch {
-				success = false;
-			} //should not prevent mintUBI from completing
-			emit NonUBIMinted(address(distributionHelper), nonUBI, success);
+		if (address(distributionHelper) != address(0)) {
+			_mintGoodDollars(address(distributionHelper), gdUBI, false);
+			distributionHelper.onDistribution(gdUBI);
+		} else {
+			//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
+			_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), gdUBI, false);
 		}
-
-		//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
-		_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), gdUBI, false);
 		emit UBIMinted(
 			lastMinted,
 			address(_interestToken),
@@ -417,15 +408,11 @@ contract GoodReserveCDai is
 	/**
 	 * @notice allows Avatar to change or set the distribution helper
 	 * @param _helper address of distributionhelper contract
-	 * @param _bps how much of UBI to transfer in basis points
 	 */
-	function setDistributionHelper(DistributionHelper _helper, uint32 _bps)
-		external
-	{
+	function setDistributionHelper(DistributionHelper _helper) external {
 		_onlyAvatar();
 		distributionHelper = _helper;
-		nonUbiBps = _bps;
-		emit DistributionHelperSet(address(_helper), _bps);
+		emit DistributionHelperSet(address(_helper), 10000);
 	}
 
 	/**
@@ -436,9 +423,10 @@ contract GoodReserveCDai is
 	 * @param _nom The numerator to calculate the global `reserveRatioDailyExpansion` from
 	 * @param _denom The denominator to calculate the global `reserveRatioDailyExpansion` from
 	 */
-	function setReserveRatioDailyExpansion(uint256 _nom, uint256 _denom)
-		external
-	{
+	function setReserveRatioDailyExpansion(
+		uint256 _nom,
+		uint256 _denom
+	) external {
 		_onlyAvatar();
 		getMarketMaker().setReserveRatioDailyExpansion(_nom, _denom);
 	}
