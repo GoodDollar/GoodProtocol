@@ -60,6 +60,7 @@
     "@jsier/retrier": "^1.2.4",
     "@openzeppelin/contracts": "^4.8.0",
     "@openzeppelin/contracts-upgradeable": "^4.8.0",
+    "@openzeppelin/upgrades-core": "1.18.0",
     "@superfluid-finance/ethereum-contracts": "^1.4.3",
     "@superfluid-finance/sdk-core": "^0.5.8",
     "@typechain/hardhat": "^6.1.5",

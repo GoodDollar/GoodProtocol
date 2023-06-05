@@ -2337,6 +2337,7 @@ __metadata:
     "@openzeppelin/contracts": ^4.8.0
     "@openzeppelin/contracts-upgradeable": ^4.8.0
     "@openzeppelin/hardhat-upgrades": ^1.20.0
+    "@openzeppelin/upgrades-core": 1.18.0
     "@superfluid-finance/ethereum-contracts": ^1.4.3
     "@superfluid-finance/sdk-core": ^0.5.8
     "@swc/core": ^1.2.196
@@ -3008,7 +3009,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@openzeppelin/upgrades-core@npm:^1.18.0":
+"@openzeppelin/upgrades-core@npm:1.18.0, @openzeppelin/upgrades-core@npm:^1.18.0":
   version: 1.18.0
   resolution: "@openzeppelin/upgrades-core@npm:1.18.0"
   dependencies:
