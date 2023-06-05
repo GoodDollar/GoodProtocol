@@ -123,5 +123,6 @@
     "ts-node": "^10.8.0",
     "typechain": "^6.0.2",
     "typescript": "*"
-  }
+  },
+  "packageManager": "yarn@3.6.0"
 }
