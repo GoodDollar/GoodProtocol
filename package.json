@@ -5,8 +5,8 @@
   "scripts": {
     "prepack": "npm run minimize",
     "build": "scripts/build.sh deploy",
-    "coverage:report": "export COVERALLS_REPO_TOKEN='qiXNelh1HXMAsoPah9yRD2yG2WlqrDfLh' && cat ../coverage/lcov.info coverage/lcov.info | coveralls",
-    "coverage": "export CODE_COVERAGE=true; hardhat --max-memory 6096 coverage",
+    "coverage:report": "COVERALLS_REPO_TOKEN='qiXNelh1HXMAsoPah9yRD2yG2WlqrDfLh' cat ../coverage/lcov.info coverage/lcov.info | coveralls",
+    "coverage": "CODE_COVERAGE=true hardhat --max-memory 6096 coverage",
     "minimize": "./scripts/minimize.sh 'artifacts/contracts'",
     "test": "hardhat test",
     "test:parallel": "mocha --require hardhat/register --extension ts --recursive --parallel --exit",
