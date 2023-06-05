@@ -152,7 +152,7 @@ jobs:
           yarn compile
           yarn minimize
       - name: Automated Version Bump
-        uses: aliberkhsl/gh-action-bump-version@master
+        uses: phips28/gh-action-bump-version@master
         with:
           patch-wording: "RELEASE"
           default: prerelease
