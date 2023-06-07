@@ -1,5 +1,4 @@
 import { range, sortBy, toPairs } from "lodash";
-import fetch from "node-fetch";
 import PromisePool from "async-promise-pool";
 import fs from "fs";
 import { ethers } from "hardhat";
@@ -37,14 +36,7 @@ const main = async () => {
   const dailyBalance = [];
   for (let day of days) {
     dailyBalance.push(
-      (
-        await archive.getBalance(
-          "0x01ab5966C1d742Ae0CFF7f14cC0F4D85156e83d9",
-          day
-        )
-      )
-        .div(1e10)
-        .toNumber() / 1e8
+      (await archive.getBalance("0x01ab5966C1d742Ae0CFF7f14cC0F4D85156e83d9", day)).div(1e10).toNumber() / 1e8
     );
   }
   let curBlock = startBlock;
@@ -60,19 +52,15 @@ const main = async () => {
     const toBlock = Math.min(fromBlock + blockStep, endBlock);
     pool.add(async () => {
       const f = faucet.filters.WalletTopped();
-      const events = await faucet
-        .queryFilter(f, fromBlock, toBlock)
-        .catch(e => {
-          console.log("failed", { fromBlock, toBlock });
-          return [];
-        });
+      const events = await faucet.queryFilter(f, fromBlock, toBlock).catch(e => {
+        console.log("failed", { fromBlock, toBlock });
+        return [];
+      });
       events.forEach(e => {
         totalToppings += 1;
         totalAmount += Number(e.args.amount);
-        toppingsByAddress[e.args.user] =
-          (toppingsByAddress[e.args.user] || 0) + 1;
-        toppingsByAmount[e.args.amount] =
-          (toppingsByAmount[e.args.amount] || 0) + 1;
+        toppingsByAddress[e.args.user] = (toppingsByAddress[e.args.user] || 0) + 1;
+        toppingsByAmount[e.args.amount] = (toppingsByAmount[e.args.amount] || 0) + 1;
       });
       console.log("fetched events", {
         fromBlock,

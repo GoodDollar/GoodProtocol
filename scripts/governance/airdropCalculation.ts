@@ -1,15 +1,11 @@
 import { get, range, chunk, flatten, mergeWith, sortBy, uniq } from "lodash";
 import fs from "fs";
-import MerkleTree, {
-  checkProof,
-  checkProofOrdered
-} from "merkle-tree-solidity";
+import MerkleTree, { checkProof, checkProofOrdered } from "merkle-tree-solidity";
 import coreContracts from "@gooddollar/goodcontracts/releases/deployment.json";
 import stakingContracts from "@gooddollar/goodcontracts/stakingModel/releases/deployment.json";
 import upgradablesContracts from "@gooddollar/goodcontracts/upgradables/releases/deployment.json";
 import SimpleDAIStaking from "@gooddollar/goodcontracts/stakingModel/build/contracts/SimpleDAIStaking.min.json";
 import { ethers as Ethers } from "hardhat";
-import fetch from "node-fetch";
 import { request, gql } from "graphql-request";
 import { Retrier } from "@jsier/retrier";
 import PromisePool from "async-promise-pool";
@@ -56,9 +52,7 @@ const otherContracts = [
 
 const systemContracts = {};
 const allContracts = flatten(
-  [coreContracts, stakingContracts, upgradablesContracts].map(_ =>
-    Object.values(_).map(_ => Object.values(_))
-  )
+  [coreContracts, stakingContracts, upgradablesContracts].map(_ => Object.values(_).map(_ => Object.values(_)))
 );
 flatten(
   [].concat(
@@ -89,27 +83,17 @@ const quantile = (sorted, q) => {
 let FUSE_SNAPSHOT_BLOCK = 13175510; //September-29-2021 03:00:00 PM +3 UTC
 let ETH_SNAPSHOT_BLOCK = 13320531; //first blocka after 12pm Sep-29-2021 12:00:20 PM +UTC
 
-export const airdrop = (
-  ethers: typeof Ethers,
-  ethplorer_key,
-  etherscan_key
-) => {
+export const airdrop = (ethers: typeof Ethers, ethplorer_key, etherscan_key) => {
   const fusePoktProvider = new ethers.providers.JsonRpcProvider({
     url: "https://fuse-mainnet.gateway.pokt.network/v1/lb/60ee374fc6318362996a1fb0",
     user: "",
     password: "d57939c260bdf0a6f22550e2350b4312" //end point will be removed, so its ok to keep clear text password
   });
 
-  const fuseProvider = new ethers.providers.JsonRpcProvider(
-    "https://rpc.fuse.io"
-  );
+  const fuseProvider = new ethers.providers.JsonRpcProvider("https://rpc.fuse.io");
 
-  const fuseGDProvider = new ethers.providers.JsonRpcProvider(
-    "https://gooddollar-rpc.fuse.io"
-  );
-  const fuseArchiveProvider = new ethers.providers.JsonRpcBatchProvider(
-    "https://explorer-node.fuse.io/"
-  );
+  const fuseGDProvider = new ethers.providers.JsonRpcProvider("https://gooddollar-rpc.fuse.io");
+  const fuseArchiveProvider = new ethers.providers.JsonRpcBatchProvider("https://explorer-node.fuse.io/");
 
   const poktArchiveProvider = new ethers.providers.JsonRpcProvider({
     url: "https://eth-trace.gateway.pokt.network/v1/lb/6130bad2dc57c50036551041",
@@ -182,8 +166,7 @@ export const airdrop = (
     const nowBlock = ETH_SNAPSHOT_BLOCK; //await staking.provider.getBlockNumber();
     let toAggregate = events.map(_ => [
       _.args.staker.toLowerCase(),
-      parseFloat(ethers.utils.formatEther(_.args.daiValue)) *
-        (nowBlock - _.blockNumber), //value staked multiplied by time staked (there where no withdraws so far besides foundation account)
+      parseFloat(ethers.utils.formatEther(_.args.daiValue)) * (nowBlock - _.blockNumber), //value staked multiplied by time staked (there where no withdraws so far besides foundation account)
       parseFloat(ethers.utils.formatEther(_.args.daiValue))
     ]);
 
@@ -200,16 +183,12 @@ export const airdrop = (
       .filter(_ => !isSystemContract(_.args.from))
       .map(e => [
         e.args.from.toLowerCase(),
-        parseFloat(ethers.utils.formatEther(e.args.value)) *
-          (nowBlock - e.blockNumber),
+        parseFloat(ethers.utils.formatEther(e.args.value)) * (nowBlock - e.blockNumber),
         parseFloat(ethers.utils.formatEther(e.args.value))
       ]);
 
     //read eth donations and calculate period * $ value
-    let provider = new ethers.providers.EtherscanProvider(
-      "homestead",
-      etherscan_key
-    );
+    let provider = new ethers.providers.EtherscanProvider("homestead", etherscan_key);
 
     //use etherscan to read past eth transfers to the donation contract
     let historyPromises = (
@@ -222,9 +201,9 @@ export const airdrop = (
       .filter(_ => _.value.gt(ethers.constants.Zero))
       .map(async _ => {
         const data = await fetch(
-          `https://poloniex.com/public?command=returnChartData&currencyPair=USDT_ETH&start=${
-            _.timestamp
-          }&end=${_.timestamp + 30000}&period=300`
+          `https://poloniex.com/public?command=returnChartData&currencyPair=USDT_ETH&start=${_.timestamp}&end=${
+            _.timestamp + 30000
+          }&period=300`
         ).then(_ => _.json());
         const price = data[0].weightedAverage || data[0].open;
         if (price == 0) console.error("error 0 price", { data });
@@ -234,18 +213,13 @@ export const airdrop = (
           timestamp: _.timestamp,
           price,
           usdvalue: price * parseFloat(ethers.utils.formatEther(_.value)),
-          share:
-            price *
-            parseFloat(ethers.utils.formatEther(_.value)) *
-            (nowBlock - _.blockNumber) //value staked multiplied by time staked
+          share: price * parseFloat(ethers.utils.formatEther(_.value)) * (nowBlock - _.blockNumber) //value staked multiplied by time staked
         };
       });
 
     let ethDonations = await Promise.all(historyPromises);
 
-    let donationsToAggregate = daiDonationsToAggregate.concat(
-      ethDonations.map(_ => [_.from, _.share, _.usdvalue])
-    );
+    let donationsToAggregate = daiDonationsToAggregate.concat(ethDonations.map(_ => [_.from, _.share, _.usdvalue]));
 
     const stakerToTotal: { [key: string]: number } = {};
     toAggregate = toAggregate.concat(donationsToAggregate);
@@ -265,8 +239,7 @@ export const airdrop = (
     withdrawevents.forEach(
       _ =>
         (stakerToTotal[_.args.staker.toLowerCase()] -=
-          parseFloat(ethers.utils.formatEther(_.args.daiValue)) *
-          (nowBlock - _.blockNumber))
+          parseFloat(ethers.utils.formatEther(_.args.daiValue)) * (nowBlock - _.blockNumber))
     );
 
     //filter contracts + calculate total shares
@@ -323,10 +296,7 @@ export const airdrop = (
         liquidityPositions(
           orderDirection: desc
           orderBy: liquidityTokenBalance
-          where: {
-            pair: "0xa56a281cd8ba5c083af121193b2aaccaaac9850a"
-            liquidityTokenBalance_gt: 0
-          }
+          where: { pair: "0xa56a281cd8ba5c083af121193b2aaccaaac9850a", liquidityTokenBalance_gt: 0 }
         ) {
           id
           user {
@@ -341,10 +311,7 @@ export const airdrop = (
       }
     `;
 
-    let pair = await ethers.getContractAt(
-      "UniswapPair",
-      "0xa56a281cd8ba5c083af121193b2aaccaaac9850a"
-    );
+    let pair = await ethers.getContractAt("UniswapPair", "0xa56a281cd8ba5c083af121193b2aaccaaac9850a");
     pair = pair.connect(poktArchiveProvider);
 
     const pairTotalSupply = await pair
@@ -358,10 +325,7 @@ export const airdrop = (
     console.log("uniswap pair data:", { reserve0, pairTotalSupply });
 
     //TODO: read supplier balance at snapshot
-    const { liquidityPositions } = await request(
-      "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2",
-      query
-    );
+    const { liquidityPositions } = await request("https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2", query);
 
     const gdHoldings = liquidityPositions.map(async pos => {
       const uAddress = pos.user.id.toLowerCase();
@@ -376,8 +340,7 @@ export const airdrop = (
         `${uAddress}.isNotContract`,
         (await gdMainnet.provider.getCode(uAddress).catch(e => "0x")) === "0x"
       );
-      const newBalance =
-        (get(addresses, `${uAddress}.balance`, 0) as number) + gdShare;
+      const newBalance = (get(addresses, `${uAddress}.balance`, 0) as number) + gdShare;
       console.log("uniswap position:", {
         pos,
         newBalance,
@@ -396,11 +359,7 @@ export const airdrop = (
     return addresses;
   };
 
-  const getFuseSwapBalances = async (
-    graphqlUrl,
-    tokenId,
-    addresses: Balances = {}
-  ) => {
+  const getFuseSwapBalances = async (graphqlUrl, tokenId, addresses: Balances = {}) => {
     const _calcHoldings = async (pair, addresses: Balances = {}) => {
       const { liquidityPositions, reserve0: isReserve0, id } = pair;
       let pairContract = await ethers.getContractAt("UniswapPair", id);
@@ -443,8 +402,7 @@ export const airdrop = (
               reserve: reserve
             });
 
-            const newBalance =
-              (get(addresses, `${uAddress}.balance`, 0) as number) + gdShare;
+            const newBalance = (get(addresses, `${uAddress}.balance`, 0) as number) + gdShare;
 
             addresses[uAddress] = updateBalance(addresses[uAddress], {
               balance: newBalance
@@ -516,8 +474,7 @@ export const airdrop = (
     );
 
     const farmers = {};
-    const yieldFarmingRep =
-      addresses[usdcgdYieldFarming.address.toLowerCase()]?.balance || 0;
+    const yieldFarmingRep = addresses[usdcgdYieldFarming.address.toLowerCase()]?.balance || 0;
     if (yieldFarmingRep > 0) {
       const [totalStaked, ,] = await usdcgdYieldFarming.interestData({
         blockTag: FUSE_SNAPSHOT_BLOCK
@@ -525,19 +482,14 @@ export const airdrop = (
 
       await Promise.all(
         staked.map(async e => {
-          const [balance] = await usdcgdYieldFarming.getStakerData(
-            e.args.staker,
-            { blockTag: FUSE_SNAPSHOT_BLOCK }
-          );
+          const [balance] = await usdcgdYieldFarming.getStakerData(e.args.staker, { blockTag: FUSE_SNAPSHOT_BLOCK });
 
           if (balance > 0) {
             const share = balance.toNumber() / totalStaked.toNumber();
             const uAddress = e.args.staker;
             const repShare = parseInt((share * yieldFarmingRep).toFixed(0));
             farmers[uAddress] = [share, repShare];
-            const newBalance =
-              (get(addresses, `${uAddress}.balance`, 0) as number) +
-              share * yieldFarmingRep;
+            const newBalance = (get(addresses, `${uAddress}.balance`, 0) as number) + share * yieldFarmingRep;
 
             addresses[uAddress] = updateBalance(addresses[uAddress], {
               balance: newBalance
@@ -563,16 +515,8 @@ export const airdrop = (
     return addresses;
   };
 
-  const getFuseHolders = async (
-    addresses: Balances = {},
-    onlyBalances = false,
-    onlyFailed = false
-  ) => {
-    console.log(
-      "getFuseHolders",
-      { onlyBalances, onlyFailed },
-      Object.keys(addresses).length
-    );
+  const getFuseHolders = async (addresses: Balances = {}, onlyBalances = false, onlyFailed = false) => {
+    console.log("getFuseHolders", { onlyBalances, onlyFailed }, Object.keys(addresses).length);
     const toFetch = {};
 
     const step = 1000;
@@ -596,11 +540,7 @@ export const airdrop = (
           const logs = await retrier.resolve(attempt => {
             console.log("fetching block transfer logs", { attempt, bc });
 
-            return contracts[idx++ % contracts.length].queryFilter(
-              filter,
-              bc,
-              Math.min(bc + step - 1, latestBlock)
-            );
+            return contracts[idx++ % contracts.length].queryFilter(filter, bc, Math.min(bc + step - 1, latestBlock));
           });
 
           logs.forEach(l => (toFetch[l.args.to.toLowerCase()] = true));
@@ -652,14 +592,11 @@ export const airdrop = (
     for (let addrChunk of chunk(addrs, 50)) {
       balancesPool.add(async () => {
         const ps = addrChunk.map(async (uAddress: string) => {
-          const curBalance = onlyFailed
-            ? 0
-            : get(addresses, `${uAddress}.balance`, 0);
+          const curBalance = onlyFailed ? 0 : get(addresses, `${uAddress}.balance`, 0);
           const isNotContract = get(
             addresses,
             `${uAddress}.isNotContract`,
-            (await gdNonArchive.provider.getCode(uAddress).catch(e => "0x")) ===
-              "0x"
+            (await gdNonArchive.provider.getCode(uAddress).catch(e => "0x")) === "0x"
           );
           const balance = await gd
             .balanceOf(uAddress)
@@ -682,8 +619,7 @@ export const airdrop = (
 
     await balancesPool.all();
     console.log("fuseHolders failed:", failed.length);
-    if (!onlyFailed)
-      fs.writeFileSync("airdrop/failed.tmp", JSON.stringify(failed));
+    if (!onlyFailed) fs.writeFileSync("airdrop/failed.tmp", JSON.stringify(failed));
     return addresses;
   };
 
@@ -706,8 +642,7 @@ export const airdrop = (
           const isNotContract = get(
             addresses,
             `${uAddress}.isNotContract`,
-            (await gdNonArchive.provider.getCode(b[0]).catch(e => "0x")) ===
-              "0x"
+            (await gdNonArchive.provider.getCode(b[0]).catch(e => "0x")) === "0x"
           );
           const cleanBalance = await gdNonArchive
             .balanceOf(uAddress, { blockTag: FUSE_SNAPSHOT_BLOCK })
@@ -738,9 +673,7 @@ export const airdrop = (
       }
 
       if (items && items.length) {
-        const foundBalances = items.map(i =>
-          i.match(/(0x\w{20,})|([0-9\.,]+ G\$)/g)
-        );
+        const foundBalances = items.map(i => i.match(/(0x\w{20,})|([0-9\.,]+ G\$)/g));
         analyzedPages++;
         analyzedBalances += foundBalances.length;
         toFetch = toFetch.concat(foundBalances);
@@ -795,13 +728,11 @@ export const airdrop = (
             .then(_ => _.toNumber())
             .catch(e => failedAccounts.push(uAddress));
 
-          const newBalance =
-            get(addresses, `${uAddress}.balance`, 0) + cleanBalance;
+          const newBalance = get(addresses, `${uAddress}.balance`, 0) + cleanBalance;
           const isNotContract = get(
             addresses,
             `${uAddress}.isNotContract`,
-            (await gdMainnet.provider.getCode(uAddress).catch(e => "0x")) ===
-              "0x"
+            (await gdMainnet.provider.getCode(uAddress).catch(e => "0x")) === "0x"
           );
           addresses[uAddress] = updateBalance(addresses[uAddress], {
             balance: newBalance,
@@ -820,10 +751,7 @@ export const airdrop = (
     return addresses;
   };
 
-  const getClaimsPerAddress = async (
-    balances: Balances = {},
-    ubiContract = ubi
-  ) => {
+  const getClaimsPerAddress = async (balances: Balances = {}, ubiContract = ubi) => {
     const ubiFuse = ubiContract.connect(fuseProvider);
     const ubiPokt = ubiContract.connect(fusePoktProvider);
     const ubiGD = ubiContract.connect(fuseGDProvider);
@@ -831,11 +759,7 @@ export const airdrop = (
     const pool = new PromisePool({ concurrency: 50 });
     const step = 1000;
     const latestBlock = FUSE_SNAPSHOT_BLOCK; //await ubiContract.provider.getBlockNumber();
-    const blocks = range(
-      ubiContract === ubi ? 6276288 : 9376522,
-      ubiContract === ubi ? 9497482 : latestBlock,
-      step
-    );
+    const blocks = range(ubiContract === ubi ? 6276288 : 9376522, ubiContract === ubi ? 9497482 : latestBlock, step);
     const filter = ubiContract.filters.UBIClaimed();
     const contracts = [ubiFuse, ubiGD];
     let idx = 0;
@@ -847,11 +771,7 @@ export const airdrop = (
         const logs = await retrier.resolve(attempt => {
           console.log("fetching block ubiclaimed logs", { attempt, bc });
 
-          return contracts[idx++ % contracts.length].queryFilter(
-            filter,
-            bc,
-            Math.min(bc + step - 1, latestBlock)
-          );
+          return contracts[idx++ % contracts.length].queryFilter(filter, bc, Math.min(bc + step - 1, latestBlock));
         });
 
         console.log("found claim logs in block:", { bc }, logs.length);
@@ -870,20 +790,12 @@ export const airdrop = (
   };
 
   const calcRelativeRep = (balances: Balances) => {
-    const totalSupply = Object.values(balances).reduce(
-      (cur, data) => cur + data.balance,
-      0
-    );
-    const totalClaims = Object.values(balances).reduce(
-      (cur, data) => cur + (data.claims || 0),
-      0
-    );
+    const totalSupply = Object.values(balances).reduce((cur, data) => cur + data.balance, 0);
+    const totalClaims = Object.values(balances).reduce((cur, data) => cur + (data.claims || 0), 0);
 
     for (let addr in balances) {
-      balances[addr].gdRepShare =
-        totalSupply > 0 ? balances[addr].balance / totalSupply : 0;
-      balances[addr].claimRepShare =
-        totalClaims > 0 ? balances[addr].claims / totalClaims : 0;
+      balances[addr].gdRepShare = totalSupply > 0 ? balances[addr].balance / totalSupply : 0;
+      balances[addr].claimRepShare = totalClaims > 0 ? balances[addr].claims / totalClaims : 0;
     }
     return { totalSupply, totalClaims, balances };
   };
@@ -903,35 +815,26 @@ export const airdrop = (
 
     ps[0] = _timer(
       "getFuseSwapBalances",
-      getFuseSwapBalances(
-        "https://graph.fuse.io/subgraphs/name/fuseio/fuseswap",
-        GD_FUSE
-      ).then(r =>
+      getFuseSwapBalances("https://graph.fuse.io/subgraphs/name/fuseio/fuseswap", GD_FUSE).then(r =>
         fs.writeFileSync("airdrop/fuseswapBalances.json", JSON.stringify(r))
       )
     );
 
     ps[1] = _timer(
       "getUniswapBalances",
-      getUniswapBalances().then(r =>
-        fs.writeFileSync("airdrop/uniswapBalances.json", JSON.stringify(r))
-      )
+      getUniswapBalances().then(r => fs.writeFileSync("airdrop/uniswapBalances.json", JSON.stringify(r)))
     );
 
     ps[2] = _timer(
       "getClaimsPerAddress",
       getClaimsPerAddress()
         .then(r => getClaimsPerAddress(r, ubinew))
-        .then(r =>
-          fs.writeFileSync("airdrop/claimBalances.json", JSON.stringify(r))
-        )
+        .then(r => fs.writeFileSync("airdrop/claimBalances.json", JSON.stringify(r)))
     );
 
     ps[3] = _timer(
       "getEthPlorerHolders",
-      getEthPlorerHolders().then(r =>
-        fs.writeFileSync("airdrop/ethBalances.json", JSON.stringify(r))
-      )
+      getEthPlorerHolders().then(r => fs.writeFileSync("airdrop/ethBalances.json", JSON.stringify(r)))
     );
 
     // ps[4] = _timer(
@@ -945,16 +848,12 @@ export const airdrop = (
     // );
     ps[4] = _timer(
       "getFuseHolders",
-      getFuseHolders({}).then(r =>
-        fs.writeFileSync("airdrop/fuseBalances.json", JSON.stringify(r))
-      )
+      getFuseHolders({}).then(r => fs.writeFileSync("airdrop/fuseBalances.json", JSON.stringify(r)))
     );
 
     ps[5] = _timer(
       "getStakersBalance",
-      getStakersBalance().then(r =>
-        fs.writeFileSync("airdrop/stakersBalances.json", JSON.stringify(r))
-      )
+      getStakersBalance().then(r => fs.writeFileSync("airdrop/stakersBalances.json", JSON.stringify(r)))
     );
 
     await Promise.all(ps);
@@ -980,13 +879,8 @@ export const airdrop = (
       obj1.claims = get(obj1, "claims", 0) + get(obj2, "claims", 0);
       obj1.balance = get(obj1, "balance", 0) + get(obj2, "balance", 0);
       obj1.stake = get(obj1, "stake", 0) + get(obj2, "stake", 0);
-      obj1.stakeRepShare =
-        get(obj1, "stakeRepShare") || get(obj2, "stakeRepShare", 0);
-      obj1.isNotContract = get(
-        obj1,
-        "isNotContract",
-        get(obj2, "isNotContract")
-      );
+      obj1.stakeRepShare = get(obj1, "stakeRepShare") || get(obj2, "stakeRepShare", 0);
+      obj1.isNotContract = get(obj1, "isNotContract", get(obj2, "isNotContract"));
       return obj1;
     };
 
@@ -1003,14 +897,9 @@ export const airdrop = (
     const HOLDER_REP_ALLOCATION = 24000000;
     const STAKER_REP_ALLOCATION = 24000000;
 
-    const ETORO = [
-      "0xf79b804bae955ae4cd8e8b0331c4bc437104804f",
-      "0x61ec01ad0937ebc10d448d259a2bbb1556b61e38"
-    ];
-    const EtoroOfficial =
-      "0x61ec01ad0937ebc10d448d259a2bbb1556b61e38".toLowerCase();
-    const FoundationOfficial =
-      "0x66582D24FEaD72555adaC681Cc621caCbB208324".toLowerCase();
+    const ETORO = ["0xf79b804bae955ae4cd8e8b0331c4bc437104804f", "0x61ec01ad0937ebc10d448d259a2bbb1556b61e38"];
+    const EtoroOfficial = "0x61ec01ad0937ebc10d448d259a2bbb1556b61e38".toLowerCase();
+    const FoundationOfficial = "0x66582D24FEaD72555adaC681Cc621caCbB208324".toLowerCase();
 
     const TEAM = [
       "0x5AeE2397b39B479B72bcfbDA114512BD3329E5aC",
@@ -1045,24 +934,24 @@ export const airdrop = (
 
     ETORO.forEach(addr => delete balances[addr]);
 
-    let toTree: Array<
-      [string, number, boolean, number, number, number, number]
-    > = Object.entries(balances).map(([addr, data]) => {
-      let rep =
-        data.claimRepShare * CLAIMER_REP_ALLOCATION +
-        data.gdRepShare * HOLDER_REP_ALLOCATION +
-        data.stakeRepShare * STAKER_REP_ALLOCATION;
+    let toTree: Array<[string, number, boolean, number, number, number, number]> = Object.entries(balances).map(
+      ([addr, data]) => {
+        let rep =
+          data.claimRepShare * CLAIMER_REP_ALLOCATION +
+          data.gdRepShare * HOLDER_REP_ALLOCATION +
+          data.stakeRepShare * STAKER_REP_ALLOCATION;
 
-      return [
-        addr,
-        rep,
-        !data.isNotContract,
-        data.claimRepShare * CLAIMER_REP_ALLOCATION,
-        data.gdRepShare * HOLDER_REP_ALLOCATION,
-        data.stakeRepShare * STAKER_REP_ALLOCATION,
-        0
-      ];
-    });
+        return [
+          addr,
+          rep,
+          !data.isNotContract,
+          data.claimRepShare * CLAIMER_REP_ALLOCATION,
+          data.gdRepShare * HOLDER_REP_ALLOCATION,
+          data.stakeRepShare * STAKER_REP_ALLOCATION,
+          0
+        ];
+      }
+    );
 
     //split etoro's rep between team,etoro and foundation
     const foundationEtoroRepShare = 8640000;
@@ -1072,15 +961,7 @@ export const airdrop = (
     foundationRecord[6] = foundationEtoroRepShare;
     console.log("Foundation updated record:", foundationRecord);
 
-    const etoroRecord: [
-      string,
-      number,
-      boolean,
-      number,
-      number,
-      number,
-      number
-    ] = [
+    const etoroRecord: [string, number, boolean, number, number, number, number] = [
       EtoroOfficial,
       foundationEtoroRepShare,
       false,
@@ -1128,11 +1009,7 @@ export const airdrop = (
       console.log({
         precentile: q * 100 + "%",
         addresses: (sorted.length * q).toFixed(0),
-        rep:
-          quantile(sorted, q) /
-          (CLAIMER_REP_ALLOCATION +
-            HOLDER_REP_ALLOCATION +
-            STAKER_REP_ALLOCATION)
+        rep: quantile(sorted, q) / (CLAIMER_REP_ALLOCATION + HOLDER_REP_ALLOCATION + STAKER_REP_ALLOCATION)
       })
     );
 
@@ -1145,10 +1022,7 @@ export const airdrop = (
         })
         .split(".")[0];
       const hash = ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
-          ["address", "uint256"],
-          [e[0], repInWei]
-        )
+        ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [e[0], repInWei])
       );
       treeData[e[0]] = {
         rep: repInWei,
@@ -1176,9 +1050,7 @@ export const airdrop = (
       1
     );
 
-    const lastProof = merkleTree
-      .getProof(elements[elements.length - 1])
-      .map(_ => _.toString("hex"));
+    const lastProof = merkleTree.getProof(elements[elements.length - 1]).map(_ => _.toString("hex"));
     const lastValidProof = checkProofOrdered(
       lastProof.map(_ => Buffer.from(_, "hex")),
       merkleTree.getRoot(),
@@ -1230,10 +1102,7 @@ export const airdrop = (
     const proof = merkleTree.getProof(proofFor);
     const proofIndex = entries.findIndex(_ => _[1].hash === addrData.hash) + 1;
 
-    console.log(
-      "checkProof:",
-      checkProofOrdered(proof, merkleTree.getRoot(), proofFor, proofIndex)
-    );
+    console.log("checkProof:", checkProofOrdered(proof, merkleTree.getRoot(), proofFor, proofIndex));
     const hexProof = proof.map(_ => "0x" + _.toString("hex"));
     console.log({ proofIndex, proof: hexProof, [addr]: addrData });
   };

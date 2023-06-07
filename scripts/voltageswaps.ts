@@ -1,5 +1,4 @@
 import { request, gql } from "graphql-request";
-import fetch from "node-fetch";
 
 let txCount = {};
 const fetchSwaps = async (to, url, pair) => {

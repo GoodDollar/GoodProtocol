@@ -2,6 +2,9 @@
   "name": "@gooddollar/goodprotocol",
   "version": "2.0.5",
   "description": "GoodDollar Protocol",
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
     "prepack": "npm run minimize",
     "build": "scripts/build.sh deploy",

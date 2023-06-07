@@ -1,5 +1,4 @@
 import { range, sortBy } from "lodash";
-import fetch from "node-fetch";
 import PromisePool from "async-promise-pool";
 import fs from "fs";
 import { ethers } from "hardhat";
@@ -33,9 +32,7 @@ const main = async () => {
   //   );
   //   fs.writeFileSync("activeWalletsBalances.json", JSON.stringify(balances));
 
-  balances = JSON.parse(
-    fs.readFileSync("activeWalletsBalances.json").toString()
-  );
+  balances = JSON.parse(fs.readFileSync("activeWalletsBalances.json").toString());
 
   const EPOCH = 60 * 60 * 6;
   const pool = new PromisePool({ concurrency: 30 });
@@ -44,9 +41,7 @@ const main = async () => {
 
   const graphQuery = async (start, skip) => {
     const query = `{
-        walletStats(first: 1000 skip:${skip} where: { dateAppeared_gte: ${start} dateAppeared_lt:${
-      start + EPOCH
-    } }) {
+        walletStats(first: 1000 skip:${skip} where: { dateAppeared_gte: ${start} dateAppeared_lt:${start + EPOCH} }) {
           id
           dateAppeared
           balance
@@ -57,16 +52,13 @@ const main = async () => {
       }`;
     // console.log({ query });
     try {
-      const { data = {}, errors } = await fetch(
-        "https://api.thegraph.com/subgraphs/name/gooddollar/gooddollarfuse",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ query })
-        }
-      ).then(_ => _.json());
+      const { data = {}, errors } = await fetch("https://api.thegraph.com/subgraphs/name/gooddollar/gooddollarfuse", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ query })
+      }).then(_ => _.json());
       errors && console.log({ errors });
       if (data?.walletStats?.length === 1000) {
         return data.walletStats.concat(await graphQuery(start, skip + 1000));
@@ -116,9 +108,7 @@ const etl = async () => {
       .join("\r\n"); // rows starting on new lines
   }
 
-  const balances = JSON.parse(
-    fs.readFileSync("activeWalletsLastUsed.json").toString()
-  );
+  const balances = JSON.parse(fs.readFileSync("activeWalletsLastUsed.json").toString());
 
   let result = [];
 
@@ -131,24 +121,18 @@ const etl = async () => {
   }
   const top100 = result.slice(0, 100);
   const pool = new PromisePool({ concurrency: 30 });
-  const provider = new ethers.providers.JsonRpcBatchProvider(
-    "https://rpc.fuse.io"
-  );
+  const provider = new ethers.providers.JsonRpcBatchProvider("https://rpc.fuse.io");
 
   for (let idx in top100) {
     pool.add(async () => {
       const record = top100[idx];
-      let isContract =
-        (await provider.getCode(record[0]).catch(e => "0x")) !== "0x";
+      let isContract = (await provider.getCode(record[0]).catch(e => "0x")) !== "0x";
       record[3] = isContract;
     });
   }
   await pool.all();
   console.log({ top100 });
-  fs.writeFileSync(
-    "activeWalletsLastUsed.csv",
-    arrayToCsv(sortBy(result, _ => -Number(_[1])))
-  );
+  fs.writeFileSync("activeWalletsLastUsed.csv", arrayToCsv(sortBy(result, _ => -Number(_[1]))));
 };
 // main().catch(e => console.log(e));
 etl();

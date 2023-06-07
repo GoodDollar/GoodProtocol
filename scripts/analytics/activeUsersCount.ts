@@ -1,6 +1,5 @@
 import { range, chunk, uniq } from "lodash";
 import { ethers as Ethers } from "hardhat";
-import fetch from "node-fetch";
 
 const ONE_DAY = 24 * 60 * 60;
 const ONE_HOUR = 60 * 60;
