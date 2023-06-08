@@ -259,12 +259,13 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			);
 
 			IGoodDollar token = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
-			if (gdUBI > 0) {
+			uint256 gdBalance = token.balanceOf(address(this));
+			if (gdBalance > 0) {
 				//transfer ubi to avatar on sidechain via bridge
 				require(
 					token.transferAndCall(
 						nameService.getAddress("BRIDGE_CONTRACT"),
-						gdUBI,
+						gdBalance,
 						abi.encodePacked(nameService.getAddress("UBI_RECIPIENT"))
 					),
 					"ubi bridge transfer failed"
@@ -285,10 +286,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				gdRewardToMint
 			);
 
-			uint256 gasPriceIncDAI = getGasPriceIncDAIorDAI(
-				initialGas - gasleft(),
-				false
-			);
+			uint256 gasPriceIncDAI = getGasPriceIncDAIorDAI(totalUsedGas, false);
 
 			if (
 				block.timestamp >= lastCollectedInterest + collectInterestTimeThreshold
@@ -299,7 +297,8 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				); // This require is necessary to keeper can not abuse this function
 			} else {
 				require(
-					interestInCdai >= interestMultiplier * gasPriceIncDAI,
+					interestInCdai >= interestMultiplier * gasPriceIncDAI ||
+						gdUBI >= interestMultiplier * gdRewardToMint,
 					"Collected interest value should be interestMultiplier x gas costs"
 				);
 			}
@@ -400,10 +399,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	}
 
 	/// quick sort
-	function quick(uint256[] memory data, address[] memory addresses)
-		internal
-		pure
-	{
+	function quick(
+		uint256[] memory data,
+		address[] memory addresses
+	) internal pure {
 		if (data.length > 1) {
 			quickPart(data, addresses, 0, data.length - 1);
 		}
@@ -447,11 +446,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	 @param _inDAI indicates if result should return in DAI
      @return Price of the gas in DAI/cDAI
      */
-	function getGasPriceIncDAIorDAI(uint256 _gasAmount, bool _inDAI)
-		public
-		view
-		returns (uint256)
-	{
+	function getGasPriceIncDAIorDAI(
+		uint256 _gasAmount,
+		bool _inDAI
+	) public view returns (uint256) {
 		AggregatorV3Interface gasPriceOracle = AggregatorV3Interface(
 			nameService.getAddress("GAS_PRICE_ORACLE")
 		);
