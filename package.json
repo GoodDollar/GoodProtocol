@@ -5,6 +5,7 @@
   "engines": {
     "node": "18.x"
   },
+  "main": "dist/test-sdk/index.js",
   "scripts": {
     "prepack": "npm run minimize",
     "build": "scripts/build.sh deploy",
@@ -21,7 +22,8 @@
     "testDAOUpgrade": "yarn runNode & yarn compile && yarn deployOldDAO --network develop-mainnet && yarn daoUpgrade --network develop-mainnet",
     "testDAOUpgradeFuse": "yarn runNode & yarn compile && yarn deployOldDAO --network develop && yarn daoUpgrade --network develop",
     "deployTestOld": "yarn compile && hardhat run scripts/test/singleOldDaoDeploy.ts --network dapptest && yarn daoUpgrade --network dapptest && yarn daoUpgrade --network dapptest-mainnet && hardhat run scripts/test/simulateInterest.ts --network dapptest",
-    "deployTest": "yarn compile && hardhat run scripts/deployFullDAO.ts --network dapptest && hardhat run scripts/deployFullDAO.ts --network dapptest-mainnet && hardhat run scripts/test/simulateInterest.ts --network dapptest"
+    "deployTest": "yarn compile && hardhat run scripts/deployFullDAO.ts --network dapptest && hardhat run scripts/deployFullDAO.ts --network dapptest-mainnet && hardhat run scripts/test/simulateInterest.ts --network dapptest",
+    "build:test-sdk": "tsc --build tsconfig.sdk.json"
   },
   "files": [
     "artifacts/contracts",
@@ -37,7 +39,8 @@
     "tsconfig.json",
     "test",
     "types",
-    "patches"
+    "patches",
+    "dist"
   ],
   "repository": {
     "type": "git",
