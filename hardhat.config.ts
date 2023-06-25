@@ -203,6 +203,12 @@ const hhconfig: HardhatUserConfig = {
       gasPrice: 5000000000,
       chainId: 42220
     },
+    alfajores: {
+      accounts: { mnemonic },
+      chainId: 44787,
+      url: `https://alfajores-forno.celo-testnet.org`,
+      gasPrice: 5000000000
+    },
     "staging-celo": {
       accounts: { mnemonic },
       url: "https://forno.celo.org",
