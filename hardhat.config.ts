@@ -59,7 +59,8 @@ const hhconfig: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       mainnet: etherscan_key,
-      celo: celoscan_key
+      celo: celoscan_key,
+      alfajores: celoscan_key
     },
     customChains: [
       {
@@ -68,6 +69,14 @@ const hhconfig: HardhatUserConfig = {
         urls: {
           apiURL: "https://api.celoscan.io/api",
           browserURL: "https://celoscan.io/"
+        }
+      },
+      {
+        network: "alfajores",
+        chainId: 44787,
+        urls: {
+          apiURL: "https://api.alfajores.celoscan.io/api",
+          browserURL: "https://alfajores.celoscan.io/"
         }
       }
     ]

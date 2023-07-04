@@ -479,7 +479,8 @@
         "Invites": "0x36829D1Cda92FFF5782d5d48991620664FC857d3",
         "UBIScheme": "0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1",
         "OneTimePayments": "0xB27D247f5C2a61D2Cb6b6E67FEE51d839447e97d",
-        "SwapHelper": "0xE45CaB86609a16dFaDec112FDd61E4EA80EdaA8D"
+        "SwapHelper": "0xE45CaB86609a16dFaDec112FDd61E4EA80EdaA8D",
+        "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4"
     },
     "gnosis": {
         "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"
@@ -506,7 +507,8 @@
         "CompoundVotingMachine": "0xC2C303131939370ed75c95686F691f290b56Be66",
         "GuardiansSafe": "0x84C10B45fE51bfB4f86c19A47Fdbc187d4572Fb8",
         "OneTimePayments": "0xB23e54fd8c2f35F9d38884Fc1611F5e9004f10ea",
-        "OneTimePaymentsV2": "0x2cb1c7d50371e277d7a36B171c0ACe9B157518EE"
+        "OneTimePaymentsV2": "0x2cb1c7d50371e277d7a36B171c0ACe9B157518EE",
+        "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4"
     },
     "staging-celo": {
         "network": "staging-celo",
@@ -530,7 +532,8 @@
         "CompoundVotingMachine": "0xCd25fB84AB22582F1034bcd80c399a3126f2E775",
         "GuardiansSafe": "0x84C10B45fE51bfB4f86c19A47Fdbc187d4572Fb8",
         "OneTimePayments": "0x514820Af2DaE5F537dE16E576471528176318113",
-        "OneTimePaymentsV2": "0x963E7B4c970626Bb103c61fA16b002AFf6E6c2C7"
+        "OneTimePaymentsV2": "0x963E7B4c970626Bb103c61fA16b002AFf6E6c2C7",
+        "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4"
     },
     "development-goerli": {
         "ProxyFactory": "0x65D8eACBCd9618b8780C4b444081915a5D54D611",
@@ -555,6 +558,8 @@
         "GReputation": "0x3647469733C01713A7d9bdf6834bd4aBd59D66fa",
         "DAOCreator": "0x35ea7176cfde2D35Dff3E688F7bA45D1d5dF0A76",
         "SuperFluidResolver": "0x6e9CaBE4172344Db81a1E1D735a6AD763700064A",
-        "SuperFluidHost": "0x14764E92A63e73a2Dac1fF08F35A64647fB50C91"
+        "SuperFluidHost": "0x14764E92A63e73a2Dac1fF08F35A64647fB50C91",
+        "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
+        "GDFaucet": "0x8986F9C6b3D0b9A8b92ef7f1eF7EB9e767D414e1"
     }
 }
