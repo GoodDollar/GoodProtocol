@@ -1,12 +1,16 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "2.0.5-beta.7",
+  "version": "2.0.7-beta.1",
   "description": "GoodDollar Protocol",
+  "engines": {
+    "node": "18.x"
+  },
+  "main": "dist/test-sdk/index.js",
   "scripts": {
     "prepack": "npm run minimize",
     "build": "scripts/build.sh deploy",
-    "coverage:report": "export COVERALLS_REPO_TOKEN='qiXNelh1HXMAsoPah9yRD2yG2WlqrDfLh' && cat ../coverage/lcov.info coverage/lcov.info | coveralls",
-    "coverage": "export CODE_COVERAGE=true; hardhat --max-memory 6096 coverage",
+    "coverage:report": "COVERALLS_REPO_TOKEN='qiXNelh1HXMAsoPah9yRD2yG2WlqrDfLh' cat ../coverage/lcov.info coverage/lcov.info | coveralls",
+    "coverage": "CODE_COVERAGE=true hardhat --max-memory 6096 coverage",
     "minimize": "./scripts/minimize.sh 'artifacts/contracts'",
     "test": "hardhat test",
     "test:parallel": "mocha --require hardhat/register --extension ts --recursive --parallel --exit",
@@ -17,8 +21,9 @@
     "runNode": "hardhat node &",
     "testDAOUpgrade": "yarn runNode & yarn compile && yarn deployOldDAO --network develop-mainnet && yarn daoUpgrade --network develop-mainnet",
     "testDAOUpgradeFuse": "yarn runNode & yarn compile && yarn deployOldDAO --network develop && yarn daoUpgrade --network develop",
-    "deployTestOld": "yarn runNode & yarn compile && hardhat run scripts/test/singleOldDaoDeploy.ts --network dapptest && yarn daoUpgrade --network dapptest && yarn daoUpgrade --network dapptest-mainnet && hardhat run scripts/test/simulateInterest.ts --network dapptest",
-    "deployTest": "yarn runNode & yarn compile && hardhat run scripts/deployFullDAO.ts --network dapptest && hardhat run scripts/deployFullDAO.ts --network dapptest-mainnet && hardhat run scripts/test/simulateInterest.ts --network dapptest"
+    "deployTestOld": "yarn compile && hardhat run scripts/test/singleOldDaoDeploy.ts --network dapptest && yarn daoUpgrade --network dapptest && yarn daoUpgrade --network dapptest-mainnet && hardhat run scripts/test/simulateInterest.ts --network dapptest",
+    "deployTest": "yarn compile && hardhat run scripts/deployFullDAO.ts --network dapptest && hardhat run scripts/deployFullDAO.ts --network dapptest-mainnet && hardhat run scripts/test/simulateInterest.ts --network dapptest",
+    "build:test-sdk": "tsc --build tsconfig.sdk.json"
   },
   "files": [
     "artifacts/contracts",
@@ -34,7 +39,8 @@
     "tsconfig.json",
     "test",
     "types",
-    "patches"
+    "patches",
+    "dist"
   ],
   "repository": {
     "type": "git",
@@ -60,6 +66,7 @@
     "@jsier/retrier": "^1.2.4",
     "@openzeppelin/contracts": "^4.8.0",
     "@openzeppelin/contracts-upgradeable": "^4.8.0",
+    "@openzeppelin/upgrades-core": "1.18.0",
     "@superfluid-finance/ethereum-contracts": "^1.4.3",
     "@superfluid-finance/sdk-core": "^0.5.8",
     "@typechain/hardhat": "^6.1.5",
@@ -117,11 +124,12 @@
     "regenerator-runtime": "^0.13.9",
     "solhint": "*",
     "solidity-coverage": "^0.8.2",
-    "truffle": "^5.3.12",
+    "truffle": "^5.9.3",
     "truffle-hdwallet-provider": "*",
     "ts-generator": "^0.1.1",
     "ts-node": "^10.8.0",
     "typechain": "^6.0.2",
     "typescript": "*"
-  }
+  },
+  "packageManager": "yarn@3.6.0"
 }

@@ -265,6 +265,15 @@
       "stakersGOODMonthly": "1000000000000000000000000"
     }
   },
+  "alfajores": {
+    "guardiansSafe": "0xdF3e980a175904a26A7BA627048a789Ae6A141cD",
+    "gasPrice": 5e9,
+    "superfluidHost": "0x0000000000000000000000000000000000000000",
+    "governance": {
+      "claimersGOODMonthly": "1000000000000000000000000",
+      "stakersGOODMonthly": "1000000000000000000000000"
+    }
+  },
   "staging-celo": {
     "guardiansSafe": "0xdF3e980a175904a26A7BA627048a789Ae6A141cD",
     "gasPrice": 5e9,

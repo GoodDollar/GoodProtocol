@@ -1,5 +1,4 @@
 import { maxBy, range, sortBy } from "lodash";
-import fetch from "node-fetch";
 import PromisePool from "async-promise-pool";
 import fs from "fs";
 import { ethers } from "hardhat";
@@ -43,10 +42,7 @@ const main = async () => {
       ins.push(r);
     }
   });
-  fs.writeFileSync(
-    "tokenInOut.json",
-    JSON.stringify({ incoming, outgoing, ins })
-  );
+  fs.writeFileSync("tokenInOut.json", JSON.stringify({ incoming, outgoing, ins }));
 };
 
 main().catch(e => console.log(e));

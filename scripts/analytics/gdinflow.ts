@@ -1,5 +1,4 @@
 import { maxBy, range, sortBy, uniq, sum, flatten, countBy } from "lodash";
-import fetch from "node-fetch";
 import PromisePool from "async-promise-pool";
 import fs from "fs";
 import { ethers } from "hardhat";
@@ -39,10 +38,9 @@ const main = async () => {
     const incomingTxs = result
       .filter(
         _ =>
-          [
-            "0xca2f09c3ccfd7ad5cb9276918bd1868f2b922ea0",
-            "0xd253a5203817225e9768c05e5996d642fb96ba86"
-          ].includes(_.from) === false
+          ["0xca2f09c3ccfd7ad5cb9276918bd1868f2b922ea0", "0xd253a5203817225e9768c05e5996d642fb96ba86"].includes(
+            _.from
+          ) === false
       )
       .filter(_ => _.to === address.toLowerCase());
     const totalEarned = sum(incomingTxs.map(_ => Number(_.value))) / 100;

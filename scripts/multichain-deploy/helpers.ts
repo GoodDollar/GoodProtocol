@@ -332,7 +332,7 @@ export const verifyContract = async (
   proxyName?: string,
   forcedConstructorArguments?: string
 ) => {
-  let networkProvider = network.name.includes("-") ? network.name.split("-")[1] : "fuse";
+  let networkProvider = network.name.includes("-") ? network.name.split("-")[1] : network.name;
   networkProvider = networkProvider === "mainnet" ? "ethereum" : networkProvider;
   console.log("truffle compile...");
   await exec("npx truffle compile");

@@ -11,11 +11,7 @@ import { network, ethers, upgrades, run } from "hardhat";
 import { isFunction, get, omitBy } from "lodash";
 import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 import pressAnyKey from "press-any-key";
-import {
-  AaveStakingFactory,
-  CompoundStakingFactory,
-  ProxyFactory1967
-} from "../../types";
+import { AaveStakingFactory, CompoundStakingFactory, ProxyFactory1967 } from "../../types";
 import SchemeRegistrarABI from "@gooddollar/goodcontracts/build/contracts/SchemeRegistrar.json";
 import releaser from "../releaser";
 import {
@@ -30,7 +26,7 @@ import { getFounders } from "../getFounders";
 import OldDAO from "../../releases/olddao.json";
 
 import ProtocolSettings from "../../releases/deploy-settings.json";
-import { keccak256 } from "@ethersproject/keccak256";
+import { keccak256 } from "ethers/lib/utils";
 
 let GAS_SETTINGS: any = {
   maxPriorityFeePerGas: ethers.utils.parseUnits("1", "gwei"),
@@ -57,11 +53,7 @@ console.log({
 });
 const { name } = network;
 
-export const main = async (
-  networkName = name,
-  isPerformUpgrade = true,
-  olddao?
-): Promise<{ [key: string]: any }> => {
+export const main = async (networkName = name, isPerformUpgrade = true, olddao?): Promise<{ [key: string]: any }> => {
   const isProduction = networkName.startsWith("production");
   if (isProduction && networkName.includes("mainnet")) {
     GAS_SETTINGS.gasLimit = 6000000;
@@ -99,9 +91,7 @@ export const main = async (
   const dao = olddao || OldDAO[networkName];
   const fse = require("fs-extra");
   const ProtocolAddresses = await fse.readJson("releases/deployment.json");
-  const newfusedao = await ProtocolAddresses[
-    networkName.replace(/\-mainnet/, "")
-  ];
+  const newfusedao = await ProtocolAddresses[networkName.replace(/\-mainnet/, "")];
   const newdao = ProtocolAddresses[networkName] || {};
 
   let [root, proxyDeployer] = await ethers.getSigners();
@@ -112,25 +102,15 @@ export const main = async (
 
   const founders = await getFounders(networkName);
 
-  console.log(
-    `root: ${root.address} founders: ${founders.map(_ => _.address)}`
-  );
+  console.log(`root: ${root.address} founders: ${founders.map(_ => _.address)}`);
 
   const compoundTokens = [
     {
       name: "cdai",
-      address:
-        (protocolSettings.compound != undefined &&
-          protocolSettings.compound.cdai) ||
-        dao.cDAI,
-      usdOracle:
-        (protocolSettings.compound != undefined &&
-          protocolSettings.compound.daiUsdOracle) ||
-        dao.DAIUsdOracle,
+      address: (protocolSettings.compound != undefined && protocolSettings.compound.cdai) || dao.cDAI,
+      usdOracle: (protocolSettings.compound != undefined && protocolSettings.compound.daiUsdOracle) || dao.DAIUsdOracle,
       compUsdOracle:
-        (protocolSettings.compound != undefined &&
-          protocolSettings.compound.compUsdOracle) ||
-        dao.COMPUsdOracle,
+        (protocolSettings.compound != undefined && protocolSettings.compound.compUsdOracle) || dao.COMPUsdOracle,
       swapPath: []
     }
   ];
@@ -141,10 +121,7 @@ export const main = async (
       address: protocolSettings.aave.usdc || dao.USDC,
       usdOracle: protocolSettings.aave.usdcUsdOracle || dao.USDCUsdOracle,
       aaveUsdOracle: protocolSettings.aave.aaveUsdOracle || dao.AAVEUsdOracle,
-      swapPath: [
-        get(protocolSettings, "aave.usdc", dao.USDC),
-        get(protocolSettings, "compound.dai", dao.DAI)
-      ]
+      swapPath: [get(protocolSettings, "aave.usdc", dao.USDC), get(protocolSettings, "compound.dai", dao.DAI)]
     }
   ];
 
@@ -184,9 +161,7 @@ export const main = async (
           get(protocolSettings, "compound.comp", dao.COMP),
           dao.ForeignBridge,
           protocolSettings.uniswapRouter || dao.UniswapRouter,
-          !isMainnet ||
-            dao.GasPriceOracle ||
-            protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
+          !isMainnet || dao.GasPriceOracle || protocolSettings.chainlink.gasPrice, //should fail if missing only on mainnet
           !isMainnet || dao.DAIEthOracle || protocolSettings.chainlink.dai_eth,
           !isMainnet || dao.ETHUsdOracle || protocolSettings.chainlink.eth_usd
         ]
@@ -197,13 +172,9 @@ export const main = async (
       name: "NameService",
       args: [
         controller,
-        [
-          "CONTROLLER",
-          "AVATAR",
-          "IDENTITY",
-          "GOODDOLLAR",
-          "BRIDGE_CONTRACT"
-        ].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
+        ["CONTROLLER", "AVATAR", "IDENTITY", "GOODDOLLAR", "BRIDGE_CONTRACT"].map(_ =>
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))
+        ),
         [controller, avatar, dao.Identity, dao.GoodDollar, dao.HomeBridge]
       ]
     },
@@ -241,10 +212,7 @@ export const main = async (
       network: "mainnet",
       name: "GoodReserveCDai",
       initializer: "initialize(address, bytes32)",
-      args: [
-        () => get(release, "NameService", newdao.NameService),
-        protocolSettings.gdxAirdrop
-      ]
+      args: [() => get(release, "NameService", newdao.NameService), protocolSettings.gdxAirdrop]
     },
     {
       network: "mainnet",
@@ -277,11 +245,7 @@ export const main = async (
       network: "fuse",
       name: "UBIScheme",
       initializer: "initialize(address, address, uint256)",
-      args: [
-        () => get(release, "NameService", newdao.NameService),
-        dao.FirstClaimPool,
-        14
-      ]
+      args: [() => get(release, "NameService", newdao.NameService), dao.FirstClaimPool, 14]
     },
     {
       network: "mainnet",
@@ -326,41 +290,21 @@ export const main = async (
         newdao.ProxyFactory
       )) as unknown as ProxyFactory1967);
     } else {
-      console.info(
-        "deploying ProxyFactory1967",
-        isDevelop,
-        newdao.ProxyFactory
-      );
+      console.info("deploying ProxyFactory1967", isDevelop, newdao.ProxyFactory);
       // await pressAnyKey();
 
-      const pf = await (
-        await ethers.getContractFactory("ProxyFactory1967", root)
-      ).deploy(GAS_SETTINGS);
+      const pf = await (await ethers.getContractFactory("ProxyFactory1967", root)).deploy(GAS_SETTINGS);
       await pf.deployed();
-      await releaser(
-        { ProxyFactory: pf.address },
-        networkName,
-        "deployment",
-        false
-      );
+      await releaser({ ProxyFactory: pf.address }, networkName, "deployment", false);
       return (proxyFactory = pf.connect(root) as unknown as ProxyFactory1967);
     }
   };
 
-  const deployDeterministic = async (
-    contract,
-    args: any[],
-    factoryOpts = {}
-  ) => {
+  const deployDeterministic = async (contract, args: any[], factoryOpts = {}) => {
     try {
-      const Contract = await ethers.getContractFactory(
-        contract.name,
-        factoryOpts
-      );
+      const Contract = await ethers.getContractFactory(contract.name, factoryOpts);
 
-      const salt = ethers.BigNumber.from(
-        keccak256(ethers.utils.toUtf8Bytes(contract.name))
-      );
+      const salt = ethers.BigNumber.from(keccak256(ethers.utils.toUtf8Bytes(contract.name)));
 
       if (contract.isUpgradable !== false) {
         if (isCoverage) {
@@ -375,52 +319,28 @@ export const main = async (
           return tx;
         }
         console.log("Deploying:", contract.name, "using proxyfactory");
-        const encoded = Contract.interface.encodeFunctionData(
-          contract.initializer || "initialize",
-          args
-        );
+        const encoded = Contract.interface.encodeFunctionData(contract.initializer || "initialize", args);
         const tx = await Contract.deploy(GAS_SETTINGS);
         const impl = await tx.deployed();
         await countTotalGas(tx, contract.name);
 
-        const tx2 = await proxyFactory.deployProxy(
-          salt,
-          impl.address,
-          encoded,
-          GAS_SETTINGS
-        );
+        const tx2 = await proxyFactory.deployProxy(salt, impl.address, encoded, GAS_SETTINGS);
         await countTotalGas(tx2, contract.name);
-        const deployTx = await tx2
-          .wait()
-          .catch(e =>
-            console.error("failed to deploy proxy, assuming it exists...", e)
-          );
+        const deployTx = await tx2.wait().catch(e => console.error("failed to deploy proxy, assuming it exists...", e));
         return ethers.getContractAt(
           contract.name,
-          await proxyFactory["getDeploymentAddress(uint256,address)"](
-            salt,
-            root.address
-          )
+          await proxyFactory["getDeploymentAddress(uint256,address)"](salt, root.address)
         );
       } else {
         //for some reason deploying with link library via proxy doesnt work on hardhat test env
         if (isTest === false) {
           console.log("Deploying:", contract.name, "using proxyfactory code");
           const constructor = Contract.interface.encodeDeploy(args);
-          const bytecode = ethers.utils.solidityPack(
-            ["bytes", "bytes"],
-            [Contract.bytecode, constructor]
-          );
-          const deployTx = await (
-            await proxyFactory.deployCode(salt, bytecode, GAS_SETTINGS)
-          ).wait();
+          const bytecode = ethers.utils.solidityPack(["bytes", "bytes"], [Contract.bytecode, constructor]);
+          const deployTx = await (await proxyFactory.deployCode(salt, bytecode, GAS_SETTINGS)).wait();
           return ethers.getContractAt(
             contract.name,
-            await proxyFactory["getDeploymentAddress(uint256,address,bytes32)"](
-              salt,
-              root.address,
-              keccak256(bytecode)
-            )
+            await proxyFactory["getDeploymentAddress(uint256,address,bytes32)"](salt, root.address, keccak256(bytecode))
           );
         } else {
           console.log("Deploying:", contract.name, "using regular");
@@ -442,16 +362,8 @@ export const main = async (
     await getProxyFactory();
     console.info("got proxyfactory at:", proxyFactory.address);
     for (let contract of toDeployUpgradable) {
-      if (
-        contract.network !== "both" &&
-        (contract.network === "mainnet") !== isMainnet
-      ) {
-        console.log(
-          contract,
-          " Skipping non mainnet/sidechain contract:",
-          contract.network,
-          contract.name
-        );
+      if (contract.network !== "both" && (contract.network === "mainnet") !== isMainnet) {
+        console.log(contract, " Skipping non mainnet/sidechain contract:", contract.network, contract.name);
         continue;
       }
       if (isDevelop === false && newdao[contract.name]) {
@@ -465,9 +377,7 @@ export const main = async (
         continue;
       }
 
-      const args = await Promise.all(
-        contract.args.map(async _ => await (isFunction(_) ? _() : _))
-      );
+      const args = await Promise.all(contract.args.map(async _ => await (isFunction(_) ? _() : _)));
 
       console.log(`deploying contract upgrade ${contract.name}`, {
         args
@@ -491,8 +401,7 @@ export const main = async (
     }
 
     if (!isProduction || get(release, "StakingContracts", []).length == 0) {
-      const { DonationsStaking, StakingContracts } =
-        isMainnet && (await deployStakingContracts(release));
+      const { DonationsStaking, StakingContracts } = isMainnet && (await deployStakingContracts(release));
       release["StakingContracts"] = StakingContracts;
       release["DonationsStaking"] = DonationsStaking;
       console.log("staking contracts result:", {
@@ -618,13 +527,7 @@ export const main = async (
     await countTotalGas(tx, "call upgrade basic");
 
     console.log("upgrading reserve...", {
-      params: [
-        release.NameService,
-        dao.Reserve,
-        dao.MarketMaker,
-        dao.FundManager,
-        release.COMP
-      ]
+      params: [release.NameService, dao.Reserve, dao.MarketMaker, dao.FundManager, release.COMP]
     });
     tx = await upgrade.upgradeReserve(
       release.NameService,
@@ -655,17 +558,11 @@ export const main = async (
     // release.StakingContracts = release.StakingContracts.map((_) => _[0]);
 
     if (isProduction) {
-      console.log(
-        "SKIPPING GOVERNANCE UPGRADE FOR PRODUCTION. RUN IT MANUALLY"
-      );
+      console.log("SKIPPING GOVERNANCE UPGRADE FOR PRODUCTION. RUN IT MANUALLY");
     } else {
       console.log("upgrading governance...");
 
-      tx = await upgrade.upgradeGovernance(
-        dao.SchemeRegistrar,
-        dao.UpgradeScheme,
-        release.CompoundVotingMachine
-      );
+      tx = await upgrade.upgradeGovernance(dao.SchemeRegistrar, dao.UpgradeScheme, release.CompoundVotingMachine);
       await countTotalGas(tx, "call upgrade gov");
     }
   };
@@ -681,12 +578,7 @@ export const main = async (
       .upgrade(
         release.NameService,
         //old contracts
-        [
-          dao.SchemeRegistrar || ethers.constants.AddressZero,
-          dao.UpgradeScheme,
-          dao.UBIScheme,
-          dao.FirstClaimPool
-        ],
+        [dao.SchemeRegistrar || ethers.constants.AddressZero, dao.UpgradeScheme, dao.UBIScheme, dao.FirstClaimPool],
         release.UBIScheme,
         [
           ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REPUTATION")),
@@ -707,9 +599,7 @@ export const main = async (
       .then(_ => countTotalGas(_, "fuse basic upgrade"));
 
     if (isProduction) {
-      console.log(
-        "SKIPPING GOVERNANCE UPGRADE FOR PRODUCTION. RUN IT MANUALLY"
-      );
+      console.log("SKIPPING GOVERNANCE UPGRADE FOR PRODUCTION. RUN IT MANUALLY");
     } else {
       console.log("upgrading governance...");
 
@@ -726,11 +616,7 @@ export const main = async (
   const voteProtocolUpgrade = async release => {
     const Upgrade = release.ProtocolUpgrade || release.ProtocolUpgradeFuse;
 
-    console.log(
-      "approve upgrade scheme in dao...",
-      Upgrade,
-      dao.SchemeRegistrar
-    );
+    console.log("approve upgrade scheme in dao...", Upgrade, dao.SchemeRegistrar);
 
     const schemeRegistrar: SchemeRegistrar = (await ethers.getContractAt(
       "SchemeRegistrar",
@@ -750,8 +636,7 @@ export const main = async (
     await countTotalGas(proposal, "propose upgrade");
 
     console.log("proposal tx:", proposal.transactionHash);
-    let proposalId = proposal.events.find(_ => _.event === "NewSchemeProposal")
-      .args._proposalId;
+    let proposalId = proposal.events.find(_ => _.event === "NewSchemeProposal").args._proposalId;
 
     console.log("proposal", { scheme: Upgrade, proposalId });
 
@@ -781,20 +666,13 @@ export const main = async (
   };
 
   const deployStakingContracts = async release => {
-    const isRopsten =
-      networkName === "fuse-mainnet" || networkName === "staging-mainnet";
+    const isRopsten = networkName === "fuse-mainnet" || networkName === "staging-mainnet";
     console.log("deployStakingContracts", {
       factory: release.CompoundStakingFactory,
       ns: release.NameService
     });
-    const compfactory = await ethers.getContractAt(
-      "CompoundStakingFactory",
-      release.CompoundStakingFactory
-    );
-    const aavefactory = await ethers.getContractAt(
-      "AaveStakingFactory",
-      release.AaveStakingFactory
-    );
+    const compfactory = await ethers.getContractAt("CompoundStakingFactory", release.CompoundStakingFactory);
+    const aavefactory = await ethers.getContractAt("AaveStakingFactory", release.AaveStakingFactory);
     const compps = compoundTokens.map(async token => {
       let rewardsPerBlock = protocolSettings.staking.rewardsPerBlock;
       console.log("deployStakingContracts", {
@@ -811,9 +689,7 @@ export const main = async (
         ]
       });
       const tx = await (
-        await compfactory[
-          "cloneAndInit(address,address,uint64,address,address,address[])"
-        ](
+        await compfactory["cloneAndInit(address,address,uint64,address,address,address[])"](
           token.address,
           release.NameService,
           protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
@@ -825,8 +701,7 @@ export const main = async (
       ).wait();
       await countTotalGas(tx, "deploy comp staking");
       const log = tx.events.find(_ => _.event === "Deployed");
-      if (!log.args.proxy)
-        throw new Error(`staking contract deploy failed ${token}`);
+      if (!log.args.proxy) throw new Error(`staking contract deploy failed ${token}`);
       return [log.args.proxy, rewardsPerBlock];
     });
 
@@ -850,30 +725,20 @@ export const main = async (
             protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
             token.usdOracle,
 
-            get(
-              protocolSettings,
-              "aave.incentiveController",
-              dao.AaveIncentiveController
-            ),
+            get(protocolSettings, "aave.incentiveController", dao.AaveIncentiveController),
             token.aaveUsdOracle,
             token.swapPath,
             GAS_SETTINGS
           ]
         });
         const tx = await (
-          await aavefactory[
-            "cloneAndInit(address,address,address,uint64,address,address,address,address[])"
-          ](
+          await aavefactory["cloneAndInit(address,address,address,uint64,address,address,address,address[])"](
             token.address,
             get(protocolSettings, "aave.lendingPool", dao.AaveLendingPool),
             release.NameService,
             protocolSettings.staking.fullRewardsThreshold, //blocks before switching for 0.5x rewards to 1x multiplier
             token.usdOracle,
-            get(
-              protocolSettings,
-              "aave.incentiveController",
-              dao.AaveIncentiveController
-            ),
+            get(protocolSettings, "aave.incentiveController", dao.AaveIncentiveController),
             token.aaveUsdOracle,
             token.swapPath,
             GAS_SETTINGS
@@ -881,8 +746,7 @@ export const main = async (
         ).wait();
         await countTotalGas(tx, "deploy aave staking");
         const log = tx.events.find(_ => _.event === "Deployed");
-        if (!log.args.proxy)
-          throw new Error(`staking contract deploy failed ${token}`);
+        if (!log.args.proxy) throw new Error(`staking contract deploy failed ${token}`);
         return [log.args.proxy, rewardsPerBlock];
       });
 
@@ -906,22 +770,14 @@ export const main = async (
       [
         release.NameService,
         deployed[0][0],
-        [
-          "0x0000000000000000000000000000000000000000",
-          get(protocolSettings, "compound.dai", dao.DAI)
-        ],
-        [
-          get(protocolSettings, "compound.dai", dao.DAI),
-          "0x0000000000000000000000000000000000000000"
-        ]
+        ["0x0000000000000000000000000000000000000000", get(protocolSettings, "compound.dai", dao.DAI)],
+        [get(protocolSettings, "compound.dai", dao.DAI), "0x0000000000000000000000000000000000000000"]
       ],
       { libraries: { UniswapV2SwapHelper: release["UniswapV2SwapHelper"] } }
     );
     // await countTotalGas(deployedDonationsStaking);
 
-    console.log(
-      `DonationsStaking deployed to: ${deployedDonationsStaking.address}`
-    );
+    console.log(`DonationsStaking deployed to: ${deployedDonationsStaking.address}`);
 
     return {
       DonationsStaking: deployedDonationsStaking.address,
@@ -930,10 +786,7 @@ export const main = async (
   };
   const verifyContracts = async release => {
     for (let contract of toDeployUpgradable) {
-      if (
-        contract.network !== "both" &&
-        (contract.network === "mainnet") !== isMainnet
-      ) {
+      if (contract.network !== "both" && (contract.network === "mainnet") !== isMainnet) {
         console.log(
           contract,
           " Skipping verification non mainnet/sidechain contract:",
@@ -942,16 +795,9 @@ export const main = async (
         );
         continue;
       }
-      console.log(
-        "Running contract verification:",
-        { contract },
-        release[contract.name]
-      );
+      console.log("Running contract verification:", { contract }, release[contract.name]);
       if (contract.isUpgradable !== false) {
-        const implementationAddress = await getImplementationAddress(
-          network.provider,
-          release[contract.name]
-        );
+        const implementationAddress = await getImplementationAddress(network.provider, release[contract.name]);
         try {
           await run("verify:verify", {
             address: implementationAddress
