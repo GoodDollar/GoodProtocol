@@ -57,6 +57,8 @@ contract GoodReserveCDai is
 	uint32 private unused_nonUbiBps; //keep for storage structure upgrades. //how much of expansion G$ to allocate for non Ubi causes
 	DistributionHelper public distributionHelper; //in charge of distributing non UBI to different recipients
 
+	bool gdxDisabled;
+	bool discountDisabled;
 	// Emits when new GD tokens minted
 	event UBIMinted(
 		//epoch of UBI
@@ -146,12 +148,6 @@ contract GoodReserveCDai is
 
 		gdxAirdrop = _gdxAirdrop;
 	}
-
-	//no longer required
-	// function setGDXAirdrop(bytes32 _airdrop) external {
-	// 	_onlyAvatar();
-	// 	gdxAirdrop = _airdrop;
-	// }
 
 	/// @dev GDX decimals
 	function decimals() public pure override returns (uint8) {
@@ -263,11 +259,15 @@ contract GoodReserveCDai is
 		}
 		_target = _target == address(0x0) ? msg.sender : _target;
 		//discount on exit contribution based on gdx
-		uint256 gdx = balanceOf(_seller);
-		uint256 discount = gdx <= _gdAmount ? gdx : _gdAmount;
 
-		//burn gdx used for discount
-		if (discount > 0) _burn(_seller, discount);
+		uint256 discount;
+		if (discountDisabled == false) {
+			uint256 gdx = balanceOf(_seller);
+			discount = gdx <= _gdAmount ? gdx : _gdAmount;
+
+			//burn gdx used for discount
+			if (discount > 0) _burn(_seller, discount);
+		}
 
 		uint256 contributionAmount = 0;
 		uint256 gdAmountTemp = _gdAmount; // to prevent stack too deep errors
@@ -351,7 +351,7 @@ contract GoodReserveCDai is
 
 	/// @dev helper to mint GDX to make _mint more verbose
 	function _mintGDX(address _to, uint256 _gdx) internal {
-		_mint(_to, _gdx);
+		if (gdxDisabled == false) _mint(_to, _gdx);
 	}
 
 	/**
@@ -386,13 +386,10 @@ contract GoodReserveCDai is
 		// 	nameService.getAddress("FUND_MANAGER")
 		// );
 
-		if (address(distributionHelper) != address(0)) {
-			_mintGoodDollars(address(distributionHelper), gdUBI, false);
-			distributionHelper.onDistribution(gdUBI);
-		} else {
-			//this enforces who can call the public mintUBI method. only an address with permissions at reserve of  RESERVE_MINTER_ROLE
-			_mintGoodDollars(nameService.getAddress("FUND_MANAGER"), gdUBI, false);
-		}
+		require(address(distributionHelper) != address(0), "helper not set");
+		_mintGoodDollars(address(distributionHelper), gdUBI, false); //mintGoodDollars enforces that only minter can call mintUBI
+		distributionHelper.onDistribution(gdUBI);
+
 		emit UBIMinted(
 			lastMinted,
 			address(_interestToken),
@@ -429,6 +426,18 @@ contract GoodReserveCDai is
 	) external {
 		_onlyAvatar();
 		getMarketMaker().setReserveRatioDailyExpansion(_nom, _denom);
+	}
+
+	//
+	/**
+	 * @dev Sets the GDX and discount disabled flags.
+	 * @param _gdxDisabled Whether GDX minting is disabled or not.
+	 * @param _discountDisabled Whether the discount for existing GDX holders is disabled or not.
+	 */
+	function setGDXDisabled(bool _gdxDisabled, bool _discountDisabled) external {
+		_onlyAvatar();
+		gdxDisabled = _gdxDisabled;
+		discountDisabled = _discountDisabled;
 	}
 
 	/**
