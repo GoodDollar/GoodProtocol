@@ -238,14 +238,14 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			// DAI balance of the reserve contract
 			uint256 currentBalance = daiToken.balanceOf(reserveAddress);
 			uint256 startingCDAIBalance = iToken.balanceOf(reserveAddress);
-			for (uint256 i = _stakingContracts.length - 1; i >= 0; i--) {
+			for (uint256 i = _stakingContracts.length; i > 0; i--) {
 				// elements are sorted by balances from lowest to highest
 
-				if (_stakingContracts[i] != address(0x0)) {
-					IGoodStaking(_stakingContracts[i]).collectUBIInterest(reserveAddress);
+				if (_stakingContracts[i - 1] != address(0x0)) {
+					IGoodStaking(_stakingContracts[i - 1]).collectUBIInterest(
+						reserveAddress
+					);
 				}
-
-				if (i == 0) break; // when active contracts length is 1 then gives error
 			}
 			// Finds the actual transferred DAI
 			uint256 daiToConvert = daiToken.balanceOf(reserveAddress) -

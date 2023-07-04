@@ -57,8 +57,8 @@ contract GoodReserveCDai is
 	uint32 private unused_nonUbiBps; //keep for storage structure upgrades. //how much of expansion G$ to allocate for non Ubi causes
 	DistributionHelper public distributionHelper; //in charge of distributing non UBI to different recipients
 
-	bool gdxDisabled;
-	bool discountDisabled;
+	bool public gdxDisabled;
+	bool public discountDisabled;
 	// Emits when new GD tokens minted
 	event UBIMinted(
 		//epoch of UBI
