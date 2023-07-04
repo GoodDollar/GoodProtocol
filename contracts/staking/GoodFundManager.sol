@@ -257,20 +257,6 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				startingCDAIBalance,
 				iToken
 			);
-
-			IGoodDollar token = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
-			uint256 gdBalance = token.balanceOf(address(this));
-			if (gdBalance > 0) {
-				//transfer ubi to avatar on sidechain via bridge
-				require(
-					token.transferAndCall(
-						nameService.getAddress("BRIDGE_CONTRACT"),
-						gdBalance,
-						abi.encodePacked(nameService.getAddress("UBI_RECIPIENT"))
-					),
-					"ubi bridge transfer failed"
-				);
-			}
 		}
 
 		uint256 gdRewardToMint;
@@ -291,15 +277,12 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			if (
 				block.timestamp >= lastCollectedInterest + collectInterestTimeThreshold
 			) {
-				require(
-					interestInCdai >= gasPriceIncDAI,
-					"Collected interest value should be larger than spent gas costs"
-				); // This require is necessary to keeper can not abuse this function
+				require(interestInCdai >= gasPriceIncDAI, "UBI < gas costs"); // This require is necessary to keeper can not abuse this function
 			} else {
 				require(
 					interestInCdai >= interestMultiplier * gasPriceIncDAI ||
 						gdUBI >= interestMultiplier * gdRewardToMint,
-					"Collected interest value should be interestMultiplier x gas costs"
+					"UBI <  X*gas costs"
 				);
 			}
 		}
