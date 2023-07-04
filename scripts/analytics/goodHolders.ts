@@ -1,5 +1,4 @@
 import { last, range, sortBy } from "lodash";
-import fetch from "node-fetch";
 import PromisePool from "async-promise-pool";
 import fs from "fs";
 import { ethers } from "hardhat";
@@ -19,16 +18,13 @@ const main = async () => {
       }`;
     // console.log({ query });
     try {
-      const { data = {}, errors } = await fetch(
-        "https://api.thegraph.com/subgraphs/name/gooddollar/gooddollarfuse2",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ query })
-        }
-      ).then(_ => _.json());
+      const { data = {}, errors } = await fetch("https://api.thegraph.com/subgraphs/name/gooddollar/gooddollarfuse2", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ query })
+      }).then(_ => _.json());
       errors && console.log({ errors });
       if (data?.goodBalances?.length === 1000) {
         const nextAddr = last(data?.goodBalances).id;

@@ -1,6 +1,5 @@
 import { countBy, chunk, difference, flatten, sortBy } from "lodash";
 import fs from "fs";
-import fetch from "node-fetch";
 import { network, ethers, upgrades } from "hardhat";
 import { Contract, Provider, setMulticallAddress } from "ethers-multicall";
 import Identity from "../../artifacts/contracts/Interfaces.sol/IIdentity.json";
@@ -54,16 +53,11 @@ const hasRefunded = async wallets => {
   let startBlock = CLAIM_START_BLOCK;
   while (startBlock <= curBlock) {
     const events = await gd.queryFilter(
-      gd.filters.Transfer(
-        undefined,
-        "0xd253A5203817225e9768C05E5996d642fb96bA86"
-      ),
+      gd.filters.Transfer(undefined, "0xd253A5203817225e9768C05E5996d642fb96bA86"),
       startBlock,
       toBlock
     );
-    const accounts = events
-      .filter(e => e.args.amount >= 9622260)
-      .map(_ => _.args.from.toLowerCase());
+    const accounts = events.filter(e => e.args.amount >= 9622260).map(_ => _.args.from.toLowerCase());
     refunded.push(...accounts);
     console.log("has refunded:", {
       startBlock,
@@ -81,10 +75,7 @@ const whereIsTheMoney = async noBalance => {
   for (let batch of chunk(noBalance, 100)) {
     const tos = await Promise.all(
       batch.map(async a => {
-        const e = await gd.queryFilter(
-          gd.filters.Transfer(a),
-          CLAIM_START_BLOCK
-        );
+        const e = await gd.queryFilter(gd.filters.Transfer(a), CLAIM_START_BLOCK);
         const tos = e.filter(_ => _.args.amount > 1000000).map(_ => _.args.to);
         return tos;
       })
@@ -92,24 +83,14 @@ const whereIsTheMoney = async noBalance => {
     targets.push(...flatten(tos));
   }
   const targetCounter = countBy(targets, _ => _);
-  console.log(
-    "transfer targets:",
-    sortBy(Object.entries(targetCounter), "1").reverse()
-  );
+  console.log("transfer targets:", sortBy(Object.entries(targetCounter), "1").reverse());
 };
 const main = async () => {
-  const wallets = JSON.parse(fs.readFileSync("torefund.json").toString()).map(
-    _ => _.toLowerCase()
-  );
+  const wallets = JSON.parse(fs.readFileSync("torefund.json").toString()).map(_ => _.toLowerCase());
   console.log("Total Claimed:", wallets.length);
   const refunded = await hasRefunded(wallets);
   const notRefunded = difference(wallets, refunded);
-  console.log(
-    "refunded:",
-    refunded.length,
-    "not refunded:",
-    notRefunded.length
-  );
+  console.log("refunded:", refunded.length, "not refunded:", notRefunded.length);
 
   const noBalanceToRefund = await hasBalanceToRefund(notRefunded);
   await whereIsTheMoney(noBalanceToRefund);

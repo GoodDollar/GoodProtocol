@@ -207,6 +207,12 @@
     },
     "uniswapRouter": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
   },
+  "development-goerli": {
+    "superfluidHost": "0x22ff293e14F1EC3A09B137e9e06084AFd63adDF9"
+  },
+  "staging-goerli": {
+    "superfluidHost": "0x22ff293e14F1EC3A09B137e9e06084AFd63adDF9"
+  },
   "production": {
     "governance": {
       "gdaoAirdrop": "0x2feece0e9bc03b54e63e6eb7abb81a128f6bc7ce9a3bafd5ca2bea0c40e3634b",
@@ -254,6 +260,15 @@
     "guardiansSafe": "0xdF3e980a175904a26A7BA627048a789Ae6A141cD",
     "gasPrice": 5e9,
     "superfluidHost": "0xA4Ff07cF81C02CFD356184879D953970cA957585",
+    "governance": {
+      "claimersGOODMonthly": "1000000000000000000000000",
+      "stakersGOODMonthly": "1000000000000000000000000"
+    }
+  },
+  "alfajores": {
+    "guardiansSafe": "0xdF3e980a175904a26A7BA627048a789Ae6A141cD",
+    "gasPrice": 5e9,
+    "superfluidHost": "0x0000000000000000000000000000000000000000",
     "governance": {
       "claimersGOODMonthly": "1000000000000000000000000",
       "stakersGOODMonthly": "1000000000000000000000000"

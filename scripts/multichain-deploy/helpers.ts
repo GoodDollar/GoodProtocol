@@ -76,7 +76,7 @@ export const deploySuperGoodDollar = async (
     []
   ).then(printDeploy)) as Contract;
 
-  await GoodDollarProxy.initializeProxy(SuperGoodDollar.address);
+  await GoodDollarProxy.initializeProxy(SuperGoodDollar.address).then(printDeploy);
 
   const OutFlowNFT = (await deployDeterministic(
     {
@@ -236,6 +236,7 @@ export const executeViaGuardian = async (
     await ethers.getContractAt("Controller", release.Controller)
   ).connect(guardian);
 
+  const results = [];
   for (let i = 0; i < contracts.length; i++) {
     const contract = contracts[i];
     console.log("executing:", contracts[i], functionSigs[i], functionInputs[i]);
@@ -249,31 +250,31 @@ export const executeViaGuardian = async (
     if (contract === ctrl.address) {
       console.log("executing directly on controller:", sigHash, encoded);
 
-      await guardian
+      const tx = await guardian
         .sendTransaction({ to: contract, data: encoded })
-        .then(printDeploy);
+        .then(printDeploy)
+        .then(_ => _.wait());
+      results.push(tx);
     } else {
-      const simulationResult = await ctrl.callStatic.genericCall(
-        contract,
-        encoded,
-        release.Avatar,
-        ethValues[i],
-        {
-          from: await guardian.getAddress()
-        }
-      );
+      const simulationResult = await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
+        from: await guardian.getAddress(),
+        value: ethValues[i]
+      });
       console.log("executing genericCall:", {
         sigHash,
         encoded,
         simulationResult
       });
-      if (simulationResult[0] === false)
-        throw new Error("simulation failed:" + contract);
-      await ctrl
+      if (simulationResult[0] === false) throw new Error("simulation failed:" + contract);
+      const tx = await ctrl
         .genericCall(contract, encoded, release.Avatar, ethValues[i])
-        .then(printDeploy);
+        .then(printDeploy)
+        .then(_ => _.wait());
+      // console.log("generic call events:", tx.events);
+      results.push(tx);
     }
   }
+  return results;
 };
 
 export const executeViaSafe = async (
@@ -317,7 +318,7 @@ export const executeViaSafe = async (
     safeSigner = safeSignerOrNetwork as any;
   }
   const chainId = await safeSigner.getChainId();
-  console.log("safeSigner:", safeSigner.address, { chainId });
+  console.log("safeSigner:", safeSigner.address, { chainId, safeAddress });
   let txServiceUrl;
   switch (chainId) {
     case 1:
@@ -372,7 +373,7 @@ export const executeViaSafe = async (
     );
     if (contract === ctrl.address) {
       const simulationResult =
-        isSimulation === false &&
+        isSimulation === true &&
         (await ctrl.callStatic[functionSigs[i]](...functionInputs[i], {
           from: safeAddress,
           value: ethValues[i]
@@ -397,22 +398,16 @@ export const executeViaSafe = async (
       });
 
       const simulationResult =
-        isSimulation === false &&
-        (await ctrl.callStatic.genericCall(
-          contract,
-          encoded,
-          release.Avatar,
-          ethValues[i],
-          {
-            from: safeAddress
-          }
-        ));
+        isSimulation === true &&
+        (await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
+          from: safeAddress,
+          value: ethValues[i]
+        }));
       console.log("executing genericCall simulation result:", {
         sigHash,
         simulationResult
       });
-      if (isSimulation === false && simulationResult[0] === false)
-        throw new Error("simulation failed:" + contract);
+      if (isSimulation === true && simulationResult[0] === false) throw new Error("simulation failed:" + contract);
       const genericEncode = ctrl.interface.encodeFunctionData("genericCall", [
         contract,
         encoded,
@@ -458,11 +453,8 @@ export const verifyContract = async (
   proxyName?: string,
   forcedConstructorArguments?: string
 ) => {
-  let networkProvider = network.name.includes("-")
-    ? network.name.split("-")[1]
-    : "fuse";
-  networkProvider =
-    networkProvider === "mainnet" ? "ethereum" : networkProvider;
+  let networkProvider = network.name.includes("-") ? network.name.split("-")[1] : network.name;
+  networkProvider = networkProvider === "mainnet" ? "ethereum" : networkProvider;
   console.log("truffle compile...");
   await exec("npx truffle compile");
   const cmd = `npx truffle run verify ${

@@ -9,7 +9,6 @@ import { MerkleTree } from "merkletreejs";
 import PromisePool from "async-promise-pool";
 import { ethers as Ethers } from "hardhat";
 import { BigNumber } from "ethers";
-import fetch from "node-fetch";
 
 const quantile = (sorted, q) => {
   const pos = (sorted.length - 1) * q;
@@ -22,18 +21,11 @@ const quantile = (sorted, q) => {
 };
 
 export const airdrop = (ethers: typeof Ethers) => {
-  const fuseProvider = new ethers.providers.JsonRpcProvider(
-    "https://rpc.fuse.io"
-  );
+  const fuseProvider = new ethers.providers.JsonRpcProvider("https://rpc.fuse.io");
 
-  const zxfastProvider = new ethers.providers.JsonRpcProvider(
-    "https://eth-eu.0xfast.com/rpc/free"
-  );
+  const zxfastProvider = new ethers.providers.JsonRpcProvider("https://eth-eu.0xfast.com/rpc/free");
 
-  const cfProvider = new ethers.providers.InfuraProvider(
-    1,
-    "143f9cf968fe4c3da0db77ff525e0da4"
-  );
+  const cfProvider = new ethers.providers.InfuraProvider(1, "143f9cf968fe4c3da0db77ff525e0da4");
   const goodActiveVotes = async (network = "fuse") => {
     let balances = [];
 
@@ -45,9 +37,7 @@ export const airdrop = (ethers: typeof Ethers) => {
 
     const graphQuery = async (start, skip, step = EPOCH) => {
       const query = `{
-          goodBalances(first: 1000 skip:${skip} where: { memberSince_gte: ${start} memberSince_lt:${
-        start + step
-      } }) {
+          goodBalances(first: 1000 skip:${skip} where: { memberSince_gte: ${start} memberSince_lt:${start + step} }) {
             id
             coreBalance
             totalVotes
@@ -64,16 +54,11 @@ export const airdrop = (ethers: typeof Ethers) => {
           body: JSON.stringify({ query })
         }).then(_ => _.json());
         errors && console.log({ errors });
-        if (
-          errors?.[0]?.message ===
-          "The `skip` argument must be between 0 and 5000, but is 6000"
-        ) {
+        if (errors?.[0]?.message === "The `skip` argument must be between 0 and 5000, but is 6000") {
           throw new Error("skip");
         }
         if (data?.goodBalances?.length === 1000) {
-          return data.goodBalances.concat(
-            await graphQuery(start, skip + 1000, step)
-          );
+          return data.goodBalances.concat(await graphQuery(start, skip + 1000, step));
         }
         return data.goodBalances || [];
       } catch (error) {
@@ -111,11 +96,7 @@ export const airdrop = (ethers: typeof Ethers) => {
     await pool.all();
     console.log(`total ${network} GOOD Holders:`, balances.length, {
       uniques: uniq(balances.map(_ => _.id)).length,
-      delegatees: uniq(
-        balances
-          .filter(_ => Number(_.coreBalance) < Number(_.totalVotes))
-          .map(_ => _.id)
-      ).length,
+      delegatees: uniq(balances.filter(_ => Number(_.coreBalance) < Number(_.totalVotes)).map(_ => _.id)).length,
       sample: balances.slice(0, 5)
     });
 
@@ -128,10 +109,7 @@ export const airdrop = (ethers: typeof Ethers) => {
         rep: record.activeVotes,
         hash: ethers.utils.keccak256(
           ethers.utils.keccak256(
-            ethers.utils.defaultAbiCoder.encode(
-              ["address", "uint256"],
-              [record.id, record.activeVotes]
-            )
+            ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [record.id, record.activeVotes])
           )
         )
       };
@@ -140,9 +118,7 @@ export const airdrop = (ethers: typeof Ethers) => {
       `goodCheckpoints/goodCheckpoint_${network}.json`,
       JSON.stringify({ treeData, balances, until: Date.now() })
     );
-    console.log(
-      balances.filter(_ => Number(_.coreBalance) < Number(_.totalVotes))
-    );
+    console.log(balances.filter(_ => Number(_.coreBalance) < Number(_.totalVotes)));
   };
 
   const collectAirdropData = async () => {
@@ -157,33 +133,15 @@ export const airdrop = (ethers: typeof Ethers) => {
       for (let blockChunk of chunk(blocks, 10)) {
         // Get the filter (the second null could be omitted)
         const ps = blockChunk.map(async (bc: number) => {
-          const logs = await good
-            .queryFilter(
-              good.filters.Mint(),
-              bc,
-              Math.min(bc + step - 1, LAST_BLOCK)
-            )
-            .catch(e => {
-              console.log("block transfer logs failed retrying...", bc);
-              return good.queryFilter(
-                good.filters.Mint(),
-                bc,
-                Math.min(bc + step - 1, LAST_BLOCK)
-              );
-            });
+          const logs = await good.queryFilter(good.filters.Mint(), bc, Math.min(bc + step - 1, LAST_BLOCK)).catch(e => {
+            console.log("block transfer logs failed retrying...", bc);
+            return good.queryFilter(good.filters.Mint(), bc, Math.min(bc + step - 1, LAST_BLOCK));
+          });
           const claimedLogs = await good
-            .queryFilter(
-              good.filters.StateHashProof(),
-              bc,
-              Math.min(bc + step - 1, LAST_BLOCK)
-            )
+            .queryFilter(good.filters.StateHashProof(), bc, Math.min(bc + step - 1, LAST_BLOCK))
             .catch(e => {
               console.log("block transfer logs failed retrying...", bc);
-              return good.queryFilter(
-                good.filters.StateHashProof(),
-                bc,
-                Math.min(bc + step - 1, LAST_BLOCK)
-              );
+              return good.queryFilter(good.filters.StateHashProof(), bc, Math.min(bc + step - 1, LAST_BLOCK));
             });
           console.log("found logs:", claimedLogs.length, logs.length, bc);
           return logs.concat(claimedLogs);
@@ -201,20 +159,14 @@ export const airdrop = (ethers: typeof Ethers) => {
       let totalMints = ethers.constants.Zero;
       logs.forEach(l => {
         if (l.event === "Mint") {
-          mints[l.args._to.toLowerCase()] = (
-            mints[l.args._to.toLowerCase()] || BigNumber.from("0")
-          ).add(l.args._amount);
+          mints[l.args._to.toLowerCase()] = (mints[l.args._to.toLowerCase()] || BigNumber.from("0")).add(
+            l.args._amount
+          );
           totalMints = totalMints.add(l.args._amount);
         } else claims[l.args.user.toLowerCase()] = l.args.repBalance.toString();
       });
-      Object.entries(mints).forEach(
-        ([k, v]) =>
-          (result[k] = { claim: "0", ...result[k], mint: v.toString() })
-      );
-      Object.entries(claims).forEach(
-        ([k, v]) =>
-          (result[k] = { mint: "0", ...result[k], claim: v.toString() })
-      );
+      Object.entries(mints).forEach(([k, v]) => (result[k] = { claim: "0", ...result[k], mint: v.toString() }));
+      Object.entries(claims).forEach(([k, v]) => (result[k] = { mint: "0", ...result[k], claim: v.toString() }));
       console.log({ result, totalMints: totalMints.toString() });
       fs.writeFileSync("goodCheckpointMainnet.json", JSON.stringify(result));
     };
@@ -227,33 +179,21 @@ export const airdrop = (ethers: typeof Ethers) => {
   const buildMerkleTree = async () => {
     const buildTree = async (network = "fuse") => {
       const good = await ethers
-        .getContractAt(
-          "GReputation",
-          "0x603B8C0F110E037b51A381CBCacAbb8d6c6E4543"
-        )
+        .getContractAt("GReputation", "0x603B8C0F110E037b51A381CBCacAbb8d6c6E4543")
         .then(_ => _.connect(network === "fuse" ? fuseProvider : cfProvider));
 
-      const checkpoint = JSON.parse(
-        fs
-          .readFileSync(`goodCheckpoints/goodCheckpoint_${network}.json`)
-          .toString()
-      );
+      const checkpoint = JSON.parse(fs.readFileSync(`goodCheckpoints/goodCheckpoint_${network}.json`).toString());
 
       const treeData = checkpoint.treeData;
 
-      let toTree: Array<[string, BigNumber]> = Object.entries(treeData).map(
-        ([k, v]) => {
-          return [k, BigNumber.from((v as any).rep)];
-        }
-      );
+      let toTree: Array<[string, BigNumber]> = Object.entries(treeData).map(([k, v]) => {
+        return [k, BigNumber.from((v as any).rep)];
+      });
 
       toTree = toTree.sort((a, b) => (a[1].gte(b[1]) ? 1 : -1)).reverse();
       //     console.log({ toTree });
       //     const topContracts = toTree.filter(_ => _[2] === true);
-      const totalReputation = toTree.reduce(
-        (c, a) => c.add(a[1]),
-        BigNumber.from(0)
-      );
+      const totalReputation = toTree.reduce((c, a) => c.add(a[1]), BigNumber.from(0));
       const totalSupply = (await good.totalSupply()).toString();
       console.log({
         totalSupply,
@@ -271,9 +211,7 @@ export const airdrop = (ethers: typeof Ethers) => {
           precentile: q * 100 + "%",
           addresses: (sorted.length * q).toFixed(0),
           quantileRep,
-          rep:
-            Number(quantileRep.div(1e10).toString()) /
-            Number(totalReputation.div(1e10).toString())
+          rep: Number(quantileRep.div(1e10).toString()) / Number(totalReputation.div(1e10).toString())
         });
       });
       const items = Object.values(treeData);
@@ -296,16 +234,10 @@ export const airdrop = (ethers: typeof Ethers) => {
       const validProof = merkleTree.verify(proof, elements[0], merkleRoot);
 
       const lastProof = merkleTree.getHexProof(elements[elements.length - 1]);
-      const lastValidProof = merkleTree.verify(
-        lastProof,
-        elements[elements.length - 1],
-        merkleRoot
-      );
+      const lastValidProof = merkleTree.verify(lastProof, elements[elements.length - 1], merkleRoot);
 
       //check for possible address preimage
-      const danger = (merkleTree.getHexLayers() as any).map(_ =>
-        _.find(_ => _.startsWith("0x000000"))
-      );
+      const danger = (merkleTree.getHexLayers() as any).map(_ => _.find(_ => _.startsWith("0x000000")));
 
       console.log({
         danger,
@@ -322,10 +254,7 @@ export const airdrop = (ethers: typeof Ethers) => {
 
       checkpoint.merkleRoot = merkleRoot;
       checkpoint.totalSupply = totalSupply;
-      fs.writeFileSync(
-        "goodCheckpoints/goodCheckpoint_fuse.json",
-        JSON.stringify(checkpoint)
-      );
+      fs.writeFileSync("goodCheckpoints/goodCheckpoint_fuse.json", JSON.stringify(checkpoint));
     };
 
     await buildTree();
@@ -333,9 +262,7 @@ export const airdrop = (ethers: typeof Ethers) => {
   };
 
   const getProof = addr => {
-    const { treeData, merkleRoot } = JSON.parse(
-      fs.readFileSync("airdrop/airdrop.json").toString()
-    );
+    const { treeData, merkleRoot } = JSON.parse(fs.readFileSync("airdrop/airdrop.json").toString());
 
     let entries = Object.entries(treeData as Tree);
     let elements = entries.map(e => Buffer.from(e[1].hash.slice(2), "hex"));
@@ -355,14 +282,10 @@ export const airdrop = (ethers: typeof Ethers) => {
     const proofFor = Buffer.from(addrData.hash.slice(2), "hex");
 
     const proof = merkleTree.getHexProof(proofFor);
-    const proofIndex =
-      elements.findIndex(_ => "0x" + _.toString("hex") === addrData.hash) + 1;
+    const proofIndex = elements.findIndex(_ => "0x" + _.toString("hex") === addrData.hash) + 1;
 
     console.log({ proofIndex, proof, [addr]: addrData });
-    console.log(
-      "checkProof:",
-      merkleTree.verify(proof, proofFor, calcMerkleRoot)
-    );
+    console.log("checkProof:", merkleTree.verify(proof, proofFor, calcMerkleRoot));
   };
 
   return { buildMerkleTree, collectAirdropData, getProof };

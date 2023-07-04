@@ -41,6 +41,13 @@ const ethplorer_key = process.env.ETHPLORER_KEY;
 
 const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
 
+const goerli = {
+  accounts: { mnemonic },
+  url: "https://rpc.ankr.com/eth_goerli",
+  gas: 3000000,
+  chainId: 5
+};
+
 // console.log({ mnemonic: sha3(mnemonic) });
 const hhconfig: HardhatUserConfig = {
   solidity: {
@@ -58,7 +65,8 @@ const hhconfig: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       mainnet: etherscan_key,
-      celo: celoscan_key
+      celo: celoscan_key,
+      alfajores: celoscan_key
     },
     customChains: [
       {
@@ -67,6 +75,14 @@ const hhconfig: HardhatUserConfig = {
         urls: {
           apiURL: "https://api.celoscan.io/api",
           browserURL: "https://celoscan.io/"
+        }
+      },
+      {
+        network: "alfajores",
+        chainId: 44787,
+        urls: {
+          apiURL: "https://api.alfajores.celoscan.io/api",
+          browserURL: "https://alfajores.celoscan.io/"
         }
       }
     ]
@@ -204,6 +220,12 @@ const hhconfig: HardhatUserConfig = {
       gasPrice: 5000000000,
       chainId: 42220
     },
+    alfajores: {
+      accounts: { mnemonic },
+      chainId: 44787,
+      url: `https://alfajores-forno.celo-testnet.org`,
+      gasPrice: 5000000000
+    },
     "staging-celo": {
       accounts: { mnemonic },
       url: "https://forno.celo.org",
@@ -224,7 +246,10 @@ const hhconfig: HardhatUserConfig = {
       gas: 3000000,
       gasPrice: 500000000,
       chainId: 100
-    }
+    },
+    goerli,
+    "development-goerli": goerli,
+    "staging-goerli": goerli
   },
   mocha: {
     timeout: 6000000

@@ -1,5 +1,4 @@
 import { maxBy, range, sortBy, flatten, uniq } from "lodash";
-import fetch from "node-fetch";
 import PromisePool from "async-promise-pool";
 import fs from "fs";
 import { Contract, Provider, setMulticallAddress } from "ethers-multicall";
@@ -487,9 +486,7 @@ const allProtocolAddresses: Array<string> = [
 ];
 
 setMulticallAddress(122, "0x3CE6158b7278Bf6792e014FA7B4f3c6c46fe9410");
-const fuseProvider = new ethers.providers.WebSocketProvider(
-  "wss://rpc.gooddollar.org"
-);
+const fuseProvider = new ethers.providers.WebSocketProvider("wss://rpc.gooddollar.org");
 const ethcallProvider = new Provider(fuseProvider, 122);
 
 const GD_FUSE = "0x495d133b938596c9984d462f007b676bdc57ecec";
@@ -534,31 +531,16 @@ const main = async () => {
           )
       );
 
-      const checkWhitelisted = uniq(
-        flatten(
-          clean.map(_ => [_.args.from.toLowerCase(), _.args.to.toLowerCase()])
-        )
-      );
-      const calls = checkWhitelisted.map(d =>
-        identityContract.isWhitelisted(d)
-      );
+      const checkWhitelisted = uniq(flatten(clean.map(_ => [_.args.from.toLowerCase(), _.args.to.toLowerCase()])));
+      const calls = checkWhitelisted.map(d => identityContract.isWhitelisted(d));
       const result = await ethcallProvider.all(calls);
       const whitelisted = checkWhitelisted.filter((v, i) => result[i]);
       const p2p = clean.filter(
-        _ =>
-          whitelisted.includes(_.args.to.toLowerCase()) ||
-          whitelisted.includes(_.args.from.toLowerCase())
+        _ => whitelisted.includes(_.args.to.toLowerCase()) || whitelisted.includes(_.args.from.toLowerCase())
       );
       p2pTxs = p2pTxs.concat(p2p);
       uniques = uniques.concat(whitelisted);
-      console.log(
-        { fromBlock },
-        results.length,
-        clean.length,
-        checkWhitelisted.length,
-        whitelisted.length,
-        p2p.length
-      );
+      console.log({ fromBlock }, results.length, clean.length, checkWhitelisted.length, whitelisted.length, p2p.length);
     });
   });
 

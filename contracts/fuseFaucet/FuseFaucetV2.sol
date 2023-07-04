@@ -46,6 +46,7 @@ contract FuseFaucetV2 is Initializable {
 	address public relayer;
 	address public owner;
 	uint32 public version;
+	uint8 public minTopping;
 
 	function initialize(
 		NameService _ns,
@@ -53,15 +54,17 @@ contract FuseFaucetV2 is Initializable {
 		address _relayer,
 		uint64 gweiTopping
 	) public initializer {
-		if (relayer != address(0)) relayer = _relayer;
+		relayer = _relayer;
 		gasPrice = _gasPrice;
-		setGasTopping(gweiTopping);
+		gasTopping = gweiTopping; //1m gwei
+		perDayRoughLimit = 2 * gasTopping;
 		maxDailyToppings = 3;
 		startTime = block.timestamp;
 		nameService = _ns;
 		maxPerWeekMultiplier = 2;
 		maxSwapAmount = 1000;
 		maxDailyNewWallets = 5000;
+		minTopping = 15;
 	}
 
 	modifier upgrader(uint32 _newversion) {
@@ -175,6 +178,8 @@ contract FuseFaucetV2 is Initializable {
 
 	function canTop(address _user) external view returns (bool) {
 		if (getToppingAmount() < address(_user).balance) return false;
+		uint256 toTop = getToppingAmount() - address(_user).balance;
+		if ((toTop * 100) / getToppingAmount() < minTopping) return false;
 
 		address whitelistedRoot = getIdentity().getWhitelistedRoot(_user);
 		_user = whitelistedRoot == address(0) ? _user : whitelistedRoot;
@@ -209,12 +214,9 @@ contract FuseFaucetV2 is Initializable {
 	 * can only be done by admin the amount of times specified in constructor per day
 	 * @param _user The address to transfer to
 	 */
-	function topWallet(address payable _user)
-		public
-		reimburseGas
-		toppingLimit(_user)
-		onlyAuthorized(_user)
-	{
+	function topWallet(
+		address payable _user
+	) public reimburseGas toppingLimit(_user) onlyAuthorized(_user) {
 		_topWallet(_user);
 	}
 
@@ -227,8 +229,9 @@ contract FuseFaucetV2 is Initializable {
 			? _wallet
 			: payable(whitelistedRoot);
 
-		require(getToppingAmount() > address(_wallet).balance);
+		// require(getToppingAmount() > address(_wallet).balance);
 		uint256 toTop = getToppingAmount() - address(_wallet).balance;
+		require((toTop * 100) / getToppingAmount() >= minTopping, "low toTop");
 
 		uint256 dayOfWeek = currentDay % 7;
 
@@ -275,5 +278,9 @@ contract FuseFaucetV2 is Initializable {
 
 	function setGasPrice(uint64 _price) external onlyOwner {
 		gasPrice = _price;
+	}
+
+	function setMinTopping(uint8 _minTop) external onlyOwner {
+		minTopping = _minTop;
 	}
 }

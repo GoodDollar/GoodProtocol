@@ -49,8 +49,8 @@ export const deployHelpers = async () => {
   console.log("deploying onetime payments", { gasprice: protocolSettings.gasPrice });
   const OTP = (await deployDeterministic(
     {
-      name: "OneTimePayments",
-      salt: "OneTimePayments",
+      name: "OneTimePaymentsV2",
+      salt: "OneTimePaymentsV2",
       isUpgradeable: false
     },
     [release.NameService]
@@ -59,12 +59,12 @@ export const deployHelpers = async () => {
   // const OTP = await ethers.getContractAt("OneTimePayments", release.OneTimePayments);
 
   const torelease = {
-    OneTimePayments: OTP.address
+    OneTimePaymentsV2: OTP.address
   };
   await releaser(torelease, network.name, "deployment", false);
 
   const constructorArgs = ethers.utils.defaultAbiCoder.encode(["address"], [release.NameService]);
-  await verifyContract(OTP.address, "OneTimePayments", network.name, undefined, constructorArgs);
+  await verifyContract(OTP.address, "OneTimePaymentsV2", network.name, undefined, constructorArgs);
 };
 
 export const main = async () => {
