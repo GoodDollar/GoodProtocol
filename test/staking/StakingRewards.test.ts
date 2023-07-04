@@ -747,13 +747,13 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   });
 
   it("It should not collect interest when interest is lower than gas cost [ @skip-on-coverage ]", async () => {
-    await goodFundManager.collectInterest([goodCompoundStaking.address], true).catch(e => e); // make sure there is no interest left and last collection updated
-
+    await gasFeeOracle.setPrice(ethers.constants.WeiPerEther); //increase gas price so costs is more than ubi minted
     await expect(
       goodFundManager.collectInterest([], false, {
         gasLimit: 770000
       })
     ).revertedWith("X*gas costs");
+    await gasFeeOracle.setPrice(25e8); //undo gas price
   });
 
   it("It should always collect interest without rewards when forced", async () => {
