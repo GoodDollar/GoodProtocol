@@ -58,6 +58,10 @@ module.exports = {
     // },
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
+    "production-mainnet": {
+      provider: () => new Web3.providers.HttpProvider(`https://cloudflare-eth.com`),
+      network_id: 1
+    },
     kovan: {
       provider: () =>
         new Web3.providers.HttpProvider(

@@ -22,7 +22,8 @@ contract DistributionHelper is
 	enum TransferType {
 		FuseBridge,
 		MultichainBridge,
-		Contract
+		TransferAndCall,
+		Transfer
 	}
 
 	struct DistributionRecipient {
@@ -94,10 +95,9 @@ contract DistributionHelper is
 	 * @notice add or update a recipient details, if address exists it will update, otherwise add
 	 * to "remove" set recipient bps to 0. only ADMIN_ROLE can call this.
 	 */
-	function addOrUpdateRecipient(DistributionRecipient memory _recipient)
-		external
-		onlyRole(DEFAULT_ADMIN_ROLE)
-	{
+	function addOrUpdateRecipient(
+		DistributionRecipient memory _recipient
+	) external onlyRole(DEFAULT_ADMIN_ROLE) {
 		// console.log("addOrUpdate addr: %s", _recipient.addr);
 		for (uint256 i = 0; i < distributionRecipients.length; i++) {
 			// console.log(
@@ -122,9 +122,10 @@ contract DistributionHelper is
 	 * @param _recipient data about the recipient
 	 * @param _amount how much to send
 	 */
-	function distribute(DistributionRecipient storage _recipient, uint256 _amount)
-		internal
-	{
+	function distribute(
+		DistributionRecipient storage _recipient,
+		uint256 _amount
+	) internal {
 		if (_recipient.transferType == TransferType.FuseBridge) {
 			nativeToken().transferAndCall(
 				fuseBridge,
@@ -139,8 +140,10 @@ contract DistributionHelper is
 				_amount,
 				_recipient.chainId
 			);
-		} else if (_recipient.transferType == TransferType.Contract) {
+		} else if (_recipient.transferType == TransferType.TransferAndCall) {
 			nativeToken().transferAndCall(_recipient.addr, _amount, "");
+		} else if (_recipient.transferType == TransferType.Transfer) {
+			nativeToken().transfer(_recipient.addr, _amount);
 		}
 	}
 }
