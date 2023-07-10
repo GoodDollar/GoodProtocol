@@ -9,7 +9,6 @@
 import { network, ethers } from "hardhat";
 import { Contract } from "ethers";
 import { defaultsDeep } from "lodash";
-
 import { printDeploy, executeViaGuardian, executeViaSafe, verifyProductionSigner } from "../multichain-deploy/helpers";
 
 import ProtocolSettings from "../../releases/deploy-settings.json";
@@ -54,8 +53,12 @@ export const upgrade = async () => {
 
   let f = await ethers.getContractFactory("GoodFundManager");
   console.log("bytecode", f.bytecode.length);
-  let newDistHelper = (await ethers.deployContract("DistributionHelper").then(printDeploy)) as Contract;
-
+  // let newDistHelper = (await ethers
+  //   .deployContract("DistributionHelper", { maxFeePerGas: 22e9, nonce: 118 })
+  //   .then(printDeploy)) as Contract;
+  let newDistHelper = (await (await ethers.getContractFactory("DistributionHelper"))
+    .deploy({ maxFeePerGas: 15e9, maxPriorityFeePerGas: 1e9 })
+    .then(printDeploy)) as Contract;
   if (isProduction) await verifyContract(newDistHelper, "GoodReserveCDai", networkName);
 
   const proposalContracts = [
