@@ -76,7 +76,9 @@ export const deploySuperGoodDollar = async (
     []
   ).then(printDeploy)) as Contract;
 
-  await GoodDollarProxy.initializeProxy(SuperGoodDollar.address).then(printDeploy);
+  await GoodDollarProxy.initializeProxy(SuperGoodDollar.address).then(
+    printDeploy
+  );
 
   const OutFlowNFT = (await deployDeterministic(
     {
@@ -256,16 +258,23 @@ export const executeViaGuardian = async (
         .then(_ => _.wait());
       results.push(tx);
     } else {
-      const simulationResult = await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
-        from: await guardian.getAddress(),
-        value: ethValues[i]
-      });
+      const simulationResult = await ctrl.callStatic.genericCall(
+        contract,
+        encoded,
+        release.Avatar,
+        ethValues[i],
+        {
+          from: await guardian.getAddress(),
+          value: ethValues[i]
+        }
+      );
       console.log("executing genericCall:", {
         sigHash,
         encoded,
         simulationResult
       });
-      if (simulationResult[0] === false) throw new Error("simulation failed:" + contract);
+      if (simulationResult[0] === false)
+        throw new Error("simulation failed:" + contract);
       const tx = await ctrl
         .genericCall(contract, encoded, release.Avatar, ethValues[i])
         .then(printDeploy)
@@ -399,15 +408,22 @@ export const executeViaSafe = async (
 
       const simulationResult =
         isSimulation === true &&
-        (await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
-          from: safeAddress,
-          value: ethValues[i]
-        }));
+        (await ctrl.callStatic.genericCall(
+          contract,
+          encoded,
+          release.Avatar,
+          ethValues[i],
+          {
+            from: safeAddress,
+            value: ethValues[i]
+          }
+        ));
       console.log("executing genericCall simulation result:", {
         sigHash,
         simulationResult
       });
-      if (isSimulation === true && simulationResult[0] === false) throw new Error("simulation failed:" + contract);
+      if (isSimulation === true && simulationResult[0] === false)
+        throw new Error("simulation failed:" + contract);
       const genericEncode = ctrl.interface.encodeFunctionData("genericCall", [
         contract,
         encoded,
@@ -453,8 +469,11 @@ export const verifyContract = async (
   proxyName?: string,
   forcedConstructorArguments?: string
 ) => {
-  let networkProvider = network.name.includes("-") ? network.name.split("-")[1] : network.name;
-  networkProvider = networkProvider === "mainnet" ? "ethereum" : networkProvider;
+  let networkProvider = network.name.includes("-")
+    ? network.name.split("-")[1]
+    : network.name;
+  networkProvider =
+    networkProvider === "mainnet" ? "ethereum" : networkProvider;
   console.log("truffle compile...");
   await exec("npx truffle compile");
   const cmd = `npx truffle run verify ${

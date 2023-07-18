@@ -81,7 +81,7 @@ const hhconfig: HardhatUserConfig = {
         network: "alfajores",
         chainId: 44787,
         urls: {
-          apiURL: "https://api.alfajores.celoscan.io/api",
+          apiURL: "https://alfajores.celoscan.io/api",
           browserURL: "https://alfajores.celoscan.io/"
         }
       }
@@ -224,6 +224,12 @@ const hhconfig: HardhatUserConfig = {
       accounts: { mnemonic },
       chainId: 44787,
       url: `https://alfajores-forno.celo-testnet.org`,
+      gasPrice: 5000000000
+    },
+    "alfajores-fork": {
+      accounts: { mnemonic },
+      chainId: 44787,
+      url: `http://127.0.0.1:8545`,
       gasPrice: 5000000000
     },
     "staging-celo": {
