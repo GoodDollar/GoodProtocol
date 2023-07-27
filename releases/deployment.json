@@ -560,7 +560,9 @@
         "SuperFluidResolver": "0x6e9CaBE4172344Db81a1E1D735a6AD763700064A",
         "SuperFluidHost": "0x14764E92A63e73a2Dac1fF08F35A64647fB50C91",
         "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
-        "GDFaucet": "0x8986F9C6b3D0b9A8b92ef7f1eF7EB9e767D414e1"
+        "GDFaucet": "0x8986F9C6b3D0b9A8b92ef7f1eF7EB9e767D414e1",
+        "GoodDollarMintBurnWrapper": "0x69d9c8d240E282a4ec0058CF0AC4E9D8ac7a11ac",
+        "GoodDollarStaking": "0xC9a3DdadC753e6a7675Aa125991096623d06c437"
     },
     "goerli": {
         "ProxyFactory": "0xeCC2b6423A833bFE556E520d55191c8daD31f1E0",
