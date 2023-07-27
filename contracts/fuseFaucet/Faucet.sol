@@ -93,7 +93,6 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	modifier onlyAuthorized(address toTop) {
 		require(
 			getIdentity().getWhitelistedRoot(toTop) != address(0) ||
-				getIdentity().getWhitelistedRoot(msg.sender) != address(0) ||
 				hasRole(RELAYER_ROLE, msg.sender),
 			"not authorized"
 		);
