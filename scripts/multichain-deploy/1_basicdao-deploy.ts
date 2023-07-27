@@ -56,20 +56,28 @@ export const createDAO = async () => {
   const salt = ethers.BigNumber.from(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("NameService")));
   const nameserviceFutureAddress = await proxyFactory["getDeploymentAddress(uint256,address)"](salt, root.address);
   console.log("deploying identity", { nameserviceFutureAddress });
-  const Identity = (await deployDeterministic(
-    {
-      name: "IdentityV2",
-      salt: "Identity",
-      isUpgradeable: true
-    },
-    [root.address, ethers.constants.AddressZero]
-  ).then(printDeploy)) as Contract;
+  let Identity;
+  if (release.Identity) Identity = await ethers.getContractAt("IdentityV2", release.Identity);
+  else
+    Identity = (await deployDeterministic(
+      {
+        name: "IdentityV2",
+        salt: "Identity",
+        isUpgradeable: true
+      },
+      [root.address, ethers.constants.AddressZero]
+    ).then(printDeploy)) as Contract;
 
-  const daoCreator = (await DAOCreatorFactory.deploy().then(printDeploy)) as Contract;
+  let daoCreator;
+  if (release.DAOCreator) daoCreator = await DAOCreatorFactory.attach(release.DAOCreator);
+  else daoCreator = (await DAOCreatorFactory.deploy().then(printDeploy)) as Contract;
 
-  const FeeFormula = (await deployDeterministic({ name: "FeeFormula", factory: FeeFormulaFactory }, [0]).then(
-    printDeploy
-  )) as Contract;
+  let FeeFormula;
+  if (release.FeeFormula) FeeFormula = await FeeFormulaFactory.attach(release.FeeFormula);
+  else
+    FeeFormula = (await deployDeterministic({ name: "FeeFormula", factory: FeeFormulaFactory }, [0]).then(
+      printDeploy
+    )) as Contract;
 
   let GoodDollar;
   if (protocolSettings.superfluidHost) {

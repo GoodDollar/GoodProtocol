@@ -561,5 +561,18 @@
         "SuperFluidHost": "0x14764E92A63e73a2Dac1fF08F35A64647fB50C91",
         "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
         "GDFaucet": "0x8986F9C6b3D0b9A8b92ef7f1eF7EB9e767D414e1"
+    },
+    "goerli": {
+        "ProxyFactory": "0xeCC2b6423A833bFE556E520d55191c8daD31f1E0",
+        "Identity": "0x6dB189E677EEaB0833C6693DFeaa979e37447eee",
+        "DAOCreator": "0x16985787b2c032a68E24dE1D7DbCeFF10685Bc96",
+        "FeeFormula": "0x93B29D34f1FCBCED99509b31fF4557ad5a32798f",
+        "GoodDollar": "0x03d3daB843e6c03b3d271eff9178e6A96c28D25f",
+        "Avatar": "0x972F855bAa27B3E04b48f3868ffa1AB35405F79B",
+        "Controller": "0xe9868c10eED2B6832DfB84b708843e5D5F5E923f",
+        "NameService": "0x17611D613268A2A017f51c72df98B1dE0A5AB407",
+        "GReputation": "0x3647469733C01713A7d9bdf6834bd4aBd59D66fa",
+        "GoodDollarMintBurnWrapper": "0x69d9c8d240E282a4ec0058CF0AC4E9D8ac7a11ac",
+        "GoodDollarStaking": "0xC9a3DdadC753e6a7675Aa125991096623d06c437"
     }
 }
