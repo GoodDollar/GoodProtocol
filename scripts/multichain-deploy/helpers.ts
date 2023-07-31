@@ -28,10 +28,12 @@ export const printDeploy = async (c: Contract | TransactionResponse): Promise<Co
   if (c instanceof Contract) {
     await c.deployed();
     console.log("deployed to: ", c.address);
+    return c.deployed();
   }
   if (c.wait) {
     await c.wait();
     console.log("tx done:", c.hash);
+    return c.wait();
   }
   return c;
 };
@@ -168,10 +170,7 @@ export const executeViaGuardian = async (
         simulationResult
       });
       if (simulationResult[0] === false) throw new Error("simulation failed:" + contract);
-      const tx = await ctrl
-        .genericCall(contract, encoded, release.Avatar, ethValues[i])
-        .then(printDeploy)
-        .then(_ => _.wait());
+      const tx = await ctrl.genericCall(contract, encoded, release.Avatar, ethValues[i]).then(printDeploy);
       // console.log("generic call events:", tx.events);
       results.push(tx);
     }
