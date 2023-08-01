@@ -10,6 +10,10 @@ import "../utils/DAOUpgradeableContract.sol";
 
 // import "hardhat/console.sol";
 
+interface IMessagePassingBridge {
+
+}
+
 /***
  * @dev DistributionHelper receives funds and distributes them to recipients
  * recipients can be on other blockchains and get their funds via fuse/multichain bridge
@@ -21,7 +25,8 @@ contract DistributionHelper is
 {
 	enum TransferType {
 		FuseBridge,
-		MultichainBridge,
+		LayerZeroBridge,
+		AxelarBridge,
 		Contract
 	}
 
@@ -35,8 +40,8 @@ contract DistributionHelper is
 	DistributionRecipient[] public distributionRecipients;
 
 	address public fuseBridge;
-	IMultichainRouter public multiChainBridge;
-	address public anyGoodDollar; //G$ multichain wrapper on ethereum
+	IMultichainRouter public mpbBridge;
+	address public anyGoodDollar_unused; //kept for storage layout upgrades
 
 	event Distribution(
 		uint256 distributed,
@@ -56,10 +61,9 @@ contract DistributionHelper is
 
 	function updateAddresses() public {
 		fuseBridge = nameService.getAddress("BRIDGE_CONTRACT");
-		multiChainBridge = IMultichainRouter(
-			nameService.getAddress("MULTICHAIN_ROUTER")
+		mbpBridge = IMessagePassingBridge(
+			0x57ef07b6c7bc69e2a48fc073047112d3320103f1
 		);
-		anyGoodDollar = nameService.getAddress("MULTICHAIN_ANYGOODDOLLAR");
 	}
 
 	/**
@@ -94,10 +98,9 @@ contract DistributionHelper is
 	 * @notice add or update a recipient details, if address exists it will update, otherwise add
 	 * to "remove" set recipient bps to 0. only ADMIN_ROLE can call this.
 	 */
-	function addOrUpdateRecipient(DistributionRecipient memory _recipient)
-		external
-		onlyRole(DEFAULT_ADMIN_ROLE)
-	{
+	function addOrUpdateRecipient(
+		DistributionRecipient memory _recipient
+	) external onlyRole(DEFAULT_ADMIN_ROLE) {
 		// console.log("addOrUpdate addr: %s", _recipient.addr);
 		for (uint256 i = 0; i < distributionRecipients.length; i++) {
 			// console.log(
@@ -122,23 +125,22 @@ contract DistributionHelper is
 	 * @param _recipient data about the recipient
 	 * @param _amount how much to send
 	 */
-	function distribute(DistributionRecipient storage _recipient, uint256 _amount)
-		internal
-	{
+	function distribute(
+		DistributionRecipient storage _recipient,
+		uint256 _amount
+	) internal {
 		if (_recipient.transferType == TransferType.FuseBridge) {
 			nativeToken().transferAndCall(
 				fuseBridge,
 				_amount,
 				abi.encodePacked(_recipient.addr)
 			);
-		} else if (_recipient.transferType == TransferType.MultichainBridge) {
-			nativeToken().approve(address(multiChainBridge), _amount);
-			multiChainBridge.anySwapOutUnderlying(
-				anyGoodDollar,
-				_recipient.addr,
-				_amount,
-				_recipient.chainId
-			);
+		} else if (_recipient.transferType == TransferType.LayerZeroBridge) {
+			nativeToken().approve(address(mpbBridge), _amount);
+			mpbBridge.bridgeTo(_recipient.addr, _recipient.chainId, _amount, 1);
+		} else if (_recipient.transferType == TransferType.AxelarBridge) {
+			nativeToken().approve(address(mpbBridge), _amount);
+			mpbBridge.bridgeTo(_recipient.addr, _recipient.chainId, _amount, 0);
 		} else if (_recipient.transferType == TransferType.Contract) {
 			nativeToken().transferAndCall(_recipient.addr, _amount, "");
 		}
