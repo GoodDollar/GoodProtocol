@@ -86,6 +86,8 @@
     "@gnosis.pm/safe-core-sdk-types": "^1.7.0",
     "@gnosis.pm/safe-ethers-lib": "^1.7.0",
     "@gnosis.pm/safe-service-client": "^1.4.0",
+    "@gooddollar/bridge-contracts": "1.0.14-beta.7",
+    "@mean-finance/uniswap-v3-oracle": "^1.0.3",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.8",
     "@nomiclabs/hardhat-ethers": "^2.2.1",
     "@nomiclabs/hardhat-etherscan": "^3.1.0",

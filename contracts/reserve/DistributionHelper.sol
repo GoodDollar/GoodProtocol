@@ -5,14 +5,12 @@ pragma solidity ^0.8;
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@mean-finance/uniswap-v3-oracle/solidity/interfaces/IStaticOracle.sol";
+import "@gooddollar/bridge-contracts/contracts/messagePassingBridge/IMessagePassingBridge.sol";
 
 import "../utils/DAOUpgradeableContract.sol";
 
 // import "hardhat/console.sol";
-
-interface IMessagePassingBridge {
-
-}
 
 /***
  * @dev DistributionHelper receives funds and distributes them to recipients
@@ -23,6 +21,20 @@ contract DistributionHelper is
 	DAOUpgradeableContract,
 	AccessControlEnumerableUpgradeable
 {
+	//IStaticOracle(0xB210CE856631EeEB767eFa666EC7C1C57738d438); //@mean-finance/uniswap-v3-oracle
+
+	address public constant CELO_TOKEN =
+		0x3294395e62F4eB6aF3f1Fcf89f5602D90Fb3Ef69;
+
+	address public constant FUSE_TOKEN =
+		0x970B9bB2C0444F5E81e9d0eFb84C8ccdcdcAf84d;
+
+	address public constant USDC_TOKEN =
+		0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+
+	address public constant WETH_TOKEN =
+		0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+
 	enum TransferType {
 		FuseBridge,
 		LayerZeroBridge,
@@ -37,11 +49,20 @@ contract DistributionHelper is
 		TransferType transferType;
 	}
 
+	struct FeeSettings {
+		uint128 axelarBaseFeeUSD;
+		uint128 bridgeExecuteGas;
+		uint128 targetChainGasPrice;
+		uint128 maxFee;
+		uint128 minBalanceForFees;
+	}
 	DistributionRecipient[] public distributionRecipients;
 
 	address public fuseBridge;
-	IMultichainRouter public mpbBridge;
-	address public anyGoodDollar_unused; //kept for storage layout upgrades
+	IMessagePassingBridge public mpbBridge;
+	FeeSettings public feeSettings; //previously anyGoodDollar_unused; //kept for storage layout upgrades
+
+	IStaticOracle public STATIC_ORACLE;
 
 	event Distribution(
 		uint256 distributed,
@@ -52,6 +73,8 @@ contract DistributionHelper is
 	event RecipientUpdated(DistributionRecipient recipient, uint256 index);
 	event RecipientAdded(DistributionRecipient recipient, uint256 index);
 
+	receive() external payable {}
+
 	function initialize(INameService _ns) external initializer {
 		__AccessControlEnumerable_init();
 		setDAO(_ns);
@@ -61,9 +84,67 @@ contract DistributionHelper is
 
 	function updateAddresses() public {
 		fuseBridge = nameService.getAddress("BRIDGE_CONTRACT");
-		mbpBridge = IMessagePassingBridge(
-			0x57ef07b6c7bc69e2a48fc073047112d3320103f1
+		mpbBridge = IMessagePassingBridge(
+			0x57ef07B6C7bc69E2A48fC073047112d3320103f1
 		);
+		STATIC_ORACLE = IStaticOracle(0xB210CE856631EeEB767eFa666EC7C1C57738d438); //@mean-finance/uniswap-v3-oracle
+	}
+
+	function setFeeSettings(
+		FeeSettings memory _feeData
+	) external onlyRole(DEFAULT_ADMIN_ROLE) {
+		feeSettings = _feeData;
+	}
+
+	function getTargetChainRefundAddress(
+		uint256 chainId
+	) public pure returns (address) {
+		if (chainId == 122) return 0xf96dADc6D71113F6500e97590760C924dA1eF70e; //avatar on fuse
+		if (chainId == 42220) return 0x495d133B938596C9984d462F007B676bDc57eCEC; //avatar on celo
+
+		revert("refund chainId");
+	}
+
+	function getTargetChainGasInEth(
+		uint256 gasCostWei,
+		uint256 chainId
+	) public view returns (uint256 quote) {
+		address baseToken;
+		if (chainId == 122) baseToken = FUSE_TOKEN;
+		else if (chainId == 42220) baseToken = CELO_TOKEN;
+		else revert("baseToken chainId");
+
+		uint24[] memory fees = new uint24[](1);
+		fees[0] = 3000;
+		(quote, ) = STATIC_ORACLE.quoteSpecificFeeTiersWithTimePeriod(
+			uint128(gasCostWei),
+			baseToken,
+			WETH_TOKEN,
+			fees,
+			60 //last 1 minute
+		);
+	}
+
+	function getAxelarFee(
+		uint256 targetChainId
+	) public view returns (uint256 feeInEth) {
+		uint256 executeFeeInEth = getTargetChainGasInEth(
+			feeSettings.bridgeExecuteGas * feeSettings.targetChainGasPrice,
+			targetChainId
+		);
+
+		uint24[] memory fees = new uint24[](1);
+		fees[0] = 500;
+		(uint256 baseFeeInEth, ) = STATIC_ORACLE
+			.quoteSpecificFeeTiersWithTimePeriod(
+				uint128(feeSettings.axelarBaseFeeUSD),
+				USDC_TOKEN,
+				WETH_TOKEN,
+				fees,
+				60 //last 1 minute
+			);
+
+		feeInEth = baseFeeInEth + executeFeeInEth;
 	}
 
 	/**
@@ -137,10 +218,35 @@ contract DistributionHelper is
 			);
 		} else if (_recipient.transferType == TransferType.LayerZeroBridge) {
 			nativeToken().approve(address(mpbBridge), _amount);
-			mpbBridge.bridgeTo(_recipient.addr, _recipient.chainId, _amount, 1);
+			(uint256 lzFee, ) = ILayerZeroFeeEstimator(address(mpbBridge))
+				.estimateSendFee(
+					mpbBridge.toLzChainId(_recipient.chainId),
+					address(this),
+					_recipient.addr,
+					_amount,
+					false,
+					""
+				);
+			require(lzFee < feeSettings.maxFee, "fee sanity check");
+
+			mpbBridge.bridgeToWithLz{ value: lzFee }(
+				_recipient.addr,
+				_recipient.chainId,
+				_amount,
+				""
+			);
 		} else if (_recipient.transferType == TransferType.AxelarBridge) {
 			nativeToken().approve(address(mpbBridge), _amount);
-			mpbBridge.bridgeTo(_recipient.addr, _recipient.chainId, _amount, 0);
+			uint256 axlFee = getAxelarFee(_recipient.chainId);
+
+			require(axlFee < feeSettings.maxFee, "fee sanity check");
+
+			mpbBridge.bridgeToWithAxelar{ value: axlFee }(
+				_recipient.addr,
+				_recipient.chainId,
+				_amount,
+				getTargetChainRefundAddress(_recipient.chainId)
+			);
 		} else if (_recipient.transferType == TransferType.Contract) {
 			nativeToken().transferAndCall(_recipient.addr, _amount, "");
 		}

@@ -15,8 +15,12 @@ contract DistributionHelperTest is DistributionHelper {
 }
 
 contract DistributionHelperTestHelper is DistributionHelper {
-	function setBridges(address _fuseBridge, address _multiBridge) external {
+	function setOracle(IStaticOracle oracle) external {
+		STATIC_ORACLE = oracle;
+	}
+
+	function setBridges(address _fuseBridge, address _mpbBridge) external {
 		fuseBridge = _fuseBridge;
-		multiChainBridge = IMultichainRouter(_multiBridge);
+		mpbBridge = IMessagePassingBridge(_mpbBridge);
 	}
 }
