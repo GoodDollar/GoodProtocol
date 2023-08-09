@@ -65,6 +65,9 @@ describe("DistributionHelper", () => {
     )) as DistributionHelperTestHelper;
 
     await distHelper.setOracle(oracle.address);
+
+    //make sure disthelper has enough native token so it doesnt try to swap G$s
+    await founder.sendTransaction({ to: distHelper.address, value: ethers.constants.WeiPerEther });
     const bridge = (await ethers.deployContract("DistributionBridgeMock")) as DistributionBridgeMock;
 
     const encodedCall = distHelper.interface.encodeFunctionData("setFeeSettings", [
@@ -238,7 +241,7 @@ describe("DistributionHelper", () => {
     expect(events[0].args.recipient).to.equal(recipient.address);
     expect(events[0].args.amount).to.equal((100000000000 * 2000) / 10000);
     expect(events[0].args.chainId).to.equal(42220);
-    expect(events[0].args.fee).to.equal(2e13);
+    expect(events[0].args.fee).to.equal(2.2e13); //fee should be 2e13 with 10% extra
     expect(events[0].args.gasRefund).to.equal(await distHelper.getTargetChainRefundAddress(42220));
   });
 

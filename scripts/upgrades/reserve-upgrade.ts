@@ -11,6 +11,11 @@
  * - create guardians safe proposal to set the disthelper fee settings
  */
 
+/** NOTICE **/
+/**
+ * To test it on a fork make sure to first deploy the messagepassingbridge @gooddollar/GoodBridge deployMessagePassingBridge.ts
+ * to the same fork
+ */
 import { network, ethers } from "hardhat";
 import { Contract } from "ethers";
 import { defaultsDeep } from "lodash";
@@ -27,6 +32,7 @@ import ProtocolSettings from "../../releases/deploy-settings.json";
 
 import dao from "../../releases/deployment.json";
 import { verifyContract } from "../multichain-deploy/helpers";
+import { IStaticOracle } from "../../types";
 let { name: networkName } = network;
 
 export const upgrade = async () => {
@@ -37,8 +43,14 @@ export const upgrade = async () => {
 
   let guardian = root;
 
+  //simulate produciton on fork
+  if (network.name === "hardhat" || network.name === "fork") {
+    networkName = "production-mainnet";
+  }
+
   let release: { [key: string]: any } = dao[networkName];
   let protocolSettings = defaultsDeep({}, ProtocolSettings[networkName], ProtocolSettings["default"]);
+
   //simulate on fork, make sure safe has enough eth to simulate txs
   if (network.name === "hardhat" || network.name === "fork") {
     guardian = await ethers.getImpersonatedSigner(protocolSettings.guardiansSafe);
@@ -47,12 +59,14 @@ export const upgrade = async () => {
     await root.sendTransaction({ value: ethers.constants.WeiPerEther.mul(3), to: protocolSettings.guardiansSafe });
   }
 
+  const rootBalance = await ethers.provider.getBalance(root.address).then(_ => _.toString());
+  const guardianBalance = await ethers.provider.getBalance(guardian.address).then(_ => _.toString());
   console.log("got signers:", {
     networkName,
     root: root.address,
     guardian: guardian.address,
-    balance: await ethers.provider.getBalance(root.address).then(_ => _.toString()),
-    guardianBalance: await ethers.provider.getBalance(guardian.address).then(_ => _.toString())
+    balance: rootBalance,
+    guardianBalance: guardianBalance
   });
 
   let networkEnv = networkName.split("-")[0];
@@ -60,11 +74,61 @@ export const upgrade = async () => {
   if (networkEnv === "fuse") networkEnv = "development";
   const celoNetwork = networkEnv + "-celo";
 
+  console.log("deploying new implementatios...");
+
   let newReserveImpl = (await ethers.deployContract("GoodReserveCDai").then(printDeploy)) as Contract;
   let newFundmanagerImpl = (await ethers.deployContract("GoodFundManager").then(printDeploy)) as Contract;
   let newDisthelperImpl = (await ethers.deployContract("DistributionHelper").then(printDeploy)) as Contract;
 
   if (isProduction) await verifyContract(newReserveImpl, "GoodReserveCDai", networkName);
+
+  // make sure price oracle for fuse/celo/eth has enough observations
+  console.log("preparing price oracle...");
+  const oracle = (await ethers.getContractAt(
+    "IStaticOracle",
+    "0xB210CE856631EeEB767eFa666EC7C1C57738d438"
+  )) as IStaticOracle;
+  const [celoPool] = await oracle.callStatic.prepareSpecificFeeTiersWithTimePeriod(
+    await newDisthelperImpl.CELO_TOKEN(),
+    await newDisthelperImpl.WETH_TOKEN(),
+    [3000],
+    60
+  );
+  const [fusePool] = await oracle.callStatic.prepareSpecificFeeTiersWithTimePeriod(
+    await newDisthelperImpl.FUSE_TOKEN(),
+    await newDisthelperImpl.WETH_TOKEN(),
+    [3000],
+    60
+  );
+  const [usdcPool] = await oracle.callStatic.prepareSpecificFeeTiersWithTimePeriod(
+    await newDisthelperImpl.USDC_TOKEN(),
+    await newDisthelperImpl.WETH_TOKEN(),
+    [3000],
+    60
+  );
+
+  const pool = await ethers.getContractAt(
+    [
+      "function slot0() view returns (uint160 sqrtPriceX96,int24 sqrtPriceX96,uint16 observationIndex,uint16 observationCardinality,uint16 observationCardinalityNext,uint8 feeProtocol,bool unlocked)"
+    ],
+    celoPool
+  );
+  const validPools: Array<[string, boolean]> = await Promise.all(
+    [celoPool, fusePool, usdcPool].map(async _ => {
+      const { observationCardinalityNext } = await pool.attach(_).slot0();
+      return [_, observationCardinalityNext < 5];
+    })
+  );
+
+  console.log({ celoPool, fusePool, usdcPool, validPools });
+  await oracle
+    .prepareSpecificPoolsWithTimePeriod(
+      validPools.filter(_ => _[1]).map(_ => _[0]),
+      60
+    )
+    .then(printDeploy);
+
+  console.log("executing proposals");
 
   const proposalContracts = [
     release.GoodReserveCDai, //controller -> upgrade reserve
@@ -133,7 +197,7 @@ export const upgrade = async () => {
       ["uint32", "uint32", "address", "uint8"],
       [1000, 42220, dao[celoNetwork].CommunitySafe, 2] //10% chainId 42220 community treasury 2-axelar bridge
     ),
-    ethers.utils.defaultAbiCoder.encode(["bool", "bool"], [true, false])
+    ethers.utils.defaultAbiCoder.encode(["bool", "bool"], [false, false])
   ];
 
   if (isProduction) {
