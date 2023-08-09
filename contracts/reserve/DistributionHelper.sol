@@ -9,6 +9,7 @@ import "@mean-finance/uniswap-v3-oracle/solidity/interfaces/IStaticOracle.sol";
 import "@gooddollar/bridge-contracts/contracts/messagePassingBridge/IMessagePassingBridge.sol";
 
 import "../utils/DAOUpgradeableContract.sol";
+import "./ExchangeHelper.sol";
 
 // import "hardhat/console.sol";
 
@@ -21,6 +22,8 @@ contract DistributionHelper is
 	DAOUpgradeableContract,
 	AccessControlEnumerableUpgradeable
 {
+	error FEE_LIMIT(uint256 fee);
+
 	//IStaticOracle(0xB210CE856631EeEB767eFa666EC7C1C57738d438); //@mean-finance/uniswap-v3-oracle
 
 	address public constant CELO_TOKEN =
@@ -55,7 +58,9 @@ contract DistributionHelper is
 		uint128 targetChainGasPrice;
 		uint128 maxFee;
 		uint128 minBalanceForFees;
+		uint8 percentageToSellForFee;
 	}
+
 	DistributionRecipient[] public distributionRecipients;
 
 	address public fuseBridge;
@@ -137,14 +142,14 @@ contract DistributionHelper is
 		fees[0] = 500;
 		(uint256 baseFeeInEth, ) = STATIC_ORACLE
 			.quoteSpecificFeeTiersWithTimePeriod(
-				uint128(feeSettings.axelarBaseFeeUSD),
+				uint128(feeSettings.axelarBaseFeeUSD) / 1e12, //reduce to usdc 6 decimals
 				USDC_TOKEN,
 				WETH_TOKEN,
 				fees,
 				60 //last 1 minute
 			);
 
-		feeInEth = baseFeeInEth + executeFeeInEth;
+		feeInEth = ((baseFeeInEth + executeFeeInEth) * 110) / 100; //add 10%
 	}
 
 	/**
@@ -156,6 +161,13 @@ contract DistributionHelper is
 		// console.log("onDistribution amount: %s", _amount);
 		uint256 toDistribute = nativeToken().balanceOf(address(this));
 		if (toDistribute == 0) return;
+
+		if (address(this).balance < feeSettings.minBalanceForFees) {
+			uint256 gdToSellfForFee = (toDistribute *
+				feeSettings.percentageToSellForFee) / 100;
+			toDistribute -= gdToSellfForFee;
+			buyNativeWithGD(gdToSellfForFee);
+		}
 
 		uint256 totalDistributed;
 		for (uint256 i = 0; i < distributionRecipients.length; i++) {
@@ -227,7 +239,7 @@ contract DistributionHelper is
 					false,
 					""
 				);
-			require(lzFee < feeSettings.maxFee, "fee sanity check");
+			if (lzFee > feeSettings.maxFee) revert FEE_LIMIT(lzFee);
 
 			mpbBridge.bridgeToWithLz{ value: lzFee }(
 				_recipient.addr,
@@ -239,7 +251,7 @@ contract DistributionHelper is
 			nativeToken().approve(address(mpbBridge), _amount);
 			uint256 axlFee = getAxelarFee(_recipient.chainId);
 
-			require(axlFee < feeSettings.maxFee, "fee sanity check");
+			if (axlFee > feeSettings.maxFee) revert FEE_LIMIT(axlFee);
 
 			mpbBridge.bridgeToWithAxelar{ value: axlFee }(
 				_recipient.addr,
@@ -250,5 +262,14 @@ contract DistributionHelper is
 		} else if (_recipient.transferType == TransferType.Contract) {
 			nativeToken().transferAndCall(_recipient.addr, _amount, "");
 		}
+	}
+
+	function buyNativeWithGD(uint256 amountToSell) internal {
+		address[] memory path = new address[](2);
+		path[0] = nameService.getAddress("DAI");
+		path[1] = address(0);
+		address exchg = nameService.getAddress("EXCHANGE_HELPER");
+		nativeToken().approve(exchg, amountToSell);
+		ExchangeHelper(exchg).sell(path, amountToSell, 0, 0, address(this));
 	}
 }

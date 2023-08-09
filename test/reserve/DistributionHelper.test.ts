@@ -73,7 +73,8 @@ describe("DistributionHelper", () => {
         bridgeExecuteGas: 400000,
         targetChainGasPrice: 5e9,
         maxFee: "5000000000000000",
-        minBalanceForFees: "10000000000000000"
+        minBalanceForFees: "10000000000000000",
+        percentageToSellForFee: "5"
       }
     ]);
 

@@ -1,10 +1,14 @@
 /***
- * Upgrade Reserve
+ * Upgrade Reserve to fix distribution bug and use only disthelper for distribution
+ * Upgrade fundmanager to allow minting of ubi even without collecting interest, removing ubi distribution
+ * Upgrade distribution helper to work with new bridge replacing multichain
  * Upgrade Plan:
- * - deploy new impl, fund manager
- * - create guardians safe proposal to upgrade reserve + fundmanager
+ * - deploy new impl, fund manager, distribution helper
+ * - call disthelper updateAddresses
+ * - create guardians safe proposal to upgrade reserve + fundmanager + distribution helper
  * - create guardians safe proposal to call setGDXDisabled (optional)
- * - create guardians safe proposal to set the new distribution helper amounts
+ * - create guardians safe proposal to set the new distribution helper amounts  * ** THIS SHOULD BE DONE ONLY AFTER BRIDGE WAS DEPLOYED **
+ * - create guardians safe proposal to set the disthelper fee settings
  */
 
 import { network, ethers } from "hardhat";
@@ -32,18 +36,15 @@ export const upgrade = async () => {
   if (isProduction) verifyProductionSigner(root);
 
   let guardian = root;
-  // simulate on fork
-  if (network.name === "hardhat") {
-    networkName = "production-mainnet";
-    root = await ethers.getImpersonatedSigner("0x5128E3C1f8846724cc1007Af9b4189713922E4BB");
-  }
 
   let release: { [key: string]: any } = dao[networkName];
   let protocolSettings = defaultsDeep({}, ProtocolSettings[networkName], ProtocolSettings["default"]);
-  //make sure safe has enough eth to simulate txs
-  if (network.name === "hardhat") {
+  //simulate on fork, make sure safe has enough eth to simulate txs
+  if (network.name === "hardhat" || network.name === "fork") {
     guardian = await ethers.getImpersonatedSigner(protocolSettings.guardiansSafe);
-    await root.sendTransaction({ value: ethers.constants.WeiPerEther, to: protocolSettings.guardiansSafe });
+    networkName = "production-mainnet";
+
+    await root.sendTransaction({ value: ethers.constants.WeiPerEther.mul(3), to: protocolSettings.guardiansSafe });
   }
 
   console.log("got signers:", {
@@ -59,17 +60,20 @@ export const upgrade = async () => {
   if (networkEnv === "fuse") networkEnv = "development";
   const celoNetwork = networkEnv + "-celo";
 
-  let f = await ethers.getContractFactory("GoodFundManager");
-  console.log("bytecode", f.bytecode.length);
   let newReserveImpl = (await ethers.deployContract("GoodReserveCDai").then(printDeploy)) as Contract;
   let newFundmanagerImpl = (await ethers.deployContract("GoodFundManager").then(printDeploy)) as Contract;
+  let newDisthelperImpl = (await ethers.deployContract("DistributionHelper").then(printDeploy)) as Contract;
 
   if (isProduction) await verifyContract(newReserveImpl, "GoodReserveCDai", networkName);
 
   const proposalContracts = [
     release.GoodReserveCDai, //controller -> upgrade reserve
     release.GoodFundManager, //controller -> upgrade fundmanager
-    release.DistributionHelper, //set new distribution params
+    release.DistributionHelper, //controller -> upgrade disthelper
+    release.DistributionHelper, //update addresses
+    release.DistributionHelper, //set fee settings
+    release.DistributionHelper, //remove distribution to guardians
+    release.DistributionHelper, //remove distribution to community pool on fuse
     release.DistributionHelper, //set new distribution params
     release.DistributionHelper, //set new distribution params
     release.DistributionHelper, //set new distribution params
@@ -82,10 +86,14 @@ export const upgrade = async () => {
   const proposalFunctionSignatures = [
     "upgradeTo(address)", //upgrade reserve
     "upgradeTo(address)", //upgrade fundmanager
-    "addOrUpdateRecipient((uint32,uint32,address,uint8))", // remove fuse community safe distribution
+    "upgradeTo(address)", //upgrade disthelper
+    "updateAddresses()", //upgrade disthelper
+    "setFeeSettings((uint128,uint128,uint128,uint128,uint128,uint8))",
+    "addOrUpdateRecipient((uint32,uint32,address,uint8))", // remove guardians distribution
+    "addOrUpdateRecipient((uint32,uint32,address,uint8))", // remove fuse community distribution
     "addOrUpdateRecipient((uint32,uint32,address,uint8))", // fuse distribution
     "addOrUpdateRecipient((uint32,uint32,address,uint8))", // celo distribution
-    "addOrUpdateRecipient((uint32,uint32,address,uint8))", // community pool distribution
+    "addOrUpdateRecipient((uint32,uint32,address,uint8))", // community pool distribution on celo
     "addOrUpdateRecipient((uint32,uint32,address,uint8))", // savings rewards distribution
     "setGDXDisabled(bool,bool)"
   ];
@@ -93,25 +101,37 @@ export const upgrade = async () => {
   const proposalFunctionInputs = [
     ethers.utils.defaultAbiCoder.encode(["address"], [newReserveImpl.address]),
     ethers.utils.defaultAbiCoder.encode(["address"], [newFundmanagerImpl.address]),
+    ethers.utils.defaultAbiCoder.encode(["address"], [newDisthelperImpl.address]),
+    ethers.constants.HashZero,
+    //uint128 axelarBaseFeeUSD;uint128 bridgeExecuteGas;uint128 targetChainGasPrice;uint128 maxFee;uint128 minBalanceForFees;uint8 percentageToSellForFee;
+    //0.1$ base fee, 400000 bridge execute, 5 gwei gas price, 5e15 eth max fee, min balance 1e16, percentage 5%
     ethers.utils.defaultAbiCoder.encode(
-      ["uint32", "uint32", "address", "uint8"],
-      [0, 122, dao[fuseNetwork].CommunitySafe, 0] //40% chainId 122 ubischeme 0-fuse bridge
+      ["uint128", "uint128", "uint128", "uint128", "uint128", "uint8"],
+      ["100000000000000000", "400000", "5000000000", "5000000000000000", "10000000000000000", "5"]
     ),
     ethers.utils.defaultAbiCoder.encode(
       ["uint32", "uint32", "address", "uint8"],
-      [4000, 122, dao[fuseNetwork].UBIScheme, 0] //40% chainId 122 ubischeme 0-fuse bridge
+      [0, 1, dao[networkName].GuardiansSafe, 3] //0% to guardians (contract transfer)
     ),
     ethers.utils.defaultAbiCoder.encode(
       ["uint32", "uint32", "address", "uint8"],
-      [4000, 42220, dao[celoNetwork].UBIScheme, 1] //40% chainId 42220 ubischeme 1-multichain bridge
+      [0, 122, dao[fuseNetwork].CommunitySafe, 0] //0% to guardians (contract transfer)
     ),
     ethers.utils.defaultAbiCoder.encode(
       ["uint32", "uint32", "address", "uint8"],
-      [1000, 42220, dao[celoNetwork].GoodDollarMintBurnWrapper, 1] //10% chainId 42220 mintburnwrapper 1-multichain bridge
+      [1000, 122, dao[fuseNetwork].UBIScheme, 0] //10% chainId 122 ubischeme 0-fuse bridge
     ),
     ethers.utils.defaultAbiCoder.encode(
       ["uint32", "uint32", "address", "uint8"],
-      [1000, 42220, dao[celoNetwork].CommunitySafe, 1] //10% chainId 42220 community treasury 1-multichain bridge
+      [7000, 42220, dao[celoNetwork].UBIScheme, 2] //70% chainId 42220 ubischeme 2-axelar bridge
+    ),
+    ethers.utils.defaultAbiCoder.encode(
+      ["uint32", "uint32", "address", "uint8"],
+      [1000, 42220, dao[celoNetwork].GoodDollarMintBurnWrapper, 2] //10% chainId 42220 mintburnwrapper 2-axelar bridge
+    ),
+    ethers.utils.defaultAbiCoder.encode(
+      ["uint32", "uint32", "address", "uint8"],
+      [1000, 42220, dao[celoNetwork].CommunitySafe, 2] //10% chainId 42220 community treasury 2-axelar bridge
     ),
     ethers.utils.defaultAbiCoder.encode(["bool", "bool"], [true, false])
   ];
@@ -147,13 +167,14 @@ export const upgrade = async () => {
   console.log(await dh.distributionRecipients(2));
   console.log(await dh.distributionRecipients(3));
   console.log(await dh.distributionRecipients(4));
+  console.log(await dh.distributionRecipients(5));
 
   console.log("gdx/discount disabled", await r.gdxDisabled(), await r.discountDisabled());
   if (isProduction) {
-    let tx = await fm.callStatic.collectInterest([], true);
+    let tx = await fm.callStatic.collectInterest([], false);
     console.log(tx);
   } else {
-    let tx = await (await fm.collectInterest([], true)).wait();
+    let tx = await (await fm.collectInterest([], false)).wait();
     console.log(tx.events);
   }
 };
