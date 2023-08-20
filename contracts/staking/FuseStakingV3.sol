@@ -24,17 +24,16 @@ interface IConsensus {
 	 */
 	function withdraw(address _validator, uint256 _amount) external;
 
-	function delegatedAmount(address _address, address _validator)
-		external
-		view
-		returns (uint256);
+	function delegatedAmount(
+		address _address,
+		address _validator
+	) external view returns (uint256);
 
 	function stakeAmount(address _address) external view returns (uint256);
 
-	function delegators(address _validator)
-		external
-		view
-		returns (address[] memory);
+	function delegators(
+		address _validator
+	) external view returns (address[] memory);
 }
 
 interface PegSwap {
@@ -44,11 +43,7 @@ interface PegSwap {
 	 * @param source the token that is being given
 	 * @param target the token that is being taken
 	 */
-	function swap(
-		uint256 sourceAmount,
-		address source,
-		address target
-	) external;
+	function swap(uint256 sourceAmount, address source, address target) external;
 }
 
 contract FuseStakingV3 is Initializable, OwnableUpgradeable {
@@ -83,6 +78,10 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 	address public guardian;
 
 	PegSwap pegSwap;
+
+	address payable public gasFaucet;
+	address payable public communityPool;
+	uint256 public lastFaucetBalance;
 
 	event UBICollected(
 		uint256 indexed currentDay,
@@ -131,6 +130,11 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		_;
 	}
 
+	function upgrade() external onlyGuardian {
+		gasFaucet = payable(0x01ab5966C1d742Ae0CFF7f14cC0F4D85156e83d9);
+		communityPool = payable(0xCe69892CbDA078BbFAA3E5aE7A4b4d2Bf3E5c412);
+	}
+
 	function approve() external {
 		cERC20(fUSD).approve(address(pegSwap), type(uint256).max);
 		cERC20(USDC).approve(address(uniswap), type(uint256).max);
@@ -140,16 +144,21 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		ubischeme = UBIScheme(_ubischeme);
 	}
 
+	function updateSettings(
+		uint256 _stakeBackRatio,
+		uint256 _communityPoolRatio
+	) external onlyGuardian {
+		communityPoolRatio = _communityPoolRatio;
+		stakeBackRatio = _stakeBackRatio;
+	}
+
 	function stake() public payable returns (bool) {
 		return stake(address(0));
 	}
 
-	function stake(address _validator)
-		public
-		payable
-		onlyGuardian
-		returns (bool)
-	{
+	function stake(
+		address _validator
+	) public payable onlyGuardian returns (bool) {
 		require(msg.value > 0, "stake must be > 0");
 		require(validators.length > 0, "no approved validators");
 		bool found;
@@ -168,7 +177,7 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 			"validator not in approved list"
 		);
 
-		bool staked = stakeNextValidator(msg.value, _validator);
+		bool staked = _stakeNextValidator(msg.value, _validator);
 		stakers[msg.sender] += msg.value;
 		return staked;
 	}
@@ -181,9 +190,9 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		for (uint256 i = 0; i < validators.length; i++) {
 			uint256 cur = consensus.delegatedAmount(address(this), validators[i]);
 			if (cur == 0) continue;
-			undelegateWithCatch(validators[i], cur);
+			_undelegateWithCatch(validators[i], cur);
 		}
-		uint256 effectiveBalance = balance(); //use only undelegated funds
+		uint256 effectiveBalance = _balance(); //use only undelegated funds
 		pendingFuseEarnings = 0;
 		if (effectiveBalance > 0) {
 			(bool ok, ) = msg.sender.call{ value: effectiveBalance }("");
@@ -192,7 +201,7 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 	}
 
 	function withdraw(uint256 _value) public returns (uint256) {
-		uint256 effectiveBalance = balance(); //use only undelegated funds
+		uint256 effectiveBalance = _balance(); //use only undelegated funds
 		uint256 toWithdraw = _value == 0 ? stakers[msg.sender] : _value;
 		uint256 toCollect = toWithdraw;
 		require(
@@ -204,16 +213,16 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 			uint256 cur = consensus.delegatedAmount(address(this), validators[i]);
 			if (cur == 0) continue;
 			if (cur <= perValidator) {
-				undelegateWithCatch(validators[i], cur);
+				_undelegateWithCatch(validators[i], cur);
 				toCollect = toCollect.sub(cur);
 			} else {
-				undelegateWithCatch(validators[i], perValidator);
+				_undelegateWithCatch(validators[i], perValidator);
 				toCollect = toCollect.sub(perValidator);
 			}
 			if (toCollect == 0) break;
 		}
 
-		effectiveBalance = balance().sub(effectiveBalance); //use only undelegated funds
+		effectiveBalance = _balance().sub(effectiveBalance); //use only undelegated funds
 
 		// in case some funds where not withdrawn
 		if (toWithdraw > effectiveBalance) {
@@ -227,10 +236,10 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		return toWithdraw;
 	}
 
-	function stakeNextValidator(uint256 _value, address _validator)
-		internal
-		returns (bool)
-	{
+	function _stakeNextValidator(
+		uint256 _value,
+		address _validator
+	) internal returns (bool) {
 		if (validators.length == 0) return false;
 		if (_validator != address(0)) {
 			consensus.delegate{ value: _value }(_validator);
@@ -269,11 +278,11 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 	function removeValidator(address _validator) public onlyOwner {
 		uint256 delegated = consensus.delegatedAmount(address(this), _validator);
 		if (delegated > 0) {
-			uint256 prevBalance = balance();
-			undelegateWithCatch(_validator, delegated);
+			uint256 prevBalance = _balance();
+			_undelegateWithCatch(_validator, delegated);
 
 			// wasnt withdrawn because validator needs to be taken of active validators
-			if (balance() == prevBalance) {
+			if (_balance() == prevBalance) {
 				// pendingValidators.push(_validator);
 				return;
 			}
@@ -289,20 +298,32 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		}
 	}
 
+	function _fillGasFaucet(uint256 earned) internal returns (uint256 toTop) {
+		if (gasFaucet != address(0) && lastFaucetBalance > gasFaucet.balance) {
+			toTop = lastFaucetBalance - gasFaucet.balance;
+			if (toTop > earned) toTop = earned;
+			gasFaucet.call{ value: toTop }("");
+		}
+
+		lastFaucetBalance = gasFaucet.balance;
+	}
+
 	function collectUBIInterest() public notPaused {
 		uint256 curDay = ubischeme.currentDay();
 		require(curDay != lastDayCollected, "can collect only once in a ubi cycle");
 
-		uint256 earnings = balance() - pendingFuseEarnings;
+		uint256 earnings = _balance() - pendingFuseEarnings;
 		require(pendingFuseEarnings + earnings > 0, "no earnings to collect");
 
 		lastDayCollected = curDay;
 		uint256 fuseUBI = earnings.mul(RATIO_BASE - stakeBackRatio).div(RATIO_BASE);
 		uint256 stakeBack = earnings - fuseUBI;
+		uint256 gasTopped = _fillGasFaucet(stakeBack);
+		stakeBack -= gasTopped;
 
 		uint256[] memory fuseswapResult = _buyGD(fuseUBI + pendingFuseEarnings); //buy GD with X% of earnings
 		pendingFuseEarnings = fuseUBI + pendingFuseEarnings - fuseswapResult[0];
-		stakeNextValidator(stakeBack, address(0)); //stake back the rest of the earnings
+		_stakeNextValidator(stakeBack, address(0)); //stake back the rest of the earnings
 
 		uint256 gdBought = fuseswapResult[fuseswapResult.length - 1];
 		uint256 keeperFee = gdBought.mul(keeperFeeRatio).div(RATIO_BASE);
@@ -315,7 +336,7 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		uint256 ubiAfterFeeAndPool = gdBought.sub(communityPoolContribution);
 
 		GD.transfer(address(ubischeme), ubiAfterFeeAndPool); //transfer to ubischeme
-		communityPoolBalance += communityPoolContribution;
+		GD.transfer(address(communityPool), communityPoolContribution);
 
 		emit UBICollected(
 			curDay,
@@ -378,10 +399,9 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 	 * @return usdcAmount and usedFuse how much usdc we got and how much fuse was used
 	 */
 
-	function _buyUSDC(uint256 _fuseIn)
-		internal
-		returns (uint256 usdcAmount, uint256 usedFuse)
-	{
+	function _buyUSDC(
+		uint256 _fuseIn
+	) internal returns (uint256 usdcAmount, uint256 usedFuse) {
 		//buy from uniwasp
 		require(_fuseIn > 0, "buy value should be > 0");
 		UniswapPair uniswapFUSEfUSDPair = UniswapPair(
@@ -410,11 +430,9 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		usdcAmount = result[1] / 1e12; //convert fusd from 1e18 to usdc 1e6
 	}
 
-	function calcMaxFuseWithPriceImpact(uint256 _value)
-		public
-		view
-		returns (uint256 fuseAmount, uint256 tokenOut)
-	{
+	function calcMaxFuseWithPriceImpact(
+		uint256 _value
+	) public view returns (uint256 fuseAmount, uint256 tokenOut) {
 		(uint256 r_fuse, uint256 r_gd, ) = UniswapPair(
 			uniswapFactory.getPair(uniswap.WETH(), address(GD))
 		).getReserves();
@@ -422,11 +440,9 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		return calcMaxTokenWithPriceImpact(r_fuse, r_gd, _value);
 	}
 
-	function calcMaxFuseUSDCWithPriceImpact(uint256 _value)
-		public
-		view
-		returns (uint256 maxFuse, uint256 gdOut)
-	{
+	function calcMaxFuseUSDCWithPriceImpact(
+		uint256 _value
+	) public view returns (uint256 maxFuse, uint256 gdOut) {
 		UniswapPair uniswapFUSEfUSDPair = UniswapPair(
 			uniswapFactory.getPair(uniswap.WETH(), fUSD)
 		); //fusd is pegged 1:1 to usdc
@@ -463,7 +479,7 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 	/**
 	 * uniswap amountOut helper
 	 */
-	function getAmountOut(
+	function _getAmountOut(
 		uint256 _amountIn,
 		uint256 _reserveIn,
 		uint256 _reserveOut
@@ -484,7 +500,7 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 	) public view returns (uint256 maxToken, uint256 tokenOut) {
 		maxToken = (r_token * maxSlippageRatio) / RATIO_BASE;
 		maxToken = maxToken < _value ? maxToken : _value;
-		tokenOut = getAmountOut(maxToken, r_token, r_gd);
+		tokenOut = _getAmountOut(maxToken, r_token, r_gd);
 		// uint256 start = 0;
 		// uint256 end = _value.div(1e18); //save iterations by moving precision to whole Fuse quantity
 		// // uint256 curPriceWei = uint256(1e18).mul(r_gd) / r_token; //uniswap quote  formula UniswapV2Library.sol
@@ -524,22 +540,18 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		// }
 	}
 
-	function undelegateWithCatch(address _validator, uint256 _amount)
-		internal
-		returns (bool)
-	{
+	function _undelegateWithCatch(
+		address _validator,
+		uint256 _amount
+	) internal returns (bool) {
 		try consensus.withdraw(_validator, _amount) {
 			return true;
-		} catch Error(
-			string memory /*reason*/
-		) {
+		} catch Error(string memory /*reason*/) {
 			// This is executed in case
 			// revert was called inside getData
 			// and a reason string was provided.
 			return false;
-		} catch (
-			bytes memory /*lowLevelData*/
-		) {
+		} catch (bytes memory /*lowLevelData*/) {
 			// This is executed in case revert() was used
 			// or there was a failing assertion, division
 			// by zero, etc. inside getData.
@@ -547,7 +559,7 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		}
 	}
 
-	function balance() internal view returns (uint256) {
+	function _balance() internal view returns (uint256) {
 		return payable(address(this)).balance;
 	}
 
@@ -559,10 +571,10 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		guardian = _guardian;
 	}
 
-	function collectCommunityPool(address _to, uint256 amount)
-		external
-		onlyGuardian
-	{
+	function collectCommunityPool(
+		address _to,
+		uint256 amount
+	) external onlyGuardian {
 		communityPoolBalance -= amount;
 		GD.transfer(_to, amount);
 	}
