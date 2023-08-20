@@ -3,38 +3,8 @@
 pragma solidity >=0.8;
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@mean-finance/uniswap-v3-oracle/solidity/interfaces/IStaticOracle.sol";
 import "../Interfaces.sol";
-
-//@mean-finance/uniswap-v3-oracle
-interface IStaticOracle {
-	/// @notice Will increase observations for all existing pools for the given pair, so they start accruing information for twap calculations
-	/// @dev Will revert if there are no pools available for the pair and period combination
-	/// @param tokenA One of the pair's tokens
-	/// @param tokenB The other of the pair's tokens
-	/// @param cardinality The cardinality that will be guaranteed when quoting
-	/// @return preparedPools The pools that were prepared
-	function prepareAllAvailablePoolsWithCardinality(
-		address tokenA,
-		address tokenB,
-		uint16 cardinality
-	) external returns (address[] memory preparedPools);
-
-	/// @notice Returns a quote, based on the given tokens and amount, by querying all of the pair's pools
-	/// @dev If some pools are not configured correctly for the given period, then they will be ignored
-	/// @dev Will revert if there are no pools available/configured for the pair and period combination
-	/// @param baseAmount Amount of token to be converted
-	/// @param baseToken Address of an ERC20 token contract used as the baseAmount denomination
-	/// @param quoteToken Address of an ERC20 token contract used as the quoteAmount denomination
-	/// @param period Number of seconds from which to calculate the TWAP
-	/// @return quoteAmount Amount of quoteToken received for baseAmount of baseToken
-	/// @return queriedPools The pools that were queried to calculate the quote
-	function quoteAllAvailablePoolsWithTimePeriod(
-		uint128 baseAmount,
-		address baseToken,
-		address quoteToken,
-		uint32 period
-	) external view returns (uint256 quoteAmount, address[] memory queriedPools);
-}
 
 // @uniswap/v3-core
 interface ISwapRouter {
@@ -155,12 +125,15 @@ contract BuyGDClone is Initializable {
 	 * @dev If the contract has a balance of cUSD, it will swap cUSD for GD tokens.
 	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
 	 */
-	function swap(uint256 _minAmount) external payable {
+	function swap(
+		uint256 _minAmount,
+		address payable refundGas
+	) external payable {
 		uint256 balance = address(this).balance;
-		if (balance > 0) return swapCelo(_minAmount);
+		if (balance > 0) return swapCelo(_minAmount, refundGas);
 
 		balance = ERC20(cusd).balanceOf(address(this));
-		if (balance > 0) return swapCusd(_minAmount);
+		if (balance > 0) return swapCusd(_minAmount, refundGas);
 
 		revert NO_BALANCE();
 	}
@@ -169,23 +142,35 @@ contract BuyGDClone is Initializable {
 	 * @notice Swaps Celo for GD tokens.
 	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
 	 */
-	function swapCelo(uint256 _minAmount) public payable {
-		uint256 gasCosts = msg.sender == owner ? 0 : (block.basefee + 1e9) * 400000;
-		uint256 balance = address(this).balance;
+	function swapCelo(
+		uint256 _minAmount,
+		address payable refundGas
+	) public payable {
+		uint256 gasCosts;
+		if (refundGas != owner) {
+			(gasCosts, ) = oracle.quoteAllAvailablePoolsWithTimePeriod(
+				1e17, //0.1$
+				cusd,
+				celo,
+				60
+			);
+		}
 
-		uint256 minByTwap = minAmountByTWAP(balance, celo);
+		uint256 amountIn = address(this).balance - gasCosts;
+
+		(uint256 minByTwap, ) = minAmountByTWAP(amountIn, celo, twapPeriod);
 		_minAmount = _minAmount > minByTwap ? _minAmount : minByTwap;
 
-		ERC20(celo).approve(address(router), balance);
+		ERC20(celo).approve(address(router), amountIn);
 		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
 			path: abi.encodePacked(celo, uint24(3000), cusd, uint24(10000), gd),
 			recipient: owner,
-			amountIn: balance - gasCosts,
+			amountIn: amountIn,
 			amountOutMinimum: _minAmount
 		});
 		router.exactInput(params);
-		if (msg.sender != owner) {
-			(bool sent, ) = msg.sender.call{ value: gasCosts }("");
+		if (refundGas != owner) {
+			(bool sent, ) = refundGas.call{ value: gasCosts }("");
 			if (!sent) revert REFUND_FAILED(gasCosts);
 		}
 	}
@@ -194,23 +179,23 @@ contract BuyGDClone is Initializable {
 	 * @notice Swaps cUSD for GD tokens.
 	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
 	 */
-	function swapCusd(uint256 _minAmount) public {
-		uint256 gasCosts = msg.sender != owner ? 1e17 : 0; //fixed 0.1$
-		uint balance = ERC20(cusd).balanceOf(address(this));
+	function swapCusd(uint256 _minAmount, address refundGas) public {
+		uint256 gasCosts = refundGas != owner ? 1e17 : 0; //fixed 0.1$
+		uint256 amountIn = ERC20(cusd).balanceOf(address(this)) - gasCosts;
 
-		uint256 minByTwap = minAmountByTWAP(balance, cusd);
+		(uint256 minByTwap, ) = minAmountByTWAP(amountIn, cusd, twapPeriod);
 		_minAmount = _minAmount > minByTwap ? _minAmount : minByTwap;
 
-		ERC20(cusd).approve(address(router), balance);
+		ERC20(cusd).approve(address(router), amountIn);
 		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
 			path: abi.encodePacked(cusd, uint24(10000), gd),
 			recipient: owner,
-			amountIn: balance - gasCosts,
+			amountIn: amountIn,
 			amountOutMinimum: _minAmount
 		});
 		router.exactInput(params);
-		if (msg.sender != owner) {
-			ERC20(cusd).transfer(msg.sender, gasCosts);
+		if (refundGas != owner) {
+			ERC20(cusd).transfer(refundGas, gasCosts);
 		}
 	}
 
@@ -223,16 +208,16 @@ contract BuyGDClone is Initializable {
 	 */
 	function minAmountByTWAP(
 		uint256 baseAmount,
-		address baseToken
-	) public view returns (uint256 minTwap) {
+		address baseToken,
+		uint32 period
+	) public view returns (uint256 minTwap, uint256 quote) {
 		uint128 toConvert = uint128(baseAmount);
-		uint256 quote;
 		if (baseToken == celo) {
 			(quote, ) = oracle.quoteAllAvailablePoolsWithTimePeriod(
 				toConvert,
 				baseToken,
 				cusd,
-				twapPeriod
+				period
 			);
 			toConvert = uint128(quote);
 		}
@@ -240,10 +225,10 @@ contract BuyGDClone is Initializable {
 			toConvert,
 			cusd,
 			gd,
-			twapPeriod
+			period
 		);
-		//minAmount should not be 5% under twap (ie we dont expect price movement > 5% in timePeriod)
-		return (quote * 95) / 100;
+		//minAmount should not be 2% under twap (ie we dont expect price movement > 2% in timePeriod)
+		return ((quote * 98) / 100, quote);
 	}
 
 	/**
@@ -265,7 +250,7 @@ contract BuyGDClone is Initializable {
  * @notice Factory contract for creating clones of BuyGDClone contract
  */
 contract BuyGDCloneFactory {
-	address immutable impl;
+	address public immutable impl;
 
 	/**
 	 * @notice Initializes the BuyGDCloneFactory contract with the provided parameters.
@@ -281,6 +266,7 @@ contract BuyGDCloneFactory {
 		IStaticOracle _oracle
 	) {
 		impl = address(new BuyGDClone(_router, _cusd, _gd, _oracle));
+		_oracle.prepareAllAvailablePoolsWithTimePeriod(_gd, _cusd, 600);
 	}
 
 	/**
@@ -295,6 +281,17 @@ contract BuyGDCloneFactory {
 		return clone;
 	}
 
+	function createAndSwap(
+		address owner,
+		uint256 minAmount
+	) external returns (address) {
+		bytes32 salt = keccak256(abi.encode(owner));
+		address clone = ClonesUpgradeable.cloneDeterministic(impl, salt);
+		BuyGDClone(payable(clone)).initialize(owner);
+		BuyGDClone(payable(clone)).swap(minAmount, payable(msg.sender));
+		return clone;
+	}
+
 	/**
 	 * @notice Predicts the address of a new clone of the BuyGDClone contract with the provided owner address.
 	 * @param owner The address of the owner of the new BuyGDClone contract.
@@ -305,5 +302,9 @@ contract BuyGDCloneFactory {
 
 		return
 			ClonesUpgradeable.predictDeterministicAddress(impl, salt, address(this));
+	}
+
+	function getBaseFee() external view returns (uint256) {
+		return block.basefee;
 	}
 }

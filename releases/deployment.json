@@ -480,7 +480,9 @@
         "UBIScheme": "0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1",
         "OneTimePayments": "0xB27D247f5C2a61D2Cb6b6E67FEE51d839447e97d",
         "SwapHelper": "0xE45CaB86609a16dFaDec112FDd61E4EA80EdaA8D",
-        "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4"
+        "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
+        "StaticOracle": "0x00851A91a3c4E9a4c1B48df827Bacc1f884bdE28",
+        "BuyGDFactory": "0x85188b32a2322a54f5fD6204013A7b0dAA3EBFef"
     },
     "gnosis": {
         "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"

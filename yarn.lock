@@ -1418,6 +1418,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@celo-tools/celo-ethers-wrapper@npm:^0.4.0":
+  version: 0.4.0
+  resolution: "@celo-tools/celo-ethers-wrapper@npm:0.4.0"
+  peerDependencies:
+    ethers: ^5
+  checksum: 36021ae2c6448993985faaa0619ef919fe5209f3cdff45c329c65ed014a501abb0a375fa086c77076b2d193675cd55acd8c5b763aa865e34b23193a3e825ba6b
+  languageName: node
+  linkType: hard
+
 "@colors/colors@npm:1.5.0":
   version: 1.5.0
   resolution: "@colors/colors@npm:1.5.0"
@@ -2324,12 +2333,14 @@ __metadata:
     "@babel/polyfill": "*"
     "@babel/preset-env": "*"
     "@babel/register": "*"
+    "@celo-tools/celo-ethers-wrapper": ^0.4.0
     "@gnosis.pm/safe-core-sdk": ^3.2.0
     "@gnosis.pm/safe-core-sdk-types": ^1.7.0
     "@gnosis.pm/safe-ethers-lib": ^1.7.0
     "@gnosis.pm/safe-service-client": ^1.4.0
     "@gooddollar/goodcontracts": ^2.6.6
     "@jsier/retrier": ^1.2.4
+    "@mean-finance/uniswap-v3-oracle": ^1.0.3
     "@nomicfoundation/hardhat-network-helpers": ^1.0.8
     "@nomiclabs/hardhat-ethers": ^2.2.1
     "@nomiclabs/hardhat-etherscan": ^3.1.0
@@ -2568,6 +2579,28 @@ __metadata:
   version: 1.2.4
   resolution: "@jsier/retrier@npm:1.2.4"
   checksum: c37274ddffffed9d9d1d86d624669415835e6af2de37ef993064abc6f6836e1a08516ab106cf8e98b3371296e465446a594db7e388bb786892dc14bca9ab86f0
+  languageName: node
+  linkType: hard
+
+"@mean-finance/deterministic-factory@npm:1.4.3":
+  version: 1.4.3
+  resolution: "@mean-finance/deterministic-factory@npm:1.4.3"
+  dependencies:
+    "@openzeppelin/contracts": 4.6.0
+    "@rari-capital/solmate": 6.2.0
+  checksum: d931aba603633d5b6f34c1b05afb3248da4b57bada79e40eae2c7df2cd1016c8953707d15e8b993acd48840b083dffa906986a4dabfcd92b2ff7a9b273318ef8
+  languageName: node
+  linkType: hard
+
+"@mean-finance/uniswap-v3-oracle@npm:^1.0.3":
+  version: 1.0.3
+  resolution: "@mean-finance/uniswap-v3-oracle@npm:1.0.3"
+  dependencies:
+    "@mean-finance/deterministic-factory": 1.4.3
+    "@openzeppelin/contracts": 3.4.0
+    "@uniswap/v3-core": 1.0.1
+    "@uniswap/v3-periphery": 1.4.1
+  checksum: 19a0fc0d49362b333cd608ee5650d44e3aadca952aba1dd78f2c3d879a0ddbdf87ded47295dfeb0614dbcaf16d1dfa85e57fe95b504eea016b7d7874833b0ee4
   languageName: node
   linkType: hard
 
@@ -2973,6 +3006,27 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@openzeppelin/contracts@npm:3.4.0":
+  version: 3.4.0
+  resolution: "@openzeppelin/contracts@npm:3.4.0"
+  checksum: 8c9d9b7f5207944c256b127c41fb7e47f3e4bb808e3a75096a77d217870c0d218c64706c9f9304d36e388d451a1eeed5ffdbbbad71a40973aceae349f305f382
+  languageName: node
+  linkType: hard
+
+"@openzeppelin/contracts@npm:3.4.2-solc-0.7":
+  version: 3.4.2-solc-0.7
+  resolution: "@openzeppelin/contracts@npm:3.4.2-solc-0.7"
+  checksum: 1a6048f31ed560c34429a05e534102c51124ecaf113aca7ebeb7897cfaaf61007cdd7952374c282adaeb79b04ee86ee80b16eed28b62fc6d60e3ffcd7a696895
+  languageName: node
+  linkType: hard
+
+"@openzeppelin/contracts@npm:4.6.0":
+  version: 4.6.0
+  resolution: "@openzeppelin/contracts@npm:4.6.0"
+  checksum: 1de06211b279d7aef2bb9abbdd58eb80c71256f7e888a10855ea23bb06ef8723b22fb550d06af60247dfbd7f0f23de9821732012d7541a823339070a8442d1db
+  languageName: node
+  linkType: hard
+
 "@openzeppelin/contracts@npm:4.7.3":
   version: 4.7.3
   resolution: "@openzeppelin/contracts@npm:4.7.3"
@@ -3094,6 +3148,13 @@ __metadata:
   version: 1.1.0
   resolution: "@protobufjs/utf8@npm:1.1.0"
   checksum: f9bf3163d13aaa3b6f5e6fbf37a116e094ea021c0e1f2a7ccd0e12a29e2ce08dafba4e8b36e13f8ed7397e1591610ce880ed1289af4d66cf4ace8a36a9557278
+  languageName: node
+  linkType: hard
+
+"@rari-capital/solmate@npm:6.2.0":
+  version: 6.2.0
+  resolution: "@rari-capital/solmate@npm:6.2.0"
+  checksum: a120cbb7d2828e35b5fd7d620871fd7f746c68a94f79be79fc153c665e6117e82ca3f22167e2143a84d7c5876784f9ad173efc51ace075e1332726d552c5e23e
   languageName: node
   linkType: hard
 
@@ -4515,7 +4576,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@uniswap/v2-core@npm:*":
+"@uniswap/lib@npm:^4.0.1-alpha":
+  version: 4.0.1-alpha
+  resolution: "@uniswap/lib@npm:4.0.1-alpha"
+  checksum: d7bbacccef40966af16c7e215ab085f575686d316b2802c9e1cfd03f7ad351970e547535670a28b2279c3cfcc4fb02888614c46f94efe2987af2309f3ec86127
+  languageName: node
+  linkType: hard
+
+"@uniswap/v2-core@npm:*, @uniswap/v2-core@npm:1.0.1":
   version: 1.0.1
   resolution: "@uniswap/v2-core@npm:1.0.1"
   checksum: eaa118fe45eac2e80b7468547ce2cde12bd3c8157555d2e40e0462a788c9506c6295247b511382da85e44a89ad92aff7bb3433b23bfbd2eeea23942ecd46e979
@@ -4536,6 +4604,34 @@ __metadata:
     "@uniswap/lib": 1.1.1
     "@uniswap/v2-core": 1.0.0
   checksum: af13224c9f28f817be6e5794a7590b8433788e5387912343a8d61227a42b494b431fe6e549505e87d96a6896e96e289f80d92c68788eea4917596ec7fd94734e
+  languageName: node
+  linkType: hard
+
+"@uniswap/v3-core@npm:1.0.0":
+  version: 1.0.0
+  resolution: "@uniswap/v3-core@npm:1.0.0"
+  checksum: 0e7654cfbf9885f1ca94446c3b220aeddb039af7892bc4ae94669512570ceefdf1ce6c2b0703396927d5a203d7c6c5ccaf8bd61426e52372aafb6ada64141055
+  languageName: node
+  linkType: hard
+
+"@uniswap/v3-core@npm:1.0.1":
+  version: 1.0.1
+  resolution: "@uniswap/v3-core@npm:1.0.1"
+  checksum: 4bfd8b218391a3d9efde44e0f984cfec3bc25889cd4d1386766828521006e71b210a3583ee32b52f3c81d384af9e8c39f471f2229e9af4d50da6801446ecb3e4
+  languageName: node
+  linkType: hard
+
+"@uniswap/v3-periphery@npm:1.4.1":
+  version: 1.4.1
+  resolution: "@uniswap/v3-periphery@npm:1.4.1"
+  dependencies:
+    "@openzeppelin/contracts": 3.4.2-solc-0.7
+    "@uniswap/lib": ^4.0.1-alpha
+    "@uniswap/v2-core": 1.0.1
+    "@uniswap/v3-core": 1.0.0
+    base64-sol: 1.0.1
+    hardhat-watcher: ^2.1.1
+  checksum: a171332f1f1b89cde24d9962bdfc9742d9e6b102ea16815fa6997e0c812aa93a120752a6f497a5d5ab709f5c91ec7f18c2957fa5a8b9af57db3ff202ac8b7dc7
   languageName: node
   linkType: hard
 
@@ -6202,6 +6298,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"base64-sol@npm:1.0.1":
+  version: 1.0.1
+  resolution: "base64-sol@npm:1.0.1"
+  checksum: be0f9e8cf3c744256913223fbae8187773f530cc096e98a77f49ef0bd6cedeb294d15a784e439419f7cb99f07bf85b08999169feafafa1a9e29c3affc0bc6d0a
+  languageName: node
+  linkType: hard
+
 "base@npm:^0.11.1":
   version: 0.11.2
   resolution: "base@npm:0.11.2"
@@ -7331,7 +7434,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"chokidar@npm:3.5.3":
+"chokidar@npm:3.5.3, chokidar@npm:^3.5.3":
   version: 3.5.3
   resolution: "chokidar@npm:3.5.3"
   dependencies:
@@ -11609,6 +11712,17 @@ __metadata:
   peerDependencies:
     hardhat: ^2.0.3
   checksum: 8d27d6b16c1ebdffa032ba6b99c61996df4601dcbaf7d770c474806b492a56de9d21b4190086ab40f50a3a1f2e9851cc81034a9cfd2e21368941977324f96fd4
+  languageName: node
+  linkType: hard
+
+"hardhat-watcher@npm:^2.1.1":
+  version: 2.5.0
+  resolution: "hardhat-watcher@npm:2.5.0"
+  dependencies:
+    chokidar: ^3.5.3
+  peerDependencies:
+    hardhat: ^2.0.0
+  checksum: e6c0d52865529653733b3fed6887b41a676fc5185eb835909b360e8cc24223a2fc4c398e3874b234fa918ec59be9de86d7fe92963022139c05cf07f027377cbb
   languageName: node
   linkType: hard
 
