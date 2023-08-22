@@ -482,7 +482,7 @@
         "SwapHelper": "0xE45CaB86609a16dFaDec112FDd61E4EA80EdaA8D",
         "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
         "StaticOracle": "0x00851A91a3c4E9a4c1B48df827Bacc1f884bdE28",
-        "BuyGDFactory": "0x85188b32a2322a54f5fD6204013A7b0dAA3EBFef"
+        "BuyGDFactory": "0x00e533B7d6255D05b7f15034B1c989c21F51b91C"
     },
     "gnosis": {
         "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"
