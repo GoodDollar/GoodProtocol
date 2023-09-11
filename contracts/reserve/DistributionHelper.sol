@@ -22,6 +22,8 @@ contract DistributionHelper is
 	DAOUpgradeableContract,
 	AccessControlEnumerableUpgradeable
 {
+	bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
+
 	error FEE_LIMIT(uint256 fee);
 
 	//IStaticOracle(0xB210CE856631EeEB767eFa666EC7C1C57738d438); //@mean-finance/uniswap-v3-oracle
@@ -84,20 +86,23 @@ contract DistributionHelper is
 		__AccessControlEnumerable_init();
 		setDAO(_ns);
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar); //this needs to happen after setDAO for avatar to be non empty
+		_setupRole(GUARDIAN_ROLE, avatar);
 		updateAddresses();
 	}
 
 	function updateAddresses() public {
 		fuseBridge = nameService.getAddress("BRIDGE_CONTRACT");
 		mpbBridge = IMessagePassingBridge(
-			0x57ef07B6C7bc69E2A48fC073047112d3320103f1
+			nameService.getAddress("MPBBRIDGE_CONTRACT")
 		);
 		STATIC_ORACLE = IStaticOracle(0xB210CE856631EeEB767eFa666EC7C1C57738d438); //@mean-finance/uniswap-v3-oracle
+		_setupRole(GUARDIAN_ROLE, avatar);
+		_setupRole(GUARDIAN_ROLE, 0xE0c5daa7CC6F88d29505f702a53bb5E67600e7Ec); //guardians on ethereum
 	}
 
 	function setFeeSettings(
 		FeeSettings memory _feeData
-	) external onlyRole(DEFAULT_ADMIN_ROLE) {
+	) external onlyRole(GUARDIAN_ROLE) {
 		feeSettings = _feeData;
 	}
 
@@ -194,14 +199,7 @@ contract DistributionHelper is
 	function addOrUpdateRecipient(
 		DistributionRecipient memory _recipient
 	) external onlyRole(DEFAULT_ADMIN_ROLE) {
-		// console.log("addOrUpdate addr: %s", _recipient.addr);
 		for (uint256 i = 0; i < distributionRecipients.length; i++) {
-			// console.log(
-			// 	"addOrUpdate addr: %s idx: %s, recipient: %s",
-			// 	_recipient.addr,
-			// 	i,
-			// 	distributionRecipients[i].addr
-			// );
 			if (distributionRecipients[i].addr == _recipient.addr) {
 				distributionRecipients[i] = _recipient;
 				emit RecipientUpdated(_recipient, i);

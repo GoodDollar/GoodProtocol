@@ -5,7 +5,7 @@ import "./IFeesFormula.sol";
 
 /**
  * This fee formula protects transfering any G$s locked in the now disfunctional multichain bridge
- * by taxing them 100%.
+ * by taxing them 100%. also preventing sending funds to the bridge.
  */
 contract MultichainFeeFormula is IFeesFormula {
 	/**
@@ -15,11 +15,14 @@ contract MultichainFeeFormula is IFeesFormula {
 	function getTxFees(
 		uint256 value,
 		address sender,
-		address /*recipient*/
+		address recipient
 	) public view returns (uint256 fee, bool senderPays) {
 		senderPays = false;
+
 		if (sender == address(0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d))
 			fee = value;
+		if (recipient == address(0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d))
+			revert("multichain hack");
 	}
 
 	/**

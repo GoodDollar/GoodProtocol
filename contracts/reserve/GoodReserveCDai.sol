@@ -379,15 +379,10 @@ contract GoodReserveCDai is
 		lastMinted = block.number;
 		uint256 gdUBI = gdInterestToMint + gdExpansionToMint;
 
-		// console.log(
-		// 	"nonubi %s, sender: %s, fundManager: %s",
-		// 	nonUbiBps,
-		// 	_msgSender(),
-		// 	nameService.getAddress("FUND_MANAGER")
-		// );
-
 		require(address(distributionHelper) != address(0), "helper not set");
 		_mintGoodDollars(address(distributionHelper), gdUBI, false); //mintGoodDollars enforces that only minter can call mintUBI
+
+		// if bridging fails this will revert. this is expected behavior
 		distributionHelper.onDistribution(gdUBI);
 
 		emit UBIMinted(

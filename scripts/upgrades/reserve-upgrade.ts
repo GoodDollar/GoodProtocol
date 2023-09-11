@@ -80,7 +80,11 @@ export const upgrade = async () => {
   let newFundmanagerImpl = (await ethers.deployContract("GoodFundManager").then(printDeploy)) as Contract;
   let newDisthelperImpl = (await ethers.deployContract("DistributionHelper").then(printDeploy)) as Contract;
 
-  if (isProduction) await verifyContract(newReserveImpl, "GoodReserveCDai", networkName);
+  if (isProduction) {
+    await verifyContract(newReserveImpl, "GoodReserveCDai", networkName);
+    await verifyContract(newFundmanagerImpl, "GoodFundManager", networkName);
+    await verifyContract(newDisthelperImpl, "DistributionHelper", networkName);
+  }
 
   // make sure price oracle for fuse/celo/eth has enough observations
   console.log("preparing price oracle...");
