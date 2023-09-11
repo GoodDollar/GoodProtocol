@@ -5,6 +5,9 @@
  * Deploy fee formula to prevent usage of multichain bridge
  * Mint G$s to new bridge to provide exit liquidity instead of multichain
  * Upgrade Plan:
+ * - fuse: give mint permissions to new bridge (upgradeSidechain)
+ * - celo: give mint permissions to new bridge (upgradeSidechain)
+ * Mainnet:
  * - deploy new impl, fund manager, distribution helper, fee formula
  * - call disthelper updateAddresses
  * - create guardians safe proposal to upgrade reserve + fundmanager + distribution helper
@@ -23,6 +26,8 @@
 import { network, ethers } from "hardhat";
 import { Contract } from "ethers";
 import { defaultsDeep } from "lodash";
+import prompt from "prompt";
+import { reset } from "@nomicfoundation/hardhat-network-helpers";
 
 import {
   deployDeterministic,
@@ -286,7 +291,86 @@ export const upgrade = async () => {
   }
 };
 
-export const main = async () => {
-  await upgrade().catch(console.log);
+export const upgradeSidechain = async sidechain => {
+  let [root, ...signers] = await ethers.getSigners();
+
+  let protocolSettings = defaultsDeep({}, ProtocolSettings[networkName], ProtocolSettings["default"]);
+
+  const isProduction = networkName.includes("production");
+
+  const isForkSimulation = networkName === "localhost";
+
+  let networkEnv = networkName.split("-")[0];
+  if (isForkSimulation) networkEnv = "production";
+
+  if (networkEnv === "fuse") networkEnv = "development";
+
+  if (sidechain === "celo") networkEnv = networkEnv + "-celo";
+
+  let release: { [key: string]: any } = dao[networkEnv];
+
+  let guardian = root;
+  //simulate on fork, make sure safe has enough eth to simulate txs
+  if (network.name === "localhost" || network.name === "fork") {
+    guardian = await ethers.getImpersonatedSigner(release.GuardiansSafe);
+
+    await root.sendTransaction({ value: ethers.constants.WeiPerEther.mul(3), to: guardian.address });
+  }
+
+  const NEWBRIDGE = release["MpbBridge"];
+
+  console.log({ networkEnv, NEWBRIDGE, guardian: guardian.address, isForkSimulation, isProduction });
+  const proposalContracts = [
+    release.GoodDollarMintBurnWrapper // give new bridge mint permissions
+  ];
+
+  const proposalEthValues = proposalContracts.map(_ => 0);
+
+  const proposalFunctionSignatures = ["addMinter(address,uint256,uint256,uint32,uint256,uint256,uint32,bool)"];
+
+  const proposalFunctionInputs = [
+    ethers.utils.defaultAbiCoder.encode(
+      ["address", "uint256", "uint256", "uint32", "uint256", "uint256", "uint32", "bool"],
+      [NEWBRIDGE, 0, ethers.constants.WeiPerEther.mul(300), 5000, 0, 0, 0, false]
+    )
+  ];
+
+  if (isProduction) {
+    await executeViaSafe(
+      proposalContracts,
+      proposalEthValues,
+      proposalFunctionSignatures,
+      proposalFunctionInputs,
+      release.GuardiansSafe,
+      sidechain
+    );
+  } else {
+    await executeViaGuardian(
+      proposalContracts,
+      proposalEthValues,
+      proposalFunctionSignatures,
+      proposalFunctionInputs,
+      guardian,
+      networkEnv
+    );
+  }
 };
-if (process.argv[1].includes("gip-15")) main();
+export const main = async () => {
+  prompt.start();
+  const { network } = await prompt.get(["network"]);
+
+  console.log("running step:", { network });
+  switch (network) {
+    case "celo":
+      await upgradeSidechain("celo");
+      break;
+    case "fuse":
+      await upgradeSidechain("fuse");
+      break;
+    case "mainnet":
+      await upgrade();
+
+      break;
+  }
+};
+if (process.argv[1].includes("gip-15")) main().catch(console.log);
