@@ -21,9 +21,7 @@ function arrayToCsv(data) {
 const celoStats = async () => {};
 const main = async (isCelo = true) => {
   const archive = new JsonRpcProvider(
-    isCelo
-      ? "https://celo-mainnet-archive.allthatnode.com"
-      : "https://explorer-node.fuse.io"
+    isCelo ? "https://celo-mainnet-archive.allthatnode.com" : "https://explorer-node.fuse.io"
   );
   const faucetAddr = isCelo
     ? "0x4F93Fa058b03953C851eFaA2e4FC5C34afDFAb84"
@@ -39,31 +37,24 @@ const main = async (isCelo = true) => {
     ],
     faucetAddr
   );
-  const endBlock = Number(await ethers.provider.getBlockNumber());
-  const daysBack = 60;
+  const endBlock = Number(await archive.getBlockNumber());
+  const daysBack = 90;
   const dayBlocks = 12 * 60 * 24;
   const startBlock = endBlock - dayBlocks * daysBack;
   const days = range(startBlock, endBlock, dayBlocks);
+  console.log({ startBlock, endBlock });
   const dailyBalance = [];
   const dailyAdminBalance = [];
   for (let day of days) {
-    dailyBalance.push(
-      (await archive.getBalance(faucetAddr, day)).div(1e10).toNumber() / 1e8
-      // isCelo
-      //   ?
-      //   await fetch(
-      //       `https://api.celoscan.io/api?module=account&action=balance&address=${faucetAddr}&tag=${day}&apikey=${process.env.CELOSCAN_KEY}`
-      //     )
-      //       .then(_ => _.json())
-      //       .then(_ => _.result)
-      //   : (await archive.getBalance(faucetAddr, day)).div(1e10).toNumber() / 1e8
-    );
+    dailyBalance.push([
+      (await archive.getBalance("0x4F93Fa058b03953C851eFaA2e4FC5C34afDFAb84", day)).div(1e10).toNumber() / 1e8,
+      (await archive.getBalance("0x7119CD89D4792aF90277d84cDffa3F2Ab22a0022", day)).div(1e10).toNumber() / 1e8
+    ]);
+    console.log({ day });
   }
 
   for (let day of days) {
-    dailyAdminBalance.push(
-      (await archive.getBalance(adminAddr, day)).div(1e10).toNumber() / 1e8
-    );
+    dailyAdminBalance.push((await archive.getBalance(adminAddr, day)).div(1e10).toNumber() / 1e8);
   }
   let curBlock = startBlock;
   const toppingsByAddress = {};
@@ -71,35 +62,31 @@ const main = async (isCelo = true) => {
   const toppingsByRelayer = {};
   let totalToppings = 0;
   let totalAmount = 0;
-  const dailyUsage = dailyBalance.map((v, i) =>
-    i < dailyBalance.length - 1 ? v - dailyBalance[i + 1] : 0
-  );
+  const dailyUsage = dailyBalance.map((v, i) => (i < dailyBalance.length - 1 ? v - dailyBalance[i + 1] : 0));
   const dailyAdminUsage = dailyAdminBalance.map((v, i) =>
     i < dailyAdminBalance.length - 1 ? v - dailyAdminBalance[i + 1] : 0
   );
   console.log({ dailyUsage, dailyAdminUsage });
+  fs.writeFileSync("celospend.csv", arrayToCsv(dailyBalance));
+  console.log(arrayToCsv(dailyBalance));
+  return;
   console.log({ startBlock, endBlock });
   while (curBlock <= endBlock) {
     const fromBlock = curBlock;
     const toBlock = Math.min(fromBlock + blockStep, endBlock);
     pool.add(async () => {
       const f = faucet.filters.WalletTopped();
-      const events = await faucet
-        .queryFilter(f, fromBlock, toBlock)
-        .catch(e => {
-          console.log("failed", { fromBlock, toBlock });
-          return [];
-        });
+      const events = await faucet.queryFilter(f, fromBlock, toBlock).catch(e => {
+        console.log("failed", { fromBlock, toBlock });
+        return [];
+      });
       events.forEach(e => {
         totalToppings += 1;
         totalAmount += Number(e.args.amount);
-        toppingsByAddress[e.args.whitelistedRoot] =
-          (toppingsByAddress[e.args.whitelistedRoot] || 0) + 1;
+        toppingsByAddress[e.args.whitelistedRoot] = (toppingsByAddress[e.args.whitelistedRoot] || 0) + 1;
         if (e.args.account !== e.args.relayerOrWhitelisted)
-          toppingsByRelayer[e.args.relayerOrWhitelisted] =
-            (toppingsByRelayer[e.args.relayerOrWhitelisted] || 0) + 1;
-        toppingsByAmount[e.args.amount] =
-          (toppingsByAmount[e.args.amount] || 0) + 1;
+          toppingsByRelayer[e.args.relayerOrWhitelisted] = (toppingsByRelayer[e.args.relayerOrWhitelisted] || 0) + 1;
+        toppingsByAmount[e.args.amount] = (toppingsByAmount[e.args.amount] || 0) + 1;
       });
       console.log("fetched events", {
         fromBlock,

@@ -100,6 +100,10 @@ const hhconfig: HardhatUserConfig = {
         url: "https://eth-mainnet.alchemyapi.io/v2/" + process.env.ALCHEMY_KEY
       }
     },
+    fork: {
+      chainId: 1,
+      url: "https://rpc.vnet.tenderly.co/devnet/reserve-ujpgrade/9f79f839-996c-495a-b470-c0237eede293"
+    },
     test: {
       allowUnlimitedContractSize: true,
       url: "http://127.0.0.1:8545/"
