@@ -245,8 +245,9 @@ contract AdminWallet is
 			toppings[currentDay()][_user] < toppingTimes,
 			"User wallet has been topped too many times today"
 		);
+		require(address(_user).balance < toppingAmount / 4, "hasBalance");
+
 		lastGdBalance[_user] = gdBalance;
-		if (address(_user).balance >= toppingAmount / 4) return;
 
 		_topWallet(_user);
 	}
