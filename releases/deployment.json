@@ -409,7 +409,7 @@
         "AnyGoodDollar": "0xd17652350cfd2a37ba2f947c910987a3b1a1c60d",
         "GuardiansSafe": "0xE0c5daa7CC6F88d29505f702a53bb5E67600e7Ec",
         "DistributionHelper": "0xAcadA0C9795fdBb6921AE96c4D7Db2F8B8c52Fd0",
-        "MpbBridge": "0xD77Ace8A2b38811Ec1f04e098390b583b9354Db7"
+        "MpbBridge": "0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5"
     },
     "production": {
         "ProxyFactory": "0xDa85fceD9Bd193526b7667F2AD1fD4A0F900d3A7",
@@ -442,7 +442,7 @@
         "MultichainRouter": "0x735aBE48e8782948a37C7765ECb76b98CdE97B0F",
         "GoodDollarMintBurnWrapper": "0x031b2B7C7854dd8EE9C4A644D7e54aD17F56e3cB",
         "CommunitySafe": "0x5Eb5f5fE13d1D5e6440DbD5913412299Bc5B5564",
-        "MpbBridge": "0xD77Ace8A2b38811Ec1f04e098390b583b9354Db7"
+        "MpbBridge": "0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5"
     },
     "pre-production-celo": {
         "ProxyFactory": "0x99C22e78A579e2176311c736C4c9F0b0D5A47806",
@@ -484,7 +484,7 @@
         "SwapHelper": "0xE45CaB86609a16dFaDec112FDd61E4EA80EdaA8D",
         "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
         "CommunitySafe": "0x437C699887779D0A95aD6349CFDE7DFA716C005D",
-        "MpbBridge": "0xD77Ace8A2b38811Ec1f04e098390b583b9354Db7"
+        "MpbBridge": "0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5"
     },
     "gnosis": {
         "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"
