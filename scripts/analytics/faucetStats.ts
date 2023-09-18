@@ -46,30 +46,28 @@ const main = async (isCelo = true) => {
   const dailyBalance = [];
   const dailyAdminBalance = [];
   for (let day of days) {
-    dailyBalance.push([
-      (await archive.getBalance("0x4F93Fa058b03953C851eFaA2e4FC5C34afDFAb84", day)).div(1e10).toNumber() / 1e8,
-      (await archive.getBalance("0x7119CD89D4792aF90277d84cDffa3F2Ab22a0022", day)).div(1e10).toNumber() / 1e8
-    ]);
+    dailyBalance.push(
+      await Promise.all([
+        archive.getBalance(faucetAddr, day).then(_ => _.div(1e10).toNumber() / 1e8),
+        archive.getBalance("0x7119CD89D4792aF90277d84cDffa3F2Ab22a0022", day).then(_ => _.div(1e10).toNumber() / 1e8)
+      ])
+    );
     console.log({ day });
   }
 
-  for (let day of days) {
-    dailyAdminBalance.push((await archive.getBalance(adminAddr, day)).div(1e10).toNumber() / 1e8);
-  }
   let curBlock = startBlock;
   const toppingsByAddress = {};
   const toppingsByAmount = {};
   const toppingsByRelayer = {};
   let totalToppings = 0;
   let totalAmount = 0;
-  const dailyUsage = dailyBalance.map((v, i) => (i < dailyBalance.length - 1 ? v - dailyBalance[i + 1] : 0));
-  const dailyAdminUsage = dailyAdminBalance.map((v, i) =>
-    i < dailyAdminBalance.length - 1 ? v - dailyAdminBalance[i + 1] : 0
-  );
+  const dailyUsage = dailyBalance.map((v, i) => (i < dailyBalance.length - 1 ? v[0] - dailyBalance[i + 1][0] : 0));
+  const dailyAdminUsage = dailyBalance.map((v, i) => (i < dailyBalance.length - 1 ? v[1] - dailyBalance[i + 1][1] : 0));
+
   console.log({ dailyUsage, dailyAdminUsage });
   fs.writeFileSync("celospend.csv", arrayToCsv(dailyBalance));
   console.log(arrayToCsv(dailyBalance));
-  return;
+
   console.log({ startBlock, endBlock });
   while (curBlock <= endBlock) {
     const fromBlock = curBlock;
@@ -119,4 +117,4 @@ const main = async (isCelo = true) => {
     avgToppingAmount
   });
 };
-main().catch(e => console.log(e));
+main(true).catch(e => console.log(e));
