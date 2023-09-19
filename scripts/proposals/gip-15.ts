@@ -175,7 +175,7 @@ export const upgrade = async () => {
   const proposalEthValues = proposalContracts.map(_ => 0);
 
   const proposalFunctionSignatures = [
-    "setAddress(string,address)", // set new bridge name
+    "setAddresses(bytes32[],address[])", // set new bridge name
     "upgradeTo(address)", //upgrade reserve
     "upgradeTo(address)", //upgrade fundmanager
     "upgradeTo(address)", //upgrade disthelper
@@ -185,14 +185,25 @@ export const upgrade = async () => {
     "addOrUpdateRecipient((uint32,uint32,address,uint8))", // remove fuse community distribution
     "addOrUpdateRecipient((uint32,uint32,address,uint8))", // fuse distribution
     "addOrUpdateRecipient((uint32,uint32,address,uint8))", // celo distribution
+    // "addOrUpdateRecipient((uint32,uint32,address,uint8))", // savings rewards distribution
     "addOrUpdateRecipient((uint32,uint32,address,uint8))", // community pool distribution on celo
-    "addOrUpdateRecipient((uint32,uint32,address,uint8))", // savings rewards distribution
     "mintTokens(uint256,address,address)", //mint G$ to bridge
     "setFormula(address)", // upgrade feeformula
     "transfer(address,uint256)" // transfer G$s from guardians to bridge
   ];
 
   const proposalFunctionInputs = [
+    ethers.utils.defaultAbiCoder.encode(
+      ["bytes32[]", "address[]"],
+      [
+        [
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MPBBRIDGE_CONTRACT")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MULTICHAIN_ROUTER")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MULTICHAIN_ANYGOODDOLLAR"))
+        ],
+        [NEWBRIDGE, ethers.constants.AddressZero, ethers.constants.AddressZero]
+      ]
+    ), //setAddresses(bytes32[],address[])"
     ethers.utils.defaultAbiCoder.encode(["string", "address"], ["MPBBRIDGE_CONTRACT", NEWBRIDGE]),
     ethers.utils.defaultAbiCoder.encode(["address"], [newReserveImpl.address]),
     ethers.utils.defaultAbiCoder.encode(["address"], [newFundmanagerImpl.address]),
@@ -220,10 +231,10 @@ export const upgrade = async () => {
       ["uint32", "uint32", "address", "uint8"],
       [4000, 42220, dao[celoNetwork].UBIScheme, 2] //40% chainId 42220 ubischeme 2-axelar bridge
     ),
-    ethers.utils.defaultAbiCoder.encode(
-      ["uint32", "uint32", "address", "uint8"],
-      [1000, 42220, dao[celoNetwork].GoodDollarMintBurnWrapper, 2] //10% chainId 42220 mintburnwrapper 2-axelar bridge
-    ),
+    // ethers.utils.defaultAbiCoder.encode(
+    //   ["uint32", "uint32", "address", "uint8"],
+    //   [1000, 42220, dao[celoNetwork].GoodDollarMintBurnWrapper, 2] //10% chainId 42220 mintburnwrapper 2-axelar bridge
+    // ),
     ethers.utils.defaultAbiCoder.encode(
       ["uint32", "uint32", "address", "uint8"],
       [1000, 42220, dao[celoNetwork].CommunitySafe, 2] //10% chainId 42220 community treasury 2-axelar bridge
@@ -263,29 +274,27 @@ export const upgrade = async () => {
     );
   }
 
-  //perform sanity checks
-  let fm = await ethers.getContractAt("GoodFundManager", release.GoodFundManager);
-  let dh = await ethers.getContractAt("DistributionHelper", release.DistributionHelper);
-  let r = await ethers.getContractAt("GoodReserveCDai", release.GoodReserveCDai);
+  //perform sanity checks on fork, for production we need to wait until everything executed
+  if (!isProduction) {
+    let fm = await ethers.getContractAt("GoodFundManager", release.GoodFundManager);
+    let dh = await ethers.getContractAt("DistributionHelper", release.DistributionHelper);
+    let r = await ethers.getContractAt("GoodReserveCDai", release.GoodReserveCDai);
 
-  console.log(await dh.distributionRecipients(0));
-  console.log(await dh.distributionRecipients(1));
-  console.log(await dh.distributionRecipients(2));
-  console.log(await dh.distributionRecipients(3));
-  console.log(await dh.distributionRecipients(4));
-  console.log(await dh.distributionRecipients(5));
+    console.log(await dh.distributionRecipients(0));
+    console.log(await dh.distributionRecipients(1));
+    console.log(await dh.distributionRecipients(2));
+    console.log(await dh.distributionRecipients(3));
+    console.log(await dh.distributionRecipients(4));
+    console.log(await dh.distributionRecipients(5));
 
-  console.log(
-    "gd balances: guardians:",
-    await gd.balanceOf(guardian.address),
-    " bridge:",
-    await gd.balanceOf(NEWBRIDGE)
-  );
-  console.log("gdx/discount disabled", await r.gdxDisabled(), await r.discountDisabled());
-  if (isProduction) {
-    let tx = await fm.callStatic.collectInterest([], false);
-    console.log(tx);
-  } else {
+    console.log(
+      "gd balances: guardians:",
+      await gd.balanceOf(guardian.address),
+      " bridge:",
+      await gd.balanceOf(NEWBRIDGE)
+    );
+    console.log("gdx/discount disabled", await r.gdxDisabled(), await r.discountDisabled());
+
     let tx = await (await fm.collectInterest([], true)).wait();
     console.log(tx.events);
   }
@@ -321,14 +330,28 @@ export const upgradeSidechain = async sidechain => {
 
   console.log({ networkEnv, NEWBRIDGE, guardian: guardian.address, isForkSimulation, isProduction });
   const proposalContracts = [
+    release.NameService,
     release.GoodDollarMintBurnWrapper // give new bridge mint permissions
   ];
 
   const proposalEthValues = proposalContracts.map(_ => 0);
 
-  const proposalFunctionSignatures = ["addMinter(address,uint256,uint256,uint32,uint256,uint256,uint32,bool)"];
+  const proposalFunctionSignatures = [
+    "setAddresses(bytes32[],address[])", // set new bridge name
+    "addMinter(address,uint256,uint256,uint32,uint256,uint256,uint32,bool)"
+  ];
 
   const proposalFunctionInputs = [
+    ethers.utils.defaultAbiCoder.encode(
+      ["bytes32[]", "address[]"],
+      [
+        [
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MPBBRIDGE_CONTRACT")),
+          ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MULTICHAIN_ROUTER"))
+        ],
+        [NEWBRIDGE, ethers.constants.AddressZero]
+      ]
+    ), //setAddresses(bytes32[],address[])"
     ethers.utils.defaultAbiCoder.encode(
       ["address", "uint256", "uint256", "uint32", "uint256", "uint256", "uint32", "bool"],
       [NEWBRIDGE, 0, ethers.constants.WeiPerEther.mul(300), 5000, 0, 0, 0, false]
@@ -355,6 +378,7 @@ export const upgradeSidechain = async sidechain => {
     );
   }
 };
+
 export const main = async () => {
   prompt.start();
   const { network } = await prompt.get(["network"]);

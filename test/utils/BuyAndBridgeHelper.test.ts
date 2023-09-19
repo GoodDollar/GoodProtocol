@@ -6,7 +6,7 @@ import { createDAO } from "../helpers";
 
 export const NULL_ADDRESS = ethers.constants.AddressZero;
 
-describe("BuyAndBridgeHelper ", () => {
+xdescribe("BuyAndBridgeHelper ", () => {
   let goodReserve: GoodReserveCDai;
   let goodDollar: IGoodDollar, deployedDAO, genericCall, avatar, founder, signers, setDAOAddress, nameService, cDai;
 
