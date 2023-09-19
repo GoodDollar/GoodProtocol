@@ -42,6 +42,7 @@ contract InvitesFuseV2 is Initializable {
 	}
 
 	mapping(bytes32 => address) public codeToUser;
+	/// @custom:oz-retyped-from mapping(address => struct InvitesV1.User)
 	mapping(address => User) public users;
 	address payable public avatar;
 
