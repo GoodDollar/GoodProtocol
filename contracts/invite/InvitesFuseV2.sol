@@ -30,8 +30,8 @@ contract InvitesFuseV2 is Initializable {
 		uint256 totalApprovedInvites;
 		uint256 totalEarned;
 		uint256 joinedAt;
-		uint256[5] __reserevedSpace;
 		uint256 bountyAtJoin;
+		uint256[4] __reserevedSpace;
 	}
 
 	struct Level {
@@ -346,6 +346,6 @@ contract InvitesFuseV2 is Initializable {
 	 * 2.2 record bounty at join time
 	 */
 	function version() public pure returns (string memory) {
-		return "2.1";
+		return "2.2";
 	}
 }
