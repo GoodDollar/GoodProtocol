@@ -165,7 +165,7 @@ export const upgrade = async () => {
     release.DistributionHelper, //remove distribution to community pool on fuse
     release.DistributionHelper, //set new distribution params
     release.DistributionHelper, //set new distribution params
-    release.DistributionHelper, //set new distribution params
+    // release.DistributionHelper, //set new distribution params
     release.DistributionHelper, //set new distribution params
     release.Controller, //mint G$s to bridge
     release.GoodDollar, // upgrade feeformula
@@ -204,7 +204,6 @@ export const upgrade = async () => {
         [NEWBRIDGE, ethers.constants.AddressZero, ethers.constants.AddressZero]
       ]
     ), //setAddresses(bytes32[],address[])"
-    ethers.utils.defaultAbiCoder.encode(["string", "address"], ["MPBBRIDGE_CONTRACT", NEWBRIDGE]),
     ethers.utils.defaultAbiCoder.encode(["address"], [newReserveImpl.address]),
     ethers.utils.defaultAbiCoder.encode(["address"], [newFundmanagerImpl.address]),
     ethers.utils.defaultAbiCoder.encode(["address"], [newDisthelperImpl.address]),
@@ -285,7 +284,7 @@ export const upgrade = async () => {
     console.log(await dh.distributionRecipients(2));
     console.log(await dh.distributionRecipients(3));
     console.log(await dh.distributionRecipients(4));
-    console.log(await dh.distributionRecipients(5));
+    // console.log(await dh.distributionRecipients(5));
 
     console.log(
       "gd balances: guardians:",
@@ -301,9 +300,7 @@ export const upgrade = async () => {
 };
 
 export const upgradeSidechain = async sidechain => {
-  let [root, ...signers] = await ethers.getSigners();
-
-  let protocolSettings = defaultsDeep({}, ProtocolSettings[networkName], ProtocolSettings["default"]);
+  let [root] = await ethers.getSigners();
 
   const isProduction = networkName.includes("production");
 
