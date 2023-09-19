@@ -94,13 +94,15 @@ contract BuyAndBridgeHelper {
 				abi.encodePacked(_recipient)
 			);
 		} else if (_toChain == CELO) {
-			IGoodDollar(gd).approve(address(multiChainBridge), _amount);
-			multiChainBridge.anySwapOutUnderlying(
-				anyGoodDollar,
-				_recipient,
-				_amount,
-				_toChain
-			);
+			// TODO: implement with  new bridge
+			revert("not implemented");
+			// IGoodDollar(gd).approve(address(multiChainBridge), _amount);
+			// multiChainBridge.anySwapOutUnderlying(
+			// 	anyGoodDollar,
+			// 	_recipient,
+			// 	_amount,
+			// 	_toChain
+			// );
 		}
 	}
 }
