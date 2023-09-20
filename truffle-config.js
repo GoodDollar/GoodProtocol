@@ -58,6 +58,10 @@ module.exports = {
     // },
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
+    ethereum: {
+      provider: () => new Web3.providers.HttpProvider(`https://mainnet.infura.io/v3/YOUR-PROJECT-ID`),
+      network_id: 1
+    },
     kovan: {
       provider: () => new Web3.providers.HttpProvider(`https://ropsten.infura.io/v3/YOUR-PROJECT-ID`),
       network_id: 42, // Ropsten's id

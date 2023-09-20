@@ -100,10 +100,10 @@ export const upgrade = async () => {
   let newFeeFormula = (await ethers.deployContract("MultichainFeeFormula").then(printDeploy)) as Contract;
 
   if (isProduction) {
-    await verifyContract(newReserveImpl, "GoodReserveCDai", networkName);
-    await verifyContract(newFundmanagerImpl, "GoodFundManager", networkName);
-    await verifyContract(newDisthelperImpl, "DistributionHelper", networkName);
-    await verifyContract(newFeeFormula, "MultichainFeeFormula", networkName);
+    await verifyContract(newReserveImpl.address, "GoodReserveCDai", networkName);
+    await verifyContract(newFundmanagerImpl.address, "GoodFundManager", networkName);
+    await verifyContract(newDisthelperImpl.address, "DistributionHelper", networkName);
+    await verifyContract(newFeeFormula.address, "MultichainFeeFormula", networkName);
   }
 
   // make sure price oracle for fuse/celo/eth has enough observations
@@ -328,14 +328,20 @@ export const upgradeSidechain = async sidechain => {
   console.log({ networkEnv, NEWBRIDGE, guardian: guardian.address, isForkSimulation, isProduction });
   const proposalContracts = [
     release.NameService,
-    release.GoodDollarMintBurnWrapper // give new bridge mint permissions
+    release.GoodDollarMintBurnWrapper, // give new bridge mint permissions
+    release.GoodDollarMintBurnWrapper, // remove multichain as minter
+    release.GoodDollarMintBurnWrapper, // unpause minting
+    release.GoodDollarMintBurnWrapper // set guardian
   ];
 
   const proposalEthValues = proposalContracts.map(_ => 0);
 
   const proposalFunctionSignatures = [
     "setAddresses(bytes32[],address[])", // set new bridge name
-    "addMinter(address,uint256,uint256,uint32,uint256,uint256,uint32,bool)"
+    "addMinter(address,uint256,uint256,uint32,uint256,uint256,uint32,bool)",
+    "revokeRole(bytes32,address)",
+    "unpause(bytes32)",
+    "grantRole(bytes32,address)"
   ];
 
   const proposalFunctionInputs = [
@@ -352,6 +358,21 @@ export const upgradeSidechain = async sidechain => {
     ethers.utils.defaultAbiCoder.encode(
       ["address", "uint256", "uint256", "uint32", "uint256", "uint256", "uint32", "bool"],
       [NEWBRIDGE, 0, ethers.constants.WeiPerEther.mul(300), 5000, 0, 0, 0, false]
+    ),
+    ethers.utils.defaultAbiCoder.encode(
+      ["bytes32", "address"],
+      ["0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6", release.MultichainRouter]
+    ),
+    ethers.utils.defaultAbiCoder.encode(
+      ["bytes32"],
+      ["0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6"]
+    ),
+    ethers.utils.defaultAbiCoder.encode(
+      ["bytes32", "address"],
+      [
+        "0x55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a5041",
+        "0x66582D24FEaD72555adaC681Cc621caCbB208324"
+      ]
     )
   ];
 

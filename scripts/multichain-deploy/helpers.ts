@@ -227,7 +227,7 @@ export const executeViaSafe = async (
       txServiceUrl = "https://transaction-fuse.safe.fuse.io";
       break;
     case 42220:
-      txServiceUrl = "https://mainnet-tx-svc.celo-safe-prod.celo-networks-dev.org";
+      txServiceUrl = "https://safe-transaction-celo.safe.global";
       break;
   }
   console.log("creating safe adapter", { txServiceUrl });
@@ -257,9 +257,12 @@ export const executeViaSafe = async (
     const encoded = ethers.utils.solidityPack(["bytes4", "bytes"], [sigHash, functionInputs[i]]);
     if (contract.toLowerCase().startsWith(safeAddress.toLocaleLowerCase())) {
       const [, target] = contract.split("_");
-      const simulationResult =
-        isSimulation === true &&
-        (await ethers.provider.call({ to: target, value: ethValues[i], data: encoded, from: safeAddress }));
+      const simulationResult = await ethers.provider.call({
+        to: target,
+        value: ethValues[i],
+        data: encoded,
+        from: safeAddress
+      });
 
       console.log("executing from guardians safe:", {
         sigHash,
@@ -272,12 +275,10 @@ export const executeViaSafe = async (
         data: encoded
       });
     } else if (contract === ctrl.address) {
-      const simulationResult =
-        isSimulation === true &&
-        (await ctrl.callStatic[functionSigs[i]](...functionInputs[i], {
-          from: safeAddress,
-          value: ethValues[i]
-        }));
+      const simulationResult = await ctrl.callStatic[functionSigs[i]](...functionInputs[i], {
+        from: safeAddress,
+        value: ethValues[i]
+      });
       console.log("executing controller call:", {
         sigHash,
         encoded,
@@ -297,12 +298,10 @@ export const executeViaSafe = async (
         value: ethValues[i]
       });
 
-      const simulationResult =
-        isSimulation === true &&
-        (await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
-          from: safeAddress,
-          value: ethValues[i]
-        }));
+      const simulationResult = await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
+        from: safeAddress,
+        value: ethValues[i]
+      });
       console.log("executing genericCall simulation result:", {
         sigHash,
         simulationResult
