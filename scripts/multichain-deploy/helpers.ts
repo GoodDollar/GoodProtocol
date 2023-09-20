@@ -465,13 +465,13 @@ export const executeViaSafe = async (
 export const verifyContract = async (
   address,
   contractName,
-  networkName,
+  networkName = network.name,
   proxyName?: string,
   forcedConstructorArguments?: string
 ) => {
-  let networkProvider = network.name.includes("-")
-    ? network.name.split("-")[1]
-    : network.name;
+  let networkProvider = networkName.includes("-")
+    ? networkName.split("-")[1]
+    : "fuse";
   networkProvider =
     networkProvider === "mainnet" ? "ethereum" : networkProvider;
   console.log("truffle compile...");

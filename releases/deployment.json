@@ -480,7 +480,9 @@
         "UBIScheme": "0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1",
         "OneTimePayments": "0xB27D247f5C2a61D2Cb6b6E67FEE51d839447e97d",
         "SwapHelper": "0xE45CaB86609a16dFaDec112FDd61E4EA80EdaA8D",
-        "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4"
+        "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
+        "StaticOracle": "0x00851A91a3c4E9a4c1B48df827Bacc1f884bdE28",
+        "BuyGDFactory": "0x00e533B7d6255D05b7f15034B1c989c21F51b91C"
     },
     "gnosis": {
         "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"
@@ -545,9 +547,13 @@
         "GReputation": "0x0abF3D20fCb33FC03bdF25b042E77edfAeDBBDD3",
         "FeeFormula": "0x5fAA779cF74a1Ba51909DEeaA0e8900474DA77Cf",
         "DAOCreator": "0xc66c970a6d99da587a7d7fa7d5383b401c3e87f4",
-        "OneTimePaymentsV2": "0x4E8112430974b4CE87283221a11BDC52097e7e2e"
+        "OneTimePaymentsV2": "0x4E8112430974b4CE87283221a11BDC52097e7e2e",
+        "network": "development-goerli",
+        "networkId": 5
     },
     "alfajores": {
+        "network": "alfajores",
+        "networkId": 44787,
         "ProxyFactory": "0xeCC2b6423A833bFE556E520d55191c8daD31f1E0",
         "FeeFormula": "0x93B29D34f1FCBCED99509b31fF4557ad5a32798f",
         "GoodDollar": "0x03d3daB843e6c03b3d271eff9178e6A96c28D25f",
@@ -560,6 +566,23 @@
         "SuperFluidResolver": "0x6e9CaBE4172344Db81a1E1D735a6AD763700064A",
         "SuperFluidHost": "0x14764E92A63e73a2Dac1fF08F35A64647fB50C91",
         "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
-        "GDFaucet": "0x8986F9C6b3D0b9A8b92ef7f1eF7EB9e767D414e1"
+        "GDFaucet": "0x8986F9C6b3D0b9A8b92ef7f1eF7EB9e767D414e1",
+        "GoodDollarMintBurnWrapper": "0x69d9c8d240E282a4ec0058CF0AC4E9D8ac7a11ac",
+        "GoodDollarStaking": "0xC9a3DdadC753e6a7675Aa125991096623d06c437"
+    },
+    "goerli": {
+        "network": "goerli",
+        "networkId": 5,
+        "ProxyFactory": "0xeCC2b6423A833bFE556E520d55191c8daD31f1E0",
+        "Identity": "0x6dB189E677EEaB0833C6693DFeaa979e37447eee",
+        "DAOCreator": "0x16985787b2c032a68E24dE1D7DbCeFF10685Bc96",
+        "FeeFormula": "0x93B29D34f1FCBCED99509b31fF4557ad5a32798f",
+        "GoodDollar": "0x03d3daB843e6c03b3d271eff9178e6A96c28D25f",
+        "Avatar": "0x972F855bAa27B3E04b48f3868ffa1AB35405F79B",
+        "Controller": "0xe9868c10eED2B6832DfB84b708843e5D5F5E923f",
+        "NameService": "0x17611D613268A2A017f51c72df98B1dE0A5AB407",
+        "GReputation": "0x3647469733C01713A7d9bdf6834bd4aBd59D66fa",
+        "GoodDollarMintBurnWrapper": "0x69d9c8d240E282a4ec0058CF0AC4E9D8ac7a11ac",
+        "GoodDollarStaking": "0xC9a3DdadC753e6a7675Aa125991096623d06c437"
     }
 }

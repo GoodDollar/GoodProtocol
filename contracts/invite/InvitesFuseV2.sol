@@ -30,7 +30,8 @@ contract InvitesFuseV2 is Initializable {
 		uint256 totalApprovedInvites;
 		uint256 totalEarned;
 		uint256 joinedAt;
-		uint256[5] __reserevedSpace;
+		uint256 bountyAtJoin;
+		uint256[4] __reserevedSpace;
 	}
 
 	struct Level {
@@ -41,6 +42,7 @@ contract InvitesFuseV2 is Initializable {
 	}
 
 	mapping(bytes32 => address) public codeToUser;
+	/// @custom:oz-retyped-from mapping(address => struct InvitesV1.User)
 	mapping(address => User) public users;
 	address payable public avatar;
 
@@ -134,7 +136,9 @@ contract InvitesFuseV2 is Initializable {
 			users[inviter].invitees.push(msg.sender);
 			users[inviter].pending.push(msg.sender);
 			stats.totalInvited += 1;
+			user.bountyAtJoin = levels[users[inviter].level].bounty;
 		}
+
 		if (canCollectBountyFor(msg.sender)) {
 			_bountyFor(msg.sender, true);
 		}
@@ -230,6 +234,18 @@ contract InvitesFuseV2 is Initializable {
 		address invitedBy = users[_invitee].invitedBy;
 		uint256 joinedAt = users[_invitee].joinedAt;
 		Level memory level = levels[users[invitedBy].level];
+		uint256 bountyToPay = users[_invitee].bountyAtJoin;
+
+		//hardcoded for users invited before the bountyAtJoin change
+		if (bountyToPay == 0) {
+			uint precision = 10 ** goodDollar.decimals();
+			bountyToPay = joinedAt > 1687878272 ? 1000 * precision : 500 * precision;
+		}
+
+		// if inviter level is now higher than when invitee joined or the base level has changed
+		// we give level bounty if it is higher otherwise the original bounty at the time the user registered
+
+		bountyToPay = level.bounty > bountyToPay ? level.bounty : bountyToPay;
 
 		bool isLevelExpired = level.daysToComplete > 0 &&
 			joinedAt > users[invitedBy].levelStarted && //prevent overflow in subtraction
@@ -238,9 +254,9 @@ contract InvitesFuseV2 is Initializable {
 
 		users[_invitee].bountyPaid = true;
 		users[invitedBy].totalApprovedInvites += 1;
-		users[invitedBy].totalEarned += level.bounty;
+		users[invitedBy].totalEarned += bountyToPay;
 		stats.totalApprovedInvites += 1;
-		stats.totalBountiesPaid += level.bounty;
+		stats.totalBountiesPaid += bountyToPay;
 
 		bool earnedLevel = false;
 		if (
@@ -253,17 +269,17 @@ contract InvitesFuseV2 is Initializable {
 			earnedLevel = true;
 		}
 
-		if (isSingleBounty) goodDollar.transfer(invitedBy, level.bounty);
-		goodDollar.transfer(_invitee, level.bounty / 2); //pay invitee half the bounty
+		if (isSingleBounty) goodDollar.transfer(invitedBy, bountyToPay);
+		goodDollar.transfer(_invitee, bountyToPay / 2); //pay invitee half the bounty
 		emit InviterBounty(
 			invitedBy,
 			_invitee,
-			level.bounty,
+			bountyToPay,
 			users[invitedBy].level,
 			earnedLevel
 		);
 
-		return level.bounty;
+		return bountyToPay;
 	}
 
 	/**
@@ -328,8 +344,9 @@ contract InvitesFuseV2 is Initializable {
 	 * 1.5.0 - more gas improvements
 	 * 2 uses uups upgradeable - not compatible upgrade for v1
 	 * 2.1 prevent multichain claims
+	 * 2.2 record bounty at join time
 	 */
 	function version() public pure returns (string memory) {
-		return "2.1";
+		return "2.2";
 	}
 }

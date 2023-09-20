@@ -43,8 +43,9 @@ const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
 
 const goerli = {
   accounts: { mnemonic },
-  url: "https://rpc.ankr.com/eth_goerli",
+  url: "https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
   gas: 3000000,
+  gasPrice: 2e9,
   chainId: 5
 };
 
@@ -106,6 +107,10 @@ const hhconfig: HardhatUserConfig = {
       forking: process.env.FORK_CHAIN_ID && {
         url: "https://eth-mainnet.alchemyapi.io/v2/" + process.env.ALCHEMY_KEY
       }
+    },
+    fork: {
+      chainId: 1,
+      url: "https://rpc.vnet.tenderly.co/devnet/reserve-ujpgrade/9f79f839-996c-495a-b470-c0237eede293"
     },
     test: {
       allowUnlimitedContractSize: true,

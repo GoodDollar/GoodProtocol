@@ -18,8 +18,7 @@ const getImplementationAddress = async addr => {
   if (proxy != ethers.constants.HashZero) res = "0x" + proxy.slice(-40);
   else {
     const code = await ethers.getDefaultProvider().getCode(addr);
-    if (code.startsWith("0x363d3d373d3d3d363d73"))
-      res = "0x" + code.slice(22, 62);
+    if (code.startsWith("0x363d3d373d3d3d363d73")) res = "0x" + code.slice(22, 62);
   }
   console.log("impl address for:", addr, res);
   return res;
@@ -29,15 +28,9 @@ const main = async () => {
   let withTruffle = true;
   let ps = [];
   const release = dao[network.name];
-  let settings = defaultsDeep(
-    {},
-    ProtocolSettings[network.name],
-    ProtocolSettings["default"]
-  );
+  let settings = defaultsDeep({}, ProtocolSettings[network.name], ProtocolSettings["default"]);
 
-  const networkProvider = network.name.includes("-")
-    ? network.name.split("-")[1]
-    : network.name;
+  const networkProvider = network.name.includes("-") ? network.name.split("-")[1] : network.name;
 
   //   const impl = await getImplementationAddress(release.AdminWallet);
   //   console.log({ impl, aw: release.AdminWallet });
@@ -52,9 +45,13 @@ const main = async () => {
     "networkId",
     "GuardiansSafe",
     "GuardiansSafeOld",
-    "MultichainRouter"
+    "MultichainRouter",
+    "SuperFluidResolver",
+    "SuperFluidHost",
+    "UniswapV3Router"
   ]);
 
+  console.log("verifying:", Object.keys(toVerify));
   if (withTruffle) {
     console.log("truffle compile....");
     const { stdout, stderr } = await exec("npx truffle compile");
@@ -64,17 +61,13 @@ const main = async () => {
     await run("verify:verify", {
       address: identityProxy,
       contract: "contracts/utils/ProxyFactory1967.sol:ERC1967Proxy"
-    }).catch(e =>
-      console.log("failed verifying proxy:", identityProxy, e.message)
-    );
+    }).catch(e => console.log("failed verifying proxy:", identityProxy, e.message));
 
     const uupsProxy = toVerify["GoodDollar"];
     await run("verify:verify", {
       address: uupsProxy,
       contract: "contracts/token/superfluid/UUPSProxy.sol:UUPSProxy"
-    }).catch(e =>
-      console.log("failed verifying uups proxy:", uupsProxy, e.message)
-    );
+    }).catch(e => console.log("failed verifying uups proxy:", uupsProxy, e.message));
   }
   // toVerify = pick(release, ["GoodDollarStaking"]);
   for (let key in toVerify) {
@@ -114,8 +107,7 @@ const main = async () => {
         break;
       case "GoodDollarStaking":
         proxy = "";
-        contract =
-          "contracts/governance/GoodDollarStaking.sol:GoodDollarStaking";
+        contract = "contracts/governance/GoodDollarStaking.sol:GoodDollarStaking";
         constructorArguments = [
           release.NameService,
           ethers.BigNumber.from(settings.savings.blockAPY),
@@ -130,13 +122,9 @@ const main = async () => {
       case "GoodDollar":
         proxy = "--custom-proxy UUPSProxy";
         contractName = "SuperGoodDollar";
-        contract =
-          "contracts/token/superfluid/SuperGoodDollar.sol:SuperGoodDollar";
+        contract = "contracts/token/superfluid/SuperGoodDollar.sol:SuperGoodDollar";
         constructorArguments = [settings.superfluidHost];
-        forcedConstructorArguments = ethers.utils.defaultAbiCoder.encode(
-          ["address"],
-          constructorArguments
-        );
+        forcedConstructorArguments = ethers.utils.defaultAbiCoder.encode(["address"], constructorArguments);
         break;
       default:
         contract = undefined;
@@ -154,10 +142,7 @@ const main = async () => {
         });
       }
       const cmd = `npx truffle run verify ${proxy} ${contractName}@${address} ${
-        forcedConstructorArguments
-          ? "--forceConstructorArgs string:" +
-            forcedConstructorArguments.slice(2)
-          : ""
+        forcedConstructorArguments ? "--forceConstructorArgs string:" + forcedConstructorArguments.slice(2) : ""
       } --network ${networkProvider}`;
 
       console.log("running...:", cmd);
@@ -176,18 +161,13 @@ const main = async () => {
         address,
         contract
       };
-      if (
-        constructorArguments.length > 0 &&
-        contract.includes("SuperGoodDollar") === false
-      ) {
+      if (constructorArguments.length > 0 && contract.includes("SuperGoodDollar") === false) {
         task = "verify:verify";
         params["constructorArguments"] = constructorArguments;
       }
       console.log("verifying:", task, params);
 
-      await run(task, params).catch(e =>
-        console.log("failed verifying:", address, contract, e.message)
-      );
+      await run(task, params).catch(e => console.log("failed verifying:", address, contract, e.message));
     }
   }
 

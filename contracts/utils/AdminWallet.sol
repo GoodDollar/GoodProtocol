@@ -34,6 +34,9 @@ contract AdminWallet is
 	uint64 public maxDailyNewWallets;
 	uint64 public day;
 
+	ERC20 public gd;
+	mapping(address => uint256) public lastGdBalance; // only top non whitelisted if active G$ users
+
 	event AdminsAdded(address payable[] indexed admins);
 	event AdminsRemoved(address[] indexed admins);
 	event WalletTopped(address indexed user, uint256 amount);
@@ -63,11 +66,16 @@ contract AdminWallet is
 			addAdmins(_admins);
 		}
 		if (msg.sender != _owner) revokeRole(DEFAULT_ADMIN_ROLE, msg.sender);
+		gd = ERC20(nameService.getAddress("GOODDOLLAR"));
 	}
 
 	modifier onlyOwner() {
 		require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "not owner");
 		_;
+	}
+
+	function upgrade() public onlyOwner {
+		gd = ERC20(nameService.getAddress("GOODDOLLAR"));
 	}
 
 	function getIdentity() public view returns (IIdentityV2) {
@@ -95,11 +103,9 @@ contract AdminWallet is
 		toppingTimes = _toppingTimes;
 	}
 
-	function _authorizeUpgrade(address newImplementation)
-		internal
-		override
-		onlyOwner
-	{}
+	function _authorizeUpgrade(
+		address newImplementation
+	) internal override onlyOwner {}
 
 	/* @dev Modifier that checks if caller is admin of wallet
 	 */
@@ -180,11 +186,10 @@ contract AdminWallet is
 	/* @dev Function to add given address to whitelist of identity contract
 	 * can only be done by admins of wallet and if wallet is an IdentityAdmin
 	 */
-	function whitelist(address _user, string memory _did)
-		public
-		onlyAdmin
-		reimburseGas
-	{
+	function whitelist(
+		address _user,
+		string memory _did
+	) public onlyAdmin reimburseGas {
 		getIdentity().addWhitelistedWithDID(_user, _did);
 	}
 
@@ -231,11 +236,18 @@ contract AdminWallet is
 	 * @param _user The address to transfer to
 	 */
 	function topWallet(address payable _user) public onlyAdmin reimburseGas {
+		uint256 gdBalance = gd.balanceOf(_user);
+		require(
+			getIdentity().isWhitelisted(_user) || gdBalance != lastGdBalance[_user],
+			"User has not used G$"
+		);
 		require(
 			toppings[currentDay()][_user] < toppingTimes,
 			"User wallet has been topped too many times today"
 		);
-		if (address(_user).balance >= toppingAmount / 4) return;
+		require(address(_user).balance < toppingAmount / 4, "hasBalance");
+
+		lastGdBalance[_user] = gdBalance;
 
 		_topWallet(_user);
 	}

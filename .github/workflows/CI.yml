@@ -150,6 +150,7 @@ jobs:
         run: |
           yarn
           yarn compile
+          yarn build:test-sdk
           yarn minimize
       - name: Automated Version Bump
         uses: phips28/gh-action-bump-version@master
