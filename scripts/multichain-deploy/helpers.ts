@@ -275,7 +275,9 @@ export const executeViaSafe = async (
         data: encoded
       });
     } else if (contract === ctrl.address) {
-      const simulationResult = await ctrl.callStatic[functionSigs[i]](...functionInputs[i], {
+      const simulationResult = await ethers.provider.call({
+        to: ctrl.address,
+        data: encoded,
         from: safeAddress,
         value: ethValues[i]
       });

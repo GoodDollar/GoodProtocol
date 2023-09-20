@@ -235,7 +235,7 @@ contract DistributionHelper is
 					_recipient.addr,
 					_amount,
 					false,
-					""
+					abi.encodePacked(uint16(1), uint256(400000)) // 400k gas to execute bridge at target chain
 				);
 			if (lzFee > feeSettings.maxFee) revert FEE_LIMIT(lzFee);
 

@@ -357,7 +357,16 @@ export const upgradeSidechain = async sidechain => {
     ), //setAddresses(bytes32[],address[])"
     ethers.utils.defaultAbiCoder.encode(
       ["address", "uint256", "uint256", "uint32", "uint256", "uint256", "uint32", "bool"],
-      [NEWBRIDGE, 0, ethers.constants.WeiPerEther.mul(300), 5000, 0, 0, 0, false]
+      [
+        NEWBRIDGE,
+        0,
+        sidechain === "celo" ? ethers.constants.WeiPerEther.mul(300).mul(1e6) : "30000000000",
+        5000,
+        0,
+        0,
+        0,
+        false
+      ]
     ),
     ethers.utils.defaultAbiCoder.encode(
       ["bytes32", "address"],
