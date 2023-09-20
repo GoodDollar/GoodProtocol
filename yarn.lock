@@ -1418,6 +1418,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@celo-tools/celo-ethers-wrapper@npm:^0.4.0":
+  version: 0.4.0
+  resolution: "@celo-tools/celo-ethers-wrapper@npm:0.4.0"
+  peerDependencies:
+    ethers: ^5
+  checksum: 36021ae2c6448993985faaa0619ef919fe5209f3cdff45c329c65ed014a501abb0a375fa086c77076b2d193675cd55acd8c5b763aa865e34b23193a3e825ba6b
+  languageName: node
+  linkType: hard
+
 "@chainsafe/as-sha256@npm:^0.3.1":
   version: 0.3.1
   resolution: "@chainsafe/as-sha256@npm:0.3.1"
@@ -2377,6 +2386,7 @@ __metadata:
     "@babel/polyfill": "*"
     "@babel/preset-env": "*"
     "@babel/register": "*"
+    "@celo-tools/celo-ethers-wrapper": ^0.4.0
     "@gnosis.pm/safe-core-sdk": ^3.2.0
     "@gnosis.pm/safe-core-sdk-types": ^1.7.0
     "@gnosis.pm/safe-ethers-lib": ^1.7.0
@@ -13177,9 +13187,9 @@ __metadata:
   linkType: hard
 
 "js-sdsl@npm:^4.1.4":
-  version: 4.4.1
-  resolution: "js-sdsl@npm:4.4.1"
-  checksum: ba445b53531f2f353f8f66ed8c7edc7942c9bac68707161aa70528fa8ee9a89805d170cff171aa40bdac1aed5dfe97dce6f929e6f759a487ed619387a5ea1365
+  version: 4.4.2
+  resolution: "js-sdsl@npm:4.4.2"
+  checksum: ba705adc1788bf3c6f6c8e5077824f2bb4f0acab5a984420ce5cc492c7fff3daddc26335ad2c9a67d4f5e3241ec790f9e5b72a625adcf20cf321d2fd85e62b8b
   languageName: node
   linkType: hard
 

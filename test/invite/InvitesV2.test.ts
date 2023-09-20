@@ -69,7 +69,7 @@ describe("InvitesV2", () => {
   it("should have version", async () => {
     expect(await invites.active()).to.be.true;
     const version = await invites.version();
-    expect(version).to.be.equal("2.1");
+    expect(version).to.be.equal("2.2");
   });
 
   it("should let anyone join", async () => {

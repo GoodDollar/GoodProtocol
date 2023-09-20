@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "2.0.7-beta.1",
+  "version": "2.0.13",
   "description": "GoodDollar Protocol",
   "engines": {
     "node": "18.x"
@@ -82,6 +82,7 @@
     "@babel/polyfill": "*",
     "@babel/preset-env": "*",
     "@babel/register": "*",
+    "@celo-tools/celo-ethers-wrapper": "^0.4.0",
     "@gnosis.pm/safe-core-sdk": "^3.2.0",
     "@gnosis.pm/safe-core-sdk-types": "^1.7.0",
     "@gnosis.pm/safe-ethers-lib": "^1.7.0",

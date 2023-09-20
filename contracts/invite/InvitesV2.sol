@@ -34,7 +34,8 @@ contract InvitesV2 is DAOUpgradeableContract {
 		uint256 totalApprovedInvites;
 		uint256 totalEarned;
 		uint256 joinedAt;
-		uint256[5] __reserevedSpace;
+		uint256 bountyAtJoin;
+		uint256[4] __reserevedSpace;
 	}
 
 	struct Level {
@@ -140,7 +141,9 @@ contract InvitesV2 is DAOUpgradeableContract {
 			users[inviter].invitees.push(msg.sender);
 			users[inviter].pending.push(msg.sender);
 			stats.totalInvited += 1;
+			user.bountyAtJoin = levels[users[inviter].level].bounty;
 		}
+
 		if (canCollectBountyFor(msg.sender)) {
 			_bountyFor(msg.sender, true);
 		}
@@ -236,6 +239,18 @@ contract InvitesV2 is DAOUpgradeableContract {
 		address invitedBy = users[_invitee].invitedBy;
 		uint256 joinedAt = users[_invitee].joinedAt;
 		Level memory level = levels[users[invitedBy].level];
+		uint256 bountyToPay = users[_invitee].bountyAtJoin;
+
+		//hardcoded for users invited before the bountyAtJoin change
+		if (bountyToPay == 0) {
+			uint precision = 10 ** goodDollar.decimals();
+			bountyToPay = joinedAt > 1687878272 ? 1000 * precision : 500 * precision;
+		}
+
+		// if inviter level is now higher than when invitee joined or the base level has changed
+		// we give level bounty if it is higher otherwise the original bounty at the time the user registered
+
+		bountyToPay = level.bounty > bountyToPay ? level.bounty : bountyToPay;
 
 		bool isLevelExpired = level.daysToComplete > 0 &&
 			joinedAt > users[invitedBy].levelStarted && //prevent overflow in subtraction
@@ -244,9 +259,9 @@ contract InvitesV2 is DAOUpgradeableContract {
 
 		users[_invitee].bountyPaid = true;
 		users[invitedBy].totalApprovedInvites += 1;
-		users[invitedBy].totalEarned += level.bounty;
+		users[invitedBy].totalEarned += bountyToPay;
 		stats.totalApprovedInvites += 1;
-		stats.totalBountiesPaid += level.bounty;
+		stats.totalBountiesPaid += bountyToPay;
 
 		bool earnedLevel = false;
 		if (
@@ -259,17 +274,17 @@ contract InvitesV2 is DAOUpgradeableContract {
 			earnedLevel = true;
 		}
 
-		if (isSingleBounty) goodDollar.transfer(invitedBy, level.bounty);
-		goodDollar.transfer(_invitee, level.bounty / 2); //pay invitee half the bounty
+		if (isSingleBounty) goodDollar.transfer(invitedBy, bountyToPay);
+		goodDollar.transfer(_invitee, bountyToPay / 2); //pay invitee half the bounty
 		emit InviterBounty(
 			invitedBy,
 			_invitee,
-			level.bounty,
+			bountyToPay,
 			users[invitedBy].level,
 			earnedLevel
 		);
 
-		return level.bounty;
+		return bountyToPay;
 	}
 
 	/**
@@ -278,11 +293,13 @@ contract InvitesV2 is DAOUpgradeableContract {
 	function collectBounties() public isActive {
 		address[] storage pendings = users[msg.sender].pending;
 		uint256 totalBounties = 0;
-		for (int256 i = int256(pendings.length) - 1; i >= 0; i--) {
-			if (gasleft() < 185000) break; // leave enough gas for the token transfer around 150k if we are using supertoken
-			address pending = pendings[uint256(i)];
+		for (uint256 i = pendings.length; i > 0; i--) {
+			if (gasleft() < 185000) break; // leave enough gas for the inviter transfer around 150k each if we are using supertoken
+			address pending = pendings[i - 1];
 			if (canCollectBountyFor(pending)) {
+				if (gasleft() < 300000) break; // leave enough gas for the invitee+inviter transfer around 150k each if we are using supertoken
 				totalBounties += _bountyFor(pending, false);
+				pendings[i - 1] = pendings[pendings.length - 1];
 				pendings.pop();
 			}
 		}
@@ -328,8 +345,9 @@ contract InvitesV2 is DAOUpgradeableContract {
 	 * 1.5.0 - more gas improvements
 	 * 2 uses uups upgradeable - not compatible upgrade for v1
 	 * 2.1 prevent multichain claims
+	 * 2.2 record bounty at join time
 	 */
 	function version() public pure returns (string memory) {
-		return "2.1";
+		return "2.2";
 	}
 }

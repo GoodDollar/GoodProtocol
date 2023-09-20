@@ -32,11 +32,7 @@ import releaser from "../../scripts/releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
 import { deployWrapper } from "./multichainWrapper-deploy";
-import {
-  GoodDollarMintBurnWrapper,
-  Controller,
-  NameService
-} from "../../types";
+import { GoodDollarMintBurnWrapper, Controller, NameService } from "../../types";
 const { name: networkName } = network;
 
 export const deploySidechain = async () => {
@@ -46,30 +42,18 @@ export const deploySidechain = async () => {
   if (isProduction) verifyProductionSigner(root);
 
   let release: { [key: string]: any } = dao[networkName];
-  let settings = defaultsDeep(
-    {},
-    ProtocolSettings[networkName],
-    ProtocolSettings["default"]
-  );
+  let settings = defaultsDeep({}, ProtocolSettings[networkName], ProtocolSettings["default"]);
 
   console.log("got signers:", {
     networkName,
     root: root.address,
-    balance: await ethers.provider
-      .getBalance(root.address)
-      .then(_ => _.toString())
+    balance: await ethers.provider.getBalance(root.address).then(_ => _.toString())
   });
 
   let Wrapper;
-  if (!release.GoodDollarMintBurnWrapper)
-    Wrapper = (await deployWrapper(
-      release.Avatar
-    )) as GoodDollarMintBurnWrapper;
+  if (!release.GoodDollarMintBurnWrapper) Wrapper = (await deployWrapper(release.Avatar)) as GoodDollarMintBurnWrapper;
   else {
-    Wrapper = await ethers.getContractAt(
-      "GoodDollarMintBurnWrapper",
-      release.GoodDollarMintBurnWrapper
-    );
+    Wrapper = await ethers.getContractAt("GoodDollarMintBurnWrapper", release.GoodDollarMintBurnWrapper);
   }
 
   console.log("deploying savings...");
@@ -95,28 +79,15 @@ export const deploySidechain = async () => {
 
     await releaser(torelease, networkName, "deployment", false);
   } else {
-    GDSavings = await ethers.getContractAt(
-      "GoodDollarStaking",
-      release.GoodDollarStaking
-    );
+    GDSavings = await ethers.getContractAt("GoodDollarStaking", release.GoodDollarStaking);
   }
   if (networkName.includes("production"))
-    return console.log(
-      "Skipping proposal/upgrade for production, need to perform manually"
-    );
+    return console.log("Skipping proposal/upgrade for production, need to perform manually");
 
-  await executeProposal(
-    GDSavings.address,
-    Wrapper.address,
-    settings.guardiansSafe
-  );
+  await executeProposal(GDSavings.address, Wrapper.address, settings.guardiansSafe);
 };
 
-const executeProposal = async (
-  savingsAddress: string,
-  wrapperAddress: string,
-  guardiansSafe: string
-) => {
+const executeProposal = async (savingsAddress: string, wrapperAddress: string, guardiansSafe: string) => {
   console.log("executing savings + wrapper proposal");
   const isProduction = networkName.includes("production");
   const viaGuardians = false;
@@ -134,15 +105,9 @@ const executeProposal = async (
   //     ? new ethers.Wallet(process.env.PROPOSER_KEY, ethers.provider)
   //     : root; //need proposer with 0.3% of GOOD tokens
 
-  const ctrl = (await ethers.getContractAt(
-    "Controller",
-    release.Controller
-  )) as Controller;
+  const ctrl = (await ethers.getContractAt("Controller", release.Controller)) as Controller;
 
-  const ns = (await ethers.getContractAt(
-    "NameService",
-    release.NameService
-  )) as NameService;
+  const ns = (await ethers.getContractAt("NameService", release.NameService)) as NameService;
 
   const proposalContracts = [
     wrapperAddress, //MinterWrapper -> add GDSavings
@@ -162,16 +127,7 @@ const executeProposal = async (
 
   const proposalFunctionInputs = [
     ethers.utils.defaultAbiCoder.encode(
-      [
-        "address",
-        "uint256",
-        "uint256",
-        "uint32",
-        "uint256",
-        "uint256",
-        "uint32",
-        "bool"
-      ],
+      ["address", "uint256", "uint256", "uint32", "uint256", "uint256", "uint32", "bool"],
       [savingsAddress, 0, 0, 30, 0, 0, 0, true]
     ), //function addMinter(
     ethers.utils.defaultAbiCoder.encode(
@@ -192,10 +148,7 @@ const executeProposal = async (
         release.Avatar
       ]
     ),
-    ethers.utils.defaultAbiCoder.encode(
-      ["string", "address"],
-      ["MINTBURN_WRAPPER", wrapperAddress]
-    )
+    ethers.utils.defaultAbiCoder.encode(["string", "address"], ["MINTBURN_WRAPPER", wrapperAddress])
   ];
 
   if (!viaGuardians) {
@@ -218,36 +171,11 @@ const executeProposal = async (
       proposalFunctionInputs,
       guardiansSafe
     );
-
-    // const vm = (await ethers.getContractAt(
-    //   "CompoundVotingMachine",
-    //   release.CompoundVotingMachine
-    // )) as CompoundVotingMachine;
-
-    // await vm
-    //   .connect(proposer)
-    //   ["propose(address[],uint256[],string[],bytes[],string)"](
-    //     proposalContracts,
-    //     proposalEthValues,
-    //     proposalFunctionSignatures,
-    //     proposalFunctionInputs,
-    //     "https://discourse.gooddollar.org/t/gip-5-allocating-part-of-ubi-inflation-towards-g-savings-account/114/20"
-    //   )
-    //   .then(printDeploy);
   }
 
-  const Controller = await ethers.getContractAt(
-    "Controller",
-    release.Controller
-  );
-  const wrapperDaoPermissions = await Controller.getSchemePermissions(
-    wrapperAddress,
-    release.Avatar
-  );
-  const savingsDaoPermissions = await Controller.getSchemePermissions(
-    savingsAddress,
-    release.Avatar
-  );
+  const Controller = await ethers.getContractAt("Controller", release.Controller);
+  const wrapperDaoPermissions = await Controller.getSchemePermissions(wrapperAddress, release.Avatar);
+  const savingsDaoPermissions = await Controller.getSchemePermissions(savingsAddress, release.Avatar);
 
   console.log({
     wrapperDaoPermissions,

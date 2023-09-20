@@ -119,7 +119,6 @@ contract FuseFaucetV2 is Initializable {
 	modifier onlyAuthorized(address toTop) {
 		require(
 			getIdentity().getWhitelistedRoot(toTop) != address(0) ||
-				getIdentity().getWhitelistedRoot(msg.sender) != address(0) ||
 				msg.sender == relayer,
 			"not authorized"
 		);
