@@ -4,7 +4,7 @@ pragma solidity >=0.8;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-IERC20PermitUpgradeable.sol";
 import { ISuperToken } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/CustomSuperTokenBase.sol";
-import "../FeesFormula.sol";
+import "../IFeesFormula.sol";
 import "../../Interfaces.sol";
 
 // GoodDollar specific functions
@@ -12,10 +12,9 @@ interface IGoodDollarCustom {
 	// view functions
 	function feeRecipient() external view returns (address);
 
-	function getFees(uint256 value)
-		external
-		view
-		returns (uint256 fee, bool senderPays);
+	function getFees(
+		uint256 value
+	) external view returns (uint256 fee, bool senderPays);
 
 	function getFees(
 		uint256 value,

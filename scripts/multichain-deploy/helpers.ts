@@ -1,7 +1,7 @@
 import { Contract, ContractFactory, Signer } from "ethers";
 import { network, ethers, upgrades, run } from "hardhat";
 import * as safeethers from "ethers";
-import { TransactionResponse } from "@ethersproject/providers";
+import { TransactionResponse, TransactionReceipt } from "@ethersproject/providers";
 import Safe from "@gnosis.pm/safe-core-sdk";
 import EthersAdapter from "@gnosis.pm/safe-ethers-lib";
 import { MetaTransactionData } from "@gnosis.pm/safe-core-sdk-types";
@@ -24,14 +24,18 @@ export const verifyProductionSigner = signer => {
     );
   }
 };
-export const printDeploy = async (c: Contract | TransactionResponse): Promise<Contract | TransactionResponse> => {
+export const printDeploy = async (
+  c: Contract | TransactionResponse
+): Promise<Contract | TransactionReceipt | TransactionResponse> => {
   if (c instanceof Contract) {
     await c.deployed();
     console.log("deployed to: ", c.address);
+    return c.deployed();
   }
   if (c.wait) {
     await c.wait();
     console.log("tx done:", c.hash);
+    return c.wait();
   }
   return c;
 };
@@ -149,13 +153,17 @@ export const executeViaGuardian = async (
     console.log("executing:", contracts[i], functionSigs[i], functionInputs[i]);
     const sigHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(functionSigs[i])).slice(0, 10);
     const encoded = ethers.utils.solidityPack(["bytes4", "bytes"], [sigHash, functionInputs[i]]);
-    if (contract === ctrl.address) {
+    if (contract.toLowerCase().startsWith((await guardian.getAddress()).toLocaleLowerCase())) {
+      const [, target] = contract.split("_");
+      console.log("executing directly on target contract:", sigHash, encoded);
+
+      const tx = await guardian.sendTransaction({ to: target, data: encoded }).then(printDeploy);
+      results.push(tx);
+    } else if (contract === ctrl.address) {
       console.log("executing directly on controller:", sigHash, encoded);
 
-      const tx = await guardian
-        .sendTransaction({ to: contract, data: encoded })
-        .then(printDeploy)
-        .then(_ => _.wait());
+      const tx = await guardian.sendTransaction({ to: contract, data: encoded }).then(printDeploy);
+
       results.push(tx);
     } else {
       const simulationResult = await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
@@ -168,10 +176,7 @@ export const executeViaGuardian = async (
         simulationResult
       });
       if (simulationResult[0] === false) throw new Error("simulation failed:" + contract);
-      const tx = await ctrl
-        .genericCall(contract, encoded, release.Avatar, ethValues[i])
-        .then(printDeploy)
-        .then(_ => _.wait());
+      const tx = await ctrl.genericCall(contract, encoded, release.Avatar, ethValues[i]).then(printDeploy);
       // console.log("generic call events:", tx.events);
       results.push(tx);
     }
@@ -222,7 +227,7 @@ export const executeViaSafe = async (
       txServiceUrl = "https://transaction-fuse.safe.fuse.io";
       break;
     case 42220:
-      txServiceUrl = "https://mainnet-tx-svc.celo-safe-prod.celo-networks-dev.org";
+      txServiceUrl = "https://safe-transaction-celo.safe.global";
       break;
   }
   console.log("creating safe adapter", { txServiceUrl });
@@ -250,13 +255,32 @@ export const executeViaSafe = async (
     const sigHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(functionSigs[i])).slice(0, 10);
     console.log("creating tx:", contracts[i], functionSigs[i], functionInputs[i]);
     const encoded = ethers.utils.solidityPack(["bytes4", "bytes"], [sigHash, functionInputs[i]]);
-    if (contract === ctrl.address) {
-      const simulationResult =
-        isSimulation === true &&
-        (await ctrl.callStatic[functionSigs[i]](...functionInputs[i], {
-          from: safeAddress,
-          value: ethValues[i]
-        }));
+    if (contract.toLowerCase().startsWith(safeAddress.toLocaleLowerCase())) {
+      const [, target] = contract.split("_");
+      const simulationResult = await ethers.provider.call({
+        to: target,
+        value: ethValues[i],
+        data: encoded,
+        from: safeAddress
+      });
+
+      console.log("executing from guardians safe:", {
+        sigHash,
+        encoded,
+        simulationResult
+      });
+      safeTransactionData.push({
+        to: target,
+        value: ethValues[i],
+        data: encoded
+      });
+    } else if (contract === ctrl.address) {
+      const simulationResult = await ethers.provider.call({
+        to: ctrl.address,
+        data: encoded,
+        from: safeAddress,
+        value: ethValues[i]
+      });
       console.log("executing controller call:", {
         sigHash,
         encoded,
@@ -276,12 +300,10 @@ export const executeViaSafe = async (
         value: ethValues[i]
       });
 
-      const simulationResult =
-        isSimulation === true &&
-        (await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
-          from: safeAddress,
-          value: ethValues[i]
-        }));
+      const simulationResult = await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
+        from: safeAddress,
+        value: ethValues[i]
+      });
       console.log("executing genericCall simulation result:", {
         sigHash,
         simulationResult

@@ -102,7 +102,7 @@ const hhconfig: HardhatUserConfig = {
     },
     fork: {
       chainId: 1,
-      url: "https://rpc.vnet.tenderly.co/devnet/reserve-ujpgrade/9f79f839-996c-495a-b470-c0237eede293"
+      url: "https://rpc.vnet.tenderly.co/devnet/reserve-ujpgrade/b4c1e3d8-c03e-49a5-b3ef-eac8499c9f0d"
     },
     test: {
       allowUnlimitedContractSize: true,
@@ -199,7 +199,7 @@ const hhconfig: HardhatUserConfig = {
     "production-mainnet": {
       accounts: [deployerPrivateKey],
       url: MAINNET_URL,
-      gas: 3000000,
+      // gas: 3000000,
       gasPrice: 15000000000,
       chainId: 1
     },

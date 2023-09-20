@@ -238,14 +238,14 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			// DAI balance of the reserve contract
 			uint256 currentBalance = daiToken.balanceOf(reserveAddress);
 			uint256 startingCDAIBalance = iToken.balanceOf(reserveAddress);
-			for (uint256 i = _stakingContracts.length - 1; i >= 0; i--) {
+			for (uint256 i = _stakingContracts.length; i > 0; i--) {
 				// elements are sorted by balances from lowest to highest
 
-				if (_stakingContracts[i] != address(0x0)) {
-					IGoodStaking(_stakingContracts[i]).collectUBIInterest(reserveAddress);
+				if (_stakingContracts[i - 1] != address(0x0)) {
+					IGoodStaking(_stakingContracts[i - 1]).collectUBIInterest(
+						reserveAddress
+					);
 				}
-
-				if (i == 0) break; // when active contracts length is 1 then gives error
 			}
 			// Finds the actual transferred DAI
 			uint256 daiToConvert = daiToken.balanceOf(reserveAddress) -
@@ -257,19 +257,6 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				startingCDAIBalance,
 				iToken
 			);
-
-			IGoodDollar token = IGoodDollar(nameService.getAddress("GOODDOLLAR"));
-			if (gdUBI > 0) {
-				//transfer ubi to avatar on sidechain via bridge
-				require(
-					token.transferAndCall(
-						nameService.getAddress("BRIDGE_CONTRACT"),
-						gdUBI,
-						abi.encodePacked(nameService.getAddress("UBI_RECIPIENT"))
-					),
-					"ubi bridge transfer failed"
-				);
-			}
 		}
 
 		uint256 gdRewardToMint;
@@ -285,22 +272,17 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				gdRewardToMint
 			);
 
-			uint256 gasPriceIncDAI = getGasPriceIncDAIorDAI(
-				initialGas - gasleft(),
-				false
-			);
+			uint256 gasPriceIncDAI = getGasPriceIncDAIorDAI(totalUsedGas, false);
 
 			if (
 				block.timestamp >= lastCollectedInterest + collectInterestTimeThreshold
 			) {
-				require(
-					interestInCdai >= gasPriceIncDAI,
-					"Collected interest value should be larger than spent gas costs"
-				); // This require is necessary to keeper can not abuse this function
+				require(interestInCdai >= gasPriceIncDAI, "UBI < gas costs"); // This require is necessary to keeper can not abuse this function
 			} else {
 				require(
-					interestInCdai >= interestMultiplier * gasPriceIncDAI,
-					"Collected interest value should be interestMultiplier x gas costs"
+					interestInCdai >= interestMultiplier * gasPriceIncDAI ||
+						gdUBI >= interestMultiplier * gdRewardToMint,
+					"UBI <  X*gas costs"
 				);
 			}
 		}
@@ -400,10 +382,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	}
 
 	/// quick sort
-	function quick(uint256[] memory data, address[] memory addresses)
-		internal
-		pure
-	{
+	function quick(
+		uint256[] memory data,
+		address[] memory addresses
+	) internal pure {
 		if (data.length > 1) {
 			quickPart(data, addresses, 0, data.length - 1);
 		}
@@ -447,11 +429,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	 @param _inDAI indicates if result should return in DAI
      @return Price of the gas in DAI/cDAI
      */
-	function getGasPriceIncDAIorDAI(uint256 _gasAmount, bool _inDAI)
-		public
-		view
-		returns (uint256)
-	{
+	function getGasPriceIncDAIorDAI(
+		uint256 _gasAmount,
+		bool _inDAI
+	) public view returns (uint256) {
 		AggregatorV3Interface gasPriceOracle = AggregatorV3Interface(
 			nameService.getAddress("GAS_PRICE_ORACLE")
 		);

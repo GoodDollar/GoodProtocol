@@ -38,11 +38,10 @@ contract BuyAndBridgeHelper {
 		gdx = exHelper.nameService().getAddress("RESERVE");
 	}
 
-	function buyAndBridge(BuyParams memory _params, uint256 _toChain)
-		public
-		payable
-		returns (uint256)
-	{
+	function buyAndBridge(
+		BuyParams memory _params,
+		uint256 _toChain
+	) public payable returns (uint256) {
 		require(_toChain == FUSE || _toChain == CELO, "invalid chainId");
 		uint256 valueToSend;
 		if (_params.buyPath[0] != address(0)) {
@@ -71,7 +70,6 @@ contract BuyAndBridgeHelper {
 
 		require(bought > 0, "buy failed");
 
-		address gdx = exHelper.nameService().getAddress("RESERVE");
 		//make sure we send GDX we received to buyer
 		if (ERC20(gdx).balanceOf(address(this)) >= bought) {
 			require(ERC20(gdx).transfer(msg.sender, bought), "gdx");
@@ -96,13 +94,15 @@ contract BuyAndBridgeHelper {
 				abi.encodePacked(_recipient)
 			);
 		} else if (_toChain == CELO) {
-			IGoodDollar(gd).approve(address(multiChainBridge), _amount);
-			multiChainBridge.anySwapOutUnderlying(
-				anyGoodDollar,
-				_recipient,
-				_amount,
-				_toChain
-			);
+			// TODO: implement with  new bridge
+			revert("not implemented");
+			// IGoodDollar(gd).approve(address(multiChainBridge), _amount);
+			// multiChainBridge.anySwapOutUnderlying(
+			// 	anyGoodDollar,
+			// 	_recipient,
+			// 	_amount,
+			// 	_toChain
+			// );
 		}
 	}
 }
