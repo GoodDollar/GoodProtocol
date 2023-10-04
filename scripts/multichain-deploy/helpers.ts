@@ -6,8 +6,7 @@ import Safe from "@gnosis.pm/safe-core-sdk";
 import EthersAdapter from "@gnosis.pm/safe-ethers-lib";
 import { MetaTransactionData } from "@gnosis.pm/safe-core-sdk-types";
 import SafeClient from "@gnosis.pm/safe-service-client";
-import ConstantInflowNFT from "@superfluid-finance/ethereum-contracts/artifacts/contracts/superfluid/ConstantInflowNFT.sol/ConstantInflowNFT.json";
-import ConstantOutflowNFT from "@superfluid-finance/ethereum-contracts/artifacts/contracts/superfluid/ConstantOutflowNFT.sol/ConstantOutflowNFT.json";
+
 import util from "util";
 import dao from "../../releases/deployment.json";
 
@@ -108,13 +107,13 @@ export const deploySuperGoodDollar = async (
     GoodDollarProxy.address
   );
 
-  const constantInflowNFT = await ethers.getContractAtFromArtifact(
-    ConstantInflowNFT,
+  const constantInflowNFT = await ethers.getContractAt(
+    "ConstantInflowNFT",
     InFlowNFT.address
   );
 
-  const constantOutflowNFT = await ethers.getContractAtFromArtifact(
-    ConstantOutflowNFT,
+  const constantOutflowNFT = await ethers.getContractAt(
+    "ConstantOutflowNFT",
     OutFlowNFT.address
   );
 
@@ -337,8 +336,8 @@ export const executeViaSafe = async (
       txServiceUrl = "https://transaction-fuse.safe.fuse.io";
       break;
     case 42220:
-      txServiceUrl =
-        "https://mainnet-tx-svc.celo-safe-prod.celo-networks-dev.org";
+      txServiceUrl = "https://safe-transaction-celo.safe.global";
+
       break;
   }
   console.log("creating safe adapter", { txServiceUrl });

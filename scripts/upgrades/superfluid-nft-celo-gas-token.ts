@@ -29,13 +29,24 @@ let { name: networkName } = network;
 networkName = networkName.replace("-fork", "");
 
 export const upgrade = async () => {
-  let release: { [key: string]: any } = dao[networkName];
   const isProduction = networkName.includes("production");
   let [root, ...signers] = await ethers.getSigners();
-  let withNFTs = false;
+  let withNFTs = true;
 
   if (isProduction) verifyProductionSigner(root);
-  else withNFTs = true;
+  // simulate on fork
+  if (network.name === "localhost") {
+    await root.sendTransaction({
+      to: "0xecA109A2686F074c9461bcb05656b19EF61FbC9e",
+      value: ethers.constants.WeiPerEther
+    });
+    root = await ethers.getImpersonatedSigner(
+      "0xecA109A2686F074c9461bcb05656b19EF61FbC9e"
+    );
+    networkName = "production-celo";
+  } else withNFTs = true;
+
+  let release: { [key: string]: any } = dao[networkName];
 
   let protocolSettings = defaultsDeep(
     {},
@@ -60,8 +71,10 @@ export const upgrade = async () => {
   const host = await supergd.getHost();
   const name = await supergd.name();
   const symbol = await supergd.symbol();
-  console.log({ owner, host, symbol, name });
-  let impl = await ethers.deployContract("SuperGoodDollar", [host]);
+  console.log({ supergd: supergd.address, owner, host, symbol, name });
+  let impl = await ethers
+    .deployContract("SuperGoodDollar", [host])
+    .then(printDeploy);
 
   await verifyContract(impl.address, "SuperGoodDollar", networkName);
 
@@ -77,6 +90,10 @@ export const upgrade = async () => {
     const innftimpl = (await ethers
       .deployContract("ConstantInflowNFT", [host, outnftProxy.address])
       .then(printDeploy)) as Contract;
+
+    await verifyContract(outnftimpl.address, "ConstantOutflowNFT", networkName);
+
+    await verifyContract(innftimpl.address, "ConstantInflowNFT", networkName);
 
     await outnftProxy.initializeProxy(outnftimpl.address).then(printDeploy);
     await outnftimpl
@@ -121,7 +138,8 @@ export const upgrade = async () => {
       proposalEthValues.slice(0, withNFTs ? 2 : 1),
       proposalFunctionSignatures.slice(0, withNFTs ? 2 : 1),
       proposalFunctionInputs.slice(0, withNFTs ? 2 : 1),
-      protocolSettings.guardiansSafe
+      "0xecA109A2686F074c9461bcb05656b19EF61FbC9e",
+      "celo"
     );
   } else {
     await executeViaGuardian(
