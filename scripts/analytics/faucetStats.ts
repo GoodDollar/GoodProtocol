@@ -1,4 +1,4 @@
-import { range, sortBy, toPairs } from "lodash";
+import { get, range, sortBy, toPairs } from "lodash";
 import PromisePool from "async-promise-pool";
 import fs from "fs";
 import { ethers } from "hardhat";
@@ -38,10 +38,11 @@ const main = async (isCelo = true) => {
     faucetAddr
   );
   const endBlock = Number(await archive.getBlockNumber());
-  const daysBack = 90;
+  const daysBack = 5;
   const dayBlocks = 12 * 60 * 24;
   const startBlock = endBlock - dayBlocks * daysBack;
   const days = range(startBlock, endBlock, dayBlocks);
+  days.push(endBlock);
   console.log({ startBlock, endBlock });
   const dailyBalance = [];
   const dailyAdminBalance = [];
@@ -59,6 +60,7 @@ const main = async (isCelo = true) => {
   const toppingsByAddress = {};
   const toppingsByAmount = {};
   const toppingsByRelayer = {};
+  const toppingsPerDay = {};
   let totalToppings = 0;
   let totalAmount = 0;
   const dailyUsage = dailyBalance.map((v, i) => (i < dailyBalance.length - 1 ? v[0] - dailyBalance[i + 1][0] : 0));
@@ -79,6 +81,8 @@ const main = async (isCelo = true) => {
         return [];
       });
       events.forEach(e => {
+        const day = (e.blockNumber / dayBlocks).toFixed(0);
+        toppingsPerDay[day] = get(toppingsPerDay, day, 0) + 1;
         totalToppings += 1;
         totalAmount += Number(e.args.amount);
         toppingsByAddress[e.args.whitelistedRoot] = (toppingsByAddress[e.args.whitelistedRoot] || 0) + 1;
@@ -106,6 +110,8 @@ const main = async (isCelo = true) => {
   const avgToppingAmount = totalAmount / totalToppings;
 
   console.log(topRelayers.slice(0, 50));
+
+  console.log(toppingsPerDay);
   fs.writeFileSync("topToppers.csv", arrayToCsv(topToppers));
   fs.writeFileSync("topAmounts.csv", arrayToCsv(topAmounts));
   fs.writeFileSync("topRelayers.csv", arrayToCsv(topRelayers));

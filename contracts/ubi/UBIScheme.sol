@@ -552,11 +552,9 @@ contract UBIScheme is DAOUpgradeableContract {
 	 * @param _accounts to fish
 	 * @return A bool indicating if all the UBIs were fished
 	 */
-	function fishMulti(address[] memory _accounts)
-		public
-		requireStarted
-		returns (uint256)
-	{
+	function fishMulti(
+		address[] memory _accounts
+	) public requireStarted returns (uint256) {
 		uint256 i;
 		uint256 bounty;
 
@@ -608,5 +606,11 @@ contract UBIScheme is DAOUpgradeableContract {
 	function setActiveUserCount(uint256 _activeUserCount) public {
 		_onlyAvatar();
 		activeUsersCount = _activeUserCount;
+	}
+
+	function withdraw(uint256 _amount, address _recipient) external {
+		_onlyAvatar();
+		IGoodDollar token = nativeToken();
+		require(token.transfer(_recipient, _amount), "withdraw failed");
 	}
 }

@@ -467,4 +467,10 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 		_onlyAvatar();
 		reserveFactor = _reserveFactor;
 	}
+
+	function withdraw(uint256 _amount, address _recipient) external {
+		_onlyAvatar();
+		IGoodDollar token = nativeToken();
+		require(token.transfer(_recipient, _amount), "withdraw failed");
+	}
 }
