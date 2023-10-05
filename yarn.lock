@@ -2363,6 +2363,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@gooddollar/bridge-contracts@npm:1.0.14-beta.7":
+  version: 1.0.14-beta.7
+  resolution: "@gooddollar/bridge-contracts@npm:1.0.14-beta.7"
+  checksum: 0b74acd79c16f2a05ff4b837daaaaa9bd9504a1a04e46a678e6b3f40c41b6c53e28733b36117685b504f8906058c0b52fa4b87234aa8fed42a2d111f15560780
+  languageName: node
+  linkType: hard
+
 "@gooddollar/goodcontracts@npm:^2.6.6":
   version: 2.6.6
   resolution: "@gooddollar/goodcontracts@npm:2.6.6"
@@ -2386,6 +2393,7 @@ __metadata:
     "@gnosis.pm/safe-core-sdk-types": ^1.7.0
     "@gnosis.pm/safe-ethers-lib": ^1.7.0
     "@gnosis.pm/safe-service-client": ^1.4.0
+    "@gooddollar/bridge-contracts": 1.0.14-beta.7
     "@gooddollar/goodcontracts": ^2.6.6
     "@jsier/retrier": ^1.2.4
     "@mean-finance/uniswap-v3-oracle": ^1.0.3

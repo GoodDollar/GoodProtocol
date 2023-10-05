@@ -12,14 +12,7 @@ export const BLOCK_INTERVAL = 1;
 
 describe("GoodReserve - Distribution Helper", () => {
   let goodReserve: GoodReserveCDai;
-  let goodDollar: Contract,
-    genericCall,
-    avatar,
-    founder,
-    signers,
-    setDAOAddress,
-    nameService,
-    cDai;
+  let goodDollar: Contract, genericCall, avatar, founder, signers, setDAOAddress, nameService, cDai;
 
   before(async () => {
     [founder, ...signers] = await ethers.getSigners();
@@ -82,10 +75,7 @@ describe("GoodReserve - Distribution Helper", () => {
 
     await distHelper.initialize(nameService.address);
 
-    const encodedCall = goodReserve.interface.encodeFunctionData(
-      "setDistributionHelper",
-      [distHelper.address, 1000]
-    );
+    const encodedCall = goodReserve.interface.encodeFunctionData("setDistributionHelper", [distHelper.address]);
 
     await genericCall(goodReserve.address, encodedCall, avatar.address, 0);
 
@@ -102,10 +92,7 @@ describe("GoodReserve - Distribution Helper", () => {
 
     await distHelper.initialize(nameService.address);
 
-    const encodedCall = goodReserve.interface.encodeFunctionData(
-      "setDistributionHelper",
-      [distHelper.address, 1000]
-    );
+    const encodedCall = goodReserve.interface.encodeFunctionData("setDistributionHelper", [distHelper.address]);
 
     await genericCall(goodReserve.address, encodedCall, avatar.address, 0);
 
@@ -114,22 +101,16 @@ describe("GoodReserve - Distribution Helper", () => {
 
   it("should allow avatar to set distribution helper target", async () => {
     const { distHelper } = await waffle.loadFixture(fixture);
-    const encodedCall = goodReserve.interface.encodeFunctionData(
-      "setDistributionHelper",
-      [distHelper.address, 1000]
-    );
+    const encodedCall = goodReserve.interface.encodeFunctionData("setDistributionHelper", [distHelper.address]);
 
     await genericCall(goodReserve.address, encodedCall, avatar.address, 0);
 
     expect(await goodReserve.distributionHelper()).to.equal(distHelper.address);
-    expect(await goodReserve.nonUbiBps()).to.equal(1000);
   });
 
   it("should not allow to call setDistributionHelper", async () => {
     const { distHelper } = await waffle.loadFixture(fixture);
-    await expect(
-      goodReserve.setDistributionHelper(distHelper.address, 1000)
-    ).to.be.revertedWith("avatar");
+    await expect(goodReserve.setDistributionHelper(distHelper.address)).to.be.revertedWith("avatar");
   });
 
   it("should send UBI to distribution contract", async () => {
@@ -138,99 +119,28 @@ describe("GoodReserve - Distribution Helper", () => {
     await increaseTime(60 * 60 * 24 * 365); //required for reserve ratio advance
     await setDAOAddress("FUND_MANAGER", founder.address); //required so we can call mintUBI
 
-    let tx = await (
-      await goodReserve.connect(founder).mintUBI(0, 0, cDai)
-    ).wait();
+    let tx = await (await goodReserve.connect(founder).mintUBI(0, 0, cDai)).wait();
 
-    const nonUbiMintedEvent = tx.events.find(_ => _.event === "NonUBIMinted");
     const ubiMintedEvent = tx.events.find(_ => _.event === "UBIMinted");
+
+    const topic = distHelper.filters.Distribution().topics[0];
+    const distributionEvent = tx.events.find(_ => _.topics.includes(topic as string));
+
+    //verify onDistribution didnt happen
+    expect(distributionEvent).not.empty;
 
     //verify amount transfered
-    expect(nonUbiMintedEvent.args.amountMinted).gt(0);
-    expect(nonUbiMintedEvent.args.amountMinted).to.equal(
-      await goodDollar.balanceOf(distHelper.address)
-    );
 
-    expect(
-      nonUbiMintedEvent.args.amountMinted.add(
-        ubiMintedEvent.args.gdUbiTransferred
-      )
-    ).to.equal(ubiMintedEvent.args.gdExpansionMinted);
+    expect(ubiMintedEvent.args.gdUbiTransferred).to.equal(await goodDollar.balanceOf(distHelper.address));
   });
 
-  it("should distribute according to 10% nonUbiBps", async () => {
-    let { distHelper } = await waffle.loadFixture(deployed_fixture);
-
-    await increaseTime(60 * 60 * 24 * 365); //required for reserve ratio advance
-    await setDAOAddress("FUND_MANAGER", founder.address); //required so we can call mintUBI
-
-    let tx = await (
-      await goodReserve.connect(founder).mintUBI(0, 0, cDai)
-    ).wait();
-
-    const nonUbiMintedEvent = tx.events.find(_ => _.event === "NonUBIMinted");
-    const ubiMintedEvent = tx.events.find(_ => _.event === "UBIMinted");
-
-    //verify 10%
-    expect(nonUbiMintedEvent.args.amountMinted).gt(0);
-    expect(nonUbiMintedEvent.args.amountMinted).to.equal(
-      ubiMintedEvent.args.gdExpansionMinted.mul(1000).div(10000)
-    );
-  });
-
-  it("should distribute according to 25% nonUbiBps", async () => {
-    let { distHelper } = await waffle.loadFixture(deployed_fixture);
-
-    const encodedCall = goodReserve.interface.encodeFunctionData(
-      "setDistributionHelper",
-      [distHelper.address, 2500]
-    );
-
-    await genericCall(goodReserve.address, encodedCall, avatar.address, 0);
-
-    await increaseTime(60 * 60 * 24 * 365); //required for reserve ratio advance
-    await setDAOAddress("FUND_MANAGER", founder.address); //required so we can call mintUBI
-
-    let tx = await (
-      await goodReserve.connect(founder).mintUBI(0, 0, cDai)
-    ).wait();
-
-    const nonUbiMintedEvent = tx.events.find(_ => _.event === "NonUBIMinted");
-    const ubiMintedEvent = tx.events.find(_ => _.event === "UBIMinted");
-
-    //verify 10%
-    expect(nonUbiMintedEvent.args.amountMinted).gt(0);
-    expect(nonUbiMintedEvent.args.amountMinted).to.equal(
-      ubiMintedEvent.args.gdExpansionMinted.mul(2500).div(10000)
-    );
-  });
-
-  it("should distribute even when DistributionHelper onDistribution reverts", async () => {
+  it("should revert when DistributionHelper onDistribution reverts", async () => {
     let { distHelper } = await waffle.loadFixture(deployed_revert_fixture); //using DistributionHelperTest which reverts
 
     await increaseTime(60 * 60 * 24 * 365); //required for reserve ratio advance
     await setDAOAddress("FUND_MANAGER", founder.address); //required so we can call mintUBI
 
-    let tx = await (
-      await goodReserve.connect(founder).mintUBI(0, 0, cDai)
-    ).wait();
-
-    const nonUbiMintedEvent = tx.events.find(_ => _.event === "NonUBIMinted");
-    const ubiMintedEvent = tx.events.find(_ => _.event === "UBIMinted");
-
-    const topic = distHelper.filters.Distribution().topics[0];
-    const distributionEvent = tx.events.find(_ =>
-      _.topics.includes(topic as string)
-    );
-
-    //verify onDistribution didnt happen
-    expect(distributionEvent).to.be.undefined;
-
-    //verify 10%
-    expect(nonUbiMintedEvent.args.amountMinted).gt(0);
-    expect(nonUbiMintedEvent.args.amountMinted).to.equal(
-      ubiMintedEvent.args.gdExpansionMinted.mul(1000).div(10000)
-    );
+    await expect(goodReserve.connect(founder).mintUBI(0, 0, cDai)).reverted;
   });
 
   it("should trigger onDistribution of DistributionHelper", async () => {
@@ -239,59 +149,26 @@ describe("GoodReserve - Distribution Helper", () => {
     await increaseTime(60 * 60 * 24 * 365); //required for reserve ratio advance
     await setDAOAddress("FUND_MANAGER", founder.address); //required so we can call mintUBI
 
-    let tx = await (
-      await goodReserve.connect(founder).mintUBI(0, 0, cDai)
-    ).wait();
+    let tx = await (await goodReserve.connect(founder).mintUBI(0, 0, cDai)).wait();
 
     const topic = distHelper.filters.Distribution().topics[0];
-    const distributionEvent = tx.events.find(_ =>
-      _.topics.includes(topic as string)
-    );
+    const distributionEvent = tx.events.find(_ => _.topics.includes(topic as string));
 
     expect(distributionEvent).not.empty;
   });
 
-  it("should not try to distribute UBI if bps=0", async () => {
-    let { distHelper } = await waffle.loadFixture(deployed_fixture);
-
-    await increaseTime(60 * 60 * 24 * 365); //required for reserve ratio advance
-    await setDAOAddress("FUND_MANAGER", founder.address); //required so we can call mintUBI
-
-    const encodedCall = goodReserve.interface.encodeFunctionData(
-      "setDistributionHelper",
-      [distHelper.address, 0]
-    );
-
-    await genericCall(goodReserve.address, encodedCall, avatar.address, 0);
-
-    let tx = await (
-      await goodReserve.connect(founder).mintUBI(0, 0, cDai)
-    ).wait();
-
-    const nonUbiMintedEvent = tx.events.find(_ => _.event === "NonUBIMinted");
-
-    expect(nonUbiMintedEvent).to.be.undefined;
-  });
-
-  it("should not try to distribute UBI if distributionhelper is null", async () => {
+  it("should revert if distributionhelper is null", async () => {
     let { distHelper } = await waffle.loadFixture(deployed_fixture); //using DistributionHelperTest which reverts
 
     await increaseTime(60 * 60 * 24 * 365); //required for reserve ratio advance
     await setDAOAddress("FUND_MANAGER", founder.address); //required so we can call mintUBI
 
-    const encodedCall = goodReserve.interface.encodeFunctionData(
-      "setDistributionHelper",
-      [ethers.constants.AddressZero, 1000]
-    );
+    const encodedCall = goodReserve.interface.encodeFunctionData("setDistributionHelper", [
+      ethers.constants.AddressZero
+    ]);
 
     await genericCall(goodReserve.address, encodedCall, avatar.address, 0);
 
-    let tx = await (
-      await goodReserve.connect(founder).mintUBI(0, 0, cDai)
-    ).wait();
-
-    const nonUbiMintedEvent = tx.events.find(_ => _.event === "NonUBIMinted");
-
-    expect(nonUbiMintedEvent).to.be.undefined;
+    await expect(goodReserve.connect(founder).mintUBI(0, 0, cDai)).revertedWith("helper not set");
   });
 });

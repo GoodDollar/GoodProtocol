@@ -2,7 +2,7 @@
 
 pragma solidity >=0.8;
 import "./ERC677.sol";
-import "./FeesFormula.sol";
+import "./IFeesFormula.sol";
 import "../Interfaces.sol";
 import "./ERC20PresetMinterPauserUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -60,11 +60,9 @@ contract GoodDollar is
 		_;
 	}
 
-	function _authorizeUpgrade(address newImplementation)
-		internal
-		override
-		onlyOwner
-	{}
+	function _authorizeUpgrade(
+		address newImplementation
+	) internal override onlyOwner {}
 
 	function decimals() public view virtual override returns (uint8) {
 		return 2;
@@ -115,11 +113,10 @@ contract GoodDollar is
 	 * transferred
 	 * @return a boolean that indicates if the operation was successful
 	 */
-	function transfer(address to, uint256 value)
-		public
-		override(ERC20Upgradeable, ERC677)
-		returns (bool)
-	{
+	function transfer(
+		address to,
+		uint256 value
+	) public override(ERC20Upgradeable, ERC677) returns (bool) {
 		uint256 bruttoValue = _processFees(msg.sender, to, value);
 		return ERC20Upgradeable.transfer(to, bruttoValue);
 	}
@@ -184,11 +181,9 @@ contract GoodDollar is
 	 * @dev Gets the current transaction fees
 	 * @return fee senderPays  that represents the current transaction fees and bool true if sender pays the fee or receiver
 	 */
-	function getFees(uint256 value)
-		public
-		view
-		returns (uint256 fee, bool senderPays)
-	{
+	function getFees(
+		uint256 value
+	) public view returns (uint256 fee, bool senderPays) {
 		return formula.getTxFees(value, address(0), address(0));
 	}
 

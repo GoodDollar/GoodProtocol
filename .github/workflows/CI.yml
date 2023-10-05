@@ -59,6 +59,7 @@ jobs:
       - name: Run tests
         run: |
           export TESTFILES=$(echo $CHUNKS | jq '.[${{ matrix.chunk }}][]') 
+          echo $TESTFILES
           yarn test:parallel $TESTFILES
 
   coverage:
@@ -102,6 +103,7 @@ jobs:
       - name: Run coverage
         run: |
           export TESTFILES=\"$(echo $CHUNKS | jq -r '.[${{ matrix.chunk }}] | join("\",\"")')\"
+          echo $TESTFILES
           yarn coverage --testfiles "{$TESTFILES}"
       - name: Coveralls
         uses: coverallsapp/github-action@master

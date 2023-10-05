@@ -9,16 +9,12 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC777Helper} from "@superfluid-finance/ethereum-contracts/contracts/libs/ERC777Helper.sol";
 import {FixedSizeData} from "@superfluid-finance/ethereum-contracts/contracts/libs/FixedSizeData.sol";
 
-// import { UUPSProxiable } from "./UUPSProxiable.sol";
-import {ERC777Helper} from "@superfluid-finance/ethereum-contracts/contracts/libs/ERC777Helper.sol";
 import {IGoodDollarCustom} from "./ISuperGoodDollar.sol";
-
 import {SuperToken} from "./SuperToken.sol";
 import "../ERC677.sol";
-import "../FeesFormula.sol";
+import "../IFeesFormula.sol";
 import "../../Interfaces.sol";
 import "./ERC20Permit.sol";
-import "./SuperToken.sol";
 
 // import "hardhat/console.sol";
 
