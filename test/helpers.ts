@@ -61,17 +61,18 @@ export const deploySuperGoodDollar = async (sfContracts, tokenArgs) => {
 
   console.log("deploying flow nfts...");
 
-  const constantInflowNFT = await ethers.deployContract("ConstantInflowNFT", [
-    sfContracts.cfa
-  ]);
-
-  const constantOutflowNFT = await ethers.deployContract("ConstantOutflowNFT", [
-    sfContracts.cfa
-  ]);
-
   const outNftProxy = await GoodDollarProxyFactory.deploy();
   const inNftProxy = await GoodDollarProxyFactory.deploy();
 
+  const constantInflowNFT = await ethers.deployContract("ConstantInflowNFT", [
+    sfContracts.host,
+    outNftProxy.address
+  ]);
+
+  const constantOutflowNFT = await ethers.deployContract("ConstantOutflowNFT", [
+    sfContracts.host,
+    inNftProxy.address
+  ]);
   await outNftProxy.initializeProxy(constantOutflowNFT.address);
   await inNftProxy.initializeProxy(constantInflowNFT.address);
 
@@ -91,14 +92,12 @@ export const deploySuperGoodDollar = async (sfContracts, tokenArgs) => {
   await constantOutflowNFT
     .attach(outNftProxy.address)
     .initialize(
-      GoodDollarProxy.address,
       (await GoodDollar.symbol()) + " Outflow NFT",
       (await GoodDollar.symbol()) + " COF"
     );
   await constantInflowNFT
     .attach(inNftProxy.address)
     .initialize(
-      GoodDollarProxy.address,
       (await GoodDollar.symbol()) + " Inflow NFT",
       (await GoodDollar.symbol()) + " CIF"
     );
