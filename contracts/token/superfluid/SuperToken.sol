@@ -3,19 +3,23 @@ pragma solidity >=0.8;
 
 import { UUPSProxiable } from "./UUPSProxiable.sol";
 
-import { ISuperfluid, ISuperfluidGovernance, ISuperToken, ISuperAgreement, IERC20, IERC777, TokenInfo } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
+import { ISuperfluid, ISuperfluidGovernance, ISuperToken as ISuperTokenOriginal, ISuperAgreement, IERC20, IERC777, TokenInfo } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import { ISuperfluidToken } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluidToken.sol";
-
 import { ERC777Helper } from "@superfluid-finance/ethereum-contracts/contracts/libs/ERC777Helper.sol";
+import { IConstantOutflowNFT } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/IConstantOutflowNFT.sol";
+import { IConstantInflowNFT } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/IConstantInflowNFT.sol";
+import { IPoolAdminNFT } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/IPoolAdminNFT.sol";
+import { IPoolMemberNFT } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/IPoolMemberNFT.sol";
 
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IERC777Recipient } from "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import { IERC777Sender } from "@openzeppelin/contracts/token/ERC777/IERC777Sender.sol";
-import { Address } from "@openzeppelin/contracts/utils/Address.sol";
+import { AddressUpgradeable as Address } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
 import { SuperfluidToken } from "./SuperfluidToken.sol";
+import { ISuperToken } from "./ISuperToken.sol";
 
 /**
  * @title Superfluid's super token implementation
@@ -60,42 +64,45 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	/// @dev ERC777 operators support data
 	ERC777Helper.Operators internal _operators;
 
+	/// @notice Constant Outflow NFT proxy address
+	IConstantOutflowNFT public constantOutflowNFT;
+
+	/// @notice Constant Inflow NFT proxy address
+	IConstantInflowNFT public constantInflowNFT;
+
+	/// @notice Pool Admin NFT proxy address
+	IPoolAdminNFT public poolAdminNFT;
+
+	/// @notice Pool Member NFT proxy address
+	IPoolMemberNFT public poolMemberNFT;
+
 	// NOTE: for future compatibility, these are reserved solidity slots
-	// The sub-class of SuperToken solidity slot will start after _reserve22
+	// The sub-class of SuperToken solidity slot will start after _reserve26
 
 	// NOTE: Whenever modifying the storage layout here it is important to update the validateStorageLayout
 	// function in its respective mock contract to ensure that it doesn't break anything or lead to unexpected
 	// behaviors/layout when upgrading
 
-	uint256 internal _reserve22;
-	uint256 private _reserve23;
-	uint256 private _reserve24;
-	uint256 private _reserve25;
-	uint256 private _reserve26;
+	uint256 internal _reserve26;
 	uint256 private _reserve27;
 	uint256 private _reserve28;
 	uint256 private _reserve29;
 	uint256 private _reserve30;
 	uint256 internal _reserve31;
 
-	constructor(ISuperfluid host)
-		SuperfluidToken(host)
-	// solhint-disable-next-line no-empty-blocks
-	{
+	constructor(
+		ISuperfluid host
+	)
+		SuperfluidToken(host) // solhint-disable-next-line no-empty-blocks
+	{}
 
-	}
-
+	/// @dev Initialize the Super Token proxy
 	function initialize(
 		IERC20 underlyingToken,
 		uint8 underlyingDecimals,
 		string calldata n,
 		string calldata s
-	)
-		external
-		virtual
-		override
-		initializer // OpenZeppelin Initializable
-	{
+	) public virtual override onlyInitializing {
 		_underlyingToken = underlyingToken;
 		_underlyingDecimals = underlyingDecimals;
 
@@ -186,6 +193,7 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	 * @param userData bytes extra information provided by the token holder (if any)
 	 * @param operatorData bytes extra information provided by the operator (if any)
 	 * @param requireReceptionAck if true, contract recipients are required to implement ERC777TokensRecipient
+	 * @notice this is overridden in supergooddollar to enforce fees
 	 */
 	function _send(
 		address operator,
@@ -323,11 +331,7 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	 * - `account` cannot be the zero address.
 	 * - `spender` cannot be the zero address.
 	 */
-	function _approve(
-		address account,
-		address spender,
-		uint256 amount
-	) internal {
+	function _approve(address account, address spender, uint256 amount) internal {
 		if (account == address(0)) {
 			revert SUPER_TOKEN_APPROVE_FROM_ZERO_ADDRESS();
 		}
@@ -422,40 +426,32 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		return _totalSupply;
 	}
 
-	function balanceOf(address account)
-		public
-		view
-		override
-		returns (uint256 balance)
-	{
+	function balanceOf(
+		address account
+	) public view override returns (uint256 balance) {
 		// solhint-disable-next-line not-rely-on-time
 		(int256 availableBalance, , , ) = super.realtimeBalanceOfNow(account);
 		return availableBalance < 0 ? 0 : uint256(availableBalance);
 	}
 
-	function transfer(address recipient, uint256 amount)
-		public
-		virtual
-		override
-		returns (bool)
-	{
+	function transfer(
+		address recipient,
+		uint256 amount
+	) public virtual override returns (bool) {
 		return _transferFrom(msg.sender, msg.sender, recipient, amount);
 	}
 
-	function allowance(address account, address spender)
-		public
-		view
-		override
-		returns (uint256)
-	{
+	function allowance(
+		address account,
+		address spender
+	) public view override returns (uint256) {
 		return _allowances[account][spender];
 	}
 
-	function approve(address spender, uint256 amount)
-		public
-		override
-		returns (bool)
-	{
+	function approve(
+		address spender,
+		uint256 amount
+	) public override returns (bool) {
 		_approve(msg.sender, spender, amount);
 		return true;
 	}
@@ -468,11 +464,10 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		return _transferFrom(msg.sender, holder, recipient, amount);
 	}
 
-	function increaseAllowance(address spender, uint256 addedValue)
-		public
-		override
-		returns (bool)
-	{
+	function increaseAllowance(
+		address spender,
+		uint256 addedValue
+	) public override returns (bool) {
 		_approve(
 			msg.sender,
 			spender,
@@ -481,11 +476,10 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		return true;
 	}
 
-	function decreaseAllowance(address spender, uint256 subtractedValue)
-		public
-		override
-		returns (bool)
-	{
+	function decreaseAllowance(
+		address spender,
+		uint256 subtractedValue
+	) public override returns (bool) {
 		_approve(
 			msg.sender,
 			spender,
@@ -517,12 +511,10 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		_burn(msg.sender, msg.sender, amount, data, new bytes(0));
 	}
 
-	function isOperatorFor(address operator, address tokenHolder)
-		external
-		view
-		override
-		returns (bool)
-	{
+	function isOperatorFor(
+		address operator,
+		address tokenHolder
+	) external view override returns (bool) {
 		return _operators.isOperatorFor(operator, tokenHolder);
 	}
 
@@ -580,24 +572,6 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	 * SuperToken custom token functions
 	 *************************************************************************/
 
-	/// unused - place holder
-	function selfMint(
-		address account,
-		uint256 amount,
-		bytes memory userData
-	) external override onlySelf {
-		revert();
-	}
-
-	/// unused - place holder
-	function selfBurn(
-		address account,
-		uint256 amount,
-		bytes memory userData
-	) external override onlySelf {
-		revert();
-	}
-
 	/// still used by erc20permit
 	function selfApproveFor(
 		address account,
@@ -605,55 +579,6 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		uint256 amount
 	) external override onlySelf {
 		_approve(account, spender, amount);
-	}
-
-	/// unused - place holder
-	function selfTransferFrom(
-		address holder,
-		address spender,
-		address recipient,
-		uint256 amount
-	) external override onlySelf {
-		revert();
-	}
-
-	/**************************************************************************
-	 * SuperToken extra functions
-	 *************************************************************************/
-
-	function transferAll(address recipient) external override {
-		_transferFrom(msg.sender, msg.sender, recipient, balanceOf(msg.sender));
-	}
-
-	/**************************************************************************
-	 * ERC20 wrapping
-	 *************************************************************************/
-
-	/// @dev ISuperfluidGovernance.getUnderlyingToken implementation
-	function getUnderlyingToken() external view override returns (address) {
-		return address(_underlyingToken);
-	}
-
-	/// @dev ISuperToken.upgrade implementation
-	function upgrade(uint256 amount) external override {
-		//keep only for interface override not required for G$
-		revert();
-	}
-
-	/// @dev ISuperToken.upgradeTo implementation
-	function upgradeTo(
-		address to,
-		uint256 amount,
-		bytes calldata data
-	) external override {
-		//keep only for interface override not required for G$
-		revert();
-	}
-
-	/// @dev ISuperToken.downgrade implementation
-	function downgrade(uint256 amount) external override {
-		//keep only for interface override not required for G$
-		revert();
 	}
 
 	/**************************************************************************
@@ -687,20 +612,95 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		_transferFrom(account, spender, recipient, amount);
 	}
 
-	function operationUpgrade(address account, uint256 amount)
-		external
-		override
-		onlyHost
-	{
-		revert();
+	function operationSend(
+		address spender,
+		address recipient,
+		uint256 amount,
+		bytes memory userData
+	) external override onlyHost {
+		_send(msg.sender, spender, recipient, amount, userData, "", true);
 	}
 
-	function operationDowngrade(address account, uint256 amount)
-		external
-		override
-		onlyHost
-	{
-		revert();
+	function operationIncreaseAllowance(
+		address account,
+		address spender,
+		uint256 addedValue
+	) external override onlyHost {
+		_approve(account, spender, _allowances[account][spender] + addedValue);
+	}
+
+	function operationDecreaseAllowance(
+		address account,
+		address spender,
+		uint256 subtractedValue
+	) external override onlyHost {
+		_approve(
+			account,
+			spender,
+			_allowances[account][spender].sub(
+				subtractedValue,
+				"SuperToken: decreased allowance below zero"
+			)
+		);
+	}
+
+	/**************************************************************************
+	 * Celo gas token functions
+	 *************************************************************************/
+
+	/**
+	 * @notice Reserve balance for making payments for gas in this StableToken currency.
+	 * @param from The account to reserve balance from
+	 * @param value The amount of balance to reserve
+	 * @dev Note that this function is called by the protocol when paying for tx fees in this
+	 * currency. After the tx is executed, gas is refunded to the sender and credited to the
+	 * various tx fee recipients via a call to `creditGasFees`. Note too that the events emitted
+	 * by `creditGasFees` reflect the *net* gas fee payments for the transaction.
+	 */
+	function debitGasFees(address from, uint256 value) external {
+		require(msg.sender == address(0), "Only VM can call");
+		SuperfluidToken._burn(from, value);
+	}
+
+	/**
+	 * @notice Alternative function to credit balance after making payments
+	 * for gas in this StableToken currency.
+	 * @param from The account to debit balance from
+	 * @param feeRecipient Coinbase address
+	 * @param gatewayFeeRecipient Gateway address
+	 * @param baseFeeRecipient baseFee recipient address
+	 * @param tipTxFee Coinbase fee
+	 * @param baseTxFee base fee
+	 * @param gatewayFee Gateway fee
+	 * @dev Note that this function is called by the protocol when paying for tx fees in this
+	 * currency. Before the tx is executed, gas is debited from the sender via a call to
+	 * `debitGasFees`. Note too that the events emitted by `creditGasFees` reflect the *net* gas fee
+	 * payments for the transaction.
+	 */
+	function creditGasFees(
+		address from,
+		address feeRecipient,
+		address gatewayFeeRecipient,
+		address baseFeeRecipient,
+		uint256 refund,
+		uint256 tipTxFee,
+		uint256 gatewayFee,
+		uint256 baseTxFee
+	) external {
+		require(msg.sender == address(0), "Only VM can call");
+		SuperfluidToken._mint(from, refund);
+
+		_creditGas(from, feeRecipient, tipTxFee);
+		_creditGas(from, baseFeeRecipient, baseTxFee);
+		_creditGas(from, gatewayFeeRecipient, gatewayFee);
+	}
+
+	function _creditGas(address from, address to, uint256 value) internal {
+		if (to == address(0)) {
+			return;
+		}
+		SuperfluidToken._mint(to, value);
+		emit Transfer(from, to, value);
 	}
 
 	/**************************************************************************

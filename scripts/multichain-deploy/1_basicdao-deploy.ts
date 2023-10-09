@@ -80,16 +80,25 @@ export const createDAO = async () => {
     )) as Contract;
 
   let GoodDollar;
+  let { superfluidHost, superfluidInflowNFTLogic, superfluidOutflowNFTLogic } =
+    protocolSettings;
   if (protocolSettings.superfluidHost) {
-    GoodDollar = await deploySuperGoodDollar(protocolSettings.superfluidHost, [
-      isProduction ? "GoodDollar" : "GoodDollar Dev",
-      "G$",
-      0,
-      FeeFormula.address,
-      Identity.address,
-      ethers.constants.AddressZero,
-      daoCreator.address
-    ]);
+    GoodDollar = await deploySuperGoodDollar(
+      {
+        superfluidHost,
+        superfluidInflowNFTLogic,
+        superfluidOutflowNFTLogic
+      },
+      [
+        isProduction ? "GoodDollar" : "GoodDollar Dev",
+        "G$",
+        0,
+        FeeFormula.address,
+        Identity.address,
+        ethers.constants.AddressZero,
+        daoCreator.address
+      ]
+    );
   } else {
     GoodDollar = (await deployDeterministic(
       {

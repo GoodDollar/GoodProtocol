@@ -14,7 +14,7 @@ import WETH9 from "@uniswap/v2-periphery/build/WETH9.json";
 import UniswapV2Router02 from "@uniswap/v2-periphery/build/UniswapV2Router02.json";
 import { GoodMarketMaker, CompoundVotingMachine } from "../types";
 import { Contract } from "ethers";
-import frameworkDeployer from "@superfluid-finance/ethereum-contracts/scripts/deploy-test-framework";
+import testDeployer from "@superfluid-finance/ethereum-contracts/dev-scripts/deploy-test-framework";
 
 export const getStakingFactory = async (
   factory:
@@ -24,7 +24,9 @@ export const getStakingFactory = async (
     | "GoodAaveStakingV2"
     | "GoodCompoundStakingV2"
 ) => {
-  let swapHelper = await ethers.getContractFactory("UniswapV2SwapHelper").then(_ => _.deploy());
+  let swapHelper = await ethers
+    .getContractFactory("UniswapV2SwapHelper")
+    .then(_ => _.deploy());
 
   const simpleStakingFactory = await ethers.getContractFactory(factory, {
     libraries: {
@@ -36,26 +38,70 @@ export const getStakingFactory = async (
 
 export const deploySuperFluid = async () => {
   // This deploys the whole framework with various contracts
-  const sfDeployer = await frameworkDeployer.deployTestFramework();
+  const { frameworkDeployer } = await testDeployer.deployTestFramework();
   // returns contract addresses as a struct, see https://github.com/superfluid-finance/protocol-monorepo/blob/dev/packages/ethereum-contracts/contracts/utils/SuperfluidFrameworkDeployer.sol#L48
-  const contractsFramework = await sfDeployer.getFramework();
+  const contractsFramework = await frameworkDeployer.getFramework();
 
   return contractsFramework;
 };
 
 export const deploySuperGoodDollar = async (sfContracts, tokenArgs) => {
-  const SuperGoodDollarFactory = await ethers.getContractFactory("SuperGoodDollar");
+  const SuperGoodDollarFactory = await ethers.getContractFactory(
+    "SuperGoodDollar"
+  );
+
+  console.log("deploying supergooddollar logic");
   const SuperGoodDollar = await SuperGoodDollarFactory.deploy(sfContracts.host);
 
-  const GoodDollarProxyFactory = await ethers.getContractFactory("UUPSProxy");
-
+  console.log("deploying supergooddollar proxy");
+  const GoodDollarProxyFactory = await ethers.getContractFactory(
+    "contracts/token/superfluid/UUPSProxy.sol:UUPSProxy"
+  );
   const GoodDollarProxy = await GoodDollarProxyFactory.deploy();
+
+  console.log("deploying flow nfts...");
+
+  const outNftProxy = await GoodDollarProxyFactory.deploy();
+  const inNftProxy = await GoodDollarProxyFactory.deploy();
+
+  const constantInflowNFT = await ethers.deployContract("ConstantInflowNFT", [
+    sfContracts.host,
+    outNftProxy.address
+  ]);
+
+  const constantOutflowNFT = await ethers.deployContract("ConstantOutflowNFT", [
+    sfContracts.host,
+    inNftProxy.address
+  ]);
+  await outNftProxy.initializeProxy(constantOutflowNFT.address);
+  await inNftProxy.initializeProxy(constantInflowNFT.address);
+
+  console.log("deployed supergooddollar proxy, initializing proxy...");
   await GoodDollarProxy.initializeProxy(SuperGoodDollar.address);
 
+  console.log("initializing supergooddollar....");
   await SuperGoodDollar.attach(GoodDollarProxy.address)[
-    "initialize(string,string,uint256,address,address,address,address)"
-  ](...tokenArgs);
-  const GoodDollar = await ethers.getContractAt("ISuperGoodDollar", GoodDollarProxy.address);
+    "initialize(string,string,uint256,address,address,address,address,address,address)"
+  ](...tokenArgs, outNftProxy.address, inNftProxy.address);
+  const GoodDollar = await ethers.getContractAt(
+    "SuperGoodDollar",
+    GoodDollarProxy.address
+  );
+  console.log("supergooddollar created successfully");
+
+  await constantOutflowNFT
+    .attach(outNftProxy.address)
+    .initialize(
+      (await GoodDollar.symbol()) + " Outflow NFT",
+      (await GoodDollar.symbol()) + " COF"
+    );
+  await constantInflowNFT
+    .attach(inNftProxy.address)
+    .initialize(
+      (await GoodDollar.symbol()) + " Inflow NFT",
+      (await GoodDollar.symbol()) + " CIF"
+    );
+
   return GoodDollar;
 };
 export const createDAO = async (tokenType: "super" | "regular" = "super") => {
@@ -70,19 +116,33 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
 
   let cDAI = await cdaiFactory.deploy(dai.address);
 
-  const DAOCreatorFactory = new ethers.ContractFactory(DAOCreatorABI.abi, DAOCreatorABI.bytecode, root);
+  const DAOCreatorFactory = new ethers.ContractFactory(
+    DAOCreatorABI.abi,
+    DAOCreatorABI.bytecode,
+    root
+  );
 
   const IdentityFactory = await ethers.getContractFactory("IdentityV2");
 
-  const FeeFormulaFactory = new ethers.ContractFactory(FeeFormulaABI.abi, FeeFormulaABI.bytecode, root);
+  const FeeFormulaFactory = new ethers.ContractFactory(
+    FeeFormulaABI.abi,
+    FeeFormulaABI.bytecode,
+    root
+  );
 
-  const BancorFormula = await (await ethers.getContractFactory("BancorFormula")).deploy();
+  const BancorFormula = await (
+    await ethers.getContractFactory("BancorFormula")
+  ).deploy();
 
   console.log("deploy upgradeable identity...");
 
-  const Identity = await upgrades.deployProxy(IdentityFactory, [root.address, ethers.constants.AddressZero], {
-    kind: "uups"
-  });
+  const Identity = await upgrades.deployProxy(
+    IdentityFactory,
+    [root.address, ethers.constants.AddressZero],
+    {
+      kind: "uups"
+    }
+  );
 
   const daoCreator = await DAOCreatorFactory.deploy();
   const FeeFormula = await FeeFormulaFactory.deploy(0);
@@ -105,10 +165,19 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
 
     GoodDollar = await upgrades.deployProxy(
       GoodDollarFactory,
-      ["GoodDollar", "G$", 0, FeeFormula.address, Identity.address, ethers.constants.AddressZero, daoCreator.address],
+      [
+        "GoodDollar",
+        "G$",
+        0,
+        FeeFormula.address,
+        Identity.address,
+        ethers.constants.AddressZero,
+        daoCreator.address
+      ],
       {
         kind: "uups",
-        initializer: "initialize(string, string, uint256, address, address, address,address)"
+        initializer:
+          "initialize(string, string, uint256, address, address, address,address)"
       }
     );
   } else {
@@ -131,11 +200,20 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
     daoCreator: daoCreator.address
   });
   // await Identity.setAuthenticationPeriod(365);
-  await daoCreator.forgeOrg(GoodDollar.address, reputation.address, [], 1000, []);
+  await daoCreator.forgeOrg(
+    GoodDollar.address,
+    reputation.address,
+    [],
+    1000,
+    []
+  );
 
   const Avatar = new ethers.Contract(
     await daoCreator.avatar(),
-    ["function owner() view returns (address)", "function nativeToken() view returns (address)"],
+    [
+      "function owner() view returns (address)",
+      "function nativeToken() view returns (address)"
+    ],
     root
   );
 
@@ -149,7 +227,11 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
     await GoodDollar.isPauser(Avatar.address)
   );
 
-  const ccFactory = new ethers.ContractFactory(ContributionCalculation.abi, ContributionCalculation.bytecode, root);
+  const ccFactory = new ethers.ContractFactory(
+    ContributionCalculation.abi,
+    ContributionCalculation.bytecode,
+    root
+  );
 
   const contribution = await ccFactory.deploy(Avatar.address, 0, 1e15);
 
@@ -229,9 +311,13 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
 
   const MM = await ethers.getContractFactory("GoodMarketMaker");
 
-  let marketMaker = (await upgrades.deployProxy(MM, [nameService.address, 999388834642296, 1e15], {
-    kind: "uups"
-  })) as unknown as GoodMarketMaker;
+  let marketMaker = (await upgrades.deployProxy(
+    MM,
+    [nameService.address, 999388834642296, 1e15],
+    {
+      kind: "uups"
+    }
+  )) as unknown as GoodMarketMaker;
 
   await (await reputation.updateDAO(nameService.address)).wait();
 
@@ -239,16 +325,28 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
   //generic call permissions
   let schemeMock = signers[signers.length - 1];
 
-  const ictrl = await ethers.getContractAt("Controller", controller, schemeMock);
+  const ictrl = await ethers.getContractAt(
+    "Controller",
+    controller,
+    schemeMock
+  );
 
   const setSchemes = async (addrs, params = []) => {
     for (let i in addrs) {
-      await ictrl.registerScheme(addrs[i], params[i] || ethers.constants.HashZero, "0x0000001F", Avatar.address);
+      await ictrl.registerScheme(
+        addrs[i],
+        params[i] || ethers.constants.HashZero,
+        "0x0000001F",
+        Avatar.address
+      );
     }
   };
 
   const setDAOAddress = async (name, addr) => {
-    const encoded = nameService.interface.encodeFunctionData("setAddress", [name, addr]);
+    const encoded = nameService.interface.encodeFunctionData("setAddress", [
+      name,
+      addr
+    ]);
 
     await ictrl.genericCall(nameService.address, encoded, Avatar.address, 0);
   };
@@ -258,20 +356,21 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
     expect(funcNameEnd).to.be.gt(-1);
     const functionName = functionAbi.substring(0, funcNameEnd);
 
-    await expect(contract[functionAbi](...parameters)).to.revertedWith("avatar");
-    const encoded = contract.interface.encodeFunctionData(functionName, [...parameters]);
+    await expect(contract[functionAbi](...parameters)).to.revertedWith(
+      "avatar"
+    );
+    const encoded = contract.interface.encodeFunctionData(functionName, [
+      ...parameters
+    ]);
 
     await ictrl.genericCall(contract.address, encoded, Avatar.address, 0);
   };
 
   const setReserveToken = async (token, gdReserve, tokenReserve, RR) => {
-    const encoded = marketMaker.interface.encodeFunctionData("initializeToken", [
-      token,
-      gdReserve,
-      tokenReserve,
-      RR,
-      0
-    ]);
+    const encoded = marketMaker.interface.encodeFunctionData(
+      "initializeToken",
+      [token, gdReserve, tokenReserve, RR, 0]
+    );
 
     await ictrl.genericCall(marketMaker.address, encoded, Avatar.address, 0);
   };
@@ -297,9 +396,9 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
   const gd = await Avatar.nativeToken();
   //make GoodCap minter
   console.log("Setting reserve as minter...");
-  const encoded = (await ethers.getContractAt("IGoodDollar", gd)).interface.encodeFunctionData("addMinter", [
-    goodReserve.address
-  ]);
+  const encoded = (
+    await ethers.getContractAt("IGoodDollar", gd)
+  ).interface.encodeFunctionData("addMinter", [goodReserve.address]);
 
   await ictrl.genericCall(gd, encoded, Avatar.address, 0);
 
@@ -307,17 +406,25 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
 
   await ictrl.genericCall(
     goodReserve.address,
-    goodReserve.interface.encodeFunctionData("setDistributionHelper", [distHelper.address]),
+    goodReserve.interface.encodeFunctionData("setDistributionHelper", [
+      distHelper.address
+    ]),
     Avatar.address,
     0
   );
 
-  const gasFeeMockFactory = await ethers.getContractFactory("GasPriceMockOracle");
+  const gasFeeMockFactory = await ethers.getContractFactory(
+    "GasPriceMockOracle"
+  );
   const gasFeeOracle = await gasFeeMockFactory.deploy();
-  const daiEthPriceMockFactory = await ethers.getContractFactory("DaiEthPriceMockOracle");
+  const daiEthPriceMockFactory = await ethers.getContractFactory(
+    "DaiEthPriceMockOracle"
+  );
   const daiEthOracle = await daiEthPriceMockFactory.deploy();
 
-  const ethUsdOracleFactory = await ethers.getContractFactory("EthUSDMockOracle");
+  const ethUsdOracleFactory = await ethers.getContractFactory(
+    "EthUSDMockOracle"
+  );
   const ethUsdOracle = await ethUsdOracleFactory.deploy();
 
   console.log("setting nameservice addrresses...");
@@ -402,17 +509,15 @@ export const deployUBI = async (deployedDAO, withFirstClaim = true) => {
 
   const gd = await nameService.getAddress("GOODDOLLAR");
 
-  let encoded = (await ethers.getContractAt("IGoodDollar", gd)).interface.encodeFunctionData("mint", [
-    firstClaim.address,
-    1000000
-  ]);
+  let encoded = (
+    await ethers.getContractAt("IGoodDollar", gd)
+  ).interface.encodeFunctionData("mint", [firstClaim.address, 1000000]);
 
   await genericCall(gd, encoded);
 
-  encoded = (await ethers.getContractAt("IGoodDollar", gd)).interface.encodeFunctionData("mint", [
-    ubiScheme.address,
-    1000000
-  ]);
+  encoded = (
+    await ethers.getContractAt("IGoodDollar", gd)
+  ).interface.encodeFunctionData("mint", [ubiScheme.address, 1000000]);
 
   await genericCall(gd, encoded);
 
@@ -420,7 +525,9 @@ export const deployUBI = async (deployedDAO, withFirstClaim = true) => {
   await setSchemes([firstClaim.address, ubiScheme.address]);
 
   if (withFirstClaim) {
-    encoded = firstClaim.interface.encodeFunctionData("setUBIScheme", [ubiScheme.address]);
+    encoded = firstClaim.interface.encodeFunctionData("setUBIScheme", [
+      ubiScheme.address
+    ]);
 
     await genericCall(firstClaim.address, encoded);
     await firstClaim.start();
@@ -469,17 +576,15 @@ export const deployOldUBI = async deployedDAO => {
 
   const gd = await nameService.getAddress("GOODDOLLAR");
 
-  let encoded = (await ethers.getContractAt("IGoodDollar", gd)).interface.encodeFunctionData("mint", [
-    firstClaim.address,
-    1000000
-  ]);
+  let encoded = (
+    await ethers.getContractAt("IGoodDollar", gd)
+  ).interface.encodeFunctionData("mint", [firstClaim.address, 1000000]);
 
   await genericCall(gd, encoded);
 
-  encoded = (await ethers.getContractAt("IGoodDollar", gd)).interface.encodeFunctionData("mint", [
-    ubiScheme.address,
-    1000000
-  ]);
+  encoded = (
+    await ethers.getContractAt("IGoodDollar", gd)
+  ).interface.encodeFunctionData("mint", [ubiScheme.address, 1000000]);
 
   await genericCall(gd, encoded);
 
@@ -524,16 +629,26 @@ export const deployOldVoting = async dao => {
       SchemeRegistrarF.deploy()
     ]);
     console.log("setting parameters");
-    const voteParametersHash = await absoluteVote.getParametersHash(50, ethers.constants.AddressZero);
+    const voteParametersHash = await absoluteVote.getParametersHash(
+      50,
+      ethers.constants.AddressZero
+    );
 
     console.log("setting params for voting machine and schemes");
 
     await Promise.all([
-      schemeRegistrar.setParameters(voteParametersHash, voteParametersHash, absoluteVote.address),
+      schemeRegistrar.setParameters(
+        voteParametersHash,
+        voteParametersHash,
+        absoluteVote.address
+      ),
       absoluteVote.setParameters(50, ethers.constants.AddressZero),
       upgradeScheme.setParameters(voteParametersHash, absoluteVote.address)
     ]);
-    const upgradeParametersHash = await upgradeScheme.getParametersHash(voteParametersHash, absoluteVote.address);
+    const upgradeParametersHash = await upgradeScheme.getParametersHash(
+      voteParametersHash,
+      absoluteVote.address
+    );
 
     // Deploy SchemeRegistrar
     const schemeRegisterParams = await schemeRegistrar.getParametersHash(
@@ -573,10 +688,18 @@ export const deployUniswap = async (comp, dai) => {
     UniswapV2Factory.bytecode,
     (await ethers.getSigners())[0]
   );
-  const wethFactory = new ethers.ContractFactory(WETH9.abi, WETH9.bytecode, (await ethers.getSigners())[0]);
+  const wethFactory = new ethers.ContractFactory(
+    WETH9.abi,
+    WETH9.bytecode,
+    (await ethers.getSigners())[0]
+  );
 
   const weth = await wethFactory.deploy();
-  const factory = await uniswapFactory.deploy((await ethers.getSigners())[0].address);
+  const factory = await uniswapFactory.deploy(
+    (
+      await ethers.getSigners()
+    )[0].address
+  );
   const router = await routerFactory.deploy(factory.address, weth.address);
   await factory.createPair(comp.address, weth.address); // Create comp and weth pair
   const compPairAddress = factory.getPair(comp.address, weth.address);
@@ -584,11 +707,28 @@ export const deployUniswap = async (comp, dai) => {
   await factory.createPair(dai.address, weth.address); // Create comp and dai pair
   const daiPairAddress = factory.getPair(dai.address, weth.address);
 
-  const compPair = new Contract(compPairAddress, JSON.stringify(IUniswapV2Pair.abi), staker).connect(founder);
-  const daiPair = new Contract(daiPairAddress, JSON.stringify(IUniswapV2Pair.abi), staker).connect(founder);
-  await dai["mint(address,uint256)"](founder.address, ethers.utils.parseEther("2000000"));
-  await dai["mint(address,uint256)"](daiPair.address, ethers.utils.parseEther("2000000"));
-  await comp["mint(address,uint256)"](compPair.address, ethers.utils.parseEther("200000"));
+  const compPair = new Contract(
+    compPairAddress,
+    JSON.stringify(IUniswapV2Pair.abi),
+    staker
+  ).connect(founder);
+  const daiPair = new Contract(
+    daiPairAddress,
+    JSON.stringify(IUniswapV2Pair.abi),
+    staker
+  ).connect(founder);
+  await dai["mint(address,uint256)"](
+    founder.address,
+    ethers.utils.parseEther("2000000")
+  );
+  await dai["mint(address,uint256)"](
+    daiPair.address,
+    ethers.utils.parseEther("2000000")
+  );
+  await comp["mint(address,uint256)"](
+    compPair.address,
+    ethers.utils.parseEther("200000")
+  );
   console.log("depositing eth to liquidity pools");
   await weth.deposit({ value: ethers.utils.parseEther("4000") });
   console.log(await weth.balanceOf(founder.address).then(_ => _.toString()));

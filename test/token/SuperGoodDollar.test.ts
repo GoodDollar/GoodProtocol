@@ -15,7 +15,7 @@ let sf,
   newHost,
   identityMock,
   receiverMock,
-  sgd, // stands for "SuperGoodDollar"
+  sgd: ISuperGoodDollar, // stands for "SuperGoodDollar"
   feesFormula10PctMock;
 
 const alotOfDollars = ethers.utils.parseEther("100000");
@@ -65,7 +65,8 @@ before(async function () {
     founder
   ).deploy();
 
-  sgd = await deploySuperGoodDollar(sfContracts, [
+  console.log("deploying test supergooddollar...");
+  sgd = (await deploySuperGoodDollar(sfContracts, [
     "SuperGoodDollar",
     "SGD",
     0, // cap
@@ -73,7 +74,7 @@ before(async function () {
     identityMock.address,
     receiverMock.address,
     founder.address
-  ]);
+  ])) as ISuperGoodDollar;
 
   await sgd.mint(founder.address, alotOfDollars);
 });
@@ -244,10 +245,14 @@ describe("SuperGoodDollar", async function () {
   it("should not be able to initialize again", async () => {
     await loadFixture(initialState);
     await expect(
-      sgd["initialize(string,string,uint256,address,address,address,address)"](
+      sgd[
+        "initialize(string,string,uint256,address,address,address,address,address,address)"
+      ](
         "x",
         "y",
         1,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
@@ -268,7 +273,7 @@ describe("SuperGoodDollar", async function () {
   it("update the GoodDollar logic", async function () {
     await loadFixture(initialState);
     const sgdProxiable = await ethers.getContractAt(
-      "UUPSProxiable",
+      "contracts/token/superfluid/UUPSProxiable.sol:UUPSProxiable",
       sgd.address,
       founder.signer
     );
@@ -295,10 +300,14 @@ describe("SuperGoodDollar", async function () {
 
     expect(await sgd.getHost()).equal(newHost.address);
     await expect(
-      sgd["initialize(string,string,uint256,address,address,address,address)"](
+      sgd[
+        "initialize(string,string,uint256,address,address,address,address,address,address)"
+      ](
         "x",
         "y",
         1,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
