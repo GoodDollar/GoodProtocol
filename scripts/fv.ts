@@ -21,12 +21,20 @@ const main = async () => {
       _ => _.json()
     );
     if (i1.auditTrailBase64 && i2.auditTrailBase64) {
-      fs.writeFileSync(a.join("_") + "-a.jpg", i1.auditTrailBase64, {
-        encoding: "base64"
-      });
-      fs.writeFileSync(a.join("_") + "-b.jpg", i2.auditTrailBase64, {
-        encoding: "base64"
-      });
+      fs.writeFileSync(
+        "fvimages/" + a.join("_") + "-a.jpg",
+        i1.auditTrailBase64,
+        {
+          encoding: "base64"
+        }
+      );
+      fs.writeFileSync(
+        "fvimages/" + a.join("_") + "-b.jpg",
+        i2.auditTrailBase64,
+        {
+          encoding: "base64"
+        }
+      );
     } else console.log("not found", a);
   });
 
