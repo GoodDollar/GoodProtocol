@@ -142,7 +142,7 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 		periodStart = (block.timestamp / (1 days)) * 1 days + 12 hours; //set start time to GMT noon
 		startOfCycle = periodStart;
 		minActiveUsers = 1000;
-		reserveFactor = 500;
+		reserveFactor = 10500;
 	}
 
 	/**
