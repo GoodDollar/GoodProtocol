@@ -4,7 +4,7 @@ import { chunk } from "lodash";
 import { bulkIsWhitelisted } from "./utils";
 
 const main = async () => {
-  const data = JSON.parse(fs.readFileSync("fvtriplets.tx").toString());
+  const data = JSON.parse(fs.readFileSync("fvtriplets.txt").toString());
   const triplets = chunk(data, 3);
   const accounts = triplets.map(_ => _[0]);
   const whitelisted = await bulkIsWhitelisted(accounts);
@@ -12,8 +12,12 @@ const main = async () => {
   console.log("Total accounts:", accounts.length);
   console.log("Total whitelisted:", whitelisted.length);
   console.log("Total failed re-auth:", failed.length);
-  return;
-  const ps = triplets.map(async a => {
+  const notfetched = triplets.filter(a => {
+    const key = "fvimages/" + a.join("_") + "-a.jpg";
+    return fs.existsSync(key) === false;
+  });
+  console.log({ notfetched });
+  const ps = notfetched.map(async a => {
     const i1 = await fetch("http://localhost:9090/enrollment-3d/" + a[1]).then(
       _ => _.json()
     );
