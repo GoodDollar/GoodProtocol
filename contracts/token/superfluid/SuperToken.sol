@@ -65,10 +65,10 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 	ERC777Helper.Operators internal _operators;
 
 	/// @notice Constant Outflow NFT proxy address
-	IConstantOutflowNFT public constantOutflowNFT;
+	IConstantOutflowNFT public CONSTANT_OUTFLOW_NFT;
 
 	/// @notice Constant Inflow NFT proxy address
-	IConstantInflowNFT public constantInflowNFT;
+	IConstantInflowNFT public CONSTANT_INFLOW_NFT;
 
 	/// @notice Pool Admin NFT proxy address
 	IPoolAdminNFT public poolAdminNFT;

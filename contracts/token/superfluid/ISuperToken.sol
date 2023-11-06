@@ -428,9 +428,9 @@ interface ISuperToken is ISuperfluidToken, TokenInfo, IERC20, IERC777 {
 	 * ERC20x-specific Functions
 	 *************************************************************************/
 
-	function constantOutflowNFT() external view returns (IConstantOutflowNFT);
+	function CONSTANT_OUTFLOW_NFT() external view returns (IConstantOutflowNFT);
 
-	function constantInflowNFT() external view returns (IConstantInflowNFT);
+	function CONSTANT_INFLOW_NFT() external view returns (IConstantInflowNFT);
 
 	function poolAdminNFT() external view returns (IPoolAdminNFT);
 
