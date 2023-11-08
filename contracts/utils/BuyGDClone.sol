@@ -125,10 +125,7 @@ contract BuyGDClone is Initializable {
 	 * @dev If the contract has a balance of cUSD, it will swap cUSD for GD tokens.
 	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
 	 */
-	function swap(
-		uint256 _minAmount,
-		address payable refundGas
-	) external payable {
+	function swap(uint256 _minAmount, address payable refundGas) public payable {
 		uint256 balance = address(this).balance;
 		if (balance > 0) return swapCelo(_minAmount, refundGas);
 
@@ -235,12 +232,88 @@ contract BuyGDClone is Initializable {
 	 * @notice Recovers tokens accidentally sent to the contract.
 	 * @param token The address of the token to recover. Use address(0) to recover ETH.
 	 */
-	function recover(address token) external {
+	function recover(address token) external virtual {
 		if (token == address(0)) {
 			(bool sent, ) = payable(owner).call{ value: address(this).balance }("");
 			if (!sent) revert REFUND_FAILED(address(this).balance);
 		} else {
 			ERC20(token).transfer(owner, ERC20(token).balanceOf(address(this)));
+		}
+	}
+}
+
+contract DonateGDClone is BuyGDClone {
+	error EXEC_FAILED(bytes error);
+
+	address public recoverTo;
+	bytes public callData;
+
+	constructor(
+		ISwapRouter _router,
+		address _cusd,
+		address _gd,
+		IStaticOracle _oracle
+	) BuyGDClone(_router, _cusd, _gd, _oracle) {}
+
+	/**
+	 * @notice Initializes the contract with the owner's address.
+	 * @param _recoverTo The address of the owner of the contract that can recover stuck funds
+	 * @param _donateTo The address of the funds target
+	 */
+	function initialize(
+		address _recoverTo,
+		address _donateTo,
+		bytes memory _callData
+	) external initializer {
+		owner = _donateTo;
+		recoverTo = _recoverTo;
+		callData = _callData;
+	}
+
+	function exec(
+		uint256 _minAmount,
+		address payable refundGas,
+		bool withSwap
+	) public payable {
+		// in case we need to swap and call a contract, we redirect funds here
+		address tempOwner = owner;
+		if (withSwap && callData.length > 0) {
+			owner = address(this);
+		}
+		//no perform swap
+		if (withSwap) {
+			swap(_minAmount, refundGas);
+			owner = tempOwner;
+		}
+
+		//now exec
+		if (callData.length > 0) {
+			// approve spend of the different possible tokens, before calling the target contract
+			uint256 cusdBalance = ERC20(cusd).balanceOf(address(this));
+			uint256 gdBalance = ERC20(gd).balanceOf(address(this));
+			uint256 celoBalance = address(this).balance;
+
+			if (cusdBalance > 0) ERC20(cusd).approve(address(owner), cusdBalance);
+			if (gdBalance > 0) ERC20(gd).approve(address(owner), gdBalance);
+			if (celoBalance > 0) ERC20(celo).approve(address(owner), celoBalance);
+
+			(bool success, bytes memory data) = owner.call{ value: 0 }(callData);
+			if (!success) revert EXEC_FAILED(data);
+		}
+	}
+
+	/**
+	 * @notice Recovers tokens accidentally sent to the contract.
+	 * @param token The address of the token to recover. Use address(0) to recover ETH.
+	 */
+	function recover(address token) external virtual override {
+		if (token == address(0)) {
+			(bool sent, ) = payable(recoverTo).call{ value: address(this).balance }(
+				""
+			);
+			if (!sent) revert REFUND_FAILED(address(this).balance);
+		} else {
+			ERC20(token).transfer(recoverTo, ERC20(token).balanceOf(address(this)));
 		}
 	}
 }
@@ -251,6 +324,7 @@ contract BuyGDClone is Initializable {
  */
 contract BuyGDCloneFactory {
 	address public immutable impl;
+	address public immutable donateImpl;
 
 	/**
 	 * @notice Initializes the BuyGDCloneFactory contract with the provided parameters.
@@ -266,6 +340,8 @@ contract BuyGDCloneFactory {
 		IStaticOracle _oracle
 	) {
 		impl = address(new BuyGDClone(_router, _cusd, _gd, _oracle));
+		donateImpl = address(new DonateGDClone(_router, _cusd, _gd, _oracle));
+
 		_oracle.prepareAllAvailablePoolsWithTimePeriod(_gd, _cusd, 600);
 	}
 
@@ -274,10 +350,29 @@ contract BuyGDCloneFactory {
 	 * @param owner The address of the owner of the new BuyGDClone contract.
 	 * @return The address of the new BuyGDClone contract.
 	 */
-	function create(address owner) external returns (address) {
+	function create(address owner) public returns (address) {
 		bytes32 salt = keccak256(abi.encode(owner));
 		address clone = ClonesUpgradeable.cloneDeterministic(impl, salt);
 		BuyGDClone(payable(clone)).initialize(owner);
+		return clone;
+	}
+
+	/**
+	 * @notice Creates a new clone of the BuyGDClone contract with the provided owner address.
+	 * @param owner The address of the owner of the new DoanteGDClone contract that can recover funds.
+	 * @param donateOrExecTo The address of the target for funds
+	 * @param callData a payload to execute on the target donateOrExecTo instead of simple transfers (using approve instead)
+	 *
+	 * @return The address of the new BuyGDClone contract.
+	 */
+	function createDonation(
+		address owner,
+		address donateOrExecTo,
+		bytes memory callData
+	) public returns (address) {
+		bytes32 salt = keccak256(abi.encode(owner, donateOrExecTo, callData));
+		address clone = ClonesUpgradeable.cloneDeterministic(donateImpl, salt);
+		DonateGDClone(payable(clone)).initialize(owner, donateOrExecTo, callData);
 		return clone;
 	}
 
@@ -285,10 +380,24 @@ contract BuyGDCloneFactory {
 		address owner,
 		uint256 minAmount
 	) external returns (address) {
-		bytes32 salt = keccak256(abi.encode(owner));
-		address clone = ClonesUpgradeable.cloneDeterministic(impl, salt);
-		BuyGDClone(payable(clone)).initialize(owner);
+		address clone = create(owner);
 		BuyGDClone(payable(clone)).swap(minAmount, payable(msg.sender));
+		return clone;
+	}
+
+	function createDonationAndSwap(
+		address owner,
+		address donateOrExecTo,
+		bool withSwap,
+		uint256 minAmount,
+		bytes memory callData
+	) external returns (address) {
+		address clone = createDonation(owner, donateOrExecTo, callData);
+		DonateGDClone(payable(clone)).exec(
+			minAmount,
+			payable(msg.sender),
+			withSwap
+		);
 		return clone;
 	}
 
@@ -302,6 +411,26 @@ contract BuyGDCloneFactory {
 
 		return
 			ClonesUpgradeable.predictDeterministicAddress(impl, salt, address(this));
+	}
+
+	/**
+	 * @notice Predicts the address of a new clone of the BuyGDClone contract with the provided owner address.
+	 * @param owner The address of the owner of the new BuyGDClone contract.
+	 * @return The predicted address of the new BuyGDClone contract.
+	 */
+	function predictDonation(
+		address owner,
+		address donateOrExecTo,
+		bytes memory callData
+	) external view returns (address) {
+		bytes32 salt = keccak256(abi.encode(owner, donateOrExecTo, callData));
+
+		return
+			ClonesUpgradeable.predictDeterministicAddress(
+				donateImpl,
+				salt,
+				address(this)
+			);
 	}
 
 	function getBaseFee() external view returns (uint256) {

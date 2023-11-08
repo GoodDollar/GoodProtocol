@@ -486,7 +486,8 @@
         "CommunitySafe": "0x437C699887779D0A95aD6349CFDE7DFA716C005D",
         "MpbBridge": "0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5",
         "StaticOracle": "0x00851A91a3c4E9a4c1B48df827Bacc1f884bdE28",
-        "BuyGDFactory": "0x00e533B7d6255D05b7f15034B1c989c21F51b91C"
+        "BuyGDFactory": "0x00e533B7d6255D05b7f15034B1c989c21F51b91C",
+        "BuyGDFactoryV2": "0x513927BE0b48D3134716D09f1a23983F6E201e95"
     },
     "gnosis": {
         "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"
@@ -514,7 +515,9 @@
         "GuardiansSafe": "0x84C10B45fE51bfB4f86c19A47Fdbc187d4572Fb8",
         "OneTimePayments": "0xB23e54fd8c2f35F9d38884Fc1611F5e9004f10ea",
         "OneTimePaymentsV2": "0x2cb1c7d50371e277d7a36B171c0ACe9B157518EE",
-        "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4"
+        "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
+        "BuyGDFactory": "0x00e533B7d6255D05b7f15034B1c989c21F51b91C",
+        "BuyGDFactoryV2": "0x513927BE0b48D3134716D09f1a23983F6E201e95"
     },
     "staging-celo": {
         "network": "staging-celo",
@@ -539,7 +542,9 @@
         "GuardiansSafe": "0x84C10B45fE51bfB4f86c19A47Fdbc187d4572Fb8",
         "OneTimePayments": "0x514820Af2DaE5F537dE16E576471528176318113",
         "OneTimePaymentsV2": "0x963E7B4c970626Bb103c61fA16b002AFf6E6c2C7",
-        "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4"
+        "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
+        "BuyGDFactory": "0x00e533B7d6255D05b7f15034B1c989c21F51b91C",
+        "BuyGDFactoryV2": "0x513927BE0b48D3134716D09f1a23983F6E201e95"
     },
     "development-goerli": {
         "ProxyFactory": "0x65D8eACBCd9618b8780C4b444081915a5D54D611",
