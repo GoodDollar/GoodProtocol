@@ -77,6 +77,57 @@ interface ISwapRouter {
 	) external payable returns (uint256 amountIn);
 }
 
+interface IQuoterV2 {
+	/// @notice Returns the amount out received for a given exact input swap without executing the swap
+	/// @param path The path of the swap, i.e. each token pair and the pool fee
+	/// @param amountIn The amount of the first token to swap
+	/// @return amountOut The amount of the last token that would be received
+	/// @return sqrtPriceX96AfterList List of the sqrt price after the swap for each pool in the path
+	/// @return initializedTicksCrossedList List of the initialized ticks that the swap crossed for each pool in the path
+	/// @return gasEstimate The estimate of the gas that the swap consumes
+	function quoteExactInput(
+		bytes memory path,
+		uint256 amountIn
+	)
+		external
+		returns (
+			uint256 amountOut,
+			uint160[] memory sqrtPriceX96AfterList,
+			uint32[] memory initializedTicksCrossedList,
+			uint256 gasEstimate
+		);
+
+	struct QuoteExactInputSingleParams {
+		address tokenIn;
+		address tokenOut;
+		uint256 amountIn;
+		uint24 fee;
+		uint160 sqrtPriceLimitX96;
+	}
+
+	/// @notice Returns the amount out received for a given exact input but for a swap of a single pool
+	/// @param params The params for the quote, encoded as `QuoteExactInputSingleParams`
+	/// tokenIn The token being swapped in
+	/// tokenOut The token being swapped out
+	/// fee The fee of the token pool to consider for the pair
+	/// amountIn The desired input amount
+	/// sqrtPriceLimitX96 The price limit of the pool that cannot be exceeded by the swap
+	/// @return amountOut The amount of `tokenOut` that would be received
+	/// @return sqrtPriceX96After The sqrt price of the pool after the swap
+	/// @return initializedTicksCrossed The number of initialized ticks that the swap crossed
+	/// @return gasEstimate The estimate of the gas that the swap consumes
+	function quoteExactInputSingle(
+		QuoteExactInputSingleParams memory params
+	)
+		external
+		returns (
+			uint256 amountOut,
+			uint160 sqrtPriceX96After,
+			uint32 initializedTicksCrossed,
+			uint256 gasEstimate
+		);
+}
+
 /*
  * @title BuyGDClone
  * @notice This contract allows users to swap Celo or cUSD for GoodDollar (GD) tokens.
@@ -208,6 +259,9 @@ contract BuyGDClone is Initializable {
 		address baseToken,
 		uint32 period
 	) public view returns (uint256 minTwap, uint256 quote) {
+		uint24[] memory fees = new uint24[](1);
+		fees[0] = 10000;
+
 		uint128 toConvert = uint128(baseAmount);
 		if (baseToken == celo) {
 			(quote, ) = oracle.quoteAllAvailablePoolsWithTimePeriod(
@@ -218,10 +272,11 @@ contract BuyGDClone is Initializable {
 			);
 			toConvert = uint128(quote);
 		}
-		(quote, ) = oracle.quoteAllAvailablePoolsWithTimePeriod(
+		(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
 			toConvert,
 			cusd,
 			gd,
+			fees,
 			period
 		);
 		//minAmount should not be 2% under twap (ie we dont expect price movement > 2% in timePeriod)
@@ -323,8 +378,27 @@ contract DonateGDClone is BuyGDClone {
  * @notice Factory contract for creating clones of BuyGDClone contract
  */
 contract BuyGDCloneFactory {
+	error NOT_GD_TOKEN();
+	error INVALID_TWAP();
+	error RECIPIENT_ZERO();
+
+	IQuoterV2 public constant quoter =
+		IQuoterV2(0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8); // celo quoter
+
 	address public immutable impl;
 	address public immutable donateImpl;
+	address public immutable gd;
+	address public immutable cusd;
+	IStaticOracle public immutable oracle;
+	ISwapRouter public immutable router;
+
+	event GDSwapToCusd(
+		address from,
+		address to,
+		uint256 amountIn,
+		uint256 amountOut,
+		bytes note
+	);
 
 	/**
 	 * @notice Initializes the BuyGDCloneFactory contract with the provided parameters.
@@ -341,7 +415,10 @@ contract BuyGDCloneFactory {
 	) {
 		impl = address(new BuyGDClone(_router, _cusd, _gd, _oracle));
 		donateImpl = address(new DonateGDClone(_router, _cusd, _gd, _oracle));
-
+		gd = _gd;
+		cusd = _cusd;
+		oracle = _oracle;
+		router = _router;
 		_oracle.prepareAllAvailablePoolsWithTimePeriod(_gd, _cusd, 600);
 	}
 
@@ -435,5 +512,108 @@ contract BuyGDCloneFactory {
 
 	function getBaseFee() external view returns (uint256) {
 		return block.basefee;
+	}
+
+	function onTokenTransfer(
+		address from,
+		uint256 amount,
+		bytes calldata data
+	) external returns (bool) {
+		if (msg.sender != gd) revert NOT_GD_TOKEN();
+		(address to, uint256 minAmount, bytes memory note) = abi.decode(
+			data,
+			(address, uint256, bytes)
+		);
+		if (to == address(0)) revert RECIPIENT_ZERO();
+
+		uint256 amountIn = ERC20(gd).balanceOf(address(this));
+
+		uint256 amountReceived = swapToCusd(amountIn, minAmount, to);
+		emit GDSwapToCusd(from, to, amount, amountReceived, note);
+		return true;
+	}
+
+	/**
+	 * @notice Swaps cUSD for GD tokens.
+	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
+	 */
+	function swapToCusd(
+		uint256 amountIn,
+		uint256 _minAmount,
+		address recipient
+	) public returns (uint256) {
+		if (msg.sender != gd) {
+			ERC20(gd).transferFrom(msg.sender, address(this), amountIn);
+		}
+
+		if (_minAmount == 0) (_minAmount, ) = minAmountByTWAP(amountIn, gd, 60);
+
+		ERC20(gd).approve(address(router), amountIn);
+		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
+			path: abi.encodePacked(gd, uint24(10000), cusd),
+			recipient: recipient,
+			amountIn: amountIn,
+			amountOutMinimum: _minAmount
+		});
+		return router.exactInput(params);
+	}
+
+	/**
+	 * @notice Calculates the minimum amount of tokens that can be received for a given amount of base tokens,
+	 * based on the time-weighted average price (TWAP) of the token pair over a specified period of time.
+	 * @param baseAmount The amount of base tokens to swap.
+	 * @param baseToken The address of the base token.
+	 * @return minTwap The minimum amount of G$ expected to receive by twap
+	 */
+	function minAmountByTWAP(
+		uint256 baseAmount,
+		address baseToken,
+		uint32 period
+	) public view returns (uint256 minTwap, uint256 quote) {
+		uint24[] memory fees = new uint24[](1);
+		fees[0] = 10000;
+		uint128 toConvert = uint128(baseAmount);
+		(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
+			toConvert,
+			baseToken,
+			cusd,
+			fees,
+			period
+		);
+
+		(uint256 curPrice, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
+			toConvert,
+			baseToken,
+			cusd,
+			fees,
+			0
+		);
+
+		// (ie we dont expect price movement > 2% in timePeriod)
+		if ((quote * 98) / 100 > curPrice) {
+			revert INVALID_TWAP();
+		}
+		//minAmount should not be 2% under curPrice (including slippage and price impact)
+		//this is just a guesstimate, for accurate results use uniswap sdk to get price quote
+		//v3 price quote is not available on chain
+		return ((curPrice * 980) / 1000, quote);
+	}
+
+	function quoteCusd(uint256 amountIn) external returns (uint256 amountOut) {
+		return quoteToken(amountIn, 10000, cusd);
+	}
+
+	function quoteToken(
+		uint256 amountIn,
+		uint24 fee,
+		address targetToken
+	) public returns (uint256 amountOut) {
+		IQuoterV2.QuoteExactInputSingleParams memory params;
+		params.amountIn = amountIn;
+		params.tokenIn = gd;
+		params.tokenOut = targetToken;
+		params.fee = fee;
+
+		(amountOut, , , ) = quoter.quoteExactInputSingle(params);
 	}
 }

@@ -487,7 +487,7 @@
         "MpbBridge": "0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5",
         "StaticOracle": "0x00851A91a3c4E9a4c1B48df827Bacc1f884bdE28",
         "BuyGDFactory": "0x00e533B7d6255D05b7f15034B1c989c21F51b91C",
-        "BuyGDFactoryV2": "0x513927BE0b48D3134716D09f1a23983F6E201e95"
+        "BuyGDFactoryV2": "0xBB2Ef9b160741AAC9e7e654E2fAAf8CE0EDe95fe"
     },
     "gnosis": {
         "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"
