@@ -71,7 +71,7 @@ const simulate = async function () {
       simpleStaking
     });
 
-    await goodFundManager.collectInterest([simpleStaking], false);
+    await goodFundManager.collectInterest([simpleStaking], true);
 
     console.log("claiming");
 

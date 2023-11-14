@@ -249,6 +249,26 @@ export const createDAO = async () => {
 
   console.log("deploying v2...");
   const v2 = await deployV2(network.name, false, olddao);
+  if (isMainnet) {
+    let distHelper = await upgrades.deployProxy(
+      await ethers.getContractFactory("DistributionHelper"),
+      [v2.NameService],
+      {
+        initializer: "initialize(address)",
+        kind: "uups"
+      }
+    );
+
+    const goodReserve = await ethers.getContractFactory("GoodReserveCDai");
+    console.log("setting distribution helper...");
+
+    await genericCall(
+      v2.GoodReserveCDai,
+      goodReserve.interface.encodeFunctionData("setDistributionHelper", [
+        distHelper.address
+      ])
+    );
+  }
   console.log("deploying adminWallet...");
   const adminWallet = await deployAdminWallet(Identity.address, v2.NameService);
   console.log("setting up identity:", {
@@ -345,6 +365,7 @@ const deployBridge = async (Avatar, gd, setSchemes, isMainnet) => {
 
 const deployMainnet = async (Avatar, Identity) => {
   console.log("deploying mainnet...");
+
   const [root] = await ethers.getSigners();
 
   const cdaiFactory = await ethers.getContractFactory("cDAIMock");
