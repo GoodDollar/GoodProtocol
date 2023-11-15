@@ -159,8 +159,10 @@ describe("SuperGoodDollar", async function () {
   it("pauseable", async function () {
     await loadFixture(initialState);
     await sgd.connect(founder).pause();
-    await expect(sgd.transfer(bob.address, tenDollars)).revertedWith(
-      "Pausable: token transfer while paused"
+
+    await expect(sgd.transfer(bob.address, tenDollars)).revertedWithCustomError(
+      sgd,
+      "SUPER_GOODDOLLAR_PAUSED"
     );
 
     await expect(
@@ -169,12 +171,14 @@ describe("SuperGoodDollar", async function () {
           superToken: sgd.address,
           sender: alice.address,
           receiver: bob.address,
-          flowRate: tenDollarsPerDay
+          flowRate: tenDollarsPerDay,
+          overrides: { gasLimit: 1000000 }
         })
         .exec(alice)
-    ).reverted;
+    ).reverted; // createflow should revert when paused
 
     await sgd.connect(founder).unpause();
+
     await sgd.transfer(bob.address, tenDollars);
   });
 

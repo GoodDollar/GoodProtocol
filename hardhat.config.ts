@@ -3,7 +3,7 @@
  */
 import { HardhatUserConfig } from "hardhat/types";
 import "@typechain/hardhat";
-import "@nomiclabs/hardhat-waffle";
+import "@nomicfoundation/hardhat-chai-matchers"; //Added for revertWithCustomErrors
 import "@nomiclabs/hardhat-etherscan";
 import "@openzeppelin/hardhat-upgrades";
 import "solidity-coverage";
