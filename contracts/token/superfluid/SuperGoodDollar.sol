@@ -28,6 +28,8 @@ contract SuperGoodDollar is
 	ERC677, // without storage
 	IGoodDollarCustom // without storage
 {
+	error SUPER_GOODDOLLAR_PAUSED();
+
 	// IMPORTANT! Never change the type (storage size) or order of state variables.
 	// If a variable isn't needed anymore, leave it as padding (renaming is ok).
 	address public feeRecipient;
@@ -109,7 +111,7 @@ contract SuperGoodDollar is
 		bytes32 id,
 		bytes32[] calldata data
 	) public override(ISuperfluidToken, SuperfluidToken) {
-		require(!paused(), "Pausable: createAgreement while paused");
+		_onlyNotPaused();
 		// otherwise the wrapper of SuperToken.createAgreement does the actual job
 		super.createAgreement(id, data);
 	}
@@ -402,6 +404,13 @@ contract SuperGoodDollar is
 		emit ConstantInflowNFTCreated(CONSTANT_INFLOW_NFT);
 	}
 
+	function recover(IERC20 token) public {
+		token.transfer(
+			getRoleMember(DEFAULT_ADMIN_ROLE, 0),
+			token.balanceOf(address(this))
+		);
+	}
+
 	/**************************************************************************
 	 * Modifiers
 	 *************************************************************************/
@@ -415,7 +424,7 @@ contract SuperGoodDollar is
 	}
 
 	function _onlyNotPaused() internal view {
-		require(!paused(), "Pausable: token transfer while paused");
+		if (paused()) revert SUPER_GOODDOLLAR_PAUSED();
 	}
 
 	modifier onlyMinter() {

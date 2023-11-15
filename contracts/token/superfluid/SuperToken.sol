@@ -166,6 +166,11 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		if (recipient == address(0)) {
 			revert SUPER_TOKEN_TRANSFER_TO_ZERO_ADDRESS();
 		}
+
+		if (recipient == address(this)) {
+			revert SUPER_TOKEN_TRANSFER_TO_TOKEN_ADDRESS();
+		}
+
 		address operator = msg.sender;
 
 		_move(operator, holder, recipient, amount, "", "");
@@ -209,6 +214,9 @@ contract SuperToken is UUPSProxiable, SuperfluidToken, ISuperToken {
 		}
 		if (to == address(0)) {
 			revert SUPER_TOKEN_TRANSFER_TO_ZERO_ADDRESS();
+		}
+		if (to == address(this)) {
+			revert SUPER_TOKEN_TRANSFER_TO_TOKEN_ADDRESS();
 		}
 
 		_callTokensToSend(operator, from, to, amount, userData, operatorData);
