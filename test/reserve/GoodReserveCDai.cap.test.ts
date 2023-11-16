@@ -66,7 +66,7 @@ describe("GoodReserve - Enforce token cap", () => {
   it("should not be able to mint if not minter", async () => {
     await expect(
       goodReserve.mintRewardFromRR(cDai, founder.address, 10)
-    ).to.be.revertedWith("GoodReserve: not a minter");
+    ).to.be.revertedWith(/GoodReserve: not a minter/);
   });
 
   it("should be able to mint if fund_manager contract and Reserve is minter", async () => {
@@ -136,7 +136,7 @@ describe("GoodReserve - Enforce token cap", () => {
 
     await expect(
       goodReserve.connect(founder).mintRewardFromRR(cDai, founder.address, 10)
-    ).to.be.revertedWith("GoodReserve: not a minter");
+    ).to.be.revertedWith(/GoodReserve: not a minter/);
   });
 
   it("should not be able to grant minter role if not Avatar", async () => {
@@ -145,7 +145,7 @@ describe("GoodReserve - Enforce token cap", () => {
         await goodReserve.RESERVE_MINTER_ROLE(),
         granted.address
       )
-    ).to.be.revertedWith("is missing role");
+    ).to.be.revertedWith(/is missing role/);
   });
 
   it("should be able to grant minter role if Avatar", async () => {
@@ -180,7 +180,7 @@ describe("GoodReserve - Enforce token cap", () => {
       goodReserve
         .connect(granted)
         .mintRewardFromRR(cDai, founder.address, 22 * 1e14)
-    ).to.be.revertedWith("GoodReserve: cap enforced");
+    ).to.be.revertedWith(/GoodReserve: cap enforced/);
   });
 
   it("should be able to revoke minter role if Avatar", async () => {

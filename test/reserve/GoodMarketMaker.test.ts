@@ -1,4 +1,4 @@
-import { default as hre, ethers, upgrades, waffle } from "hardhat";
+import { default as hre, ethers, upgrades } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { GoodMarketMaker, CERC20 } from "../../types";
@@ -176,7 +176,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       ethers.utils.parseEther("2")
     );
     await expect(res).to.be.revertedWith(
-      "GD amount is lower than the contribution amount"
+      /GD amount is lower than the contribution amount/
     );
   });
 
@@ -194,14 +194,14 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     let res = marketMaker.connect(staker).mintInterest(cdai, BN.from(1e8));
 
     await expect(res).to.be.revertedWith(
-      "GoodMarketMaker: not Reserve or Avatar"
+      /GoodMarketMaker: not Reserve or Avatar/
     );
   });
 
   it("should not be able to mint expansion by a non owner", async () => {
     let res = marketMaker.connect(staker).mintExpansion(cdai);
     await expect(res).to.be.revertedWith(
-      "GoodMarketMaker: not Reserve or Avatar"
+      /GoodMarketMaker: not Reserve or Avatar/
     );
   });
 
@@ -217,21 +217,21 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   it("should be able to update the reserve ratio only by the owner", async () => {
     let res = marketMaker.connect(staker).expandReserveRatio(cdai);
     await expect(res).to.be.revertedWith(
-      "GoodMarketMaker: not Reserve or Avatar"
+      /GoodMarketMaker: not Reserve or Avatar/
     );
   });
 
   it("should be able to mint interest only by the owner", async () => {
     let res = marketMaker.connect(staker).mintInterest(cdai, BN.from(1e8));
     await expect(res).to.be.revertedWith(
-      "GoodMarketMaker: not Reserve or Avatar"
+      /GoodMarketMaker: not Reserve or Avatar/
     );
   });
 
   it("should be able to mint expansion only by the owner", async () => {
     let res = marketMaker.connect(staker).mintExpansion(cdai);
     await expect(res).to.be.revertedWith(
-      "GoodMarketMaker: not Reserve or Avatar"
+      /GoodMarketMaker: not Reserve or Avatar/
     );
   });
 
@@ -412,21 +412,21 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       .connect(staker)
       .buy(dai, ethers.utils.parseEther("1"));
     await expect(res).to.be.revertedWith(
-      "GoodMarketMaker: not Reserve or Avatar"
+      /GoodMarketMaker: not Reserve or Avatar/
     );
   });
 
   it("should not be able to calculate the sell return in reserve token and update the bonding curve params by a non-owner account", async () => {
     let res = marketMaker.connect(staker).sellWithContribution(dai, 100, 0);
     await expect(res).to.be.revertedWith(
-      "GoodMarketMaker: not Reserve or Avatar"
+      /GoodMarketMaker: not Reserve or Avatar/
     );
   });
 
   it("should not be able to calculate the sellWithContribution return in reserve token and update the bonding curve params by a non-owner account", async () => {
     let res = marketMaker.connect(staker).sellWithContribution(dai, 100, 80);
     await expect(res).to.be.revertedWith(
-      "GoodMarketMaker: not Reserve or Avatar"
+      /GoodMarketMaker: not Reserve or Avatar/
     );
   });
 
@@ -442,7 +442,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       reserveRatioBefore.toString()
     );
     let res = marketMaker.buy(cdai, ethers.utils.parseEther("1"));
-    await expect(res).to.be.revertedWith("Reserve token not initialized");
+    await expect(res).to.be.revertedWith(/Reserve token not initialized/);
     await initializeToken(
       cdai,
       gdSupplyBefore,
@@ -458,7 +458,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       0
     );
 
-    await expect(res).to.be.revertedWith("Reserve token not initialized");
+    await expect(res).to.be.revertedWith(/Reserve token not initialized/);
   });
 
   it("should be able to sellWithContribution only with active token", async () => {
@@ -467,7 +467,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       ethers.utils.parseEther("1"),
       ethers.utils.parseEther("1")
     );
-    await expect(res).to.be.revertedWith("Reserve token not initialized");
+    await expect(res).to.be.revertedWith(/Reserve token not initialized/);
   });
 
   it("should be able to sell gd only when the amount is lower than the total supply", async () => {
@@ -479,7 +479,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       0
     );
     await expect(res).to.be.revertedWith(
-      "GD amount is higher than the total supply"
+      /GD amount is higher than the total supply/
     );
   });
 
@@ -510,7 +510,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       .connect(staker)
       .setReserveRatioDailyExpansion(1, 1e15);
     await expect(res).to.be.revertedWith(
-      "GoodMarketMaker: not Reserve or Avatar"
+      /GoodMarketMaker: not Reserve or Avatar/
     );
   });
 
@@ -598,7 +598,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     const invalidZeroDenominator = 0;
     await expect(
       marketMaker.setReserveRatioDailyExpansion(1, invalidZeroDenominator)
-    ).to.be.revertedWith("denominator must be above 0");
+    ).to.be.revertedWith(/denominator must be above 0/);
 
     const denominator = 1;
     const nominatorHigherThanDenom = 2;
@@ -607,6 +607,6 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
         nominatorHigherThanDenom,
         denominator
       )
-    ).to.be.revertedWith("Invalid nom or denom value");
+    ).to.be.revertedWith(/Invalid nom or denom value/);
   });
 });

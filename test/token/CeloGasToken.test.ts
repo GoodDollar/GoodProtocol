@@ -91,7 +91,7 @@ describe("Celo Gas Token", () => {
 
     await expect(
       token.debitGasFees(founder.address, BigNumber.from(1))
-    ).revertedWith("VM");
+    ).revertedWith(/VM/);
     await expect(
       token.creditGasFees(
         founder.address,
@@ -103,6 +103,6 @@ describe("Celo Gas Token", () => {
         1,
         1
       )
-    ).revertedWith("VM");
+    ).revertedWith(/VM/);
   });
 });

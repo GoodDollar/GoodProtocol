@@ -1,4 +1,4 @@
-import { default as hre, ethers, waffle } from "hardhat";
+import { default as hre, ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber, Contract, Signer } from "ethers";
 import { expect } from "chai";
@@ -70,40 +70,26 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     // await goodReserve.setAddresses();
   });
 
-  const fixture = async (wallets, provider) => {
-    const f = await ethers.getContractFactory("GoodDollarStakingMock");
-
-    wallets = provider.getWallets();
-    const staking = (await waffle.deployContract(
-      wallets[0],
-      {
-        abi: JSON.parse(
-          f.interface.format(FormatTypes.json) as string
-        ) as any[],
-        bytecode: f.bytecode
-      },
-      [nameService.address, BN.from("1000000007735630000"), 518400 * 12, 30]
-    )) as GoodDollarStaking;
+  const fixture = async () => {
+    const staking = (await ethers.deployContract("GoodDollarStakingMock", [
+      nameService.address,
+      BN.from("1000000007735630000"),
+      518400 * 12,
+      30
+    ])) as GoodDollarStaking;
 
     await staking.upgrade();
 
     return { staking };
   };
 
-  const fixture_ready = async (wallets, provider) => {
-    const f = await ethers.getContractFactory("GoodDollarStakingMock");
-
-    wallets = provider.getWallets();
-    const staking = (await waffle.deployContract(
-      wallets[0],
-      {
-        abi: JSON.parse(
-          f.interface.format(FormatTypes.json) as string
-        ) as any[],
-        bytecode: f.bytecode
-      },
-      [nameService.address, BN.from("1000000007735630000"), 518400 * 12, 30]
-    )) as GoodDollarStaking;
+  const fixture_ready = async () => {
+    const staking = (await ethers.deployContract("GoodDollarStakingMock", [
+      nameService.address,
+      BN.from("1000000007735630000"),
+      518400 * 12,
+      30
+    ])) as GoodDollarStaking;
 
     await staking.upgrade();
 
@@ -112,20 +98,13 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
     return { staking };
   };
 
-  const fixture_upgradeTest = async (wallets, provider) => {
-    const f = await ethers.getContractFactory("GoodDollarStaking");
-
-    wallets = provider.getWallets();
-    const staking = (await waffle.deployContract(
-      wallets[0],
-      {
-        abi: JSON.parse(
-          f.interface.format(FormatTypes.json) as string
-        ) as any[],
-        bytecode: f.bytecode
-      },
-      [nameService.address, BN.from("1000000007735630000"), 518400 * 12, 30]
-    )) as GoodDollarStaking;
+  const fixture_upgradeTest = async () => {
+    const staking = (await ethers.deployContract("GoodDollarStaking", [
+      nameService.address,
+      BN.from("1000000007735630000"),
+      518400 * 12,
+      30
+    ])) as GoodDollarStaking;
 
     //TODO: register as scheme here
 
@@ -133,7 +112,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   };
 
   it("Should not revert withdraw but also not mint GOOD reward when staking contract is not minter", async () => {
-    const { staking } = await waffle.loadFixture(fixture);
+    const { staking } = await loadFixture(fixture);
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(staking.address, "100");
     await staking.stake("100");
@@ -145,7 +124,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("Should be able to mint rewards after set GDAO staking contract", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(staking.address, "100");
@@ -162,7 +141,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("Avatar should be able to change rewards per block", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     const ictrl = await ethers.getContractAt(
       "Controller",
@@ -198,7 +177,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("Should be able to withdraw rewards without withdraw stake", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
     const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(staking.address, "100");
@@ -221,7 +200,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("Should be able to withdraw transferred stakes", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     await goodDollar.mint(staker.address, "100");
     await goodDollar.connect(staker).approve(staking.address, "100");
@@ -240,7 +219,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("should not be able to withdraw after they send their stake to somebody else", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     await goodDollar.mint(staker.address, "100");
     await goodDollar.connect(staker).approve(staking.address, "100");
@@ -251,12 +230,12 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
       .transfer(founder.address, await staking.balanceOf(staker.address));
 
     await expect(staking.connect(staker).withdrawStake(1)).revertedWith(
-      "no balance"
+      /no balance/
     );
   });
 
   it("it should distribute reward with correct precision", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     const ictrl = await ethers.getContractAt(
       "Controller",
@@ -290,7 +269,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("it should not generate rewards when rewards per block set to 0", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     const ictrl = await ethers.getContractAt(
       "Controller",
@@ -321,7 +300,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("it should return productivity values correctly", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(staking.address, "100");
     await staking.stake("100");
@@ -336,7 +315,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("it should return earned rewards with pending ones properly for a short period", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
     const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(staking.address, "100");
@@ -354,7 +333,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("Accumulated per share has enough precision when reward << totalproductivity", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     await goodDollar.mint(founder.address, "100000000000000"); // 1 trillion gd stake
@@ -376,7 +355,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("user receive fractional gdao properly when his stake << totalProductivity", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     await goodDollar.mint(founder.address, "800"); // 8gd
@@ -426,7 +405,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("it should be able to tranfer tokens when user approve", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     await goodDollar.mint(founder.address, "100");
     await goodDollar.approve(staking.address, "100");
@@ -453,7 +432,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("it should return staker data", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     await goodDollar.mint(staker2.address, "200");
     await goodDollar.connect(staker2).approve(staking.address, "200");
@@ -498,7 +477,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("it should return pendingRewards equal zero after withdraw", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     await goodDollar.mint(staker.address, "200");
     await goodDollar.connect(staker).approve(staking.address, "200");
@@ -530,7 +509,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("it should calculate accumulated rewards per share correctly", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     await goodDollar.mint(founder.address, "200");
     await goodDollar.mint(staker.address, "200");
@@ -602,33 +581,33 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("Staking tokens should be 18 decimals", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     const decimals = await staking.decimals();
     expect(decimals.toString()).to.be.equal("18");
   });
 
   it("Stake amount should be positive", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
-    await expect(staking.stake("0")).revertedWith("Cannot stake 0");
+    await expect(staking.stake("0")).revertedWith(/Cannot stake 0/);
   });
 
   it("It should approve stake amount in order to stake", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     await expect(staking.stake(ethers.utils.parseEther("10000000"))).to
       .reverted;
   });
 
   it("Withdraw 0 should succeed", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     await expect(staking.withdrawStake("0")).to.not.reverted;
   });
 
   it("Withdraw uint max should withdraw everything", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     await goodDollar.mint(staker2.address, "200");
     await goodDollar.connect(staker2).approve(staking.address, "200");
@@ -645,7 +624,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("Should use overriden _transfer that handles productivity when using transferFrom which is defined in super erc20 contract", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
     await expect(
       staking.transferFrom(
         founder.address,
@@ -656,7 +635,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("it should get rewards for previous stakes when stake new amount of tokens", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     await goodDollar.mint(founder.address, "200");
@@ -681,7 +660,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("it should distribute rewards properly when there are multiple stakers", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     const stakingAmount = BN.from("100");
@@ -832,7 +811,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("it should get staking reward even when stake amount is low", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     const stakingAmount = BN.from("10000");
@@ -891,7 +870,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("it should mint rewards properly when withdrawRewards", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
     await goodDollar.mint(founder.address, "200");
     const rewardsPerBlock = (await staking.getRewardsPerBlock())[0];
     await goodDollar.approve(staking.address, "200");
@@ -912,7 +891,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("it should not overmint rewards when staker withdraw their rewards", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     const overmintTesterFactory = await ethers.getContractFactory(
       "OverMintTester"
@@ -962,7 +941,7 @@ describe("GoodDollarStaking - check GOOD rewards based on GovernanceStaking.test
   });
 
   it("it should accrue previous rewards based on previous monthly rate on monthly rewards rate change to 0", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     const ictrl = await ethers.getContractAt(
       "Controller",

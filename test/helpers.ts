@@ -357,7 +357,7 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
     const functionName = functionAbi.substring(0, funcNameEnd);
 
     await expect(contract[functionAbi](...parameters)).to.revertedWith(
-      "avatar"
+      /avatar/
     );
     const encoded = contract.interface.encodeFunctionData(functionName, [
       ...parameters

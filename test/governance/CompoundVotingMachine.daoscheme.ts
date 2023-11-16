@@ -163,7 +163,7 @@ describe("CompoundVotingMachine#DAOScheme", () => {
   it("Should not be able to change params if not avatar", async () => {
     await expect(
       gov.setVotingParameters([0, 0, 0, 0, 0, 0, 0, 0, 0])
-    ).to.revertedWith("only avatar");
+    ).to.revertedWith(/only avatar/);
   });
 
   it("Should be able to propose parameters changes", async () => {

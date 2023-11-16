@@ -146,7 +146,7 @@ describe("AaveStakingFactory", () => {
         aaveUsdOracle.address,
         [cdai, dai] // violates tokenToDaiSwapPath[0] == _token (cdai != usdc)
       )
-    ).to.be.revertedWith("invalid _tokenToDaiSwapPath");
+    ).to.be.revertedWith(/invalid _tokenToDaiSwapPath/);
     await expect(
       goodAaveStakingV2.init(
         usdc.address,
@@ -160,6 +160,6 @@ describe("AaveStakingFactory", () => {
         aaveUsdOracle.address,
         [usdc.address, cdai] // violates _tokenToDaiSwapPath[] path leading to dai
       )
-    ).to.be.revertedWith("invalid _tokenToDaiSwapPath");
+    ).to.be.revertedWith(/invalid _tokenToDaiSwapPath/);
   });
 });

@@ -312,6 +312,6 @@ describe("GDX Token", () => {
         "0xd515f7a623c1a18396a6aececcdcae32818b64faa0f536103b3a32e8c5ae7643"
       ]
     );
-    await expect(tx).to.be.revertedWith("already claimed gdx");
+    await expect(tx).to.be.revertedWith(/already claimed gdx/);
   });
 });

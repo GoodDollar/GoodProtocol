@@ -100,7 +100,7 @@ describe("AdminWallet", () => {
 
   it("should not top admin list when empty", async () => {
     await expect(adminWallet["topAdmins(uint256)"](0)).revertedWith(
-      "Admin list is empty"
+      /Admin list is empty/
     );
   });
 
@@ -183,7 +183,7 @@ describe("AdminWallet", () => {
       adminWallet
         .connect(stranger)
         ["whitelist(address,string)"](whitelisted.address, "did:test")
-    ).revertedWith("Caller is not admin");
+    ).revertedWith(/Caller is not admin/);
     expect(await identity.isWhitelisted(whitelisted.address)).to.false;
     await adminWallet
       .connect(admin)
@@ -191,7 +191,7 @@ describe("AdminWallet", () => {
     expect(await identity.isWhitelisted(whitelisted.address)).to.true;
     await expect(
       adminWallet.connect(stranger).removeWhitelist(whitelisted.address)
-    ).revertedWith("Caller is not admin");
+    ).revertedWith(/Caller is not admin/);
     expect(await identity.isWhitelisted(whitelisted.address)).to.true;
   });
 
@@ -208,13 +208,13 @@ describe("AdminWallet", () => {
     expect(await identity.isBlacklisted(blacklisted.address)).to.false;
     await expect(
       adminWallet.connect(stranger).blacklist(blacklisted.address)
-    ).revertedWith("Caller is not admin");
+    ).revertedWith(/Caller is not admin/);
     expect(await identity.isBlacklisted(blacklisted.address)).to.false;
     await adminWallet.connect(admin).blacklist(blacklisted.address);
     expect(await identity.isBlacklisted(blacklisted.address)).to.true;
     await expect(
       adminWallet.connect(stranger).removeBlacklist(blacklisted.address)
-    ).revertedWith("Caller is not admin");
+    ).revertedWith(/Caller is not admin/);
     expect(await identity.isBlacklisted(blacklisted.address)).to.true;
     await adminWallet.connect(admin).removeBlacklist(blacklisted.address);
     expect(await identity.isBlacklisted(blacklisted.address)).to.false;
@@ -224,14 +224,14 @@ describe("AdminWallet", () => {
     const walletBalance = await ethers.provider.getBalance(adminWallet.address);
     await expect(
       adminWallet.connect(admin).topWallet(whitelisted.address)
-    ).revertedWith("hasBalance");
+    ).revertedWith(/hasBalance/);
   });
 
   it("should not allow to top wallet if user gd balance unchanged", async () => {
     expect(await ethers.provider.getBalance(newUser.address)).eq(0);
     await expect(
       adminWallet.connect(admin).topWallet(newUser.address)
-    ).revertedWith("User has not used G$");
+    ).revertedWith(/User has not used G\$/);
   });
 
   it("should allow to top wallet if user gd balance changed", async () => {
@@ -266,7 +266,7 @@ describe("AdminWallet", () => {
     await gooddollar.mint(newUser.address, 1);
     await expect(
       adminWallet.connect(admin).topWallet(newUser.address)
-    ).revertedWith("User wallet has been topped too many times today");
+    ).revertedWith(/User wallet has been topped too many times today/);
   });
 
   it("should whitelist user", async () => {
@@ -282,13 +282,13 @@ describe("AdminWallet", () => {
       adminWallet
         .connect(admin2)
         ["whitelist(address,string)"](stranger.address, "did:test")
-    ).revertedWith("DID already registered");
+    ).revertedWith(/DID already registered/);
   });
 
   it("should not allow anyone to upgrade", async () => {
     await expect(
       adminWallet.connect(admin2).upgradeTo(adminWallet.address)
-    ).revertedWith("not owner");
+    ).revertedWith(/not owner/);
   });
 
   it("should allow owner to upgrade", async () => {

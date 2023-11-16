@@ -81,7 +81,7 @@ describe("proxyfactory", () => {
       await ethers.getContractFactory("UpgradableMock")
     ).deploy();
     await expect(proxy.connect(signers[1]).upgradeTo(c1.address)).revertedWith(
-      "authorized"
+      /authorized/
     );
     expect(await proxy.decimals()).to.eq(18);
   });
@@ -127,7 +127,7 @@ describe("proxyfactory", () => {
 
     await expect(
       proxy["initialize(address,bytes)"](c2.address, encoded)
-    ).revertedWith("initialized");
+    ).revertedWith(/initialized/);
 
     let orgproxy = await ethers.getContractAt("UpgradableMock", proxyAddr);
     expect(await orgproxy.owner()).to.eq(signers[2].address);

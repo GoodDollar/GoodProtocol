@@ -235,14 +235,14 @@ describe("GoodDollar Token", () => {
   it("should not let non owner set identity and formula", async () => {
     await expect(
       newtoken.connect(signers[0]).setFormula(ethers.constants.AddressZero)
-    ).revertedWith("not owner");
+    ).revertedWith(/not owner/);
     await expect(
       newtoken.connect(signers[0]).setIdentity(ethers.constants.AddressZero)
-    ).revertedWith("not owner");
+    ).revertedWith(/not owner/);
   });
 
   it("should fail transfer", async () => {
-    let data = "0x0";
+    let data = "0x";
 
     await expect(
       token
@@ -260,7 +260,7 @@ describe("GoodDollar Token", () => {
 
     await expect(
       token.transferAndCall(receiver.address, 1000, data)
-    ).revertedWith("Contract Fallback failed");
+    ).revertedWith(/Contract Fallback failed/);
     expect(await receiver.wasCalled()).false;
   });
 
@@ -309,7 +309,7 @@ describe("GoodDollar Token", () => {
     await expect(unCappedToken.mint(founder.address, 1000)).not.reverted;
 
     await expect(cappedToken.mint(founder.address, 1200)).revertedWith(
-      "Cannot increase supply beyond cap"
+      /Cannot increase supply beyond cap/
     );
   });
 

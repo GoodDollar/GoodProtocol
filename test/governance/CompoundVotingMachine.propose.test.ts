@@ -72,7 +72,7 @@ describe("CompoundVotingMachine#propose", () => {
         "do nothing"
       )
     ).to.revertedWith(
-      "CompoundVotingMachine::propose: one live proposal per proposer, found an already pending proposal"
+      /CompoundVotingMachine::propose: one live proposal per proposer, found an already pending proposal/
     );
   });
 
@@ -144,7 +144,7 @@ describe("CompoundVotingMachine#propose", () => {
             "do nothing"
           )
         ).to.revertedWith(
-          "CompoundVotingMachine::propose: one live proposal per proposer, found an already active proposal"
+          /CompoundVotingMachine::propose: one live proposal per proposer, found an already active proposal/
         );
       });
     });
@@ -162,7 +162,7 @@ describe("CompoundVotingMachine#propose", () => {
               "do nothing"
             )
         ).to.revertedWith(
-          "CompoundVotingMachine::propose: proposer votes below proposal threshold"
+          /CompoundVotingMachine::propose: proposer votes below proposal threshold/
         );
       });
 
@@ -176,7 +176,7 @@ describe("CompoundVotingMachine#propose", () => {
             "do nothing"
           )
         ).to.revertedWith(
-          "CompoundVotingMachine::propose: proposal function information arity mismatch"
+          /CompoundVotingMachine::propose: proposal function information arity mismatch/
         );
 
         await expect(
@@ -188,7 +188,7 @@ describe("CompoundVotingMachine#propose", () => {
             "do nothing"
           )
         ).to.revertedWith(
-          "CompoundVotingMachine::propose: proposal function information arity mismatch"
+          /CompoundVotingMachine::propose: proposal function information arity mismatch/
         );
 
         await expect(
@@ -200,7 +200,7 @@ describe("CompoundVotingMachine#propose", () => {
             "do nothing"
           )
         ).to.revertedWith(
-          "CompoundVotingMachine::propose: proposal function information arity mismatch"
+          /CompoundVotingMachine::propose: proposal function information arity mismatch/
         );
 
         await expect(
@@ -212,7 +212,7 @@ describe("CompoundVotingMachine#propose", () => {
             "do nothing"
           )
         ).to.revertedWith(
-          "CompoundVotingMachine::propose: proposal function information arity mismatch"
+          /CompoundVotingMachine::propose: proposal function information arity mismatch/
         );
       });
 
@@ -226,7 +226,7 @@ describe("CompoundVotingMachine#propose", () => {
             "do nothing"
           )
         ).to.revertedWith(
-          "CompoundVotingMachine::propose: must provide actions"
+          /CompoundVotingMachine::propose: must provide actions/
         );
       });
     });

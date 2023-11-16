@@ -48,8 +48,8 @@ describe("Reputation", () => {
     await reputation.mint(signers[1].address, 1000);
 
     // only the owner can call mint
-    await expect(reputation.connect(signers[2]).mint(signers[2], 1000)).to
-      .reverted;
+    await expect(reputation.connect(signers[2]).mint(signers[2].address, 1000))
+      .to.reverted;
 
     let account0Rep = await reputation.balanceOfLocal(signers[0].address);
     let account1Rep = await reputation.balanceOfLocal(signers[1].address);

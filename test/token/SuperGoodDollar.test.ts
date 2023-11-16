@@ -190,7 +190,7 @@ describe("SuperGoodDollar", async function () {
 
     await expect(
       sgd.connect(alice).transfer(bob.address, tenDollars)
-    ).revertedWith("Not enough balance to pay TX fee");
+    ).revertedWith(/Not enough balance to pay TX fee/);
 
     // mint the extra amount needed for 10% fees
     await sgd.mint(alice.address, oneDollar);
@@ -219,7 +219,7 @@ describe("SuperGoodDollar", async function () {
 
     await expect(
       sgd.connect(founder).transferFrom(alice.address, bob.address, tenDollars)
-    ).revertedWith("Not enough balance to pay TX fee");
+    ).revertedWith(/Not enough balance to pay TX fee/);
 
     // mint the extra amount needed for 10% fees
     await sgd.connect(founder).mint(alice.address, oneDollar);
@@ -262,7 +262,7 @@ describe("SuperGoodDollar", async function () {
         ethers.constants.AddressZero,
         ethers.constants.AddressZero
       )
-    ).revertedWith("Initializable: contract is already initialized");
+    ).revertedWith(/Initializable: contract is already initialized/);
 
     await expect(
       sgd["initialize(address,uint8,string,string)"](
@@ -271,7 +271,7 @@ describe("SuperGoodDollar", async function () {
         "GD",
         "GD"
       )
-    ).revertedWith("Initializable: contract is not initializing");
+    ).revertedWith(/Initializable: contract is not initializing/);
   });
 
   it("update the GoodDollar logic", async function () {
@@ -290,7 +290,7 @@ describe("SuperGoodDollar", async function () {
 
     await expect(
       sgdProxiable.connect(eve).updateCode(newLogic.address)
-    ).revertedWith("not owner");
+    ).revertedWith(/not owner/);
 
     await sgdProxiable.connect(founder).updateCode(newLogic.address);
 
@@ -317,7 +317,7 @@ describe("SuperGoodDollar", async function () {
         ethers.constants.AddressZero,
         ethers.constants.AddressZero
       )
-    ).revertedWith("Initializable: contract is already initialized");
+    ).revertedWith(/Initializable: contract is already initialized/);
   });
 
   describe("ERC20Permit", () => {
@@ -396,7 +396,7 @@ describe("SuperGoodDollar", async function () {
 
         await expect(
           sgd.permit(owner, bob.address, value, maxDeadline, v, r, s)
-        ).revertedWith("ERC20Permit: invalid signature");
+        ).revertedWith(/ERC20Permit: invalid signature/);
       });
 
       it("rejects other signature", async function () {
@@ -411,7 +411,7 @@ describe("SuperGoodDollar", async function () {
 
         await expect(
           sgd.permit(owner, bob.address, value, maxDeadline, v, r, s)
-        ).revertedWith("ERC20Permit: invalid signature");
+        ).revertedWith(/ERC20Permit: invalid signature/);
       });
 
       it("rejects expired permit", async function () {
@@ -428,7 +428,7 @@ describe("SuperGoodDollar", async function () {
 
         await expect(
           sgd.permit(owner, bob.address, value, deadline, v, r, s)
-        ).revertedWith("ERC20Permit: expired deadline");
+        ).revertedWith(/ERC20Permit: expired deadline/);
       });
     });
   });

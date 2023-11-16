@@ -1,8 +1,8 @@
-import hre, { ethers, network as networkConfig, waffle } from "hardhat";
+import hre, { ethers, network as networkConfig } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { FuseStakingV3 } from "../../types";
 import { expect } from "chai";
-import { MockContract } from "ethereum-waffle";
+import * as waffle from "ethereum-waffle";
 import { abi as ubiabi } from "../../artifacts/contracts/ubi/UBIScheme.sol/UBIScheme.json";
 import { BigNumber } from "ethers";
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -12,7 +12,7 @@ describe("FuseStakingV3", () => {
   let founder, staker1, staker2;
   let signers;
 
-  let uniswap: MockContract,
+  let uniswap: waffle.MockContract,
     uniswapFactory,
     uniswapPair,
     gdusdcPair,

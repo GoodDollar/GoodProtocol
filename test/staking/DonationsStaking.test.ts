@@ -233,7 +233,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
 
   it("it should reverted when there is no token to stake", async () => {
     await expect(donationsStaking.stakeDonations()).to.be.revertedWith(
-      "no stakingToken to stake"
+      /no stakingToken to stake/
     );
   });
 
@@ -488,7 +488,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
       donationsStaking
         .connect(staker)
         ["setMaxLiquidityPercentageSwap(uint24)"](percentageToSet)
-    ).to.be.revertedWith("only avatar can call this method");
+    ).to.be.revertedWith(/only avatar can call this method/);
     //succeed when avatar
     let encodedData = donationsStaking.interface.encodeFunctionData(
       "setMaxLiquidityPercentageSwap",

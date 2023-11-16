@@ -1,4 +1,4 @@
-import { default as hre, ethers, upgrades, waffle } from "hardhat";
+import { default as hre, ethers, upgrades } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { Contract, Signer } from "ethers";
 import { expect } from "chai";
@@ -104,10 +104,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   }
 
   const fixture_staked1year = async (wallets, provider) => {
-    const { staking, goodDollarMintBurnWrapper } = await fixture_ready(
-      wallets,
-      provider
-    );
+    const { staking, goodDollarMintBurnWrapper } = await fixture_ready();
 
     await stake(staker1, STAKE_AMOUNT, staking);
     await advanceBlocks(BLOCKS_ONE_YEAR);
@@ -115,20 +112,13 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     return { staking, goodDollarMintBurnWrapper };
   };
 
-  const fixture_ready = async (wallets, provider) => {
-    const f = await ethers.getContractFactory("GoodDollarStakingMock");
-
-    wallets = provider.getWallets();
-    const staking = (await waffle.deployContract(
-      wallets[0],
-      {
-        abi: JSON.parse(
-          f.interface.format(FormatTypes.json) as string
-        ) as any[],
-        bytecode: f.bytecode
-      },
-      [nameService.address, BN.from("1000000007735630000"), 518400 * 12, 30]
-    )) as GoodDollarStaking;
+  const fixture_ready = async () => {
+    const staking = (await ethers.deployContract("GoodDollarStakingMock", [
+      nameService.address,
+      BN.from("1000000007735630000"),
+      518400 * 12,
+      30
+    ])) as GoodDollarStaking;
 
     await staking.upgrade();
 
@@ -168,32 +158,17 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
     return { staking: staking.connect(staker1), goodDollarMintBurnWrapper };
   };
 
-  const fixture_upgradeTest = async (wallets, provider) => {
-    const f = await ethers.getContractFactory("GoodDollarStaking");
-    const gf = await ethers.getContractFactory("GovernanceStaking");
+  const fixture_upgradeTest = async () => {
+    const staking = (await ethers.deployContract("GoodDollarStaking", [
+      nameService.address,
+      BN.from("1000000007735630000"),
+      518400 * 12,
+      30
+    ])) as GoodDollarStaking;
 
-    wallets = provider.getWallets();
-    const staking = (await waffle.deployContract(
-      wallets[0],
-      {
-        abi: JSON.parse(
-          f.interface.format(FormatTypes.json) as string
-        ) as any[],
-        bytecode: f.bytecode
-      },
-      [nameService.address, BN.from("1000000007735630000"), 518400 * 12, 30]
-    )) as GoodDollarStaking;
-
-    const govStaking = (await waffle.deployContract(
-      wallets[0],
-      {
-        abi: JSON.parse(
-          gf.interface.format(FormatTypes.json) as string
-        ) as any[],
-        bytecode: gf.bytecode
-      },
-      [nameService.address]
-    )) as GovernanceStaking;
+    const govStaking = (await ethers.deployContract("GovernanceStaking", [
+      nameService.address
+    ])) as GovernanceStaking;
 
     await setDAOAddress("GDAO_STAKING", govStaking.address);
 
@@ -203,7 +178,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   };
 
   it("should update stakingrewardsfixedapy staker info and global stats when staking", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
     const statsBefore = await staking.stats();
     const PRECISION = await staking.PRECISION();
 
@@ -229,7 +204,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("should withdraw only rewards when calling withdrawRewards", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     // collect 350 earned rewards: 10,000 * 5%APY = 500 total rewards, minus 30% donation
     await stake(staker1, STAKE_AMOUNT, staking);
@@ -252,7 +227,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("should withdraw from deposit and undo rewards if unable to mint rewards", async () => {
-    const { staking, goodDollarMintBurnWrapper } = await waffle.loadFixture(
+    const { staking, goodDollarMintBurnWrapper } = await loadFixture(
       fixture_ready
     );
     const PAUSE_ALL_ROLE = await goodDollarMintBurnWrapper.PAUSE_ALL_ROLE();
@@ -287,7 +262,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("should withdraw rewards after mint rewards is enabled again", async () => {
-    const { staking, goodDollarMintBurnWrapper } = await waffle.loadFixture(
+    const { staking, goodDollarMintBurnWrapper } = await loadFixture(
       fixture_ready
     );
     const PAUSE_ALL_ROLE = await goodDollarMintBurnWrapper.PAUSE_ALL_ROLE();
@@ -326,18 +301,16 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
         518400 * 12,
         61
       )
-    ).revertedWith("max two");
+    ).revertedWith(/max two/);
   });
 
   it("should not perform upgrade when not deadline", async () => {
-    const { staking } = await waffle.loadFixture(fixture_upgradeTest);
-    await expect(staking.upgrade()).to.revertedWith("deadline");
+    const { staking } = await loadFixture(fixture_upgradeTest);
+    await expect(staking.upgrade()).to.revertedWith(/deadline/);
   });
 
   it("should perform upgrade after deadline", async () => {
-    const { staking, govStaking } = await waffle.loadFixture(
-      fixture_upgradeTest
-    );
+    const { staking, govStaking } = await loadFixture(fixture_upgradeTest);
 
     const gdaoStakingBefore = await nameService.getAddress("GDAO_STAKING");
 
@@ -362,7 +335,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("should set APY and change getRewardsPerBlock only by avatar", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     const [, gdRewardsPerBlockBeforeSet] = await staking.getRewardsPerBlock();
     expect(gdRewardsPerBlockBeforeSet.add(1)).to.equal(INTEREST_RATE_5APY_X64);
@@ -383,7 +356,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("should be pausable by avatar", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     await runAsAvatarOnly(staking, "pause(bool,uint128)", true, "0");
     expect(await staking.paused()).to.equal(true);
@@ -402,14 +375,14 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("should not be able to stake when paused", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     await runAsAvatarOnly(staking, "pause(bool,uint128)", true, "0");
-    await expect(stake(staker2, "1000", staking)).to.revertedWith("pause");
+    await expect(stake(staker2, "1000", staking)).to.revertedWith(/pause/);
   });
 
   it("should have max yearly apy of 20%", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     await runAsAvatarOnly(staking, "setGdApy(uint128)", "1000000029000000000");
 
@@ -424,7 +397,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("should handle stakingrewardsfixed apy correctly when transfering staking tokens to new staker", async () => {
-    const { staking } = await waffle.loadFixture(fixture_staked1year);
+    const { staking } = await loadFixture(fixture_staked1year);
 
     const RECEIVER_STAKE = 10000;
     const receiver = staker2;
@@ -480,7 +453,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("should be able to stake using onTokenTransfer", async () => {
-    const { staking, goodDollarMintBurnWrapper } = await waffle.loadFixture(
+    const { staking, goodDollarMintBurnWrapper } = await loadFixture(
       fixture_ready
     );
 
@@ -499,7 +472,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("should asure getStaked returns correct value", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
 
     // correct after stake
     await stake(staker1, STAKE_AMOUNT, staking);
@@ -522,7 +495,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("it should return getUserPendingReward G$ value equal to earned() rewards after donation", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
     await stake(staker1, STAKE_AMOUNT, staking);
     await advanceBlocks(BLOCKS_ONE_YEAR);
 
@@ -537,7 +510,7 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("should return G$ totalRewardsPerShare equal sharePrice()", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
     await stake(staker1, STAKE_AMOUNT, staking);
     await advanceBlocks(BLOCKS_ONE_YEAR);
     const stats = await staking.stats();
@@ -559,18 +532,18 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
   });
 
   it("it should not upgrade if no balance or target is not approved by dao", async () => {
-    const { staking } = await waffle.loadFixture(fixture_ready);
+    const { staking } = await loadFixture(fixture_ready);
     await expect(
       staking.connect(staker1).upgradeTo(signers[10].address)
-    ).revertedWith("no balance");
+    ).revertedWith(/no balance/);
     await stake(staker1, STAKE_AMOUNT, staking);
     await expect(
       staking.connect(staker1).upgradeTo(signers[10].address)
-    ).revertedWith("not DAO approved");
+    ).revertedWith(/not DAO approved/);
   });
 
   it("it should not upgrade if cant mint rewards", async () => {
-    const { staking, goodDollarMintBurnWrapper } = await waffle.loadFixture(
+    const { staking, goodDollarMintBurnWrapper } = await loadFixture(
       fixture_ready
     );
     await stake(staker1, STAKE_AMOUNT, staking);
@@ -600,11 +573,11 @@ describe("GoodDollarStaking - check fixed APY G$ rewards", () => {
 
     await expect(
       staking.connect(staker1).upgradeTo(signers[10].address)
-    ).revertedWith("unable to mint rewards");
+    ).revertedWith(/unable to mint rewards/);
   });
 
   it("it should upgrade and transfer funds to new staking contract", async () => {
-    const { staking, goodDollarMintBurnWrapper } = await waffle.loadFixture(
+    const { staking, goodDollarMintBurnWrapper } = await loadFixture(
       fixture_ready
     );
     await stake(staker1, STAKE_AMOUNT, staking);

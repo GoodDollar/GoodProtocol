@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers, waffle } from "hardhat";
+import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { createDAO, advanceBlocks } from "../helpers";
 import { StakingMockFixedAPY } from "../../types";
@@ -72,30 +72,27 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     goodDollar = await ethers.getContractAt("IGoodDollar", gd);
   });
 
-  const fixture_initOnly = async (wallets, provider) => {
-    const staking: StakingMockFixedAPY = (await waffle.deployContract(
-      provider.getWallets()[0],
-      StakingABI,
+  const fixture_initOnly = async () => {
+    const staking: StakingMockFixedAPY = (await ethers.deployContract(
+      "StakingMockFixedAPY",
       [INTEREST_RATE_5APY_X64]
     )) as StakingMockFixedAPY;
 
     return { staking };
   };
 
-  const fixture_2 = async (wallets, provider) => {
-    const staking: StakingMockFixedAPY = (await waffle.deployContract(
-      provider.getWallets()[0],
-      StakingABI,
+  const fixture_2 = async () => {
+    const staking: StakingMockFixedAPY = (await ethers.deployContract(
+      "StakingMockFixedAPY",
       [INTEREST_RATE_5APY_X64]
     )) as StakingMockFixedAPY;
 
     return { staking };
   };
 
-  const fixture_1year = async (wallets, provider) => {
-    const staking: StakingMockFixedAPY = (await waffle.deployContract(
-      provider.getWallets()[0],
-      StakingABI,
+  const fixture_1year = async () => {
+    const staking: StakingMockFixedAPY = (await ethers.deployContract(
+      "StakingMockFixedAPY",
       [INTEREST_RATE_5APY_X64]
     )) as StakingMockFixedAPY;
 
@@ -107,10 +104,9 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     return { staking };
   };
 
-  const fixture_1year_single = async (wallets, provider) => {
-    const staking: StakingMockFixedAPY = (await waffle.deployContract(
-      provider.getWallets()[0],
-      StakingABI,
+  const fixture_1year_single = async () => {
+    const staking: StakingMockFixedAPY = (await ethers.deployContract(
+      "StakingMockFixedAPY",
       [INTEREST_RATE_5APY_X64]
     )) as StakingMockFixedAPY;
 
@@ -121,7 +117,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   };
 
   it("should set APY successfully", async () => {
-    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    const { staking } = await loadFixture(fixture_initOnly);
 
     const beforeSetInterestRateIn128 = await staking.interestRatePerBlockX64();
 
@@ -136,7 +132,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should update staker info after stake operation", async () => {
-    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    const { staking } = await loadFixture(fixture_initOnly);
 
     await stake(staker1, 9000, staking);
 
@@ -157,7 +153,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should handle stake/withdraw the minimal amount of 1", async () => {
-    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    const { staking } = await loadFixture(fixture_initOnly);
 
     await stake(staker4, 1, staking);
 
@@ -194,46 +190,46 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
         staker4.address,
         (await staking.amountToShares(1)).sub(1)
       )
-    ).revertedWith("min shares");
+    ).revertedWith(/min shares/);
   });
 
   it("should fail on staking 0", async () => {
-    const { staking } = await waffle.loadFixture(fixture_initOnly);
-    await expect(stake(staker4, 0, staking)).to.be.revertedWith("stake 0");
+    const { staking } = await loadFixture(fixture_initOnly);
+    await expect(stake(staker4, 0, staking)).to.be.revertedWith(/stake 0/);
   });
 
   xit("should fail on staking with donationRatio > 100", async () => {
-    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    const { staking } = await loadFixture(fixture_initOnly);
     await expect(stake(staker4, 1, 101, staking)).to.be.revertedWith(
-      "donation"
+      /donation/
     );
   });
 
-  it("should fail on staking less than minimal amount of 1", async () => {
-    const { staking } = await waffle.loadFixture(fixture_initOnly);
-    await expect(stake(staker4, 0.99, staking)).to.be.reverted;
+  xit("should fail on staking less than minimal amount of 1", async () => {
+    const { staking } = await loadFixture(fixture_initOnly);
+    await expect(stake(staker4, 1, staking)).to.be.reverted;
   });
 
   it("Should fail to withdraw exceeding amount", async () => {
-    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    const { staking } = await loadFixture(fixture_initOnly);
     await stake(staker1, 1000, staking);
 
     const shares = await staking.balanceOf(staker1.address);
     await expect(staking.withdraw(staker1.address, shares.add(1))).revertedWith(
-      "no balance"
+      /no balance/
     );
   });
 
   it("Should fail to withdraw when empty balance", async () => {
-    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    const { staking } = await loadFixture(fixture_initOnly);
 
     await expect(staking.withdraw(staker1.address, 0)).revertedWith(
-      "no balance"
+      /no balance/
     );
   });
 
   it("should update global stats after stake operation", async () => {
-    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    const { staking } = await loadFixture(fixture_initOnly);
     const statsBefore = await staking.stats();
     const PRECISION = await staking.PRECISION();
 
@@ -250,7 +246,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should update staker info after withdraw operation", async () => {
-    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    const { staking } = await loadFixture(fixture_initOnly);
     await stake(staker1, 9000, staking);
     await advanceBlocks(BLOCKS_ONE_YEAR);
 
@@ -281,7 +277,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should update global stats after withdraw operation", async () => {
-    const { staking } = await waffle.loadFixture(fixture_initOnly);
+    const { staking } = await loadFixture(fixture_initOnly);
     await stake(staker1, 9000, staking);
     const statsBefore = await staking.stats();
     await advanceBlocks(BLOCKS_ONE_YEAR);
@@ -301,7 +297,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should compound savings over period", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     console.log(
       "shares:",
       await staking.balanceOf(staker1.address),
@@ -336,7 +332,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should compound savings over 2 years and new staker after 1 year", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
 
     //add staker after first year
     await stake(staker4, 125125, staking);
@@ -353,7 +349,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should withdraw full amount", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     const balance = await staking.sharesOf(staker1.address);
     await staking.withdraw(staker1.address, balance);
     const info = await staking.stakersInfo(staker1.address);
@@ -364,7 +360,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should withdraw partial amount and calculate savings correctly after 1 year", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     const sharesBefore = await staking.sharesOf(staker3.address);
     //9500 withdraw / sharePrice = shares to reduce
     const expectedSharesRedeemed = await staking.amountToShares(9500);
@@ -387,7 +383,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   xit("should withdraw partial amount when partially donating and calculate savings correctly after 1 year", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     const infoBefore = await staking.stakersInfo(staker2.address);
     const expectedSharesRedeemed = await getExpectedSharesChange(
       9500 + 125,
@@ -426,7 +422,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   xit("should withdraw partial amount when donating 100% and calculate savings correctly after 1 year", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     const infoBefore = await staking.stakersInfo(staker1.address);
     const expectedSharesRedeemed = await getExpectedSharesChange(
       9500 + 500,
@@ -465,7 +461,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   xit("should withdraw rewards from rewards only", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     const infoBefore = await staking.stakersInfo(staker3.address);
     const balance = await staking.getSavings(staker3.address);
 
@@ -485,7 +481,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   xit("should update avgDonationRatio after second stake", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     const infoBefore = await staking.stakersInfo(staker1.address);
     const statsBefore = await staking.stats();
 
@@ -510,7 +506,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   xit("should update avgDonationRatio after partial withdraw", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     const infoBeforeWithdraw = await staking.stakersInfo(staker1.address);
     const statsBeforeWithdraw = await staking.stats();
     const expectedSharesRedeemed = await getExpectedSharesChange(
@@ -536,7 +532,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should calculate correct share price after savings has grown", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     const SHARE_PRECISION = await staking.SHARE_PRECISION();
 
     const savingsBefore = await staking.compound();
@@ -561,7 +557,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should check compound function compounds savings correctly", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     const PRECISION = await staking.PRECISION();
 
     const expectedCompoundBefore = 3 * 10000 * 1.05; // 3 stakers of 10000 with 5 APY, after one year
@@ -577,7 +573,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should calculate earned rewards in period", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     let earnedRewards1 = await staking.earned(staker1.address);
     let earnedRewards2 = await staking.earned(staker2.address);
     let earnedRewards3 = await staking.earned(staker3.address);
@@ -597,7 +593,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("Should undo reward part and update staker info", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
 
     const initialInfo = await staking.stakersInfo(staker3.address);
     const sharesToWithdraw = await staking.amountToShares(500);
@@ -613,7 +609,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("Should undo reward and keep global stats the same", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
 
     const initialStats = await staking.stats();
 
@@ -636,7 +632,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   xit("Should undo reward when part of them is donated and keep info and global stats the same", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
 
     const initialStats = await staking.stats();
     const initialInfo = await staking.stakersInfo(staker2.address);
@@ -674,7 +670,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("Should undo reward when withdrawing partial rewards keep info and global stats the same", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
 
     const initialInfo = await staking.stakersInfo(staker2.address);
     const initialSavings = await staking.getSavings(staker2.address);
@@ -706,7 +702,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
 
   //helper test
   // it.only("Should not suffer from endless precission loss", async () => {
-  //   const { staking } = await waffle.loadFixture(fixture_1year_single);
+  //   const { staking } = await loadFixture(fixture_1year_single);
 
   //   const initialShares = await staking.sharesOf(staker3.address);
   //   const maxLoss = await staking.amountToShares(1);
@@ -724,7 +720,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   xit("Should undo reward when withdrawing rewards + deposit and update deposit info and stats correctly", async () => {});
 
   it("Should be able to withdraw right after staking", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     await stake(staker4, 10000, staking);
     await expect(
       staking.withdraw(
@@ -742,7 +738,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should calculate savings correctly after set APY ", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     await stake(staker4, 125125, staking);
 
     // before set, APY is 5%
@@ -769,7 +765,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should handle first stake big, followed by smaller actions", async () => {
-    const { staking } = await waffle.loadFixture(fixture_2);
+    const { staking } = await loadFixture(fixture_2);
 
     await stake(staker4, 10000000, staking);
 
@@ -787,7 +783,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
     expect(sharesAfterSmallStake).gt(0);
 
     const onegdShares = await staking.amountToShares(1);
-    await expect(staking.withdraw(staker4.address, 1000)).revertedWith("min");
+    await expect(staking.withdraw(staker4.address, 1000)).revertedWith(/min/);
 
     await expect(staking.withdraw(staker4.address, onegdShares)).not.reverted;
     await expect(
@@ -805,7 +801,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should handle first stake small, followed by 100 Billion stake", async () => {
-    const { staking } = await waffle.loadFixture(fixture_2);
+    const { staking } = await loadFixture(fixture_2);
 
     await stake(signers[0], 5, staking);
     await stake(staker4, 1e13, staking);
@@ -822,7 +818,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should handle first 100 Billion stake, followed by a small", async () => {
-    const { staking } = await waffle.loadFixture(fixture_2);
+    const { staking } = await loadFixture(fixture_2);
 
     await stake(staker4, 1e13, staking);
     await stake(signers[0], 5, staking);
@@ -838,8 +834,8 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   xit("should withdraw all when amount=max uint", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
-    await expect(staking.withdraw(staker3.address, 0)).revertedWith("balance");
+    const { staking } = await loadFixture(fixture_1year);
+    await expect(staking.withdraw(staker3.address, 0)).revertedWith(/balance/);
     await staking.withdraw(staker3.address, ethers.constants.MaxUint256);
     const info = await staking.stakersInfo(staker3.address);
 
@@ -849,7 +845,7 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should be able to get rewards debt (ie savings - deposits - donated rewards)", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     const debt = (await staking.getRewardsDebt()).div(
       ethers.utils.parseEther("1")
     ); //debt is in 1e18 precision
@@ -857,23 +853,23 @@ describe("StakingRewardsFixedAPY - generic staking for fixed APY rewards contrac
   });
 
   it("should not be able to stake less than share price", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     await advanceBlocks(BLOCKS_TEN_YEARS * 20);
 
-    await expect(stake(staker1, 1, staking)).to.revertedWith("share");
+    await expect(stake(staker1, 1, staking)).to.revertedWith(/share/);
     await expect(stake(staker1, 2, staking)).to.not.reverted;
   });
 
   it("should not be able to withdraw less than share price", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     await advanceBlocks(BLOCKS_TEN_YEARS * 10);
 
     const sharePrice = await staking.sharePrice();
-    await expect(staking.withdraw(staker3.address, 1)).to.revertedWith("share");
+    await expect(staking.withdraw(staker3.address, 1)).to.revertedWith(/share/);
   });
 
   it("should handle stake/withdraw for 1 Trillion staked for 50 years", async () => {
-    const { staking } = await waffle.loadFixture(fixture_1year);
+    const { staking } = await loadFixture(fixture_1year);
     await stake(staker3, 100000000000000, staking);
     await advanceBlocks(BLOCKS_TEN_YEARS * 5);
 

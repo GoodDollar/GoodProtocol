@@ -101,7 +101,7 @@ describe("InvitesV1", () => {
           ethers.utils.hexZeroPad("0xfa", 32),
           ethers.utils.hexZeroPad("0x01", 32)
         )
-    ).to.revertedWith("user already joined");
+    ).to.revertedWith(/user already joined/);
   });
 
   it("should not allow code reuse", async () => {
@@ -110,7 +110,7 @@ describe("InvitesV1", () => {
       invites
         .connect(inviter2)
         .join(ethers.utils.hexZeroPad("0xfa", 32), ethers.constants.HashZero)
-    ).to.revertedWith("invite code already in use");
+    ).to.revertedWith(/invite code already in use/);
   });
 
   it("should mark inviter", async () => {
@@ -129,7 +129,7 @@ describe("InvitesV1", () => {
   it("should not pay bounty for non whitelisted invitee", async () => {
     await expect(
       invites.connect(inviter1).bountyFor(invitee1.address)
-    ).to.revertedWith("user not elligble for bounty yet");
+    ).to.revertedWith(/user not elligble for bounty yet/);
   });
 
   it("should not pay bounty for non whitelisted inviter", async () => {
@@ -138,7 +138,7 @@ describe("InvitesV1", () => {
     expect(await invites.canCollectBountyFor(invitee1.address)).to.be.false;
     await expect(
       invites.connect(inviter1).bountyFor(invitee1.address)
-    ).to.revertedWith("user not elligble for bounty yet");
+    ).to.revertedWith(/user not elligble for bounty yet/);
   });
 
   it("should pay bounty for whitelisted invitee and inviter", async () => {
@@ -200,7 +200,7 @@ describe("InvitesV1", () => {
   it("should not pay bounty twice", async () => {
     await expect(
       invites.connect(inviter2).bountyFor(invitee1.address)
-    ).to.revertedWith("user not elligble for bounty yet");
+    ).to.revertedWith(/user not elligble for bounty yet/);
   });
 
   it("should not fail in collectBounties for invalid invitees", async () => {
@@ -260,7 +260,7 @@ describe("InvitesV1", () => {
   it("should not set level not by owner", async () => {
     await expect(
       invites.connect(inviter1).setLevel(0, 1, 5, 1)
-    ).to.revertedWith("Only owner or avatar can perform this action");
+    ).to.revertedWith(/Only owner or avatar can perform this action/);
   });
 
   it("should set level by owner", async () => {

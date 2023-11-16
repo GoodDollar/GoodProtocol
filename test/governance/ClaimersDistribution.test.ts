@@ -95,7 +95,7 @@ describe("ClaimersDistribution", () => {
   it("should not be able to set monthly distribution", async () => {
     await expect(
       cd["setMonthlyReputationDistribution(uint256)"](10)
-    ).to.revertedWith("only avatar");
+    ).to.revertedWith(/only avatar/);
   });
 
   it("should be able to set monthly distribution by avatar", async () => {
@@ -109,7 +109,7 @@ describe("ClaimersDistribution", () => {
 
   it("should not update claim if didnt claim today", async () => {
     await expect(cd.updateClaim(claimer1.address)).to.revertedWith(
-      "ClaimersDistribution: didn't claim today"
+      /ClaimersDistribution: didn't claim today/
     );
   });
 
@@ -127,7 +127,7 @@ describe("ClaimersDistribution", () => {
 
   it("should not update claim if already updated", async () => {
     await expect(cd.updateClaim(claimer1.address)).to.revertedWith(
-      "ClaimersDistribution: already updated"
+      /ClaimersDistribution: already updated/
     );
   });
 

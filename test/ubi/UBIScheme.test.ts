@@ -99,7 +99,7 @@ describe("UBIScheme", () => {
 
     await expect(
       ubi1.initialize(nameService.address, firstClaimPool.address, 0)
-    ).revertedWith("Max inactive days cannot be zero");
+    ).revertedWith(/Max inactive days cannot be zero/);
   });
 
   it("should deploy the ubi", async () => {

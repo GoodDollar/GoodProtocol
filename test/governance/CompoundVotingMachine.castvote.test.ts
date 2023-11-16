@@ -63,8 +63,7 @@ describe("CompoundVotingMachine#CastVote", () => {
 
   describe("We must revert if:", () => {
     it("There does not exist a proposal with matching proposal id where the current block number is between the proposal's start block (exclusive) and end block (inclusive)", async () => {
-      await expect(gov.castVote(proposalId, true)).to.revertedWith(
-        "CompoundVotingMachine::_castVote: voting is closed"
+      await expect(gov.castVote(proposalId, true)).to.revertedWith(/CompoundVotingMachine::_castVote: voting is closed/
       );
     });
 
@@ -72,8 +71,7 @@ describe("CompoundVotingMachine#CastVote", () => {
       await gov.connect(signers[0]).castVote(proposalId, true);
       await expect(
         gov.connect(signers[0]).castVote(proposalId, true)
-      ).to.revertedWith(
-        "CompoundVotingMachine::_castVote: voter already voted"
+      ).to.revertedWith(/CompoundVotingMachine::_castVote: voter already voted/
       );
     });
   });
@@ -166,8 +164,7 @@ describe("CompoundVotingMachine#CastVote", () => {
               ethers.utils.hexZeroPad("0xbac", 32),
               ethers.utils.hexZeroPad("0xbada", 32)
             )
-          ).to.revertedWith(
-            "CompoundVotingMachine::castVoteBySig: invalid signature"
+          ).to.revertedWith(/CompoundVotingMachine::castVoteBySig: invalid signature/
           );
         });
 

@@ -113,14 +113,14 @@ describe("Identity", () => {
     let whitelisted = signers[1];
     await expect(
       identity.connect(signers[2]).addWhitelisted(whitelisted.address)
-    ).revertedWith("AccessControl: account");
+    ).revertedWith(/AccessControl: account/);
   });
 
   it("should revert when non admin tries to add blacklist", async () => {
     let blacklisted = signers[1];
     await expect(
       identity.connect(signers[2]).addBlacklisted(blacklisted.address)
-    ).revertedWith("AccessControl: account");
+    ).revertedWith(/AccessControl: account/);
   });
 
   it("should revert when non admin tries to set the authentication period", async () => {
@@ -150,7 +150,7 @@ describe("Identity", () => {
     let authuser = signers[0].address;
     await expect(
       identity.connect(signers[2]).authenticate(authuser)
-    ).revertedWith("AccessControl: account");
+    ).revertedWith(/AccessControl: account/);
   });
 
   it("should authenticate the user with the correct timestamp", async () => {
@@ -225,13 +225,13 @@ describe("Identity", () => {
 
     await expect(
       identity.addWhitelistedWithDID(whitelisted2.address, "testString")
-    ).revertedWith("DID already registered");
+    ).revertedWith(/DID already registered/);
   });
 
   it("should not allow adding non contract to contracts", async () => {
     let outsider = signers[0];
     await expect(identity.addContract(outsider.address)).revertedWith(
-      "Given address is not a contract"
+      /Given address is not a contract/
     );
   });
 
@@ -330,11 +330,11 @@ describe("Identity", () => {
           "0x",
           await ethers.provider.getBlockNumber()
         )
-    ).revertedWith("invalid deadline");
+    ).revertedWith(/invalid deadline/);
 
     await expect(
       identity.connect(whitelisted).connectAccount(toconnect.address, "0x", 0)
-    ).revertedWith("invalid deadline");
+    ).revertedWith(/invalid deadline/);
   });
 
   it("should not allow to replay signature", async () => {
@@ -353,7 +353,7 @@ describe("Identity", () => {
           signed,
           (await ethers.provider.getBlockNumber()) + 10
         )
-    ).revertedWith("invalid signature");
+    ).revertedWith(/invalid signature/);
   });
 
   it("should not allow to connect account already whitelisted", async () => {
@@ -366,7 +366,7 @@ describe("Identity", () => {
       identity
         .connect(whitelisted)
         .connectAccount(signers[2].address, "0x", 20000000)
-    ).revertedWith("invalid account");
+    ).revertedWith(/invalid account/);
   });
 
   it("should allow to disconnect account by owner or connected", async () => {
@@ -391,7 +391,7 @@ describe("Identity", () => {
     const connected = signers[10];
     const whitelisted = signers[1];
     await expect(identity.disconnectAccount(connected.address)).revertedWith(
-      "unauthorized"
+      /unauthorized/
     );
   });
 
@@ -406,7 +406,7 @@ describe("Identity", () => {
       identity
         .connect(signers[2])
         .connectAccount(connected.address, "0x", 200000)
-    ).revertedWith("already connected");
+    ).revertedWith(/already connected/);
   });
 
   it("should return same root for multiple connected accounts", async () => {
@@ -490,7 +490,7 @@ describe("Identity", () => {
       newid
         .connect(signers[1])
         ["setDID(address,string)"](signers[1].address, "testolddid")
-    ).revertedWith("DID already registered oldIdentity");
+    ).revertedWith(/DID already registered oldIdentity/);
   });
 
   it("should set did if set in oldidentity by same owner", async () => {

@@ -111,7 +111,7 @@ describe("CompoundVotingMachine#States", () => {
 
   it("Invalid for proposal not found", async () => {
     await expect(gov.state(5)).to.revertedWith(
-      "CompoundVotingMachine::state: invalid proposal id"
+      /CompoundVotingMachine::state: invalid proposal id/
     );
   });
 
@@ -190,7 +190,7 @@ describe("CompoundVotingMachine#States", () => {
       await expect(
         gov.connect(acct).castVote(proposalId, false)
       ).to.be.revertedWith(
-        "CompoundVotingMachine::_castVote: voting is closed"
+        /CompoundVotingMachine::_castVote: voting is closed/
       );
     });
 
@@ -198,7 +198,7 @@ describe("CompoundVotingMachine#States", () => {
       await increaseTime(10);
       expect(states[await gov.state(proposalId)]).to.equal("Expired");
       await expect(gov.execute(proposalId)).to.be.revertedWith(
-        "CompoundVotingMachine::execute: proposal can only be executed if it is succeeded"
+        /CompoundVotingMachine::execute: proposal can only be executed if it is succeeded/
       );
     });
   });
@@ -270,7 +270,7 @@ describe("CompoundVotingMachine#States", () => {
     let actor = signers[1];
     let proposalId = await gov.latestProposalIds(actor.address);
     await expect(gov.cancel(proposalId)).to.be.revertedWith(
-      "cannot cancel executed proposal"
+      /cannot cancel executed proposal/
     );
   });
 

@@ -121,6 +121,6 @@ describe("NameService - Setup and functionalities", () => {
     ).deploy();
     await expect(
       nameServiceProxy.upgradeTo(newNameServiceLogic2.address)
-    ).to.be.revertedWith("only avatar can call this method");
+    ).to.be.revertedWith(/only avatar can call this method/);
   });
 });

@@ -62,7 +62,7 @@ describe("CompoundVotingMachine#cross blockchain", () => {
 
   it("reverts emit succeeded if not passed", async () => {
     await expect(gov.emitSucceeded(await gov.proposalCount())).to.revertedWith(
-      "not Succeeded"
+      /not Succeeded/
     );
   });
 
@@ -72,7 +72,7 @@ describe("CompoundVotingMachine#cross blockchain", () => {
     await increaseTime(queuePeriod);
 
     await expect(gov.execute(await gov.proposalCount())).to.revertedWith(
-      "wrong blockchain"
+      /wrong blockchain/
     );
   });
 

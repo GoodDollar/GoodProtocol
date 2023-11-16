@@ -1,4 +1,4 @@
-import hre, { ethers, upgrades, waffle } from "hardhat";
+import hre, { ethers, upgrades } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { GReputation, CompoundVotingMachine } from "../../types";
@@ -100,7 +100,7 @@ describe("CompoundVotingMachine#Guardian", () => {
   it("Should not be able to change guardian if not guardian or avatar", async () => {
     await expect(
       gov.connect(acct).setGuardian(acct.address)
-    ).to.be.revertedWith("CompoundVotingMachine: not avatar or guardian");
+    ).to.be.revertedWith(/CompoundVotingMachine: not avatar or guardian/);
   });
 
   it("Should not be able to change guardian before foundation release time by avatar", async () => {
@@ -113,7 +113,7 @@ describe("CompoundVotingMachine#Guardian", () => {
 
   it("Should not be able to renounce guardian if not guardian", async () => {
     await expect(gov.connect(acct).renounceGuardian()).to.be.revertedWith(
-      "CompoundVotingMachine: not guardian"
+      /CompoundVotingMachine: not guardian/
     );
   });
 
@@ -196,7 +196,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     await advanceBlocks(1);
 
     await expect(gov.cancel(proposalId)).to.be.revertedWith(
-      "CompoundVotingMachine::cancel: proposer above threshold"
+      /CompoundVotingMachine::cancel: proposer above threshold/
     ); //should not be cancelable by anyone else buy guardian
 
     await gov.connect(signers[1]).cancel(proposalId);

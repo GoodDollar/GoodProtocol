@@ -136,10 +136,10 @@ describe("GReputation", () => {
 
   it("should not be able to mint or burn if not minter", async () => {
     await expect(grep.connect(signers[4]).mint(founder, 2)).to.revertedWith(
-      "GReputation: need minter role or be GDAO contract"
+      /GReputation: need minter role or be GDAO contract/
     );
     await expect(grep.connect(signers[4]).burn(founder, 2)).to.revertedWith(
-      "GReputation: need minter role or be GDAO contract"
+      /GReputation: need minter role or be GDAO contract/
     );
   });
 
@@ -312,7 +312,7 @@ describe("GReputation", () => {
           ethers.utils.hexZeroPad("0xbadd", 32),
           ethers.utils.hexZeroPad("0xbadd", 32)
         )
-      ).to.revertedWith("GReputation::delegateBySig: invalid signature");
+      ).to.revertedWith(/GReputation::delegateBySig: invalid signature/);
     });
 
     it("It should not be delegate when delegation address is null", async () => {
@@ -353,7 +353,7 @@ describe("GReputation", () => {
       const sig = ethers.utils.splitSignature(signature);
       await expect(
         grep.delegateBySig(delegate, nonce, expiry, sig.v, sig.r, sig.s)
-      ).to.revertedWith("GReputation::delegateBySig: invalid nonce");
+      ).to.revertedWith(/GReputation::delegateBySig: invalid nonce/);
     });
 
     it("reverts if the signature has expired", async () => {
@@ -373,7 +373,7 @@ describe("GReputation", () => {
       const sig = ethers.utils.splitSignature(signature);
       await expect(
         grep.delegateBySig(delegate, nonce, expiry, sig.v, sig.r, sig.s)
-      ).to.revertedWith("GReputation::delegateBySig: signature expired");
+      ).to.revertedWith(/GReputation::delegateBySig: signature expired/);
     });
 
     describe("delegates on behalf of the signatory", () => {
@@ -588,7 +588,7 @@ describe("GReputation", () => {
       it("should set a new state hash", async () => {
         await expect(
           grep.setBlockchainStateHash("fuse", fuseHash, BN.from("100"))
-        ).to.be.revertedWith("only avatar can call this method");
+        ).to.be.revertedWith(/only avatar can call this method/);
 
         let encodedCall = grep.interface.encodeFunctionData(
           "setBlockchainStateHash",

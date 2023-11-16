@@ -1,4 +1,4 @@
-import { ethers, waffle } from "hardhat";
+import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { GoodReserveCDai, DistributionHelper } from "../../types";
@@ -76,7 +76,7 @@ describe("GoodReserve - Distribution Helper", () => {
   };
 
   it("should allow avatar to unpause", async () => {
-    const { goodReserve } = await waffle.loadFixture(fixture);
+    const { goodReserve } = await loadFixture(fixture);
     const encodedCall = goodReserve.interface.encodeFunctionData("unpause");
 
     expect(await goodReserve.paused()).to.equal(true);
@@ -87,31 +87,31 @@ describe("GoodReserve - Distribution Helper", () => {
 
   it("should not be able to buy when paused", async () => {
     let amount = 1e8;
-    const { goodReserve } = await waffle.loadFixture(fixture);
+    const { goodReserve } = await loadFixture(fixture);
     await dai["mint(uint256)"](ethers.utils.parseEther("100"));
     await dai.approve(cDAI.address, ethers.utils.parseEther("100"));
     await cDAI["mint(uint256)"](ethers.utils.parseEther("100"));
     await cDAI.approve(goodReserve.address, ethers.utils.parseEther("10"));
     await expect(goodReserve.buy(amount, 0, founder.address)).revertedWith(
-      "paused"
+      /paused/
     );
   });
 
   it("should not be able to sell when paused", async () => {
-    const { goodReserve } = await waffle.loadFixture(fixture);
+    const { goodReserve } = await loadFixture(fixture);
     await expect(
       goodReserve.sell(1, 0, founder.address, founder.address)
-    ).revertedWith("paused");
+    ).revertedWith(/paused/);
   });
 
   it("should not be able to mint when paused", async () => {
-    const { goodReserve } = await waffle.loadFixture(fixture);
+    const { goodReserve } = await loadFixture(fixture);
     await setDAOAddress("FUND_MANAGER", founder.address);
 
     await expect(
       goodReserve
         .connect(founder)
         .mintRewardFromRR(cDAI.address, founder.address, 1000)
-    ).revertedWith("paused"); //10000 cdai wei is 1G$
+    ).revertedWith(/paused/); //10000 cdai wei is 1G$
   });
 });

@@ -588,7 +588,7 @@ describe("GovernanceStaking - staking with GD  and get Rewards in GDAO", () => {
 
   it("Withdraw 0 should withdraw everything", async () => {
     await expect(governanceStaking.withdrawStake("0")).to.revertedWith(
-      "positive amount"
+      /positive amount/
     );
   });
 
