@@ -517,7 +517,7 @@
         "OneTimePaymentsV2": "0x2cb1c7d50371e277d7a36B171c0ACe9B157518EE",
         "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
         "BuyGDFactory": "0x00e533B7d6255D05b7f15034B1c989c21F51b91C",
-        "BuyGDFactoryV2": "0x513927BE0b48D3134716D09f1a23983F6E201e95"
+        "BuyGDFactoryV2": "0xBB2Ef9b160741AAC9e7e654E2fAAf8CE0EDe95fe"
     },
     "staging-celo": {
         "network": "staging-celo",
@@ -544,7 +544,7 @@
         "OneTimePaymentsV2": "0x963E7B4c970626Bb103c61fA16b002AFf6E6c2C7",
         "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
         "BuyGDFactory": "0x00e533B7d6255D05b7f15034B1c989c21F51b91C",
-        "BuyGDFactoryV2": "0x513927BE0b48D3134716D09f1a23983F6E201e95"
+        "BuyGDFactoryV2": "0xBB2Ef9b160741AAC9e7e654E2fAAf8CE0EDe95fe"
     },
     "development-goerli": {
         "ProxyFactory": "0x65D8eACBCd9618b8780C4b444081915a5D54D611",
