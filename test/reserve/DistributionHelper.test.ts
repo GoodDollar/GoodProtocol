@@ -89,7 +89,7 @@ describe("DistributionHelper", () => {
       "setFeeSettings",
       [
         {
-          axelarBaseFeeUSD: "100000000000000000",
+          axelarBaseFee: "100000000000000000",
           bridgeExecuteGas: 400000,
           targetChainGasPrice: 5e9,
           maxFee: "5000000000000000",
