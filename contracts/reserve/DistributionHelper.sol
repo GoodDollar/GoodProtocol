@@ -40,6 +40,9 @@ contract DistributionHelper is
 	address public constant WETH_TOKEN =
 		0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
+	address public constant AXL_TOKEN =
+		0x467719aD09025FcC6cF6F8311755809d45a5E5f3;
+
 	enum TransferType {
 		FuseBridge,
 		LayerZeroBridge,
@@ -55,7 +58,7 @@ contract DistributionHelper is
 	}
 
 	struct FeeSettings {
-		uint128 axelarBaseFeeUSD;
+		uint128 axelarBaseFee;
 		uint128 bridgeExecuteGas;
 		uint128 targetChainGasPrice;
 		uint128 maxFee;
@@ -144,10 +147,21 @@ contract DistributionHelper is
 		);
 
 		uint24[] memory fees = new uint24[](1);
+		fees[0] = 3000;
+
+		(uint256 baseFeeInUSDC, ) = STATIC_ORACLE
+			.quoteSpecificFeeTiersWithTimePeriod(
+				uint128(feeSettings.axelarBaseFee),
+				AXL_TOKEN,
+				USDC_TOKEN,
+				fees,
+				60 //last 1 minute
+			);
+
 		fees[0] = 500;
 		(uint256 baseFeeInEth, ) = STATIC_ORACLE
 			.quoteSpecificFeeTiersWithTimePeriod(
-				uint128(feeSettings.axelarBaseFeeUSD) / 1e12, //reduce to usdc 6 decimals
+				uint128(baseFeeInUSDC) / 1e12, //reduce to usdc 6 decimals
 				USDC_TOKEN,
 				WETH_TOKEN,
 				fees,

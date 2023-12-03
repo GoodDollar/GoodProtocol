@@ -2399,8 +2399,8 @@ __metadata:
     "@mean-finance/uniswap-v3-oracle": ^1.0.3
     "@nomicfoundation/hardhat-chai-matchers": 1
     "@nomicfoundation/hardhat-network-helpers": ^1.0.8
+    "@nomicfoundation/hardhat-verify": ^2.0.1
     "@nomiclabs/hardhat-ethers": ^2.2.1
-    "@nomiclabs/hardhat-etherscan": ^3.1.0
     "@nomiclabs/hardhat-waffle": ^2.0.6
     "@openzeppelin/contracts": ^4.8.0
     "@openzeppelin/contracts-upgradeable": ^4.8.0
@@ -2933,6 +2933,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@nomicfoundation/hardhat-verify@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "@nomicfoundation/hardhat-verify@npm:2.0.1"
+  dependencies:
+    "@ethersproject/abi": ^5.1.2
+    "@ethersproject/address": ^5.0.2
+    cbor: ^8.1.0
+    chalk: ^2.4.2
+    debug: ^4.1.1
+    lodash.clonedeep: ^4.5.0
+    semver: ^6.3.0
+    table: ^6.8.0
+    undici: ^5.14.0
+  peerDependencies:
+    hardhat: ^2.0.4
+  checksum: 3bf3a1a0edc913a5c920faeb6574c98118996d994574a8c3cf048acd915a18297a931aae46db31f54a39a34bed666ae0982e4f9c3ee2c5ac7f75ecb3ef2307d8
+  languageName: node
+  linkType: hard
+
 "@nomicfoundation/solidity-analyzer-darwin-arm64@npm:0.1.1":
   version: 0.1.1
   resolution: "@nomicfoundation/solidity-analyzer-darwin-arm64@npm:0.1.1"
@@ -3049,26 +3068,6 @@ __metadata:
     ethers: ^5.0.0
     hardhat: ^2.0.0
   checksum: 8cdbf7068f15ee993142ab600074938d05b42af73392a5b12c8eb607a5bca2fac977a6a85955e0b0285541415ad520626e7fb3d33ca7cc112d61ee928358e2f6
-  languageName: node
-  linkType: hard
-
-"@nomiclabs/hardhat-etherscan@npm:^3.1.0":
-  version: 3.1.0
-  resolution: "@nomiclabs/hardhat-etherscan@npm:3.1.0"
-  dependencies:
-    "@ethersproject/abi": ^5.1.2
-    "@ethersproject/address": ^5.0.2
-    cbor: ^5.0.2
-    chalk: ^2.4.2
-    debug: ^4.1.1
-    fs-extra: ^7.0.1
-    lodash: ^4.17.11
-    semver: ^6.3.0
-    table: ^6.8.0
-    undici: ^5.4.0
-  peerDependencies:
-    hardhat: ^2.0.4
-  checksum: 3f28abc39edce2936226b6d0087c3be78bffcba68b6935f3f60767f0e10233e940ddc74803dff91f7ddf9464a7199aab00fba08d8b3865dbc2f8936f53a7a5a5
   languageName: node
   linkType: hard
 
@@ -7513,7 +7512,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cbor@npm:^5.0.2, cbor@npm:^5.2.0":
+"cbor@npm:^5.2.0":
   version: 5.2.0
   resolution: "cbor@npm:5.2.0"
   dependencies:
@@ -7523,7 +7522,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cbor@npm:^8.0.0":
+"cbor@npm:^8.0.0, cbor@npm:^8.1.0":
   version: 8.1.0
   resolution: "cbor@npm:8.1.0"
   dependencies:
@@ -14537,6 +14536,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"lodash.clonedeep@npm:^4.5.0":
+  version: 4.5.0
+  resolution: "lodash.clonedeep@npm:4.5.0"
+  checksum: 92c46f094b064e876a23c97f57f81fbffd5d760bf2d8a1c61d85db6d1e488c66b0384c943abee4f6af7debf5ad4e4282e74ff83177c9e63d8ff081a4837c3489
+  languageName: node
+  linkType: hard
+
 "lodash.debounce@npm:^4.0.8":
   version: 4.0.8
   resolution: "lodash.debounce@npm:4.0.8"
@@ -21310,13 +21316,6 @@ patch-package@latest:
   dependencies:
     busboy: ^1.6.0
   checksum: 048a3365f622be44fb319316cedfaa241c59cf7f3368ae7667a12323447e1822e8cc3d00f6956c852d1478a6fde1cbbe753f49e05f2fdaed229693e716ebaf35
-  languageName: node
-  linkType: hard
-
-"undici@npm:^5.4.0":
-  version: 5.9.1
-  resolution: "undici@npm:5.9.1"
-  checksum: 8acabbac8e18943ff822574f831d03d65e697e66ef486a679763f7778f37b28980caf7097ededf4017b58c099809e8efd8509a6688f60638360fb86ef47a59df
   languageName: node
   linkType: hard
 

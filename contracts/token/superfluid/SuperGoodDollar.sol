@@ -37,11 +37,11 @@ contract SuperGoodDollar is
 	IIdentity public identity;
 	uint256 public cap;
 	bool public disableHostOperations;
-	address public getUnderlyingToken;
 	// Append additional state variables here!
 
 	// ============== constants and immutables ==============
 
+	address public constant getUnderlyingToken = address(0x0);
 	bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 	bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 

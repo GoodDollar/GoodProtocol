@@ -4,7 +4,7 @@
 import { HardhatUserConfig } from "hardhat/types";
 import "@typechain/hardhat";
 import "@nomicfoundation/hardhat-chai-matchers"; //Added for revertWithCustomErrors
-import "@nomiclabs/hardhat-etherscan";
+import "@nomicfoundation/hardhat-verify";
 import "@openzeppelin/hardhat-upgrades";
 import "solidity-coverage";
 import "hardhat-gas-reporter";
@@ -62,6 +62,9 @@ const hhconfig: HardhatUserConfig = {
   },
   typechain: {
     outDir: "types"
+  },
+  sourcify: {
+    enabled: false
   },
   etherscan: {
     apiKey: {
