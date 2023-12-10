@@ -138,6 +138,8 @@ contract BuyGDClone is Initializable {
 	error REFUND_FAILED(uint256);
 	error NO_BALANCE();
 
+	event Bought(address inToken, uint256 inAmount, uint256 outAmount);
+
 	ISwapRouter public immutable router;
 	address public constant celo = 0x471EcE3750Da237f93B8E339c536989b8978a438;
 	uint32 public immutable twapPeriod;
@@ -176,12 +178,23 @@ contract BuyGDClone is Initializable {
 	 * @dev If the contract has a balance of cUSD, it will swap cUSD for GD tokens.
 	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
 	 */
-	function swap(uint256 _minAmount, address payable refundGas) public payable {
+	function swap(
+		uint256 _minAmount,
+		address payable refundGas
+	) public payable returns (uint256 bought) {
 		uint256 balance = address(this).balance;
-		if (balance > 0) return swapCelo(_minAmount, refundGas);
 
+		if (balance > 0) {
+			bought = swapCelo(_minAmount, refundGas);
+			emit Bought(celo, balance, bought);
+			return bought;
+		}
 		balance = ERC20(cusd).balanceOf(address(this));
-		if (balance > 0) return swapCusd(_minAmount, refundGas);
+		if (balance > 0) {
+			bought = swapCusd(_minAmount, refundGas);
+			emit Bought(celo, balance, bought);
+			return bought;
+		}
 
 		revert NO_BALANCE();
 	}
@@ -193,7 +206,7 @@ contract BuyGDClone is Initializable {
 	function swapCelo(
 		uint256 _minAmount,
 		address payable refundGas
-	) public payable {
+	) public payable returns (uint256 bought) {
 		uint256 gasCosts;
 		if (refundGas != owner) {
 			(gasCosts, ) = oracle.quoteAllAvailablePoolsWithTimePeriod(
@@ -216,7 +229,7 @@ contract BuyGDClone is Initializable {
 			amountIn: amountIn,
 			amountOutMinimum: _minAmount
 		});
-		router.exactInput(params);
+		bought = router.exactInput(params);
 		if (refundGas != owner) {
 			(bool sent, ) = refundGas.call{ value: gasCosts }("");
 			if (!sent) revert REFUND_FAILED(gasCosts);
@@ -227,7 +240,10 @@ contract BuyGDClone is Initializable {
 	 * @notice Swaps cUSD for GD tokens.
 	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
 	 */
-	function swapCusd(uint256 _minAmount, address refundGas) public {
+	function swapCusd(
+		uint256 _minAmount,
+		address refundGas
+	) public returns (uint256 bought) {
 		uint256 gasCosts = refundGas != owner ? 1e17 : 0; //fixed 0.1$
 		uint256 amountIn = ERC20(cusd).balanceOf(address(this)) - gasCosts;
 
@@ -241,7 +257,7 @@ contract BuyGDClone is Initializable {
 			amountIn: amountIn,
 			amountOutMinimum: _minAmount
 		});
-		router.exactInput(params);
+		bought = router.exactInput(params);
 		if (refundGas != owner) {
 			ERC20(cusd).transfer(refundGas, gasCosts);
 		}
@@ -300,6 +316,13 @@ contract BuyGDClone is Initializable {
 contract DonateGDClone is BuyGDClone {
 	error EXEC_FAILED(bytes error);
 
+	event Donated(
+		address donor,
+		address recipient,
+		address tokenDonated,
+		uint256 amountDonated
+	);
+
 	address public recoverTo;
 	bytes public callData;
 
@@ -336,8 +359,11 @@ contract DonateGDClone is BuyGDClone {
 			owner = address(this);
 		}
 		//no perform swap
+		address token;
+		uint256 donated;
 		if (withSwap) {
-			swap(_minAmount, refundGas);
+			token = gd;
+			donated = swap(_minAmount, refundGas);
 			owner = tempOwner;
 		}
 
@@ -348,13 +374,26 @@ contract DonateGDClone is BuyGDClone {
 			uint256 gdBalance = ERC20(gd).balanceOf(address(this));
 			uint256 celoBalance = address(this).balance;
 
-			if (cusdBalance > 0) ERC20(cusd).approve(address(owner), cusdBalance);
-			if (gdBalance > 0) ERC20(gd).approve(address(owner), gdBalance);
-			if (celoBalance > 0) ERC20(celo).approve(address(owner), celoBalance);
+			if (cusdBalance > 0) {
+				ERC20(cusd).approve(address(owner), cusdBalance);
+				token = cusd;
+				donated = cusdBalance;
+			}
+			if (gdBalance > 0) {
+				ERC20(gd).approve(address(owner), gdBalance);
+				token = gd;
+				donated = gdBalance;
+			}
+			if (celoBalance > 0) {
+				ERC20(celo).approve(address(owner), celoBalance);
+				token = celo;
+				donated = celoBalance;
+			}
 
 			(bool success, bytes memory data) = owner.call{ value: 0 }(callData);
 			if (!success) revert EXEC_FAILED(data);
 		}
+		emit Donated(recoverTo, owner, token, donated);
 	}
 
 	/**
@@ -381,6 +420,7 @@ contract BuyGDCloneFactory {
 	error NOT_GD_TOKEN();
 	error INVALID_TWAP();
 	error RECIPIENT_ZERO();
+	error ZERO_MINAMOUNT();
 
 	IQuoterV2 public constant quoter =
 		IQuoterV2(0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8); // celo quoter
@@ -546,7 +586,8 @@ contract BuyGDCloneFactory {
 			ERC20(gd).transferFrom(msg.sender, address(this), amountIn);
 		}
 
-		if (_minAmount == 0) (_minAmount, ) = minAmountByTWAP(amountIn, gd, 60);
+		if (_minAmount == 0)
+			(_minAmount, ) = minAmountByTWAP(amountIn, gd, cusd, 60);
 
 		ERC20(gd).approve(address(router), amountIn);
 		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
@@ -559,15 +600,42 @@ contract BuyGDCloneFactory {
 	}
 
 	/**
+	 * @notice Swaps cUSD for GD tokens.
+	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
+	 */
+	function swapFromCusd(
+		uint256 amountIn,
+		uint256 _minAmount,
+		address recipient
+	) public returns (uint256) {
+		ERC20(cusd).transferFrom(msg.sender, address(this), amountIn);
+
+		if (_minAmount == 0)
+			(_minAmount, ) = minAmountByTWAP(amountIn, cusd, gd, 60);
+
+		ERC20(cusd).approve(address(router), amountIn);
+		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
+			path: abi.encodePacked(cusd, uint24(10000), gd),
+			recipient: recipient,
+			amountIn: amountIn,
+			amountOutMinimum: _minAmount
+		});
+		return router.exactInput(params);
+	}
+
+	/**
 	 * @notice Calculates the minimum amount of tokens that can be received for a given amount of base tokens,
 	 * based on the time-weighted average price (TWAP) of the token pair over a specified period of time.
 	 * @param baseAmount The amount of base tokens to swap.
 	 * @param baseToken The address of the base token.
+	 * @param qtToken The address of the quote token.
+
 	 * @return minTwap The minimum amount of G$ expected to receive by twap
 	 */
 	function minAmountByTWAP(
 		uint256 baseAmount,
 		address baseToken,
+		address qtToken,
 		uint32 period
 	) public view returns (uint256 minTwap, uint256 quote) {
 		uint24[] memory fees = new uint24[](1);
@@ -576,7 +644,7 @@ contract BuyGDCloneFactory {
 		(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
 			toConvert,
 			baseToken,
-			cusd,
+			qtToken,
 			fees,
 			period
 		);
@@ -584,7 +652,7 @@ contract BuyGDCloneFactory {
 		(uint256 curPrice, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
 			toConvert,
 			baseToken,
-			cusd,
+			qtToken,
 			fees,
 			0
 		);
