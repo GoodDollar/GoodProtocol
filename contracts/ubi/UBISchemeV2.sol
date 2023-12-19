@@ -238,11 +238,11 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 		if (currentDay != lastWithdrawDay || dailyUbi == 0) {
 			IGoodDollar token = nativeToken();
 			uint256 currentBalance = token.balanceOf(address(this));
-			//start early cycle if daily pool size is +-%5 previous pool
+			//start early cycle if daily pool size is +%5 previous pool or not enough until end of cycle
 			uint256 nextDailyPool = currentBalance / cycleLength;
 			bool shouldStartEarlyCycle = nextDailyPool >
 				(dailyCyclePool * 105) / 100 ||
-				nextDailyPool < (dailyCyclePool * 95) / 100;
+				currentBalance < (dailyCyclePool * (cycleLength - currentDayInCycle()));
 
 			if (
 				currentDayInCycle() >= currentCycleLength || shouldStartEarlyCycle
@@ -348,7 +348,7 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 		//start early cycle if we can increase the daily UBI pool
 		uint256 nextDailyPool = currentBalance / cycleLength;
 		bool shouldStartEarlyCycle = nextDailyPool > (dailyCyclePool * 105) / 100 ||
-			nextDailyPool < (dailyCyclePool * 95) / 100;
+			currentBalance < (dailyCyclePool * (cycleLength - currentDayInCycle()));
 
 		uint256 _dailyCyclePool = dailyCyclePool;
 		uint256 _dailyUbi;

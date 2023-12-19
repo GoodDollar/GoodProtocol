@@ -1,4 +1,4 @@
-import { range, sortBy } from "lodash";
+import { maxBy, range, sortBy } from "lodash";
 import PromisePool from "async-promise-pool";
 import fs from "fs";
 import { ethers } from "hardhat";
@@ -7,32 +7,32 @@ import { ethers } from "hardhat";
  * Fetch token holders and their last activity date
  * can be used to create stats about active users and how much G$ isnt active
  */
-const main = async () => {
+const main = async (chain = "fuse") => {
   let result = [];
   let balances = {};
   let curPage = 1;
   let maxResult;
-  //   do {
-  //     const pages = range(curPage, curPage + 5, 1);
-  //     curPage += 5;
-  //     const ps = pages.map(p =>
-  //       fetch(
-  //         `https://explorer.fuse.io/api?module=token&action=getTokenHolders&contractaddress=0x495d133B938596C9984d462F007B676bDc57eCEC&page=${p}&offset=10000`
-  //       )
-  //         .then(_ => _.json())
-  //         .then(_ => _.result)
-  //     );
-  //     const results = await Promise.all(ps);
-  //     result = result.concat(...results);
-  //     maxResult = maxBy(results, "length");
-  //     console.log(maxResult.length, result.length);
-  //   } while (maxResult.length === 10000);
-  //   result.forEach(
-  //     r => (balances[r.address.toLowerCase()] = { balance: r.value, lastSeen: 0 })
-  //   );
-  //   fs.writeFileSync("activeWalletsBalances.json", JSON.stringify(balances));
+  const explorer = chain === "fuse" ? "https://explorer.fuse.io" : "https://explorer.celo.org";
+  const subgraph = chain === "fuse" ? "https://api.thegraph.com/subgraphs/name/gooddollar/gooddollarfuse" : "https://";
+  do {
+    const pages = range(curPage, curPage + 5, 1);
+    curPage += 5;
+    const ps = pages.map(p =>
+      fetch(
+        `https://explorer.fuse.io/api?module=token&action=getTokenHolders&contractaddress=0x495d133B938596C9984d462F007B676bDc57eCEC&page=${p}&offset=10000`
+      )
+        .then(_ => _.json())
+        .then(_ => _.result)
+    );
+    const results = await Promise.all(ps);
+    result = result.concat(...results);
+    maxResult = maxBy(results, "length");
+    console.log(maxResult.length, result.length);
+  } while (maxResult.length === 10000);
+  result.forEach(r => (balances[r.address.toLowerCase()] = { balance: r.value, lastSeen: 0 }));
+  fs.writeFileSync("activeWalletsBalances.json", JSON.stringify(balances));
 
-  balances = JSON.parse(fs.readFileSync("activeWalletsBalances.json").toString());
+  // balances = JSON.parse(fs.readFileSync("activeWalletsBalances.json").toString());
 
   const EPOCH = 60 * 60 * 6;
   const pool = new PromisePool({ concurrency: 30 });
@@ -134,5 +134,35 @@ const etl = async () => {
   console.log({ top100 });
   fs.writeFileSync("activeWalletsLastUsed.csv", arrayToCsv(sortBy(result, _ => -Number(_[1]))));
 };
+
+const fundsByLastSeen = async () => {
+  const balances = JSON.parse(fs.readFileSync("activeWalletsLastUsed.json").toString());
+  let total1Year = 0;
+  let total2Year = 0;
+  let total = 0;
+  for (let addr in balances) {
+    const r = balances[addr];
+    if (Number(r.balance) < 0) {
+      console.log(addr, r.balance);
+    }
+    if (!Number(r.balance) || Number(r.balance) < 0) {
+      continue;
+    }
+
+    const yearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).valueOf() / 1000;
+    const twoYearAgo = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).valueOf() / 1000;
+    if (Number(r.lastSeen) < yearAgo) {
+      total1Year += Number(r.balance / 100);
+    }
+    if (Number(r.lastSeen) < twoYearAgo) {
+      total2Year += Number(r.balance / 100);
+    }
+
+    total += Number(r.balance / 100);
+  }
+
+  console.log({ total, total1Year, total2Year });
+};
 // main().catch(e => console.log(e));
-etl();
+// etl();
+fundsByLastSeen();

@@ -38,7 +38,10 @@ export const upgrade = async () => {
   if (network.name === "hardhat") {
     guardian = await ethers.getImpersonatedSigner(protocolSettings.guardiansSafe);
     const funded = await ethers.getImpersonatedSigner("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
-    await funded.sendTransaction({ value: ethers.constants.WeiPerEther.mul(10), to: protocolSettings.guardiansSafe });
+    await funded.sendTransaction({
+      value: ethers.constants.WeiPerEther.mul(10),
+      to: protocolSettings.guardiansSafe
+    });
   }
 
   console.log("got signers:", {

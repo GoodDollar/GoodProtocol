@@ -1,9 +1,8 @@
-import { get, range, sortBy, toPairs } from "lodash";
+import { get, groupBy, mapValues, range, sortBy, toPairs } from "lodash";
 import PromisePool from "async-promise-pool";
 import fs from "fs";
 import { ethers } from "hardhat";
 import { JsonRpcProvider } from "@ethersproject/providers";
-import fetch from "node-fetch";
 
 function arrayToCsv(data) {
   return data
@@ -31,14 +30,9 @@ const main = async (isCelo = true) => {
   const blockStep = 10000;
   const pool = new PromisePool({ concurrency: 5 });
 
-  let faucet = await ethers.getContractAt(
-    [
-      "event WalletTopped(address indexed account, uint256 amount,address whitelistedRoot,address indexed relayerOrWhitelisted)"
-    ],
-    faucetAddr
-  );
+  let faucet = (await ethers.getContractAt("Faucet", faucetAddr)).connect(archive);
   const endBlock = Number(await archive.getBlockNumber());
-  const daysBack = 5;
+  const daysBack = 1;
   const dayBlocks = 12 * 60 * 24;
   const startBlock = endBlock - dayBlocks * daysBack;
   const days = range(startBlock, endBlock, dayBlocks);
@@ -61,7 +55,9 @@ const main = async (isCelo = true) => {
   const toppingsByAmount = {};
   const toppingsByRelayer = {};
   const toppingsPerDay = {};
+  const toppingsOfWhitelisted = {};
   let totalToppings = 0;
+  let totalWhitelistedToppings = 0;
   let totalAmount = 0;
   const dailyUsage = dailyBalance.map((v, i) => (i < dailyBalance.length - 1 ? v[0] - dailyBalance[i + 1][0] : 0));
   const dailyAdminUsage = dailyBalance.map((v, i) => (i < dailyBalance.length - 1 ? v[1] - dailyBalance[i + 1][1] : 0));
@@ -69,7 +65,7 @@ const main = async (isCelo = true) => {
   console.log({ dailyUsage, dailyAdminUsage });
   fs.writeFileSync("celospend.csv", arrayToCsv(dailyBalance));
   console.log(arrayToCsv(dailyBalance));
-
+  // return;
   console.log({ startBlock, endBlock });
   while (curBlock <= endBlock) {
     const fromBlock = curBlock;
@@ -85,7 +81,11 @@ const main = async (isCelo = true) => {
         toppingsPerDay[day] = get(toppingsPerDay, day, 0) + 1;
         totalToppings += 1;
         totalAmount += Number(e.args.amount);
-        toppingsByAddress[e.args.whitelistedRoot] = (toppingsByAddress[e.args.whitelistedRoot] || 0) + 1;
+        toppingsByAddress[e.args.account] = (toppingsByAddress[e.args.account] || 0) + 1;
+        if (e.args.whitelistedRoot != ethers.constants.AddressZero) {
+          toppingsOfWhitelisted[e.args.whitelistedRoot] = (toppingsOfWhitelisted[e.args.whitelistedRoot] || 0) + 1;
+          totalWhitelistedToppings += 1;
+        }
         if (e.args.account !== e.args.relayerOrWhitelisted)
           toppingsByRelayer[e.args.relayerOrWhitelisted] = (toppingsByRelayer[e.args.relayerOrWhitelisted] || 0) + 1;
         toppingsByAmount[e.args.amount] = (toppingsByAmount[e.args.amount] || 0) + 1;
@@ -103,20 +103,24 @@ const main = async (isCelo = true) => {
   const topToppers = sortBy(toPairs(toppingsByAddress), "1").reverse();
   const topAmounts = sortBy(toPairs(toppingsByAmount), "1").reverse();
   const topRelayers = sortBy(toPairs(toppingsByRelayer), "1").reverse();
-
+  const topWhitelisted = sortBy(toPairs(toppingsOfWhitelisted), "1").reverse();
   const totalWallets = topToppers.length;
 
   const avgToppingsPerWallet = totalToppings / totalWallets;
   const avgToppingAmount = totalAmount / totalToppings;
 
   console.log(topRelayers.slice(0, 50));
+  console.log(topToppers.slice(0, 50));
 
+  const byNumberOfToppings = mapValues(groupBy(topToppers, "1"), v => v.length);
+  console.log({ byNumberOfToppings });
   console.log(toppingsPerDay);
-  fs.writeFileSync("topToppers.csv", arrayToCsv(topToppers));
-  fs.writeFileSync("topAmounts.csv", arrayToCsv(topAmounts));
-  fs.writeFileSync("topRelayers.csv", arrayToCsv(topRelayers));
+  // fs.writeFileSync("topToppers.csv", arrayToCsv(topToppers));
+  // fs.writeFileSync("topAmounts.csv", arrayToCsv(topAmounts));
+  // fs.writeFileSync("topRelayers.csv", arrayToCsv(topRelayers));
 
   console.log({
+    totalWhitelistedToppings,
     totalAmount,
     totalToppings,
     avgToppingsPerWallet,

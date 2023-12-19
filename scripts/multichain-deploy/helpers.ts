@@ -12,18 +12,14 @@ import dao from "../../releases/deployment.json";
 
 const exec = util.promisify(require("child_process").exec);
 
-const networkName =
-  network.name === "localhost" ? "production-mainnet" : network.name;
+const networkName = network.name === "localhost" ? "production-mainnet" : network.name;
 let totalGas = 0;
 const gasUsage = {};
 const GAS_SETTINGS = { gasLimit: 10000000 };
 let release: { [key: string]: any } = dao[networkName];
 
 export const verifyProductionSigner = signer => {
-  if (
-    signer.address.toLowerCase() !==
-    "0x5128E3C1f8846724cc1007Af9b4189713922E4BB".toLowerCase()
-  ) {
+  if (signer.address.toLowerCase() !== "0x5128E3C1f8846724cc1007Af9b4189713922E4BB".toLowerCase()) {
     throw new Error(
       "signer not 0x5128E3C1f8846724cc1007Af9b4189713922E4BB to get same deployed addresses on production"
     );
@@ -77,9 +73,7 @@ export const deploySuperGoodDollar = async (
     []
   ).then(printDeploy)) as Contract;
 
-  await GoodDollarProxy.initializeProxy(SuperGoodDollar.address).then(
-    printDeploy
-  );
+  await GoodDollarProxy.initializeProxy(SuperGoodDollar.address).then(printDeploy);
 
   const OutFlowNFT = (await deployDeterministic(
     {
@@ -104,20 +98,11 @@ export const deploySuperGoodDollar = async (
     "initialize(string,string,uint256,address,address,address,address,address,address)"
   ](...tokenArgs, OutFlowNFT.address, InFlowNFT.address);
 
-  const GoodDollar = await ethers.getContractAt(
-    "ISuperGoodDollar",
-    GoodDollarProxy.address
-  );
+  const GoodDollar = await ethers.getContractAt("ISuperGoodDollar", GoodDollarProxy.address);
 
-  const constantInflowNFT = await ethers.getContractAt(
-    "ConstantInflowNFT",
-    InFlowNFT.address
-  );
+  const constantInflowNFT = await ethers.getContractAt("ConstantInflowNFT", InFlowNFT.address);
 
-  const constantOutflowNFT = await ethers.getContractAt(
-    "ConstantOutflowNFT",
-    OutFlowNFT.address
-  );
+  const constantOutflowNFT = await ethers.getContractAt("ConstantOutflowNFT", OutFlowNFT.address);
 
   await constantOutflowNFT
     .attach(OutFlowNFT.address)
@@ -137,31 +122,17 @@ export const deploySuperGoodDollar = async (
   return GoodDollar;
 };
 
-export const deployDeterministic = async (
-  contract,
-  args: any[],
-  factoryOpts = {},
-  redeployProxyFactory = false
-) => {
+export const deployDeterministic = async (contract, args: any[], factoryOpts = {}, redeployProxyFactory = false) => {
   try {
     let proxyFactory;
     if (networkName.startsWith("develop") && redeployProxyFactory) {
-      proxyFactory = await (
-        await ethers.getContractFactory("ProxyFactory1967")
-      ).deploy();
-    } else
-      proxyFactory = await ethers.getContractAt(
-        "ProxyFactory1967",
-        release.ProxyFactory
-      );
+      proxyFactory = await (await ethers.getContractFactory("ProxyFactory1967")).deploy();
+    } else proxyFactory = await ethers.getContractAt("ProxyFactory1967", release.ProxyFactory);
     const Contract =
-      (contract.factory as ContractFactory) ||
-      (await ethers.getContractFactory(contract.name, factoryOpts));
+      (contract.factory as ContractFactory) || (await ethers.getContractFactory(contract.name, factoryOpts));
 
     const salt = ethers.BigNumber.from(
-      ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(contract.salt || contract.name)
-      )
+      ethers.utils.keccak256(ethers.utils.toUtf8Bytes(contract.salt || contract.name))
     );
 
     if (contract.isUpgradeable === true) {
@@ -169,30 +140,19 @@ export const deployDeterministic = async (
         args,
         proxyFactory: proxyFactory.address
       });
-      const encoded = Contract.interface.encodeFunctionData(
-        contract.initializer || "initialize",
-        args
-      );
+      const encoded = Contract.interface.encodeFunctionData(contract.initializer || "initialize", args);
       const tx = await Contract.deploy(GAS_SETTINGS);
       const impl = await tx.deployed();
       console.log("implementation deployed:", contract.name, impl.address);
       await countTotalGas(tx, contract.name);
 
-      const tx2 = await proxyFactory.deployProxy(
-        salt,
-        impl.address,
-        encoded,
-        GAS_SETTINGS
-      );
+      const tx2 = await proxyFactory.deployProxy(salt, impl.address, encoded, GAS_SETTINGS);
       await countTotalGas(tx2, contract.name);
-      const deployTx = await tx2
-        .wait()
-        .catch(e =>
-          console.error("failed to deploy proxy, assuming it exists...", e)
-        );
-      const proxyAddr = await proxyFactory[
-        "getDeploymentAddress(uint256,address)"
-      ](salt, await proxyFactory.signer.getAddress());
+      const deployTx = await tx2.wait().catch(e => console.error("failed to deploy proxy, assuming it exists...", e));
+      const proxyAddr = await proxyFactory["getDeploymentAddress(uint256,address)"](
+        salt,
+        await proxyFactory.signer.getAddress()
+      );
       console.log("proxy deployed:", contract.name, proxyAddr);
       return Contract.attach(proxyAddr);
     } else {
@@ -201,17 +161,10 @@ export const deployDeterministic = async (
         args
       });
       const constructor = Contract.interface.encodeDeploy(args);
-      const bytecode = ethers.utils.solidityPack(
-        ["bytes", "bytes"],
-        [Contract.bytecode, constructor]
-      );
-      const deployTx = await (
-        await proxyFactory.deployCode(salt, bytecode, GAS_SETTINGS)
-      ).wait();
+      const bytecode = ethers.utils.solidityPack(["bytes", "bytes"], [Contract.bytecode, constructor]);
+      const deployTx = await (await proxyFactory.deployCode(salt, bytecode, GAS_SETTINGS)).wait();
 
-      const proxyAddr = await proxyFactory[
-        "getDeploymentAddress(uint256,address,bytes32)"
-      ](
+      const proxyAddr = await proxyFactory["getDeploymentAddress(uint256,address,bytes32)"](
         salt,
         await proxyFactory.signer.getAddress(),
         ethers.utils.keccak256(bytecode)
@@ -235,9 +188,7 @@ export const executeViaGuardian = async (
   network?: string
 ) => {
   let release: { [key: string]: any } = dao[network || networkName];
-  const ctrl = await (
-    await ethers.getContractAt("Controller", release.Controller)
-  ).connect(guardian);
+  const ctrl = await (await ethers.getContractAt("Controller", release.Controller)).connect(guardian);
 
   const results = [];
   for (let i = 0; i < contracts.length; i++) {
@@ -258,23 +209,21 @@ export const executeViaGuardian = async (
 
       results.push(tx);
     } else {
-      const simulationResult = await ctrl.callStatic.genericCall(
-        contract,
-        encoded,
-        release.Avatar,
-        ethValues[i],
-        {
-          from: await guardian.getAddress(),
-          value: ethValues[i]
-        }
-      );
+      const simulationResult = await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
+        from: await guardian.getAddress()
+      });
       console.log("executing genericCall:", {
         sigHash,
+        contract,
         encoded,
         simulationResult
       });
       if (simulationResult[0] === false) throw new Error("simulation failed:" + contract);
-      const tx = await ctrl.genericCall(contract, encoded, release.Avatar, ethValues[i]).then(printDeploy);
+      const tx = await ctrl
+        .genericCall(contract, encoded, release.Avatar, ethValues[i], {
+          gasLimit: 8000000
+        })
+        .then(printDeploy);
       // console.log("generic call events:", tx.events);
       results.push(tx);
     }
@@ -291,32 +240,24 @@ export const executeViaSafe = async (
   safeSignerOrNetwork?: Signer | string,
   isSimulation = false
 ) => {
-  if (
-    typeof safeSignerOrNetwork !== "object" &&
-    !process.env.SAFEOWNER_PRIVATE_KEY
-  ) {
+  if (typeof safeSignerOrNetwork !== "object" && !process.env.SAFEOWNER_PRIVATE_KEY) {
     throw new Error("safe signer is missing");
   }
 
-  let safeSigner = new ethers.Wallet(
-    process.env.SAFEOWNER_PRIVATE_KEY,
-    new ethers.providers.CloudflareProvider()
-  );
+  let safeSigner = new ethers.Wallet(process.env.SAFEOWNER_PRIVATE_KEY, new ethers.providers.CloudflareProvider());
   if (typeof safeSignerOrNetwork === "string") {
     switch (safeSignerOrNetwork) {
       case "mainnet":
         break;
       case "celo":
-        safeSigner = new ethers.Wallet(
-          process.env.SAFEOWNER_PRIVATE_KEY
-        ).connect(
+        safeSigner = new ethers.Wallet(process.env.SAFEOWNER_PRIVATE_KEY).connect(
           new ethers.providers.JsonRpcProvider("https://forno.celo.org")
         );
         break;
       case "fuse":
-        safeSigner = new ethers.Wallet(
-          process.env.SAFEOWNER_PRIVATE_KEY
-        ).connect(new ethers.providers.JsonRpcProvider("https://rpc.fuse.io"));
+        safeSigner = new ethers.Wallet(process.env.SAFEOWNER_PRIVATE_KEY).connect(
+          new ethers.providers.JsonRpcProvider("https://rpc.fuse.io")
+        );
         break;
     }
   } else if (safeSignerOrNetwork) {
@@ -351,11 +292,7 @@ export const executeViaSafe = async (
   const safeSdk = await Safe.create({ ethAdapter, safeAddress });
 
   let release: { [key: string]: any } = dao[networkName];
-  const ctrl = await ethers.getContractAt(
-    "Controller",
-    release.Controller,
-    null
-  );
+  const ctrl = await ethers.getContractAt("Controller", release.Controller, null);
 
   const safeTransactionData: MetaTransactionData[] = [];
 
@@ -418,8 +355,7 @@ export const executeViaSafe = async (
         sigHash,
         simulationResult
       });
-      if (isSimulation === true && simulationResult[0] === false)
-        throw new Error("simulation failed:" + contract);
+      if (isSimulation === true && simulationResult[0] === false) throw new Error("simulation failed:" + contract);
       const genericEncode = ctrl.interface.encodeFunctionData("genericCall", [
         contract,
         encoded,
@@ -465,19 +401,12 @@ export const verifyContract = async (
   proxyName?: string,
   forcedConstructorArguments?: string
 ) => {
-  let networkProvider = networkName.includes("-")
-    ? networkName.split("-")[1]
-    : "fuse";
-  networkProvider =
-    networkProvider === "mainnet" ? "ethereum" : networkProvider;
+  let networkProvider = networkName.includes("-") ? networkName.split("-")[1] : "fuse";
+  networkProvider = networkProvider === "mainnet" ? "ethereum" : networkProvider;
   console.log("truffle compile...");
   await exec("npx truffle compile");
-  const cmd = `npx truffle run verify ${
-    proxyName ? "--custom-proxy " + proxyName : ""
-  } ${contractName}@${address} ${
-    forcedConstructorArguments
-      ? "--forceConstructorArgs string:" + forcedConstructorArguments.slice(2)
-      : ""
+  const cmd = `npx truffle run verify ${proxyName ? "--custom-proxy " + proxyName : ""} ${contractName}@${address} ${
+    forcedConstructorArguments ? "--forceConstructorArgs string:" + forcedConstructorArguments.slice(2) : ""
   } --network ${networkProvider}`;
   console.log("running...:", cmd);
   await exec(cmd).then(({ stdout, stderr }) => {
