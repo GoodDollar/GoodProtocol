@@ -306,9 +306,9 @@ export const executeViaSafe = async (
       const [, target] = contract.split("_");
       const simulationResult = await ethers.provider.call({
         to: target,
-        value: ethValues[i],
         data: encoded,
-        from: safeAddress
+        from: safeAddress,
+        value: ethValues[i]
       });
 
       console.log("executing from guardians safe:", {
@@ -348,8 +348,7 @@ export const executeViaSafe = async (
       });
 
       const simulationResult = await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
-        from: safeAddress,
-        value: ethValues[i]
+        from: safeAddress
       });
       console.log("executing genericCall simulation result:", {
         sigHash,
@@ -364,7 +363,7 @@ export const executeViaSafe = async (
       ]);
       safeTransactionData.push({
         to: ctrl.address,
-        value: ethValues[i],
+        value: "0",
         data: genericEncode
       });
     }
