@@ -103,7 +103,7 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 		validators.push(address(0xcb876A393F05a6677a8a029f1C6D7603B416C0A6));
 		stakeBackRatio = 33333; //%33
 		communityPoolRatio = 33333; //%33
-		maxSlippageRatio = 3000; //3%
+		maxSlippageRatio = 600; //0.6%
 		keeperFeeRatio = 30; //0.03%
 		RATIO_BASE = 100000; //100%
 		uniswap = Uniswap(
@@ -146,10 +146,12 @@ contract FuseStakingV3 is Initializable, OwnableUpgradeable {
 
 	function updateSettings(
 		uint256 _stakeBackRatio,
-		uint256 _communityPoolRatio
+		uint256 _communityPoolRatio,
+		uint256 _maxSlippageRatio
 	) external onlyGuardian {
 		communityPoolRatio = _communityPoolRatio;
 		stakeBackRatio = _stakeBackRatio;
+		maxSlippageRatio = _maxSlippageRatio;
 	}
 
 	function stake() public payable returns (bool) {

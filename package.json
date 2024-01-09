@@ -106,6 +106,7 @@
     "chai": "*",
     "coveralls": "*",
     "dotenv": "*",
+    "ethereum-block-by-date": "^1.4.9",
     "ethereum-waffle": "3",
     "ethers": "^5.7.2",
     "ethers-eip712": "*",
