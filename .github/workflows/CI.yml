@@ -9,7 +9,7 @@ jobs:
       test-chunks: ${{ steps['set-test-chunks'].outputs['test-chunks'] }}
       test-chunk-ids: ${{ steps['set-test-chunk-ids'].outputs['test-chunk-ids'] }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - id: set-test-chunks
         name: Set Chunks
         run: echo "::set-output name=test-chunks::$(find test -name '*.ts' | jq -R -s -c 'split("\n")[:-1]' | jq -cM '[_nwise(length / 5 | floor)]')"
@@ -54,7 +54,7 @@ jobs:
           echo TEST="true" >> .env
           cat .env
       - name: Install project dependencies
-        run: yarn
+        run: yarn install --immutable
       - run: yarn compile
       - name: Run tests
         run: |
@@ -98,7 +98,7 @@ jobs:
           cat .env
       - name: Install project
         run: |
-          yarn
+          yarn install --immutable
           yarn compile
       - name: Run coverage
         run: |
@@ -150,7 +150,7 @@ jobs:
           echo MNEMONIC="dasdasds" >> .env
       - name: "build"
         run: |
-          yarn
+          yarn install --immutable
           yarn compile
           yarn build:test-sdk
           yarn minimize
