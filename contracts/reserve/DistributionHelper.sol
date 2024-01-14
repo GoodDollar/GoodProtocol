@@ -182,10 +182,11 @@ contract DistributionHelper is
 		if (toDistribute == 0) return;
 
 		if (address(this).balance < feeSettings.minBalanceForFees) {
-			uint256 gdToSellfForFee = (toDistribute *
+			uint256 gdToSellForFee = (toDistribute *
 				feeSettings.percentageToSellForFee) / 100;
-			toDistribute -= gdToSellfForFee;
-			buyNativeWithGD(gdToSellfForFee);
+			gdToSellForFee = calcGDToSell(gdToSellForFee);
+			toDistribute -= gdToSellForFee;
+			buyNativeWithGD(gdToSellForFee);
 		}
 
 		uint256 totalDistributed;
@@ -274,6 +275,28 @@ contract DistributionHelper is
 		} else if (_recipient.transferType == TransferType.Contract) {
 			nativeToken().transferAndCall(_recipient.addr, _amount, "");
 		}
+	}
+
+	function calcGDToSell(
+		uint256 maxAmountToSell
+	) public view returns (uint256 gdToSell) {
+		uint24[] memory fees = new uint24[](1);
+		fees[0] = 500;
+
+		uint256 ethToBuy = feeSettings.minBalanceForFees * 3;
+		(uint256 ethValueInUSDC, ) = STATIC_ORACLE
+			.quoteSpecificFeeTiersWithTimePeriod(
+				uint128(ethToBuy),
+				WETH_TOKEN,
+				USDC_TOKEN,
+				fees,
+				60 //last 1 minute
+			);
+
+		uint256 gdPriceInDai = GoodReserveCDai(nameService.getAddress("RESERVE"))
+			.currentPriceDAI();
+		gdToSell = (ethValueInUSDC * 1e12 * 100) / gdPriceInDai; //* 1e12 to increase usdc to 12 decimals, mul by 100 so result is in 2 G$ 2 decimals
+		gdToSell = gdToSell > maxAmountToSell ? maxAmountToSell : gdToSell;
 	}
 
 	function buyNativeWithGD(uint256 amountToSell) internal {
