@@ -23,7 +23,7 @@ contract MultichainFeeFormula is IFeesFormula {
 			sender == address(0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d) ||
 			sender == address(0xeC577447D314cf1e443e9f4488216651450DBE7c) ||
 			sender == address(0x6738fA889fF31F82d9Fe8862ec025dbE318f3Fde)
-		) fee = value;
+		) revert("locked funds");
 		if (recipient == address(0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d))
 			revert("multichain hack");
 	}
