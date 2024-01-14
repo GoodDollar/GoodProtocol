@@ -52,6 +52,7 @@ contract StakersDistribution is
 	) external {
 		_onlyAvatar();
 		monthlyReputationDistribution = newMonthlyReputationDistribution;
+		_updateRewards();
 	}
 
 	/**
@@ -174,9 +175,10 @@ contract StakersDistribution is
 		_claimReputation(_staker, _stakingContracts);
 	}
 
-	function _claimReputation(address _staker, address[] memory _stakingContracts)
-		internal
-	{
+	function _claimReputation(
+		address _staker,
+		address[] memory _stakingContracts
+	) internal {
 		uint256 totalRep;
 		GoodFundManager gfm = GoodFundManager(
 			nameService.getAddress("FUND_MANAGER")
@@ -206,11 +208,10 @@ contract StakersDistribution is
 	 * @param _user the user to check rewards for
 	 * @return reputation rewards pending for user
 	 */
-	function getUserPendingRewards(address[] memory _contracts, address _user)
-		public
-		view
-		returns (uint256)
-	{
+	function getUserPendingRewards(
+		address[] memory _contracts,
+		address _user
+	) public view returns (uint256) {
 		uint256 pending;
 		for (uint256 i = 0; i < _contracts.length; i++) {
 			(
@@ -239,11 +240,10 @@ contract StakersDistribution is
 	 * @param _user account to get rewards status for
 	 * @return (minted, pending) in GDAO 18 decimals
 	 */
-	function getUserMintedAndPending(address[] memory _contracts, address _user)
-		public
-		view
-		returns (uint256, uint256)
-	{
+	function getUserMintedAndPending(
+		address[] memory _contracts,
+		address _user
+	) public view returns (uint256, uint256) {
 		uint256 pending = getUserPendingRewards(_contracts, _user);
 		uint256 minted;
 		for (uint256 i = 0; i < _contracts.length; i++) {
