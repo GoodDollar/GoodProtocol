@@ -32,6 +32,8 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	//address of the active staking contracts
 	address[] public activeContracts;
 
+	uint256 private _reentrantStatus;
+
 	event GasCostSet(uint256 newGasCost);
 	event CollectInterestTimeThresholdSet(
 		uint256 newCollectInterestTimeThreshold
@@ -221,7 +223,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	function collectInterest(
 		address[] calldata _stakingContracts,
 		bool _forceAndWaiverRewards
-	) external {
+	) external nonReentrant {
 		uint256 initialGas = gasleft();
 		uint256 gdUBI;
 		uint256 interestInCdai;
@@ -242,6 +244,10 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 				// elements are sorted by balances from lowest to highest
 
 				if (_stakingContracts[i - 1] != address(0x0)) {
+					require(
+						isActiveContract(_stakingContracts[i - 1]),
+						"collectInterest: not a dao contract"
+					);
 					IGoodStaking(_stakingContracts[i - 1]).collectUBIInterest(
 						reserveAddress
 					);
@@ -297,6 +303,20 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 
 		lastCollectedInterest = block.timestamp;
 		lastCollectedInterestBlock = block.number;
+	}
+
+	/**
+	 * @dev verifies that contract was added to the approved staking contracts in the past, and is not blacklisted
+	 * @param _contract address of the contract
+	 * @return isActive true if contract is active
+	 **/
+	function isActiveContract(
+		address _contract
+	) public view returns (bool isActive) {
+		return
+			!rewardsForStakingContract[_contract].isBlackListed &&
+			(rewardsForStakingContract[_contract].blockStart > 0 ||
+				rewardsForStakingContract[_contract].blockEnd > 0);
 	}
 
 	/**
@@ -466,5 +486,17 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 
 	function getActiveContractsCount() public view returns (uint256) {
 		return activeContracts.length;
+	}
+
+	modifier nonReentrant() {
+		// On the first call to nonReentrant, _status will be _NOT_ENTERED
+		require(_reentrantStatus != 1, "ReentrancyGuard: reentrant call");
+
+		// Any calls to nonReentrant after this point will fail
+		_reentrantStatus = 1;
+		_;
+		// By storing the original value once again, a refund is triggered (see
+		// https://eips.ethereum.org/EIPS/eip-2200)
+		_reentrantStatus = 0;
 	}
 }

@@ -460,6 +460,7 @@ describe("ProtocolUpgrade - Upgrade old protocol contracts to new ones", () => {
       "ExchangeHelper",
       deployment["test-mainnet"].ExchangeHelper
     );
+    await exchangeHelper.setAddresses();
     await cDAI["mint(address,uint256)"](
       founder.address,
       ethers.utils.parseUnits("1000", 8)
