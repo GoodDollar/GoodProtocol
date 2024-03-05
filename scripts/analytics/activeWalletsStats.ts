@@ -8,31 +8,10 @@ import { ethers } from "hardhat";
  * can be used to create stats about active users and how much G$ isnt active
  */
 const main = async (chain = "fuse") => {
-  let result = [];
-  let balances = {};
-  let curPage = 1;
-  let maxResult;
   const explorer = chain === "fuse" ? "https://explorer.fuse.io" : "https://explorer.celo.org";
   const subgraph = chain === "fuse" ? "https://api.thegraph.com/subgraphs/name/gooddollar/gooddollarfuse" : "https://";
-  do {
-    const pages = range(curPage, curPage + 5, 1);
-    curPage += 5;
-    const ps = pages.map(p =>
-      fetch(
-        `https://explorer.fuse.io/api?module=token&action=getTokenHolders&contractaddress=0x495d133B938596C9984d462F007B676bDc57eCEC&page=${p}&offset=10000`
-      )
-        .then(_ => _.json())
-        .then(_ => _.result)
-    );
-    const results = await Promise.all(ps);
-    result = result.concat(...results);
-    maxResult = maxBy(results, "length");
-    console.log(maxResult.length, result.length);
-  } while (maxResult.length === 10000);
-  result.forEach(r => (balances[r.address.toLowerCase()] = { balance: r.value, lastSeen: 0 }));
-  fs.writeFileSync("activeWalletsBalances.json", JSON.stringify(balances));
 
-  // balances = JSON.parse(fs.readFileSync("activeWalletsBalances.json").toString());
+  const balances = await getFuseBalances();
 
   const EPOCH = 60 * 60 * 6;
   const pool = new PromisePool({ concurrency: 30 });
@@ -92,22 +71,21 @@ const main = async (chain = "fuse") => {
   //   console.log({ lastUsed });
 };
 
+/** Convert a 2D array into a CSV string
+ */
+function arrayToCsv(data) {
+  return data
+    .map(
+      row =>
+        row
+          .map(String) // convert every value to String
+          .map(v => v.replaceAll('"', '""')) // escape double colons
+          .map(v => `"${v}"`) // quote it
+          .join(",") // comma-separated
+    )
+    .join("\r\n"); // rows starting on new lines
+}
 const etl = async () => {
-  /** Convert a 2D array into a CSV string
-   */
-  function arrayToCsv(data) {
-    return data
-      .map(
-        row =>
-          row
-            .map(String) // convert every value to String
-            .map(v => v.replaceAll('"', '""')) // escape double colons
-            .map(v => `"${v}"`) // quote it
-            .join(",") // comma-separated
-      )
-      .join("\r\n"); // rows starting on new lines
-  }
-
   const balances = JSON.parse(fs.readFileSync("activeWalletsLastUsed.json").toString());
 
   let result = [];
@@ -133,6 +111,40 @@ const etl = async () => {
   await pool.all();
   console.log({ top100 });
   fs.writeFileSync("activeWalletsLastUsed.csv", arrayToCsv(sortBy(result, _ => -Number(_[1]))));
+};
+
+const getFuseBalances = async (refetch = true) => {
+  if (refetch === false) {
+    const balances = JSON.parse(fs.readFileSync("activeWalletsBalances.json").toString());
+    const rows = Object.entries(balances).filter(_ => Number(_[1].balance) > 10000000);
+    const sorted = sortBy(rows, _ => -Number(_[1].balance));
+    sorted.forEach(_ => (_[1].balance = Number(_[1].balance) / 100));
+    console.log(arrayToCsv(sorted.slice(0, 20).map(_ => [_[0], _[1].balance])));
+    return balances;
+  }
+  let result = [];
+  let balances = {};
+  let curPage = 1;
+  let maxResult;
+
+  do {
+    const pages = range(curPage, curPage + 5, 1);
+    curPage += 5;
+    const ps = pages.map(p =>
+      fetch(
+        `https://explorer.fuse.io/api?module=token&action=getTokenHolders&contractaddress=0x495d133B938596C9984d462F007B676bDc57eCEC&page=${p}&offset=10000`
+      )
+        .then(_ => _.json())
+        .then(_ => _.result)
+    );
+    const results = await Promise.all(ps);
+    result = result.concat(...results);
+    maxResult = maxBy(results, "length");
+    console.log(maxResult.length, result.length);
+  } while (maxResult.length === 10000);
+  result.forEach(r => (balances[r.address.toLowerCase()] = { balance: r.value, lastSeen: 0 }));
+  fs.writeFileSync("activeWalletsBalances.json", JSON.stringify(balances));
+  return balances;
 };
 
 const fundsByLastSeen = async () => {
@@ -163,6 +175,7 @@ const fundsByLastSeen = async () => {
 
   console.log({ total, total1Year, total2Year });
 };
+getFuseBalances(false).catch(e => console.log(e));
 // main().catch(e => console.log(e));
 // etl();
-fundsByLastSeen();
+// fundsByLastSeen();
