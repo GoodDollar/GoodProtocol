@@ -57,6 +57,8 @@ contract InvitesV2 is DAOUpgradeableContract {
 
 	bool public levelExpirationEnabled;
 
+	bytes32 private campaignCode;
+
 	event InviteeJoined(address indexed inviter, address indexed invitee);
 	event InviterBounty(
 		address indexed inviter,
@@ -125,8 +127,10 @@ contract InvitesV2 is DAOUpgradeableContract {
 		address inviter = codeToUser[_inviterCode];
 		//allow user to set inviter if doesnt have one
 		require(
-			user.inviteCode == 0x0 ||
-				(user.invitedBy == address(0) && inviter != address(0)),
+			!user.bountyPaid &&
+				(user.inviteCode == 0x0 ||
+					(user.invitedBy == address(0) && inviter != address(0)) ||
+					(campaignCode != 0x0 && campaignCode == _inviterCode)),
 			"user already joined"
 		);
 		if (user.inviteCode == 0x0) {
@@ -144,7 +148,12 @@ contract InvitesV2 is DAOUpgradeableContract {
 			user.bountyAtJoin = levels[users[inviter].level].bounty;
 		}
 
-		if (canCollectBountyFor(msg.sender)) {
+		/** support special campaign code without inviter */
+		if (_inviterCode == campaignCode && campaignCode != 0x0) {
+			stats.totalInvited += 1;
+			user.bountyAtJoin = levels[0].bounty;
+			_bountyForCampaign(msg.sender);
+		} else if (canCollectBountyFor(msg.sender)) {
 			_bountyFor(msg.sender, true);
 		}
 		emit InviteeJoined(inviter, msg.sender);
@@ -287,6 +296,29 @@ contract InvitesV2 is DAOUpgradeableContract {
 		return bountyToPay;
 	}
 
+	function _bountyForCampaign(
+		address _invitee
+	) internal returns (uint256 bounty) {
+		require(
+			!users[_invitee].bountyPaid &&
+				getIdentity().isWhitelisted(_invitee) &&
+				_whitelistedOnChainOrDefault(_invitee) == _chainId(),
+			"not eligble"
+		);
+
+		uint256 joinedAt = users[_invitee].joinedAt;
+		uint256 bountyToPay = users[_invitee].bountyAtJoin;
+
+		users[_invitee].bountyPaid = true;
+		stats.totalApprovedInvites += 1;
+		stats.totalBountiesPaid += bountyToPay;
+
+		goodDollar.transfer(_invitee, bountyToPay); //pay invitee half the bounty
+		emit InviterBounty(address(0), _invitee, bountyToPay, 0, false);
+
+		return bountyToPay;
+	}
+
 	/**
      @dev collect bounties for invitees by msg.sender that are now whitelisted
      */
@@ -322,6 +354,10 @@ contract InvitesV2 is DAOUpgradeableContract {
 		active = _active;
 	}
 
+	function setCampaignCode(bytes32 _code) public ownerOrAvatar {
+		campaignCode = _code;
+	}
+
 	function end() public ownerOrAvatar isActive {
 		uint256 gdBalance = goodDollar.balanceOf(address(this));
 		goodDollar.transfer(msg.sender, gdBalance);
@@ -346,8 +382,9 @@ contract InvitesV2 is DAOUpgradeableContract {
 	 * 2 uses uups upgradeable - not compatible upgrade for v1
 	 * 2.1 prevent multichain claims
 	 * 2.2 record bounty at join time
+	 * 2.3 support campaignCode
 	 */
 	function version() public pure returns (string memory) {
-		return "2.2";
+		return "2.3";
 	}
 }
