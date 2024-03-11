@@ -59,6 +59,9 @@ contract GoodReserveCDai is
 
 	bool public gdxDisabled;
 	bool public discountDisabled;
+
+	uint256 private _reentrantStatus;
+
 	// Emits when new GD tokens minted
 	event UBIMinted(
 		//epoch of UBI
@@ -186,19 +189,21 @@ contract GoodReserveCDai is
 		uint256 _tokenAmount,
 		uint256 _minReturn,
 		address _targetAddress
-	) external returns (uint256) {
+	) external nonReentrant returns (uint256) {
 		ERC20 buyWith = ERC20(cDaiAddress);
 		uint256 gdReturn = getMarketMaker().buy(buyWith, _tokenAmount);
 		_targetAddress = _targetAddress == address(0x0)
 			? msg.sender
 			: _targetAddress;
 		address exchangeHelper = nameService.getAddress("EXCHANGE_HELPER");
-		if (msg.sender != exchangeHelper)
-			require(
-				buyWith.transferFrom(msg.sender, address(this), _tokenAmount) == true,
-				"transferFrom failed, make sure you approved input token transfer"
-			);
+
+		require(
+			buyWith.transferFrom(msg.sender, address(this), _tokenAmount) == true,
+			"transferFrom failed, make sure you approved input token transfer"
+		);
+
 		require(gdReturn >= _minReturn, "GD return must be above the minReturn");
+
 		_mintGoodDollars(_targetAddress, gdReturn, true);
 		//mint GDX
 		_mintGDX(_targetAddress, gdReturn);
@@ -224,7 +229,7 @@ contract GoodReserveCDai is
 		address _token,
 		address _to,
 		uint256 _amount
-	) external {
+	) external nonReentrant {
 		getMarketMaker().mintFromReserveRatio(ERC20(_token), _amount);
 		_mintGoodDollars(_to, _amount, false);
 		//mint GDX
@@ -247,16 +252,24 @@ contract GoodReserveCDai is
 		uint256 _minReturn,
 		address _target,
 		address _seller
-	) external returns (uint256, uint256) {
+	) external nonReentrant returns (uint256, uint256) {
 		require(paused() == false, "paused");
 		GoodMarketMaker mm = getMarketMaker();
 		if (msg.sender != nameService.getAddress("EXCHANGE_HELPER")) {
-			IGoodDollar(nameService.getAddress("GOODDOLLAR")).burnFrom(
-				msg.sender,
-				_gdAmount
-			);
 			_seller = msg.sender;
 		}
+
+		/**
+		 * transferfrom and then burn instead of burnfrom to make sure funds after fee are valid
+		 * ie specifically for addresses that hold stolen funds who has 100% fee applied
+		 */
+		IGoodDollar(nameService.getAddress("GOODDOLLAR")).transferFrom(
+			msg.sender,
+			address(this),
+			_gdAmount
+		);
+		IGoodDollar(nameService.getAddress("GOODDOLLAR")).burn(_gdAmount);
+
 		_target = _target == address(0x0) ? msg.sender : _target;
 		//discount on exit contribution based on gdx
 
@@ -358,18 +371,21 @@ contract GoodReserveCDai is
 	 * @dev only FundManager or other with mint G$ permission can call this to trigger minting.
 	 * Reserve sends UBI + interest to FundManager.
 	 * @param _daiToConvert DAI amount to convert cDAI
-	 * @param _startingCDAIBalance Initial cDAI balance before staking collect process start
 	 * @param _interestToken The token that was transfered to the reserve
 	 * @return gdUBI,interestInCdai how much GD UBI was minted and how much cDAI collected from staking contracts
 	 */
 	function mintUBI(
 		uint256 _daiToConvert,
-		uint256 _startingCDAIBalance,
+		uint256 /*_startingCDAIBalance*/, // dont trust it, use reserveSupply from marketmaker instead
 		ERC20 _interestToken
-	) external returns (uint256, uint256) {
+	) external nonReentrant returns (uint256, uint256) {
 		cERC20(cDaiAddress).mint(_daiToConvert);
+
+		(uint256 reserveSupply, , , ) = getMarketMaker().reserveTokens(cDaiAddress);
+
 		uint256 interestInCdai = _interestToken.balanceOf(address(this)) -
-			_startingCDAIBalance;
+			reserveSupply;
+
 		uint256 gdInterestToMint = getMarketMaker().mintInterest(
 			_interestToken,
 			interestInCdai
@@ -518,5 +534,17 @@ contract GoodReserveCDai is
 
 	function when() public pure override returns (CallPhase) {
 		return CallPhase.Pre;
+	}
+
+	modifier nonReentrant() {
+		// On the first call to nonReentrant, _status will be _NOT_ENTERED
+		require(_reentrantStatus != 1, "ReentrancyGuard: reentrant call");
+
+		// Any calls to nonReentrant after this point will fail
+		_reentrantStatus = 1;
+		_;
+		// By storing the original value once again, a refund is triggered (see
+		// https://eips.ethereum.org/EIPS/eip-2200)
+		_reentrantStatus = 0;
 	}
 }
