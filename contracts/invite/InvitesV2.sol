@@ -150,10 +150,10 @@ contract InvitesV2 is DAOUpgradeableContract {
 
 		/** support special campaign code without inviter */
 		if (_inviterCode == campaignCode && campaignCode != 0x0) {
-			stats.totalInvited += 1;
 			user.bountyAtJoin = levels[0].bounty;
-			_bountyForCampaign(msg.sender);
-		} else if (canCollectBountyFor(msg.sender)) {
+		}
+
+		if (canCollectBountyFor(msg.sender)) {
 			_bountyFor(msg.sender, true);
 		}
 		emit InviteeJoined(inviter, msg.sender);
@@ -174,19 +174,13 @@ contract InvitesV2 is DAOUpgradeableContract {
 
 	function canCollectBountyFor(address _invitee) public view returns (bool) {
 		address invitedBy = users[_invitee].invitedBy;
-		uint256 daysToComplete = levels[users[invitedBy].level].daysToComplete;
-		bool isLevelExpired = levelExpirationEnabled == true &&
-			daysToComplete > 0 &&
-			daysToComplete <
-			(users[_invitee].joinedAt - users[invitedBy].levelStarted) / 1 days;
 
 		return
-			invitedBy != address(0) &&
+			users[_invitee].bountyAtJoin > 0 &&
 			!users[_invitee].bountyPaid &&
 			getIdentity().isWhitelisted(_invitee) &&
-			getIdentity().isWhitelisted(invitedBy) &&
-			_whitelistedOnChainOrDefault(_invitee) == _chainId() &&
-			isLevelExpired == false;
+			(invitedBy == address(0) || getIdentity().isWhitelisted(invitedBy)) &&
+			_whitelistedOnChainOrDefault(_invitee) == _chainId();
 	}
 
 	function getInvitees(
@@ -246,44 +240,51 @@ contract InvitesV2 is DAOUpgradeableContract {
 		bool isSingleBounty
 	) internal returns (uint256 bounty) {
 		address invitedBy = users[_invitee].invitedBy;
-		uint256 joinedAt = users[_invitee].joinedAt;
-		Level memory level = levels[users[invitedBy].level];
 		uint256 bountyToPay = users[_invitee].bountyAtJoin;
+		bool earnedLevel = false;
 
-		//hardcoded for users invited before the bountyAtJoin change
-		if (bountyToPay == 0) {
-			uint precision = 10 ** goodDollar.decimals();
-			bountyToPay = joinedAt > 1687878272 ? 1000 * precision : 500 * precision;
+		if (invitedBy != address(0)) {
+			uint256 joinedAt = users[_invitee].joinedAt;
+			Level memory level = levels[users[invitedBy].level];
+
+			//hardcoded for users invited before the bountyAtJoin change
+			if (bountyToPay == 0) {
+				uint precision = 10 ** goodDollar.decimals();
+				bountyToPay = joinedAt > 1687878272
+					? 1000 * precision
+					: 500 * precision;
+			}
+
+			// if inviter level is now higher than when invitee joined or the base level has changed
+			// we give level bounty if it is higher otherwise the original bounty at the time the user registered
+
+			bountyToPay = level.bounty > bountyToPay ? level.bounty : bountyToPay;
+
+			bool isLevelExpired = level.daysToComplete > 0 &&
+				joinedAt > users[invitedBy].levelStarted && //prevent overflow in subtraction
+				level.daysToComplete <
+				(joinedAt - users[invitedBy].levelStarted) / 1 days; //how long after level started did invitee join
+
+			users[invitedBy].totalApprovedInvites += 1;
+			users[invitedBy].totalEarned += bountyToPay;
+
+			if (
+				level.toNext > 0 &&
+				users[invitedBy].totalApprovedInvites >= level.toNext &&
+				isLevelExpired == false
+			) {
+				users[invitedBy].level += 1;
+				users[invitedBy].levelStarted = block.timestamp;
+				earnedLevel = true;
+			}
+
+			if (isSingleBounty) goodDollar.transfer(invitedBy, bountyToPay);
 		}
 
-		// if inviter level is now higher than when invitee joined or the base level has changed
-		// we give level bounty if it is higher otherwise the original bounty at the time the user registered
-
-		bountyToPay = level.bounty > bountyToPay ? level.bounty : bountyToPay;
-
-		bool isLevelExpired = level.daysToComplete > 0 &&
-			joinedAt > users[invitedBy].levelStarted && //prevent overflow in subtraction
-			level.daysToComplete <
-			(joinedAt - users[invitedBy].levelStarted) / 1 days; //how long after level started did invitee join
-
 		users[_invitee].bountyPaid = true;
-		users[invitedBy].totalApprovedInvites += 1;
-		users[invitedBy].totalEarned += bountyToPay;
 		stats.totalApprovedInvites += 1;
 		stats.totalBountiesPaid += bountyToPay;
 
-		bool earnedLevel = false;
-		if (
-			level.toNext > 0 &&
-			users[invitedBy].totalApprovedInvites >= level.toNext &&
-			isLevelExpired == false
-		) {
-			users[invitedBy].level += 1;
-			users[invitedBy].levelStarted = block.timestamp;
-			earnedLevel = true;
-		}
-
-		if (isSingleBounty) goodDollar.transfer(invitedBy, bountyToPay);
 		goodDollar.transfer(_invitee, bountyToPay / 2); //pay invitee half the bounty
 		emit InviterBounty(
 			invitedBy,
@@ -292,29 +293,6 @@ contract InvitesV2 is DAOUpgradeableContract {
 			users[invitedBy].level,
 			earnedLevel
 		);
-
-		return bountyToPay;
-	}
-
-	function _bountyForCampaign(
-		address _invitee
-	) internal returns (uint256 bounty) {
-		require(
-			!users[_invitee].bountyPaid &&
-				getIdentity().isWhitelisted(_invitee) &&
-				_whitelistedOnChainOrDefault(_invitee) == _chainId(),
-			"not eligble"
-		);
-
-		uint256 joinedAt = users[_invitee].joinedAt;
-		uint256 bountyToPay = users[_invitee].bountyAtJoin;
-
-		users[_invitee].bountyPaid = true;
-		stats.totalApprovedInvites += 1;
-		stats.totalBountiesPaid += bountyToPay;
-
-		goodDollar.transfer(_invitee, bountyToPay); //pay invitee half the bounty
-		emit InviterBounty(address(0), _invitee, bountyToPay, 0, false);
 
 		return bountyToPay;
 	}
