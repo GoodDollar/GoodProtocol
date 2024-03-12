@@ -354,7 +354,11 @@ describe("InvitesV2", () => {
         .connect(invitee1)
         .join(ethers.utils.hexZeroPad(invitee1.address, 32), ethers.utils.formatBytes32String("test"));
       const { events } = await tx.wait();
+
       const bountyEvent = events.find(_ => _.event === "InviterBounty");
+      const bounty = (await invites.levels(0)).bounty;
+
+      expect(await gd.balanceOf(invitee1.address)).eq(bounty.div(2));
       expect(bountyEvent).not.empty;
     });
 
@@ -373,6 +377,28 @@ describe("InvitesV2", () => {
       const tx2 = await invites
         .connect(invitee1)
         .join(ethers.utils.hexZeroPad(invitee1.address, 32), ethers.utils.formatBytes32String("test"));
+      const { events: events2 } = await tx2.wait();
+      const bountyEvent2 = events2.find(_ => _.event === "InviterBounty");
+      expect(bountyEvent2).not.undefined;
+    });
+
+    it("should collect bounty with campaignCode after first join without being whitelisted", async () => {
+      await loadFixture(initialState);
+      await invites.setCampaignCode(ethers.utils.formatBytes32String("test"));
+
+      const tx = await invites
+        .connect(invitee1)
+        .join(ethers.utils.hexZeroPad(invitee1.address, 32), ethers.utils.formatBytes32String("test"));
+      const { events } = await tx.wait();
+      const bountyEvent = events.find(_ => _.event === "InviterBounty");
+      expect(bountyEvent).undefined;
+
+      await id.addWhitelistedWithDID(invitee1.address, Math.random() + "").catch(e => e);
+
+      expect(await invites.canCollectBountyFor(invitee1.address)).to.be.true;
+
+      const tx2 = await invites.connect(invitee1).bountyFor(invitee1.address);
+
       const { events: events2 } = await tx2.wait();
       const bountyEvent2 = events2.find(_ => _.event === "InviterBounty");
       expect(bountyEvent2).not.undefined;
