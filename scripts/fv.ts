@@ -3,13 +3,15 @@ import fs from "fs";
 import { chunk, uniqBy } from "lodash";
 import { bulkIsWhitelisted, bulkLastAuth } from "./utils";
 
+//create tunnel to fv server ssh -L 9090:server:8080 -N user@server -i sshkey
 const main = async () => {
-  const data = JSON.parse(fs.readFileSync("fvtriplets.txt").toString());
+  const data = JSON.parse(fs.readFileSync("fvtriplets2.txt").toString());
   const triplets = uniqBy(chunk(data, 3), _ => _.join("_"));
 
   const accounts = triplets.map(_ => _[0]);
   const whitelisted = await bulkIsWhitelisted(accounts);
   const failed = triplets.filter(_ => whitelisted.includes(_[0]) === false);
+
   console.log("Total accounts:", accounts.length);
   console.log("Total whitelisted:", whitelisted.length);
   console.log("Total failed re-auth:", failed.length);
@@ -19,48 +21,39 @@ const main = async () => {
   });
   console.log({ notfetched });
   const ps = notfetched.map(async a => {
-    const i1 = await fetch("http://localhost:9090/enrollment-3d/" + a[1]).then(
-      _ => _.json()
-    );
-    const i2 = await fetch("http://localhost:9090/enrollment-3d/" + a[2]).then(
-      _ => _.json()
-    );
+    const i1 = await fetch("http://localhost:9090/enrollment-3d/" + a[1]).then(_ => _.json());
+    const i2 = await fetch("http://localhost:9090/enrollment-3d/" + a[2]).then(_ => _.json());
     if (i1.auditTrailBase64 && i2.auditTrailBase64) {
-      fs.writeFileSync(
-        "fvimages/" + a.join("_") + "-a.jpg",
-        i1.auditTrailBase64,
-        {
-          encoding: "base64"
-        }
-      );
-      fs.writeFileSync(
-        "fvimages/" + a.join("_") + "-b.jpg",
-        i2.auditTrailBase64,
-        {
-          encoding: "base64"
-        }
-      );
-    } else
-      console.log("not found", a, !!i1.auditTrailBase64, !!i2.auditTrailBase64);
+      fs.writeFileSync("fvimages/" + a.join("_") + "-a.jpg", i1.auditTrailBase64, {
+        encoding: "base64"
+      });
+      fs.writeFileSync("fvimages/" + a.join("_") + "-b.jpg", i2.auditTrailBase64, {
+        encoding: "base64"
+      });
+    } else console.log("not found", a, !!i1.auditTrailBase64, !!i2.auditTrailBase64);
   });
 
   await Promise.all(ps);
 };
 
-const deleteIdentifiers = async () => {
-  const data = JSON.parse(fs.readFileSync("todeletefvtriplets.txt").toString());
+const deleteIdentifiers = async password => {
+  const data = JSON.parse(fs.readFileSync("fvtriplets2.txt").toString());
   const triplets = uniqBy(chunk(data, 3), _ => _.join("_"));
   const accounts = triplets.map(_ => _[0]);
   const whitelisted = await bulkIsWhitelisted(accounts);
   const lastAuth = await bulkLastAuth(accounts);
+  console.log(
+    "no last auth",
+    Object.entries(lastAuth).filter(_ => _[1] === 0)
+  );
+  const dateYearsAgo = new Date();
+  dateYearsAgo.setFullYear(dateYearsAgo.getFullYear() - 3);
   const failed = triplets.filter(
-    _ =>
-      whitelisted.includes(_[0]) === false && lastAuth.includes(_[0]) === true
+    _ => whitelisted.includes(_[0]) === false && lastAuth[_[0]] > 0 && lastAuth[_[0]] < dateYearsAgo.getTime() / 1000
   );
 
   let ps = [];
-  console.log({ failed });
-
+  console.log("old lastauth:", failed.length, "out of:", triplets.length);
   for (let record of failed) {
     ps.push(
       fetch("https://goodserver.gooddollar.org/admin/verify/face/delete", {
@@ -97,5 +90,6 @@ const deleteIdentifiers = async () => {
   console.log(res);
 };
 
-deleteIdentifiers();
 // main();
+console.log(process.env.ADMIN_PASSWORD);
+deleteIdentifiers(process.env.ADMIN_PASSWORD);
