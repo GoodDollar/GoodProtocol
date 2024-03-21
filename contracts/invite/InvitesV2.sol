@@ -129,8 +129,7 @@ contract InvitesV2 is DAOUpgradeableContract {
 		require(
 			!user.bountyPaid &&
 				(user.inviteCode == 0x0 ||
-					(user.invitedBy == address(0) && inviter != address(0)) ||
-					(campaignCode != 0x0 && campaignCode == _inviterCode)),
+					(user.invitedBy == address(0) && inviter != address(0))),
 			"user already joined"
 		);
 		if (user.inviteCode == 0x0) {
@@ -142,15 +141,15 @@ contract InvitesV2 is DAOUpgradeableContract {
 		if (inviter != address(0)) {
 			require(inviter != msg.sender, "self invite");
 			user.invitedBy = inviter;
-			users[inviter].invitees.push(msg.sender);
-			users[inviter].pending.push(msg.sender);
 			stats.totalInvited += 1;
-			user.bountyAtJoin = levels[users[inviter].level].bounty;
-		}
-
-		/** support special campaign code without inviter */
-		if (_inviterCode == campaignCode && campaignCode != 0x0) {
-			user.bountyAtJoin = levels[0].bounty;
+			/** support special campaign code without inviter */
+			if (inviter == address(this)) {
+				user.bountyAtJoin = levels[0].bounty;
+			} else {
+				users[inviter].invitees.push(msg.sender);
+				users[inviter].pending.push(msg.sender);
+				user.bountyAtJoin = levels[users[inviter].level].bounty;
+			}
 		}
 
 		if (canCollectBountyFor(msg.sender)) {
@@ -179,7 +178,9 @@ contract InvitesV2 is DAOUpgradeableContract {
 			users[_invitee].bountyAtJoin > 0 &&
 			!users[_invitee].bountyPaid &&
 			getIdentity().isWhitelisted(_invitee) &&
-			(invitedBy == address(0) || getIdentity().isWhitelisted(invitedBy)) &&
+			(invitedBy == address(0) ||
+				invitedBy == address(this) ||
+				getIdentity().isWhitelisted(invitedBy)) &&
 			_whitelistedOnChainOrDefault(_invitee) == _chainId();
 	}
 
@@ -243,7 +244,7 @@ contract InvitesV2 is DAOUpgradeableContract {
 		uint256 bountyToPay = users[_invitee].bountyAtJoin;
 		bool earnedLevel = false;
 
-		if (invitedBy != address(0)) {
+		if (invitedBy != address(this) && invitedBy != address(0)) {
 			uint256 joinedAt = users[_invitee].joinedAt;
 			Level memory level = levels[users[invitedBy].level];
 
@@ -334,6 +335,7 @@ contract InvitesV2 is DAOUpgradeableContract {
 
 	function setCampaignCode(bytes32 _code) public ownerOrAvatar {
 		campaignCode = _code;
+		codeToUser[campaignCode] = address(this);
 	}
 
 	function end() public ownerOrAvatar isActive {
