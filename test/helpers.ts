@@ -134,6 +134,8 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
     await ethers.getContractFactory("BancorFormula")
   ).deploy();
 
+  await BancorFormula.init();
+
   console.log("deploy upgradeable identity...");
 
   const Identity = await upgrades.deployProxy(
