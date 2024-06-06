@@ -78,17 +78,6 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		cDaiAddress = nameService.getAddress("CDAI");
 		// Approve transfer to cDAI contract
 		ERC20(daiAddress).approve(cDaiAddress, type(uint256).max);
-		address reserve = nameService.getAddress("RESERVE");
-		if (reserve != address(0)) {
-			ERC20(nameService.getAddress("GOODDOLLAR")).approve(
-				nameService.getAddress("RESERVE"),
-				type(uint256).max
-			);
-			ERC20(cDaiAddress).approve(
-				nameService.getAddress("RESERVE"),
-				type(uint256).max
-			);
-		}
 		ERC20(daiAddress).approve(
 			nameService.getAddress("UNISWAP_ROUTER"),
 			type(uint256).max
@@ -132,9 +121,11 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			require(
 				ERC20(_buyPath[0]).transferFrom(
 					msg.sender,
-					address(this),
+					address(_buyPath[0]) == cDaiAddress
+						? address(reserve)
+						: address(this),
 					_tokenAmount
-				),
+				) == true,
 				"transferFrom failed, make sure you approved input token transfer"
 			);
 		}
@@ -200,9 +191,8 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		GoodReserveCDai reserve = GoodReserveCDai(
 			nameService.getAddress("RESERVE")
 		);
-		ERC20(nameService.getAddress("GOODDOLLAR")).transferFrom(
+		IGoodDollar(nameService.getAddress("GOODDOLLAR")).burnFrom(
 			msg.sender,
-			address(this),
 			_gdAmount
 		);
 
@@ -300,6 +290,7 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		require(cDaiResult == 0, "Minting cDai failed");
 
 		uint256 cDaiInput = cDai.balanceOf(address(this)) - currCDaiBalance;
+		cDai.transfer(address(reserve), cDaiInput);
 		return reserve.buy(cDaiInput, _minReturn, _targetAddress);
 	}
 
@@ -342,9 +333,8 @@ contract ExchangeHelper is DAOUpgradeableContract {
 			);
 			return swap;
 		} else {
-			if (isBuy) {
+			if (isBuy)
 				ERC20(_inputPath[0]).approve(address(uniswapContract), _tokenAmount);
-			}
 			swap = uniswapContract.swapExactTokensForTokens(
 				_tokenAmount,
 				isBuy ? _minDAIAmount : _minTokenReturn,
