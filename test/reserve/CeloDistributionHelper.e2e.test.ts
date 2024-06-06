@@ -36,7 +36,7 @@ describe("CeloDistributionHelper E2E (Celo fork)", () => {
     }
 
     before(forkReset)
-
+    after(() => reset())
     it("should ready oracle when deployed", async () => {
         oracle = (await ethers.getContractAt(
             "IStaticOracle",
