@@ -446,12 +446,6 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
     "1000000" //100% rr
   );
 
-  //deposit initial cdai balance
-  await dai["mint(uint256)"](ethers.utils.parseEther("100"));
-  await dai.approve(cDAI.address, ethers.utils.parseEther("100"));
-  await cDAI["mint(uint256)"](ethers.utils.parseEther("100"));
-  await cDAI.transfer(goodReserve.address, "10000");
-
   console.log("deploying compound voting...");
 
   const votingMachine = (await upgrades.deployProxy(
