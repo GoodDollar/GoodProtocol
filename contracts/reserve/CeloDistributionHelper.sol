@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8;
+pragma solidity >=0.8;
 
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@mean-finance/uniswap-v3-oracle/solidity/interfaces/IStaticOracle.sol";
 import "@gooddollar/bridge-contracts/contracts/messagePassingBridge/IMessagePassingBridge.sol";
 
 import "../utils/DAOUpgradeableContract.sol";
-import "./ExchangeHelper.sol";
 
 // import "hardhat/console.sol";
 
@@ -18,36 +16,26 @@ import "./ExchangeHelper.sol";
  * recipients can be on other blockchains and get their funds via fuse/multichain bridge
  * accounts with ADMIN_ROLE can update the recipients, defaults to Avatar
  */
-contract DistributionHelper is
+contract CeloDistributionHelper is
 	DAOUpgradeableContract,
 	AccessControlEnumerableUpgradeable
 {
+	error FEE_LIMIT(uint256 fee);
+	error INVALID_CHAINID();
+
 	bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
 
-	error FEE_LIMIT(uint256 fee);
+	address public constant CELO = 0x471EcE3750Da237f93B8E339c536989b8978a438;
 
-	//IStaticOracle(0xB210CE856631EeEB767eFa666EC7C1C57738d438); //@mean-finance/uniswap-v3-oracle
+	address public constant CUSD = 0x765DE816845861e75A25fCA122bb6898B8B1282a;
 
-	address public constant CELO_TOKEN =
-		0x3294395e62F4eB6aF3f1Fcf89f5602D90Fb3Ef69;
-
-	address public constant FUSE_TOKEN =
-		0x970B9bB2C0444F5E81e9d0eFb84C8ccdcdcAf84d;
-
-	address public constant USDC_TOKEN =
-		0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-
-	address public constant WETH_TOKEN =
-		0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-
-	address public constant AXL_TOKEN =
-		0x467719aD09025FcC6cF6F8311755809d45a5E5f3;
+	ISwapRouter public constant ROUTER =
+		ISwapRouter(0x5615CDAb10dc425a742d643d949a7F474C01abc4);
 
 	enum TransferType {
-		FuseBridge,
 		LayerZeroBridge,
-		AxelarBridge,
-		Contract
+		Transfer,
+		TransferAndCall
 	}
 
 	struct DistributionRecipient {
@@ -58,9 +46,6 @@ contract DistributionHelper is
 	}
 
 	struct FeeSettings {
-		uint128 axelarBaseFee;
-		uint128 bridgeExecuteGas;
-		uint128 targetChainGasPrice;
 		uint128 maxFee;
 		uint128 minBalanceForFees;
 		uint8 percentageToSellForFee;
@@ -68,107 +53,51 @@ contract DistributionHelper is
 
 	DistributionRecipient[] public distributionRecipients;
 
-	address public fuseBridge;
 	IMessagePassingBridge public mpbBridge;
 	FeeSettings public feeSettings; //previously anyGoodDollar_unused; //kept for storage layout upgrades
-
 	IStaticOracle public STATIC_ORACLE;
 
 	event Distribution(
 		uint256 distributed,
 		uint256 startingBalance,
 		uint256 incomingAmount,
-		DistributionRecipient[] distributionRecipients
+		DistributionRecipient[] distributionRecipients,
+		uint256 gdSoldForGas,
+		uint256 nativeBoughtForGas
 	);
 	event RecipientUpdated(DistributionRecipient recipient, uint256 index);
 	event RecipientAdded(DistributionRecipient recipient, uint256 index);
 
 	receive() external payable {}
 
-	function initialize(INameService _ns) external initializer {
+	function initialize(
+		INameService _ns,
+		IStaticOracle _oracle
+	) external initializer {
 		__AccessControlEnumerable_init();
 		setDAO(_ns);
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar); //this needs to happen after setDAO for avatar to be non empty
 		_setupRole(GUARDIAN_ROLE, avatar);
-		updateAddresses();
-	}
-
-	function updateAddresses() public {
-		fuseBridge = nameService.getAddress("BRIDGE_CONTRACT");
 		mpbBridge = IMessagePassingBridge(
 			nameService.getAddress("MPBBRIDGE_CONTRACT")
 		);
-		STATIC_ORACLE = IStaticOracle(0xB210CE856631EeEB767eFa666EC7C1C57738d438); //@mean-finance/uniswap-v3-oracle
-		_setupRole(GUARDIAN_ROLE, avatar);
-		_setupRole(GUARDIAN_ROLE, 0xE0c5daa7CC6F88d29505f702a53bb5E67600e7Ec); //guardians on ethereum
+		STATIC_ORACLE = _oracle;
+		uint24[] memory fees = new uint24[](1);
+		fees[0] = 10000;
+		STATIC_ORACLE.prepareSpecificFeeTiersWithTimePeriod(
+			CUSD,
+			address(nativeToken()),
+			fees,
+			60
+		);
+		fees[0] = 3000;
+		STATIC_ORACLE.prepareSpecificFeeTiersWithTimePeriod(CUSD, CELO, fees, 60);
 	}
 
 	function setFeeSettings(
 		FeeSettings memory _feeData
 	) external onlyRole(GUARDIAN_ROLE) {
 		feeSettings = _feeData;
-	}
-
-	function getTargetChainRefundAddress(
-		uint256 chainId
-	) public pure returns (address) {
-		if (chainId == 122) return 0xf96dADc6D71113F6500e97590760C924dA1eF70e; //avatar on fuse
-		if (chainId == 42220) return 0x495d133B938596C9984d462F007B676bDc57eCEC; //avatar on celo
-
-		revert("refund chainId");
-	}
-
-	function getTargetChainGasInEth(
-		uint256 gasCostWei,
-		uint256 chainId
-	) public view returns (uint256 quote) {
-		address baseToken;
-		if (chainId == 122) baseToken = FUSE_TOKEN;
-		else if (chainId == 42220) baseToken = CELO_TOKEN;
-		else revert("baseToken chainId");
-
-		uint24[] memory fees = new uint24[](1);
-		fees[0] = 3000;
-		(quote, ) = STATIC_ORACLE.quoteSpecificFeeTiersWithTimePeriod(
-			uint128(gasCostWei),
-			baseToken,
-			WETH_TOKEN,
-			fees,
-			60 //last 1 minute
-		);
-	}
-
-	function getAxelarFee(
-		uint256 targetChainId
-	) public view returns (uint256 feeInEth) {
-		uint256 executeFeeInEth = getTargetChainGasInEth(
-			feeSettings.bridgeExecuteGas * feeSettings.targetChainGasPrice,
-			targetChainId
-		);
-
-		uint24[] memory fees = new uint24[](1);
-		fees[0] = 3000;
-
-		(uint256 baseFeeInUSDC, ) = STATIC_ORACLE
-			.quoteSpecificFeeTiersWithTimePeriod(
-				uint128(feeSettings.axelarBaseFee),
-				AXL_TOKEN,
-				USDC_TOKEN,
-				fees,
-				60 //last 1 minute
-			);
-
-		fees[0] = 500;
-		(uint256 baseFeeInEth, ) = STATIC_ORACLE
-			.quoteSpecificFeeTiersWithTimePeriod(
-				uint128(baseFeeInUSDC) / 1e12, //reduce to usdc 6 decimals
-				USDC_TOKEN,
-				WETH_TOKEN,
-				fees,
-				60 //last 1 minute
-			);
-
-		feeInEth = ((baseFeeInEth + executeFeeInEth) * 110) / 100; //add 10%
 	}
 
 	/**
@@ -181,12 +110,18 @@ contract DistributionHelper is
 		uint256 toDistribute = nativeToken().balanceOf(address(this));
 		if (toDistribute == 0) return;
 
+		uint256 boughtNative;
+		uint256 gdToSellForFee;
+		uint256 minReceived;
 		if (address(this).balance < feeSettings.minBalanceForFees) {
-			uint256 gdToSellForFee = (toDistribute *
-				feeSettings.percentageToSellForFee) / 100;
-			gdToSellForFee = calcGDToSell(gdToSellForFee);
+			gdToSellForFee =
+				(toDistribute * feeSettings.percentageToSellForFee) /
+				100;
+			(gdToSellForFee, minReceived) = calcGDToSell(gdToSellForFee);
 			toDistribute -= gdToSellForFee;
-			buyNativeWithGD(gdToSellForFee);
+			boughtNative = buyNativeWithGD(gdToSellForFee, minReceived);
+			// console.log("bought: %s", boughtNative, "minReceived:", minReceived);
+			// console.log("balance:", ERC20(nativeToken()).balanceOf(address(this)));
 		}
 
 		uint256 totalDistributed;
@@ -203,7 +138,9 @@ contract DistributionHelper is
 			totalDistributed,
 			toDistribute,
 			_amount,
-			distributionRecipients
+			distributionRecipients,
+			gdToSellForFee,
+			boughtNative
 		);
 	}
 
@@ -214,6 +151,13 @@ contract DistributionHelper is
 	function addOrUpdateRecipient(
 		DistributionRecipient memory _recipient
 	) external onlyRole(DEFAULT_ADMIN_ROLE) {
+		if (
+			_recipient.transferType != TransferType.LayerZeroBridge &&
+			_recipient.chainId != block.chainid
+		) {
+			revert INVALID_CHAINID();
+		}
+
 		for (uint256 i = 0; i < distributionRecipients.length; i++) {
 			if (distributionRecipients[i].addr == _recipient.addr) {
 				distributionRecipients[i] = _recipient;
@@ -235,13 +179,8 @@ contract DistributionHelper is
 		DistributionRecipient storage _recipient,
 		uint256 _amount
 	) internal {
-		if (_recipient.transferType == TransferType.FuseBridge) {
-			nativeToken().transferAndCall(
-				fuseBridge,
-				_amount,
-				abi.encodePacked(_recipient.addr)
-			);
-		} else if (_recipient.transferType == TransferType.LayerZeroBridge) {
+		// console.log("distributing to: %s %s", _recipient.addr, _amount);
+		if (_recipient.transferType == TransferType.LayerZeroBridge) {
 			nativeToken().approve(address(mpbBridge), _amount);
 			(uint256 lzFee, ) = ILayerZeroFeeEstimator(address(mpbBridge))
 				.estimateSendFee(
@@ -252,7 +191,8 @@ contract DistributionHelper is
 					false,
 					abi.encodePacked(uint16(1), uint256(400000)) // 400k gas to execute bridge at target chain
 				);
-			if (lzFee > feeSettings.maxFee) revert FEE_LIMIT(lzFee);
+			if (lzFee > feeSettings.maxFee || lzFee > address(this).balance)
+				revert FEE_LIMIT(lzFee);
 
 			mpbBridge.bridgeToWithLz{ value: lzFee }(
 				_recipient.addr,
@@ -260,51 +200,73 @@ contract DistributionHelper is
 				_amount,
 				""
 			);
-		} else if (_recipient.transferType == TransferType.AxelarBridge) {
-			nativeToken().approve(address(mpbBridge), _amount);
-			uint256 axlFee = getAxelarFee(_recipient.chainId);
-
-			if (axlFee > feeSettings.maxFee) revert FEE_LIMIT(axlFee);
-
-			mpbBridge.bridgeToWithAxelar{ value: axlFee }(
-				_recipient.addr,
-				_recipient.chainId,
-				_amount,
-				getTargetChainRefundAddress(_recipient.chainId)
-			);
-		} else if (_recipient.transferType == TransferType.Contract) {
+		} else if (_recipient.transferType == TransferType.TransferAndCall) {
 			nativeToken().transferAndCall(_recipient.addr, _amount, "");
+		} else if (_recipient.transferType == TransferType.Transfer) {
+			nativeToken().transfer(_recipient.addr, _amount);
 		}
 	}
 
 	function calcGDToSell(
 		uint256 maxAmountToSell
-	) public view returns (uint256 gdToSell) {
+	) public view returns (uint256 gdToSell, uint256 minReceived) {
 		uint24[] memory fees = new uint24[](1);
-		fees[0] = 500;
-
-		uint256 ethToBuy = feeSettings.minBalanceForFees * 3;
-		(uint256 ethValueInUSDC, ) = STATIC_ORACLE
+		fees[0] = 3000;
+		uint256 nativeToBuy = feeSettings.minBalanceForFees *
+			3 -
+			address(this).balance;
+		(uint256 nativeValueInUSD, ) = STATIC_ORACLE
 			.quoteSpecificFeeTiersWithTimePeriod(
-				uint128(ethToBuy),
-				WETH_TOKEN,
-				USDC_TOKEN,
+				uint128(nativeToBuy),
+				CELO,
+				CUSD,
 				fees,
 				60 //last 1 minute
 			);
 
-		uint256 gdPriceInDai = GoodReserveCDai(nameService.getAddress("RESERVE"))
-			.currentPriceDAI();
-		gdToSell = (ethValueInUSDC * 1e12 * 100) / gdPriceInDai; //* 1e12 to increase usdc to 12 decimals, mul by 100 so result is in 2 G$ 2 decimals
+		fees[0] = 10000;
+		(uint256 gdPriceInUSD, ) = STATIC_ORACLE
+			.quoteSpecificFeeTiersWithTimePeriod(
+				uint128(1e18),
+				address(nativeToken()),
+				CUSD,
+				fees,
+				60 //last 1 minute
+			);
+		gdToSell = (nativeValueInUSD * 1e18) / gdPriceInUSD; // mul by 1e18 so result is in 18 decimals
 		gdToSell = gdToSell > maxAmountToSell ? maxAmountToSell : gdToSell;
+		(minReceived, ) = STATIC_ORACLE.quoteSpecificFeeTiersWithTimePeriod(
+			uint128(gdToSell),
+			address(nativeToken()),
+			CUSD,
+			fees,
+			60 //last 1 minute
+		);
+		// console.log("nativeToBuy %s", nativeToBuy);
+		// console.log(
+		// 	"gdPriceInUSD: %s nativeValueInUSD:%s",
+		// 	gdPriceInUSD,
+		// 	nativeValueInUSD
+		// );
 	}
 
-	function buyNativeWithGD(uint256 amountToSell) internal {
-		address[] memory path = new address[](2);
-		path[0] = nameService.getAddress("DAI");
-		path[1] = address(0);
-		address exchg = nameService.getAddress("EXCHANGE_HELPER");
-		nativeToken().approve(exchg, amountToSell);
-		ExchangeHelper(exchg).sell(path, amountToSell, 0, 0, address(this));
+	function buyNativeWithGD(
+		uint256 amountToSell,
+		uint256 minReceived
+	) internal returns (uint256 nativeBought) {
+		ERC20(nativeToken()).approve(address(ROUTER), amountToSell);
+		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
+			path: abi.encodePacked(
+				nativeToken(),
+				uint24(10000),
+				CUSD,
+				uint24(3000),
+				CELO
+			),
+			recipient: address(this),
+			amountIn: amountToSell,
+			amountOutMinimum: (minReceived * 97) / 100 // 3% slippage
+		});
+		return ROUTER.exactInput(params);
 	}
 }

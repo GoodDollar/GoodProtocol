@@ -447,6 +447,15 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(gdBalancerAfterWithdraw).to.be.equal(gdBalanceBeforeWithdraw);
   });
 
+  it("shouldn't be able to collect interest when contract is not active", async () => {
+    const goodCompoundStaking2 = await deployStaking(null, null, "1728000");
+    await expect(
+      goodFundManager
+        .connect(staker)
+        .collectInterest([goodCompoundStaking2.address], true)
+    ).revertedWith(/not a dao contract/);
+  });
+
   // it("should set blacklisted false and mint rewards", async () => {
   //   const goodFundManagerFactory = await ethers.getContractFactory(
   //     "GoodFundManager"
@@ -1137,6 +1146,32 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     expect(sortedArrays[1][0]).to.be.equal(cDAI1.address);
   });
 
+  // needs to come before next test where we blacklist the goodcompoundstaking contract
+  it("collected interest should be greater than gas cost when 2 months passed", async () => {
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    const currentBlock = await ethers.provider.getBlock(currentBlockNumber);
+
+    let encodedData = goodFundManager.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "1000",
+        goodCompoundStaking.address,
+        0,
+        currentBlockNumber + 1000000,
+        false
+      ] // set 10 gd per block
+    );
+    await genericCall(goodFundManager.address, encodedData);
+    await ethers.provider.send("evm_setNextBlockTimestamp", [
+      currentBlock.timestamp + 5185020
+    ]);
+    await ethers.provider.send("evm_mine", []);
+    console.log(await goodFundManager.activeContracts(0));
+    await expect(
+      goodFundManager.collectInterest([goodCompoundStaking.address], false)
+    ).revertedWith(/< gas costs/);
+  });
+
   it("It should not be able to calc and sort array when there is no active staking contract", async () => {
     const goodFundManagerFactory = await ethers.getContractFactory(
       "GoodFundManager"
@@ -1154,22 +1189,6 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
       ["100", goodCompoundStaking.address, 100, 1000, false]
     );
     await genericCall(goodFundManager.address, encodedData, avatar, 0);
-  });
-
-  it("collected interest should be greater than gas cost when 2 months passed", async () => {
-    const currentBlockNumber = await ethers.provider.getBlockNumber();
-    const currentBlock = await ethers.provider.getBlock(currentBlockNumber);
-
-    await ethers.provider.send("evm_setNextBlockTimestamp", [
-      currentBlock.timestamp + 5185020
-    ]);
-    await ethers.provider.send("evm_mine", []);
-    const collectableContracts = await goodFundManager
-      .calcSortedContracts()
-      .catch(e => e);
-    await expect(
-      goodFundManager.collectInterest([goodCompoundStaking.address], false)
-    ).revertedWith(/< gas costs/);
   });
 
   it("Avatar should be able to set gd minting gas amount", async () => {
