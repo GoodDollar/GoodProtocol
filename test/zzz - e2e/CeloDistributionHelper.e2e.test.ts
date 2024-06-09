@@ -11,8 +11,7 @@ import {
     Controller,
     ISuperGoodDollar
 } from "../../types";
-import { createDAO, increaseTime } from "../helpers";
-import * as waffle from "ethereum-waffle";
+import { createDAO } from "../helpers";
 import release from "../../releases/deployment.json"
 
 const BN = ethers.BigNumber;
@@ -36,7 +35,7 @@ describe("CeloDistributionHelper E2E (Celo fork)", () => {
     }
 
     before(forkReset)
-    after(() => reset())
+
     it("should ready oracle when deployed", async () => {
         oracle = (await ethers.getContractAt(
             "IStaticOracle",
