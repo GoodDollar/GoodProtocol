@@ -42,6 +42,10 @@
  *  - set the expansion rate
  */
 
+// TODO:
+// make sure staking contracts on eth are paused
+// add distributionhelper recipients
+
 import { network, ethers } from "hardhat";
 import { reset } from "@nomicfoundation/hardhat-network-helpers";
 import { defaultsDeep, last } from "lodash";
