@@ -2,48 +2,48 @@
  * Mainnet:
  * FIXES:
  *  - prevent hacked funds burnFrom
- *  - prevent untrusted staking contracts
  *  - set GOOD rewards to 0
  * 
  * Changes:
  *  - mainnet no longer main token chain. so bridge now mints/burns instead of lock/unlock
  * 
  * PLAN:
+ *  - pause staking
+ *  - prevent fusebridge usage
  *  - set GOOD rewards to 0
- *  - upgrade multichainformula
- *  - upgrade goodfundmanager
+ *  - blacklist hacked accounts to prevent burn (transfer already blocked done via tax)
  *  - upgrade MP bridge contract
  *  - withdraw funds from fuse + MPB bridges
  *  - burn withdrawn funds
  *  - give minting rights to the MPB (by adding it as scheme)
- *  - give minting rights to the new Fuse bridge
  * 
  * Fuse: 
  * Changes:
- *  - Upgrade MPB contract and depracate mintburnwrapper
+ *  - Upgrade MPB contract
  * 
  * PLAN:
+ *  - prevent old fuse bridge usage
  *  - upgrade MP bridge contract
  *  - give minting rights to the MPB (by adding it as scheme)
- *  - give minting rights to the new Fuse bridge
+ *  - remove mint rights to bridge given through mintburnwrapper
  * 
  * Celo: 
  * Changes:
  *  - Upgrade MPB contract
  *  - Deploy new distribution helper
+ * 
  * PLAN:
  *  - upgrade MP bridge contract
  *  - remove minting rights from bridge (since now it is lock/unlock)
  *  - mint tokens to MPB to match G$ supply on Ethereum+Fuse-Minus locked funds 
  *  - deploy DistributionHelper
- *  - give minting rights to mento broker
- *  - give minting rights to mento expansion controller
+ *  - add recipients to distribution helper
+ *  - give minting rights to mento broker directly on token
+ *  - give minting rights to mento expansion controller directly on token
  *  - create the mento G$/CUSD exchange
  *  - set the expansion rate
  */
 
-// TODO:
-// make sure staking contracts on eth are paused
 // add distributionhelper recipients
 
 import { network, ethers } from "hardhat";
@@ -57,8 +57,7 @@ import { executeViaGuardian, executeViaSafe, verifyProductionSigner } from "../m
 import ProtocolSettings from "../../releases/deploy-settings.json";
 
 import dao from "../../releases/deployment.json";
-import { BigNumber } from "ethers";
-import { IERC20, IGoodDollar } from "../../types";
+import { IGoodDollar } from "../../types";
 let { name: networkName } = network;
 
 
@@ -70,7 +69,7 @@ const mpbDeployments = {
 }
 
 const isSimulation = network.name === "hardhat" || network.name === "fork" || network.name === "localhost"
-export const upgradeMainnet = async () => {
+export const upgradeMainnet = async (network) => {
   const isProduction = networkName.includes("production");
   let [root, ...signers] = await ethers.getSigners();
 
@@ -113,7 +112,6 @@ export const upgradeMainnet = async () => {
   });
 
   const goodFundManagerImpl = await ethers.deployContract("GoodFundManager");
-  const multichainFormulaImpl = await ethers.deployContract("MultichainFeeFormula");
 
   const gd = await ethers.getContractAt("IGoodDollar", release.GoodDollar) as IGoodDollar;
   const fuseBridgeBalance = await gd.balanceOf(release.ForeignBridge);
@@ -121,6 +119,7 @@ export const upgradeMainnet = async () => {
   const totalToBurn = fuseBridgeBalance.add(mpbBridgeBalance)
   const mpbImplementation = mpbDeployments["1"].find(_ => _.name === "mainnet")["MessagePassingBridge_Implementation"].address
 
+  // test blacklisting to prevent burn by hacker
   if (isSimulation) {
     const locked = await ethers.getImpersonatedSigner("0xeC577447D314cf1e443e9f4488216651450DBE7c")
     const tx = await gd.connect(locked).burn("10", { maxFeePerGas: 30e9, maxPriorityFeePerGas: 1e9, gasLimit: 200000 }).then(_ => _.wait()).then(_ => _.status).catch(e => e);
@@ -133,48 +132,46 @@ export const upgradeMainnet = async () => {
 
 
   const proposalContracts = [
-    release.ForeignBridge,
+    release.StakingContractsV3[0][0], // pause staking
+    release.StakingContractsV3[1][0], // pause staking
+    release.ForeignBridge, // prevent from using
     release.StakersDistribution, //set GOOD rewards to 0
     release.Identity, // set locked G$ accounts as blacklisted
     release.Identity, // set locked G$ accounts as blacklisted
     release.Identity, // set locked G$ accounts as blacklisted
-    release.ForeignBridge, // prevent from using
-    release.GoodFundManager, // upgrade to prevent untrusted contracts
     release.MpbBridge, // mpb upgrade
     release.ForeignBridge, // claim bridge tokens - requires Fuse to set us as upgradeabilityOwner
     release.MpbBridge, // claim bridge tokens
     release.GoodDollar, // burn tokens
     release.Controller, //minting rigts to our bridge
-    // release.Controller, //minting rigts to new FuzeLzBridge
   ];
 
   const proposalEthValues = proposalContracts.map(_ => 0);
 
   const proposalFunctionSignatures = [
+    "pause(bool)",
+    "pause(bool)",
     "setExecutionDailyLimit(uint256)", // set limit to 0 so old bridge cant be used
     "setMonthlyReputationDistribution(uint256)",
     "addBlacklisted(address)",
     "addBlacklisted(address)",
     "addBlacklisted(address)",
-    "setExecutionDailyLimit(uint256)",
-    "upgradeTo(address)",
     "upgradeTo(address)",
     "claimTokens(address,address)",
     "withdraw(address,uint256)",
     "burn(uint256)",
     "registerScheme(address,bytes32,bytes4,address)", //make sure mpb is a registered scheme so it can mint G$ tokens
-    // "registerScheme(address,bytes32,bytes4,address)", //make sure mpb is a registered scheme so it can mint G$ tokens
 
   ];
 
   const proposalFunctionInputs = [
+    ethers.utils.defaultAbiCoder.encode(["bool"], [true]),
+    ethers.utils.defaultAbiCoder.encode(["bool"], [true]),
     ethers.utils.defaultAbiCoder.encode(["uint256"], [0]),
     ethers.utils.defaultAbiCoder.encode(["uint256"], [0]),
     ethers.utils.defaultAbiCoder.encode(["address"], ["0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d"]),
     ethers.utils.defaultAbiCoder.encode(["address"], ["0xeC577447D314cf1e443e9f4488216651450DBE7c"]),
     ethers.utils.defaultAbiCoder.encode(["address"], ["0x6738fA889fF31F82d9Fe8862ec025dbE318f3Fde"]),
-    ethers.utils.defaultAbiCoder.encode(["uint256"], [0]),
-    ethers.utils.defaultAbiCoder.encode(["address"], [goodFundManagerImpl.address]),
     ethers.utils.defaultAbiCoder.encode(["address"], [mpbImplementation]),
     ethers.utils.defaultAbiCoder.encode(["address", "address"], [release.GoodDollar, release.Avatar]),
     ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [release.GoodDollar, 0]),
@@ -186,13 +183,6 @@ export const upgradeMainnet = async () => {
       release.Avatar
     ]
     ),
-    // ethers.utils.defaultAbiCoder.encode(["address", "bytes32", "bytes4", "address"], [
-    //   release.FuseLzBridge, //scheme
-    //   ethers.constants.HashZero, //paramshash
-    //   "0x00000001", //permissions - minimal
-    //   release.Avatar
-    // ]
-    // ),
   ];
 
   if (isProduction) {
@@ -228,7 +218,7 @@ export const upgradeMainnet = async () => {
 
 };
 
-export const upgradeFuse = async () => {
+export const upgradeFuse = async (network) => {
   let [root] = await ethers.getSigners();
 
   const isProduction = networkName.includes("production");
@@ -267,8 +257,6 @@ export const upgradeFuse = async () => {
     "upgradeTo(address)", //upgrade mpb bridge
     "registerScheme(address,bytes32,bytes4,address)", //make sure mpb is a registered scheme so it can mint G$ tokens
     "revokeRole(bytes32,address)", // mpb is now lock/unlock doesnt need minting
-
-    // "registerScheme(address,bytes32,bytes4,address)", //make sure fuzelzbridge is a registered scheme so it can mint G$ tokens
   ];
 
   const proposalFunctionInputs = [
@@ -284,10 +272,6 @@ export const upgradeFuse = async () => {
       ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MINTER_ROLE")),
       release.MpbBridge
     ]),
-    // ethers.utils.defaultAbiCoder.encode(
-    //   ["address", "uint256", "uint256", "uint32", "uint256", "uint256", "uint32", "bool"],
-    //   [release.FuseLZBridge, 0, 0, 0, 0, 0, 0, false]
-    // ), //function addMinter(
   ];
 
   if (isProduction) {
@@ -318,14 +302,14 @@ export const upgradeFuse = async () => {
   }
 };
 
-export const upgradeCelo = async () => {
+export const upgradeCelo = async (network) => {
   let [root] = await ethers.getSigners();
 
   const isProduction = networkName.includes("production");
 
 
   let networkEnv = networkName
-  if (isSimulation) networkEnv = "production-celo";
+  if (isSimulation) networkEnv = network
 
   let release: { [key: string]: any } = dao[networkEnv];
 
@@ -339,6 +323,7 @@ export const upgradeCelo = async () => {
     await root.sendTransaction({ value: ethers.constants.WeiPerEther.mul(3), to: guardian.address });
   }
 
+  const mentoUpgrade = await ethers.deployContract("ProtocolUpgradeV4Mento", [release.Avatar])
   const mpbImplementation = mpbDeployments["42220"].find(_ => _.name === "celo")["MessagePassingBridge_Implementation"].address
   const locked = ["0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d", "0xeC577447D314cf1e443e9f4488216651450DBE7c", "0x6738fA889fF31F82d9Fe8862ec025dbE318f3Fde"];
   const gd = await ethers.getContractAt("GoodDollar", release.GoodDollar);
@@ -349,18 +334,18 @@ export const upgradeCelo = async () => {
   const TOTAL_SUPPLY_FUSE = await gd.connect(fuseprovider).attach(dao["production"].GoodDollar).totalSupply()
   const TOTAL_MINT_BRIDGE = TOTAL_SUPPLY_ETH.add(TOTAL_SUPPLY_FUSE).sub(TOTAL_LOCKED).mul(ethers.BigNumber.from("10000000000000000"))
 
-  const ctrl = await ethers.getContractAt("Controller", release.Controller);
 
-  console.log({ networkEnv, mpbImplementation, guardian: guardian.address, isSimulation, isProduction, release });
+  const exchangeParams = [release.CUSD, release.GoodDollar, 0, 0, 0, 0] //address reserveAsset;address tokenAddress;uint256 tokenSupply;uint256 reserveBalance;uint32 reserveRatio;uint32 exitConribution;
+
+  console.log({ networkEnv, mentoUpgrade: mentoUpgrade.address, mpbImplementation, guardian: guardian.address, isSimulation, isProduction, release });
   const proposalContracts = [
     release.MpbBridge, // upgrade
-    release.GoodDollarMintBurnWrapper, // remove minting rights from bridge
-    release.GoodDollar,
-    //TODO: add calls to mento reserve
-    // release.Controller, // set mento broker as minter
-    // release.Controller, // set reserve expansion controller as minter
-    // release.GoodDollarExchangeProvider, // create an exchange
-    // release.GoodDollarExpansionController, // set expansion rate
+    release.MpbBridge && release.GoodDollarMintBurnWrapper, // remove minting rights from bridge
+    release.MpbBridge && release.GoodDollar, // mint to bridge
+    release.GoodDollar, // set mento broker as minter
+    release.GoodDollar, // set reserve expansion controller as minter
+    release.Controller, // register upgrade contract
+    mentoUpgrade.address, // create the exchange + set expansion rate 
   ];
 
   const proposalEthValues = proposalContracts.map(_ => 0);
@@ -369,35 +354,27 @@ export const upgradeCelo = async () => {
     "upgradeTo(address)",
     "revokeRole(bytes32,address)", // mpb is now lock/unlock doesnt need minting
     "mint(address,uint256)", // mint to bridge
-    //TODO: add calls to mento contracts
-    // "registerScheme(address,bytes32,bytes4,address)",
-    // "registerScheme(address,bytes32,bytes4,address)",
-    // "createExchange()",
-    // "setExpansionRate(uint256)",
+    "addMinter(address)",
+    "addMinter(address)",
+    "registerScheme(address,bytes32,bytes4,address)",
+    "upgrade(address,(address,address,uint256,uint256,uint32,uint32),address,address)" //Controller _controller,PoolExchange memory _exchange,address _mentoExchange,address _mentoController
+
   ];
 
+  console.log("preparing inputs...")
   const proposalFunctionInputs = [
     ethers.utils.defaultAbiCoder.encode(["address"], [mpbImplementation]),
-    ethers.utils.defaultAbiCoder.encode(["bytes32", "address"], [
+    release.MpbBridge && ethers.utils.defaultAbiCoder.encode(["bytes32", "address"], [
       ethers.utils.keccak256(ethers.utils.toUtf8Bytes("MINTER_ROLE")),
       release.MpbBridge
     ]),
-    ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [release.MpbBridge, TOTAL_MINT_BRIDGE]),
-
-    //TODO: add calls to mento contracts
-    // ethers.utils.defaultAbiCoder.encode(["address", "bytes32", "bytes4", "address"], [
-    //   release.MentoBroker, //scheme
-    //   ethers.constants.HashZero, //paramshash
-    //   "0x00000001", //permissions - minimal
-    //   release.Avatar
-    // ]),
-    // ethers.utils.defaultAbiCoder.encode(["address", "bytes32", "bytes4", "address"], [
-    //   release.GoodDollarExpansionController, //scheme
-    //   ethers.constants.HashZero, //paramshash
-    //   "0x00000001", //permissions - minimal
-    //   release.Avatar
-    // ]),
-  ];
+    release.MpbBridge && ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [release.MpbBridge, TOTAL_MINT_BRIDGE]),
+    ethers.utils.defaultAbiCoder.encode(["address"], [release.MentoBroker]),
+    ethers.utils.defaultAbiCoder.encode(["address"], [release.MentoExpansionController]),
+    ethers.utils.defaultAbiCoder.encode(["address", "bytes32", "bytes4", "address"], [mentoUpgrade.address, ethers.constants.HashZero, "0x0000001f", release.Avatar]),
+    ethers.utils.defaultAbiCoder.encode(["address", "(address,address,uint256,uint256,uint32,uint32)", "address", "address"], [release.Controller, exchangeParams, release.MentoExchangeProvider, release.MentoExpansionController])
+  ]
+  console.log("executing upgrade...", { proposalContracts, proposalFunctionInputs, proposalFunctionSignatures })
 
   if (isProduction) {
     await executeViaSafe(
@@ -436,17 +413,18 @@ export const main = async () => {
   const { network } = await prompt.get(["network"]);
 
   console.log("running step:", { network });
-  switch (network) {
+  const chain = last(network.split("-"))
+  switch (chain) {
     case "mainnet":
-      await upgradeMainnet();
+      await upgradeMainnet(network);
 
       break;
     case "fuse":
-      await upgradeFuse();
+      await upgradeFuse(network);
 
       break;
     case "celo":
-      await upgradeCelo();
+      await upgradeCelo(network);
 
       break;
   }

@@ -193,6 +193,8 @@ export const executeViaGuardian = async (
   const results = [];
   for (let i = 0; i < contracts.length; i++) {
     const contract = contracts[i];
+    if (!contract)
+      continue;
     console.log("executing:", contracts[i], functionSigs[i], functionInputs[i]);
     const sigHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(functionSigs[i])).slice(0, 10);
     const encoded = ethers.utils.solidityPack(["bytes4", "bytes"], [sigHash, functionInputs[i]]);
@@ -404,9 +406,8 @@ export const verifyContract = async (
   networkProvider = networkProvider === "mainnet" ? "ethereum" : networkProvider;
   console.log("truffle compile...");
   await exec("npx truffle compile");
-  const cmd = `npx truffle run verify ${proxyName ? "--custom-proxy " + proxyName : ""} ${contractName}@${address} ${
-    forcedConstructorArguments ? "--forceConstructorArgs string:" + forcedConstructorArguments.slice(2) : ""
-  } --network ${networkProvider}`;
+  const cmd = `npx truffle run verify ${proxyName ? "--custom-proxy " + proxyName : ""} ${contractName}@${address} ${forcedConstructorArguments ? "--forceConstructorArgs string:" + forcedConstructorArguments.slice(2) : ""
+    } --network ${networkProvider}`;
   console.log("running...:", cmd);
   await exec(cmd).then(({ stdout, stderr }) => {
     console.log("Result for:", cmd);
