@@ -301,6 +301,9 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
       kind: "uups"
     }
   );
+
+  console.log("deploying disthelper...");
+
   let distHelper = await upgrades.deployProxy(
     await ethers.getContractFactory("DistributionHelper"),
     [nameService.address],
