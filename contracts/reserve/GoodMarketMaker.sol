@@ -187,11 +187,10 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 	 * @param _tokenAmount The amount of reserve token buying with
 	 * @return Number of GD that should be given in exchange as calculated by the bonding curve
 	 */
-	function buyReturn(ERC20 _token, uint256 _tokenAmount)
-		public
-		view
-		returns (uint256)
-	{
+	function buyReturn(
+		ERC20 _token,
+		uint256 _tokenAmount
+	) public view returns (uint256) {
 		ReserveToken memory rtoken = reserveTokens[address(_token)];
 		return
 			getBancor().calculatePurchaseReturn(
@@ -208,11 +207,10 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 	 * @param _gdAmount The amount of GD that are sold
 	 * @return Number of tokens that should be given in exchange as calculated by the bonding curve
 	 */
-	function sellReturn(ERC20 _token, uint256 _gdAmount)
-		public
-		view
-		returns (uint256)
-	{
+	function sellReturn(
+		ERC20 _token,
+		uint256 _gdAmount
+	) public view returns (uint256) {
 		ReserveToken memory rtoken = reserveTokens[address(_token)];
 		return
 			getBancor().calculateSaleReturn(
@@ -264,7 +262,8 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 		rtoken.gdSupply += _gdAmount;
 		rtoken.reserveRatio = uint32(
 			((rtoken.reserveSupply * 1e27) /
-				(rtoken.gdSupply * priceBeforeGdSupplyChange)) / 10**reserveDecimalsDiff
+				(rtoken.gdSupply * priceBeforeGdSupplyChange)) /
+				10 ** reserveDecimalsDiff
 		); // Divide it decimal diff to bring it proper decimal
 	}
 
@@ -317,55 +316,47 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 	 * @param _token The desired reserve token to have
 	 * @return price of GD
 	 */
-	function currentPrice(ERC20 _token) public view returns (uint256) {
+	function currentPrice(ERC20 _token) public view returns (uint256 price) {
 		ReserveToken memory rtoken = reserveTokens[address(_token)];
-		return
-			getBancor().calculateSaleReturn(
-				rtoken.gdSupply,
-				rtoken.reserveSupply,
-				rtoken.reserveRatio,
-				(10**decimals)
-			);
+		price =
+			(rtoken.reserveSupply * 1e8) /
+			(rtoken.gdSupply * rtoken.reserveRatio); // gd precision 1e2 + reserveRatio precision 1e6 = multiply by 1e8 not to lose precision
 	}
 
 	//TODO: need real calculation and tests
 	/**
 	 * @dev Calculates how much G$ to mint based on added token supply (from interest)
 	 * and on current reserve ratio, in order to keep G$ price the same at the bonding curve
-	 * formula to calculate the gd to mint: gd to mint =
-	 * addreservebalance * (gdsupply / (reservebalance * reserveratio))
+	 * formula to calculate the gd to mint: amountToMint = reserveInterest * tokenSupply / reserveBalance
 	 * @param _token the reserve token
 	 * @param _addTokenSupply amount of token added to supply
-	 * @return how much to mint in order to keep price in bonding curve the same
+	 * @return toMint how much to mint in order to keep price in bonding curve the same
 	 */
-	function calculateMintInterest(ERC20 _token, uint256 _addTokenSupply)
-		public
-		view
-		returns (uint256)
-	{
-		uint256 decimalsDiff = uint256(27) - decimals;
-		//resulting amount is in RAY precision
-		//we divide by decimalsdiff to get precision in GD (2 decimals)
-		return
-			((_addTokenSupply * 1e27) / currentPrice(_token)) / (10**decimalsDiff);
+	function calculateMintInterest(
+		ERC20 _token,
+		uint256 _addTokenSupply
+	) public view returns (uint256 toMint) {
+		ReserveToken memory rtoken = reserveTokens[address(_token)];
+
+		toMint = (_addTokenSupply * rtoken.gdSupply) / rtoken.reserveSupply;
 	}
 
 	/**
 	 * @dev Updates bonding curve based on _addTokenSupply and new minted amount
 	 * @param _token The reserve token
 	 * @param _addTokenSupply Amount of token added to supply
-	 * @return How much to mint in order to keep price in bonding curve the same
+	 * @return toMint How much to mint in order to keep price in bonding curve the same
 	 */
-	function mintInterest(ERC20 _token, uint256 _addTokenSupply)
-		public
-		returns (uint256)
-	{
+	function mintInterest(
+		ERC20 _token,
+		uint256 _addTokenSupply
+	) public returns (uint256 toMint) {
 		_onlyReserveOrAvatar();
 		_onlyActiveToken(_token);
 		if (_addTokenSupply == 0) {
 			return 0;
 		}
-		uint256 toMint = calculateMintInterest(_token, _addTokenSupply);
+		toMint = calculateMintInterest(_token, _addTokenSupply);
 		ReserveToken storage reserveToken = reserveTokens[address(_token)];
 		reserveToken.gdSupply += toMint;
 		reserveToken.reserveSupply += _addTokenSupply;
@@ -376,24 +367,22 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 	/**
 	 * @dev Calculate how much G$ to mint based on expansion change (new reserve
 	 * ratio), in order to keep G$ price the same at the bonding curve. the
-	 * formula to calculate the gd to mint: gd to mint =
-	 * (reservebalance / (newreserveratio * currentprice)) - gdsupply
+	 * formula to calculate the gd to mint:
+	 * amountToMint = (tokenSupply * reserveRatio - tokenSupply * newRatio) / newRatio
 	 * @param _token The reserve token
-	 * @return How much to mint in order to keep price in bonding curve the same
+	 * @return toMint How much to mint in order to keep price in bonding curve the same
 	 */
-	function calculateMintExpansion(ERC20 _token) public view returns (uint256) {
+	function calculateMintExpansion(
+		ERC20 _token
+	) public view returns (uint256 toMint) {
 		ReserveToken memory reserveToken = reserveTokens[address(_token)];
 		uint32 newReserveRatio = calculateNewReserveRatio(_token); // new reserve ratio
-		uint256 reserveDecimalsDiff = uint256(27) - _token.decimals(); // //result is in RAY precision
-		uint256 denom = (uint256(newReserveRatio) *
-			1e21 *
-			currentPrice(_token) *
-			(10**reserveDecimalsDiff)) / 1e27; // (newreserveratio * currentprice) in RAY precision
-		uint256 gdDecimalsDiff = uint256(27) - decimals;
-		uint256 toMint = ((reserveToken.reserveSupply *
-			(10**reserveDecimalsDiff) *
-			1e27) / denom) / (10**gdDecimalsDiff); // reservebalance in RAY precision // return to gd precision
-		return toMint - reserveToken.gdSupply;
+		toMint =
+			(reserveToken.gdSupply *
+				reserveToken.reserveRatio -
+				reserveToken.gdSupply *
+				newReserveRatio) /
+			newReserveRatio;
 	}
 
 	/**

@@ -89,6 +89,9 @@ describe("CompoundVotingMachine#DAOScheme", () => {
     await grep.mint(acct.address, ethers.BigNumber.from("500000"));
 
     queuePeriod = await gov.queuePeriod().then(_ => _.toNumber());
+
+    //disable guardian
+    await gov.renounceGuardian()
   });
 
   ///cell 0 - votingPeriod blocks, 1 - quoromPercentage, 2 - proposalPercentage,3 - proposalMaxOperations, 4 - voting delay blocks, 5 - queuePeriod time

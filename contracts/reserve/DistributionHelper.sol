@@ -295,7 +295,7 @@ contract DistributionHelper is
 
 		uint256 gdPriceInDai = GoodReserveCDai(nameService.getAddress("RESERVE"))
 			.currentPriceDAI();
-		gdToSell = (ethValueInUSDC * 1e12 * 100) / gdPriceInDai; //* 1e12 to increase usdc to 12 decimals, mul by 100 so result is in 2 G$ 2 decimals
+		gdToSell = (ethValueInUSDC * 1e12 * 100) / gdPriceInDai; //* 1e12 to increase usdc to 18 decimals, mul by 100 so result is in 2 G$ 2 decimals
 		gdToSell = gdToSell > maxAmountToSell ? maxAmountToSell : gdToSell;
 	}
 
