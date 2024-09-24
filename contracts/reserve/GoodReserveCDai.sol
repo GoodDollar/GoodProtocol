@@ -371,18 +371,21 @@ contract GoodReserveCDai is
 	 * @dev only FundManager or other with mint G$ permission can call this to trigger minting.
 	 * Reserve sends UBI + interest to FundManager.
 	 * @param _daiToConvert DAI amount to convert cDAI
-	 * @param _startingCDAIBalance Initial cDAI balance before staking collect process start, must trust caller. enforced by minting rights requirements
 	 * @param _interestToken The token that was transfered to the reserve
 	 * @return gdUBI,interestInCdai how much GD UBI was minted and how much cDAI collected from staking contracts
 	 */
 	function mintUBI(
 		uint256 _daiToConvert,
-		uint256 _startingCDAIBalance,
+		uint256 /*_startingCDAIBalance*/, // dont trust it, use reserveSupply from marketmaker instead
 		ERC20 _interestToken
 	) external nonReentrant returns (uint256, uint256) {
 		cERC20(cDaiAddress).mint(_daiToConvert);
+
+		(uint256 reserveSupply, , , ) = getMarketMaker().reserveTokens(cDaiAddress);
+
 		uint256 interestInCdai = _interestToken.balanceOf(address(this)) -
-			_startingCDAIBalance;
+			reserveSupply;
+
 		uint256 gdInterestToMint = getMarketMaker().mintInterest(
 			_interestToken,
 			interestInCdai
