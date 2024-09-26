@@ -5,6 +5,8 @@ import "../utils/DAOUpgradeableContract.sol";
 import "../utils/NameService.sol";
 import "./GoodReserveCDai.sol";
 
+// import "hardhat/console.sol";
+
 contract ExchangeHelper is DAOUpgradeableContract {
 	uint256 private _status;
 
@@ -81,13 +83,10 @@ contract ExchangeHelper is DAOUpgradeableContract {
 		address reserve = nameService.getAddress("RESERVE");
 		if (reserve != address(0)) {
 			ERC20(nameService.getAddress("GOODDOLLAR")).approve(
-				nameService.getAddress("RESERVE"),
+				reserve,
 				type(uint256).max
 			);
-			ERC20(cDaiAddress).approve(
-				nameService.getAddress("RESERVE"),
-				type(uint256).max
-			);
+			ERC20(cDaiAddress).approve(reserve, type(uint256).max);
 		}
 		ERC20(daiAddress).approve(
 			nameService.getAddress("UNISWAP_ROUTER"),

@@ -32,7 +32,12 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	//address of the active staking contracts
 	address[] public activeContracts;
 
+	// Rewards per block for particular Staking contract
+	mapping(address => Reward) public rewardsForStakingContract;
+
 	uint256 private _reentrantStatus;
+
+	/** ADD NEW VARIABLES AFTER THIS LINE **/
 
 	event GasCostSet(uint256 newGasCost);
 	event CollectInterestTimeThresholdSet(
@@ -64,8 +69,7 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 		uint256 maxGasAmountSoFar; //  Max gas amount that can spend to collect this interest according to interest amount
 		bool maxGasLargerOrEqualRequired; // Bool that indicates if max gas amount larger or equal to actual gas needed
 	}
-	// Rewards per block for particular Staking contract
-	mapping(address => Reward) public rewardsForStakingContract;
+
 	// Emits when `transferInterest` transfers
 	// funds to the staking contract and to
 	// the bridge
@@ -283,7 +287,11 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			if (
 				block.timestamp >= lastCollectedInterest + collectInterestTimeThreshold
 			) {
-				require(interestInCdai >= gasPriceIncDAI, "UBI < gas costs"); // This require is necessary to keeper can not abuse this function
+				require(
+					interestInCdai >= gasPriceIncDAI ||
+						gdUBI >= interestMultiplier * gdRewardToMint,
+					"UBI < gas costs"
+				); // This require is necessary to keeper can not abuse this function
 			} else {
 				require(
 					interestInCdai >= interestMultiplier * gasPriceIncDAI ||

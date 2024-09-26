@@ -8,6 +8,8 @@ import "../DAOStackInterfaces.sol";
 import "../Interfaces.sol";
 import "../utils/DAOUpgradeableContract.sol";
 
+// import "hardhat/console.sol";
+
 /**
 @title Dynamic reserve ratio market maker
 */
