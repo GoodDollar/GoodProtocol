@@ -9,12 +9,15 @@ import "hardhat/console.sol";
 contract ReserveRestore {
 	NameService ns;
 	uint256 public constant LOCKED_HACKED_FUNDS = 971921364208;
+	bool public executed;
 
 	constructor(NameService _ns) {
 		ns = _ns;
 	}
 
 	function upgrade() external {
+		require(executed == false, "already upgraded");
+		executed = true;
 		address avatar = ns.dao().avatar();
 
 		GoodReserveCDai reserve = GoodReserveCDai(ns.getAddress("RESERVE"));
@@ -35,7 +38,7 @@ contract ReserveRestore {
 		uint256 gdSupply = ERC20(ns.getAddress("GOODDOLLAR")).totalSupply() -
 			LOCKED_HACKED_FUNDS;
 		console.log("supply: %s", gdSupply);
-		// get 0.00001 dai price in cdai
+		// get 0.0001 dai price in cdai
 		uint256 initialPriceCdai = (0.0001 * 1e8 * 1e28) /
 			cdai.exchangeRateStored(); //excghange rate is at 1e28 precision rate/1e28=1 cdai price in dai mul by 1e8 to get in cdai precision
 		console.log("initialPriceCdai: %s", initialPriceCdai);
@@ -89,6 +92,5 @@ contract ReserveRestore {
 
 		// prevent executing again
 		require(ctrl.unregisterSelf(avatar), "unregistering failed");
-		selfdestruct(payable(msg.sender));
 	}
 }

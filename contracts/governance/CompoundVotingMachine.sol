@@ -428,7 +428,7 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 
 		require(
 			address(guardian) == address(0) || proposals[proposalId].guardianApproved,
-			"CompoundVotingMachine: proposal not approved by guardians"
+			"CompoundVotingMachine: proposal not approved"
 		);
 
 		proposals[proposalId].executed = true;
