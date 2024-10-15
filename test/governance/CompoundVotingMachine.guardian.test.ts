@@ -226,7 +226,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     await increaseTime(queuePeriod);
     expect(states[await gov.state(proposalId)]).to.equal("Succeeded");
 
-    await expect(gov.execute(proposalId)).revertedWith(/guardians/);
+    await expect(gov.execute(proposalId)).revertedWith(/not approved/);
 
   })
 

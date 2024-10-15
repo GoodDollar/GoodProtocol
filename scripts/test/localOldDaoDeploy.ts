@@ -650,7 +650,6 @@ export const deployUBI = async deployedDAO => {
   const lastBlock = await ethers.provider.getBlock("latest");
   const periodStart = await ubiScheme.periodStart().then(_ => _.toNumber());
   const diff = periodStart - lastBlock.timestamp;
-  await increaseTime(diff); //make sure period start has reached
   console.log("ubischeme start:", {
     now: now.timestamp,
     blockTime: lastBlock.timestamp,
@@ -658,6 +657,8 @@ export const deployUBI = async deployedDAO => {
     periodEnd: await ubiScheme.periodEnd().then(_ => _.toString()),
     diff
   });
+  if (diff > 0 && diff < 2 ** 64)
+    await increaseTime(diff); //make sure period start has reached
   const tx = await firstClaim.start();
   console.log("firstclaim started");
   await ubiScheme.start();

@@ -187,13 +187,27 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   });
 
   it("should be able to calculate and update bonding curve gd balance based on oncoming cDAI and the price stays the same", async () => {
-    const priceBefore = await marketMaker.currentPrice(cdai);
+    let priceBefore = await marketMaker.currentPrice(cdai);
     await marketMaker.mintInterest(cdai, BN.from(1e8));
+    let priceAfter = await marketMaker.currentPrice(cdai)
+
+    expect(priceAfter).gt(0)
+    expect(priceBefore).gt(0)
     expect(
       Math.floor(
-        (await marketMaker.currentPrice(cdai).then(_ => _.toNumber())) / 100
-      ).toString()
+        (priceAfter.toNumber() / 100)).toString()
     ).to.be.equal(Math.floor(priceBefore.toNumber() / 100).toString());
+
+
+    // very large amount of cdai
+    priceBefore = await marketMaker.currentPrice(cdai);
+    await marketMaker.mintInterest(cdai, ethers.utils.parseEther("1"));
+    priceAfter = await marketMaker.currentPrice(cdai)
+
+    console.log({ priceAfter, priceBefore })
+    expect(priceAfter).gt(0)
+    expect(priceBefore).gt(0)
+    expect(priceAfter).to.eq(priceBefore);
   });
 
   it("should not be able to mint interest by a non owner", async () => {
@@ -314,6 +328,12 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   });
 
   it("should calculate sell return with cDAI", async () => {
+    await initializeToken(
+      cdai,
+      "1000000000", //1gd
+      "100000000000", //0.0001 cDai
+      "900000" //80% rr
+    );
     const gDReturn = await marketMaker.sellReturn(
       cdai,
       10 //0.1 gd
