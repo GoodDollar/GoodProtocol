@@ -26,7 +26,7 @@ describe("CeloDistributionHelper E2E (Celo fork)", () => {
         distHelper = await upgrades.deployProxy(await ethers.getContractFactory("CeloDistributionHelper"), [dao.NameService, "0x00851A91a3c4E9a4c1B48df827Bacc1f884bdE28"], {
             kind: "uups"
         }) as CeloDistributionHelper
-        await distHelper.connect(avatar).setFeeSettings({ maxFee: ethers.utils.parseEther("5"), minBalanceForFees: ethers.utils.parseEther("10"), percentageToSellForFee: 1 })
+        await distHelper.connect(avatar).setFeeSettings({ maxFee: ethers.utils.parseEther("5"), minBalanceForFees: ethers.utils.parseEther("10"), percentageToSellForFee: 1, maxSlippage: 5 })
 
     }
 
@@ -83,8 +83,8 @@ describe("CeloDistributionHelper E2E (Celo fork)", () => {
 
         const gd = await ethers.getContractAt("ISuperGoodDollar", dao.GoodDollar) as ISuperGoodDollar
         //mint g$ to distrbute
-        await gd.connect(avatar).mint(distHelper.address, ethers.utils.parseEther("100000000"))
-        const tx = await distHelper.onDistribution(ethers.utils.parseEther("100000000"))
+        await gd.connect(avatar).mint(distHelper.address, ethers.utils.parseEther("10000000"))
+        const tx = await distHelper.onDistribution(ethers.utils.parseEther("10000000"))
         const result = await tx.wait()
         const boughtGasEvent = result.events?.find(e => e.address === "0x471EcE3750Da237f93B8E339c536989b8978a438" && e.topics[0] === "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
         expect(boughtGasEvent).not.undefined

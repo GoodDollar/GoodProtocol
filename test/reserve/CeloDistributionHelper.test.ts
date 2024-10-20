@@ -90,7 +90,8 @@ describe("CeloDistributionHelper", () => {
         {
           maxFee: "5000000000000000",
           minBalanceForFees: "10000000000000000",
-          percentageToSellForFee: "5"
+          percentageToSellForFee: "5",
+          maxSlippage: "5"
         }
       ]
     );
