@@ -49,6 +49,7 @@ contract CeloDistributionHelper is
 		uint128 maxFee;
 		uint128 minBalanceForFees;
 		uint8 percentageToSellForFee;
+		uint8 maxSlippage;
 	}
 
 	DistributionRecipient[] public distributionRecipients;
@@ -90,7 +91,7 @@ contract CeloDistributionHelper is
 			fees,
 			60
 		);
-		fees[0] = 3000;
+		fees[0] = 100;
 		STATIC_ORACLE.prepareSpecificFeeTiersWithTimePeriod(CUSD, CELO, fees, 60);
 	}
 
@@ -211,7 +212,7 @@ contract CeloDistributionHelper is
 		uint256 maxAmountToSell
 	) public view returns (uint256 gdToSell, uint256 minReceived) {
 		uint24[] memory fees = new uint24[](1);
-		fees[0] = 3000;
+		fees[0] = 100;
 		uint256 nativeToBuy = feeSettings.minBalanceForFees *
 			3 -
 			address(this).balance;
@@ -225,24 +226,44 @@ contract CeloDistributionHelper is
 			);
 
 		fees[0] = 10000;
-		(uint256 gdPriceInUSD, ) = STATIC_ORACLE
-			.quoteSpecificFeeTiersWithTimePeriod(
-				uint128(1e18),
-				address(nativeToken()),
-				CUSD,
-				fees,
-				60 //last 1 minute
-			);
-		gdToSell = (nativeValueInUSD * 1e18) / gdPriceInUSD; // mul by 1e18 so result is in 18 decimals
-		gdToSell = gdToSell > maxAmountToSell ? maxAmountToSell : gdToSell;
-		(minReceived, ) = STATIC_ORACLE.quoteSpecificFeeTiersWithTimePeriod(
-			uint128(gdToSell),
-			address(nativeToken()),
+		(gdToSell, ) = STATIC_ORACLE.quoteSpecificFeeTiersWithTimePeriod(
+			uint128(nativeValueInUSD),
 			CUSD,
+			address(nativeToken()),
 			fees,
 			60 //last 1 minute
 		);
-		// console.log("nativeToBuy %s", nativeToBuy);
+
+		minReceived = nativeToBuy;
+		if (gdToSell > maxAmountToSell) {
+			gdToSell = maxAmountToSell;
+
+			fees[0] = 10000;
+			// gdToSell = (nativeValueInUSD * 1e18) / gdPriceInUSD; // mul by 1e18 so result is in 18 decimals
+			(uint256 minReceivedCUSD, ) = STATIC_ORACLE
+				.quoteSpecificFeeTiersWithTimePeriod(
+					uint128(gdToSell),
+					address(nativeToken()),
+					CUSD,
+					fees,
+					60 //last 1 minute
+				);
+
+			fees[0] = 100;
+			(minReceived, ) = STATIC_ORACLE.quoteSpecificFeeTiersWithTimePeriod(
+				uint128(minReceivedCUSD),
+				CUSD,
+				CELO,
+				fees,
+				60 //last 1 minute
+			);
+			// console.log(
+			// 	"minReceivedCUSD %s minReceived: %s",
+			// 	minReceivedCUSD,
+			// 	minReceived
+			// );
+		}
+		// console.log("gdToSell %s minReceivedNative: %s", gdToSell, minReceived);
 		// console.log(
 		// 	"gdPriceInUSD: %s nativeValueInUSD:%s",
 		// 	gdPriceInUSD,
@@ -260,12 +281,12 @@ contract CeloDistributionHelper is
 				nativeToken(),
 				uint24(10000),
 				CUSD,
-				uint24(3000),
+				uint24(100),
 				CELO
 			),
 			recipient: address(this),
 			amountIn: amountToSell,
-			amountOutMinimum: (minReceived * 97) / 100 // 3% slippage
+			amountOutMinimum: (minReceived * (100 - feeSettings.maxSlippage)) / 100 // 5% slippage
 		});
 		return ROUTER.exactInput(params);
 	}
