@@ -193,8 +193,10 @@ export const executeViaGuardian = async (
   const results = [];
   for (let i = 0; i < contracts.length; i++) {
     const contract = contracts[i];
-    if (!contract)
+    if (!contract) {
+      console.warn("skipping executing missing contract", i, contracts[i], functionSigs[i], functionInputs[i])
       continue;
+    }
     console.log("executing:", contracts[i], functionSigs[i], functionInputs[i]);
     const sigHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(functionSigs[i])).slice(0, 10);
     const encoded = ethers.utils.solidityPack(["bytes4", "bytes"], [sigHash, functionInputs[i]]);
