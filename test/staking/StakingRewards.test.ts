@@ -1151,7 +1151,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
   });
 
   // needs to come before next test where we blacklist the goodcompoundstaking contract
-  it("should revert when colleced interest is not greater than gas cost when 2 months passed", async () => {
+  it("should revert when colleced interest is not greater than gas cost when 2 months passed [ @skip-on-coverage ]", async () => {
 
     // make sure expansion is very low 
     await initializeToken(
@@ -1191,7 +1191,7 @@ describe("StakingRewards - staking with cDAI mocks and get Rewards in GoodDollar
     ).revertedWith(/< gas costs/);
   });
 
-  it("should be able to mint ubi when 0 interest but ubi value > interestMultiplier*gas cost when 2 months passed", async () => {
+  it("should be able to mint ubi when 0 interest but ubi value > interestMultiplier*gas cost when 2 months passed [ @skip-on-coverage ]", async () => {
 
     await initializeToken(
       cDAI.address,
