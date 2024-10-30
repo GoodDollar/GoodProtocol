@@ -3,7 +3,8 @@ pragma solidity >=0.8.0;
 
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
-import "hardhat/console.sol";
+
+// import "hardhat/console.sol";
 
 interface MentoExchange {
 	function reserve() external view returns (address);
@@ -29,7 +30,8 @@ contract ProtocolUpgradeV4Mento {
 		Controller _controller,
 		PoolExchange memory _exchange,
 		address _mentoExchange,
-		address _mentoController
+		address _mentoController,
+		address _distHelper
 	) external {
 		require(msg.sender == address(avatar), "only avatar can call this");
 
@@ -38,6 +40,7 @@ contract ProtocolUpgradeV4Mento {
 		uint256 cUSDBalance = ERC20(_exchange.reserveAsset).balanceOf(
 			MentoExchange(_mentoExchange).reserve()
 		);
+		require(cUSDBalance >= 200000e18, "not enough reserve");
 		uint256 gdSupply = ERC20(_exchange.tokenAddress).totalSupply();
 		uint256 price = 0.0001 ether; // we initialize with price of 0.0001
 		// given price calculate the reserve ratio
@@ -61,10 +64,10 @@ contract ProtocolUpgradeV4Mento {
 			0
 		);
 
-		console.log("createExchange %s", ok);
+		// console.log("createExchange %s", ok);
 		require(ok, "createExchange failed");
 		bytes32 exchangeId = abi.decode(result, (bytes32));
-		console.logBytes32(exchangeId);
+		// console.logBytes32(exchangeId);
 		(ok, ) = _controller.genericCall(
 			address(_mentoController),
 			abi.encodeWithSignature(
@@ -77,6 +80,14 @@ contract ProtocolUpgradeV4Mento {
 			0
 		);
 		require(ok, "setExpansionConfig failed");
+
+		(ok, ) = _controller.genericCall(
+			address(_mentoController),
+			abi.encodeWithSignature("setDistributionHelper(address)", _distHelper),
+			address(avatar),
+			0
+		);
+		require(ok, "setDistribuitionHelper failed");
 
 		// prevent executing again
 		require(_controller.unregisterSelf(avatar), "unregistering failed");

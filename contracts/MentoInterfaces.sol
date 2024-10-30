@@ -1,0 +1,508 @@
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8;
+pragma experimental ABIEncoderV2;
+
+interface IBancorExchangeProvider {
+	struct PoolExchange {
+		address reserveAsset;
+		address tokenAddress;
+		uint256 tokenSupply;
+		uint256 reserveBalance;
+		uint32 reserveRatio;
+		uint32 exitConribution;
+	}
+
+	/* ------- Events ------- */
+
+	/**
+	 * @notice Emitted when the broker address is updated.
+	 * @param newBroker The address of the new broker.
+	 */
+	event BrokerUpdated(address indexed newBroker);
+
+	/**
+	 * @notice Emitted when the reserve contract is set.
+	 * @param newReserve The address of the new reserve.
+	 */
+	event ReserveUpdated(address indexed newReserve);
+
+	/**
+	 * @notice Emitted when a new PoolExchange has been created.
+	 * @param exchangeId The id of the new PoolExchange
+	 * @param reserveAsset The address of the reserve asset
+	 * @param tokenAddress The address of the token
+	 */
+	event ExchangeCreated(
+		bytes32 indexed exchangeId,
+		address indexed reserveAsset,
+		address indexed tokenAddress
+	);
+
+	/**
+	 * @notice Emitted when a PoolExchange has been destroyed.
+	 * @param exchangeId The id of the PoolExchange
+	 * @param reserveAsset The address of the reserve asset
+	 * @param tokenAddress The address of the token
+	 */
+	event ExchangeDestroyed(
+		bytes32 indexed exchangeId,
+		address indexed reserveAsset,
+		address indexed tokenAddress
+	);
+
+	/**
+	 * @notice Emitted when the exit contribution for a pool is set.
+	 * @param exchangeId The id of the pool
+	 * @param exitContribution The exit contribution
+	 */
+	event ExitContributionSet(
+		bytes32 indexed exchangeId,
+		uint256 exitContribution
+	);
+
+	/* ------- Functions ------- */
+
+	/**
+	 * @notice Retrieves the pool with the specified exchangeId.
+	 * @param exchangeId The id of the pool to be retrieved.
+	 * @return exchange The PoolExchange with that ID.
+	 */
+	function getPoolExchange(
+		bytes32 exchangeId
+	) external view returns (PoolExchange memory exchange);
+
+	/**
+	 * @notice Get all exchange IDs.
+	 * @return exchangeIds List of the exchangeIds.
+	 */
+	function getExchangeIds()
+		external
+		view
+		returns (bytes32[] memory exchangeIds);
+
+	/**
+	 * @notice Create a PoolExchange with the provided data.
+	 * @param exchange The PoolExchange to be created.
+	 * @return exchangeId The id of the exchange.
+	 */
+	function createExchange(
+		PoolExchange calldata exchange
+	) external returns (bytes32 exchangeId);
+
+	/**
+	 * @notice Delete a PoolExchange.
+	 * @param exchangeId The PoolExchange to be created.
+	 * @param exchangeIdIndex The index of the exchangeId in the exchangeIds array.
+	 * @return destroyed - true on successful delition.
+	 */
+	function destroyExchange(
+		bytes32 exchangeId,
+		uint256 exchangeIdIndex
+	) external returns (bool destroyed);
+
+	/**
+	 * @notice Set the exit contribution for a given exchange
+	 * @param exchangeId The id of the exchange
+	 * @param exitContribution The exit contribution to be set
+	 */
+	function setExitContribution(
+		bytes32 exchangeId,
+		uint32 exitContribution
+	) external;
+
+	/**
+	 * @notice gets the current price based of the bancor formula
+	 * @param exchangeId The id of the exchange to get the price for
+	 * @return price the current continious price
+	 */
+	function currentPrice(
+		bytes32 exchangeId
+	) external view returns (uint256 price);
+}
+
+interface IGoodDollarExpansionController {
+	/**
+	 * @notice Struct holding the configuration for the expansion of an exchange.
+	 * @param expansionRate The rate of expansion in percentage with 1e18 being 100%.
+	 * @param expansionfrequency The frequency of expansion in seconds.
+	 * @param lastExpansion The last timestamp an expansion was done.
+	 */
+	struct ExchangeExpansionConfig {
+		uint64 expansionRate;
+		uint32 expansionFrequency;
+		uint32 lastExpansion;
+	}
+
+	/* ------- Events ------- */
+
+	/**
+	 * @notice Emitted when the GoodDollarExchangeProvider is updated.
+	 * @param exchangeProvider The address of the new GoodDollarExchangeProvider.
+	 */
+	event GoodDollarExchangeProviderUpdated(address indexed exchangeProvider);
+
+	/**
+	 * @notice Emitted when the distribution helper is updated.
+	 * @param distributionHelper The address of the new distribution helper.
+	 */
+	event DistributionHelperUpdated(address indexed distributionHelper);
+
+	/**
+	 * @notice Emitted when the Reserve address is updated.
+	 * @param reserve The address of the new Reserve.
+	 */
+	event ReserveUpdated(address indexed reserve);
+
+	/**
+	 * @notice Emitted when the AVATAR address is updated.
+	 * @param avatar The address of the new AVATAR.
+	 */
+	event AvatarUpdated(address indexed avatar);
+
+	/**
+	 * @notice Emitted when the expansion config is set for an exchange.
+	 * @param exchangeId The id of the exchange.
+	 * @param expansionRate The rate of expansion.
+	 * @param expansionfrequency The frequency of expansion.
+	 */
+	event ExpansionConfigSet(
+		bytes32 indexed exchangeId,
+		uint64 expansionRate,
+		uint32 expansionfrequency
+	);
+
+	/**
+	 * @notice Emitted when a reward is minted.
+	 * @param exchangeId The id of the exchange.
+	 * @param to The address of the recipient.
+	 * @param amount The amount of tokens minted.
+	 */
+	event RewardMinted(
+		bytes32 indexed exchangeId,
+		address indexed to,
+		uint256 amount
+	);
+
+	/**
+	 * @notice Emitted when UBI is minted through collecting reserve interest.
+	 * @param exchangeId The id of the exchange.
+	 * @param amount Amount of tokens minted.
+	 */
+	event InterestUBIMinted(bytes32 indexed exchangeId, uint256 amount);
+
+	/**
+	 * @notice Emitted when UBI is minted through expansion.
+	 * @param exchangeId The id of the exchange.
+	 * @param amount Amount of tokens minted.
+	 */
+	event ExpansionUBIMinted(bytes32 indexed exchangeId, uint256 amount);
+
+	/* ------- Functions ------- */
+
+	/**
+	 * @notice Initializes the contract with the given parameters.
+	 * @param _goodDollarExchangeProvider The address of the GoodDollarExchangeProvider contract.
+	 * @param _distributionHelper The address of the distribution helper contract.
+	 * @param _reserve The address of the Reserve contract.
+	 * @param _avatar The address of the GoodDollar DAO contract.
+	 */
+	function initialize(
+		address _goodDollarExchangeProvider,
+		address _distributionHelper,
+		address _reserve,
+		address _avatar
+	) external;
+
+	/**
+	 * @notice Sets the GoodDollarExchangeProvider address.
+	 * @param _goodDollarExchangeProvider The address of the GoodDollarExchangeProvider contract.
+	 */
+	function setGoodDollarExchangeProvider(
+		address _goodDollarExchangeProvider
+	) external;
+
+	/**
+	 * @notice Sets the distribution helper address.
+	 * @param _distributionHelper The address of the distribution helper contract.
+	 */
+	function setDistributionHelper(address _distributionHelper) external;
+
+	/**
+	 * @notice Sets the reserve address.
+	 * @param _reserve The address of the reserve contract.
+	 */
+	function setReserve(address _reserve) external;
+
+	/**
+	 * @notice Sets the AVATAR address.
+	 * @param _avatar The address of the AVATAR contract.
+	 */
+	function setAvatar(address _avatar) external;
+
+	/**
+	 * @notice Sets the expansion config for the given exchange.
+	 * @param exchangeId The id of the exchange to set the expansion config for.
+	 * @param expansionRate The rate of expansion.
+	 * @param expansionFrequency The frequency of expansion.
+	 */
+	function setExpansionConfig(
+		bytes32 exchangeId,
+		uint64 expansionRate,
+		uint32 expansionFrequency
+	) external;
+
+	/**
+	 * @notice Mints UBI for the given exchange from collecting reserve interest.
+	 * @param exchangeId The id of the exchange to mint UBI for.
+	 * @param reserveInterest The amount of reserve tokens collected from interest.
+	 */
+	function mintUBIFromInterest(
+		bytes32 exchangeId,
+		uint256 reserveInterest
+	) external;
+
+	/**
+	 * @notice Mints UBI for the given exchange by comparing the reserve Balance of the contract to the virtual balance.
+	 * @param exchangeId The id of the exchange to mint UBI for.
+	 * @return amountMinted The amount of UBI tokens minted.
+	 */
+	function mintUBIFromReserveBalance(
+		bytes32 exchangeId
+	) external returns (uint256 amountMinted);
+
+	/**
+	 * @notice Mints UBI for the given exchange by calculating the expansion rate.
+	 * @param exchangeId The id of the exchange to mint UBI for.
+	 * @return amountMinted The amount of UBI tokens minted.
+	 */
+	function mintUBIFromExpansion(
+		bytes32 exchangeId
+	) external returns (uint256 amountMinted);
+
+	/**
+	 * @notice Mints a reward of tokens for the given exchange.
+	 * @param exchangeId The id of the exchange to mint reward.
+	 * @param to The address of the recipient.
+	 * @param amount The amount of tokens to mint.
+	 */
+	function mintRewardFromRR(
+		bytes32 exchangeId,
+		address to,
+		uint256 amount
+	) external;
+}
+
+interface IGoodDollarExchangeProvider {
+	/* ------- Events ------- */
+
+	/**
+	 * @notice Emitted when the ExpansionController address is updated.
+	 * @param expansionController The address of the ExpansionController contract.
+	 */
+	event ExpansionControllerUpdated(address indexed expansionController);
+
+	/**
+	 * @notice Emitted when the AVATAR address is updated.
+	 * @param AVATAR The address of the AVATAR contract.
+	 */
+	// solhint-disable-next-line var-name-mixedcase
+	event AvatarUpdated(address indexed AVATAR);
+
+	/**
+	 * @notice Emitted when reserve ratio for exchange is updated.
+	 * @param exchangeId The id of the exchange.
+	 * @param reserveRatio The new reserve ratio.
+	 */
+	event ReserveRatioUpdated(bytes32 indexed exchangeId, uint32 reserveRatio);
+
+	/* ------- Functions ------- */
+
+	/**
+	 * @notice Initializes the contract with the given parameters.
+	 * @param _broker The address of the Broker contract.
+	 * @param _reserve The address of the Reserve contract.
+	 * @param _expansionController The address of the ExpansionController contract.
+	 * @param _avatar The address of the GoodDollar DAO contract.
+	 */
+	function initialize(
+		address _broker,
+		address _reserve,
+		address _expansionController,
+		address _avatar
+	) external;
+
+	/**
+	 * @notice calculates the amount of tokens to be minted as a result of expansion.
+	 * @param exchangeId The id of the pool to calculate expansion for.
+	 * @param expansionScaler Scaler for calculating the new reserve ratio.
+	 * @return amountToMint amount of tokens to be minted as a result of the expansion.
+	 */
+	function mintFromExpansion(
+		bytes32 exchangeId,
+		uint256 expansionScaler
+	) external returns (uint256 amountToMint);
+
+	/**
+	 * @notice calculates the amount of tokens to be minted as a result of the reserve interest.
+	 * @param exchangeId The id of the pool the reserve interest is added to.
+	 * @param reserveInterest The amount of reserve tokens collected from interest.
+	 * @return amount of tokens to be minted as a result of the reserve interest.
+	 */
+	function mintFromInterest(
+		bytes32 exchangeId,
+		uint256 reserveInterest
+	) external returns (uint256);
+
+	/**
+	 * @notice calculates the reserve ratio needed to mint the reward.
+	 * @param exchangeId The id of the pool the reward is minted from.
+	 * @param reward The amount of tokens to be minted as a reward.
+	 */
+	function updateRatioForReward(bytes32 exchangeId, uint256 reward) external;
+
+	/**
+	 * @notice pauses the Exchange disables minting.
+	 */
+	function pause() external;
+
+	/**
+	 * @notice unpauses the Exchange enables minting again.
+	 */
+	function unpause() external;
+}
+
+/*
+ * @title Broker Interface for trader functions
+ * @notice The broker is responsible for executing swaps and keeping track of trading limits.
+ */
+interface IBroker {
+	/**
+	 * @notice Emitted when a swap occurs.
+	 * @param exchangeProvider The exchange provider used.
+	 * @param exchangeId The id of the exchange used.
+	 * @param trader The user that initiated the swap.
+	 * @param tokenIn The address of the token that was sold.
+	 * @param tokenOut The address of the token that was bought.
+	 * @param amountIn The amount of token sold.
+	 * @param amountOut The amount of token bought.
+	 */
+	event Swap(
+		address exchangeProvider,
+		bytes32 indexed exchangeId,
+		address indexed trader,
+		address indexed tokenIn,
+		address tokenOut,
+		uint256 amountIn,
+		uint256 amountOut
+	);
+
+	/**
+	 * @notice Initialize the broker with the exchange providers and reserves.
+	 * @param _exchangeProviders The addresses of the exchange providers.
+	 * @param _reserves The addresses of the reserves.
+	 */
+	function initialize(
+		address[] calldata _exchangeProviders,
+		address[] calldata _reserves
+	) external;
+
+	/**
+	 * @notice returns whether an exchange provider is registered.
+	 * @param exchangeProvider the address of the exchange provider.
+	 * @return isExchangeProvider true if the exchange provider is registered.
+	 */
+	function isExchangeProvider(
+		address exchangeProvider
+	) external view returns (bool);
+
+	/**
+	 * @notice returns the reserve address for an exchange provider.
+	 * @param exchangeProvider the address of the exchange provider.
+	 * @return reserve the address of the reserve.
+	 */
+	function exchangeReserve(
+		address exchangeProvider
+	) external view returns (address);
+
+	/**
+	 * @notice Execute a token swap with fixed amountIn.
+	 * @param exchangeProvider the address of the exchange provider for the pair.
+	 * @param exchangeId The id of the exchange to use.
+	 * @param tokenIn The token to be sold.
+	 * @param tokenOut The token to be bought.
+	 * @param amountIn The amount of tokenIn to be sold.
+	 * @param amountOutMin Minimum amountOut to be received - controls slippage.
+	 * @return amountOut The amount of tokenOut to be bought.
+	 */
+	function swapIn(
+		address exchangeProvider,
+		bytes32 exchangeId,
+		address tokenIn,
+		address tokenOut,
+		uint256 amountIn,
+		uint256 amountOutMin
+	) external returns (uint256 amountOut);
+
+	/**
+	 * @notice Execute a token swap with fixed amountOut.
+	 * @param exchangeProvider the address of the exchange provider for the pair.
+	 * @param exchangeId The id of the exchange to use.
+	 * @param tokenIn The token to be sold.
+	 * @param tokenOut The token to be bought.
+	 * @param amountOut The amount of tokenOut to be bought.
+	 * @param amountInMax Maximum amount of tokenIn that can be traded.
+	 * @return amountIn The amount of tokenIn to be sold.
+	 */
+	function swapOut(
+		address exchangeProvider,
+		bytes32 exchangeId,
+		address tokenIn,
+		address tokenOut,
+		uint256 amountOut,
+		uint256 amountInMax
+	) external returns (uint256 amountIn);
+
+	/**
+	 * @notice Calculate amountOut of tokenOut received for a given amountIn of tokenIn.
+	 * @param exchangeProvider the address of the exchange provider for the pair.
+	 * @param exchangeId The id of the exchange to use.
+	 * @param tokenIn The token to be sold.
+	 * @param tokenOut The token to be bought.
+	 * @param amountIn The amount of tokenIn to be sold.
+	 * @return amountOut The amount of tokenOut to be bought.
+	 */
+	function getAmountOut(
+		address exchangeProvider,
+		bytes32 exchangeId,
+		address tokenIn,
+		address tokenOut,
+		uint256 amountIn
+	) external view returns (uint256 amountOut);
+
+	/**
+	 * @notice Calculate amountIn of tokenIn needed for a given amountOut of tokenOut.
+	 * @param exchangeProvider the address of the exchange provider for the pair.
+	 * @param exchangeId The id of the exchange to use.
+	 * @param tokenIn The token to be sold.
+	 * @param tokenOut The token to be bought.
+	 * @param amountOut The amount of tokenOut to be bought.
+	 * @return amountIn The amount of tokenIn to be sold.
+	 */
+	function getAmountIn(
+		address exchangeProvider,
+		bytes32 exchangeId,
+		address tokenIn,
+		address tokenOut,
+		uint256 amountOut
+	) external view returns (uint256 amountIn);
+
+	/**
+	 * @notice Get the list of registered exchange providers.
+	 * @dev This can be used by UI or clients to discover all pairs.
+	 * @return exchangeProviders the addresses of all exchange providers.
+	 */
+	function getExchangeProviders()
+		external
+		view
+		returns (address[] memory exchangeProviders);
+}
