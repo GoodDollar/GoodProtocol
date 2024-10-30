@@ -15,12 +15,13 @@ contract ReserveRestore {
 		ns = _ns;
 	}
 
-	function upgrade() external {
+	function upgrade(address daiFrom) external {
 		require(executed == false, "already upgraded");
 		executed = true;
 		address avatar = ns.dao().avatar();
 
 		GoodReserveCDai reserve = GoodReserveCDai(ns.getAddress("RESERVE"));
+		ERC20(ns.getAddress("DAI")).transferFrom(daiFrom, address(this), 200000e18);
 		uint256 daiBalance = ERC20(ns.getAddress("DAI")).balanceOf(address(this));
 		require(daiBalance >= 200000e18, "not enough reserve");
 		cERC20 cdai = cERC20(ns.getAddress("CDAI"));
