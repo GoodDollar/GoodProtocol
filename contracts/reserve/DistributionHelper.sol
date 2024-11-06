@@ -44,7 +44,7 @@ contract DistributionHelper is
 		0x467719aD09025FcC6cF6F8311755809d45a5E5f3;
 
 	enum TransferType {
-		FuseBridge,
+		DEPRECATED_FuseBridge,
 		LayerZeroBridge,
 		AxelarBridge,
 		Contract
@@ -235,12 +235,8 @@ contract DistributionHelper is
 		DistributionRecipient storage _recipient,
 		uint256 _amount
 	) internal {
-		if (_recipient.transferType == TransferType.FuseBridge) {
-			nativeToken().transferAndCall(
-				fuseBridge,
-				_amount,
-				abi.encodePacked(_recipient.addr)
-			);
+		if (_recipient.transferType == TransferType.DEPRECATED_FuseBridge) {
+			revert("DEPRECATED");
 		} else if (_recipient.transferType == TransferType.LayerZeroBridge) {
 			nativeToken().approve(address(mpbBridge), _amount);
 			(uint256 lzFee, ) = ILayerZeroFeeEstimator(address(mpbBridge))

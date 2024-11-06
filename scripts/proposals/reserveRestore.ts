@@ -28,6 +28,7 @@
  *  - upgrade governance
  *  - unpause reserve
  *  - unpause goodfundmanager
+ *  - switch fuse distribution to use lz bridge insted of deprecated fuse bridge
  * 
  *
  * Fuse:
@@ -48,7 +49,7 @@ import { executeViaGuardian, executeViaSafe, verifyProductionSigner } from "../m
 import ProtocolSettings from "../../releases/deploy-settings.json";
 
 import dao from "../../releases/deployment.json";
-import { ExchangeHelper, FuseOldBridgeKill, GoodFundManager, GoodMarketMaker, GoodReserveCDai, IGoodDollar } from "../../types";
+import { ExchangeHelper, FuseOldBridgeKill, GoodFundManager, GoodMarketMaker, GoodReserveCDai, IGoodDollar, ReserveRestore } from "../../types";
 let { name: networkName } = network;
 
 
@@ -56,6 +57,9 @@ const isSimulation = network.name === "hardhat" || network.name === "fork" || ne
 
 // hacker and hacked multichain bridge accounts
 const LOCKED_ACCOUNTS = ["0xeC577447D314cf1e443e9f4488216651450DBE7c", "0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d", "0x6738fA889fF31F82d9Fe8862ec025dbE318f3Fde"]
+const INITIAL_DAI = ethers.utils.parseEther("100000") // 100k
+// reserve funder (goodlabs safe)
+const funder = "0xF0652a820dd39EC956659E0018Da022132f2f40a"
 
 export const upgradeMainnet = async network => {
   const isProduction = networkName.includes("production");
@@ -102,12 +106,11 @@ export const upgradeMainnet = async network => {
   const govImpl = await ethers.deployContract("CompoundVotingMachine");
   const distHelperImplt = await ethers.deployContract("DistributionHelper");
   const marketMakerImpl = await ethers.deployContract("GoodMarketMaker");
-  const upgradeImpl = await ethers.deployContract("ReserveRestore", [release.NameService]);
+  const upgradeImpl = await ethers.deployContract("ReserveRestore", [release.NameService]) as ReserveRestore;
 
   const gd = (await ethers.getContractAt("IGoodDollar", release.GoodDollar)) as IGoodDollar;
 
-  // reserve funder (goodlabs safe)
-  const funder = "0xF0652a820dd39EC956659E0018Da022132f2f40a"
+
   // test blacklisting to prevent burn by hacker
   if (isSimulation) {
 
@@ -155,9 +158,10 @@ export const upgradeMainnet = async network => {
     release.StakersDistribution, //upgrade stakers dist
     release.GoodMarketMaker, //upgrade mm
     release.CompoundVotingMachine, // upgrade gov
+    release.DistributionHelper, // switch to lz bridge for fuse
     release.ExchangeHelper, // activate upgrade changes
     release.Controller,
-    upgradeImpl.address,
+    // upgradeImpl.address,
     release.GuardiansSafe + "_" + release.GoodReserveCDai
   ];
 
@@ -180,9 +184,10 @@ export const upgradeMainnet = async network => {
     "upgradeTo(address)",
     "upgradeTo(address)",
     "upgradeTo(address)",
+    "addOrUpdateRecipient((uint32,uint32,address,uint8))",
     "setAddresses()",
     "registerScheme(address,bytes32,bytes4,address)", // give upgrade contract permissions
-    "upgrade(address)",
+    // "upgrade(address, uint256)",
     "unpause()"
   ];
 
@@ -203,6 +208,10 @@ export const upgradeMainnet = async network => {
     ethers.utils.defaultAbiCoder.encode(["address"], [stakersDistImpl.address]),
     ethers.utils.defaultAbiCoder.encode(["address"], [marketMakerImpl.address]),
     ethers.utils.defaultAbiCoder.encode(["address"], [govImpl.address]),
+    ethers.utils.defaultAbiCoder.encode(
+      ["uint32", "uint32", "address", "uint8"],
+      [1000, 122, dao["production"].UBIScheme, 1] //10% chainId 122 ubischeme 1-lz bridge
+    ),
     "0x", //setAddresses
     ethers.utils.defaultAbiCoder.encode(
       ["address", "bytes32", "bytes4", "address"],
@@ -213,7 +222,6 @@ export const upgradeMainnet = async network => {
         release.Avatar
       ]
     ),
-    ethers.utils.defaultAbiCoder.encode(["address"], [funder]),
     "0x"
   ];
 
@@ -239,16 +247,20 @@ export const upgradeMainnet = async network => {
   }
 
   if (isSimulation) {
-    await mainnetPostChecks()
+    await mainnetPostChecks(upgradeImpl)
   }
 };
 
-const mainnetPostChecks = async () => {
+const mainnetPostChecks = async (upgradeImpl: ReserveRestore) => {
   networkName = "production-mainnet";
   let release: { [key: string]: any } = dao[networkName];
 
   let [root, ...signers] = await ethers.getSigners();
   const gd = await ethers.getContractAt("IGoodDollar", release.GoodDollar);
+
+  //execute the reserve initialization
+  (await upgradeImpl.upgrade(funder, INITIAL_DAI)).wait()
+
 
   const locked = await ethers.getImpersonatedSigner(LOCKED_ACCOUNTS[0]);
   const tx = await gd
@@ -299,12 +311,25 @@ const mainnetPostChecks = async () => {
   console.log("ubiEvents after collect interest:", ubiEvents)
   // check expansion after some time
   await time.increase(365 * 60 * 60 * 24)
+  const gdSupplyBeforeExpansion = await gd.totalSupply();
+  const reserveStateBeforeYearExpansion = await mm.reserveTokens(release.cDAI)
+
   const expansionTX = await (await gfm.collectInterest([], false)).wait()
   const ubiExpansionEvents = last(await reserve.queryFilter(reserve.filters.UBIMinted(), -1))
   console.log("gfm events after 1 year expansion:", expansionTX.events?.filter(_ => _.event === 'FundsTransferred'))
   console.log("ubiEvents after 1 year expansion:", ubiExpansionEvents)
   const reserveStateAfterYearExpansion = await mm.reserveTokens(release.cDAI)
-  console.log({ reserveStateAfterYearExpansion })
+  const gdSupplyAfterExpansion = await gd.totalSupply();
+  console.log({ reserveStateAfterYearExpansion, gdSupplyAfterExpansion, gdSupplyBeforeExpansion, reserveStateBeforeYearExpansion })
+
+  //execute the reserve initialization
+  await (await upgradeImpl.donate(funder, INITIAL_DAI)).wait()
+  const [cdaiPriceAfterDonation, daiPriceAfterDonation] = await (await Promise.all([reserve.currentPrice(), reserve.currentPriceDAI()])).map(_ => _.toNumber())
+  console.log("price after dai donation:", { cdaiPriceAfterDonation, daiPriceAfterDonation })
+  const reserveStateAfterDonation = await mm.reserveTokens(release.cDAI)
+  console.log({ reserveStateAfterDonation })
+
+  await (await upgradeImpl.end()).wait()
 }
 export const upgradeFuse = async network => {
   let [root] = await ethers.getSigners();

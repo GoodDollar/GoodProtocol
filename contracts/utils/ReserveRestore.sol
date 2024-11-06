@@ -10,20 +10,84 @@ contract ReserveRestore {
 	NameService ns;
 	uint256 public constant LOCKED_HACKED_FUNDS = 971921364208;
 	bool public executed;
+	address owner;
 
 	constructor(NameService _ns) {
 		ns = _ns;
+		owner = msg.sender;
 	}
 
-	function upgrade(address daiFrom) external {
+	function end() external {
+		require(msg.sender == owner, "not owner");
+		Controller ctrl = Controller(ns.getAddress("CONTROLLER"));
+		address avatar = ns.dao().avatar();
+
+		// prevent executing again}
+		require(ctrl.unregisterSelf(avatar), "unregistering failed");
+	}
+
+	function donate(address daiFrom, uint256 amount) external {
+		require(msg.sender == owner, "not owner");
+		address avatar = ns.dao().avatar();
+
+		GoodReserveCDai reserve = GoodReserveCDai(ns.getAddress("RESERVE"));
+		ERC20(ns.getAddress("DAI")).transferFrom(daiFrom, address(this), amount);
+		uint256 daiBalance = ERC20(ns.getAddress("DAI")).balanceOf(address(this));
+		cERC20 cdai = cERC20(ns.getAddress("CDAI"));
+		ERC20 dai = ERC20(ns.getAddress("DAI"));
+
+		dai.approve(address(cdai), daiBalance);
+		//Mint cDAIs
+		uint256 cDaiResult = cdai.mint(daiBalance);
+		require(cDaiResult == 0, "Minting cDai failed");
+		uint256 cdaiBalance = cdai.balanceOf(address(this));
+		cdai.transfer(address(reserve), cdaiBalance);
+		cdaiBalance = cdai.balanceOf(address(reserve));
+
+		uint256 gdSupply = ERC20(ns.getAddress("GOODDOLLAR")).totalSupply() -
+			LOCKED_HACKED_FUNDS;
+		console.log("supply: %s", gdSupply);
+		// get 0.0001 dai price in cdai
+		uint256 currentPrice = reserve.currentPrice();
+		console.log("currentPrice: %s", currentPrice);
+
+		console.log("cdaiBalance: %s", cdaiBalance);
+
+		// given price calculate the reserve ratio
+		uint32 reserveRatio = uint32(
+			(cdaiBalance * 1e2 * 1e6) / (currentPrice * gdSupply)
+		); // mul by 1e2 to cover gd precision, cdaibalance precision=initialprice, mul by 1e6 to receive result in the precision of reserveRatio(1e6)
+		console.log("reserveRatio: %s", reserveRatio);
+		Controller ctrl = Controller(ns.getAddress("CONTROLLER"));
+		//     function initializeToken(
+		// 	ERC20 _token,
+		// 	uint256 _gdSupply,
+		// 	uint256 _tokenSupply,
+		// 	uint32 _reserveRatio,
+		// 	uint256 _lastExpansion
+		// )
+		(bool ok, ) = ctrl.genericCall(
+			address(reserve.getMarketMaker()),
+			abi.encodeCall(
+				GoodMarketMaker.initializeToken,
+				(cdai, gdSupply, cdaiBalance, reserveRatio, block.timestamp)
+			),
+			address(avatar),
+			0
+		);
+		require(ok, "initializeToken failed");
+	}
+
+	function upgrade(address daiFrom, uint256 amount) external {
+		require(msg.sender == owner, "not owner");
 		require(executed == false, "already upgraded");
 		executed = true;
 		address avatar = ns.dao().avatar();
 
 		GoodReserveCDai reserve = GoodReserveCDai(ns.getAddress("RESERVE"));
-		ERC20(ns.getAddress("DAI")).transferFrom(daiFrom, address(this), 200000e18);
+		ERC20(ns.getAddress("DAI")).transferFrom(daiFrom, address(this), amount);
 		uint256 daiBalance = ERC20(ns.getAddress("DAI")).balanceOf(address(this));
-		require(daiBalance >= 200000e18, "not enough reserve");
+		require(daiBalance >= 50000e18, "not enough reserve");
 		cERC20 cdai = cERC20(ns.getAddress("CDAI"));
 		ERC20 dai = ERC20(ns.getAddress("DAI"));
 
@@ -89,8 +153,5 @@ contract ReserveRestore {
 		);
 
 		require(ok, "setContributionRatio failed");
-
-		// prevent executing again
-		require(ctrl.unregisterSelf(avatar), "unregistering failed");
 	}
 }
