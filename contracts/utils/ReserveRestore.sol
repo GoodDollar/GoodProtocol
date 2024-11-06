@@ -32,7 +32,6 @@ contract ReserveRestore {
 		uint256 cDaiResult = cdai.mint(daiBalance);
 		require(cDaiResult == 0, "Minting cDai failed");
 		uint256 cdaiBalance = cdai.balanceOf(address(this));
-		require(cdaiBalance > 0, "not cdai minted");
 		cdai.transfer(address(reserve), cdaiBalance);
 		cdaiBalance = cdai.balanceOf(address(reserve));
 
