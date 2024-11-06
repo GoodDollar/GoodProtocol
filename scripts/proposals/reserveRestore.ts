@@ -51,20 +51,11 @@ import dao from "../../releases/deployment.json";
 import { ExchangeHelper, FuseOldBridgeKill, GoodFundManager, GoodMarketMaker, GoodReserveCDai, IGoodDollar } from "../../types";
 let { name: networkName } = network;
 
-// // TODO: import from bridge-contracts package
-// const mpbDeployments = {
-//   "1": [
-//     { name: "mainnet", MessagePassingBridge_Implementation: { address: "0xF19fB90fA4DDb67C330B41AD4D64ef75B9d8Cd33" } }
-//   ],
-//   "122": [
-//     { name: "fuse", MessagePassingBridge_Implementation: { address: "0xd3B5BfDacb042a89bbABAd2376Aa1a923B365a14" } }
-//   ],
-//   "42220": [
-//     { name: "celo", MessagePassingBridge_Implementation: { address: "0x691dE730D97d545c141D13ED5e9c12b7cB384a73" } }
-//   ]
-// };
 
 const isSimulation = network.name === "hardhat" || network.name === "fork" || network.name === "localhost";
+
+// hacker and hacked multichain bridge accounts
+const LOCKED_ACCOUNTS = ["0xeC577447D314cf1e443e9f4488216651450DBE7c", "0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d", "0x6738fA889fF31F82d9Fe8862ec025dbE318f3Fde"]
 
 export const upgradeMainnet = async network => {
   const isProduction = networkName.includes("production");
@@ -115,12 +106,12 @@ export const upgradeMainnet = async network => {
 
   const gd = (await ethers.getContractAt("IGoodDollar", release.GoodDollar)) as IGoodDollar;
 
-  // reserve funder
+  // reserve funder (goodlabs safe)
   const funder = "0xF0652a820dd39EC956659E0018Da022132f2f40a"
   // test blacklisting to prevent burn by hacker
   if (isSimulation) {
 
-    const locked = await ethers.getImpersonatedSigner("0xeC577447D314cf1e443e9f4488216651450DBE7c");
+    const locked = await ethers.getImpersonatedSigner(LOCKED_ACCOUNTS[0]);
     const tx = await gd
       .connect(locked)
       .burn("10")
@@ -136,7 +127,7 @@ export const upgradeMainnet = async network => {
     const whale = await ethers.getImpersonatedSigner("0xa359Fc83C48277EedF375a5b6DC9Ec7D093aD3f2")
     await dai.connect(whale).transfer(root.address, ethers.utils.parseEther("100000"))
 
-    const lockedFunds = await Promise.all([gd.balanceOf("0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d"), gd.balanceOf("0xeC577447D314cf1e443e9f4488216651450DBE7c"), gd.balanceOf("0x6738fA889fF31F82d9Fe8862ec025dbE318f3Fde")])
+    const lockedFunds = await Promise.all(LOCKED_ACCOUNTS.map(_ => gd.balanceOf(_)))
     const totalLocked = lockedFunds.reduce((acc, cur) => acc.add(cur), ethers.constants.Zero)
     console.log({ totalLocked })
 
@@ -201,9 +192,9 @@ export const upgradeMainnet = async network => {
     ethers.utils.defaultAbiCoder.encode(["uint256"], [0]),
     ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [999711382710978, 1e15]),
     ethers.utils.defaultAbiCoder.encode(["uint256"], [0]),
-    ethers.utils.defaultAbiCoder.encode(["address"], ["0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d"]),
-    ethers.utils.defaultAbiCoder.encode(["address"], ["0xeC577447D314cf1e443e9f4488216651450DBE7c"]),
-    ethers.utils.defaultAbiCoder.encode(["address"], ["0x6738fA889fF31F82d9Fe8862ec025dbE318f3Fde"]),
+    ethers.utils.defaultAbiCoder.encode(["address"], [LOCKED_ACCOUNTS[0]]),
+    ethers.utils.defaultAbiCoder.encode(["address"], [LOCKED_ACCOUNTS[1]]),
+    ethers.utils.defaultAbiCoder.encode(["address"], [LOCKED_ACCOUNTS[2]]),
     ethers.utils.defaultAbiCoder.encode(["address", "address"], [release.GoodDollar, release.MpbBridge]),
     ethers.utils.defaultAbiCoder.encode(["address"], [reserveImpl.address]),
     ethers.utils.defaultAbiCoder.encode(["address"], [goodFundManagerImpl.address]),
@@ -259,7 +250,7 @@ const mainnetPostChecks = async () => {
   let [root, ...signers] = await ethers.getSigners();
   const gd = await ethers.getContractAt("IGoodDollar", release.GoodDollar);
 
-  const locked = await ethers.getImpersonatedSigner("0xeC577447D314cf1e443e9f4488216651450DBE7c");
+  const locked = await ethers.getImpersonatedSigner(LOCKED_ACCOUNTS[0]);
   const tx = await gd
     .connect(locked)
     .burn("10", { maxFeePerGas: 30e9, maxPriorityFeePerGas: 1e9, gasLimit: 200000 })
