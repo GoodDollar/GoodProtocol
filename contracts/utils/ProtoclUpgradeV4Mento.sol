@@ -3,6 +3,7 @@ pragma solidity >=0.8.0;
 
 import "../utils/NameService.sol";
 import "../Interfaces.sol";
+import "../MentoInterfaces.sol";
 
 // import "hardhat/console.sol";
 
@@ -11,15 +12,6 @@ interface MentoExchange {
 }
 
 contract ProtocolUpgradeV4Mento {
-	struct PoolExchange {
-		address reserveAsset;
-		address tokenAddress;
-		uint256 tokenSupply;
-		uint256 reserveBalance;
-		uint32 reserveRatio;
-		uint32 exitContribution;
-	}
-
 	address avatar;
 
 	constructor(address _avatar) {
@@ -28,19 +20,35 @@ contract ProtocolUpgradeV4Mento {
 
 	function upgrade(
 		Controller _controller,
-		PoolExchange memory _exchange,
+		IBancorExchangeProvider.PoolExchange memory _exchange,
 		address _mentoExchange,
 		address _mentoController,
 		address _distHelper
 	) external {
 		require(msg.sender == address(avatar), "only avatar can call this");
 
-		uint256 expansionFrequency = 1 days;
-		uint256 expansionRate = 288617289021952; //10% a year = ((1e18 - expansionRate)/1e18)^365=0.9
+		uint32 expansionFrequency = 1 days;
+		uint64 expansionRate = 288617289021952; //10% a year = ((1e18 - expansionRate)/1e18)^365=0.9
 		uint256 cUSDBalance = ERC20(_exchange.reserveAsset).balanceOf(
 			MentoExchange(_mentoExchange).reserve()
 		);
 		require(cUSDBalance >= 200000e18, "not enough reserve");
+
+		(bool ok, bytes memory result) = _controller.genericCall(
+			MentoExchange(_mentoExchange).reserve(),
+			abi.encodeCall(IMentoReserve.addToken, _exchange.reserveAsset),
+			address(avatar),
+			0
+		);
+		require(ok, "addToken cUSD failed");
+		(ok, result) = _controller.genericCall(
+			MentoExchange(_mentoExchange).reserve(),
+			abi.encodeCall(IMentoReserve.addToken, _exchange.tokenAddress),
+			address(avatar),
+			0
+		);
+		require(ok, "addToken G$ failed");
+
 		uint256 gdSupply = ERC20(_exchange.tokenAddress).totalSupply();
 		uint256 price = 0.0001 ether; // we initialize with price of 0.0001
 		// given price calculate the reserve ratio
@@ -54,12 +62,9 @@ contract ProtocolUpgradeV4Mento {
 		_exchange.reserveRatio = reserveRatio;
 		_exchange.exitContribution = exitContribution;
 
-		(bool ok, bytes memory result) = _controller.genericCall(
+		(ok, result) = _controller.genericCall(
 			address(_mentoExchange),
-			abi.encodeWithSignature(
-				"createExchange((address,address,uint256,uint256,uint32,uint32))",
-				_exchange
-			),
+			abi.encodeCall(IBancorExchangeProvider.createExchange, _exchange),
 			address(avatar),
 			0
 		);
@@ -70,11 +75,9 @@ contract ProtocolUpgradeV4Mento {
 		// console.logBytes32(exchangeId);
 		(ok, ) = _controller.genericCall(
 			address(_mentoController),
-			abi.encodeWithSignature(
-				"setExpansionConfig(bytes32,uint256,uint256)",
-				exchangeId,
-				expansionRate,
-				expansionFrequency
+			abi.encodeCall(
+				IGoodDollarExpansionController.setExpansionConfig,
+				(exchangeId, expansionRate, expansionFrequency)
 			),
 			address(avatar),
 			0
@@ -83,7 +86,10 @@ contract ProtocolUpgradeV4Mento {
 
 		(ok, ) = _controller.genericCall(
 			address(_mentoController),
-			abi.encodeWithSignature("setDistributionHelper(address)", _distHelper),
+			abi.encodeCall(
+				IGoodDollarExpansionController.setDistributionHelper,
+				_distHelper
+			),
 			address(avatar),
 			0
 		);

@@ -57,7 +57,7 @@ import { executeViaGuardian, executeViaSafe, verifyProductionSigner } from "../m
 import ProtocolSettings from "../../releases/deploy-settings.json";
 
 import dao from "../../releases/deployment.json";
-import { IGoodDollar } from "../../types";
+import { Controller, IBroker, IGoodDollar } from "../../types";
 let { name: networkName } = network;
 
 // TODO: import from bridge-contracts package
@@ -337,11 +337,14 @@ export const upgradeCelo = async network => {
   let release: { [key: string]: any } = dao[networkEnv];
 
   let guardian = root;
-  console.log("signer:", root.address);
+  console.log("signer:", root.address, { networkEnv });
+
+  const cusd = await ethers.getContractAt("IERC20", release.CUSD);
+  const gd = await ethers.getContractAt("GoodDollar", release.GoodDollar);
+
   //simulate on fork, make sure safe has enough eth to simulate txs
   if (isSimulation) {
-    await reset("https://forno.celo.org");
-
+    await reset("https://public-archive-nodes.mainnet.celo-testnet.org/");
     await root.sendTransaction({ value: ethers.constants.WeiPerEther.mul(3), to: release.Avatar });
 
     const avatar = await ethers.getImpersonatedSigner(release.Avatar);
@@ -353,29 +356,21 @@ export const upgradeCelo = async network => {
     const eids = await mentoExchange.getExchangeIds();
     if (eids.length > 0) {
       await mentoExchange.connect(avatar).destroyExchange(eids[0], 0);
-      // const ctrl = await ethers.getContractAt("Controller", release.Controller);
-      // const e = mentoExchange.interface.encodeFunctionData("destroyExchange", [eids[0], 0]);
-      // await ctrl.genericCall(mentoExchange.address, e, release.Avatar, 0);
-      // console.log("deleted exchage:", eids[0]);
     }
-    try {
-      await mentoReserve.connect(avatar).addToken(release.CUSD);
-      await mentoReserve.connect(avatar).addToken(release.GoodDollar);
-    } catch (e) {
-      console.log("addToken failed", e);
-    }
-    const devCUSD = await ethers.getContractAt(
-      ["function mint(address,uint) external returns (uint)", "function setValidators(address) external"],
-      release.CUSD
-    );
+    await cusd.connect(avatar).transfer(release.MentoReserve, ethers.utils.parseEther("200000"));
+    await cusd.connect(avatar).transfer(root.address, ethers.utils.parseEther("10000"));
 
-    await devCUSD.connect(avatar).setValidators(release.Avatar);
-    const mintTX = await (
-      await devCUSD.connect(avatar).mint(release.MentoReserve, ethers.utils.parseEther("200000"))
-    ).wait();
     guardian = await ethers.getImpersonatedSigner(release.GuardiansSafe);
 
     await root.sendTransaction({ value: ethers.constants.WeiPerEther.mul(3), to: guardian.address });
+  } else if (!isProduction) {
+    const ctrl = (await ethers.getContractAt("Controller", release.Controller)) as Controller;
+    await ctrl.externalTokenTransfer(
+      cusd.address,
+      release.MentoReserve,
+      ethers.utils.parseEther("200000"),
+      release.Avatar
+    );
   }
 
   const mpbImplementation = mpbDeployments["42220"].find(_ => _.name === "celo")["MessagePassingBridge_Implementation"]
@@ -385,7 +380,7 @@ export const upgradeCelo = async network => {
     "0xeC577447D314cf1e443e9f4488216651450DBE7c",
     "0x6738fA889fF31F82d9Fe8862ec025dbE318f3Fde"
   ];
-  const gd = await ethers.getContractAt("GoodDollar", release.GoodDollar);
+
   const ethprovider = new ethers.providers.JsonRpcProvider("https://cloudflare-eth.com");
   const fuseprovider = new ethers.providers.JsonRpcProvider("https://rpc.fuse.io");
   const TOTAL_LOCKED = (
@@ -501,14 +496,27 @@ export const upgradeCelo = async network => {
     const isBrokerMinter = await gd.isMinter(release.MentoBroker);
     const isExpansionMinter = await gd.isMinter(release.MentoExpansionController);
     const mentoExchange = await ethers.getContractAt("IBancorExchangeProvider", release.MentoExchangeProvider);
+    const mentoBroker = (await ethers.getContractAt("IBroker", release.MentoBroker)) as IBroker;
     const eids = await mentoExchange.getExchangeIds();
     const exchange = await mentoExchange.getPoolExchange(eids[0]);
     const price = (await mentoExchange.currentPrice(eids[0])) / 1e18;
     console.log("current price:", price);
-    console.log("Exchange:", exchange);
+    console.log("Exchange:", exchange, eids[0]);
 
     console.log("Broker minter check:", isBrokerMinter ? "Success" : "Failed");
     console.log("Expansion minter check:", isExpansionMinter ? "Success" : "Failed");
+
+    console.log(await gd.balanceOf(root.address), await cusd.balanceOf(root.address));
+    await cusd.approve(release.MentoBroker, ethers.utils.parseEther("1000"));
+    await mentoBroker.swapIn(
+      mentoExchange.address,
+      eids[0],
+      cusd.address,
+      gd.address,
+      ethers.utils.parseEther("1000"),
+      0
+    );
+    console.log(await gd.balanceOf(root.address), await cusd.balanceOf(root.address));
   }
 };
 
