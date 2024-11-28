@@ -57,6 +57,8 @@ contract InvitesV2 is DAOUpgradeableContract {
 
 	bool public levelExpirationEnabled;
 
+	bytes32 private campaignCode;
+
 	event InviteeJoined(address indexed inviter, address indexed invitee);
 	event InviterBounty(
 		address indexed inviter,
@@ -125,8 +127,9 @@ contract InvitesV2 is DAOUpgradeableContract {
 		address inviter = codeToUser[_inviterCode];
 		//allow user to set inviter if doesnt have one
 		require(
-			user.inviteCode == 0x0 ||
-				(user.invitedBy == address(0) && inviter != address(0)),
+			!user.bountyPaid &&
+				(user.inviteCode == 0x0 ||
+					(user.invitedBy == address(0) && inviter != address(0))),
 			"user already joined"
 		);
 		if (user.inviteCode == 0x0) {
@@ -138,10 +141,15 @@ contract InvitesV2 is DAOUpgradeableContract {
 		if (inviter != address(0)) {
 			require(inviter != msg.sender, "self invite");
 			user.invitedBy = inviter;
-			users[inviter].invitees.push(msg.sender);
-			users[inviter].pending.push(msg.sender);
 			stats.totalInvited += 1;
-			user.bountyAtJoin = levels[users[inviter].level].bounty;
+			/** support special campaign code without inviter */
+			if (inviter == address(this)) {
+				user.bountyAtJoin = levels[0].bounty;
+			} else {
+				users[inviter].invitees.push(msg.sender);
+				users[inviter].pending.push(msg.sender);
+				user.bountyAtJoin = levels[users[inviter].level].bounty;
+			}
 		}
 
 		if (canCollectBountyFor(msg.sender)) {
@@ -165,19 +173,15 @@ contract InvitesV2 is DAOUpgradeableContract {
 
 	function canCollectBountyFor(address _invitee) public view returns (bool) {
 		address invitedBy = users[_invitee].invitedBy;
-		uint256 daysToComplete = levels[users[invitedBy].level].daysToComplete;
-		bool isLevelExpired = levelExpirationEnabled == true &&
-			daysToComplete > 0 &&
-			daysToComplete <
-			(users[_invitee].joinedAt - users[invitedBy].levelStarted) / 1 days;
 
 		return
-			invitedBy != address(0) &&
+			users[_invitee].bountyAtJoin > 0 &&
 			!users[_invitee].bountyPaid &&
 			getIdentity().isWhitelisted(_invitee) &&
-			getIdentity().isWhitelisted(invitedBy) &&
-			_whitelistedOnChainOrDefault(_invitee) == _chainId() &&
-			isLevelExpired == false;
+			(invitedBy == address(0) ||
+				invitedBy == address(this) ||
+				getIdentity().isWhitelisted(invitedBy)) &&
+			_whitelistedOnChainOrDefault(_invitee) == _chainId();
 	}
 
 	function getInvitees(
@@ -237,44 +241,51 @@ contract InvitesV2 is DAOUpgradeableContract {
 		bool isSingleBounty
 	) internal returns (uint256 bounty) {
 		address invitedBy = users[_invitee].invitedBy;
-		uint256 joinedAt = users[_invitee].joinedAt;
-		Level memory level = levels[users[invitedBy].level];
 		uint256 bountyToPay = users[_invitee].bountyAtJoin;
+		bool earnedLevel = false;
 
-		//hardcoded for users invited before the bountyAtJoin change
-		if (bountyToPay == 0) {
-			uint precision = 10 ** goodDollar.decimals();
-			bountyToPay = joinedAt > 1687878272 ? 1000 * precision : 500 * precision;
+		if (invitedBy != address(this) && invitedBy != address(0)) {
+			uint256 joinedAt = users[_invitee].joinedAt;
+			Level memory level = levels[users[invitedBy].level];
+
+			//hardcoded for users invited before the bountyAtJoin change
+			if (bountyToPay == 0) {
+				uint precision = 10 ** goodDollar.decimals();
+				bountyToPay = joinedAt > 1687878272
+					? 1000 * precision
+					: 500 * precision;
+			}
+
+			// if inviter level is now higher than when invitee joined or the base level has changed
+			// we give level bounty if it is higher otherwise the original bounty at the time the user registered
+
+			bountyToPay = level.bounty > bountyToPay ? level.bounty : bountyToPay;
+
+			bool isLevelExpired = level.daysToComplete > 0 &&
+				joinedAt > users[invitedBy].levelStarted && //prevent overflow in subtraction
+				level.daysToComplete <
+				(joinedAt - users[invitedBy].levelStarted) / 1 days; //how long after level started did invitee join
+
+			users[invitedBy].totalApprovedInvites += 1;
+			users[invitedBy].totalEarned += bountyToPay;
+
+			if (
+				level.toNext > 0 &&
+				users[invitedBy].totalApprovedInvites >= level.toNext &&
+				isLevelExpired == false
+			) {
+				users[invitedBy].level += 1;
+				users[invitedBy].levelStarted = block.timestamp;
+				earnedLevel = true;
+			}
+
+			if (isSingleBounty) goodDollar.transfer(invitedBy, bountyToPay);
 		}
 
-		// if inviter level is now higher than when invitee joined or the base level has changed
-		// we give level bounty if it is higher otherwise the original bounty at the time the user registered
-
-		bountyToPay = level.bounty > bountyToPay ? level.bounty : bountyToPay;
-
-		bool isLevelExpired = level.daysToComplete > 0 &&
-			joinedAt > users[invitedBy].levelStarted && //prevent overflow in subtraction
-			level.daysToComplete <
-			(joinedAt - users[invitedBy].levelStarted) / 1 days; //how long after level started did invitee join
-
 		users[_invitee].bountyPaid = true;
-		users[invitedBy].totalApprovedInvites += 1;
-		users[invitedBy].totalEarned += bountyToPay;
 		stats.totalApprovedInvites += 1;
 		stats.totalBountiesPaid += bountyToPay;
 
-		bool earnedLevel = false;
-		if (
-			level.toNext > 0 &&
-			users[invitedBy].totalApprovedInvites >= level.toNext &&
-			isLevelExpired == false
-		) {
-			users[invitedBy].level += 1;
-			users[invitedBy].levelStarted = block.timestamp;
-			earnedLevel = true;
-		}
-
-		if (isSingleBounty) goodDollar.transfer(invitedBy, bountyToPay);
 		goodDollar.transfer(_invitee, bountyToPay / 2); //pay invitee half the bounty
 		emit InviterBounty(
 			invitedBy,
@@ -322,6 +333,11 @@ contract InvitesV2 is DAOUpgradeableContract {
 		active = _active;
 	}
 
+	function setCampaignCode(bytes32 _code) public ownerOrAvatar {
+		campaignCode = _code;
+		codeToUser[campaignCode] = address(this);
+	}
+
 	function end() public ownerOrAvatar isActive {
 		uint256 gdBalance = goodDollar.balanceOf(address(this));
 		goodDollar.transfer(msg.sender, gdBalance);
@@ -346,8 +362,9 @@ contract InvitesV2 is DAOUpgradeableContract {
 	 * 2 uses uups upgradeable - not compatible upgrade for v1
 	 * 2.1 prevent multichain claims
 	 * 2.2 record bounty at join time
+	 * 2.3 support campaignCode
 	 */
 	function version() public pure returns (string memory) {
-		return "2.2";
+		return "2.3";
 	}
 }

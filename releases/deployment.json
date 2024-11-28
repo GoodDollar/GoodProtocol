@@ -387,7 +387,8 @@
     "MultichainRouter": "0x735aBE48e8782948a37C7765ECb76b98CdE97B0F",
     "GoodDollarMintBurnWrapper": "0x031b2B7C7854dd8EE9C4A644D7e54aD17F56e3cB",
     "CommunitySafe": "0x5Eb5f5fE13d1D5e6440DbD5913412299Bc5B5564",
-    "MpbBridge": "0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5"
+    "MpbBridge": "0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5",
+    "BulkWhitelist": "0x3b0f4974EB53fE7ca16aC311eBf1cD183d7d63cD"
   },
   "pre-production-celo": {
     "ProxyFactory": "0x99C22e78A579e2176311c736C4c9F0b0D5A47806",
@@ -434,6 +435,7 @@
     "BuyGDFactory": "0x00e533B7d6255D05b7f15034B1c989c21F51b91C",
     "BuyGDFactoryV2": "0x1F60C4C7037C6766924A43666B781ED1479587a2",
     "CUSD": "0x765DE816845861e75A25fCA122bb6898B8B1282a"
+    "BulkWhitelist": "0x30Afd0534dAA29135308d048103b40dc1BA4518d"
   },
   "gnosis": {
     "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"
