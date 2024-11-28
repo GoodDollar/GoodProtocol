@@ -11,7 +11,7 @@
  *  - add requirement of guardians to approve on-chain proposals
  *  - reserve should not trust exchange helper
  *  - resere should not trust fundmanager for its starting balance
- * 
+ *
  * PLAN:
  *  - pause staking
  *  - prevent fusebridge usage
@@ -29,7 +29,7 @@
  *  - unpause reserve
  *  - unpause goodfundmanager
  *  - switch fuse distribution to use lz bridge insted of deprecated fuse bridge
- * 
+ *
  *
  * Fuse:
  * PLAN:
@@ -49,17 +49,28 @@ import { executeViaGuardian, executeViaSafe, verifyProductionSigner } from "../m
 import ProtocolSettings from "../../releases/deploy-settings.json";
 
 import dao from "../../releases/deployment.json";
-import { ExchangeHelper, FuseOldBridgeKill, GoodFundManager, GoodMarketMaker, GoodReserveCDai, IGoodDollar, ReserveRestore } from "../../types";
+import {
+  ExchangeHelper,
+  FuseOldBridgeKill,
+  GoodFundManager,
+  GoodMarketMaker,
+  GoodReserveCDai,
+  IGoodDollar,
+  ReserveRestore
+} from "../../types";
 let { name: networkName } = network;
-
 
 const isSimulation = network.name === "hardhat" || network.name === "fork" || network.name === "localhost";
 
 // hacker and hacked multichain bridge accounts
-const LOCKED_ACCOUNTS = ["0xeC577447D314cf1e443e9f4488216651450DBE7c", "0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d", "0x6738fA889fF31F82d9Fe8862ec025dbE318f3Fde"]
-const INITIAL_DAI = ethers.utils.parseEther("100000") // 100k
+const LOCKED_ACCOUNTS = [
+  "0xeC577447D314cf1e443e9f4488216651450DBE7c",
+  "0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d",
+  "0x6738fA889fF31F82d9Fe8862ec025dbE318f3Fde"
+];
+const INITIAL_DAI = ethers.utils.parseEther("100000"); // 100k
 // reserve funder (goodlabs safe)
-const funder = "0xF0652a820dd39EC956659E0018Da022132f2f40a"
+const funder = "0xF0652a820dd39EC956659E0018Da022132f2f40a";
 
 export const upgradeMainnet = async network => {
   const isProduction = networkName.includes("production");
@@ -106,14 +117,12 @@ export const upgradeMainnet = async network => {
   const govImpl = await ethers.deployContract("CompoundVotingMachine");
   const distHelperImplt = await ethers.deployContract("DistributionHelper");
   const marketMakerImpl = await ethers.deployContract("GoodMarketMaker");
-  const upgradeImpl = await ethers.deployContract("ReserveRestore", [release.NameService]) as ReserveRestore;
+  const upgradeImpl = (await ethers.deployContract("ReserveRestore", [release.NameService])) as ReserveRestore;
 
   const gd = (await ethers.getContractAt("IGoodDollar", release.GoodDollar)) as IGoodDollar;
 
-
   // test blacklisting to prevent burn by hacker
   if (isSimulation) {
-
     const locked = await ethers.getImpersonatedSigner(LOCKED_ACCOUNTS[0]);
     const tx = await gd
       .connect(locked)
@@ -124,20 +133,18 @@ export const upgradeMainnet = async network => {
 
     console.log("Burn tx before:", tx);
 
-    const funderSigner = await ethers.getImpersonatedSigner(funder)
-    const dai = await ethers.getContractAt("IGoodDollar", release.DAI)
-    await dai.connect(funderSigner).approve(upgradeImpl.address, ethers.utils.parseEther("200000"))
-    const whale = await ethers.getImpersonatedSigner("0xa359Fc83C48277EedF375a5b6DC9Ec7D093aD3f2")
-    await dai.connect(whale).transfer(root.address, ethers.utils.parseEther("100000"))
+    const funderSigner = await ethers.getImpersonatedSigner(funder);
+    const dai = await ethers.getContractAt("IGoodDollar", release.DAI);
+    await dai.connect(funderSigner).approve(upgradeImpl.address, ethers.utils.parseEther("200000"));
+    const whale = await ethers.getImpersonatedSigner("0xa359Fc83C48277EedF375a5b6DC9Ec7D093aD3f2");
+    await dai.connect(whale).transfer(root.address, ethers.utils.parseEther("100000"));
 
-    const lockedFunds = await Promise.all(LOCKED_ACCOUNTS.map(_ => gd.balanceOf(_)))
-    const totalLocked = lockedFunds.reduce((acc, cur) => acc.add(cur), ethers.constants.Zero)
-    console.log({ totalLocked })
-
+    const lockedFunds = await Promise.all(LOCKED_ACCOUNTS.map(_ => gd.balanceOf(_)));
+    const totalLocked = lockedFunds.reduce((acc, cur) => acc.add(cur), ethers.constants.Zero);
+    console.log({ totalLocked });
   }
 
   const startSupply = await gd.totalSupply();
-
 
   console.log("executing proposals");
 
@@ -152,7 +159,7 @@ export const upgradeMainnet = async network => {
     release.Identity, // set locked G$ accounts as blacklisted so cant do burnfrom
     release.ForeignBridge, // claim bridge tokens to mpb bridge
     release.GoodReserveCDai, //upgrade reserve
-    release.GoodFundManager,  //upgrade fundmanager
+    release.GoodFundManager, //upgrade fundmanager
     release.ExchangeHelper, //upgrade exchangehelper
     release.DistributionHelper, //upgrade disthelper
     release.StakersDistribution, //upgrade stakers dist
@@ -162,7 +169,7 @@ export const upgradeMainnet = async network => {
     release.ExchangeHelper, // activate upgrade changes
     release.Controller,
     // upgradeImpl.address,
-    release.GuardiansSafe + "_" + release.GoodReserveCDai
+    release.GoodReserveCDai
   ];
 
   const proposalEthValues = proposalContracts.map(_ => 0);
@@ -187,8 +194,7 @@ export const upgradeMainnet = async network => {
     "addOrUpdateRecipient((uint32,uint32,address,uint8))",
     "setAddresses()",
     "registerScheme(address,bytes32,bytes4,address)", // give upgrade contract permissions
-    // "upgrade(address, uint256)",
-    "unpause()"
+    "grantRole(bytes32,address)"
   ];
 
   const proposalFunctionInputs = [
@@ -222,7 +228,13 @@ export const upgradeMainnet = async network => {
         release.Avatar
       ]
     ),
-    "0x"
+    ethers.utils.defaultAbiCoder.encode(
+      ["bytes32", "address"],
+      [
+        "0x65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a", //pauser role
+        release.Avatar
+      ]
+    )
   ];
 
   if (isProduction) {
@@ -247,7 +259,7 @@ export const upgradeMainnet = async network => {
   }
 
   if (isSimulation) {
-    await mainnetPostChecks(upgradeImpl)
+    await mainnetPostChecks(upgradeImpl);
   }
 };
 
@@ -259,8 +271,7 @@ const mainnetPostChecks = async (upgradeImpl: ReserveRestore) => {
   const gd = await ethers.getContractAt("IGoodDollar", release.GoodDollar);
 
   //execute the reserve initialization
-  (await upgradeImpl.upgrade(funder, INITIAL_DAI)).wait()
-
+  (await upgradeImpl.upgrade(funder, INITIAL_DAI)).wait();
 
   const locked = await ethers.getImpersonatedSigner(LOCKED_ACCOUNTS[0]);
   const tx = await gd
@@ -273,64 +284,100 @@ const mainnetPostChecks = async (upgradeImpl: ReserveRestore) => {
 
   const dai = await ethers.getContractAt("IGoodDollar", release.DAI);
   const cdai = await ethers.getContractAt("IGoodDollar", release.cDAI);
-  const reserve = await ethers.getContractAt("GoodReserveCDai", release.GoodReserveCDai) as GoodReserveCDai
-  const mm = await ethers.getContractAt("GoodMarketMaker", release.GoodMarketMaker) as GoodMarketMaker
-  const newExpansion = await mm.reserveRatioDailyExpansion()
-  console.log("new expansion set:", newExpansion, newExpansion.mul(1e15).div(ethers.utils.parseEther("1000000000")).toNumber() / 1e15 === 0.999711382710978)
-  console.log("discount should be disabled:", await reserve.discountDisabled(), " gdx should be disabled:", await reserve.gdxDisabled());
-  const resereState = await mm.reserveTokens(release.cDAI)
-  console.log({ resereState })
+  const reserve = (await ethers.getContractAt("GoodReserveCDai", release.GoodReserveCDai)) as GoodReserveCDai;
+  const mm = (await ethers.getContractAt("GoodMarketMaker", release.GoodMarketMaker)) as GoodMarketMaker;
+  const newExpansion = await mm.reserveRatioDailyExpansion();
+  console.log(
+    "new expansion set:",
+    newExpansion,
+    newExpansion.mul(1e15).div(ethers.utils.parseEther("1000000000")).toNumber() / 1e15 === 0.999711382710978
+  );
+  console.log(
+    "discount should be disabled:",
+    await reserve.discountDisabled(),
+    " gdx should be disabled:",
+    await reserve.gdxDisabled()
+  );
+  const resereState = await mm.reserveTokens(release.cDAI);
+  console.log({ resereState });
   const finalSupply = await gd.totalSupply();
-  const distHelper = await ethers.getContractAt("DistributionHelper", release.DistributionHelper)
-  const result = await distHelper.calcGDToSell(1e9)
-  console.log("how much G$ to sell to cover distribution fees out of 1M:", result.toNumber() / 100)
-  const [cdaiPriceBefore, daiPriceBefore] = await (await Promise.all([reserve.currentPrice(), reserve.currentPriceDAI()])).map(_ => _.toNumber())
-  console.log({ cdaiPriceBefore, daiPriceBefore })
-  const dex = await ethers.getContractAt("ExchangeHelper", release.ExchangeHelper) as ExchangeHelper
-  await dai.approve(dex.address, ethers.utils.parseEther("10000"))
+  const distHelper = await ethers.getContractAt("DistributionHelper", release.DistributionHelper);
+  const result = await distHelper.calcGDToSell(1e9);
+  console.log("how much G$ to sell to cover distribution fees out of 1M:", result.toNumber() / 100);
+  const [cdaiPriceBefore, daiPriceBefore] = await (
+    await Promise.all([reserve.currentPrice(), reserve.currentPriceDAI()])
+  ).map(_ => _.toNumber());
+  console.log({ cdaiPriceBefore, daiPriceBefore });
+  const dex = (await ethers.getContractAt("ExchangeHelper", release.ExchangeHelper)) as ExchangeHelper;
+  await dai.approve(dex.address, ethers.utils.parseEther("10000"));
   await dex.buy([release.DAI], ethers.utils.parseEther("10000"), 0, 0, root.address);
   // check g$ prices
-  const [cdaiPriceAfter, daiPriceAfter] = await (await Promise.all([reserve.currentPrice(), reserve.currentPriceDAI()])).map(_ => _.toNumber())
-  console.log("prices after buying form reserve with 10k DAI", { cdaiPriceAfter, daiPriceAfter })
-  await gd.approve(dex.address, await gd.balanceOf(root.address))
+  const [cdaiPriceAfter, daiPriceAfter] = await (
+    await Promise.all([reserve.currentPrice(), reserve.currentPriceDAI()])
+  ).map(_ => _.toNumber());
+  console.log("prices after buying form reserve with 10k DAI", { cdaiPriceAfter, daiPriceAfter });
+  await gd.approve(dex.address, await gd.balanceOf(root.address));
   await dex.sell([release.DAI], await gd.balanceOf(root.address), 0, 0, root.address);
-  const daiBalanceAfterSell = await dai.balanceOf(root.address)
+  const daiBalanceAfterSell = await dai.balanceOf(root.address);
   // expect a 10% sell fee
-  console.log("expect 10% sell fee (selling 10K gets only 9K of dai, balance should be ~99K):", { daiBalanceAfterSell })
-  const cdaiReserveBalance = await cdai.balanceOf(reserve.address)
-  console.log({ cdaiReserveBalance })
+  console.log("expect 10% sell fee (selling 10K gets only 9K of dai, balance should be ~99K):", {
+    daiBalanceAfterSell
+  });
+  const cdaiReserveBalance = await cdai.balanceOf(reserve.address);
+  console.log({ cdaiReserveBalance });
 
-  const [mpbBalance, fuseBalance] = await Promise.all([gd.balanceOf(release.MpbBridge), gd.balanceOf(release.ForeignBridge)])
-  console.log("fuse bridge should have 0 balance and Mpb should be >6B", { mpbBalance, fuseBalance })
-  const gfm = await ethers.getContractAt("GoodFundManager", release.GoodFundManager) as GoodFundManager
-  const stakingContracts = await gfm.callStatic.calcSortedContracts()
-  console.log({ stakingContracts })
-  const interesTX = await (await gfm.collectInterest(stakingContracts.map(_ => _[0]), false)).wait()
-  const ubiEvents = last(await reserve.queryFilter(reserve.filters.UBIMinted(), -1))
-  console.log("collectinterest gfm events:", interesTX.events?.find(_ => _.event === 'FundsTransferred'))
-  console.log("ubiEvents after collect interest:", ubiEvents)
+  const [mpbBalance, fuseBalance] = await Promise.all([
+    gd.balanceOf(release.MpbBridge),
+    gd.balanceOf(release.ForeignBridge)
+  ]);
+  console.log("fuse bridge should have 0 balance and Mpb should be >6B", { mpbBalance, fuseBalance });
+  const gfm = (await ethers.getContractAt("GoodFundManager", release.GoodFundManager)) as GoodFundManager;
+  const stakingContracts = await gfm.callStatic.calcSortedContracts();
+  console.log({ stakingContracts });
+  const interesTX = await (
+    await gfm.collectInterest(
+      stakingContracts.map(_ => _[0]),
+      false
+    )
+  ).wait();
+  const ubiEvents = last(await reserve.queryFilter(reserve.filters.UBIMinted(), -1));
+  console.log(
+    "collectinterest gfm events:",
+    interesTX.events?.find(_ => _.event === "FundsTransferred")
+  );
+  console.log("ubiEvents after collect interest:", ubiEvents);
   // check expansion after some time
-  await time.increase(365 * 60 * 60 * 24)
+  await time.increase(365 * 60 * 60 * 24);
   const gdSupplyBeforeExpansion = await gd.totalSupply();
-  const reserveStateBeforeYearExpansion = await mm.reserveTokens(release.cDAI)
+  const reserveStateBeforeYearExpansion = await mm.reserveTokens(release.cDAI);
 
-  const expansionTX = await (await gfm.collectInterest([], false)).wait()
-  const ubiExpansionEvents = last(await reserve.queryFilter(reserve.filters.UBIMinted(), -1))
-  console.log("gfm events after 1 year expansion:", expansionTX.events?.filter(_ => _.event === 'FundsTransferred'))
-  console.log("ubiEvents after 1 year expansion:", ubiExpansionEvents)
-  const reserveStateAfterYearExpansion = await mm.reserveTokens(release.cDAI)
+  const expansionTX = await (await gfm.collectInterest([], false)).wait();
+  const ubiExpansionEvents = last(await reserve.queryFilter(reserve.filters.UBIMinted(), -1));
+  console.log(
+    "gfm events after 1 year expansion:",
+    expansionTX.events?.filter(_ => _.event === "FundsTransferred")
+  );
+  console.log("ubiEvents after 1 year expansion:", ubiExpansionEvents);
+  const reserveStateAfterYearExpansion = await mm.reserveTokens(release.cDAI);
   const gdSupplyAfterExpansion = await gd.totalSupply();
-  console.log({ reserveStateAfterYearExpansion, gdSupplyAfterExpansion, gdSupplyBeforeExpansion, reserveStateBeforeYearExpansion })
+  console.log({
+    reserveStateAfterYearExpansion,
+    gdSupplyAfterExpansion,
+    gdSupplyBeforeExpansion,
+    reserveStateBeforeYearExpansion
+  });
 
   //execute the reserve initialization
-  await (await upgradeImpl.donate(funder, INITIAL_DAI)).wait()
-  const [cdaiPriceAfterDonation, daiPriceAfterDonation] = await (await Promise.all([reserve.currentPrice(), reserve.currentPriceDAI()])).map(_ => _.toNumber())
-  console.log("price after dai donation:", { cdaiPriceAfterDonation, daiPriceAfterDonation })
-  const reserveStateAfterDonation = await mm.reserveTokens(release.cDAI)
-  console.log({ reserveStateAfterDonation })
+  await (await upgradeImpl.donate(funder, INITIAL_DAI)).wait();
+  const [cdaiPriceAfterDonation, daiPriceAfterDonation] = await (
+    await Promise.all([reserve.currentPrice(), reserve.currentPriceDAI()])
+  ).map(_ => _.toNumber());
+  console.log("price after dai donation:", { cdaiPriceAfterDonation, daiPriceAfterDonation });
+  const reserveStateAfterDonation = await mm.reserveTokens(release.cDAI);
+  console.log({ reserveStateAfterDonation });
 
-  await (await upgradeImpl.end()).wait()
-}
+  await (await upgradeImpl.end()).wait();
+};
 export const upgradeFuse = async network => {
   let [root] = await ethers.getSigners();
 
@@ -350,8 +397,6 @@ export const upgradeFuse = async network => {
     await root.sendTransaction({ value: ethers.constants.WeiPerEther.mul(3), to: guardian.address });
   }
 
-
-
   const gd = (await ethers.getContractAt("IGoodDollar", release.GoodDollar)) as IGoodDollar;
 
   const isMinter = await gd.isMinter(release.HomeBridge);
@@ -359,11 +404,11 @@ export const upgradeFuse = async network => {
   console.log({ networkEnv, guardian: guardian.address, isSimulation, isProduction, isMinter });
 
   const govImpl = await ethers.deployContract("CompoundVotingMachine");
-  const killBridge = await ethers.deployContract("FuseOldBridgeKill") as FuseOldBridgeKill
+  const killBridge = (await ethers.deployContract("FuseOldBridgeKill")) as FuseOldBridgeKill;
 
   const proposalContracts = [
     release.HomeBridge, // prevent from using by upgrading to empty contract and removing minting rights
-    release.CompoundVotingMachine, //upgrade gov
+    release.CompoundVotingMachine //upgrade gov
   ];
 
   const proposalEthValues = proposalContracts.map(_ => 0);
@@ -373,11 +418,12 @@ export const upgradeFuse = async network => {
     "upgradeTo(address)"
   ];
 
-
   const proposalFunctionInputs = [
-    ethers.utils.defaultAbiCoder.encode(["uint256", "address", "bytes"], [2, killBridge.address, killBridge.interface.encodeFunctionData("end")]),
-    ethers.utils.defaultAbiCoder.encode(["address"], [govImpl.address]),
-
+    ethers.utils.defaultAbiCoder.encode(
+      ["uint256", "address", "bytes"],
+      [2, killBridge.address, killBridge.interface.encodeFunctionData("end")]
+    ),
+    ethers.utils.defaultAbiCoder.encode(["address"], [govImpl.address])
   ];
 
   if (isProduction) {
@@ -401,7 +447,6 @@ export const upgradeFuse = async network => {
   }
 
   if (isSimulation) {
-
     const isMinter = await gd.isMinter(release.HomeBridge);
     console.log("Fuse bridge scheme registration check:", isMinter ? "Failed" : "Success");
   }
