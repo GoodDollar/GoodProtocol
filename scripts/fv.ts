@@ -1,10 +1,11 @@
 import fs from "fs";
 import { chunk, uniqBy } from "lodash";
 import delay from "delay";
+import { bulkIsWhitelisted, bulkLastAuth } from "./utils";
 
-import { bulkIsWhitelisted, bulkIsWhitelistedFuse, bulkLastAuth } from "./utils";
+//create tunnel to fv server ssh -L 9090:server:8080 -N user@server -i sshkey
 
-const fetchImages = async a => {
+const saveImages = async a => {
   const i1 = await fetch("http://localhost:9090/enrollment-3d/" + a[1]).then(_ => _.json());
   const i2 = await fetch("http://localhost:9090/enrollment-3d/" + a[2]).then(_ => _.json());
   if (i1.auditTrailBase64 && i2.auditTrailBase64) {
@@ -16,7 +17,7 @@ const fetchImages = async a => {
     });
   } else console.log("not found", a, !!i1.auditTrailBase64, !!i2.auditTrailBase64);
 };
-//create tunnel to fv server ssh -L 9090:server:8080 -N user@server -i sshkey
+
 const main = async () => {
   const data = JSON.parse(fs.readFileSync("fvtriplets2.txt").toString());
   const triplets = uniqBy(chunk(data, 3), _ => _.join("_"));
@@ -33,7 +34,7 @@ const main = async () => {
     return fs.existsSync(key) === false;
   });
   console.log({ notfetched });
-  const ps = notfetched.map(fetchImages);
+  const ps = notfetched.map(saveImages);
 
   await Promise.all(ps);
 };
@@ -207,6 +208,7 @@ const deleteIdentifiers = async password => {
 };
 // checkIndexedOrDelete();
 fixInvalidIndexed();
-// main();
 // console.log(process.env.ADMIN_PASSWORD);
 // deleteIdentifiers(process.env.ADMIN_PASSWORD);
+// main();
+saveImages(["", "", ""]);

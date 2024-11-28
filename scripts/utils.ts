@@ -33,5 +33,18 @@ export const bulkLastAuth = async (accounts: Array<String>) => {
   const identityContract = new Contract("0x2F9C28de9e6d44b71B91b8BA337A5D82e308E7BE", Identity.abi);
   const calls = accounts.map(d => identityContract.lastAuthenticated(d));
   const result = await ethcallProvider.all(calls);
-  return Object.fromEntries(accounts.map((v, i) => [v, parseInt(result[i])]));
+  // console.log({ result });
+  const whitelisted = accounts.filter((v, i) => parseInt(result[i]));
+  return whitelisted;
+};
+
+export const bulkGetLastAuth = async (accounts: Array<String>) => {
+  setMulticallAddress(122, "0x3CE6158b7278Bf6792e014FA7B4f3c6c46fe9410");
+  setMulticallAddress(42220, "0x75F59534dd892c1f8a7B172D639FA854D529ada3");
+  const celoProvider = new ethers.providers.JsonRpcProvider("https://forno.celo.org");
+  const ethcallProvider = new Provider(celoProvider, 42220);
+  const identityContract = new Contract("0xC361A6E67822a0EDc17D899227dd9FC50BD62F42", Identity.abi);
+  const calls = accounts.map(d => identityContract.lastAuthenticated(d));
+  const result = await ethcallProvider.all(calls);
+  return result;
 };
