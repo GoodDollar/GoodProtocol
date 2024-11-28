@@ -387,7 +387,8 @@
     "MultichainRouter": "0x735aBE48e8782948a37C7765ECb76b98CdE97B0F",
     "GoodDollarMintBurnWrapper": "0x031b2B7C7854dd8EE9C4A644D7e54aD17F56e3cB",
     "CommunitySafe": "0x5Eb5f5fE13d1D5e6440DbD5913412299Bc5B5564",
-    "MpbBridge": "0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5"
+    "MpbBridge": "0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5",
+    "BulkWhitelist": "0x3b0f4974EB53fE7ca16aC311eBf1cD183d7d63cD"
   },
   "pre-production-celo": {
     "ProxyFactory": "0x99C22e78A579e2176311c736C4c9F0b0D5A47806",
@@ -433,11 +434,10 @@
     "StaticOracle": "0x00851A91a3c4E9a4c1B48df827Bacc1f884bdE28",
     "BuyGDFactory": "0x00e533B7d6255D05b7f15034B1c989c21F51b91C",
     "BuyGDFactoryV2": "0x1F60C4C7037C6766924A43666B781ED1479587a2",
-    "CUSD": "0x765DE816845861e75A25fCA122bb6898B8B1282a"
+    "CUSD": "0x765DE816845861e75A25fCA122bb6898B8B1282a",
+    "BulkWhitelist": "0x30Afd0534dAA29135308d048103b40dc1BA4518d"
   },
-  "gnosis": {
-    "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"
-  },
+  "gnosis": { "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8" },
   "development-celo": {
     "network": "development-celo",
     "networkId": 42220,
@@ -464,11 +464,12 @@
     "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
     "BuyGDFactory": "0x00e533B7d6255D05b7f15034B1c989c21F51b91C",
     "BuyGDFactoryV2": "0x1F60C4C7037C6766924A43666B781ED1479587a2",
-    "MentoExchangeProvider": "0x085d07bBED4f9aA0028F6f1388048493f41f048d",
-    "MentoExpansionController": "0xfe17024C5e22B9244B2eEb9be0Af559dcfEBf9D9",
-    "CUSD": "0x77952703d084CE34D33a85AC19AC13F1fe93a08E",
-    "MentoReserve": "0x1eAD8307ccd49B3e2E2A0845A9a7a46f902B0e0D",
-    "MentoBroker": "0xe52D1eFE2daee3a239cfFA9dCE0dbba47AD006f4"
+    "MentoExchangeProvider": "0x02C5e6FfeC49Dca92af50A0718d2c4944DAaCb05",
+    "MentoExpansionController": "0xA354fE15A08318912D594E94DC7622C7D23Bb11A",
+    "CUSD": "0x2FFc031e855fE7C36669DC95CE00356D52195999",
+    "MentoReserve": "0x3f13b9FdB9ca8CDDa1c1E125296C8101B170C37C",
+    "MentoBroker": "0x43bC03995090E7B4E74cE70deF6bfA27D62049dC",
+    "CeloDistributionHelper": "0x4FE2400B80376a34e6a9011988d9D0D921EEf059"
   },
   "staging-celo": {
     "network": "staging-celo",
@@ -495,7 +496,13 @@
     "OneTimePaymentsV2": "0x963E7B4c970626Bb103c61fA16b002AFf6E6c2C7",
     "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
     "BuyGDFactory": "0x00e533B7d6255D05b7f15034B1c989c21F51b91C",
-    "BuyGDFactoryV2": "0x1F60C4C7037C6766924A43666B781ED1479587a2"
+    "BuyGDFactoryV2": "0x1F60C4C7037C6766924A43666B781ED1479587a2",
+    "MentoExchangeProvider": "0x02C5e6FfeC49Dca92af50A0718d2c4944DAaCb05",
+    "MentoExpansionController": "0xA354fE15A08318912D594E94DC7622C7D23Bb11A",
+    "CUSD": "0x2FFc031e855fE7C36669DC95CE00356D52195999",
+    "MentoReserve": "0x3f13b9FdB9ca8CDDa1c1E125296C8101B170C37C",
+    "MentoBroker": "0x43bC03995090E7B4E74cE70deF6bfA27D62049dC",
+    "CeloDistributionHelper": "0x4FE2400B80376a34e6a9011988d9D0D921EEf059"
   },
   "development-goerli": {
     "ProxyFactory": "0x65D8eACBCd9618b8780C4b444081915a5D54D611",
@@ -545,7 +552,62 @@
     "GoodDollarMintBurnWrapper": "0x69d9c8d240E282a4ec0058CF0AC4E9D8ac7a11ac",
     "GoodDollarStaking": "0xC9a3DdadC753e6a7675Aa125991096623d06c437"
   },
-  "development-mainnet": {
-    "networkId": 1
+  "development-mainnet": { "networkId": 1 },
+  "test": {
+    "ProxyFactory": "0xCd7c00Ac6dc51e8dCc773971Ac9221cC582F3b1b",
+    "NameService": "0xB3d91a2650C8dB4456e96e06Bb147799338c5739",
+    "GReputation": "0xD759c30ADea571d35159302515b81473f7F0B5b3",
+    "CompoundVotingMachine": "0x07d17EcCcEE4568DE2b40cD1CB99b9984DF4519c",
+    "ClaimersDistribution": "0xA6D3dC26fC2f258d06B54EB6634077835C3C73Aa",
+    "GovernanceStaking": "0xA9e6Bfa2BF53dE88FEb19761D9b2eE2e821bF1Bf",
+    "UBIScheme": "0x16d5EF010758a483f94F3A001DeFf0ac9efF6352",
+    "ProtocolUpgradeFuse": "0x286B8DecD5ED79c962b2d8F4346CD97FF0E2C352",
+    "network": "test",
+    "networkId": 4447,
+    "HomeBridge": "0xcE0066b1008237625dDDBE4a751827de037E53D2",
+    "OneTimePayments": "0xcC4c41415fc68B2fBf70102742A83cDe435e0Ca7",
+    "AdminWallet": "0xAe120F0df055428E45b264E7794A18c54a2a3fAF",
+    "Identity": "0x87006e75a5B6bE9D1bbF61AC8Cd84f05D9140589",
+    "GoodDollar": "0x609a4341d11C29F8F5cDeF00931AdB96f76EF017",
+    "Controller": "0xd1f8C3b3C9C63a7a7f0dCFd20ae9053A04182db1",
+    "Avatar": "0xcafCfdF4517F504a473469F3723e674413EE9bce",
+    "FirstClaimPool": "0x0aec7c174554AF8aEc3680BB58431F6618311510",
+    "BancorFormula": "0x7B4f352Cd40114f12e82fC675b5BA8C7582FC513",
+    "DAI": "0xD6b040736e948621c5b6E0a494473c47a6113eA8",
+    "cDAI": "0xAdE429ba898c34722e722415D722A70a297cE3a2",
+    "COMP": "0x139e1D41943ee15dDe4DF876f9d0E7F85e26660A"
+  },
+  "test-mainnet": {
+    "ProxyFactory": "0x70E5370b8981Abc6e14C91F4AcE823954EFC8eA3",
+    "NameService": "0x50f2b544FD7af66D8a9dCF9a8d28F60c4955468D",
+    "GReputation": "0x08BC83e7cfe7DfEacAbCdC2432Cc6281ee678B46",
+    "CompoundVotingMachine": "0x6B2A2eA3b4965B2069f7112DFc5e766b10f52Bf4",
+    "GoodMarketMaker": "0x6E16fE6B78F307d78142A65CdFc3fB1c01Ed5416",
+    "GoodReserveCDai": "0xEF4c7EAD8C1aE06E76BD792785c9bed03811173B",
+    "ExchangeHelper": "0x39acC72200A9a847c2B6EFe514Db9eeE429e4B29",
+    "GoodFundManager": "0x68CC3Dc71a215bbbbc5fFeD38bc92F12d56eA835",
+    "StakersDistribution": "0x3957892fB94Ef52aB441e2BA77777F9dC8F7C501",
+    "ProtocolUpgrade": "0xa62835D1A6bf5f521C4e2746E1F51c923b8f3483",
+    "UniswapV2SwapHelper": "0x8E45C0936fa1a65bDaD3222bEFeC6a03C83372cE",
+    "CompoundStakingFactory": "0xBEe6FFc1E8627F51CcDF0b4399a1e1abc5165f15",
+    "AaveStakingFactory": "0xC32609C91d6B6b51D48f2611308FEf121B02041f",
+    "StakingContracts": [
+      ["0x14aA87DEed1d13012F1C9C93ef660D88a594D289", 13888],
+      ["0x47c7D4b2A310E651f846d7E8717F44414F59a7Da", "6944"]
+    ],
+    "DonationsStaking": "0x0Af313Cb7928CC29Db382575b0d96969C00414EC",
+    "network": "test-mainnet",
+    "networkId": 4447,
+    "ForeignBridge": "0x02b0B4EFd909240FCB2Eb5FAe060dC60D112E3a4",
+    "Contribution": "0x40a42Baf86Fc821f972Ad2aC878729063CeEF403",
+    "Identity": "0x6C2d83262fF84cBaDb3e416D527403135D757892",
+    "GoodDollar": "0xDda88b7dF7C04D319c41B53305Cd443B1f975e29",
+    "Controller": "0xF2AdAad89d56D49C697B9907C7D66ef27d96f859",
+    "Avatar": "0xd1891dD9DFF0784baa1dEb361dDFCAa5aE49cc6F",
+    "FirstClaimPool": "0xA56F946D6398Dd7d9D4D9B337Cf9E0F68982ca5B",
+    "BancorFormula": "0x01c1DeF3b91672704716159C9041Aeca392DdFfb",
+    "DAI": "0xfcDB4564c18A9134002b9771816092C9693622e3",
+    "cDAI": "0x32EEce76C2C2e8758584A83Ee2F522D4788feA0f",
+    "COMP": "0x927b167526bAbB9be047421db732C663a0b77B11"
   }
 }

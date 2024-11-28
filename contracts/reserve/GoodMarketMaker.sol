@@ -325,7 +325,6 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 			(rtoken.gdSupply * rtoken.reserveRatio); // gd precision 1e2 + reserveRatio precision 1e6 = multiply by 1e8 not to lose precision
 	}
 
-	//TODO: need real calculation and tests
 	/**
 	 * @dev Calculates how much G$ to mint based on added token supply (from interest)
 	 * and on current reserve ratio, in order to keep G$ price the same at the bonding curve

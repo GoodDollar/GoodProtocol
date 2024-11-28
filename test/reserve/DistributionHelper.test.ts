@@ -195,7 +195,7 @@ describe("DistributionHelper", () => {
     expect(dr.transferType).to.equal(2);
   });
 
-  it("should distribute via fuse bridge", async () => {
+  it("should not distribute via fuse bridge", async () => {
     const { distHelper, bridge } = await loadFixture(fixture);
 
     const recipient = signers[0];
@@ -215,15 +215,15 @@ describe("DistributionHelper", () => {
     await genericCall(distHelper.address, encodedCall, avatar.address, 0);
 
     await goodDollar.mint(distHelper.address, "100000000000");
-    await distHelper.onDistribution("100000000000");
-    expect(await goodDollar.balanceOf(bridge.address)).to.equal(
-      (100000000000 * 2000) / 10000
-    );
+    await expect(distHelper.onDistribution("100000000000")).revertedWith("DEPRECATED");
+    // expect(await goodDollar.balanceOf(bridge.address)).to.equal(
+    //   (100000000000 * 2000) / 10000
+    // );
 
-    const events = await bridge.queryFilter(bridge.filters.OnToken());
-    expect(events[0].args.sender).to.equal(distHelper.address);
-    expect(events[0].args.amount).to.equal((100000000000 * 2000) / 10000);
-    expect(events[0].args.data).to.equal(recipient.address.toLowerCase());
+    // const events = await bridge.queryFilter(bridge.filters.OnToken());
+    // expect(events[0].args.sender).to.equal(distHelper.address);
+    // expect(events[0].args.amount).to.equal((100000000000 * 2000) / 10000);
+    // expect(events[0].args.data).to.equal(recipient.address.toLowerCase());
   });
 
   it("should distribute via layerzero bridge", async () => {

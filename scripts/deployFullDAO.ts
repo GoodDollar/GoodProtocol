@@ -88,6 +88,8 @@ export const createDAO = async () => {
     .deploy()
     .then(printDeploy)) as Contract;
 
+  await BancorFormula.init()
+
   const AddFounders = (await AddFoundersFactory.deploy().then(
     printDeploy
   )) as Contract;
@@ -421,14 +423,14 @@ const deployMainnet = async (Avatar, Identity) => {
   let DAIEthOracle = daiEthOracleAddr
     ? await ethers.getContractAt("DaiEthPriceMockOracle", daiEthOracleAddr)
     : ((await (await ethers.getContractFactory("DaiEthPriceMockOracle"))
-        .deploy()
-        .then(printDeploy)) as Contract);
+      .deploy()
+      .then(printDeploy)) as Contract);
 
   let ETHUsdOracle = ethUsdOracleAddr
     ? await ethers.getContractAt("EthUSDMockOracle", ethUsdOracleAddr)
     : ((await (await ethers.getContractFactory("EthUSDMockOracle"))
-        .deploy()
-        .then(printDeploy)) as Contract);
+      .deploy()
+      .then(printDeploy)) as Contract);
 
   return {
     Contribution,

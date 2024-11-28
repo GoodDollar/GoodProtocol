@@ -474,6 +474,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
       "BancorFormula",
       await marketMaker.getBancor()
     );
+
     const expectedReturn = await bancor.calculateSaleReturn(
       supplyBefore.toString(),
       reserveBalanceBefore.toString(),
@@ -966,7 +967,7 @@ describe("GoodReserve - staking with cDAI mocks", () => {
       parseInt(reserveBalance.toString()) *
       (1 -
         (1 - amount.toNumber() / parseInt(supply.toString())) **
-          (1000000 / reserveToken.reserveRatio));
+        (1000000 / reserveToken.reserveRatio));
 
     expected = Math.ceil((0.8 * expected) / 100) * 100; //deduct 20% contribution, allow 5 points precission mismatch (due to bancor pow estimation?), match solidity no floating point
     //expected = Math.floor(0.8 * expected);
