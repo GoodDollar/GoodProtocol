@@ -459,6 +459,7 @@
     "ClaimersDistribution": "0x6e3c0ad79FA7ccDFa27bE14C2630511415A2F635",
     "CompoundVotingMachine": "0xC2C303131939370ed75c95686F691f290b56Be66",
     "GuardiansSafe": "0x84C10B45fE51bfB4f86c19A47Fdbc187d4572Fb8",
+    "CommunitySafe": "0x84C10B45fE51bfB4f86c19A47Fdbc187d4572Fb8",
     "OneTimePayments": "0xB23e54fd8c2f35F9d38884Fc1611F5e9004f10ea",
     "OneTimePaymentsV2": "0x2cb1c7d50371e277d7a36B171c0ACe9B157518EE",
     "UniswapV3Router": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
@@ -470,7 +471,7 @@
     "CUSD": "0xeCE55B82251007E478cd261Eb37a6F665EC05737",
     "MentoReserve": "0x8E17EC85503C9722f8220C1aeBcE597B0E85fb70",
     "MentoBroker": "0x0b8834384b5d8Bb8BD9d50AB24f84E5E90E16E20",
-    "CeloDistributionHelper": "0x4FE2400B80376a34e6a9011988d9D0D921EEf059"
+    "CeloDistributionHelper": "0xB67D723ad4e71E23b780B917E55f6F58fc18cc9e"
   },
   "staging-celo": {
     "network": "staging-celo",

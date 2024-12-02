@@ -55,7 +55,7 @@ contract CeloDistributionHelper is
 	DistributionRecipient[] public distributionRecipients;
 
 	IMessagePassingBridge public mpbBridge;
-	FeeSettings public feeSettings; //previously anyGoodDollar_unused; //kept for storage layout upgrades
+	FeeSettings public feeSettings;
 	IStaticOracle public STATIC_ORACLE;
 
 	event Distribution(
@@ -107,7 +107,6 @@ contract CeloDistributionHelper is
 	 */
 	function onDistribution(uint256 _amount) external virtual {
 		//we consider the actual balance and not _amount
-		// console.log("onDistribution amount: %s", _amount);
 		uint256 toDistribute = nativeToken().balanceOf(address(this));
 		if (toDistribute == 0) return;
 
@@ -121,8 +120,6 @@ contract CeloDistributionHelper is
 			(gdToSellForFee, minReceived) = calcGDToSell(gdToSellForFee);
 			toDistribute -= gdToSellForFee;
 			boughtNative = buyNativeWithGD(gdToSellForFee, minReceived);
-			// console.log("bought: %s", boughtNative, "minReceived:", minReceived);
-			// console.log("balance:", ERC20(nativeToken()).balanceOf(address(this)));
 		}
 
 		uint256 totalDistributed;
@@ -180,7 +177,6 @@ contract CeloDistributionHelper is
 		DistributionRecipient storage _recipient,
 		uint256 _amount
 	) internal {
-		// console.log("distributing to: %s %s", _recipient.addr, _amount);
 		if (_recipient.transferType == TransferType.LayerZeroBridge) {
 			nativeToken().approve(address(mpbBridge), _amount);
 			(uint256 lzFee, ) = ILayerZeroFeeEstimator(address(mpbBridge))
@@ -257,18 +253,7 @@ contract CeloDistributionHelper is
 				fees,
 				60 //last 1 minute
 			);
-			// console.log(
-			// 	"minReceivedCUSD %s minReceived: %s",
-			// 	minReceivedCUSD,
-			// 	minReceived
-			// );
 		}
-		// console.log("gdToSell %s minReceivedNative: %s", gdToSell, minReceived);
-		// console.log(
-		// 	"gdPriceInUSD: %s nativeValueInUSD:%s",
-		// 	gdPriceInUSD,
-		// 	nativeValueInUSD
-		// );
 	}
 
 	function buyNativeWithGD(
@@ -276,6 +261,8 @@ contract CeloDistributionHelper is
 		uint256 minReceived
 	) internal returns (uint256 nativeBought) {
 		ERC20(nativeToken()).approve(address(ROUTER), amountToSell);
+		uint256 amountOutMinimum = (minReceived * (100 - feeSettings.maxSlippage)) /
+			100; // 5% slippage
 		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
 			path: abi.encodePacked(
 				nativeToken(),
@@ -286,7 +273,7 @@ contract CeloDistributionHelper is
 			),
 			recipient: address(this),
 			amountIn: amountToSell,
-			amountOutMinimum: (minReceived * (100 - feeSettings.maxSlippage)) / 100 // 5% slippage
+			amountOutMinimum: amountOutMinimum
 		});
 		return ROUTER.exactInput(params);
 	}

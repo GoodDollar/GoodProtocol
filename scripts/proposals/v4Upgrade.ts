@@ -57,7 +57,16 @@ import { executeViaGuardian, executeViaSafe, verifyProductionSigner } from "../m
 import ProtocolSettings from "../../releases/deploy-settings.json";
 
 import dao from "../../releases/deployment.json";
-import { Controller, IBroker, IGoodDollar } from "../../types";
+import {
+  CeloDistributionHelper,
+  Controller,
+  IBancorExchangeProvider,
+  IBroker,
+  IGoodDollar,
+  IGoodDollarExchangeProvider,
+  IGoodDollarExpansionController,
+  IMentoReserve
+} from "../../types";
 let { name: networkName } = network;
 
 // TODO: import from bridge-contracts package
@@ -341,36 +350,103 @@ export const upgradeCelo = async network => {
 
   const cusd = await ethers.getContractAt("IERC20", release.CUSD);
   const gd = await ethers.getContractAt("GoodDollar", release.GoodDollar);
+  const mentoReserve = (await ethers.getContractAt("IMentoReserve", release.MentoReserve)) as IMentoReserve;
+
+  const mentoExchange = (await ethers.getContractAt(
+    "IBancorExchangeProvider",
+    release.MentoExchangeProvider
+  )) as IBancorExchangeProvider;
 
   //simulate on fork, make sure safe has enough eth to simulate txs
+  let DIST_HELPER_MIN_CELO_BALANCE = ethers.utils.parseEther("2");
+
   if (isSimulation) {
-    await reset("https://public-archive-nodes.mainnet.celo-testnet.org/");
+    DIST_HELPER_MIN_CELO_BALANCE = ethers.utils.parseEther("0.1");
+    await reset("https://rpc.ankr.com/celo");
     await root.sendTransaction({ value: ethers.constants.WeiPerEther.mul(3), to: release.Avatar });
 
     const avatar = await ethers.getImpersonatedSigner(release.Avatar);
-    const mentoReserve = await ethers.getContractAt(
-      ["function addToken(address) external returns (bool)"],
-      release.MentoReserve
-    );
-    const mentoExchange = await ethers.getContractAt("IBancorExchangeProvider", release.MentoExchangeProvider);
+
     const eids = await mentoExchange.getExchangeIds();
     if (eids.length > 0) {
       await mentoExchange.connect(avatar).destroyExchange(eids[0], 0);
     }
+
+    const devCUSD = await ethers.getContractAt(
+      ["function mint(address,uint) external returns (uint)", "function setValidators(address) external"],
+      release.CUSD
+    );
+
+    await devCUSD.connect(avatar).setValidators(release.Avatar);
+    const mintTX = await (
+      await devCUSD.connect(avatar).mint(release.Avatar, ethers.utils.parseEther("2000000"))
+    ).wait();
+
     await cusd.connect(avatar).transfer(release.MentoReserve, ethers.utils.parseEther("200000"));
     await cusd.connect(avatar).transfer(root.address, ethers.utils.parseEther("10000"));
 
     guardian = await ethers.getImpersonatedSigner(release.GuardiansSafe);
-
+    await mentoReserve.connect(avatar).removeToken(release.CUSD, 1).catch(console.log);
+    await mentoReserve.connect(avatar).removeToken(release.GoodDollar, 1).catch(console.log);
     await root.sendTransaction({ value: ethers.constants.WeiPerEther.mul(3), to: guardian.address });
   } else if (!isProduction) {
+    DIST_HELPER_MIN_CELO_BALANCE = ethers.utils.parseEther("0.1");
+    const mentoReserve = (await ethers.getContractAt("IMentoReserve", release.MentoReserve)) as IMentoReserve;
     const ctrl = (await ethers.getContractAt("Controller", release.Controller)) as Controller;
-    await ctrl.externalTokenTransfer(
-      cusd.address,
-      release.MentoReserve,
-      ethers.utils.parseEther("200000"),
-      release.Avatar
+
+    const eids = await mentoExchange.getExchangeIds();
+    if (eids.length > 0) {
+      await (
+        await ctrl.genericCall(
+          mentoExchange.address,
+          mentoExchange.interface.encodeFunctionData("destroyExchange", [eids[0], 0]),
+          release.Avatar,
+          0
+        )
+      ).wait();
+    }
+
+    await (
+      await ctrl.genericCall(
+        release.MentoReserve,
+        mentoReserve.interface.encodeFunctionData("removeToken", [release.CUSD, 1]),
+        release.Avatar,
+        0
+      )
+    ).wait();
+    await (
+      await ctrl.genericCall(
+        release.MentoReserve,
+        mentoReserve.interface.encodeFunctionData("removeToken", [release.GoodDollar, 1]),
+        release.Avatar,
+        0
+      )
+    ).wait();
+
+    const devCUSD = await ethers.getContractAt(
+      ["function mint(address,uint) external returns (uint)", "function setValidators(address) external"],
+      release.CUSD
     );
+    await (
+      await ctrl.genericCall(
+        devCUSD.address,
+        devCUSD.interface.encodeFunctionData("setValidators", [release.Avatar]),
+        release.Avatar,
+        0
+      )
+    ).wait();
+    await (
+      await ctrl.genericCall(
+        devCUSD.address,
+        devCUSD.interface.encodeFunctionData("mint", [root.address, ethers.utils.parseEther("2000000")]),
+        release.Avatar,
+        0
+      )
+    ).wait();
+
+    await ctrl
+      .externalTokenTransfer(cusd.address, release.MentoReserve, ethers.utils.parseEther("200000"), release.Avatar)
+      .catch(console.log);
   }
 
   const mpbImplementation = mpbDeployments["42220"].find(_ => _.name === "celo")["MessagePassingBridge_Implementation"]
@@ -410,13 +486,19 @@ export const upgradeCelo = async network => {
   //   await ethers.getContractFactory("CeloDistributionHelper"),
   //   [release.NameService, "0x00851A91a3c4E9a4c1B48df827Bacc1f884bdE28"], //static oracle for uniswap
   //   { initializer: "initialize" }
-  // );
+  // )) as CeloDistributionHelper;
+  // release.CeloDistributionHelper = distHelper.address;
+
+  const distHelper = await ethers.getContractAt("CeloDistributionHelper", release.CeloDistributionHelper);
 
   console.log("deployed mentoUpgrade", {
     // distribuitonHelper: distHelper.address,
     mentoUpgrade: mentoUpgrade.address
   });
   const proposalContracts = [
+    release.CeloDistributionHelper, //set fee settings
+    release.CeloDistributionHelper, //add ubi recipient
+    release.CeloDistributionHelper, //add community treasury recipient
     release.MpbBridge, // upgrade
     release.MpbBridge && release.GoodDollarMintBurnWrapper, // remove minting rights from bridge
     release.MpbBridge && release.GoodDollar, // mint to bridge
@@ -429,6 +511,9 @@ export const upgradeCelo = async network => {
   const proposalEthValues = proposalContracts.map(_ => 0);
 
   const proposalFunctionSignatures = [
+    "setFeeSettings((uint128,uint128,uint8,uint8))",
+    "addOrUpdateRecipient((uint32,uint32,address,uint8))",
+    "addOrUpdateRecipient((uint32,uint32,address,uint8))",
     "upgradeTo(address)",
     "revokeRole(bytes32,address)", // mpb is now lock/unlock doesnt need minting
     "mint(address,uint256)", // mint to bridge
@@ -440,6 +525,17 @@ export const upgradeCelo = async network => {
 
   console.log("preparing inputs...");
   const proposalFunctionInputs = [
+    //uint128 maxFee;uint128 minBalanceForFees;uint8 percentageToSellForFee;
+    //2 celo max fee for lz bridge, min balance 2 celo, max percentage to sell 1%, max slippage 5%
+    ethers.utils.defaultAbiCoder.encode(
+      ["uint128", "uint128", "uint8", "uint8"],
+      [ethers.utils.parseEther("2"), DIST_HELPER_MIN_CELO_BALANCE, "1", "5"]
+    ),
+    ethers.utils.defaultAbiCoder.encode(["uint32", "uint32", "address", "uint8"], [9000, 42220, release.UBIScheme, 1]), // ubi pool recipient
+    ethers.utils.defaultAbiCoder.encode(
+      ["uint32", "uint32", "address", "uint8"],
+      [1000, 42220, release.CommunitySafe, 1]
+    ), //community treasury recipient
     ethers.utils.defaultAbiCoder.encode(["address"], [mpbImplementation]),
     release.MpbBridge &&
       ethers.utils.defaultAbiCoder.encode(
@@ -517,6 +613,21 @@ export const upgradeCelo = async network => {
       0
     );
     console.log(await gd.balanceOf(root.address), await cusd.balanceOf(root.address));
+    const mentomint = (await ethers.getContractAt(
+      "IGoodDollarExpansionController",
+      release.MentoExpansionController
+    )) as IGoodDollarExpansionController;
+    await cusd.approve(mentomint.address, ethers.utils.parseEther("1000"));
+    const tx = await (await mentomint.mintUBIFromInterest(eids[0], ethers.utils.parseEther("1000"))).wait();
+    console.log(
+      "mint events:",
+      tx.events.find(_ => _.event === "InterestUBIMinted")
+    );
+    const distTx = await (await distHelper.onDistribution(0, { gasLimit: 2000000 })).wait();
+    console.log(
+      "Distribution events:",
+      distTx.events.find(_ => _.event === "Distribution")
+    );
   }
 };
 
