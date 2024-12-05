@@ -366,7 +366,7 @@ export const upgradeCelo = async network => {
     await root.sendTransaction({ value: ethers.constants.WeiPerEther.mul(3), to: release.Avatar });
 
     const avatar = await ethers.getImpersonatedSigner(release.Avatar);
-
+    const reserveOwner = await ethers.getImpersonatedSigner(await mentoReserve.owner());
     const eids = await mentoExchange.getExchangeIds();
     if (eids.length > 0) {
       await mentoExchange.connect(avatar).destroyExchange(eids[0], 0);
@@ -386,8 +386,8 @@ export const upgradeCelo = async network => {
     await cusd.connect(avatar).transfer(root.address, ethers.utils.parseEther("10000"));
 
     guardian = await ethers.getImpersonatedSigner(release.GuardiansSafe);
-    await mentoReserve.connect(avatar).removeToken(release.CUSD, 1).catch(console.log);
-    await mentoReserve.connect(avatar).removeToken(release.GoodDollar, 1).catch(console.log);
+    await mentoReserve.connect(reserveOwner).addToken(release.CUSD).catch(console.log);
+    await mentoReserve.connect(reserveOwner).addToken(release.GoodDollar).catch(console.log);
     await root.sendTransaction({ value: ethers.constants.WeiPerEther.mul(3), to: guardian.address });
   } else if (!isProduction) {
     DIST_HELPER_MIN_CELO_BALANCE = ethers.utils.parseEther("0.1");
@@ -409,7 +409,7 @@ export const upgradeCelo = async network => {
     await (
       await ctrl.genericCall(
         release.MentoReserve,
-        mentoReserve.interface.encodeFunctionData("removeToken", [release.CUSD, 1]),
+        mentoReserve.interface.encodeFunctionData("addToken", [release.CUSD]),
         release.Avatar,
         0
       )
@@ -417,7 +417,7 @@ export const upgradeCelo = async network => {
     await (
       await ctrl.genericCall(
         release.MentoReserve,
-        mentoReserve.interface.encodeFunctionData("removeToken", [release.GoodDollar, 1]),
+        mentoReserve.interface.encodeFunctionData("addToken", [release.GoodDollar]),
         release.Avatar,
         0
       )

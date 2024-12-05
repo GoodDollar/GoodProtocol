@@ -34,21 +34,6 @@ contract ProtocolUpgradeV4Mento {
 		);
 		require(cUSDBalance >= 200000e18, "not enough reserve");
 
-		(bool ok, bytes memory result) = _controller.genericCall(
-			MentoExchange(_mentoExchange).reserve(),
-			abi.encodeCall(IMentoReserve.addToken, _exchange.reserveAsset),
-			address(avatar),
-			0
-		);
-		require(ok, "addToken cUSD failed");
-		(ok, result) = _controller.genericCall(
-			MentoExchange(_mentoExchange).reserve(),
-			abi.encodeCall(IMentoReserve.addToken, _exchange.tokenAddress),
-			address(avatar),
-			0
-		);
-		require(ok, "addToken G$ failed");
-
 		uint256 gdSupply = ERC20(_exchange.tokenAddress).totalSupply();
 		uint256 price = 0.0001 ether; // we initialize with price of 0.0001
 		// given price calculate the reserve ratio
@@ -62,7 +47,7 @@ contract ProtocolUpgradeV4Mento {
 		_exchange.reserveRatio = reserveRatio;
 		_exchange.exitContribution = exitContribution;
 
-		(ok, result) = _controller.genericCall(
+		(bool ok, bytes memory result) = _controller.genericCall(
 			address(_mentoExchange),
 			abi.encodeCall(IBancorExchangeProvider.createExchange, _exchange),
 			address(avatar),
