@@ -153,5 +153,14 @@ contract ReserveRestore {
 		);
 
 		require(ok, "setContributionRatio failed");
+
+		// exit contribution to 10%
+		(ok, ) = ctrl.genericCall(
+			address(reserve),
+			abi.encodeCall(ERC20PresetMinterPauserUpgradeable.unpause, ()),
+			address(avatar),
+			0
+		);
+		require(ok, "unpause failed");
 	}
 }
