@@ -652,7 +652,6 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
     );
     await advanceBlocks(4);
     const gdaoBalanceBeforeWithdraw = await grep.balanceOf(staker.address);
-    console.log({ gdaoBalanceBeforeWithdraw, rewardsPerBlock });
     await simpleStaking1.connect(staker).withdrawStake(stakingAmount, false);
     const withdrawBlockNumber = await ethers.provider.getBlockNumber();
     await stakersDistribution.claimReputation(staker.address, [
@@ -903,8 +902,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         staker.address,
         simpleStaking1.address
       );
-    expect(userMintedRewardAfterStake.eq(0));
-    expect(userPendingRewardAfterStake.gt(0));
+    expect(userMintedRewardAfterStake).eq(0);
+    expect(userPendingRewardAfterStake).gt(0);
 
     await stakersDistribution.claimReputation(staker.address, [
       simpleStaking1.address
@@ -915,8 +914,8 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
         staker.address,
         simpleStaking1.address
       );
-    expect(userMintedRewardAfterClaim.gt(0));
-    expect(userPendingRewardAfterClaim.eq(0));
+    expect(userMintedRewardAfterClaim).gt(0);
+    expect(userPendingRewardAfterClaim).eq(0);
   });
 
   async function getUserMintedAndPendingRewards(
@@ -933,4 +932,79 @@ describe("StakersDistribution - staking with GD  and get Rewards in GDAO", () =>
 
     return [userMintedReward, userPendingReward];
   }
+
+  it("should update user rewards when monthly rate has changed", async () => {
+    const goodFundManagerFactory = await ethers.getContractFactory(
+      "GoodFundManager"
+    );
+
+    const simpleStaking1 = await deployDaiStaking();
+    const ictrl = await ethers.getContractAt(
+      "Controller",
+      controller,
+      schemeMock
+    );
+    const currentBlockNumber = await ethers.provider.getBlockNumber();
+    let encodedData = goodFundManagerFactory.interface.encodeFunctionData(
+      "setStakingReward",
+      [
+        "100000",
+        simpleStaking1.address,
+        currentBlockNumber - 5,
+        currentBlockNumber + 20,
+        false
+      ] // set 10 gd per block
+    );
+
+    await ictrl.genericCall(goodFundManager.address, encodedData, avatar, 0);
+
+    let [userMintedRewardBeforeStake, userPendingRewardBeforeStake] =
+      await getUserMintedAndPendingRewards(
+        staker.address,
+        simpleStaking1.address
+      );
+    expect(userMintedRewardBeforeStake).to.eq("0");
+    expect(userPendingRewardBeforeStake).to.eq("0");
+
+    const stakingAmount = ethers.utils.parseEther("1000");
+    await dai["mint(address,uint256)"](staker.address, stakingAmount);
+    await dai.connect(staker).approve(simpleStaking1.address, stakingAmount);
+    await simpleStaking1.connect(staker).stake(stakingAmount, 0, false);
+    await advanceBlocks(5); //should accumulate some gdao rewards
+
+    const rewardsPerBlockBefore = await stakersDistribution.rewardsPerBlock(
+      simpleStaking1.address
+    );
+
+    // reduce rewarsd speed by half from 2m to 1m
+    let encoded = stakersDistribution.interface.encodeFunctionData(
+      "setMonthlyReputationDistribution",
+      [ethers.utils.parseEther("1000000")]
+    );
+    await genericCall(stakersDistribution.address, encoded);
+    const rewardsPerBlockAfter = await stakersDistribution.rewardsPerBlock(
+      simpleStaking1.address
+    );
+    let [userMintedRewardAfterStake, userPendingRewardAfterStake] =
+      await getUserMintedAndPendingRewards(
+        staker.address,
+        simpleStaking1.address
+      );
+    expect(userMintedRewardAfterStake).eq(0);
+    expect(userPendingRewardAfterStake).gt(0);
+
+    await advanceBlocks(4); //should accumulate some gdao rewards
+    let [userMintedRewardAfterUpdate, userPendingRewardAfterUpdate] =
+      await getUserMintedAndPendingRewards(
+        staker.address,
+        simpleStaking1.address
+      );
+    expect(userMintedRewardAfterUpdate).eq(0);
+    // rewards speed has been reduced by half,
+    expect(rewardsPerBlockAfter).lt(rewardsPerBlockBefore.mul(55).div(100));
+    // was forced 4 blocks to pass since reward update
+    expect(userPendingRewardAfterUpdate).eq(
+      userPendingRewardAfterStake.add(rewardsPerBlockAfter.mul(4))
+    );
+  });
 });

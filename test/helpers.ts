@@ -301,6 +301,9 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
       kind: "uups"
     }
   );
+
+  console.log("deploying disthelper...");
+
   let distHelper = await upgrades.deployProxy(
     await ethers.getContractFactory("DistributionHelper"),
     [nameService.address],
@@ -438,6 +441,10 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
   await setDAOAddress("REPUTATION", reputation.address);
 
   console.log("setting reserve token...");
+  await cDAI["mint(address,uint256)"](
+    goodReserve.address,
+    10000
+  );
   await setReserveToken(
     cDAI.address,
     "100", //1gd

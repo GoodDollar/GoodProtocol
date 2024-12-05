@@ -33,11 +33,9 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 	/// @notice The number of votes required in order for a voter to become a proposer
 	uint256 public proposalPercentage;
 
-	function proposalThreshold(uint256 blockNumber)
-		public
-		view
-		returns (uint256)
-	{
+	function proposalThreshold(
+		uint256 blockNumber
+	) public view returns (uint256) {
 		return (rep.totalSupplyAt(blockNumber) * proposalPercentage) / 1000000; //0.25%
 	}
 
@@ -102,6 +100,8 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 		uint256 quoromRequired;
 		// support proposal voting bridge
 		uint256 forBlockchain;
+		// flag to mark proposal was approved as not malicious by guardians
+		bool guardianApproved;
 	}
 
 	/// @notice Ballot receipt record for a voter
@@ -426,6 +426,11 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 			"CompoundVotingMachine::execute: proposal for wrong blockchain"
 		);
 
+		require(
+			address(guardian) == address(0) || proposals[proposalId].guardianApproved,
+			"CompoundVotingMachine: proposal not approved"
+		);
+
 		proposals[proposalId].executed = true;
 		address[] memory _targets = proposals[proposalId].targets;
 		uint256[] memory _values = proposals[proposalId].values;
@@ -501,7 +506,9 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 	}
 
 	/// @notice get the actions to be done in a proposal
-	function getActions(uint256 proposalId)
+	function getActions(
+		uint256 proposalId
+	)
 		public
 		view
 		returns (
@@ -516,11 +523,10 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 	}
 
 	/// @notice get the receipt of a single voter in a proposal
-	function getReceipt(uint256 proposalId, address voter)
-		public
-		view
-		returns (Receipt memory)
-	{
+	function getReceipt(
+		uint256 proposalId,
+		address voter
+	) public view returns (Receipt memory) {
 		return proposals[proposalId].receipts[voter];
 	}
 
@@ -768,6 +774,15 @@ contract CompoundVotingMachine is ContextUpgradeable, DAOUpgradeableContract {
 
 		guardian = _guardian;
 		emit GuardianSet(guardian);
+	}
+
+	function approveProposal(uint256 _proposalId) public {
+		require(
+			_msgSender() == address(avatar) || _msgSender() == guardian,
+			"CompoundVotingMachine: not avatar or guardian"
+		);
+
+		proposals[_proposalId].guardianApproved = true;
 	}
 
 	/// @notice allow anyone to emit details about proposal that passed. can be used for cross-chain proposals using blockheader proofs

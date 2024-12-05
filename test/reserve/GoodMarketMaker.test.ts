@@ -120,6 +120,22 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     expect(onecDAIReturn.toNumber() / 100).to.be.equal(10000); //0.0001 cdai is 1 gd, so for 1eth you get 10000 gd (divide by 100 to account for 2 decimals precision)
   });
 
+  it("should calculate mint UBI correctly for 8 decimals precision when price is 0.0001 and 100% ratio", async () => {
+    const expansion = await initializeToken(
+      cdai,
+      "100", //1gd
+      "10000", //0.0001 cDai
+      "1000000" //100% rr
+    );
+    const gdPrice = await marketMaker.currentPrice(cdai);
+    const toMint = await marketMaker.calculateMintInterest(cdai, "100000000");
+    const expectedTotalMinted = 10 ** 8 / gdPrice.toNumber(); //1cdai divided by gd price;
+    expect(expectedTotalMinted).to.be.equal(10000); //1k GD since price is 0.0001 cdai for 1 gd
+    expect(toMint.toString()).to.be.equal(
+      (expectedTotalMinted * 100).toString()
+    ); //add 2 decimals precision
+  });
+
   it("should update reserve ratio by days passed", async () => {
     const expansion = await marketMaker.reserveRatioDailyExpansion();
     // 20% yearly. set up in the constructor
@@ -142,16 +158,6 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
         .reserveTokens(cdai)
         .then(_ => _["reserveRatio"].toString())
     ).to.be.equal("994511"); // 998777 * 0.999388834642296000000000000^7
-  });
-
-  it("should calculate mint UBI correctly for 8 decimals precision", async () => {
-    const gdPrice = await marketMaker.currentPrice(cdai);
-    const toMint = await marketMaker.calculateMintInterest(cdai, "100000000");
-    const expectedTotalMinted = 10 ** 8 / gdPrice.toNumber(); //1cdai divided by gd price;
-    expect(expectedTotalMinted).to.be.equal(10000); //1k GD since price is 0.0001 cdai for 1 gd
-    expect(toMint.toString()).to.be.equal(
-      (expectedTotalMinted * 100).toString()
-    ); //add 2 decimals precision
   });
 
   it("should not return a sell contribution if the given gd is less than the given contribution amount", async () => {
@@ -181,13 +187,27 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   });
 
   it("should be able to calculate and update bonding curve gd balance based on oncoming cDAI and the price stays the same", async () => {
-    const priceBefore = await marketMaker.currentPrice(cdai);
+    let priceBefore = await marketMaker.currentPrice(cdai);
     await marketMaker.mintInterest(cdai, BN.from(1e8));
+    let priceAfter = await marketMaker.currentPrice(cdai)
+
+    expect(priceAfter).gt(0)
+    expect(priceBefore).gt(0)
     expect(
       Math.floor(
-        (await marketMaker.currentPrice(cdai).then(_ => _.toNumber())) / 100
-      ).toString()
+        (priceAfter.toNumber() / 100)).toString()
     ).to.be.equal(Math.floor(priceBefore.toNumber() / 100).toString());
+
+
+    // very large amount of cdai
+    priceBefore = await marketMaker.currentPrice(cdai);
+    await marketMaker.mintInterest(cdai, ethers.utils.parseEther("1"));
+    priceAfter = await marketMaker.currentPrice(cdai)
+
+    console.log({ priceAfter, priceBefore })
+    expect(priceAfter).gt(0)
+    expect(priceBefore).gt(0)
+    expect(priceAfter).to.eq(priceBefore);
   });
 
   it("should not be able to mint interest by a non owner", async () => {
@@ -273,11 +293,12 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       "800000" //80% rr
     );
     const price = await marketMaker.currentPrice(dai);
-    expect(price.toString()).to.be.equal("100000000000000"); //1gd is equal 0.0001 dai = 1000000000000000 wei;
+    expect(price.toString()).to.be.equal(ethers.utils.parseEther("0.000125")); //1gd is equal 0.0001/1*0.8 = 0.000125
     const oneDAIReturn = await marketMaker.buyReturn(
       dai,
       ethers.utils.parseEther("1") //1Dai
     );
+
     //bancor formula to calcualte return
     //gd return = gdsupply * ((1+tokenamount/tokensupply)^rr -1)
     const expectedReturn = 1 * ((1 + 1 / 0.0001) ** 0.8 - 1);
@@ -292,16 +313,27 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
       dai,
       ethers.utils.parseEther("1")
     );
-    const expectedTotalMinted = 10 ** 18 / gdPrice.toNumber();
-    // according to the sell formula the gd price should be 10^14 so 10^18 / 10^14 = 10^4
-    // Return = _reserveBalance * (1 - (1 - _sellAmount / _supply) ^ (1000000 / _reserveRatio))
-    expect(expectedTotalMinted).to.be.equal(10000);
+    let reserveToken = await marketMaker.reserveTokens(dai);
+
+    //we expect price to stay the same p = reserve/supply*RR
+    const newPrice = reserveToken.reserveSupply.add(ethers.utils.parseEther("1")).mul(1e8).div(reserveToken.gdSupply.add(toMint).mul(reserveToken.reserveRatio))
+    expect(newPrice).equal(gdPrice)
+
+    // the formula is amountToMint = reserveInterest * tokenSupply / reserveBalance
+    const expectedTotalMinted = 10 ** 18 * reserveToken.gdSupply.toNumber() / reserveToken.reserveSupply.toNumber()
+    expect(expectedTotalMinted).to.be.equal(1000000);
     expect(toMint.toString()).to.be.equal(
-      (expectedTotalMinted * 100).toString()
+      (expectedTotalMinted).toString()
     );
   });
 
   it("should calculate sell return with cDAI", async () => {
+    await initializeToken(
+      cdai,
+      "1000000000", //1gd
+      "100000000000", //0.0001 cDai
+      "900000" //80% rr
+    );
     const gDReturn = await marketMaker.sellReturn(
       cdai,
       10 //0.1 gd
@@ -515,17 +547,34 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   });
 
   it("should calculate amount of gd to mint based on incoming cDAI without effecting bonding curve price", async () => {
-    const priceBefore = await marketMaker.currentPrice(dai);
-    const toMint = await marketMaker.calculateMintInterest(
+    await initializeToken(
       dai,
-      BN.from("1000000000000000000")
+      6e11,
+      ethers.utils.parseEther("600000"),
+      5e5
     );
-    const totalMinted = 1e18 / priceBefore.toNumber();
-    expect(toMint.toString()).to.be.equal(
-      Math.floor(totalMinted * 100).toString()
-    );
+
+    const priceBefore = await marketMaker.currentPrice(dai);
+
+    await marketMaker.mintInterest(dai, ethers.utils.parseEther("100"))
     const priceAfter = await marketMaker.currentPrice(dai);
     expect(priceBefore.toString()).to.be.equal(priceAfter.toString());
+  });
+
+  it("should calculate amount of gd to mint based on incoming cDAI with small precision issue effecting bonding curve price in very low amounts", async () => {
+    await initializeToken(
+      dai,
+      600,
+      600000000,
+      5e5
+    );
+
+    const priceBefore = await marketMaker.currentPrice(dai);
+
+    await marketMaker.mintInterest(dai, 60000)
+    const priceAfter = await marketMaker.currentPrice(dai);
+    expect(priceBefore).equal(200000000)
+    expect(priceAfter).equal(200020000)
   });
 
   it("should not change the reserve ratio when calculate how much decrease it for the reservetoken", async () => {

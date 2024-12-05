@@ -44,7 +44,7 @@ contract DistributionHelper is
 		0x467719aD09025FcC6cF6F8311755809d45a5E5f3;
 
 	enum TransferType {
-		FuseBridge,
+		DEPRECATED_FuseBridge,
 		LayerZeroBridge,
 		AxelarBridge,
 		Contract
@@ -182,10 +182,11 @@ contract DistributionHelper is
 		if (toDistribute == 0) return;
 
 		if (address(this).balance < feeSettings.minBalanceForFees) {
-			uint256 gdToSellfForFee = (toDistribute *
+			uint256 gdToSellForFee = (toDistribute *
 				feeSettings.percentageToSellForFee) / 100;
-			toDistribute -= gdToSellfForFee;
-			buyNativeWithGD(gdToSellfForFee);
+			gdToSellForFee = calcGDToSell(gdToSellForFee);
+			toDistribute -= gdToSellForFee;
+			buyNativeWithGD(gdToSellForFee);
 		}
 
 		uint256 totalDistributed;
@@ -234,12 +235,8 @@ contract DistributionHelper is
 		DistributionRecipient storage _recipient,
 		uint256 _amount
 	) internal {
-		if (_recipient.transferType == TransferType.FuseBridge) {
-			nativeToken().transferAndCall(
-				fuseBridge,
-				_amount,
-				abi.encodePacked(_recipient.addr)
-			);
+		if (_recipient.transferType == TransferType.DEPRECATED_FuseBridge) {
+			revert("DEPRECATED");
 		} else if (_recipient.transferType == TransferType.LayerZeroBridge) {
 			nativeToken().approve(address(mpbBridge), _amount);
 			(uint256 lzFee, ) = ILayerZeroFeeEstimator(address(mpbBridge))
@@ -274,6 +271,28 @@ contract DistributionHelper is
 		} else if (_recipient.transferType == TransferType.Contract) {
 			nativeToken().transferAndCall(_recipient.addr, _amount, "");
 		}
+	}
+
+	function calcGDToSell(
+		uint256 maxAmountToSell
+	) public view returns (uint256 gdToSell) {
+		uint24[] memory fees = new uint24[](1);
+		fees[0] = 500;
+
+		uint256 ethToBuy = feeSettings.minBalanceForFees * 3;
+		(uint256 ethValueInUSDC, ) = STATIC_ORACLE
+			.quoteSpecificFeeTiersWithTimePeriod(
+				uint128(ethToBuy),
+				WETH_TOKEN,
+				USDC_TOKEN,
+				fees,
+				60 //last 1 minute
+			);
+
+		uint256 gdPriceInDai = GoodReserveCDai(nameService.getAddress("RESERVE"))
+			.currentPriceDAI();
+		gdToSell = (ethValueInUSDC * 1e12 * 100) / gdPriceInDai; //* 1e12 to increase usdc to 18 decimals, mul by 100 so result is in 2 G$ 2 decimals
+		gdToSell = gdToSell > maxAmountToSell ? maxAmountToSell : gdToSell;
 	}
 
 	function buyNativeWithGD(uint256 amountToSell) internal {

@@ -185,13 +185,13 @@ describe("CompoundVotingMachine#Guardian", () => {
 
     await gov
       .connect(signers[4])
-      ["propose(address[],uint256[],string[],bytes[],string)"](
-        targets,
-        values,
-        signatures,
-        callDatas,
-        "do nothing"
-      );
+    ["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "do nothing"
+    );
     let proposalId = await gov.latestProposalIds(signers[4].address);
     await advanceBlocks(1);
 
@@ -204,14 +204,7 @@ describe("CompoundVotingMachine#Guardian", () => {
     await grep.delegateTo(root.address); //delegate back our votes
   });
 
-  it("Should be able to pass proposal to change guardian", async () => {
-    console.log(
-      grep.address,
-      await grep.totalSupply().then(_ => _.toString()),
-      await (await grep.getVotes(root.address)).toString(),
-      await (await grep.balanceOfLocal(root.address)).toString(),
-      await gov.rep()
-    );
+  it("Should not be able to pass proposal without guardian approval", async () => {
     let targets = [gov.address];
     let values = ["0"];
     let signatures = ["setGuardian(address)"];
@@ -219,19 +212,81 @@ describe("CompoundVotingMachine#Guardian", () => {
 
     await gov
       .connect(root)
-      ["propose(address[],uint256[],string[],bytes[],string)"](
-        targets,
-        values,
-        signatures,
-        callDatas,
-        "set guardian"
-      );
+    ["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "set guardian"
+    );
     let proposalBlock = +(await ethers.provider.getBlockNumber());
     let proposalId = await gov.latestProposalIds(root.address);
     await advanceBlocks(1);
     await gov.connect(root).castVote(proposalId, true);
     await increaseTime(queuePeriod);
     expect(states[await gov.state(proposalId)]).to.equal("Succeeded");
+
+    await expect(gov.execute(proposalId)).revertedWith(/not approved/);
+
+  })
+
+  it("Should be able to pass proposal to change guardian", async () => {
+    let targets = [gov.address];
+    let values = ["0"];
+    let signatures = ["setGuardian(address)"];
+    let callDatas = [encodeParameters(["address"], [signers[2].address])];
+
+    await gov
+      .connect(root)
+    ["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "set guardian"
+    );
+    let proposalBlock = +(await ethers.provider.getBlockNumber());
+    let proposalId = await gov.latestProposalIds(root.address);
+    await advanceBlocks(1);
+    await gov.connect(root).castVote(proposalId, true);
+    await increaseTime(queuePeriod);
+    expect(states[await gov.state(proposalId)]).to.equal("Succeeded");
+
+    await gov.connect(signers[1]).approveProposal(proposalId)
+
+    await gov.execute(proposalId);
+    expect(states[await gov.state(proposalId)]).to.equal("Executed");
+
+    //acct should now have 1M after proposal minted rep
+    expect(await gov.guardian()).to.equal(signers[2].address);
+  });
+
+  it("Should be able to pass proposal without approval if no guardian set", async () => {
+    let targets = [gov.address];
+    let values = ["0"];
+    let signatures = ["setGuardian(address)"];
+    let callDatas = [encodeParameters(["address"], [signers[1].address])];
+
+    await gov.connect(signers[2]).renounceGuardian()
+
+    expect(await gov.guardian()).equal(ethers.constants.AddressZero)
+
+    await gov
+      .connect(root)
+    ["propose(address[],uint256[],string[],bytes[],string)"](
+      targets,
+      values,
+      signatures,
+      callDatas,
+      "set guardian"
+    );
+
+    let proposalId = await gov.latestProposalIds(root.address);
+    await advanceBlocks(1);
+    await gov.connect(root).castVote(proposalId, true);
+    await increaseTime(queuePeriod);
+    expect(states[await gov.state(proposalId)]).to.equal("Succeeded");
+
     await gov.execute(proposalId);
     expect(states[await gov.state(proposalId)]).to.equal("Executed");
 
