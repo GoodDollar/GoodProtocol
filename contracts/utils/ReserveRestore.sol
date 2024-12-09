@@ -152,9 +152,9 @@ contract ReserveRestore {
 			0
 		);
 
-		require(ok, "setContributionRatio failed");
+		require(ok, "gdx disable failed");
 
-		// exit contribution to 10%
+		// unpause reserve
 		(ok, ) = ctrl.genericCall(
 			address(reserve),
 			abi.encodeCall(ERC20PresetMinterPauserUpgradeable.unpause, ()),
