@@ -23,12 +23,13 @@ contract ProtocolUpgradeV4Mento {
 		IBancorExchangeProvider.PoolExchange memory _exchange,
 		address _mentoExchange,
 		address _mentoController,
-		address _distHelper
+		address _distHelper,
+		uint256 totalGlobalSupply
 	) external {
 		require(msg.sender == address(avatar), "only avatar can call this");
 
-		uint32 expansionFrequency = 1 days;
-		uint64 expansionRate = 288617289021952; //10% a year = ((1e18 - expansionRate)/1e18)^365=0.9
+		// uint32 expansionFrequency = 1 days;
+		// uint64 expansionRate = 288617289021952; //10% a year = ((1e18 - expansionRate)/1e18)^365=0.9
 		uint256 cUSDBalance = ERC20(_exchange.reserveAsset).balanceOf(
 			MentoExchange(_mentoExchange).reserve()
 		);
@@ -62,7 +63,7 @@ contract ProtocolUpgradeV4Mento {
 			address(_mentoController),
 			abi.encodeCall(
 				IGoodDollarExpansionController.setExpansionConfig,
-				(exchangeId, expansionRate, expansionFrequency)
+				(exchangeId, 288617289021952, 1 days) //10% a year = ((1e18 - expansionRate)/1e18)^365=0.9 frequency 1 day
 			),
 			address(avatar),
 			0
@@ -79,6 +80,17 @@ contract ProtocolUpgradeV4Mento {
 			0
 		);
 		require(ok, "setDistribuitionHelper failed");
+
+		// mint exit liquidity to bridge
+		uint256 toMint = totalGlobalSupply - gdSupply;
+		require(
+			_controller.mintTokens(
+				toMint,
+				0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5,
+				address(avatar)
+			),
+			"bridge minting failed"
+		);
 
 		// prevent executing again
 		require(_controller.unregisterSelf(avatar), "unregistering failed");
