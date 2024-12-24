@@ -23,6 +23,9 @@ export const deployUniversalProxyFactory = async () => {
     s: "0x2222222222222222222222222222222222222222222222222222222222222222"
   };
   //modify tx data a little so we get different contract address for different envs
+  if (name.includes("development-base")) {
+    deployTx.gasPrice = 7e7;
+  }
   if (name.includes("staging")) {
     deployTx.gasLimit = 892000;
   } else if (name.includes("production")) {
@@ -34,12 +37,18 @@ export const deployUniversalProxyFactory = async () => {
   const deployer = ethers.utils.recoverAddress(txHash, signer);
   let [funder] = await ethers.getSigners();
 
-  let tx = await (
-    await funder.sendTransaction({
-      to: deployer,
-      value: ethers.BigNumber.from(deployTx.gasPrice).mul(deployTx.gasLimit)
-    })
-  ).wait();
+  const curBalance = await ethers.provider.getBalance(deployer);
+  const deployCost = ethers.BigNumber.from(deployTx.gasPrice).mul(deployTx.gasLimit);
+
+  let tx = {};
+  if (curBalance.lt(deployCost)) {
+    tx = await (
+      await funder.sendTransaction({
+        to: deployer,
+        value: deployCost.sub(curBalance)
+      })
+    ).wait();
+  }
 
   if (isProduction) verifyProductionSigner(funder);
 
@@ -47,23 +56,19 @@ export const deployUniversalProxyFactory = async () => {
     fundingTx: tx.transactionHash,
     deployer,
     funder: funder.address,
-    deployerBalance: ethers.utils.formatUnits(
-      await ethers.provider.getBalance(deployer)
-    )
+    deployerBalance: ethers.utils.formatUnits(await ethers.provider.getBalance(deployer))
   });
   const signedTx = ethers.utils.serializeTransaction(deployTx, signer);
-  const result = await (await ethers.provider.sendTransaction(signedTx)).wait();
-  console.log({ result });
+  const proxyTx = await ethers.provider.sendTransaction(signedTx);
+  console.log({ proxyTx });
+  const result = await proxyTx.wait();
   return ethers.getContractAt("ProxyFactory1967", result.contractAddress);
 };
 
 export const deployProxy = async (defaultAdmin = null) => {
   let release: { [key: string]: any } = dao[network.name] || {};
 
-  if (
-    network.name.match(/production|staging|fuse|development/) &&
-    release.ProxyFactory
-  ) {
+  if (network.name.match(/production|staging|fuse|development/) && release.ProxyFactory) {
     throw new Error("ProxyFactory already exists for env");
   }
   // let [root] = await ethers.getSigners();

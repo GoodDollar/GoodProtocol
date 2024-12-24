@@ -34,7 +34,8 @@ contract AdminWallet is
 	uint64 public maxDailyNewWallets;
 	uint64 public day;
 
-	ERC20 public gd;
+	ERC20 private gd_removed;
+
 	mapping(address => uint256) public lastGdBalance; // only top non whitelisted if active G$ users
 
 	event AdminsAdded(address payable[] indexed admins);
@@ -66,16 +67,11 @@ contract AdminWallet is
 			addAdmins(_admins);
 		}
 		if (msg.sender != _owner) revokeRole(DEFAULT_ADMIN_ROLE, msg.sender);
-		gd = ERC20(nameService.getAddress("GOODDOLLAR"));
 	}
 
 	modifier onlyOwner() {
 		require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "not owner");
 		_;
-	}
-
-	function upgrade() public onlyOwner {
-		gd = ERC20(nameService.getAddress("GOODDOLLAR"));
 	}
 
 	function getIdentity() public view returns (IIdentityV2) {
@@ -236,6 +232,8 @@ contract AdminWallet is
 	 * @param _user The address to transfer to
 	 */
 	function topWallet(address payable _user) public onlyAdmin reimburseGas {
+		ERC20 gd = ERC20(nameService.getAddress("GOODDOLLAR"));
+
 		uint256 gdBalance = gd.balanceOf(_user);
 		require(
 			getIdentity().isWhitelisted(_user) || gdBalance != lastGdBalance[_user],

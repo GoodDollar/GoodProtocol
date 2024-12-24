@@ -17,26 +17,20 @@ import { airdrop } from "./scripts/governance/airdropCalculationSorted";
 import { airdrop as repAirdropRecover } from "./scripts/governance/airdropCalculationRecover";
 import { airdrop as goodCheckpoint } from "./scripts/governance/goodCheckpointSorted";
 
-import {
-  airdrop as gdxAirdrop,
-  airdropRecover as gdxAirdropRecover
-} from "./scripts/gdx/gdxAirdropCalculation";
+import { airdrop as gdxAirdrop, airdropRecover as gdxAirdropRecover } from "./scripts/gdx/gdxAirdropCalculation";
 import { sumStakersGdRewards } from "./scripts/staking/stakersGdRewardsCalculation";
 import { verify } from "./scripts/verify";
 import { ethers } from "ethers";
 import { fstat, readFileSync, writeFileSync } from "fs";
 config();
 
-const mnemonic =
-  process.env.MNEMONIC ||
-  "test test test test test test test test test test test junk";
-const deployerPrivateKey =
-  process.env.PRIVATE_KEY || ethers.utils.hexZeroPad("0x11", 32);
+const mnemonic = process.env.MNEMONIC || "test test test test test test test test test test test junk";
+const deployerPrivateKey = process.env.PRIVATE_KEY || ethers.utils.hexZeroPad("0x11", 32);
 const infura_api = process.env.INFURA_API;
 const alchemy_key = process.env.ALCHEMY_KEY;
 const etherscan_key = process.env.ETHERSCAN_KEY;
 const celoscan_key = process.env.CELOSCAN_KEY;
-
+const basescan_key = process.env.BASESCAN_KEY;
 const ethplorer_key = process.env.ETHPLORER_KEY;
 
 const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
@@ -70,7 +64,8 @@ const hhconfig: HardhatUserConfig = {
     apiKey: {
       mainnet: etherscan_key,
       celo: celoscan_key,
-      alfajores: celoscan_key
+      alfajores: celoscan_key,
+      base: basescan_key
     },
     customChains: [
       {
@@ -99,9 +94,7 @@ const hhconfig: HardhatUserConfig = {
 
   networks: {
     hardhat: {
-      chainId: process.env.FORK_CHAIN_ID
-        ? Number(process.env.FORK_CHAIN_ID)
-        : 4447,
+      chainId: process.env.FORK_CHAIN_ID ? Number(process.env.FORK_CHAIN_ID) : 4447,
       allowUnlimitedContractSize: true,
       accounts: {
         accountsBalance: "10000000000000000000000000"
@@ -254,6 +247,12 @@ const hhconfig: HardhatUserConfig = {
       gasPrice: 5000000000,
       chainId: 42220
     },
+    "development-base": {
+      accounts: { mnemonic },
+      url: "https://mainnet.base.org",
+      initialBaseFeePerGas: 0,
+      gasPrice: 8e6
+    },
     gnosis: {
       accounts: [deployerPrivateKey],
       url: "https://rpc.gnosischain.com",
@@ -279,10 +278,7 @@ task("repAirdrop", "Calculates airdrop data and merkle tree")
     const actions = airdrop(hre.ethers, ethplorer_key, etherscan_key);
     switch (taskArgs.action) {
       case "calculate":
-        return actions.collectAirdropData(
-          taskArgs.fusesnapshotblock,
-          taskArgs.ethsnapshotblock
-        );
+        return actions.collectAirdropData(taskArgs.fusesnapshotblock, taskArgs.ethsnapshotblock);
       case "tree":
         return actions.buildMerkleTree();
       case "proof":
@@ -292,10 +288,7 @@ task("repAirdrop", "Calculates airdrop data and merkle tree")
     }
   });
 
-task(
-  "repAirdropRecover",
-  "Calculates airdrop data and merkle tree after critical bug"
-)
+task("repAirdropRecover", "Calculates airdrop data and merkle tree after critical bug")
   .addParam("action", "calculate/tree/proof")
   .addOptionalPositionalParam("address", "proof for address")
   .setAction(async (taskArgs, hre) => {
@@ -344,10 +337,7 @@ task("gdxAirdropRecover", "Calculates new airdrop data for recovery")
     }
   });
 
-task(
-  "goodCheckpoint",
-  "Calculates good checkpoint data and merkle tree for GOOD sync"
-)
+task("goodCheckpoint", "Calculates good checkpoint data and merkle tree for GOOD sync")
   .addParam("action", "calculate/tree/proof")
   .addOptionalPositionalParam("address", "proof for address")
   .setAction(async (taskArgs, hre) => {
@@ -364,17 +354,12 @@ task(
     }
   });
 
-task("verifyjson", "verify contracts on etherscan").setAction(
-  async (taskArgs, hre) => {
-    return verify(hre);
-  }
-);
+task("verifyjson", "verify contracts on etherscan").setAction(async (taskArgs, hre) => {
+  return verify(hre);
+});
 export default hhconfig;
 
-task(
-  "sumStakersGdRewards",
-  "Sums the GoodDollar reward for each staker"
-).setAction(async (taskArgs, hre) => {
+task("sumStakersGdRewards", "Sums the GoodDollar reward for each staker").setAction(async (taskArgs, hre) => {
   const actions = sumStakersGdRewards(hre.ethers);
   return actions.getStakersGdRewards();
 });
@@ -387,10 +372,7 @@ task("cleanflat", "Cleans multiple SPDX and Pragma from flattened file")
     });
 
     // Remove every line started with "// SPDX-License-Identifier:"
-    flattened = flattened.replace(
-      /SPDX-License-Identifier:/gm,
-      "License-Identifier:"
-    );
+    flattened = flattened.replace(/SPDX-License-Identifier:/gm, "License-Identifier:");
 
     flattened = `// SPDX-License-Identifier: MIXED\n\n${flattened}`;
 
