@@ -44,13 +44,15 @@ contract SuperfluidFaucet is
 	function initialize(
 		uint256 _toppingAmount,
 		uint256 _maxAmountPerPeriod,
-		uint256 _toppingPeriod
+		uint256 _toppingPeriod,
+		address _admin
 	) public initializer {
 		__AccessControl_init();
 		__UUPSUpgradeable_init();
 
 		_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 		_setupRole(ADMIN_ROLE, msg.sender);
+		_grantRole(ADMIN_ROLE, _admin);
 		toppingAmount = _toppingAmount;
 		maxAmountPerPeriod = _maxAmountPerPeriod;
 		toppingPeriod = _toppingPeriod;

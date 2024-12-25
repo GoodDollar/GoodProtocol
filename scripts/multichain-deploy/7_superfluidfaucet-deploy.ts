@@ -69,14 +69,13 @@ export const deployHelpers = async () => {
 
   const Faucet = release.SuperfluidFaucet
     ? await ethers.getContractAt("SuperfluidFaucet", release.SuperfluidFaucet)
-    : ((await deployDeterministic(
-        {
-          name: "SuperfluidFaucet",
-          salt: "SuperfluidFaucet",
-          isUpgradeable: true
-        },
-        [ethers.utils.parseEther("0.000003"), ethers.utils.parseEther("0.000003"), 30]
-      ).then(printDeploy)) as Contract);
+    : ((await upgrades
+        .deployProxy(
+          await ethers.getContractFactory("SuperfluidFaucet"),
+          [ethers.utils.parseEther("0.000003"), ethers.utils.parseEther("0.000003"), 30, AdminWallet.address],
+          { kind: "uups" }
+        )
+        .then(printDeploy)) as Contract);
 
   const torelease = {
     SuperfluidFaucet: Faucet.address,
