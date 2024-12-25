@@ -26,6 +26,7 @@
     "build:test-sdk": "tsc --build tsconfig.sdk.json"
   },
   "files": [
+    "tsconfig.json",
     "artifacts/contracts",
     "artifacts/abis",
     "contracts",
@@ -36,7 +37,6 @@
     "hardhat.config.ts",
     "LICENSE",
     "truffle-config.js",
-    "tsconfig.json",
     "test",
     "types",
     "patches",
@@ -96,7 +96,7 @@
     "async-promise-pool": "^1.0.4",
     "bignumber.js": "*",
     "bindings": "*",
-    "chai": "*",
+    "chai": "^4.*",
     "coveralls": "*",
     "dotenv": "*",
     "ethereum-block-by-date": "^1.4.9",
