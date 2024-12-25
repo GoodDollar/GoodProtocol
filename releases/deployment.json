@@ -612,7 +612,7 @@
   },
   "development-base": {
     "ProxyFactory": "0x5B22F5623ECB00E288539346F389E05f65e226ae",
-    "SuperfluidFaucet": "0x88d18B06E55b33B94578628fcB5a6e1D198b0e73",
-    "AdminWallet": "0x6672C998C49635aA6825Be355fF2e731f417B674"
+    "AdminWallet": "0x6672C998C49635aA6825Be355fF2e731f417B674",
+    "SuperfluidFaucet": "0x0c86C82eb8d6a8E991bbc37C58e23344b20520a2"
   }
 }
