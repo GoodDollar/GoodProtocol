@@ -390,23 +390,26 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 	 * @param _user user to get rewards
 	 */
 	function mintReward(address _token, address _user) public {
-		// do nothing post reserve hack
-		// Reward memory staking = rewardsForStakingContract[address(msg.sender)];
-		// require(staking.blockStart > 0, "Staking contract not registered");
-		// uint256 amount = IGoodStaking(address(msg.sender)).rewardsMinted(
-		// 	_user,
-		// 	staking.blockReward,
-		// 	staking.blockStart,
-		// 	staking.blockEnd
-		// );
-		// if (amount > 0 && staking.isBlackListed == false) {
-		// 	GoodReserveCDai(nameService.getAddress("RESERVE")).mintRewardFromRR(
-		// 		_token,
-		// 		_user,
-		// 		amount
-		// 	);
-		// 	emit StakingRewardMinted(msg.sender, _user, amount);
-		// }
+		Reward memory staking = rewardsForStakingContract[address(msg.sender)];
+		require(staking.blockStart > 0, "Staking contract not registered");
+		uint256 amount = IGoodStaking(address(msg.sender)).rewardsMinted(
+			_user,
+			staking.blockReward,
+			staking.blockStart,
+			staking.blockEnd
+		);
+		if (
+			amount > 0 &&
+			staking.isBlackListed == false &&
+			GoodReserveCDai(nameService.getAddress("RESERVE")).paused() == false
+		) {
+			GoodReserveCDai(nameService.getAddress("RESERVE")).mintRewardFromRR(
+				_token,
+				_user,
+				amount
+			);
+			emit StakingRewardMinted(msg.sender, _user, amount);
+		}
 	}
 
 	/// quick sort
