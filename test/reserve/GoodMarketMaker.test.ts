@@ -189,24 +189,22 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   it("should be able to calculate and update bonding curve gd balance based on oncoming cDAI and the price stays the same", async () => {
     let priceBefore = await marketMaker.currentPrice(cdai);
     await marketMaker.mintInterest(cdai, BN.from(1e8));
-    let priceAfter = await marketMaker.currentPrice(cdai)
+    let priceAfter = await marketMaker.currentPrice(cdai);
 
-    expect(priceAfter).gt(0)
-    expect(priceBefore).gt(0)
-    expect(
-      Math.floor(
-        (priceAfter.toNumber() / 100)).toString()
-    ).to.be.equal(Math.floor(priceBefore.toNumber() / 100).toString());
-
+    expect(priceAfter).gt(0);
+    expect(priceBefore).gt(0);
+    expect(Math.floor(priceAfter.toNumber() / 100).toString()).to.be.equal(
+      Math.floor(priceBefore.toNumber() / 100).toString()
+    );
 
     // very large amount of cdai
     priceBefore = await marketMaker.currentPrice(cdai);
     await marketMaker.mintInterest(cdai, ethers.utils.parseEther("1"));
-    priceAfter = await marketMaker.currentPrice(cdai)
+    priceAfter = await marketMaker.currentPrice(cdai);
 
-    console.log({ priceAfter, priceBefore })
-    expect(priceAfter).gt(0)
-    expect(priceBefore).gt(0)
+    console.log({ priceAfter, priceBefore });
+    expect(priceAfter).gt(0);
+    expect(priceBefore).gt(0);
     expect(priceAfter).to.eq(priceBefore);
   });
 
@@ -316,15 +314,18 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     let reserveToken = await marketMaker.reserveTokens(dai);
 
     //we expect price to stay the same p = reserve/supply*RR
-    const newPrice = reserveToken.reserveSupply.add(ethers.utils.parseEther("1")).mul(1e8).div(reserveToken.gdSupply.add(toMint).mul(reserveToken.reserveRatio))
-    expect(newPrice).equal(gdPrice)
+    const newPrice = reserveToken.reserveSupply
+      .add(ethers.utils.parseEther("1"))
+      .mul(1e8)
+      .div(reserveToken.gdSupply.add(toMint).mul(reserveToken.reserveRatio));
+    expect(newPrice).equal(gdPrice);
 
     // the formula is amountToMint = reserveInterest * tokenSupply / reserveBalance
-    const expectedTotalMinted = 10 ** 18 * reserveToken.gdSupply.toNumber() / reserveToken.reserveSupply.toNumber()
+    const expectedTotalMinted =
+      (10 ** 18 * reserveToken.gdSupply.toNumber()) /
+      reserveToken.reserveSupply.toNumber();
     expect(expectedTotalMinted).to.be.equal(1000000);
-    expect(toMint.toString()).to.be.equal(
-      (expectedTotalMinted).toString()
-    );
+    expect(toMint.toString()).to.be.equal(expectedTotalMinted.toString());
   });
 
   it("should calculate sell return with cDAI", async () => {
@@ -436,7 +437,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
         .toString()
     ).to.be.equal(reserveBalanceBefore.toString());
     expect(supplyBefore.sub(supplyAfter)).to.be.equal(BN.from(amount));
-    expect(rrAfter.toString()).to.be.equal(rrBefore.toString());
+    expect(rrAfter).gte(rrBefore); //with sell contribution G$ are burned and increase RR
   });
 
   it("should not be able to calculate the buy return in gd and update the bonding curve params by a non-owner account", async () => {
@@ -547,34 +548,24 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
   });
 
   it("should calculate amount of gd to mint based on incoming cDAI without effecting bonding curve price", async () => {
-    await initializeToken(
-      dai,
-      6e11,
-      ethers.utils.parseEther("600000"),
-      5e5
-    );
+    await initializeToken(dai, 6e11, ethers.utils.parseEther("600000"), 5e5);
 
     const priceBefore = await marketMaker.currentPrice(dai);
 
-    await marketMaker.mintInterest(dai, ethers.utils.parseEther("100"))
+    await marketMaker.mintInterest(dai, ethers.utils.parseEther("100"));
     const priceAfter = await marketMaker.currentPrice(dai);
     expect(priceBefore.toString()).to.be.equal(priceAfter.toString());
   });
 
   it("should calculate amount of gd to mint based on incoming cDAI with small precision issue effecting bonding curve price in very low amounts", async () => {
-    await initializeToken(
-      dai,
-      600,
-      600000000,
-      5e5
-    );
+    await initializeToken(dai, 600, 600000000, 5e5);
 
     const priceBefore = await marketMaker.currentPrice(dai);
 
-    await marketMaker.mintInterest(dai, 60000)
+    await marketMaker.mintInterest(dai, 60000);
     const priceAfter = await marketMaker.currentPrice(dai);
-    expect(priceBefore).equal(200000000)
-    expect(priceAfter).equal(200020000)
+    expect(priceBefore).equal(200000000);
+    expect(priceAfter).equal(200020000);
   });
 
   it("should not change the reserve ratio when calculate how much decrease it for the reservetoken", async () => {
@@ -624,6 +615,7 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
     expect(gdPriceAfter.lt(gdPriceBefore));
     expect(reserveRatioAfter).to.be.equal(reserveRatioBefore);
   });
+
   it("should price increase after buy gd when RR is not %100", async () => {
     let reserveTokenBefore = await marketMaker.reserveTokens(cdai);
     let gdPriceBefore = await marketMaker.currentPrice(cdai);
@@ -657,5 +649,76 @@ describe("GoodMarketMaker - calculate gd value at reserve", () => {
         denominator
       )
     ).to.be.revertedWith(/Invalid nom or denom value/);
+  });
+
+  it("should return same amount when splitting sell into two when exit fee is 0", async () => {
+    let reserveTokenBefore = await marketMaker.reserveTokens(cdai);
+    console.log({ reserveTokenBefore });
+    const res = await (
+      await marketMaker.sellWithContribution(cdai, "100000000", "0")
+    ).wait();
+    let reserveTokenAfterSale = await marketMaker.reserveTokens(cdai);
+    console.log({ reserveTokenAfterSale });
+    await marketMaker.initializeToken(
+      cdai,
+      reserveTokenBefore.gdSupply,
+      reserveTokenBefore.reserveSupply,
+      reserveTokenBefore.reserveRatio,
+      0
+    );
+    const split1 = await (
+      await marketMaker.sellWithContribution(cdai, "50000000", "0")
+    ).wait();
+    const split2 = await (
+      await marketMaker.sellWithContribution(cdai, "50000000", "0")
+    ).wait();
+    let reserveTokenAfterSplitSale = await marketMaker.reserveTokens(cdai);
+
+    expect(reserveTokenAfterSale.gdSupply).eq(
+      reserveTokenAfterSplitSale.gdSupply
+    );
+    expect(reserveTokenAfterSale.reserveSupply).eq(
+      reserveTokenAfterSplitSale.reserveSupply
+    );
+  });
+
+  it("should have minimal effect on return value when splitting sell into two txs when exit fee is non 0", async () => {
+    let reserveTokenBefore = await marketMaker.reserveTokens(cdai);
+    await marketMaker.initializeToken(
+      cdai,
+      reserveTokenBefore.gdSupply,
+      reserveTokenBefore.reserveSupply,
+      200000,
+      0
+    );
+    console.log({ reserveTokenBefore });
+    const res = await (
+      await marketMaker.sellWithContribution(cdai, "500000000", "50000000")
+    ).wait();
+    let reserveTokenAfterSale = await marketMaker.reserveTokens(cdai);
+    console.log({ reserveTokenAfterSale });
+    await marketMaker.initializeToken(
+      cdai,
+      reserveTokenBefore.gdSupply,
+      reserveTokenBefore.reserveSupply,
+      200000,
+      0
+    );
+    const split1 = await (
+      await marketMaker.sellWithContribution(cdai, "250000000", "25000000")
+    ).wait();
+    const split2 = await (
+      await marketMaker.sellWithContribution(cdai, "250000000", "25000000")
+    ).wait();
+    let reserveTokenAfterSplitSale = await marketMaker.reserveTokens(cdai);
+
+    console.log({ reserveTokenAfterSplitSale });
+    expect(reserveTokenAfterSale.gdSupply).eq(
+      reserveTokenAfterSplitSale.gdSupply
+    );
+    expect(
+      Number(reserveTokenAfterSplitSale.reserveSupply) /
+        Number(reserveTokenAfterSale.reserveSupply)
+    ).gte(0.981);
   });
 });

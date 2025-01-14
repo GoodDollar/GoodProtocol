@@ -398,13 +398,16 @@ contract GoodFundManager is DAOUpgradeableContract, DSMath {
 			staking.blockStart,
 			staking.blockEnd
 		);
-		if (amount > 0 && staking.isBlackListed == false) {
+		if (
+			amount > 0 &&
+			staking.isBlackListed == false &&
+			GoodReserveCDai(nameService.getAddress("RESERVE")).paused() == false
+		) {
 			GoodReserveCDai(nameService.getAddress("RESERVE")).mintRewardFromRR(
 				_token,
 				_user,
 				amount
 			);
-
 			emit StakingRewardMinted(msg.sender, _user, amount);
 		}
 	}
