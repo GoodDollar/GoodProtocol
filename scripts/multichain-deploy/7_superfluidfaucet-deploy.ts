@@ -11,6 +11,7 @@ import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
 import { TransactionResponse } from "@ethersproject/providers";
+import { SuperfluidFaucet } from "../../types";
 
 const { name } = network;
 
@@ -72,7 +73,7 @@ export const deployHelpers = async () => {
     : ((await upgrades
         .deployProxy(
           await ethers.getContractFactory("SuperfluidFaucet"),
-          [ethers.utils.parseEther("0.000003"), ethers.utils.parseEther("0.000003"), 30, AdminWallet.address],
+          [ethers.utils.parseEther("0.0000035"), 30, AdminWallet.address],
           { kind: "uups" }
         )
         .then(printDeploy)) as Contract);
@@ -89,7 +90,33 @@ export const deployHelpers = async () => {
   await verifyContract(impl, "contracts/fuseFaucet/SuperfluidFaucet.sol:SuperfluidFaucet", network.name);
 };
 
+const upgrade = async () => {
+  let [root] = await ethers.getSigners();
+  const isProduction = network.name.includes("production");
+
+  if (isProduction) verifyProductionSigner(root);
+
+  //generic call permissions
+  let schemeMock = root;
+
+  console.log("got signers:", {
+    network,
+    root: root.address,
+    schemeMock: schemeMock.address,
+    balance: await ethers.provider.getBalance(root.address).then(_ => _.toString())
+  });
+  let release: { [key: string]: any } = dao[network.name] || {};
+  const proxy = (await ethers.getContractAt("SuperfluidFaucet", release.SuperfluidFaucet)) as SuperfluidFaucet;
+  const impl = await ethers.deployContract("SuperfluidFaucet");
+  console.log("impl:", impl.address);
+  const callData = proxy.interface.encodeFunctionData("updateSettings", [ethers.utils.parseEther("0.0000035"), 30]);
+  const tx = await proxy.upgradeToAndCall(impl.address, callData);
+  console.log(tx.hash);
+  const res = await tx.wait();
+  console.log(res.transactionHash);
+};
 export const main = async () => {
-  await deployHelpers();
+  await upgrade();
+  // await deployHelpers();
 };
 if (process.argv[1].includes("7_superfluidfaucet")) main();

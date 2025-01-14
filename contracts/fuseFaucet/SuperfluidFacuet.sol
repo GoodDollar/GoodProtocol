@@ -17,9 +17,11 @@ contract SuperfluidFaucet is
 	using SafeMathUpgradeable for uint256;
 
 	bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+	uint public constant GAS_TOPPING_AMOUNT = 350000;
+	uint public constant FIRST_GAS_TOPPING_AMOUNT = 1e6;
 
-	uint256 public toppingAmount;
-	uint256 public maxAmountPerPeriod;
+	uint256 public _deprecated;
+	uint256 public maxValuePerPeriod;
 	uint256 public toppingPeriod;
 
 	struct RecipientInfo {
@@ -30,11 +32,7 @@ contract SuperfluidFaucet is
 	mapping(address => RecipientInfo) public recipientInfo;
 
 	event WalletTopped(address recipient, uint256 amount);
-	event SettingsUpdated(
-		uint256 toppingAmount,
-		uint256 maxAmountPerPeriod,
-		uint256 toppingPeriod
-	);
+	event SettingsUpdated(uint256 maxValuePerPeriod, uint256 toppingPeriod);
 
 	/// @custom:oz-upgrades-unsafe-allow constructor
 	constructor() {
@@ -42,8 +40,7 @@ contract SuperfluidFaucet is
 	}
 
 	function initialize(
-		uint256 _toppingAmount,
-		uint256 _maxAmountPerPeriod,
+		uint256 _maxValuePerPeriod,
 		uint256 _toppingPeriod,
 		address _admin
 	) public initializer {
@@ -53,54 +50,64 @@ contract SuperfluidFaucet is
 		_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 		_setupRole(ADMIN_ROLE, msg.sender);
 		_grantRole(ADMIN_ROLE, _admin);
-		toppingAmount = _toppingAmount;
-		maxAmountPerPeriod = _maxAmountPerPeriod;
+		maxValuePerPeriod = _maxValuePerPeriod;
 		toppingPeriod = _toppingPeriod;
 	}
 
 	function updateSettings(
-		uint256 _toppingAmount,
-		uint256 _maxAmountPerPeriod,
+		uint256 _maxValuePerPeriod,
 		uint256 _toppingPeriod
 	) external onlyRole(ADMIN_ROLE) {
-		toppingAmount = _toppingAmount;
-		maxAmountPerPeriod = _maxAmountPerPeriod;
+		maxValuePerPeriod = _maxValuePerPeriod;
 		toppingPeriod = _toppingPeriod;
-		emit SettingsUpdated(_toppingAmount, _maxAmountPerPeriod, _toppingPeriod);
+		emit SettingsUpdated(_maxValuePerPeriod, _toppingPeriod);
 	}
 
-	function canTop(address recipient) public view returns (bool) {
+	function canTop(address recipient, uint amount) public view returns (bool) {
 		if (recipient == address(0)) return false;
-		if (recipient.balance >= toppingAmount / 2) return false;
+		if (recipient.balance >= amount / 2) return false;
 
-		uint256 amountToSend = toppingAmount.sub(recipient.balance);
+		uint256 amountToSend = amount.sub(recipient.balance);
 		if (address(this).balance < amountToSend) return false;
 
 		uint256 currentPeriod = block.timestamp / toppingPeriod;
-		RecipientInfo storage info = recipientInfo[recipient];
+		RecipientInfo memory info = recipientInfo[recipient];
 
 		if (currentPeriod > info.lastWithdrawalPeriod) {
 			return true; // New period, reset counters
 		}
 
-		if (info.totalWithdrawnThisPeriod.add(amountToSend) > maxAmountPerPeriod)
+		if (info.totalWithdrawnThisPeriod.add(amountToSend) > maxValuePerPeriod)
 			return false;
 
 		return true;
 	}
 
+	function getToppingValue(bool firstTime) public view returns (uint) {
+		//top wallet with current base fee + 10% for priority fee and l1 fees
+		return
+			((firstTime ? FIRST_GAS_TOPPING_AMOUNT : GAS_TOPPING_AMOUNT) *
+				block.basefee *
+				110) / 100;
+	}
+
 	function topWallet(address payable recipient) external onlyRole(ADMIN_ROLE) {
-		require(canTop(recipient), "Recipient cannot be topped up");
+		RecipientInfo storage info = recipientInfo[recipient];
+		bool firstTime = info.lastWithdrawalPeriod == 0;
+		uint amount = getToppingValue(firstTime);
+		//first time we always allow, no canTop check required
+		if (!firstTime) {
+			require(canTop(recipient, amount), "Recipient cannot be topped up");
+		}
 
 		uint256 currentPeriod = block.timestamp / toppingPeriod;
-		RecipientInfo storage info = recipientInfo[recipient];
 
 		if (currentPeriod > info.lastWithdrawalPeriod) {
 			info.totalWithdrawnThisPeriod = 0;
 			info.lastWithdrawalPeriod = currentPeriod;
 		}
 
-		uint256 amountToSend = toppingAmount.sub(recipient.balance);
+		uint256 amountToSend = amount.sub(recipient.balance);
 		require(
 			address(this).balance >= amountToSend,
 			"Insufficient contract balance for topping up"
