@@ -5,6 +5,18 @@ import { bulkIsWhitelisted, bulkLastAuth } from "./utils";
 
 //create tunnel to fv server ssh -L 9090:server:8080 -N user@server -i sshkey
 
+const saveImage = async (id, idx) => {
+  const age = await fetch("http://localhost:9090/estimate-age-3d-v2", {
+    method: "POST",
+    body: JSON.stringify({ externalDatabaseRefID: id }),
+    headers: { "content-type": "applcation/json" }
+  }).then(_ => _.json());
+  console.log({ age });
+  const i1 = await fetch("http://localhost:9090/enrollment-3d/" + id).then(_ => _.json());
+  fs.writeFileSync("fvimages/" + id + "_" + idx + ".jpg", i1.auditTrailBase64, {
+    encoding: "base64"
+  });
+};
 const saveImages = async a => {
   const i1 = await fetch("http://localhost:9090/enrollment-3d/" + a[1]).then(_ => _.json());
   const i2 = await fetch("http://localhost:9090/enrollment-3d/" + a[2]).then(_ => _.json());
@@ -206,8 +218,29 @@ const deleteIdentifiers = async password => {
   const res = await Promise.all(ps);
   console.log(res);
 };
+
+const exportScans = async ids => {
+  console.log(ids.length, "unique:", uniqBy(ids).length);
+  const exports = ids.map(async (_, idx) => {
+    if (fs.existsSync("fvimages/" + idx + ".jpg")) return;
+    const { faceMapBase64, auditTrailBase64 } = await fetch("http://localhost:9090/enrollment-3d/" + _).then(_ =>
+      _.json()
+    );
+    const { exportedFaceTecDataForDebugBase64 } = await fetch("http://localhost:9090/export-for-facetec/", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ faceScanOrFaceMapOrIDScan: faceMapBase64 })
+    }).then(_ => _.json());
+    console.log(_, exportedFaceTecDataForDebugBase64.length);
+    fs.writeFileSync("fvimages/export_" + idx + ".txt", exportedFaceTecDataForDebugBase64);
+    fs.writeFileSync("fvimages/" + idx + ".jpg", auditTrailBase64, {
+      encoding: "base64"
+    });
+  });
+  await Promise.all(exports);
+};
 // checkIndexedOrDelete();
-fixInvalidIndexed();
+// fixInvalidIndexed();
 // console.log(process.env.ADMIN_PASSWORD);
 // deleteIdentifiers(process.env.ADMIN_PASSWORD);
 // main();
