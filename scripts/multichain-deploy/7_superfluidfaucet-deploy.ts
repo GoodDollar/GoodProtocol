@@ -116,7 +116,7 @@ const upgrade = async () => {
   console.log(res.transactionHash);
 };
 export const main = async () => {
-  await upgrade();
-  // await deployHelpers();
+  // await upgrade();
+  await deployHelpers();
 };
 if (process.argv[1].includes("7_superfluidfaucet")) main();

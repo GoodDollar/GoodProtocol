@@ -253,6 +253,12 @@ const hhconfig: HardhatUserConfig = {
       initialBaseFeePerGas: 0,
       gasPrice: 8e6
     },
+    "production-base": {
+      accounts: [deployerPrivateKey],
+      url: "https://mainnet.base.org",
+      initialBaseFeePerGas: 0,
+      gasPrice: 8e6
+    },
     gnosis: {
       accounts: [deployerPrivateKey],
       url: "https://rpc.gnosischain.com",
