@@ -109,14 +109,15 @@ const upgrade = async () => {
   const proxy = (await ethers.getContractAt("SuperfluidFaucet", release.SuperfluidFaucet)) as SuperfluidFaucet;
   const impl = await ethers.deployContract("SuperfluidFaucet");
   console.log("impl:", impl.address);
-  const callData = proxy.interface.encodeFunctionData("updateSettings", [ethers.utils.parseEther("0.0000035"), 30]);
-  const tx = await proxy.upgradeToAndCall(impl.address, callData);
+  // const callData = proxy.interface.encodeFunctionData("updateSettings", [ethers.utils.parseEther("0.0000035"), 30]);
+  // const tx = await proxy.upgradeToAndCall(impl.address, callData);
+  const tx = await proxy.upgradeTo(impl.address);
   console.log(tx.hash);
   const res = await tx.wait();
   console.log(res.transactionHash);
 };
 export const main = async () => {
-  // await upgrade();
-  await deployHelpers();
+  await upgrade();
+  // await deployHelpers();
 };
 if (process.argv[1].includes("7_superfluidfaucet")) main();

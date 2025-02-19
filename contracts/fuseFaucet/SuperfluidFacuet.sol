@@ -63,43 +63,46 @@ contract SuperfluidFaucet is
 		emit SettingsUpdated(_maxValuePerPeriod, _toppingPeriod);
 	}
 
-	function canTop(address recipient, uint amount) public view returns (bool) {
+	function canTop(address recipient) public view returns (bool) {
+		RecipientInfo memory info = recipientInfo[recipient];
+		bool firstTime = info.lastWithdrawalPeriod == 0;
+		uint amount = getToppingValue(firstTime);
 		if (recipient == address(0)) return false;
-		if (recipient.balance >= amount / 2) return false;
+		if (recipient.balance >= amount) return false;
 
 		uint256 amountToSend = amount.sub(recipient.balance);
 		if (address(this).balance < amountToSend) return false;
 
 		uint256 currentPeriod = block.timestamp / toppingPeriod;
-		RecipientInfo memory info = recipientInfo[recipient];
 
 		if (currentPeriod > info.lastWithdrawalPeriod) {
 			return true; // New period, reset counters
 		}
 
-		if (info.totalWithdrawnThisPeriod.add(amountToSend) > maxValuePerPeriod)
-			return false;
+		// first time has larger amount so we skip this check
+		if (
+			!firstTime &&
+			info.totalWithdrawnThisPeriod.add(amountToSend) > maxValuePerPeriod
+		) return false;
 
 		return true;
 	}
 
 	function getToppingValue(bool firstTime) public view returns (uint) {
+		//on eth_call basefee is always 0, so use some kind of default
+		uint blockFee = block.basefee == 0 ? 1e8 : block.basefee;
 		//top wallet with current base fee + 10% for priority fee and l1 fees
 		return
 			((firstTime ? FIRST_GAS_TOPPING_AMOUNT : GAS_TOPPING_AMOUNT) *
-				block.basefee *
+				blockFee *
 				110) / 100;
 	}
 
 	function topWallet(address payable recipient) external onlyRole(ADMIN_ROLE) {
+		require(canTop(recipient), "Recipient cannot be topped up");
 		RecipientInfo storage info = recipientInfo[recipient];
 		bool firstTime = info.lastWithdrawalPeriod == 0;
 		uint amount = getToppingValue(firstTime);
-		//first time we always allow, no canTop check required
-		if (!firstTime) {
-			require(canTop(recipient, amount), "Recipient cannot be topped up");
-		}
-
 		uint256 currentPeriod = block.timestamp / toppingPeriod;
 
 		if (currentPeriod > info.lastWithdrawalPeriod) {
