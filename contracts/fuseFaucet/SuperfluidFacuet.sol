@@ -18,7 +18,7 @@ contract SuperfluidFaucet is
 
 	bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 	uint public constant GAS_TOPPING_AMOUNT = 350000;
-	uint public constant FIRST_GAS_TOPPING_AMOUNT = 1e6;
+	uint public constant FIRST_GAS_TOPPING_AMOUNT = 15e5;
 
 	uint256 public _deprecated;
 	uint256 public maxValuePerPeriod;
@@ -63,10 +63,13 @@ contract SuperfluidFaucet is
 		emit SettingsUpdated(_maxValuePerPeriod, _toppingPeriod);
 	}
 
-	function canTop(address recipient) public view returns (bool) {
+	function canTop(
+		address recipient,
+		uint256 baseFee
+	) public view returns (bool) {
 		RecipientInfo memory info = recipientInfo[recipient];
 		bool firstTime = info.lastWithdrawalPeriod == 0;
-		uint amount = getToppingValue(firstTime);
+		uint amount = getToppingValue(firstTime, baseFee);
 		if (recipient == address(0)) return false;
 		if (recipient.balance >= amount) return false;
 
@@ -88,13 +91,20 @@ contract SuperfluidFaucet is
 		return true;
 	}
 
-	function getToppingValue(bool firstTime) public view returns (uint) {
-		//on eth_call basefee is always 0, so use some kind of default
-		uint blockFee = block.basefee == 0 ? 1e8 : block.basefee;
+	// kept for compatability with AdminWallet
+	function canTop(address recipient) public view returns (bool) {
+		uint blockFee = block.basefee == 0 ? 1e7 : block.basefee;
+		return canTop(recipient, blockFee);
+	}
+
+	function getToppingValue(
+		bool firstTime,
+		uint baseFee
+	) public pure returns (uint) {
 		//top wallet with current base fee + 10% for priority fee and l1 fees
 		return
 			((firstTime ? FIRST_GAS_TOPPING_AMOUNT : GAS_TOPPING_AMOUNT) *
-				blockFee *
+				baseFee *
 				110) / 100;
 	}
 
@@ -102,7 +112,7 @@ contract SuperfluidFaucet is
 		require(canTop(recipient), "Recipient cannot be topped up");
 		RecipientInfo storage info = recipientInfo[recipient];
 		bool firstTime = info.lastWithdrawalPeriod == 0;
-		uint amount = getToppingValue(firstTime);
+		uint amount = getToppingValue(firstTime, block.basefee);
 		uint256 currentPeriod = block.timestamp / toppingPeriod;
 
 		if (currentPeriod > info.lastWithdrawalPeriod) {
