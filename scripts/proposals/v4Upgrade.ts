@@ -83,8 +83,10 @@ import {
   IGoodDollar,
   IGoodDollarExchangeProvider,
   IGoodDollarExpansionController,
-  IMentoReserve
+  IMentoReserve,
+  ProtocolUpgradeV4Mento
 } from "../../types";
+import releaser from "../releaser";
 let { name: networkName } = network;
 
 // hacker and hacked multichain bridge accounts
@@ -97,13 +99,13 @@ const LOCKED_ACCOUNTS = [
 // TODO: import from bridge-contracts package
 const mpbDeployments = {
   "1": [
-    { name: "mainnet", MessagePassingBridge_Implementation: { address: "0xF19fB90fA4DDb67C330B41AD4D64ef75B9d8Cd33" } }
+    { name: "mainnet", MessagePassingBridge_Implementation: { address: "0x618fae127b803eABf72f9e86a88A7505eEBf218a" } }
   ],
   "122": [
-    { name: "fuse", MessagePassingBridge_Implementation: { address: "0xd3B5BfDacb042a89bbABAd2376Aa1a923B365a14" } }
+    { name: "fuse", MessagePassingBridge_Implementation: { address: "0xFCd61ccB982ce77192E3D18a5AE3326DcE0B6874" } }
   ],
   "42220": [
-    { name: "celo", MessagePassingBridge_Implementation: { address: "0x691dE730D97d545c141D13ED5e9c12b7cB384a73" } }
+    { name: "celo", MessagePassingBridge_Implementation: { address: "0x2537f22E7B2D5d14E7f571fA67FCd846d73317f6" } }
   ]
 };
 
@@ -243,7 +245,7 @@ export const upgradeMainnet = async network => {
       "claimTokens(address,address)",
       ethers.utils.defaultAbiCoder.encode(["address", "address"], [release.GoodDollar, release.Avatar]),
       "0"
-    ], // claim bridge tokens to mpb bridge
+    ], // claim bridge tokens to avatar
     [
       release.StakersDistribution,
       "setMonthlyReputationDistribution(uint256)",
@@ -279,7 +281,7 @@ export const upgradeMainnet = async network => {
       "withdraw(address,uint256)",
       ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [release.GoodDollar, 0]),
       "0"
-    ], // claim bridge tokens
+    ], // claim bridge tokens to avatar
     [release.GoodDollar, "burn(uint256)", ethers.utils.defaultAbiCoder.encode(["uint256"], [totalToBurn]), "0"], // burn tokens
     [
       release.Controller,
@@ -504,7 +506,7 @@ export const upgradeCelo = async network => {
   let release: { [key: string]: any } = dao[networkEnv];
 
   let guardian = root;
-  console.log("signer:", root.address, { networkEnv });
+  console.log("signer:", root.address, { networkEnv, isSimulation, isProduction, release });
 
   const cusd = await ethers.getContractAt("IERC20", release.CUSD);
   const gd = await ethers.getContractAt("GoodDollar", release.GoodDollar);
@@ -520,8 +522,8 @@ export const upgradeCelo = async network => {
 
   if (isSimulation) {
     DIST_HELPER_MIN_CELO_BALANCE = ethers.utils.parseEther("0.1");
-    await reset("https://rpc.ankr.com/celo");
-    await root.sendTransaction({ value: ethers.constants.WeiPerEther.mul(3), to: release.Avatar });
+    // await reset("https://rpc.ankr.com/celo");
+    await root.sendTransaction({ value: ethers.utils.parseEther("0.5"), to: release.Avatar });
 
     const avatar = await ethers.getImpersonatedSigner(release.Avatar);
     const reserveOwner = await ethers.getImpersonatedSigner(await mentoReserve.owner());
@@ -531,22 +533,25 @@ export const upgradeCelo = async network => {
     }
 
     const devCUSD = await ethers.getContractAt(
-      ["function mint(address,uint) external returns (uint)", "function setValidators(address) external"],
+      [
+        "function mint(address,uint) external returns (uint)",
+        "function setValidators(address) external",
+        "function owner() view returns(address)"
+      ],
       release.CUSD
     );
 
-    await devCUSD.connect(avatar).setValidators(release.Avatar);
-    const mintTX = await (
-      await devCUSD.connect(avatar).mint(release.Avatar, ethers.utils.parseEther("2000000"))
-    ).wait();
+    console.log("minting devCUSD");
+    const cusdOwner = await ethers.getImpersonatedSigner(await devCUSD.owner());
+    await root.sendTransaction({ value: ethers.utils.parseEther("0.5"), to: cusdOwner.address });
+    await devCUSD.connect(cusdOwner).setValidators(release.Avatar).catch(console.log);
+    await devCUSD.connect(avatar).mint(root.address, ethers.utils.parseEther("2000000")).catch(console.log);
 
-    await cusd.connect(avatar).transfer(release.MentoReserve, ethers.utils.parseEther("200000"));
-    await cusd.connect(avatar).transfer(root.address, ethers.utils.parseEther("10000"));
+    console.log("transfering cusd to reserve");
+    await cusd.connect(root).transfer(release.MentoReserve, ethers.utils.parseEther("200000"));
 
     guardian = await ethers.getImpersonatedSigner(release.GuardiansSafe);
-    await mentoReserve.connect(reserveOwner).addToken(release.CUSD).catch(console.log);
-    await mentoReserve.connect(reserveOwner).addToken(release.GoodDollar).catch(console.log);
-    await root.sendTransaction({ value: ethers.constants.WeiPerEther.mul(3), to: guardian.address });
+    await root.sendTransaction({ value: ethers.utils.parseEther("0.5"), to: guardian.address });
   } else if (!isProduction) {
     DIST_HELPER_MIN_CELO_BALANCE = ethers.utils.parseEther("0.1");
     const mentoReserve = (await ethers.getContractAt("IMentoReserve", release.MentoReserve)) as IMentoReserve;
@@ -563,23 +568,6 @@ export const upgradeCelo = async network => {
         )
       ).wait();
     }
-
-    await (
-      await ctrl.genericCall(
-        release.MentoReserve,
-        mentoReserve.interface.encodeFunctionData("addToken", [release.CUSD]),
-        release.Avatar,
-        0
-      )
-    ).wait();
-    await (
-      await ctrl.genericCall(
-        release.MentoReserve,
-        mentoReserve.interface.encodeFunctionData("addToken", [release.GoodDollar]),
-        release.Avatar,
-        0
-      )
-    ).wait();
 
     const devCUSD = await ethers.getContractAt(
       ["function mint(address,uint) external returns (uint)", "function setValidators(address) external"],
@@ -602,35 +590,36 @@ export const upgradeCelo = async network => {
       )
     ).wait();
 
-    await ctrl
-      .externalTokenTransfer(cusd.address, release.MentoReserve, ethers.utils.parseEther("200000"), release.Avatar)
-      .catch(console.log);
+    if ((await cusd.balanceOf(release.MentoReserve)).lt(ethers.utils.parseEther("200000"))) {
+      await cusd.transfer(release.MentoReserve, ethers.utils.parseEther("200000"));
+    }
   }
 
   const mpbImplementation = mpbDeployments["42220"].find(_ => _.name === "celo")["MessagePassingBridge_Implementation"]
     .address;
+  const bridgeLocked = ["0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5", "0xD5D11eE582c8931F336fbcd135e98CEE4DB8CCB0"];
   const locked = [
     "0xD17652350Cfd2A37bA2f947C910987a3B1A1c60d",
     "0xeC577447D314cf1e443e9f4488216651450DBE7c",
     "0x6738fA889fF31F82d9Fe8862ec025dbE318f3Fde"
   ];
 
-  const ethprovider = new ethers.providers.JsonRpcProvider("https://cloudflare-eth.com");
+  const ethprovider = new ethers.providers.JsonRpcProvider("https://rpc.ankr.com/eth");
   const fuseprovider = new ethers.providers.JsonRpcProvider("https://rpc.fuse.io");
   const TOTAL_LOCKED = (
     await Promise.all(
-      locked.map(_ => gd.connect(ethprovider).attach(dao["production-mainnet"].GoodDollar).balanceOf(_))
+      locked
+        .concat(bridgeLocked)
+        .map(_ => gd.connect(ethprovider).attach(dao["production-mainnet"].GoodDollar).balanceOf(_))
     )
   ).reduce((prev, cur) => prev.add(cur), ethers.constants.Zero);
   const TOTAL_SUPPLY_ETH = await gd.connect(ethprovider).attach(dao["production-mainnet"].GoodDollar).totalSupply();
   const TOTAL_SUPPLY_FUSE = await gd.connect(fuseprovider).attach(dao["production"].GoodDollar).totalSupply();
   const TOTAL_SUPPLY_CELO = await gd.totalSupply();
-  const BRIDGE_SUPPLY = await gd.balanceOf("0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5");
   const TOTAL_GLOBAL_SUPPLY = TOTAL_SUPPLY_ETH.add(TOTAL_SUPPLY_FUSE)
     .sub(TOTAL_LOCKED)
-    .mul(ethers.BigNumber.from("10000000000000000"))
-    .add(TOTAL_SUPPLY_CELO)
-    .sub(BRIDGE_SUPPLY);
+    .mul(ethers.BigNumber.from("10000000000000000")) //convert to 18 decimals
+    .add(TOTAL_SUPPLY_CELO);
 
   const exchangeParams = [release.CUSD, release.GoodDollar, 0, 0, 0, 0]; //address reserveAsset;address tokenAddress;uint256 tokenSupply;uint256 reserveBalance;uint32 reserveRatio;uint32 exitConribution;
 
@@ -640,10 +629,13 @@ export const upgradeCelo = async network => {
     guardian: guardian.address,
     isSimulation,
     isProduction,
-    release
+    release,
+    TOTAL_GLOBAL_SUPPLY
   });
 
-  const mentoUpgrade = await ethers.deployContract("ProtocolUpgradeV4Mento", [release.Avatar]);
+  const mentoUpgrade = release.MentoUpgradeHelper
+    ? ((await ethers.getContractAt("ProtocolUpgradeV4Mento", release.MentoUpgradeHelper)) as ProtocolUpgradeV4Mento)
+    : await ethers.deployContract("ProtocolUpgradeV4Mento", [release.Avatar]);
   let distHelper = release.CeloDistributionHelper
     ? ((await ethers.getContractAt("CeloDistributionHelper", release.CeloDistributionHelper)) as CeloDistributionHelper)
     : ((await upgrades.deployProxy(
@@ -652,11 +644,15 @@ export const upgradeCelo = async network => {
         { initializer: "initialize" }
       )) as CeloDistributionHelper);
 
+  release.MentoUpgradeHelper = mentoUpgrade.address;
   release.CeloDistributionHelper = distHelper.address;
-
+  if (!isSimulation) {
+    releaser(release, networkEnv);
+  }
   console.log("deployed mentoUpgrade", {
-    // distribuitonHelper: distHelper.address,
-    mentoUpgrade: mentoUpgrade.address
+    distribuitonHelper: distHelper.address,
+    mentoUpgrade: mentoUpgrade.address,
+    distHelperAvatar: await distHelper.avatar()
   });
   const proposalContracts = [
     release.CeloDistributionHelper, //set fee settings
@@ -721,6 +717,8 @@ export const upgradeCelo = async network => {
       ]
     )
   ];
+
+  console.log({ exchangeParams, mentoExchange: release.MentoExchangeProvider });
   console.log("executing upgrade...", { proposalContracts, proposalFunctionInputs, proposalFunctionSignatures });
 
   if (isProduction) {
@@ -747,8 +745,6 @@ export const upgradeCelo = async network => {
     const supplyAfter = await (await ethers.getContractAt("IGoodDollar", release.GoodDollar)).totalSupply();
     console.log("Supply after upgrade:", { supplyAfter, TOTAL_GLOBAL_SUPPLY });
 
-    const ctrl = await ethers.getContractAt("Controller", release.Controller);
-
     const isBrokerMinter = await gd.isMinter(release.MentoBroker);
     const isExpansionMinter = await gd.isMinter(release.MentoExpansionController);
     const mentoExchange = await ethers.getContractAt("IBancorExchangeProvider", release.MentoExchangeProvider);
@@ -762,17 +758,12 @@ export const upgradeCelo = async network => {
     console.log("Broker minter check:", isBrokerMinter ? "Success" : "Failed");
     console.log("Expansion minter check:", isExpansionMinter ? "Success" : "Failed");
 
-    console.log(await gd.balanceOf(root.address), await cusd.balanceOf(root.address));
+    console.log("balance before swap:", await gd.balanceOf(root.address), await cusd.balanceOf(root.address));
     await cusd.approve(release.MentoBroker, ethers.utils.parseEther("1000"));
-    await mentoBroker.swapIn(
-      mentoExchange.address,
-      eids[0],
-      cusd.address,
-      gd.address,
-      ethers.utils.parseEther("1000"),
-      0
-    );
-    console.log(await gd.balanceOf(root.address), await cusd.balanceOf(root.address));
+    await mentoBroker
+      .swapIn(mentoExchange.address, eids[0], cusd.address, gd.address, ethers.utils.parseEther("1000"), 0)
+      .then(_ => _.wait());
+    console.log("Balance after swap:", await gd.balanceOf(root.address), await cusd.balanceOf(root.address));
     const mentomint = (await ethers.getContractAt(
       "IGoodDollarExpansionController",
       release.MentoExpansionController
@@ -780,14 +771,13 @@ export const upgradeCelo = async network => {
     await cusd.approve(mentomint.address, ethers.utils.parseEther("1000"));
     const tx = await (await mentomint.mintUBIFromInterest(eids[0], ethers.utils.parseEther("1000"))).wait();
     console.log(
-      "mint events:",
-      tx.events.find(_ => _.event === "InterestUBIMinted")
+      "mint from interest:",
+      tx.events.find(_ => _.event === "InterestUBIMinted").args.amount.toString() / 1e18
     );
+    console.log("price after interest mint:", (await mentoExchange.currentPrice(eids[0])) / 1e18);
     const distTx = await (await distHelper.onDistribution(0, { gasLimit: 2000000 })).wait();
-    console.log(
-      "Distribution events:",
-      distTx.events.find(_ => _.event === "Distribution")
-    );
+    const { distributionRecipients, distributed } = distTx.events.find(_ => _.event === "Distribution").args;
+    console.log("Distribution events:", distributionRecipients, distributed, distTx.events);
     const bridgeBalance = await gd.balanceOf("0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5");
     console.log("Brigde balance should equal other chains total supply:", {
       bridgeBalance,
