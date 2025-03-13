@@ -39,12 +39,12 @@ contract ProtocolUpgradeV4Mento {
 		uint256 price = 0.0001 ether; // we initialize with price of 0.0001
 		// given price calculate the reserve ratio
 		uint32 reserveRatio = uint32(
-			(cUSDBalance * 1e18 * 1e8) / (price * gdSupply)
+			(cUSDBalance * 1e18 * 1e8) / (price * totalGlobalSupply)
 		); //cUSDBalance/(price * gdSupply/1e18) * 1e8
 		uint32 exitContribution = 0.1 * 1e8;
 
 		_exchange.reserveBalance = cUSDBalance;
-		_exchange.tokenSupply = gdSupply;
+		_exchange.tokenSupply = totalGlobalSupply;
 		_exchange.reserveRatio = reserveRatio;
 		_exchange.exitContribution = exitContribution;
 
