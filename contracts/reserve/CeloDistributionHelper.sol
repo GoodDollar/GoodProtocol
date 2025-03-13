@@ -68,6 +68,7 @@ contract CeloDistributionHelper is
 	);
 	event RecipientUpdated(DistributionRecipient recipient, uint256 index);
 	event RecipientAdded(DistributionRecipient recipient, uint256 index);
+	event BuyNativeFailed(string reason);
 
 	receive() external payable {}
 
@@ -275,6 +276,11 @@ contract CeloDistributionHelper is
 			amountIn: amountToSell,
 			amountOutMinimum: amountOutMinimum
 		});
-		return ROUTER.exactInput(params);
+		try ROUTER.exactInput(params) returns (uint256 amountOut) {
+			return amountOut;
+		} catch Error(string memory reason) {
+			emit BuyNativeFailed(reason);
+			return 0;
+		}
 	}
 }
