@@ -184,6 +184,12 @@ export const upgradeMainnet = async network => {
   const marketMakerImpl = await ethers.deployContract("GoodMarketMaker");
   const proposalActions = [
     [
+      release.StakersDistribution,
+      "setMonthlyReputationDistribution(uint256)",
+      ethers.utils.defaultAbiCoder.encode(["uint256"], [0]),
+      "0"
+    ], //set GOOD rewards to 0
+    [
       release.GoodReserveCDai,
       "setReserveRatioDailyExpansion(uint256,uint256)",
       ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [999711382710978, 1e15]),
@@ -246,12 +252,6 @@ export const upgradeMainnet = async network => {
       ethers.utils.defaultAbiCoder.encode(["address", "address"], [release.GoodDollar, release.Avatar]),
       "0"
     ], // claim bridge tokens to avatar
-    [
-      release.StakersDistribution,
-      "setMonthlyReputationDistribution(uint256)",
-      ethers.utils.defaultAbiCoder.encode(["uint256"], [0]),
-      "0"
-    ], //set GOOD rewards to 0
     [
       release.Identity,
       "addBlacklisted(address)",
