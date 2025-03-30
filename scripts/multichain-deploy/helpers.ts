@@ -413,18 +413,14 @@ export const executeViaSafe = async (
 
 export const verifyContract = async (
   address,
-  contractName,
+  contractPath,
   networkName = network.name,
   proxyName?: string,
   forcedConstructorArguments?: string
 ) => {
-  let networkProvider = networkName.includes("-") ? networkName.split("-")[1] : "fuse";
-  networkProvider = networkProvider === "mainnet" ? "ethereum" : networkProvider;
-  console.log("truffle compile...");
-  await exec("npx truffle compile");
-  const cmd = `npx truffle run verify ${proxyName ? "--custom-proxy " + proxyName : ""} ${contractName}@${address} ${
-    forcedConstructorArguments ? "--forceConstructorArgs string:" + forcedConstructorArguments.slice(2) : ""
-  } --network ${networkProvider}`;
+  const cmd = `yarn hardhat verify --contract ${contractPath} ${address} ${
+    forcedConstructorArguments ?? ""
+  } --network ${networkName}`;
   console.log("running...:", cmd);
   await exec(cmd).then(({ stdout, stderr }) => {
     console.log("Result for:", cmd);

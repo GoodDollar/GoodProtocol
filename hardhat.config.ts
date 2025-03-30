@@ -30,7 +30,7 @@ const infura_api = process.env.INFURA_API;
 const alchemy_key = process.env.ALCHEMY_KEY;
 const etherscan_key = process.env.ETHERSCAN_KEY;
 const celoscan_key = process.env.CELOSCAN_KEY;
-
+const basescan_key = process.env.BASESCAN_KEY;
 const ethplorer_key = process.env.ETHPLORER_KEY;
 
 const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
@@ -64,7 +64,8 @@ const hhconfig: HardhatUserConfig = {
     apiKey: {
       mainnet: etherscan_key,
       celo: celoscan_key,
-      alfajores: celoscan_key
+      alfajores: celoscan_key,
+      base: basescan_key
     },
     customChains: [
       {
@@ -245,6 +246,18 @@ const hhconfig: HardhatUserConfig = {
       gas: 3000000,
       gasPrice: 25e9,
       chainId: 42220
+    },
+    "development-base": {
+      accounts: { mnemonic },
+      url: "https://mainnet.base.org",
+      initialBaseFeePerGas: 0,
+      gasPrice: 8e6
+    },
+    "production-base": {
+      accounts: [deployerPrivateKey],
+      url: "https://mainnet.base.org",
+      initialBaseFeePerGas: 0,
+      gasPrice: 8e6
     },
     gnosis: {
       accounts: [deployerPrivateKey],

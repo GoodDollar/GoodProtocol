@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "2.0.25-beta.8",
+  "version": "2.0.32-beta.0",
   "description": "GoodDollar Protocol",
   "engines": {
     "node": ">=16.x"
@@ -14,7 +14,6 @@
     "minimize": "./scripts/minimize.sh 'artifacts/contracts'",
     "test": "hardhat test",
     "test:parallel": "mocha --require hardhat/register --extension ts --recursive --parallel --exit",
-    "postinstall": "patch-package",
     "compile": "hardhat compile",
     "daoUpgrade": "hardhat run scripts/upgradeToV2/upgradeToV2.ts",
     "deployOldDAO": "hardhat run scripts/test/localOldDaoDeploy.ts",
@@ -26,6 +25,7 @@
     "build:test-sdk": "tsc --build tsconfig.sdk.json"
   },
   "files": [
+    "tsconfig.json",
     "artifacts/contracts",
     "artifacts/abis",
     "contracts",
@@ -36,7 +36,6 @@
     "hardhat.config.ts",
     "LICENSE",
     "truffle-config.js",
-    "tsconfig.json",
     "test",
     "types",
     "patches",
@@ -99,7 +98,7 @@
     "async-promise-pool": "^1.0.4",
     "bignumber.js": "*",
     "bindings": "*",
-    "chai": "*",
+    "chai": "^4.*",
     "coveralls": "*",
     "dotenv": "*",
     "ethereum-block-by-date": "^1.4.9",
