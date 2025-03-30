@@ -128,7 +128,7 @@ export const upgradeMainnet = async network => {
 
   //simulate on fork, make sure safe has enough eth to simulate txs
   if (isSimulation) {
-    await reset("https://cloudflare-eth.com/");
+    // await reset("https://cloudflare-eth.com/");
     guardian = await ethers.getImpersonatedSigner(protocolSettings.guardiansSafe);
 
     await root.sendTransaction({
@@ -175,13 +175,32 @@ export const upgradeMainnet = async network => {
   );
   console.log("executing proposals");
 
-  const reserveImpl = await ethers.deployContract("GoodReserveCDai");
-  const goodFundManagerImpl = await ethers.deployContract("GoodFundManager");
-  const exchangeHelperImpl = await ethers.deployContract("ExchangeHelper");
-  const stakersDistImpl = await ethers.deployContract("StakersDistribution");
-  const govImpl = await ethers.deployContract("CompoundVotingMachine");
-  const distHelperImpl = await ethers.deployContract("DistributionHelper");
-  const marketMakerImpl = await ethers.deployContract("GoodMarketMaker");
+  // const reserveImpl = await ethers.deployContract("GoodReserveCDai");
+  // const goodFundManagerImpl = await ethers.deployContract("GoodFundManager");
+  // const exchangeHelperImpl = await ethers.deployContract("ExchangeHelper");
+  // const stakersDistImpl = await ethers.deployContract("StakersDistribution");
+  // const govImpl = await ethers.deployContract("CompoundVotingMachine");
+  // const distHelperImpl = await ethers.deployContract("DistributionHelper");
+  // const marketMakerImpl = await ethers.deployContract("GoodMarketMaker");
+
+  const reserveImpl = { address: "0x18BcdF79A724648bF34eb06701be81bD072A2384" };
+  const goodFundManagerImpl = { address: "0xAACbaaB8571cbECEB46ba85B5981efDB8928545e" };
+  const exchangeHelperImpl = { address: "0x24614Ad257F4d09fCcaec024c65C40C060E73e9D" };
+  const stakersDistImpl = { address: "0x92c69a12C2Ffc54AfCfa320bE7305ffd0f5782E0" };
+  const govImpl = { address: "0x807D0066d60a0a8312B6D191f60a6938a527E971" };
+  const distHelperImpl = { address: "0xAE2cd2a9513215961D344a2581DcAB678598eEDf" };
+  const marketMakerImpl = { address: "0x8520633e40574e9550f6a0436b0F8D56F3b99BD0" };
+
+  console.log("deployed impls", {
+    reserveImpl: reserveImpl.address,
+    goodFundManagerImpl: goodFundManagerImpl.address,
+    exchangeHelperImpl: exchangeHelperImpl.address,
+    stakersDistImpl: stakersDistImpl.address,
+    govImpl: govImpl.address,
+    distHelperImpl: distHelperImpl.address,
+    marketMakerImpl: marketMakerImpl.address
+  });
+
   const proposalActions = [
     [
       release.StakersDistribution,
@@ -399,7 +418,7 @@ export const upgradeFuse = async network => {
   let guardian = root;
   //simulate on fork, make sure safe has enough eth to simulate txs
   if (isSimulation) {
-    await reset("https://rpc.fuse.io");
+    // await reset("https://rpc.fuse.io");
     guardian = await ethers.getImpersonatedSigner(release.GuardiansSafe);
 
     await root.sendTransaction({ value: ethers.constants.WeiPerEther.mul(3), to: guardian.address });
@@ -407,8 +426,11 @@ export const upgradeFuse = async network => {
 
   const mpbImplementation = mpbDeployments["122"].find(_ => _.name === "fuse")["MessagePassingBridge_Implementation"]
     .address;
-  const govImpl = await ethers.deployContract("CompoundVotingMachine");
-  const killBridge = (await ethers.deployContract("FuseOldBridgeKill")) as FuseOldBridgeKill;
+  const govImpl = await ethers.getContractAt("CompoundVotingMachine", "0x9373046bbC6D381129B49aC3334881390df1CB13"); //await ethers.deployContract("CompoundVotingMachine");
+  const killBridge = (await ethers.getContractAt(
+    "FuseOldBridgeKill",
+    "0x4b93275D500929c2E0146D4fda0f411550C63eFC"
+  )) as FuseOldBridgeKill; //(await ethers.deployContract("FuseOldBridgeKill")) as FuseOldBridgeKill;
 
   const ctrl = await ethers.getContractAt("Controller", release.Controller);
 
@@ -604,7 +626,7 @@ export const upgradeCelo = async network => {
     "0x6738fA889fF31F82d9Fe8862ec025dbE318f3Fde"
   ];
 
-  const ethprovider = new ethers.providers.JsonRpcProvider("https://rpc.ankr.com/eth");
+  const ethprovider = new ethers.providers.JsonRpcProvider("https://rpc.flashbots.net");
   const fuseprovider = new ethers.providers.JsonRpcProvider("https://rpc.fuse.io");
   const TOTAL_LOCKED = (
     await Promise.all(
@@ -654,6 +676,7 @@ export const upgradeCelo = async network => {
     mentoUpgrade: mentoUpgrade.address,
     distHelperAvatar: await distHelper.avatar()
   });
+
   const proposalContracts = [
     release.CeloDistributionHelper, //set fee settings
     release.CeloDistributionHelper, //add ubi recipient
@@ -777,7 +800,7 @@ export const upgradeCelo = async network => {
     console.log("price after interest mint:", (await mentoExchange.currentPrice(eids[0])) / 1e18);
     const distTx = await (await distHelper.onDistribution(0, { gasLimit: 2000000 })).wait();
     const { distributionRecipients, distributed } = distTx.events.find(_ => _.event === "Distribution").args;
-    console.log("Distribution events:", distributionRecipients, distributed, distTx.events);
+    console.log("Distribution events:", distributionRecipients, distributed, distTx.events.length);
     const bridgeBalance = await gd.balanceOf("0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5");
     console.log("Brigde balance should equal other chains total supply:", {
       bridgeBalance,
