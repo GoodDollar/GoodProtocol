@@ -2369,7 +2369,7 @@ __metadata:
     "@safe-global/api-kit": ^3.0.1
     "@safe-global/protocol-kit": ^6.0.2
     "@safe-global/types-kit": ^2.0.1
-    "@superfluid-finance/ethereum-contracts": ^1.8.1
+    "@superfluid-finance/ethereum-contracts": 1.8.1
     "@superfluid-finance/sdk-core": ^0.5.8
     "@swc/core": 1.3.96
     "@swc/helpers": ^0.3.16
@@ -2998,16 +2998,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@nomiclabs/hardhat-ethers@npm:2.2.3":
-  version: 2.2.3
-  resolution: "@nomiclabs/hardhat-ethers@npm:2.2.3"
-  peerDependencies:
-    ethers: ^5.0.0
-    hardhat: ^2.0.0
-  checksum: 72321317e55eb510306e04c42353c5f7ceb42d086fc76cc740120da6e1635b7ad5bbf23a8d6b02bd590754adcf646618933111624085ab249b1ff3482e773226
-  languageName: node
-  linkType: hard
-
 "@nomiclabs/hardhat-ethers@npm:^2.2.1":
   version: 2.2.1
   resolution: "@nomiclabs/hardhat-ethers@npm:2.2.1"
@@ -3075,10 +3065,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@openzeppelin/contracts@npm:4.9.6":
-  version: 4.9.6
-  resolution: "@openzeppelin/contracts@npm:4.9.6"
-  checksum: 274b6e968268294f12d5ca4f0278f6e6357792c8bb4d76664f83dbdc325f780541538a127e6a6e97e4f018088b42f65952014dec9c745c0fa25081f43ef9c4bf
+"@openzeppelin/contracts@npm:4.9.3":
+  version: 4.9.3
+  resolution: "@openzeppelin/contracts@npm:4.9.3"
+  checksum: 4932063e733b35fa7669b9fe2053f69b062366c5c208b0c6cfa1ac451712100c78acff98120c3a4b88d94154c802be05d160d71f37e7d74cadbe150964458838
   languageName: node
   linkType: hard
 
@@ -3656,20 +3646,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@superfluid-finance/ethereum-contracts@npm:^1.8.1":
-  version: 1.12.0
-  resolution: "@superfluid-finance/ethereum-contracts@npm:1.12.0"
+"@superfluid-finance/ethereum-contracts@npm:1.8.1":
+  version: 1.8.1
+  resolution: "@superfluid-finance/ethereum-contracts@npm:1.8.1"
   dependencies:
     "@decentral.ee/web3-helpers": 0.5.3
-    "@nomiclabs/hardhat-ethers": 2.2.3
-    "@openzeppelin/contracts": 4.9.6
-    "@truffle/contract": 4.6.31
+    "@openzeppelin/contracts": 4.9.3
+    "@truffle/contract": 4.6.28
     ethereumjs-tx: 2.1.2
     ethereumjs-util: 7.1.5
-    hardhat: 2.22.9
   peerDependencies:
     ethers: ^5.7.2
-  checksum: 0948715cbbf63ff864439b7a745450adb30b5d7d36dbaea5906a8cf32d84e8377da8999da6feeadb7970875a145479895f71bda5ccfdd51141e185b0f9fa0435
+  checksum: b1cced6363f0bec050bb84b0293ed45ba607cdf7ca3a602cd82133bf9a02d9b495fd7df868b013cf1d3c6315117773f7557ea002547999c20cde00ee304051e2
   languageName: node
   linkType: hard
 
@@ -3904,7 +3892,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@truffle/blockchain-utils@npm:^0.1.9":
+"@truffle/blockchain-utils@npm:^0.1.8":
   version: 0.1.9
   resolution: "@truffle/blockchain-utils@npm:0.1.9"
   checksum: 4f7acfc00b29ae6830eb60563e58e1fef3d2480fc4bf426781b3cf40e1a6387bf05fef15e0ac851f7c10e586515db0fa370ac2dbeffa396e735d665738831663
@@ -3992,7 +3980,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@truffle/contract-schema@npm:^3.4.16":
+"@truffle/contract-schema@npm:^3.4.15":
   version: 3.4.16
   resolution: "@truffle/contract-schema@npm:3.4.16"
   dependencies:
@@ -4034,16 +4022,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@truffle/contract@npm:4.6.31":
-  version: 4.6.31
-  resolution: "@truffle/contract@npm:4.6.31"
+"@truffle/contract@npm:4.6.28":
+  version: 4.6.28
+  resolution: "@truffle/contract@npm:4.6.28"
   dependencies:
     "@ensdomains/ensjs": ^2.1.0
-    "@truffle/blockchain-utils": ^0.1.9
-    "@truffle/contract-schema": ^3.4.16
-    "@truffle/debug-utils": ^6.0.57
-    "@truffle/error": ^0.2.2
-    "@truffle/interface-adapter": ^0.5.37
+    "@truffle/blockchain-utils": ^0.1.8
+    "@truffle/contract-schema": ^3.4.15
+    "@truffle/debug-utils": ^6.0.56
+    "@truffle/error": ^0.2.1
+    "@truffle/interface-adapter": ^0.5.35
     bignumber.js: ^7.2.1
     debug: ^4.3.1
     ethers: ^4.0.32
@@ -4052,7 +4040,7 @@ __metadata:
     web3-core-promievent: 1.10.0
     web3-eth-abi: 1.10.0
     web3-utils: 1.10.0
-  checksum: 448e272294c67fa7f09b56165704a0ec85ee3b1d298846c9a48e9207a7c85852dd06a44093c6e1ab33b60b4e5d08b670c4cf08d090803735e4d034d60abe7585
+  checksum: 612d90554dc80aeda0a0709dc6ced40bbd06a4598aa1a3a4fd8946aaf6b8a0dfb4ef838dd5cb1a9bf04ca38e601496a9e2e340556aad46e883ca702c9879c519
   languageName: node
   linkType: hard
 
@@ -4133,7 +4121,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@truffle/debug-utils@npm:^6.0.57":
+"@truffle/debug-utils@npm:^6.0.56":
   version: 6.0.57
   resolution: "@truffle/debug-utils@npm:6.0.57"
   dependencies:
@@ -4177,7 +4165,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@truffle/error@npm:^0.2.2":
+"@truffle/error@npm:^0.2.1, @truffle/error@npm:^0.2.2":
   version: 0.2.2
   resolution: "@truffle/error@npm:0.2.2"
   checksum: 1f2b982e58ee84510b59dd5bba8cbb21a42cb24a58ef46334f43433f3c3586ade5575846965f6fe069b0bf59f3a36134f8792f3b78eb0f4e72b8cb2ad8e323e2
@@ -4208,7 +4196,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@truffle/interface-adapter@npm:^0.5.37":
+"@truffle/interface-adapter@npm:^0.5.35, @truffle/interface-adapter@npm:^0.5.37":
   version: 0.5.37
   resolution: "@truffle/interface-adapter@npm:0.5.37"
   dependencies:
@@ -12346,67 +12334,6 @@ __metadata:
   peerDependencies:
     hardhat: ^2.0.0
   checksum: e6c0d52865529653733b3fed6887b41a676fc5185eb835909b360e8cc24223a2fc4c398e3874b234fa918ec59be9de86d7fe92963022139c05cf07f027377cbb
-  languageName: node
-  linkType: hard
-
-"hardhat@npm:2.22.9":
-  version: 2.22.9
-  resolution: "hardhat@npm:2.22.9"
-  dependencies:
-    "@ethersproject/abi": ^5.1.2
-    "@metamask/eth-sig-util": ^4.0.0
-    "@nomicfoundation/edr": ^0.5.2
-    "@nomicfoundation/ethereumjs-common": 4.0.4
-    "@nomicfoundation/ethereumjs-tx": 5.0.4
-    "@nomicfoundation/ethereumjs-util": 9.0.4
-    "@nomicfoundation/solidity-analyzer": ^0.1.0
-    "@sentry/node": ^5.18.1
-    "@types/bn.js": ^5.1.0
-    "@types/lru-cache": ^5.1.0
-    adm-zip: ^0.4.16
-    aggregate-error: ^3.0.0
-    ansi-escapes: ^4.3.0
-    boxen: ^5.1.2
-    chalk: ^2.4.2
-    chokidar: ^3.4.0
-    ci-info: ^2.0.0
-    debug: ^4.1.1
-    enquirer: ^2.3.0
-    env-paths: ^2.2.0
-    ethereum-cryptography: ^1.0.3
-    ethereumjs-abi: ^0.6.8
-    find-up: ^2.1.0
-    fp-ts: 1.19.3
-    fs-extra: ^7.0.1
-    glob: 7.2.0
-    immutable: ^4.0.0-rc.12
-    io-ts: 1.10.4
-    keccak: ^3.0.2
-    lodash: ^4.17.11
-    mnemonist: ^0.38.0
-    mocha: ^10.0.0
-    p-map: ^4.0.0
-    raw-body: ^2.4.1
-    resolve: 1.17.0
-    semver: ^6.3.0
-    solc: 0.8.26
-    source-map-support: ^0.5.13
-    stacktrace-parser: ^0.1.10
-    tsort: 0.0.1
-    undici: ^5.14.0
-    uuid: ^8.3.2
-    ws: ^7.4.6
-  peerDependencies:
-    ts-node: "*"
-    typescript: "*"
-  peerDependenciesMeta:
-    ts-node:
-      optional: true
-    typescript:
-      optional: true
-  bin:
-    hardhat: internal/cli/bootstrap.js
-  checksum: ce818788e0422ee6f07112bb12af67772363cf7eed8e53561722c6656f63b7556e7a55af8c0f5c81dc3465c109b631ca6496255838da18b3cfebedcc93e44a2e
   languageName: node
   linkType: hard
 
