@@ -152,6 +152,15 @@ contract ReserveRestore {
 			0
 		);
 
-		require(ok, "setContributionRatio failed");
+		require(ok, "gdx disable failed");
+
+		// unpause reserve
+		(ok, ) = ctrl.genericCall(
+			address(reserve),
+			abi.encodeCall(ERC20PresetMinterPauserUpgradeable.unpause, ()),
+			address(avatar),
+			0
+		);
+		require(ok, "unpause failed");
 	}
 }

@@ -300,8 +300,18 @@ contract GoodMarketMaker is DAOUpgradeableContract, DSMath {
 
 		// The return value after the deduction
 		uint256 tokenReturn = sellReturn(_token, amountAfterContribution);
-		rtoken.gdSupply -= _gdAmount;
+
+		rtoken.gdSupply -= amountAfterContribution;
 		rtoken.reserveSupply -= tokenReturn;
+		//burn contributed tokens on curve
+		if (_contributionGdAmount > 0) {
+			uint256 nom = rtoken.gdSupply * rtoken.reserveRatio;
+			uint256 denom = rtoken.gdSupply - _contributionGdAmount;
+			uint256 newRatio = nom / denom;
+			rtoken.reserveRatio = uint32(newRatio);
+			rtoken.gdSupply -= _contributionGdAmount;
+		}
+
 		emit BalancesUpdated(
 			msg.sender,
 			address(_token),

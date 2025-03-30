@@ -2,10 +2,14 @@ import { Contract, ContractFactory, Signer } from "ethers";
 import { network, ethers, upgrades, run } from "hardhat";
 import * as safeethers from "ethers";
 import { TransactionResponse, TransactionReceipt } from "@ethersproject/providers";
-import Safe from "@gnosis.pm/safe-core-sdk";
+// import Safe from "@gnosis.pm/safe-core-sdk";
 import EthersAdapter from "@gnosis.pm/safe-ethers-lib";
-import { MetaTransactionData } from "@gnosis.pm/safe-core-sdk-types";
-import SafeClient from "@gnosis.pm/safe-service-client";
+// import { MetaTransactionData } from "@gnosis.pm/safe-core-sdk-types";
+// import SafeClient from "@gnosis.pm/safe-service-client";
+
+import SafeApiKit from "@safe-global/api-kit";
+import Safe, { Eip1193Provider } from "@safe-global/protocol-kit";
+import { MetaTransactionData, OperationType } from "@safe-global/types-kit";
 
 import util from "util";
 import dao from "../../releases/deployment.json";
@@ -194,7 +198,7 @@ export const executeViaGuardian = async (
   for (let i = 0; i < contracts.length; i++) {
     const contract = contracts[i];
     if (!contract) {
-      console.warn("skipping executing missing contract", i, contracts[i], functionSigs[i], functionInputs[i])
+      console.warn("skipping executing missing contract", i, contracts[i], functionSigs[i], functionInputs[i]);
       continue;
     }
     console.log("executing:", contracts[i], functionSigs[i], functionInputs[i]);
@@ -248,7 +252,10 @@ export const executeViaSafe = async (
     throw new Error("safe signer is missing");
   }
 
-  let safeSigner = new ethers.Wallet(process.env.SAFEOWNER_PRIVATE_KEY, new ethers.providers.CloudflareProvider());
+  let safeSigner = new ethers.Wallet(
+    process.env.SAFEOWNER_PRIVATE_KEY,
+    new ethers.providers.JsonRpcProvider("https://rpc.flashbots.net")
+  );
   if (typeof safeSignerOrNetwork === "string") {
     switch (safeSignerOrNetwork) {
       case "mainnet":
@@ -268,6 +275,7 @@ export const executeViaSafe = async (
     safeSigner = safeSignerOrNetwork as any;
   }
   const chainId = await safeSigner.getChainId();
+
   console.log("safeSigner:", safeSigner.address, { chainId, safeAddress });
   let txServiceUrl;
   switch (chainId) {
@@ -282,18 +290,24 @@ export const executeViaSafe = async (
       break;
   }
   console.log("creating safe adapter", { txServiceUrl });
-  const ethAdapter = new EthersAdapter({
-    ethers: safeethers,
-    signerOrProvider: safeSigner
-  });
-  console.log("creating safe client", { txServiceUrl });
-
-  const safeService = new SafeClient({
-    txServiceUrl,
-    ethAdapter
+  const safeService = new SafeApiKit({
+    chainId: BigInt(chainId)
   });
 
-  const safeSdk = await Safe.create({ ethAdapter, safeAddress });
+  const safeSdk = await Safe.init({
+    provider: "https://rpc.flashbots.net",
+    signer: process.env.SAFEOWNER_PRIVATE_KEY,
+    safeAddress
+  });
+
+  // console.log("creating safe client", { txServiceUrl });
+
+  // const safeService = new SafeClient({
+  //   txServiceUrl,
+  //   ethAdapter
+  // });
+
+  // const safeSdk = await Safe.create({ ethAdapter, safeAddress });
 
   let release: { [key: string]: any } = dao[networkName];
   const ctrl = await ethers.getContractAt("Controller", release.Controller, null);
@@ -374,11 +388,11 @@ export const executeViaSafe = async (
   }
 
   const safeTransaction = await safeSdk.createTransaction({
-    safeTransactionData
+    transactions: safeTransactionData
   });
 
   const safeTxHash = await safeSdk.getTransactionHash(safeTransaction);
-  const signedHash = await safeSdk.signTransactionHash(safeTxHash);
+  const signedHash = await safeSdk.signHash(safeTxHash);
 
   const senderAddress = await safeSigner.getAddress();
   console.log("propose safe transaction", {
@@ -408,8 +422,9 @@ export const verifyContract = async (
   networkProvider = networkProvider === "mainnet" ? "ethereum" : networkProvider;
   console.log("truffle compile...");
   await exec("npx truffle compile");
-  const cmd = `npx truffle run verify ${proxyName ? "--custom-proxy " + proxyName : ""} ${contractName}@${address} ${forcedConstructorArguments ? "--forceConstructorArgs string:" + forcedConstructorArguments.slice(2) : ""
-    } --network ${networkProvider}`;
+  const cmd = `npx truffle run verify ${proxyName ? "--custom-proxy " + proxyName : ""} ${contractName}@${address} ${
+    forcedConstructorArguments ? "--forceConstructorArgs string:" + forcedConstructorArguments.slice(2) : ""
+  } --network ${networkProvider}`;
   console.log("running...:", cmd);
   await exec(cmd).then(({ stdout, stderr }) => {
     console.log("Result for:", cmd);
