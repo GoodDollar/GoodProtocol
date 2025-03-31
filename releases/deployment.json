@@ -436,11 +436,13 @@
     "BuyGDFactoryV2": "0x1F60C4C7037C6766924A43666B781ED1479587a2",
     "CUSD": "0x765DE816845861e75A25fCA122bb6898B8B1282a",
     "BulkWhitelist": "0x30Afd0534dAA29135308d048103b40dc1BA4518d",
-    "MentoProxyAdmin": "0x9A0234633124B338BA83815633fD7b61d10A5036",
-    "MentoExchangeProvider": "0xAcA417869dCa426fc40Ec8a2B7022E217eA233eF",
-    "MentoExpansionController": "0x0249EC175b481028cDd857bf36F2bf08E6cC4754",
-    "MentoReserve": "0x861cF82ebeBED3a99017CD5A271FBe71A4123302",
-    "MentoBroker": "0x9F94b2cF2a2CC0c85A021F2c6a80095D14E6a0f2"
+    "MentoProxyAdmin": "0x8471406C3Bff67Cc6538481C8550364bda6Ca691",
+    "MentoExchangeProvider": "0x2fFBB49055d487DdBBb0C052Cd7c2a02A7971e41",
+    "MentoExpansionController": "0x5557E9dEF86ad6564462741a7A3f3679C1223f5d",
+    "MentoReserve": "0x94A3240f484A04F5e3d524f528d02694c109463b",
+    "MentoBroker": "0x88de45906D4F5a57315c133620cfa484cB297541",
+    "MentoUpgradeHelper": "0xc413cC6C58f0c290e89ddAeC83c2590017985eb7",
+    "CeloDistributionHelper": "0x6B845eFfAf36c374e8E7cf543Efa680f2F71F098"
   },
   "gnosis": { "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8" },
   "development-celo": {

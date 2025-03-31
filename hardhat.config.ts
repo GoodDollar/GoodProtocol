@@ -211,14 +211,14 @@ const hhconfig: HardhatUserConfig = {
       accounts: [deployerPrivateKey],
       url: "https://forno.celo.org",
       gas: 8000000,
-      gasPrice: 5000000000,
+      gasPrice: 25e9,
       chainId: 42220
     },
     celo: {
       accounts: { mnemonic },
       url: "https://forno.celo.org",
       gas: 3000000,
-      gasPrice: 5000000000,
+      gasPrice: 25e9,
       chainId: 42220
     },
     alfajores: {
@@ -237,14 +237,14 @@ const hhconfig: HardhatUserConfig = {
       accounts: { mnemonic },
       url: "https://forno.celo.org",
       gas: 3000000,
-      gasPrice: 5000000000,
+      gasPrice: 25e9,
       chainId: 42220
     },
     "development-celo": {
       accounts: { mnemonic },
       url: "https://forno.celo.org",
       gas: 3000000,
-      gasPrice: 5000000000,
+      gasPrice: 25e9,
       chainId: 42220
     },
     "development-base": {

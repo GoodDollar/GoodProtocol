@@ -54,6 +54,7 @@ jobs:
           yarn test:parallel $TESTFILES
 
   coverage:
+    if: false
     runs-on: ubuntu-latest
     needs: setup
     name: test (chunk ${{ matrix.chunk }})
@@ -94,6 +95,7 @@ jobs:
           flag-name: run-${{ matrix.chunk }}
 
   coverage-done:
+    if: false
     needs: coverage
     runs-on: ubuntu-latest
     steps:
