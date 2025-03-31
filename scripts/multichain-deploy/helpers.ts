@@ -252,31 +252,36 @@ export const executeViaSafe = async (
     throw new Error("safe signer is missing");
   }
 
-  let safeSigner = new ethers.Wallet(
-    process.env.SAFEOWNER_PRIVATE_KEY,
-    new ethers.providers.JsonRpcProvider("https://rpc.flashbots.net")
-  );
+  // let safeSigner = new ethers.Wallet(
+  //   process.env.SAFEOWNER_PRIVATE_KEY,
+  //   new ethers.providers.JsonRpcProvider("https://rpc.flashbots.net")
+  // );
+  let chainId = 1;
+  let provider = "https://mainnet.infura.io";
   if (typeof safeSignerOrNetwork === "string") {
     switch (safeSignerOrNetwork) {
       case "mainnet":
         break;
       case "celo":
-        safeSigner = new ethers.Wallet(process.env.SAFEOWNER_PRIVATE_KEY).connect(
-          new ethers.providers.JsonRpcProvider("https://forno.celo.org")
-        );
+        chainId = 42220;
+        provider = "https://forno.celo.org";
+        // safeSigner = new ethers.Wallet(process.env.SAFEOWNER_PRIVATE_KEY).connect(
+        //   new ethers.providers.JsonRpcProvider("https://forno.celo.org")
+        // );
         break;
       case "fuse":
-        safeSigner = new ethers.Wallet(process.env.SAFEOWNER_PRIVATE_KEY).connect(
-          new ethers.providers.JsonRpcProvider("https://rpc.fuse.io")
-        );
+        chainId = 122;
+        provider = "https://rpc.fuse.io";
+        // safeSigner = new ethers.Wallet(process.env.SAFEOWNER_PRIVATE_KEY).connect(
+        //   new ethers.providers.JsonRpcProvider("https://rpc.fuse.io")
+        // );
         break;
     }
   } else if (safeSignerOrNetwork) {
-    safeSigner = safeSignerOrNetwork as any;
+    // safeSigner = safeSignerOrNetwork as any;
   }
-  const chainId = await safeSigner.getChainId();
 
-  console.log("safeSigner:", safeSigner.address, { chainId, safeAddress });
+  console.log("safeSigner:", { chainId, safeAddress });
   let txServiceUrl;
   switch (chainId) {
     case 1:
@@ -295,10 +300,12 @@ export const executeViaSafe = async (
   });
 
   const safeSdk = await Safe.init({
-    provider: "https://rpc.flashbots.net",
+    provider,
     signer: process.env.SAFEOWNER_PRIVATE_KEY,
     safeAddress
   });
+
+  const senderAddress = await safeSdk.getSafeProvider().getSignerAddress();
 
   // console.log("creating safe client", { txServiceUrl });
 
@@ -394,7 +401,7 @@ export const executeViaSafe = async (
   const safeTxHash = await safeSdk.getTransactionHash(safeTransaction);
   const signedHash = await safeSdk.signHash(safeTxHash);
 
-  const senderAddress = await safeSigner.getAddress();
+  // const senderAddress = await safeSigner.getAddress();
   console.log("propose safe transaction", {
     safeAddress,
     safeTransactionData: safeTransaction.data,

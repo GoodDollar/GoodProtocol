@@ -110,7 +110,7 @@ const mpbDeployments = {
 };
 
 const isSimulation = network.name === "hardhat" || network.name === "fork" || network.name === "localhost";
-export const upgradeMainnet = async network => {
+export const upgradeMainnet = async (network, checksOnly) => {
   const isProduction = networkName.includes("production");
   let [root, ...signers] = await ethers.getSigners();
 
@@ -127,7 +127,7 @@ export const upgradeMainnet = async network => {
   let protocolSettings = defaultsDeep({}, ProtocolSettings[networkName], ProtocolSettings["default"]);
 
   //simulate on fork, make sure safe has enough eth to simulate txs
-  if (isSimulation) {
+  if (isSimulation && !checksOnly) {
     // await reset("https://cloudflare-eth.com/");
     guardian = await ethers.getImpersonatedSigner(protocolSettings.guardiansSafe);
 
@@ -156,7 +156,7 @@ export const upgradeMainnet = async network => {
     .address;
 
   // test blacklisting to prevent burn by hacker
-  if (isSimulation) {
+  if (isSimulation && !checksOnly) {
     const locked = await ethers.getImpersonatedSigner(LOCKED_ACCOUNTS[0]);
     const tx = await gd
       .connect(locked)
@@ -354,7 +354,7 @@ export const upgradeMainnet = async network => {
       protocolSettings.guardiansSafe,
       "mainnet"
     );
-  } else {
+  } else if (!checksOnly) {
     //simulation or dev envs
     await executeViaGuardian(
       proposalContracts,
@@ -517,7 +517,7 @@ export const upgradeFuse = async network => {
   }
 };
 
-export const upgradeCelo = async network => {
+export const upgradeCelo = async (network, checksOnly) => {
   let [root] = await ethers.getSigners();
 
   const isProduction = networkName.includes("production");
@@ -542,7 +542,7 @@ export const upgradeCelo = async network => {
   //simulate on fork, make sure safe has enough eth to simulate txs
   let DIST_HELPER_MIN_CELO_BALANCE = ethers.utils.parseEther("2");
 
-  if (isSimulation) {
+  if (isSimulation && !checksOnly) {
     DIST_HELPER_MIN_CELO_BALANCE = ethers.utils.parseEther("0.1");
     // await reset("https://rpc.ankr.com/celo");
     await root.sendTransaction({ value: ethers.utils.parseEther("0.5"), to: release.Avatar });
@@ -574,7 +574,7 @@ export const upgradeCelo = async network => {
 
     guardian = await ethers.getImpersonatedSigner(release.GuardiansSafe);
     await root.sendTransaction({ value: ethers.utils.parseEther("0.5"), to: guardian.address });
-  } else if (!isProduction) {
+  } else if (!isProduction && !checksOnly) {
     DIST_HELPER_MIN_CELO_BALANCE = ethers.utils.parseEther("0.1");
     const mentoReserve = (await ethers.getContractAt("IMentoReserve", release.MentoReserve)) as IMentoReserve;
     const ctrl = (await ethers.getContractAt("Controller", release.Controller)) as Controller;
@@ -744,7 +744,7 @@ export const upgradeCelo = async network => {
   console.log({ exchangeParams, mentoExchange: release.MentoExchangeProvider });
   console.log("executing upgrade...", { proposalContracts, proposalFunctionInputs, proposalFunctionSignatures });
 
-  if (isProduction) {
+  if (isProduction && !checksOnly) {
     await executeViaSafe(
       proposalContracts,
       proposalEthValues,
@@ -753,7 +753,7 @@ export const upgradeCelo = async network => {
       release.GuardiansSafe,
       "celo"
     );
-  } else {
+  } else if (!checksOnly) {
     await executeViaGuardian(
       proposalContracts,
       proposalEthValues,
@@ -765,6 +765,9 @@ export const upgradeCelo = async network => {
   }
 
   if (isSimulation || !isProduction) {
+    const swapper = networkEnv.includes("production")
+      ? await ethers.getImpersonatedSigner("0x66582D24FEaD72555adaC681Cc621caCbB208324")
+      : root;
     const supplyAfter = await (await ethers.getContractAt("IGoodDollar", release.GoodDollar)).totalSupply();
     console.log("Supply after upgrade:", { supplyAfter, TOTAL_GLOBAL_SUPPLY });
 
@@ -781,18 +784,26 @@ export const upgradeCelo = async network => {
     console.log("Broker minter check:", isBrokerMinter ? "Success" : "Failed");
     console.log("Expansion minter check:", isExpansionMinter ? "Success" : "Failed");
 
-    console.log("balance before swap:", await gd.balanceOf(root.address), await cusd.balanceOf(root.address));
-    await cusd.approve(release.MentoBroker, ethers.utils.parseEther("1000"));
+    console.log("balance before swap:", await gd.balanceOf(swapper.address), await cusd.balanceOf(swapper.address));
+    await cusd.connect(swapper).approve(release.MentoBroker, ethers.utils.parseEther("1000"));
     await mentoBroker
+      .connect(swapper)
       .swapIn(mentoExchange.address, eids[0], cusd.address, gd.address, ethers.utils.parseEther("1000"), 0)
       .then(_ => _.wait());
-    console.log("Balance after swap:", await gd.balanceOf(root.address), await cusd.balanceOf(root.address));
+    console.log(
+      "Balance after swap:",
+      swapper.address,
+      await gd.balanceOf(swapper.address),
+      await cusd.balanceOf(swapper.address)
+    );
     const mentomint = (await ethers.getContractAt(
       "IGoodDollarExpansionController",
       release.MentoExpansionController
     )) as IGoodDollarExpansionController;
-    await cusd.approve(mentomint.address, ethers.utils.parseEther("1000"));
-    const tx = await (await mentomint.mintUBIFromInterest(eids[0], ethers.utils.parseEther("1000"))).wait();
+    await cusd.connect(swapper).approve(mentomint.address, ethers.utils.parseEther("1000"));
+    const tx = await (
+      await mentomint.connect(swapper).mintUBIFromInterest(eids[0], ethers.utils.parseEther("1000"))
+    ).wait();
     console.log(
       "mint from interest:",
       tx.events.find(_ => _.event === "InterestUBIMinted").args.amount.toString() / 1e18
@@ -817,7 +828,7 @@ export const main = async () => {
   const chain = last(network.split("-"));
   switch (chain) {
     case "mainnet":
-      await upgradeMainnet(network);
+      await upgradeMainnet(network, true);
 
       break;
     case "fuse":
@@ -825,7 +836,7 @@ export const main = async () => {
 
       break;
     case "celo":
-      await upgradeCelo(network);
+      await upgradeCelo(network, true);
 
       break;
   }
