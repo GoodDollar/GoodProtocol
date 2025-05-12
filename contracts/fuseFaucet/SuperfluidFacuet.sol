@@ -17,8 +17,6 @@ contract SuperfluidFaucet is
 	using SafeMathUpgradeable for uint256;
 
 	bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-	uint public constant GAS_TOPPING_AMOUNT = 350000;
-	uint public constant FIRST_GAS_TOPPING_AMOUNT = 15e5;
 
 	uint256 public _deprecated;
 	uint256 public maxValuePerPeriod;
@@ -30,6 +28,9 @@ contract SuperfluidFaucet is
 	}
 
 	mapping(address => RecipientInfo) public recipientInfo;
+
+	uint public gasToppingAmount;
+	uint public firstGasToppingAmount;
 
 	event WalletTopped(address recipient, uint256 amount);
 	event SettingsUpdated(uint256 maxValuePerPeriod, uint256 toppingPeriod);
@@ -51,7 +52,9 @@ contract SuperfluidFaucet is
 		_setupRole(ADMIN_ROLE, msg.sender);
 		_grantRole(ADMIN_ROLE, _admin);
 		maxValuePerPeriod = _maxValuePerPeriod;
-		toppingPeriod = _toppingPeriod;
+		toppingPeriod = _toppingPeriod * 1 days;
+		gasToppingAmount = 500000;
+		firstGasToppingAmount = 20e5;
 	}
 
 	function updateSettings(
@@ -59,7 +62,7 @@ contract SuperfluidFaucet is
 		uint256 _toppingPeriod
 	) external onlyRole(ADMIN_ROLE) {
 		maxValuePerPeriod = _maxValuePerPeriod;
-		toppingPeriod = _toppingPeriod;
+		toppingPeriod = _toppingPeriod * 1 days;
 		emit SettingsUpdated(_maxValuePerPeriod, _toppingPeriod);
 	}
 
@@ -78,6 +81,11 @@ contract SuperfluidFaucet is
 
 		uint256 currentPeriod = block.timestamp / toppingPeriod;
 
+		// fix bug where period was divid by 30 and not by 30days, (for non effected users lsatWithdrawlPeriod will be < 57947235 for sure)
+		if (info.lastWithdrawalPeriod > 0 && info.lastWithdrawalPeriod > 57947235) {
+			if (currentPeriod > (info.lastWithdrawalPeriod * 30) / toppingPeriod)
+				return true;
+		}
 		if (currentPeriod > info.lastWithdrawalPeriod) {
 			return true; // New period, reset counters
 		}
@@ -97,15 +105,22 @@ contract SuperfluidFaucet is
 		return canTop(recipient, blockFee);
 	}
 
+	function updateGasToppingAmounts(
+		uint _gasToppingAmount,
+		uint _firstGasToppingAmount
+	) external onlyRole(ADMIN_ROLE) {
+		gasToppingAmount = _gasToppingAmount;
+		firstGasToppingAmount = _firstGasToppingAmount;
+	}
+
 	function getToppingValue(
 		bool firstTime,
 		uint baseFee
-	) public pure returns (uint) {
+	) public view returns (uint) {
 		//top wallet with current base fee + 10% for priority fee and l1 fees
 		return
-			((firstTime ? FIRST_GAS_TOPPING_AMOUNT : GAS_TOPPING_AMOUNT) *
-				baseFee *
-				110) / 100;
+			((firstTime ? firstGasToppingAmount : gasToppingAmount) * baseFee * 110) /
+			100;
 	}
 
 	function topWallet(address payable recipient) external onlyRole(ADMIN_ROLE) {
@@ -115,6 +130,12 @@ contract SuperfluidFaucet is
 		uint amount = getToppingValue(firstTime, block.basefee);
 		uint256 currentPeriod = block.timestamp / toppingPeriod;
 
+		// fix bug where period was divid by 30 and not by 30days, (for non effected users lsatWithdrawlPeriod will be < 57947235 for sure)
+		if (info.lastWithdrawalPeriod > 0 && info.lastWithdrawalPeriod > 57947235) {
+			info.lastWithdrawalPeriod =
+				(info.lastWithdrawalPeriod * 30) /
+				toppingPeriod;
+		}
 		if (currentPeriod > info.lastWithdrawalPeriod) {
 			info.totalWithdrawnThisPeriod = 0;
 			info.lastWithdrawalPeriod = currentPeriod;
