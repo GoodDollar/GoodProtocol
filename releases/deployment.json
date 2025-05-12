@@ -442,7 +442,8 @@
     "MentoReserve": "0x94A3240f484A04F5e3d524f528d02694c109463b",
     "MentoBroker": "0x88de45906D4F5a57315c133620cfa484cB297541",
     "MentoUpgradeHelper": "0xc413cC6C58f0c290e89ddAeC83c2590017985eb7",
-    "CeloDistributionHelper": "0x6B845eFfAf36c374e8E7cf543Efa680f2F71F098"
+    "CeloDistributionHelper": "0x6B845eFfAf36c374e8E7cf543Efa680f2F71F098",
+    "CUSDExchangeId": "0xba77f5c7bb3317643c6d81d1ef3f9913561741d92095f88efa402faf2cbe9124"
   },
   "gnosis": { "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8" },
   "development-celo": {
