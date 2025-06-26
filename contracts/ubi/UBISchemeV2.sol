@@ -75,7 +75,7 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 	bool private useFirstClaimPool_unused;
 
 	//minimum amount of users to divide the pool for, renamed from defaultDailyUbi
-	uint256 public minActiveUsers;
+	uint256 public avgActiveUsers;
 
 	// A pool of GD to give to activated users,
 	// since they will enter the UBI pool
@@ -106,6 +106,8 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 	bool public paused;
 
 	uint32 public reserveFactor;
+
+	uint32 public version;
 
 	// Emits when a withdraw has been succeded
 	event WithdrawFromDao(uint256 prevBalance, uint256 newBalance);
@@ -141,7 +143,7 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 		cycleLength = 30; //30 days
 		periodStart = (block.timestamp / (1 days)) * 1 days + 12 hours; //set start time to GMT noon
 		startOfCycle = periodStart;
-		minActiveUsers = 1000;
+		avgActiveUsers = 1000;
 		reserveFactor = 10500;
 	}
 
@@ -264,16 +266,19 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 			}
 
 			uint256 prevDayClaimers = claimDay[lastWithdrawDay].amountOfClaimers;
-			lastWithdrawDay = currentDay;
 			Funds storage funds = dailyUBIHistory[currentDay];
 			funds.hasWithdrawn = shouldWithdrawFromDAO;
 			funds.openAmount = currentBalance;
 			dailyUbi =
 				dailyCyclePool /
-				max((prevDayClaimers * reserveFactor) / 10000, minActiveUsers);
-			//update minActiveUsers as claimers grow
-			minActiveUsers = max(prevDayClaimers / 2, minActiveUsers);
+				max((prevDayClaimers * reserveFactor) / 10000, avgActiveUsers);
 
+			//update avgActiveUsers to be an average
+			avgActiveUsers =
+				(avgActiveUsers * (cycleLength - 1) + prevDayClaimers) /
+				cycleLength;
+
+			lastWithdrawDay = currentDay;
 			emit UBICalculated(currentDay, dailyUbi, block.number);
 		}
 
@@ -363,7 +368,7 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 			_dailyCyclePool /
 			max(
 				(claimDay[currentDay].amountOfClaimers * reserveFactor) / 10000,
-				minActiveUsers
+				avgActiveUsers
 			);
 
 		return _dailyUbi;
@@ -447,6 +452,13 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 	function pause(bool _pause) public {
 		_onlyAvatar();
 		paused = _pause;
+	}
+
+	function upgrade() public {
+		if (version == 0) {
+			avgActiveUsers = getClaimerCount(currentDay - 1);
+			version += 1;
+		}
 	}
 
 	// function upgrade() public {
