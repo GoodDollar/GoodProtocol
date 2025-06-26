@@ -35,7 +35,9 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	struct Wallet {
 		uint128 lastDayTopped;
 		uint32 dailyToppingCount;
-		uint128[7] lastWeekToppings;
+		uint128[7] unused_lastWeekToppings; //kept because of upgrade
+		uint128 weeklyToppingSum; // Total gas topped since lastWeekTopped
+		uint256 lastWeekTopped; // Timestamp of last week reset
 	}
 
 	mapping(address => Wallet) public wallets;
@@ -122,22 +124,15 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 			"User not whitelisted or not first time"
 		);
 
-		//reset inactive days
-		uint256 dayOfWeek = currentDay % 7;
-		uint256 dayDiff = (currentDay - wallets[_user].lastDayTopped);
-		dayDiff = dayDiff > 7 ? 7 : dayDiff;
-		dayDiff = dayDiff > dayOfWeek ? dayOfWeek + 1 : dayDiff;
-		for (uint256 day = dayOfWeek + 1 - dayDiff; day <= dayOfWeek; day++) {
-			wallets[_user].lastWeekToppings[day] = 0;
-		}
-
-		uint128 weekTotal = 0;
-		for (uint256 i = 0; i <= dayOfWeek; i++) {
-			weekTotal += wallets[_user].lastWeekToppings[uint256(i)];
+		// Reset weekly sum if more than a week has passed
+		if (block.timestamp - wallets[_user].lastWeekTopped >= 7 days) {
+			wallets[_user].weeklyToppingSum = 0;
+			wallets[_user].lastWeekTopped = block.timestamp;
 		}
 
 		require(
-			weekTotal < perDayRoughLimit * gasPrice * maxPerWeekMultiplier,
+			wallets[_user].weeklyToppingSum <
+				perDayRoughLimit * gasPrice * maxPerWeekMultiplier,
 			"User wallet has been topped too many times this week"
 		);
 		_;
@@ -164,22 +159,13 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 				dailyNewWalletsCount < maxDailyNewWallets) ||
 				whitelistedRoot != address(0));
 
-		uint128[7] memory lastWeekToppings = wallets[_user].lastWeekToppings;
-		//reset inactive days
-		uint256 dayOfWeek = _currentDay % 7;
-		uint256 dayDiff = (_currentDay - wallets[_user].lastDayTopped);
-		dayDiff = dayDiff > 7 ? 7 : dayDiff;
-		dayDiff = dayDiff > dayOfWeek ? dayOfWeek + 1 : dayDiff;
-
-		for (uint256 day = dayOfWeek + 1 - dayDiff; day <= dayOfWeek; day++) {
-			lastWeekToppings[day] = 0;
+		uint128 weeklySum = wallets[_user].weeklyToppingSum;
+		// Reset sum if more than a week has passed
+		if (block.timestamp - wallets[_user].lastWeekTopped >= 7 days) {
+			weeklySum = 0;
 		}
 
-		uint128 weekTotal = 0;
-		for (uint256 i = 0; i <= dayOfWeek; i++) {
-			weekTotal += lastWeekToppings[uint256(i)];
-		}
-		can = can && weekTotal < perDayRoughLimit * gasPrice * maxPerWeekMultiplier;
+		can = can && weeklySum < perDayRoughLimit * gasPrice * maxPerWeekMultiplier;
 		return can;
 	}
 
@@ -205,13 +191,13 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		uint256 toTop = getToppingAmount() - address(_wallet).balance;
 		require((toTop * 100) / getToppingAmount() >= minTopping, "low toTop");
 
-		uint256 dayOfWeek = currentDay % 7;
-
 		if (wallets[_wallet].lastDayTopped == uint128(currentDay))
 			wallets[_wallet].dailyToppingCount += 1;
 		else wallets[_wallet].dailyToppingCount = 1;
 		wallets[_wallet].lastDayTopped = uint128(currentDay);
-		wallets[_wallet].lastWeekToppings[dayOfWeek] += uint128(toTop);
+
+		// Reset weekly sum if more than a week has passed already happens at toppingLimit modifier
+		wallets[_wallet].weeklyToppingSum += uint128(toTop);
 
 		if (notFirstTime[_wallet] == false && whitelistedRoot == address(0)) {
 			dailyNewWalletsCount++;
