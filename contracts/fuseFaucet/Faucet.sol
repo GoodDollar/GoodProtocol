@@ -37,7 +37,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		uint32 dailyToppingCount;
 		uint128[7] unused_lastWeekToppings; //kept because of upgrade
 		uint128 weeklyToppingSum; // Total gas topped since lastWeekTopped
-		uint256 lastWeekTopped; // Timestamp of last week reset
+		uint128 lastWeekTopped; // Timestamp of last week reset
 	}
 
 	mapping(address => Wallet) public wallets;
@@ -50,6 +50,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	uint64 public dailyNewWalletsCount;
 	uint32 public version;
 	uint8 public minTopping; //percentage of topping amount, that user can request to top
+	address public votingContract; //flowstate voting users get extra gas
 
 	function initialize(
 		NameService _ns,
@@ -127,7 +128,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		// Reset weekly sum if more than a week has passed
 		if (block.timestamp - wallets[_user].lastWeekTopped >= 7 days) {
 			wallets[_user].weeklyToppingSum = 0;
-			wallets[_user].lastWeekTopped = block.timestamp;
+			wallets[_user].lastWeekTopped = uint128(block.timestamp);
 		}
 
 		require(
@@ -228,7 +229,22 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	}
 
 	function getToppingAmount() public view returns (uint256) {
-		return gasTopping * gasPrice;
+		uint256 baseAmount = gasTopping * gasPrice;
+
+		// Check voting balance if contract is set
+		if (votingContract != address(0)) {
+			try ERC20(votingContract).balanceOf(msg.sender) returns (
+				uint256 balance
+			) {
+				if (balance > 0) {
+					return baseAmount * 2; // Double amount for voters
+				}
+			} catch {
+				// Silently fail if call fails
+			}
+		}
+
+		return baseAmount;
 	}
 
 	function setGasTopping(
@@ -244,5 +260,11 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 
 	function setMinTopping(uint8 _minTop) external onlyRole(DEFAULT_ADMIN_ROLE) {
 		minTopping = _minTop;
+	}
+
+	function setVotingContract(
+		address _voting
+	) external onlyRole(DEFAULT_ADMIN_ROLE) {
+		votingContract = _voting;
 	}
 }
