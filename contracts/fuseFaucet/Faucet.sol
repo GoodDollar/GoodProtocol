@@ -146,9 +146,10 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	}
 
 	function canTop(address _user) external view returns (bool) {
-		if (getToppingAmount() < address(_user).balance) return false;
-		uint256 toTop = getToppingAmount() - address(_user).balance;
-		if ((toTop * 100) / getToppingAmount() < minTopping) return false;
+		uint256 toppingAmount = getToppingAmount(_user);
+		if (toppingAmount < address(_user).balance) return false;
+		uint256 toTop = toppingAmount - address(_user).balance;
+		if ((toTop * 100) / toppingAmount < minTopping) return false;
 
 		address whitelistedRoot = getIdentity().getWhitelistedRoot(_user);
 		_user = whitelistedRoot == address(0) ? _user : whitelistedRoot;
@@ -189,8 +190,9 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 			? _wallet
 			: payable(whitelistedRoot);
 
-		uint256 toTop = getToppingAmount() - address(_wallet).balance;
-		require((toTop * 100) / getToppingAmount() >= minTopping, "low toTop");
+		uint256 toppingAmount = getToppingAmount(_wallet);
+		uint256 toTop = toppingAmount - address(_wallet).balance;
+		require((toTop * 100) / toppingAmount >= minTopping, "low toTop");
 
 		if (wallets[_wallet].lastDayTopped == uint128(currentDay))
 			wallets[_wallet].dailyToppingCount += 1;
@@ -229,13 +231,15 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	}
 
 	function getToppingAmount() public view returns (uint256) {
+		return getToppingAmount(msg.sender);
+	}
+
+	function getToppingAmount(address _user) public view returns (uint256) {
 		uint256 baseAmount = gasTopping * gasPrice;
 
 		// Check voting balance if contract is set
 		if (votingContract != address(0)) {
-			try ERC20(votingContract).balanceOf(msg.sender) returns (
-				uint256 balance
-			) {
+			try ERC20(votingContract).balanceOf(_user) returns (uint256 balance) {
 				if (balance > 0) {
 					return baseAmount * 2; // Double amount for voters
 				}
