@@ -5,12 +5,7 @@
 import { network, ethers, upgrades, run } from "hardhat";
 import { Contract } from "ethers";
 import { defaultsDeep } from "lodash";
-import {
-  deployDeterministic,
-  executeViaGuardian,
-  executeViaSafe,
-  verifyProductionSigner
-} from "./helpers";
+import { deployDeterministic, executeViaGuardian, executeViaSafe, verifyProductionSigner } from "./helpers";
 import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
@@ -19,9 +14,7 @@ import { keccak256, toUtf8Bytes } from "ethers/lib/utils";
 
 const { name } = network;
 
-const printDeploy = async (
-  c: Contract | TransactionResponse
-): Promise<Contract | TransactionResponse> => {
+const printDeploy = async (c: Contract | TransactionResponse): Promise<Contract | TransactionResponse> => {
   if (c instanceof Contract) {
     await c.deployed();
     console.log("deployed to: ", c.address);
@@ -34,11 +27,7 @@ const printDeploy = async (
 };
 
 export const deployGov = async () => {
-  let protocolSettings = defaultsDeep(
-    {},
-    ProtocolSettings[network.name],
-    ProtocolSettings["default"]
-  );
+  let protocolSettings = defaultsDeep({}, ProtocolSettings[network.name], ProtocolSettings["default"]);
   let release: { [key: string]: any } = dao[network.name];
 
   let [root] = await ethers.getSigners();
@@ -52,10 +41,22 @@ export const deployGov = async () => {
   console.log("got signers:", {
     network,
     root: root.address,
-    balance: await ethers.provider
-      .getBalance(root.address)
-      .then(_ => _.toString())
+    balance: await ethers.provider.getBalance(root.address).then(_ => _.toString())
   });
+
+  const GReputation = (await deployDeterministic(
+    {
+      name: "GReputation",
+      isUpgradeable: true,
+      initializer: "initialize(address, string, bytes32, uint256)"
+    },
+    [
+      release.NameService,
+      "fuse",
+      protocolSettings.governance.gdaoAirdrop, //should fail on real deploy if not set
+      protocolSettings.governance.gdaoTotalSupply //should fail on real deploy if not set
+    ]
+  ).then(printDeploy)) as Contract;
 
   console.log("deploying voting machine");
 
@@ -73,7 +74,8 @@ export const deployGov = async () => {
   ).then(printDeploy)) as Contract;
 
   const torelease = {
-    CompoundVotingMachine: VotingMachine.address
+    CompoundVotingMachine: VotingMachine.address,
+    GReputation: GReputation.address
   };
   release = {
     ...release,
@@ -81,26 +83,38 @@ export const deployGov = async () => {
   };
   await releaser(torelease, network.name, "deployment", false);
 
+  const deployerIsNotRepMinter = (await GReputation.hasRole(GReputation.MINTER_ROLE(), root.address)) === false;
+  const avatarIsRepMinter = await GReputation.hasRole(GReputation.MINTER_ROLE(), release.Avatar);
+  const grepHasDAOSet = (await GReputation.nameService()) === release.NameService;
+  const factoryIsNotGoodOwner = (await GReputation.hasRole(ethers.constants.HashZero, release.ProxyFactory)) === false;
+  console.log("verify GReputation permissions", {
+    deployerIsNotRepMinter,
+    avatarIsRepMinter,
+    grepHasDAOSet,
+    factoryIsNotGoodOwner
+  });
+
   console.log("adding genericcall permissions to voting contract.");
   const proposalContracts = [
+    release.NameService,
     release.Controller //nameservice add MinterWrapper
   ];
 
   const proposalEthValues = proposalContracts.map(_ => 0);
 
   const proposalFunctionSignatures = [
+    "setAddresses(bytes32[],address[])", //add reputation
     "registerScheme(address,bytes32,bytes4,address)" //make sure compoundvotingmachine has generic call so it can control the DAO
   ];
 
   const proposalFunctionInputs = [
     ethers.utils.defaultAbiCoder.encode(
+      ["bytes32[]", "address[]"],
+      [[keccak256(toUtf8Bytes("REPUTATION"))], [GReputation.address]]
+    ),
+    ethers.utils.defaultAbiCoder.encode(
       ["address", "bytes32", "bytes4", "address"],
-      [
-        release.CompoundVotingMachine,
-        ethers.constants.HashZero,
-        "0x000000f1",
-        release.Avatar
-      ]
+      [release.CompoundVotingMachine, ethers.constants.HashZero, "0x000000f1", release.Avatar]
     )
   ];
 
@@ -126,15 +140,9 @@ export const deployGov = async () => {
     console.error("proposal execution failed...", e.message);
   }
 
-  const Controller = await ethers.getContractAt(
-    "Controller",
-    release.Controller
-  );
+  const Controller = await ethers.getContractAt("Controller", release.Controller);
 
-  const votingMachineDaoPermissions = await Controller.getSchemePermissions(
-    daoOwner,
-    release.Avatar
-  );
+  const votingMachineDaoPermissions = await Controller.getSchemePermissions(daoOwner, release.Avatar);
 
   console.log({
     votingMachineDaoPermissions

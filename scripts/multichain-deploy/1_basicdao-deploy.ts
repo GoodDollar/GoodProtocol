@@ -37,6 +37,7 @@ export const createDAO = async () => {
   const isProduction = network.name.includes("production");
 
   let [root] = await ethers.getSigners();
+  //TODO: from input?
   const daoOwner = root.address;
   if (isProduction) verifyProductionSigner(root);
 
@@ -80,8 +81,7 @@ export const createDAO = async () => {
     )) as Contract;
 
   let GoodDollar;
-  let { superfluidHost, superfluidInflowNFTLogic, superfluidOutflowNFTLogic } =
-    protocolSettings;
+  let { superfluidHost, superfluidInflowNFTLogic, superfluidOutflowNFTLogic } = protocolSettings;
   if (protocolSettings.superfluidHost) {
     GoodDollar = await deploySuperGoodDollar(
       {
@@ -118,25 +118,11 @@ export const createDAO = async () => {
     ).then(printDeploy)) as Contract;
   }
 
-  const GReputation = (await deployDeterministic(
-    {
-      name: "GReputation",
-      isUpgradeable: true,
-      initializer: "initialize(address, string, bytes32, uint256)"
-    },
-    [
-      ethers.constants.AddressZero,
-      "fuse",
-      protocolSettings.governance.gdaoAirdrop, //should fail on real deploy if not set
-      protocolSettings.governance.gdaoTotalSupply //should fail on real deploy if not set
-    ]
-  ).then(printDeploy)) as Contract;
-
   // console.log("setting identity auth period");
   // await Identity.setAuthenticationPeriod(365).then(printDeploy);
 
   console.log("creating dao");
-  await daoCreator.forgeOrg(GoodDollar.address, GReputation.address, [], 0, []).then(printDeploy);
+  await daoCreator.forgeOrg(GoodDollar.address, ethers.constants.AddressZero, [], 0, []).then(printDeploy);
   console.log("forgeOrg done ");
   const Avatar = new ethers.Contract(
     await daoCreator.avatar(),
@@ -166,14 +152,10 @@ export const createDAO = async () => {
 
   const NameService = await deployDeterministic({ name: "NameService", isUpgradeable: true }, [
     controller,
-    ["CONTROLLER", "AVATAR", "IDENTITY", "GOODDOLLAR", "REPUTATION"].map(_ =>
-      ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))
-    ),
-    [controller, Avatar.address, Identity.address, gd, GReputation.address]
+    ["CONTROLLER", "AVATAR", "IDENTITY", "GOODDOLLAR"].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
+    [controller, Avatar.address, Identity.address, gd]
   ]);
 
-  console.log("set GRep nameservice..");
-  await (await GReputation.updateDAO(NameService.address)).wait();
   console.log("set Identity nameservice..");
 
   await Identity.initDAO(NameService.address).then(printDeploy);
@@ -194,19 +176,9 @@ export const createDAO = async () => {
 
   const deployerIsNotGDPauser = (await GoodDollar.isPauser(root.address)) === false;
 
-  const deployerIsNotRepMinter = (await GReputation.hasRole(GReputation.MINTER_ROLE(), root.address)) === false;
-  const avatarIsRepMinter = await GReputation.hasRole(GReputation.MINTER_ROLE(), Avatar.address);
-
   const deployerIsIdentityOwner = await Identity.hasRole(ethers.constants.HashZero, root.address);
 
   const avatarIsIdentityOwner = await Identity.hasRole(ethers.constants.HashZero, Avatar.address);
-
-  //try to modify DAO -> should not succeed
-  await (await GReputation.updateDAO(ethers.constants.AddressZero)).wait();
-
-  const grepHasDAOSet = (await GReputation.nameService()) === NameService.address;
-
-  const factoryIsNotGoodOwner = (await GReputation.hasRole(ethers.constants.HashZero, proxyFactory.address)) === false;
 
   const factoryIsNotGDMinter = (await GoodDollar.isMinter(proxyFactory.address)) === false;
 
@@ -215,16 +187,12 @@ export const createDAO = async () => {
   console.log({
     daoOwnerDaoPermissions,
     deployerIsNotGDMinter,
-    deployerIsNotRepMinter,
     deployerIsNotGDPauser,
-    factoryIsNotGoodOwner,
     factoryIsNotGDMinter,
     factoryIsNotGDPauser,
-    avatarIsRepMinter,
     deployerIsIdentityOwner,
     avatarIsIdentityOwner,
-    avatarIsGDMinter,
-    grepHasDAOSet
+    avatarIsGDMinter
   });
 
   release = {
@@ -234,7 +202,6 @@ export const createDAO = async () => {
     Controller: controller,
     Identity: Identity.address,
     NameService: NameService.address,
-    GReputation: GReputation.address,
     FeeFormula: FeeFormula.address,
     DAOCreator: daoCreator.address
   };
