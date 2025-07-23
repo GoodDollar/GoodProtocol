@@ -5,7 +5,14 @@
 import { network, ethers, upgrades, run } from "hardhat";
 import { Contract } from "ethers";
 import { defaultsDeep } from "lodash";
-import { deployDeterministic, executeViaGuardian, executeViaSafe, verifyProductionSigner } from "./helpers";
+import { getImplementationAddress } from "@openzeppelin/upgrades-core";
+import {
+  deployDeterministic,
+  executeViaGuardian,
+  executeViaSafe,
+  verifyProductionSigner,
+  verifyContract
+} from "./helpers";
 import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
@@ -73,9 +80,16 @@ export const deployGov = async () => {
     ]
   ).then(printDeploy)) as Contract;
 
+  console.log("deploying claimers distribution");
+
+  const ClaimersDistribution = (await deployDeterministic({ name: "ClaimersDistribution", isUpgradeable: true }, [
+    release.NameService
+  ]).then(printDeploy)) as Contract;
+
   const torelease = {
     CompoundVotingMachine: VotingMachine.address,
-    GReputation: GReputation.address
+    GReputation: GReputation.address,
+    ClaimersDistribution: ClaimersDistribution.address
   };
   release = {
     ...release,
@@ -110,13 +124,23 @@ export const deployGov = async () => {
   const proposalFunctionInputs = [
     ethers.utils.defaultAbiCoder.encode(
       ["bytes32[]", "address[]"],
-      [[keccak256(toUtf8Bytes("REPUTATION"))], [GReputation.address]]
+      [
+        [keccak256(toUtf8Bytes("REPUTATION")), keccak256(toUtf8Bytes("GDAO_CLAIMERS"))],
+        [GReputation.address, ClaimersDistribution.address]
+      ]
     ),
     ethers.utils.defaultAbiCoder.encode(
       ["address", "bytes32", "bytes4", "address"],
       [release.CompoundVotingMachine, ethers.constants.HashZero, "0x000000f1", release.Avatar]
     )
   ];
+
+  let impl = await getImplementationAddress(ethers.provider, ClaimersDistribution.address);
+  await verifyContract(impl, "ClaimersDistribution", network.name);
+  impl = await getImplementationAddress(ethers.provider, VotingMachine.address);
+  await verifyContract(impl, "CompoundVotingMachine", network.name);
+  impl = await getImplementationAddress(ethers.provider, GReputation.address);
+  await verifyContract(impl, "GReputation", network.name);
 
   try {
     if (viaGuardians) {

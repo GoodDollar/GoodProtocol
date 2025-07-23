@@ -57,16 +57,20 @@ export const deployHelpers = async () => {
   const UBIScheme = (await deployDeterministic(
     {
       name: "UBIScheme",
+      factory: await ethers.getContractFactory("UBISchemeV2"),
       isUpgradeable: true
     },
     [release.NameService, ethers.constants.AddressZero, protocolSettings.ubi.maxInactiveDays]
   ).then(printDeploy)) as Contract;
 
-  console.log("deploying claimers distribution");
-
-  const ClaimersDistribution = (await deployDeterministic({ name: "ClaimersDistribution", isUpgradeable: true }, [
-    release.NameService
-  ]).then(printDeploy)) as Contract;
+  const torelease = {
+    UBIScheme: UBIScheme.address
+  };
+  release = {
+    ...release,
+    ...torelease
+  };
+  await releaser(torelease, network.name, "deployment", false);
 
   console.log("setting nameservice addresses via guardian");
   const proposalContracts = [
@@ -82,10 +86,7 @@ export const deployHelpers = async () => {
   const proposalFunctionInputs = [
     ethers.utils.defaultAbiCoder.encode(
       ["bytes32[]", "address[]"],
-      [
-        [keccak256(toUtf8Bytes("UBISCHEME")), keccak256(toUtf8Bytes("GDAO_CLAIMERS"))],
-        [UBIScheme.address, ClaimersDistribution.address]
-      ]
+      [[keccak256(toUtf8Bytes("UBISCHEME"))], [UBIScheme.address]]
     )
   ];
 
@@ -98,9 +99,6 @@ export const deployHelpers = async () => {
 
   let impl = await getImplementationAddress(ethers.provider, UBIScheme.address);
   await verifyContract(impl, "UBIScheme", network.name);
-
-  impl = await getImplementationAddress(ethers.provider, ClaimersDistribution.address);
-  await verifyContract(impl, "ClaimersDistribution", network.name);
 
   try {
     if (viaGuardians) {
