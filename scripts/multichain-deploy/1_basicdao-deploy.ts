@@ -12,12 +12,18 @@ import DAOCreatorABI from "@gooddollar/goodcontracts/build/contracts/DaoCreatorG
 // import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
 import FeeFormulaABI from "@gooddollar/goodcontracts/build/contracts/FeeFormula.json";
 
-import { deployDeterministic, deploySuperGoodDollar, verifyProductionSigner } from "./helpers";
+import {
+  deployDeterministic,
+  deploySuperGoodDollar,
+  verifyProductionSigner,
+  verifyContract,
+  verifyOnEtherscan
+} from "./helpers";
 import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
 import { TransactionResponse } from "@ethersproject/providers";
-
+import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 const printDeploy = async (c: Contract | TransactionResponse): Promise<Contract | TransactionResponse> => {
   if (c instanceof Contract) {
     await c.deployed();
@@ -33,11 +39,11 @@ const printDeploy = async (c: Contract | TransactionResponse): Promise<Contract 
 export const createDAO = async () => {
   let protocolSettings = defaultsDeep({}, ProtocolSettings[network.name], ProtocolSettings["default"]);
 
-  let release: { [key: string]: any } = dao[network.name];
+  let release: { [key: string]: any } = dao[network.name] || {};
   const isProduction = network.name.includes("production");
 
   let [root] = await ethers.getSigners();
-  //TODO: from input?
+
   const daoOwner = root.address;
   if (isProduction) verifyProductionSigner(root);
 
@@ -53,10 +59,7 @@ export const createDAO = async () => {
 
   const FeeFormulaFactory = new ethers.ContractFactory(FeeFormulaABI.abi, FeeFormulaABI.bytecode, root);
 
-  const proxyFactory = await ethers.getContractAt("ProxyFactory1967", release.ProxyFactory);
-  const salt = ethers.BigNumber.from(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("NameService")));
-  const nameserviceFutureAddress = await proxyFactory["getDeploymentAddress(uint256,address)"](salt, root.address);
-  console.log("deploying identity", { nameserviceFutureAddress });
+  console.log("deploying identity");
   let Identity;
   if (release.Identity) Identity = await ethers.getContractAt("IdentityV2", release.Identity);
   else
@@ -71,7 +74,17 @@ export const createDAO = async () => {
 
   let daoCreator;
   if (release.DAOCreator) daoCreator = await DAOCreatorFactory.attach(release.DAOCreator);
-  else daoCreator = (await DAOCreatorFactory.deploy().then(printDeploy)) as Contract;
+  else {
+    daoCreator = await deployDeterministic(
+      {
+        name: "DAOCreator",
+        factory: DAOCreatorFactory,
+        isUpgradeable: false
+      },
+      []
+    );
+    // daoCreator = (await DAOCreatorFactory.deploy().then(printDeploy)) as Contract;
+  }
 
   let FeeFormula;
   if (release.FeeFormula) FeeFormula = await FeeFormulaFactory.attach(release.FeeFormula);
@@ -121,34 +134,43 @@ export const createDAO = async () => {
   // console.log("setting identity auth period");
   // await Identity.setAuthenticationPeriod(365).then(printDeploy);
 
-  console.log("creating dao");
-  await daoCreator.forgeOrg(GoodDollar.address, ethers.constants.AddressZero, [], 0, []).then(printDeploy);
-  console.log("forgeOrg done ");
-  const Avatar = new ethers.Contract(
-    await daoCreator.avatar(),
+  const avatar = await daoCreator.avatar();
+  let Avatar = new ethers.Contract(
+    avatar,
     ["function owner() view returns (address)", "function nativeToken() view returns (address)"],
     root
   );
+  if (avatar === ethers.constants.AddressZero) {
+    console.log("creating dao");
+    await daoCreator.forgeOrg(GoodDollar.address, ethers.constants.AddressZero, [], 0, []).then(printDeploy);
+    console.log("forgeOrg done ");
+    console.log("Done deploying DAO, setting schemes permissions");
 
-  console.log("Done deploying DAO, setting schemes permissions");
+    Avatar = new ethers.Contract(
+      await daoCreator.avatar(),
+      ["function owner() view returns (address)", "function nativeToken() view returns (address)"],
+      root
+    );
+    let schemes = [daoOwner, Identity.address];
 
-  let schemes = [daoOwner, Identity.address];
+    console.log("setting schemes", schemes);
+
+    await daoCreator
+      .setSchemes(
+        Avatar.address,
+        schemes,
+        schemes.map(_ => ethers.constants.HashZero),
+        ["0x0000001f", "0x00000001"],
+        ""
+      )
+      .then(printDeploy);
+  } else {
+    console.log("dao already exists, avatar is", avatar);
+  }
 
   const gd = await Avatar.nativeToken();
 
   const controller = await Avatar.owner();
-
-  console.log("setting schemes", schemes);
-
-  await daoCreator
-    .setSchemes(
-      Avatar.address,
-      schemes,
-      schemes.map(_ => ethers.constants.HashZero),
-      ["0x0000001f", "0x00000001"],
-      ""
-    )
-    .then(printDeploy);
 
   const NameService = await deployDeterministic({ name: "NameService", isUpgradeable: true }, [
     controller,
@@ -158,8 +180,9 @@ export const createDAO = async () => {
 
   console.log("set Identity nameservice..");
 
-  await Identity.initDAO(NameService.address).then(printDeploy);
-
+  if ((await Identity.nameService()) == ethers.constants.AddressZero) {
+    await Identity.initDAO(NameService.address).then(printDeploy);
+  }
   //verifications
   const Controller = await ethers.getContractAt("Controller", controller);
 
@@ -178,12 +201,12 @@ export const createDAO = async () => {
 
   const deployerIsIdentityOwner = await Identity.hasRole(ethers.constants.HashZero, root.address);
 
-  const avatarIsIdentityOwner = await Identity.hasRole(ethers.constants.HashZero, Avatar.address);
+  const avatarIsIdentityOwner = (await Identity.hasRole(ethers.constants.HashZero, Avatar.address)) === true;
 
-  const factoryIsNotGDMinter = (await GoodDollar.isMinter(proxyFactory.address)) === false;
+  const factoryIsNotGDMinter = (await GoodDollar.isMinter(release.ProxyFactory)) === false;
 
   const factoryIsNotGDPauser = (await GoodDollar.isPauser(root.address)) === false;
-
+  const identityNameService = (await Identity.nameService()) === NameService.address;
   console.log({
     daoOwnerDaoPermissions,
     deployerIsNotGDMinter,
@@ -192,7 +215,8 @@ export const createDAO = async () => {
     factoryIsNotGDPauser,
     deployerIsIdentityOwner,
     avatarIsIdentityOwner,
-    avatarIsGDMinter
+    avatarIsGDMinter,
+    identityNameService
   });
 
   release = {
@@ -206,6 +230,52 @@ export const createDAO = async () => {
     DAOCreator: daoCreator.address
   };
   await releaser(release, network.name, "deployment", false);
+
+  await verifyOnEtherscan(
+    network.config.chainId,
+    "scripts/multichain-deploy/flattened/Avatar.sol",
+    "Avatar",
+    Avatar.address,
+    "v0.5.16+commit.9c3226ce",
+    {
+      types: ["string", "address", "address"],
+      values: ["GoodDollar", GoodDollar.address, ethers.constants.AddressZero]
+    }
+  );
+  await verifyOnEtherscan(
+    network.config.chainId,
+    "scripts/multichain-deploy/flattened/Controller.sol",
+    "Controller",
+    Controller.address,
+    "v0.5.16+commit.9c3226ce",
+    {
+      types: ["address"],
+      values: [Avatar.address]
+    }
+  );
+  await verifyOnEtherscan(
+    network.config.chainId,
+    "scripts/multichain-deploy/flattened/FeeFormula.sol",
+    "FeeFormula",
+    FeeFormula.address,
+    "v0.5.16+commit.9c3226ce",
+    {
+      types: ["uint256"],
+      values: [0]
+    }
+  );
+
+  let impl = await getImplementationAddress(ethers.provider, Identity.address);
+  await verifyContract(impl, "contracts/identity/IdentityV2.sol:IdentityV2", network.name);
+  impl = await getImplementationAddress(ethers.provider, NameService.address);
+  await verifyContract(impl, "contracts/utils/NameService.sol:NameService", network.name);
+  if (protocolSettings.superfluidHost) {
+    impl = await getImplementationAddress(ethers.provider, GoodDollar.address);
+    await verifyContract(impl, "SuperGoodDollar", network.name);
+  } else {
+    impl = await getImplementationAddress(ethers.provider, GoodDollar.address);
+    await verifyContract(impl, "contracts/token/GoodDollar.sol:GoodDollar", network.name);
+  }
 };
 
 export const main = async () => {
