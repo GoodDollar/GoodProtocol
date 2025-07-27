@@ -33,11 +33,10 @@ contract ERC20PresetMinterPauserUpgradeable is
 	ERC20BurnableUpgradeable,
 	ERC20PausableUpgradeable
 {
-	function initialize(string memory name, string memory symbol)
-		public
-		virtual
-		initializer
-	{
+	function initialize(
+		string memory name,
+		string memory symbol
+	) public virtual initializer {
 		__ERC20PresetMinterPauser_init(name, symbol);
 	}
 
@@ -53,7 +52,7 @@ contract ERC20PresetMinterPauserUpgradeable is
 	function __ERC20PresetMinterPauser_init(
 		string memory name,
 		string memory symbol
-	) internal initializer {
+	) internal onlyInitializing {
 		__Context_init_unchained();
 		__ERC165_init_unchained();
 		__AccessControl_init_unchained();
@@ -67,9 +66,9 @@ contract ERC20PresetMinterPauserUpgradeable is
 	}
 
 	function __ERC20PresetMinterPauser_init_unchained(
-		string memory name,
-		string memory symbol
-	) internal initializer {
+		string memory,
+		string memory
+	) internal onlyInitializing {
 		_setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
 
 		_setupRole(MINTER_ROLE, _msgSender());
