@@ -129,13 +129,8 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 	/**
 	 * @dev Constructor
 	 * @param _ns the DAO
-	 * @param _maxInactiveDays Days of grace without claiming request
 	 */
-	function initialize(
-		INameService _ns,
-		uint256 _maxInactiveDays
-	) public initializer {
-		require(_maxInactiveDays > 0, "Max inactive days cannot be zero");
+	function initialize(INameService _ns) public initializer {
 		setDAO(_ns);
 		shouldWithdrawFromDAO = false;
 		cycleLength = 30; //30 days
