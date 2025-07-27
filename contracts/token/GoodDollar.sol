@@ -65,7 +65,7 @@ contract GoodDollar is
 	) internal override onlyOwner {}
 
 	function decimals() public view virtual override returns (uint8) {
-		return 2;
+		return 18;
 	}
 
 	function setFormula(IFeesFormula _formula) external onlyOwner {
