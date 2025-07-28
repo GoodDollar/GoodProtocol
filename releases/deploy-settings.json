@@ -298,5 +298,9 @@
     "superfluidHost": "0xA4Ff07cF81C02CFD356184879D953970cA957585",
     "superfluidInflowNFTLogic": "",
     "superfluidOutflowNNFTLogic": ""
+  },
+  "development-xdc": {
+    "gasPrice": 12.5e9,
+    "superfluidHost": "0x0000000000000000000000000000000000000000"
   }
 }
