@@ -1,22 +1,20 @@
+import { readFileSync } from "fs";
 import { Contract, ContractFactory, Signer } from "ethers";
-import { network, ethers, upgrades, run } from "hardhat";
-import * as safeethers from "ethers";
+import { network, ethers } from "hardhat";
 import { TransactionResponse, TransactionReceipt } from "@ethersproject/providers";
-// import Safe from "@gnosis.pm/safe-core-sdk";
-import EthersAdapter from "@gnosis.pm/safe-ethers-lib";
-// import { MetaTransactionData } from "@gnosis.pm/safe-core-sdk-types";
-// import SafeClient from "@gnosis.pm/safe-service-client";
+import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 
 import SafeApiKit from "@safe-global/api-kit";
-import Safe, { Eip1193Provider } from "@safe-global/protocol-kit";
-import { MetaTransactionData, OperationType } from "@safe-global/types-kit";
+import Safe from "@safe-global/protocol-kit";
+import { MetaTransactionData } from "@safe-global/types-kit";
 
 import util from "util";
 import dao from "../../releases/deployment.json";
+import { ProxyFactory1967 } from "../../types";
 
 const exec = util.promisify(require("child_process").exec);
 
-const networkName = network.name === "localhost" ? "production-mainnet" : network.name;
+const networkName = network.name;
 let totalGas = 0;
 const gasUsage = {};
 const GAS_SETTINGS = { gasLimit: 10000000 };
@@ -60,6 +58,7 @@ export const deploySuperGoodDollar = async (
   { superfluidHost, superfluidInflowNFTLogic, superfluidOutflowNFTLogic },
   tokenArgs
 ) => {
+  const withNFTs = !!(superfluidInflowNFTLogic && superfluidOutflowNFTLogic);
   const SuperGoodDollar = (await deployDeterministic(
     {
       name: "SuperGoodDollar",
@@ -79,59 +78,67 @@ export const deploySuperGoodDollar = async (
 
   await GoodDollarProxy.initializeProxy(SuperGoodDollar.address).then(printDeploy);
 
-  const OutFlowNFT = (await deployDeterministic(
-    {
-      name: "SuperGoodDollar OutflowNFT",
-      factory: uupsFactory
-    },
-    []
-  ).then(printDeploy)) as Contract;
+  let OutFlowNFT = await ethers.getContractAt("ConstantOutflowNFT", ethers.constants.AddressZero);
+  let InFlowNFT = await ethers.getContractAt("ConstantOutflowNFT", ethers.constants.AddressZero);
 
-  const InFlowNFT = (await deployDeterministic(
-    {
-      name: "SuperGoodDollar InflowNFT",
-      factory: uupsFactory
-    },
-    []
-  ).then(printDeploy)) as Contract;
+  if (withNFTs) {
+    OutFlowNFT = (await deployDeterministic(
+      {
+        name: "SuperGoodDollar OutflowNFT",
+        factory: uupsFactory
+      },
+      []
+    ).then(printDeploy)) as Contract;
 
-  await OutFlowNFT.initializeProxy(superfluidOutflowNFTLogic);
-  await InFlowNFT.initializeProxy(superfluidInflowNFTLogic);
+    InFlowNFT = (await deployDeterministic(
+      {
+        name: "SuperGoodDollar InflowNFT",
+        factory: uupsFactory
+      },
+      []
+    ).then(printDeploy)) as Contract;
 
+    console.log("initializing superfluid nfts proxies");
+    await OutFlowNFT.initializeProxy(superfluidOutflowNFTLogic);
+    await InFlowNFT.initializeProxy(superfluidInflowNFTLogic);
+  }
+  console.log("initializing supergooddollar");
   await SuperGoodDollar.attach(GoodDollarProxy.address)[
     "initialize(string,string,uint256,address,address,address,address,address,address)"
   ](...tokenArgs, OutFlowNFT.address, InFlowNFT.address);
 
   const GoodDollar = await ethers.getContractAt("ISuperGoodDollar", GoodDollarProxy.address);
 
-  const constantInflowNFT = await ethers.getContractAt("ConstantInflowNFT", InFlowNFT.address);
+  if (withNFTs) {
+    const constantInflowNFT = await ethers.getContractAt("ConstantInflowNFT", InFlowNFT.address);
 
-  const constantOutflowNFT = await ethers.getContractAt("ConstantOutflowNFT", OutFlowNFT.address);
+    const constantOutflowNFT = await ethers.getContractAt("ConstantOutflowNFT", OutFlowNFT.address);
 
-  await constantOutflowNFT
-    .attach(OutFlowNFT.address)
-    .initialize(
-      GoodDollarProxy.address,
-      (await GoodDollar.symbol()) + " Outflow NFT",
-      (await GoodDollar.symbol()) + " COF"
-    );
-  await constantInflowNFT
-    .attach(InFlowNFT.address)
-    .initialize(
-      GoodDollarProxy.address,
-      (await GoodDollar.symbol()) + " Inflow NFT",
-      (await GoodDollar.symbol()) + " CIF"
-    );
-
+    console.log("initializing inflow and outflow nfts");
+    await constantOutflowNFT
+      .attach(OutFlowNFT.address)
+      .initialize(
+        GoodDollarProxy.address,
+        (await GoodDollar.symbol()) + " Outflow NFT",
+        (await GoodDollar.symbol()) + " COF"
+      );
+    await constantInflowNFT
+      .attach(InFlowNFT.address)
+      .initialize(
+        GoodDollarProxy.address,
+        (await GoodDollar.symbol()) + " Inflow NFT",
+        (await GoodDollar.symbol()) + " CIF"
+      );
+  }
   return GoodDollar;
 };
 
 export const deployDeterministic = async (contract, args: any[], factoryOpts = {}, redeployProxyFactory = false) => {
   try {
-    let proxyFactory;
+    let proxyFactory: ProxyFactory1967;
     if (networkName.startsWith("develop") && redeployProxyFactory) {
-      proxyFactory = await (await ethers.getContractFactory("ProxyFactory1967")).deploy();
-    } else proxyFactory = await ethers.getContractAt("ProxyFactory1967", release.ProxyFactory);
+      proxyFactory = await (await ethers.getContractFactory("ProxyFactory1967")).deploy() as ProxyFactory1967;
+    } else proxyFactory = await ethers.getContractAt("ProxyFactory1967", release.ProxyFactory) as ProxyFactory1967;
     const Contract =
       (contract.factory as ContractFactory) || (await ethers.getContractFactory(contract.name, factoryOpts));
 
@@ -140,39 +147,73 @@ export const deployDeterministic = async (contract, args: any[], factoryOpts = {
     );
 
     if (contract.isUpgradeable === true) {
+      const proxyAddr = await proxyFactory["getDeploymentAddress(uint256,address)"](
+        salt,
+        await proxyFactory.signer.getAddress()
+      );
+      const code = await ethers.provider.getCode(proxyAddr);
+      if (code && code !== "0x") {
+        const implAddr = await getImplementationAddress(ethers.provider, proxyAddr).catch(e => "0x");
+        if (implAddr && implAddr !== "0x") {
+          console.log("proxy exists and impl set already:", contract.name, proxyAddr, implAddr);
+          return Contract.attach(proxyAddr);
+        }
+      }
+
       console.log("Deploying:", contract.name, "using proxyfactory", {
         args,
+        proxyAddr,
         proxyFactory: proxyFactory.address
       });
+
       const encoded = Contract.interface.encodeFunctionData(contract.initializer || "initialize", args);
       const tx = await Contract.deploy(GAS_SETTINGS);
       const impl = await tx.deployed();
       console.log("implementation deployed:", contract.name, impl.address);
       await countTotalGas(tx, contract.name);
+      let tx2;
+      try {
+        if (contract.withProxyFactory === false) {
+          console.log("deploying proxy without proxy factory", { salt, impl: impl.address, encoded });
+          const proxy = await ethers.getContractFactory("contracts/utils/ProxyFactory1967.sol:ERC1967Proxy");
+          tx2 = await proxyFactory.deployCode(salt, proxy.bytecode, GAS_SETTINGS);
+          await tx2.wait();
+          console.log("proxy deployed initializing...", contract.name, proxyAddr, tx2.hash);
+          tx2 = await proxy.attach(proxyAddr).initialize(impl.address, encoded);
+          console.log("proxy initialized:", contract.name, proxyAddr, tx2.hash);
+        } else {
+          console.log("deploying proxy with proxyfactory", { salt, impl: impl.address, encoded });
+          tx2 = await proxyFactory.deployProxy(salt, impl.address, encoded, GAS_SETTINGS);
+        }
+        await countTotalGas(tx2, contract.name);
+        const deployTx = await tx2.wait();
+      } catch (e) {
+        console.error("failed to deploy proxy, assuming it exists...", e);
+      }
 
-      const tx2 = await proxyFactory.deployProxy(salt, impl.address, encoded, GAS_SETTINGS);
-      await countTotalGas(tx2, contract.name);
-      const deployTx = await tx2.wait().catch(e => console.error("failed to deploy proxy, assuming it exists...", e));
-      const proxyAddr = await proxyFactory["getDeploymentAddress(uint256,address)"](
-        salt,
-        await proxyFactory.signer.getAddress()
-      );
       console.log("proxy deployed:", contract.name, proxyAddr);
       return Contract.attach(proxyAddr);
     } else {
-      console.log("Deploying:", contract.name, "using proxyfactory code", {
-        proxyFactory: proxyFactory.address,
-        args
-      });
       const constructor = Contract.interface.encodeDeploy(args);
       const bytecode = ethers.utils.solidityPack(["bytes", "bytes"], [Contract.bytecode, constructor]);
-      const deployTx = await (await proxyFactory.deployCode(salt, bytecode, GAS_SETTINGS)).wait();
-
       const proxyAddr = await proxyFactory["getDeploymentAddress(uint256,address,bytes32)"](
         salt,
         await proxyFactory.signer.getAddress(),
         ethers.utils.keccak256(bytecode)
       );
+      const code = await ethers.provider.getCode(proxyAddr);
+      if (code && code !== "0x") {
+        console.log("contract already exists:", contract.name, proxyAddr);
+        return Contract.attach(proxyAddr);
+      }
+
+      console.log("Deploying:", contract.name, "using proxyfactory code", {
+        proxyFactory: proxyFactory.address,
+        args
+      });
+
+      const deployTx = await (await proxyFactory.deployCode(salt, bytecode, GAS_SETTINGS)).wait();
+
       console.log("proxy deployed:", contract.name, proxyAddr);
 
       return Contract.attach(proxyAddr);
@@ -429,9 +470,73 @@ export const verifyContract = async (
     forcedConstructorArguments ?? ""
   } --network ${networkName}`;
   console.log("running...:", cmd);
-  await exec(cmd).then(({ stdout, stderr }) => {
-    console.log("Result for:", cmd);
-    console.log(stdout);
-    console.log(stderr);
-  });
+  await exec(cmd)
+    .then(({ stdout, stderr }) => {
+      console.log("Result for:", cmd);
+      console.log(stdout);
+      console.log(stderr);
+    })
+    .catch(e => {
+      console.error("Error verifying contract:", e);
+    });
 };
+
+/**
+ * Verify a flattened contract on Etherscan
+ * @param {string} contractPath - Path to the contract (e.g., contracts/MyContract.sol)
+ * @param {string} contractName - Contract name (e.g., MyContract)
+ * @param {string} contractAddress - Deployed contract address
+ * @param {string} compilerVersion - Compiler version (e.g., v0.8.24+commit.e11b9ed9)
+ * @param {Array} constructorArgs - Object with {types:[], values:[]} for encoding
+ */
+export async function verifyOnEtherscan(
+  chainid,
+  contractPath,
+  contractName,
+  contractAddress,
+  compilerVersion,
+  constructorArgs = { types: [], values: [] }
+) {
+  const apiKey = process.env.ETHERSCAN_KEY;
+  if (!apiKey) {
+    throw new Error("ETHERSCAN_API_KEY not set in .env");
+  }
+
+  const sourceCode = readFileSync(contractPath, "utf8");
+
+  let constructorEncoded = "";
+  if (constructorArgs.types && constructorArgs.values) {
+    constructorEncoded = ethers.utils.defaultAbiCoder.encode(constructorArgs.types, constructorArgs.values).slice(2); // Remove '0x'
+  }
+
+  console.log("Submitting verification request to Etherscan...", { chainid, contractAddress, contractName });
+
+  const body = new URLSearchParams({
+    chainid,
+    apikey: apiKey,
+    module: "contract",
+    action: "verifysourcecode",
+    contractaddress: contractAddress,
+    sourceCode: sourceCode,
+    codeformat: "solidity-single-file",
+    contractname: contractName,
+    compilerversion: compilerVersion,
+    optimizationUsed: "1",
+    runs: "200",
+    constructorArguements: constructorEncoded
+  });
+
+  const response = await fetch(`https://api.etherscan.io/v2/api?chainid=${chainid}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body
+  });
+
+  const data = await response.json();
+  if (data.status !== "1") {
+    return console.log(`Verification submission failed: ${data.result}`);
+  }
+
+  const guid = data.result;
+  console.log(`Verification submitted. GUID: ${guid}`);
+}
