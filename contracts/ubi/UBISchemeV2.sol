@@ -235,13 +235,12 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 			uint256 currentBalance = token.balanceOf(address(this));
 			//start early cycle if daily pool size is +%5 previous pool or not enough until end of cycle
 			uint256 nextDailyPool = currentBalance / cycleLength;
-			bool shouldStartEarlyCycle = nextDailyPool >
-				(dailyCyclePool * 105) / 100 ||
-				currentBalance < (dailyCyclePool * (cycleLength - currentDayInCycle()));
+			bool shouldStartCycle = currentDayInCycle() >= currentCycleLength ||
+				(nextDailyPool > (dailyCyclePool * 105) / 100 ||
+					currentBalance <
+					(dailyCyclePool * (cycleLength - currentDayInCycle())));
 
-			if (
-				currentDayInCycle() >= currentCycleLength || shouldStartEarlyCycle
-			) //start of cycle or first time
+			if (shouldStartCycle) //start of cycle or first time
 			{
 				if (shouldWithdrawFromDAO) {
 					_withdrawFromDao();
