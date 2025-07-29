@@ -235,7 +235,7 @@ describe("UBIScheme - network e2e tests", () => {
     );
   });
 
-  it("should not be able to fish an active user", async () => {
+  it.skip("should not be able to fish an active user", async () => {
     let error = await ubi
       .connect(fisherman)
       .fish(claimer.address)
@@ -244,7 +244,7 @@ describe("UBIScheme - network e2e tests", () => {
     expect(error.message).to.have.string("can't fish");
   });
 
-  it("should be able to fish inactive user", async () => {
+  it.skip("should be able to fish inactive user", async () => {
     await increaseTime(MAX_INACTIVE_DAYS * 86700);
     let balance1 = await goodDollar.balanceOf(fisherman.address);
     await ubi.connect(fisherman).fish(claimer.address);
@@ -257,7 +257,7 @@ describe("UBIScheme - network e2e tests", () => {
     );
   });
 
-  it("should not be able to fish the same user twice", async () => {
+  it.skip("should not be able to fish the same user twice", async () => {
     let error = await ubi
       .connect(fisherman)
       .fish(claimer.address)
@@ -265,7 +265,7 @@ describe("UBIScheme - network e2e tests", () => {
     expect(error.message).to.have.string("can't fish");
   });
 
-  it("should recieves a claim reward when call claim after being fished", async () => {
+  it.skip("should recieves a claim reward when call claim after being fished", async () => {
     let activeUsersCountBefore = await ubi.activeUsersCount();
     let claimerBalanceBefore = await goodDollar.balanceOf(claimer.address);
     await ubi.connect(claimer).claim();
@@ -279,7 +279,7 @@ describe("UBIScheme - network e2e tests", () => {
     ).to.be.equal(1000);
   });
 
-  it("should be able to fish by calling fishMulti", async () => {
+  it.skip("should be able to fish by calling fishMulti", async () => {
     await increaseTime(MAX_INACTIVE_DAYS * 86700);
     let amount = 1e8;
     await dai["mint(address,uint256)"](

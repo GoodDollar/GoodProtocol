@@ -42,7 +42,7 @@ describe("AdminWallet", () => {
       toWhitelist
     ] = signers.slice(10);
     let { identity: id, nameService, gd } = await loadFixture(createDAO);
-    identity = await ethers.getContractAt("IdentityV2", id);
+    identity = await ethers.getContractAt("IdentityV3", id);
     gooddollar = await ethers.getContractAt("GoodDollar", gd);
     adminWallet = (await upgrades.deployProxy(
       await ethers.getContractFactory("AdminWallet"),

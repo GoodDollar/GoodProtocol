@@ -55,7 +55,7 @@ describe("GoodDollar Token", () => {
 
     superFluid = sfContracts;
     avatar = av;
-    identity = await ethers.getContractAt("IdentityV2", idv2);
+    identity = await ethers.getContractAt("IdentityV3", idv2);
 
     const FeeFormulaFactory = new ethers.ContractFactory(
       FeeFormulaABI.abi,
