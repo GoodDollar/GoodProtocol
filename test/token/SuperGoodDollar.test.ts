@@ -249,14 +249,10 @@ describe("SuperGoodDollar", async function () {
   it("should not be able to initialize again", async () => {
     await loadFixture(initialState);
     await expect(
-      sgd[
-        "initialize(string,string,uint256,address,address,address,address,address,address)"
-      ](
+      sgd["initialize(string,string,uint256,address,address,address,address)"](
         "x",
         "y",
         1,
-        ethers.constants.AddressZero,
-        ethers.constants.AddressZero,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
@@ -304,14 +300,10 @@ describe("SuperGoodDollar", async function () {
 
     expect(await sgd.getHost()).equal(newHost.address);
     await expect(
-      sgd[
-        "initialize(string,string,uint256,address,address,address,address,address,address)"
-      ](
+      sgd["initialize(string,string,uint256,address,address,address,address)"](
         "x",
         "y",
         1,
-        ethers.constants.AddressZero,
-        ethers.constants.AddressZero,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,

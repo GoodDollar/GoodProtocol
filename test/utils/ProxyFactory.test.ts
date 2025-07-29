@@ -115,7 +115,10 @@ describe("proxyfactory", () => {
     ).wait();
     const proxyAddr = deployTX.events.find(_ => _.event === "ProxyCreated").args
       .proxy;
-    let proxy = await ethers.getContractAt("ERC1967Proxy", proxyAddr);
+    let proxy = await ethers.getContractAt(
+      "contracts/utils/ProxyFactory1967.sol:ERC1967Proxy",
+      proxyAddr
+    );
 
     const c2 = await (
       await ethers.getContractFactory("UpgradableMock")

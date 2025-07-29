@@ -117,10 +117,10 @@ abstract contract SuperfluidToken is ISuperfluidToken {
 			uint256 timestamp
 		)
 	{
-		timestamp = block.timestamp;
+		timestamp = address(_host) != address(0) ? _host.getNow() : block.timestamp;
 		(availableBalance, deposit, owedDeposit) = realtimeBalanceOf(
 			account,
-			block.timestamp
+			address(_host) != address(0) ? _host.getNow() : block.timestamp
 		);
 	}
 
@@ -135,7 +135,11 @@ abstract contract SuperfluidToken is ISuperfluidToken {
 	function isAccountCriticalNow(
 		address account
 	) external view override returns (bool isCritical) {
-		return isAccountCritical(account, block.timestamp);
+		return
+			isAccountCritical(
+				account,
+				address(_host) != address(0) ? _host.getNow() : block.timestamp
+			);
 	}
 
 	function isAccountSolvent(
@@ -156,7 +160,11 @@ abstract contract SuperfluidToken is ISuperfluidToken {
 	function isAccountSolventNow(
 		address account
 	) external view override returns (bool isSolvent) {
-		return isAccountSolvent(account, block.timestamp);
+		return
+			isAccountSolvent(
+				account,
+				address(_host) != address(0) ? _host.getNow() : block.timestamp
+			);
 	}
 
 	/// @dev ISuperfluidToken.getAccountActiveAgreements implementation
@@ -181,7 +189,10 @@ abstract contract SuperfluidToken is ISuperfluidToken {
 	}
 
 	function _burn(address account, uint256 amount) internal {
-		(int256 availableBalance, , ) = realtimeBalanceOf(account, block.timestamp);
+		(int256 availableBalance, , ) = realtimeBalanceOf(
+			account,
+			address(_host) != address(0) ? _host.getNow() : block.timestamp
+		);
 		if (availableBalance < amount.toInt256()) {
 			revert SF_TOKEN_BURN_INSUFFICIENT_BALANCE();
 		}
@@ -192,7 +203,10 @@ abstract contract SuperfluidToken is ISuperfluidToken {
 	}
 
 	function _move(address from, address to, int256 amount) internal {
-		(int256 availableBalance, , ) = realtimeBalanceOf(from, block.timestamp);
+		(int256 availableBalance, , ) = realtimeBalanceOf(
+			from,
+			address(_host) != address(0) ? _host.getNow() : block.timestamp
+		);
 		if (availableBalance < amount) {
 			revert SF_TOKEN_MOVE_INSUFFICIENT_BALANCE();
 		}

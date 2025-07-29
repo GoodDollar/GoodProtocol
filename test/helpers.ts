@@ -81,8 +81,8 @@ export const deploySuperGoodDollar = async (sfContracts, tokenArgs) => {
 
     console.log("initializing supergooddollar....");
     await SuperGoodDollar.attach(GoodDollarProxy.address)[
-      "initialize(string,string,uint256,address,address,address,address,address,address)"
-    ](...tokenArgs, outNftProxy.address, inNftProxy.address);
+      "initialize(string,string,uint256,address,address,address,address)"
+    ](...tokenArgs);
     const GoodDollar = await ethers.getContractAt(
       "SuperGoodDollar",
       GoodDollarProxy.address
@@ -105,8 +105,8 @@ export const deploySuperGoodDollar = async (sfContracts, tokenArgs) => {
   } else {
     console.log("initializing supergooddollar....");
     await SuperGoodDollar.attach(GoodDollarProxy.address)[
-      "initialize(string,string,uint256,address,address,address,address,address,address)"
-    ](...tokenArgs, ethers.constants.AddressZero, ethers.constants.AddressZero);
+      "initialize(string,string,uint256,address,address,address,address)"
+    ](...tokenArgs);
     const GoodDollar = await ethers.getContractAt(
       "SuperGoodDollar",
       GoodDollarProxy.address

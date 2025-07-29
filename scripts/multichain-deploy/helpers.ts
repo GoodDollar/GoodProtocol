@@ -104,8 +104,8 @@ export const deploySuperGoodDollar = async (
   }
   console.log("initializing supergooddollar");
   await SuperGoodDollar.attach(GoodDollarProxy.address)[
-    "initialize(string,string,uint256,address,address,address,address,address,address)"
-  ](...tokenArgs, OutFlowNFT.address, InFlowNFT.address);
+    "initialize(string,string,uint256,address,address,address,address)"
+  ](...tokenArgs);
 
   const GoodDollar = await ethers.getContractAt("ISuperGoodDollar", GoodDollarProxy.address);
 
@@ -137,8 +137,8 @@ export const deployDeterministic = async (contract, args: any[], factoryOpts = {
   try {
     let proxyFactory: ProxyFactory1967;
     if (networkName.startsWith("develop") && redeployProxyFactory) {
-      proxyFactory = await (await ethers.getContractFactory("ProxyFactory1967")).deploy() as ProxyFactory1967;
-    } else proxyFactory = await ethers.getContractAt("ProxyFactory1967", release.ProxyFactory) as ProxyFactory1967;
+      proxyFactory = (await (await ethers.getContractFactory("ProxyFactory1967")).deploy()) as ProxyFactory1967;
+    } else proxyFactory = (await ethers.getContractAt("ProxyFactory1967", release.ProxyFactory)) as ProxyFactory1967;
     const Contract =
       (contract.factory as ContractFactory) || (await ethers.getContractFactory(contract.name, factoryOpts));
 
