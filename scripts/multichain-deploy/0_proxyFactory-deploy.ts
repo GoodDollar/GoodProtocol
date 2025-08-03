@@ -1,7 +1,7 @@
 import hre from "hardhat";
 import { network, ethers } from "hardhat";
 
-import { verifyProductionSigner } from "./helpers";
+import { verifyContract, verifyOnEtherscan, verifyProductionSigner } from "./helpers";
 import releaser from "../../scripts/releaser";
 import dao from "../../releases/deployment.json";
 import { keccak256, parseUnits, toUtf8Bytes } from "ethers/lib/utils";
@@ -101,15 +101,16 @@ export const deployProxy = async (defaultAdmin = null) => {
 
 const deployProxyMethod2 = async (defaultAdmin = null) => {
   let [signer] = await ethers.getSigners();
-
+  console.log("deploying proxyfactory with signer", {
+    address: signer.address,
+    balance: await ethers.provider.getBalance(signer.address).then(_ => _.toString())
+  });
   const artifact = await hre.artifacts.readArtifact("ProxyFactory1967");
   const result = await hre.deployments.deterministic("ProxyFactory", {
     skipIfAlreadyDeployed: true,
     salt: keccak256(toUtf8Bytes("ProxyFactory")),
     contract: artifact,
-    from: signer.address,
-    maxFeePerGas: parseUnits("35.01", "gwei"),
-    maxPriorityFeePerGas: parseUnits("0.01", "gwei")
+    from: signer.address
   });
   const deployed = await result.deploy();
   console.log(result, deployed);
@@ -117,6 +118,7 @@ const deployProxyMethod2 = async (defaultAdmin = null) => {
     ProxyFactory: deployed.address
   };
   await releaser(release, network.name, "deployment", false);
+  await verifyContract(deployed.address, artifact.sourceName + ":" + artifact.contractName);
 };
 export const main = async (networkName = name) => {
   // await deployProxy();

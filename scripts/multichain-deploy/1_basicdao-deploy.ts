@@ -61,11 +61,11 @@ export const createDAO = async () => {
 
   console.log("deploying identity");
   let Identity;
-  if (release.Identity) Identity = await ethers.getContractAt("IdentityV2", release.Identity);
+  if (release.Identity) Identity = await ethers.getContractAt("IdentityV3", release.Identity);
   else
     Identity = (await deployDeterministic(
       {
-        name: "IdentityV2",
+        name: "IdentityV3",
         salt: "Identity",
         isUpgradeable: true
       },
@@ -266,12 +266,13 @@ export const createDAO = async () => {
   );
 
   let impl = await getImplementationAddress(ethers.provider, Identity.address);
-  await verifyContract(impl, "contracts/identity/IdentityV2.sol:IdentityV2", network.name);
+  await verifyContract(impl, "contracts/identity/IdentityV3.sol:IdentityV3", network.name);
   impl = await getImplementationAddress(ethers.provider, NameService.address);
   await verifyContract(impl, "contracts/utils/NameService.sol:NameService", network.name);
   if (protocolSettings.superfluidHost) {
     impl = await getImplementationAddress(ethers.provider, GoodDollar.address);
-    await verifyContract(impl, "SuperGoodDollar", network.name);
+    await verifyContract(GoodDollar.address, "contracts/token/superfluid/UUPSProxy.sol:UUPSProxy", network.name);
+    await verifyContract(impl, "contracts/token/superfluid/SuperGoodDollar.sol:SuperGoodDollar", network.name);
   } else {
     impl = await getImplementationAddress(ethers.provider, GoodDollar.address);
     await verifyContract(impl, "contracts/token/GoodDollar.sol:GoodDollar", network.name);

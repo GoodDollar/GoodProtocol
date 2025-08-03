@@ -143,7 +143,7 @@ export const deployHelpers = async () => {
   impl = await getImplementationAddress(ethers.provider, Faucet.address);
   await verifyContract(impl, "contracts/fuseFaucet/Faucet.sol:Faucet", network.name);
   impl = await getImplementationAddress(ethers.provider, Invites.address);
-  await verifyContract(impl, "contracts/invites/InvitesV2.sol:InvitesV2", network.name);
+  await verifyContract(impl, "contracts/invite/InvitesV2.sol:InvitesV2", network.name);
 };
 
 export const main = async () => {

@@ -463,10 +463,13 @@ export const verifyContract = async (
   address,
   contractPath,
   networkName = network.name,
-  proxyName?: string,
+  maybeProxy: boolean = true,
   forcedConstructorArguments?: string
 ) => {
-  const cmd = `yarn hardhat verify --contract ${contractPath} ${address} ${
+  const impl = await getImplementationAddress(ethers.provider, address).catch(e => "");
+  const contractAddress = maybeProxy ? impl || address : address;
+  console.log("verifying contract:", { contractPath, address, impl, networkName, forcedConstructorArguments });
+  const cmd = `yarn hardhat verify --contract ${contractPath} ${contractAddress} ${
     forcedConstructorArguments ?? ""
   } --network ${networkName}`;
   console.log("running...:", cmd);
@@ -479,6 +482,31 @@ export const verifyContract = async (
     .catch(e => {
       console.error("Error verifying contract:", e);
     });
+  if (maybeProxy && impl) {
+    const chainid = network.config.chainId.toString();
+    console.log("linking proxy to impl", { impl, address });
+    const body = new URLSearchParams({
+      chaini: network.config.chainId.toString(),
+      apikey: process.env.ETHERSCAN_KEY,
+      module: "contract",
+      action: "verifyproxycontract",
+      address
+    });
+
+    const response = await fetch(`https://api.etherscan.io/v2/api?chainid=${chainid}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body
+    });
+
+    const data = await response.json();
+    if (data.status !== "1") {
+      return console.log(`Proxy Verification submission failed: ${data.result}`);
+    }
+
+    const guid = data.result;
+    console.log(`Proxy Verification submitted. GUID: ${guid}`);
+  }
 };
 
 /**

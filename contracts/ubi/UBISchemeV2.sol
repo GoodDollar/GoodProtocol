@@ -134,7 +134,7 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 		setDAO(_ns);
 		shouldWithdrawFromDAO = false;
 		cycleLength = 30; //30 days
-		periodStart = (block.timestamp / (1 days)) * 1 days + 12 hours; //set start time to GMT noon
+		periodStart = (block.timestamp / (1 days)) * 1 days - 12 hours; //set start time to GMT noon
 		startOfCycle = periodStart;
 		minActiveUsers = 1000;
 		reserveFactor = 10500;
@@ -341,16 +341,16 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 		uint256 currentBalance = nativeToken().balanceOf(address(this));
 		//start early cycle if we can increase the daily UBI pool
 		uint256 nextDailyPool = currentBalance / cycleLength;
-		bool shouldStartEarlyCycle = nextDailyPool > (dailyCyclePool * 105) / 100 ||
+		bool shouldStartEarlyCycle = currentDayInCycle() + 1 >=
+			currentCycleLength ||
+			nextDailyPool > (dailyCyclePool * 105) / 100 ||
 			currentBalance < (dailyCyclePool * (cycleLength - currentDayInCycle()));
 
 		uint256 _dailyCyclePool = dailyCyclePool;
 		uint256 _dailyUbi;
-		if (
-			(currentDayInCycle() + 1) >= currentCycleLength || shouldStartEarlyCycle
-		) //start of cycle or first time
+		if (shouldStartEarlyCycle) //start of cycle or first time
 		{
-			_dailyCyclePool = currentBalance / cycleLength;
+			_dailyCyclePool = nextDailyPool;
 		}
 
 		_dailyUbi =
