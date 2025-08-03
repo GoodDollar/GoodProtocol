@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "2.0.33-beta.0",
+  "version": "2.0.34-beta.0",
   "description": "GoodDollar Protocol",
   "engines": {
     "node": ">=16.x"
