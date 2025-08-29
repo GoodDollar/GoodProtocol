@@ -11,6 +11,7 @@ import releaser from "../releaser";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
 import { TransactionResponse } from "@ethersproject/providers";
+import { AdminWallet, Faucet } from "../../types";
 
 const { name } = network;
 
@@ -64,24 +65,28 @@ export const deployHelpers = async () => {
       isUpgradeable: true
     },
     [walletAdmins, release.NameService, root.address, protocolSettings.gasPrice]
-  ).then(printDeploy)) as Contract;
+  ).then(printDeploy)) as AdminWallet;
+
+  await AdminWallet.setDefaults(1e6, 9e6, 3, protocolSettings.gasPrice);
   // const AdminWallet = await ethers.getContractAt("AdminWallet", release.AdminWallet);
 
   const gd = await ethers.getContractAt("IGoodDollar", release.GoodDollar);
 
   const decimals = await gd.decimals();
 
-  const Faucet = await deployDeterministic({ name: "Faucet", salt: "Faucet", isUpgradeable: true }, [
+  const Faucet = (await deployDeterministic({ name: "Faucet", salt: "Faucet", isUpgradeable: true }, [
     release.NameService,
     protocolSettings.gasPrice,
     AdminWallet.address,
     root.address
-  ]);
+  ])) as Faucet;
+
+  await Faucet.setGasTopping(1.5e6);
   // const Faucet = await ethers.getContractAt("Faucet", release.Faucet);
 
   const Invites = await deployDeterministic({ name: "InvitesV2", salt: "InvitesV2", isUpgradeable: true }, [
     release.NameService,
-    ethers.BigNumber.from(100).mul(ethers.BigNumber.from("10").pow(decimals)),
+    ethers.utils.parseUnits("100", decimals),
     root.address
   ]);
 
@@ -124,7 +129,7 @@ export const deployHelpers = async () => {
 
   if (!network.name.includes("production")) {
     console.log("minting G$s to invites on dev envs");
-    await gd.mint(Invites.address, ethers.BigNumber.from(1e6).mul(ethers.BigNumber.from("10").pow(decimals))); //1million GD
+    await gd.mint(Invites.address, ethers.utils.parseUnits("1000000", decimals)); //1million GD
   }
 
   console.log({
@@ -134,11 +139,11 @@ export const deployHelpers = async () => {
   });
 
   let impl = await getImplementationAddress(ethers.provider, AdminWallet.address);
-  await verifyContract(impl, "AdminWallet", network.name);
+  await verifyContract(impl, "contracts/utils/AdminWallet.sol:AdminWallet", network.name);
   impl = await getImplementationAddress(ethers.provider, Faucet.address);
-  await verifyContract(impl, "Faucet", network.name);
+  await verifyContract(impl, "contracts/fuseFaucet/Faucet.sol:Faucet", network.name);
   impl = await getImplementationAddress(ethers.provider, Invites.address);
-  await verifyContract(impl, "InvitesV2", network.name);
+  await verifyContract(impl, "contracts/invite/InvitesV2.sol:InvitesV2", network.name);
 };
 
 export const main = async () => {

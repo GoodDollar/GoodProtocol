@@ -42,7 +42,7 @@ describe("InvitesV2", () => {
     })) as InvitesV2;
 
     gd = (await ethers.getContractAt("IGoodDollar", gooddollar, founder)) as IGoodDollar;
-    id = (await ethers.getContractAt("IdentityV2", identity, founder)) as IdentityV2;
+    id = (await ethers.getContractAt("IdentityV3", identity, founder)) as IdentityV2;
 
     await gd["mint(address,uint256)"](invites.address, BN.from(5000));
     await loadFixture(initialState);

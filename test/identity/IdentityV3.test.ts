@@ -1,14 +1,14 @@
 import hre, { ethers, upgrades } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
-import { IGoodDollar, IIdentityV2, IIdentity, IdentityV2 } from "../../types";
+import { IGoodDollar, IIdentity, IdentityV3 } from "../../types";
 import { createDAO, increaseTime, advanceBlocks } from "../helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 const BN = ethers.BigNumber;
 
-describe("Identity", () => {
-  let identity: IdentityV2, founder: SignerWithAddress;
+describe("IdentityV3", () => {
+  let identity: IdentityV3, founder: SignerWithAddress;
   let user1 = ethers.Wallet.createRandom().connect(ethers.provider);
   let user2 = ethers.Wallet.createRandom().connect(ethers.provider);
   let signers: Array<SignerWithAddress>;
@@ -16,9 +16,6 @@ describe("Identity", () => {
 
   let avatar, gd: IGoodDollar, Controller, id: IIdentity;
 
-  const createDAOv2 = async () => {
-    return createDAO("super", "v2");
-  };
   before(async () => {
     [founder, ...signers] = await ethers.getSigners();
     let {
@@ -27,10 +24,10 @@ describe("Identity", () => {
       gd: gooddollar,
       identity: idv2,
       genericCall: gc
-    } = await loadFixture(createDAOv2);
+    } = await loadFixture(createDAO);
 
     genericCall = gc;
-    identity = (await ethers.getContractAt("IdentityV2", idv2)) as IdentityV2;
+    identity = (await ethers.getContractAt("IdentityV3", idv2)) as IdentityV3;
     Controller = controller;
     avatar = av;
     // await daoCreator.setSchemes(
@@ -49,7 +46,7 @@ describe("Identity", () => {
   });
 
   it("should set DAO by creator", async () => {
-    let f = await ethers.getContractFactory("IdentityV2");
+    let f = await ethers.getContractFactory("IdentityV3");
     let newid = (await upgrades.deployProxy(
       f,
       [signers[0].address, ethers.constants.AddressZero],
@@ -63,7 +60,7 @@ describe("Identity", () => {
   });
 
   it("should not be able to set DAO by non-creator", async () => {
-    let f = await ethers.getContractFactory("IdentityV2");
+    let f = await ethers.getContractFactory("IdentityV3");
     let newid = (await upgrades.deployProxy(
       f,
       [signers[0].address, ethers.constants.AddressZero],
@@ -248,58 +245,10 @@ describe("Identity", () => {
     const toconnect = signers[10];
     const toconnect2 = signers[11];
     let whitelisted = signers[1];
-    const curBlock = await ethers.provider.getBlockNumber();
-    const deadline = curBlock + 10;
 
-    const signed = await toconnect._signTypedData(
-      {
-        name: "Identity",
-        version: "1.0.0",
-        chainId: 4447,
-        verifyingContract: identity.address
-      },
-      {
-        ConnectIdentity: [
-          { name: "whitelisted", type: "address" },
-          { name: "connected", type: "address" },
-          { name: "deadline", type: "uint256" }
-        ]
-      },
-      {
-        whitelisted: whitelisted.address,
-        connected: toconnect.address,
-        deadline
-      }
-    );
-
-    const signed2 = await toconnect2._signTypedData(
-      {
-        name: "Identity",
-        version: "1.0.0",
-        chainId: 4447,
-        verifyingContract: identity.address
-      },
-      {
-        ConnectIdentity: [
-          { name: "whitelisted", type: "address" },
-          { name: "connected", type: "address" },
-          { name: "deadline", type: "uint256" }
-        ]
-      },
-      {
-        whitelisted: whitelisted.address,
-        connected: toconnect2.address,
-        deadline
-      }
-    );
-
-    await identity
-      .connect(whitelisted)
-      .connectAccount(toconnect.address, signed, deadline);
-    await identity
-      .connect(whitelisted)
-      .connectAccount(toconnect2.address, signed2, deadline);
-    return { signed };
+    await identity.connect(whitelisted).connectAccount(toconnect.address);
+    await identity.connect(whitelisted).connectAccount(toconnect2.address);
+    return {};
   };
 
   it("should allow to connect account", async () => {
@@ -321,44 +270,6 @@ describe("Identity", () => {
     );
   });
 
-  it("should require valid deadline", async () => {
-    const toconnect = signers[10];
-    let whitelisted = signers[1];
-
-    await expect(
-      identity
-        .connect(whitelisted)
-        .connectAccount(
-          toconnect.address,
-          "0x",
-          await ethers.provider.getBlockNumber()
-        )
-    ).revertedWith(/invalid deadline/);
-
-    await expect(
-      identity.connect(whitelisted).connectAccount(toconnect.address, "0x", 0)
-    ).revertedWith(/invalid deadline/);
-  });
-
-  it("should not allow to replay signature", async () => {
-    const toconnect = signers[10];
-    let whitelisted = signers[1];
-    const { signed } = await loadFixture(connectedFixture);
-    await expect(
-      identity.connect(whitelisted).disconnectAccount(toconnect.address)
-    ).not.reverted;
-
-    await expect(
-      identity
-        .connect(whitelisted)
-        .connectAccount(
-          toconnect.address,
-          signed,
-          (await ethers.provider.getBlockNumber()) + 10
-        )
-    ).revertedWith(/invalid signature/);
-  });
-
   it("should not allow to connect account already whitelisted", async () => {
     await loadFixture(connectedFixture);
 
@@ -366,9 +277,7 @@ describe("Identity", () => {
     let whitelisted = signers[1];
 
     await expect(
-      identity
-        .connect(whitelisted)
-        .connectAccount(signers[2].address, "0x", 20000000)
+      identity.connect(whitelisted).connectAccount(signers[2].address)
     ).revertedWith(/invalid account/);
   });
 
@@ -406,9 +315,7 @@ describe("Identity", () => {
     const connected = signers[10];
 
     await expect(
-      identity
-        .connect(signers[2])
-        .connectAccount(connected.address, "0x", 200000)
+      identity.connect(signers[2]).connectAccount(connected.address)
     ).revertedWith(/already connected/);
   });
 
@@ -441,9 +348,9 @@ describe("Identity", () => {
 
   const oldidFixture = async () => {
     const newid = (await upgrades.deployProxy(
-      await ethers.getContractFactory("IdentityV2"),
+      await ethers.getContractFactory("IdentityV3"),
       [founder.address, identity.address]
-    )) as IdentityV2;
+    )) as IdentityV3;
 
     await identity.grantRole(
       await identity.IDENTITY_ADMIN_ROLE(),

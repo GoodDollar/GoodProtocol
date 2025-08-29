@@ -66,9 +66,7 @@ contract SuperGoodDollar is
 		IFeesFormula _formula,
 		IIdentity _identity,
 		address _feeRecipient,
-		address _owner,
-		IConstantOutflowNFT _outflowNFT,
-		IConstantInflowNFT _inflowNFT
+		address _owner
 	) public initializer {
 		initialize(IERC20(address(0)), 18, n, s);
 		__AccessControl_init_unchained();
@@ -82,8 +80,6 @@ contract SuperGoodDollar is
 		formula = _formula;
 		cap = _cap;
 		_setNFTProxyContracts(
-			_outflowNFT,
-			_inflowNFT,
 			IPoolAdminNFT(address(0)),
 			IPoolMemberNFT(address(0))
 		);
@@ -374,34 +370,19 @@ contract SuperGoodDollar is
 	 *************************************************************************/
 
 	function setNFTProxyContracts(
-		IConstantOutflowNFT _constantOutflowNFT,
-		IConstantInflowNFT _constantInflowNFT,
 		IPoolAdminNFT _poolAdminNFT,
 		IPoolMemberNFT _poolMemberNFT
 	) public {
 		_onlyOwner();
-		_setNFTProxyContracts(
-			_constantOutflowNFT,
-			_constantInflowNFT,
-			_poolAdminNFT,
-			_poolMemberNFT
-		);
+		_setNFTProxyContracts(_poolAdminNFT, _poolMemberNFT);
 	}
 
 	function _setNFTProxyContracts(
-		IConstantOutflowNFT _constantOutflowNFT,
-		IConstantInflowNFT _constantInflowNFT,
 		IPoolAdminNFT _poolAdminNFT,
 		IPoolMemberNFT _poolMemberNFT
 	) internal {
-		CONSTANT_OUTFLOW_NFT = _constantOutflowNFT;
-		CONSTANT_INFLOW_NFT = _constantInflowNFT;
 		poolAdminNFT = _poolAdminNFT;
 		poolMemberNFT = _poolMemberNFT;
-
-		// emit NFT proxy creation events
-		emit ConstantOutflowNFTCreated(CONSTANT_OUTFLOW_NFT);
-		emit ConstantInflowNFTCreated(CONSTANT_INFLOW_NFT);
 	}
 
 	function recover(IERC20 token) public {

@@ -58,53 +58,67 @@ export const deploySuperGoodDollar = async (sfContracts, tokenArgs) => {
     "contracts/token/superfluid/UUPSProxy.sol:UUPSProxy"
   );
   const GoodDollarProxy = await GoodDollarProxyFactory.deploy();
-
-  console.log("deploying flow nfts...");
-
-  const outNftProxy = await GoodDollarProxyFactory.deploy();
-  const inNftProxy = await GoodDollarProxyFactory.deploy();
-
-  const constantInflowNFT = await ethers.deployContract("ConstantInflowNFT", [
-    sfContracts.host,
-    outNftProxy.address
-  ]);
-
-  const constantOutflowNFT = await ethers.deployContract("ConstantOutflowNFT", [
-    sfContracts.host,
-    inNftProxy.address
-  ]);
-  await outNftProxy.initializeProxy(constantOutflowNFT.address);
-  await inNftProxy.initializeProxy(constantInflowNFT.address);
-
   console.log("deployed supergooddollar proxy, initializing proxy...");
   await GoodDollarProxy.initializeProxy(SuperGoodDollar.address);
 
-  console.log("initializing supergooddollar....");
-  await SuperGoodDollar.attach(GoodDollarProxy.address)[
-    "initialize(string,string,uint256,address,address,address,address,address,address)"
-  ](...tokenArgs, outNftProxy.address, inNftProxy.address);
-  const GoodDollar = await ethers.getContractAt(
-    "SuperGoodDollar",
-    GoodDollarProxy.address
-  );
-  console.log("supergooddollar created successfully");
+  if (sfContracts.host !== ethers.constants.AddressZero) {
+    console.log("deploying flow nfts...");
 
-  await constantOutflowNFT
-    .attach(outNftProxy.address)
-    .initialize(
-      (await GoodDollar.symbol()) + " Outflow NFT",
-      (await GoodDollar.symbol()) + " COF"
-    );
-  await constantInflowNFT
-    .attach(inNftProxy.address)
-    .initialize(
-      (await GoodDollar.symbol()) + " Inflow NFT",
-      (await GoodDollar.symbol()) + " CIF"
-    );
+    const outNftProxy = await GoodDollarProxyFactory.deploy();
+    const inNftProxy = await GoodDollarProxyFactory.deploy();
 
-  return GoodDollar;
+    const constantInflowNFT = await ethers.deployContract("ConstantInflowNFT", [
+      sfContracts.host,
+      outNftProxy.address
+    ]);
+
+    const constantOutflowNFT = await ethers.deployContract(
+      "ConstantOutflowNFT",
+      [sfContracts.host, inNftProxy.address]
+    );
+    await outNftProxy.initializeProxy(constantOutflowNFT.address);
+    await inNftProxy.initializeProxy(constantInflowNFT.address);
+
+    console.log("initializing supergooddollar....");
+    await SuperGoodDollar.attach(GoodDollarProxy.address)[
+      "initialize(string,string,uint256,address,address,address,address)"
+    ](...tokenArgs);
+    const GoodDollar = await ethers.getContractAt(
+      "SuperGoodDollar",
+      GoodDollarProxy.address
+    );
+    console.log("supergooddollar created successfully");
+
+    await constantOutflowNFT
+      .attach(outNftProxy.address)
+      .initialize(
+        (await GoodDollar.symbol()) + " Outflow NFT",
+        (await GoodDollar.symbol()) + " COF"
+      );
+    await constantInflowNFT
+      .attach(inNftProxy.address)
+      .initialize(
+        (await GoodDollar.symbol()) + " Inflow NFT",
+        (await GoodDollar.symbol()) + " CIF"
+      );
+    return GoodDollar;
+  } else {
+    console.log("initializing supergooddollar....");
+    await SuperGoodDollar.attach(GoodDollarProxy.address)[
+      "initialize(string,string,uint256,address,address,address,address)"
+    ](...tokenArgs);
+    const GoodDollar = await ethers.getContractAt(
+      "SuperGoodDollar",
+      GoodDollarProxy.address
+    );
+    console.log("supergooddollar created successfully");
+    return GoodDollar;
+  }
 };
-export const createDAO = async (tokenType: "super" | "regular" = "super") => {
+export const createDAO = async (
+  tokenType: "super" | "regular" = "super",
+  identity: "v2" | "v3" = "v3"
+) => {
   let [root, ...signers] = await ethers.getSigners();
 
   const sfContracts = await deploySuperFluid();
@@ -122,7 +136,9 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
     root
   );
 
-  const IdentityFactory = await ethers.getContractFactory("IdentityV2");
+  const IdentityFactory = await ethers.getContractFactory(
+    identity === "v2" ? "IdentityV2" : "IdentityV3"
+  );
 
   const FeeFormulaFactory = new ethers.ContractFactory(
     FeeFormulaABI.abi,
@@ -441,10 +457,7 @@ export const createDAO = async (tokenType: "super" | "regular" = "super") => {
   await setDAOAddress("REPUTATION", reputation.address);
 
   console.log("setting reserve token...");
-  await cDAI["mint(address,uint256)"](
-    goodReserve.address,
-    10000
-  );
+  await cDAI["mint(address,uint256)"](goodReserve.address, 10000);
   await setReserveToken(
     cDAI.address,
     "100", //1gd
@@ -511,8 +524,8 @@ export const deployUBI = async (deployedDAO, withFirstClaim = true) => {
   });
 
   let ubiScheme = await upgrades.deployProxy(
-    await ethers.getContractFactory("UBIScheme"),
-    [nameService.address, firstClaim.address, 14],
+    await ethers.getContractFactory("UBISchemeV2"),
+    [nameService.address],
     { kind: "uups" }
   );
 

@@ -10,6 +10,7 @@ import "solidity-coverage";
 import "hardhat-gas-reporter";
 import "hardhat-contract-sizer";
 import "hardhat-storage-layout";
+import "hardhat-deploy";
 import { task, types } from "hardhat/config";
 import { sha3 } from "web3-utils";
 import { config } from "dotenv";
@@ -35,12 +36,12 @@ const ethplorer_key = process.env.ETHPLORER_KEY;
 
 const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
 
-const goerli = {
+const xdc = {
   accounts: { mnemonic },
-  url: "https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
+  url: "https://rpc.xdc.network",
   gas: 3000000,
-  gasPrice: 2e9,
-  chainId: 5
+  gasPrice: 12.5e9,
+  chainId: 50
 };
 
 // console.log({ mnemonic: sha3(mnemonic) });
@@ -63,6 +64,8 @@ const hhconfig: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       mainnet: etherscan_key,
+      txdc: etherscan_key,
+      xdc: etherscan_key,
       celo: celoscan_key,
       alfajores: celoscan_key,
       base: basescan_key
@@ -82,6 +85,22 @@ const hhconfig: HardhatUserConfig = {
         urls: {
           apiURL: "https://alfajores.celoscan.io/api",
           browserURL: "https://alfajores.celoscan.io/"
+        }
+      },
+      {
+        network: "txdc",
+        chainId: 51,
+        urls: {
+          apiURL: "https://api.etherscan.io/v2/api?chainid=51",
+          browserURL: "https://testnet.xdcscan.com/"
+        }
+      },
+      {
+        network: "xdc",
+        chainId: 50,
+        urls: {
+          apiURL: "https://api.etherscan.io/v2/api?chainid=50",
+          browserURL: "https://xdcscan.com/"
         }
       }
     ]
@@ -129,27 +148,6 @@ const hhconfig: HardhatUserConfig = {
     "dapptest-mainnet": {
       gasPrice: 1000000000, //1 gwei
       url: "http://127.0.0.1:8545/"
-    },
-    ropsten: {
-      accounts: { mnemonic },
-      url: "https://ropsten.infura.io/v3/" + infura_api,
-      gas: 8000000,
-      gasPrice: 25000000000,
-      chainId: 3
-    },
-    kovan: {
-      accounts: { mnemonic },
-      url: "https://kovan.infura.io/v3/" + infura_api,
-      gas: 3000000,
-      gasPrice: 1000000000,
-      chainId: 42
-    },
-    "kovan-mainnet": {
-      accounts: { mnemonic },
-      url: "https://kovan.infura.io/v3/" + infura_api,
-      gas: 3000000,
-      gasPrice: 1000000000,
-      chainId: 42
     },
     fuse: {
       accounts: { mnemonic },
@@ -211,14 +209,14 @@ const hhconfig: HardhatUserConfig = {
       accounts: [deployerPrivateKey],
       url: "https://forno.celo.org",
       gas: 8000000,
-      gasPrice: 25e9,
+      gasPrice: 26e9,
       chainId: 42220
     },
     celo: {
       accounts: { mnemonic },
       url: "https://forno.celo.org",
       gas: 3000000,
-      gasPrice: 25e9,
+      gasPrice: 25.01e9,
       chainId: 42220
     },
     alfajores: {
@@ -266,9 +264,18 @@ const hhconfig: HardhatUserConfig = {
       gasPrice: 500000000,
       chainId: 100
     },
-    goerli,
-    "development-goerli": goerli,
-    "staging-goerli": goerli
+    txdc: {
+      accounts: [deployerPrivateKey],
+      url: "https://rpc.apothem.network",
+      chainId: 51
+    },
+    "production-xdc": {
+      ...xdc,
+      accounts: [deployerPrivateKey]
+    },
+    "development-xdc": {
+      ...xdc
+    }
   },
   mocha: {
     timeout: 6000000

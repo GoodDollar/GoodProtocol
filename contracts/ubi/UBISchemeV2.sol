@@ -129,17 +129,12 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 	/**
 	 * @dev Constructor
 	 * @param _ns the DAO
-	 * @param _maxInactiveDays Days of grace without claiming request
 	 */
-	function initialize(
-		INameService _ns,
-		uint256 _maxInactiveDays
-	) public initializer {
-		require(_maxInactiveDays > 0, "Max inactive days cannot be zero");
+	function initialize(INameService _ns) public initializer {
 		setDAO(_ns);
 		shouldWithdrawFromDAO = false;
 		cycleLength = 30; //30 days
-		periodStart = (block.timestamp / (1 days)) * 1 days + 12 hours; //set start time to GMT noon
+		periodStart = (block.timestamp / (1 days)) * 1 days - 12 hours; //set start time to GMT noon
 		startOfCycle = periodStart;
 		minActiveUsers = 1000;
 		reserveFactor = 10500;
@@ -240,13 +235,12 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 			uint256 currentBalance = token.balanceOf(address(this));
 			//start early cycle if daily pool size is +%5 previous pool or not enough until end of cycle
 			uint256 nextDailyPool = currentBalance / cycleLength;
-			bool shouldStartEarlyCycle = nextDailyPool >
-				(dailyCyclePool * 105) / 100 ||
-				currentBalance < (dailyCyclePool * (cycleLength - currentDayInCycle()));
+			bool shouldStartCycle = currentDayInCycle() >= currentCycleLength ||
+				(nextDailyPool > (dailyCyclePool * 105) / 100 ||
+					currentBalance <
+					(dailyCyclePool * (cycleLength - currentDayInCycle())));
 
-			if (
-				currentDayInCycle() >= currentCycleLength || shouldStartEarlyCycle
-			) //start of cycle or first time
+			if (shouldStartCycle) //start of cycle or first time
 			{
 				if (shouldWithdrawFromDAO) {
 					_withdrawFromDao();
@@ -347,16 +341,16 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 		uint256 currentBalance = nativeToken().balanceOf(address(this));
 		//start early cycle if we can increase the daily UBI pool
 		uint256 nextDailyPool = currentBalance / cycleLength;
-		bool shouldStartEarlyCycle = nextDailyPool > (dailyCyclePool * 105) / 100 ||
+		bool shouldStartEarlyCycle = currentDayInCycle() + 1 >=
+			currentCycleLength ||
+			nextDailyPool > (dailyCyclePool * 105) / 100 ||
 			currentBalance < (dailyCyclePool * (cycleLength - currentDayInCycle()));
 
 		uint256 _dailyCyclePool = dailyCyclePool;
 		uint256 _dailyUbi;
-		if (
-			(currentDayInCycle() + 1) >= currentCycleLength || shouldStartEarlyCycle
-		) //start of cycle or first time
+		if (shouldStartEarlyCycle) //start of cycle or first time
 		{
-			_dailyCyclePool = currentBalance / cycleLength;
+			_dailyCyclePool = nextDailyPool;
 		}
 
 		_dailyUbi =

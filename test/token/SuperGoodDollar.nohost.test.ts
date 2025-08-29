@@ -1,13 +1,11 @@
-import hre, { ethers } from "hardhat";
+import { ethers } from "hardhat";
 import { assert, expect } from "chai";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { Framework } from "@superfluid-finance/sdk-core";
 import TransferAndCallMockABI from "@gooddollar/goodcontracts/build/contracts/TransferAndCallMock.json";
 import { createDAO, deploySuperGoodDollar } from "../helpers";
 import { ISuperGoodDollar } from "../../types";
 
-let sf,
-  sfHost,
+let sfHost,
   founder,
   alice,
   bob,
@@ -29,16 +27,12 @@ before(async function () {
   //get accounts from hardhat
   [founder, alice, bob, eve, newHost] = await ethers.getSigners();
 
-  let { sfContracts } = await createDAO();
+  await createDAO();
 
+  const sfContracts = {
+    host: ethers.constants.AddressZero
+  };
   sfHost = sfContracts.host;
-  // initialize sdk-core to get a framework handle for more convenient access to Superfluid functionality
-  sf = await Framework.create({
-    chainId: 4447,
-    provider: ethers.provider,
-    resolverAddress: sfContracts.resolver,
-    protocolReleaseVersion: "test"
-  });
 
   // GoodDollar specific init
   const FeesFormulaMockFactory = await ethers.getContractFactory(
@@ -79,7 +73,7 @@ before(async function () {
   await sgd.mint(founder.address, alotOfDollars);
 });
 
-describe("SuperGoodDollar", async function () {
+describe("SuperGoodDollar No Host", async function () {
   it("check superfluid host", async () => {
     expect(await sgd.getHost()).equal(sfHost);
   });
@@ -130,32 +124,6 @@ describe("SuperGoodDollar", async function () {
     );
   });
 
-  it("start stream", async function () {
-    await loadFixture(initialState);
-    await sgd.mint(alice.address, alotOfDollars);
-
-    await sf.cfaV1
-      .createFlow({
-        superToken: sgd.address,
-        sender: alice.address,
-        receiver: bob.address,
-        flowRate: tenDollarsPerDay
-      })
-      .exec(alice);
-
-    const bobNetFlow = await sf.cfaV1.getNetFlow({
-      superToken: sgd.address,
-      account: bob.address,
-      providerOrSigner: ethers.provider
-    });
-
-    assert.equal(
-      bobNetFlow,
-      tenDollarsPerDay,
-      "bob net flowrate not as expected"
-    );
-  });
-
   it("pauseable", async function () {
     await loadFixture(initialState);
     await sgd.connect(founder).pause();
@@ -164,18 +132,6 @@ describe("SuperGoodDollar", async function () {
       sgd,
       "SUPER_GOODDOLLAR_PAUSED"
     );
-
-    await expect(
-      sf.cfaV1
-        .createFlow({
-          superToken: sgd.address,
-          sender: alice.address,
-          receiver: bob.address,
-          flowRate: tenDollarsPerDay,
-          overrides: { gasLimit: 1000000 }
-        })
-        .exec(alice)
-    ).reverted; // createflow should revert when paused
 
     await sgd.connect(founder).unpause();
 
