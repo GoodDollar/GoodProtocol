@@ -645,6 +645,7 @@
     "SuperfluidHost": "0x0000000000000000000000000000000000000000"
   },
   "development-xdc": {
+    "networkId": 50,
     "ProxyFactory": "0x2a866c021AAeD17DE0e679dB52b13079847Ec66B",
     "GoodDollar": "0xA13625A72Aef90645CfCe34e25c114629d7855e7",
     "Avatar": "0xC47747659b74Cc23210DD851b254260b0B039eED",
