@@ -60,7 +60,7 @@ export const deployHelpers = async () => {
       factory: await ethers.getContractFactory("UBISchemeV2"),
       isUpgradeable: true
     },
-    [release.NameService]
+    [release.NameService, protocolSettings.ubi.minActiveUsers]
   ).then(printDeploy)) as Contract;
 
   const torelease = {

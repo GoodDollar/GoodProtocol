@@ -525,7 +525,7 @@ export const deployUBI = async (deployedDAO, withFirstClaim = true) => {
 
   let ubiScheme = await upgrades.deployProxy(
     await ethers.getContractFactory("UBISchemeV2"),
-    [nameService.address],
+    [nameService.address, 1000],
     { kind: "uups" }
   );
 

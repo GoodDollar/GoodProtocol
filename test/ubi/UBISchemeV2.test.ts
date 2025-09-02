@@ -13,15 +13,7 @@ const ONE_DAY = 86400;
 const ONE_HOUR = 3600;
 
 describe("UBISchemeV2", () => {
-  let goodDollar,
-    identity,
-    formula,
-    avatar,
-    ubi: UBISchemeV2,
-    controller,
-    firstClaimPool,
-    setSchemes,
-    addWhitelisted;
+  let goodDollar, identity, formula, avatar, ubi: UBISchemeV2, controller, firstClaimPool, setSchemes, addWhitelisted;
   let reputation;
   let root,
     claimer1,
@@ -39,19 +31,8 @@ describe("UBISchemeV2", () => {
     ubiScheme;
 
   before(async () => {
-    [
-      root,
-      claimer1,
-      claimer2,
-      claimer3,
-      claimer4,
-      claimer5,
-      claimer6,
-      claimer7,
-      claimer8,
-      fisherman,
-      ...signers
-    ] = await ethers.getSigners();
+    [root, claimer1, claimer2, claimer3, claimer4, claimer5, claimer6, claimer7, claimer8, fisherman, ...signers] =
+      await ethers.getSigners();
     const fcFactory = new ethers.ContractFactory(
       FirstClaimPool.abi,
       FirstClaimPool.bytecode,
@@ -89,27 +70,21 @@ describe("UBISchemeV2", () => {
   });
 
   async function deployNewUbi() {
-    return await upgrades.deployProxy(
-      await ethers.getContractFactory("UBISchemeV2"),
-      [nameService.address]
-    );
+    return await upgrades.deployProxy(await ethers.getContractFactory("UBISchemeV2"), [nameService.address, 1000]);
   }
 
   it("should not accept 0 inactive days in the constructor", async () => {
     let ubi1 = await (await ethers.getContractFactory("UBIScheme")).deploy();
 
-    await expect(
-      ubi1.initialize(nameService.address, firstClaimPool.address, 0)
-    ).revertedWith(/Max inactive days cannot be zero/);
+    await expect(ubi1.initialize(nameService.address, firstClaimPool.address, 0)).revertedWith(
+      /Max inactive days cannot be zero/
+    );
   });
 
   it("should deploy the ubi", async () => {
     const block = await ethers.provider.getBlock("latest");
     const startUBI = block.timestamp;
-    ubi = await upgrades.deployProxy(
-      await ethers.getContractFactory("UBISchemeV2"),
-      [nameService.address]
-    );
+    ubi = await upgrades.deployProxy(await ethers.getContractFactory("UBISchemeV2"), [nameService.address, 1000]);
     const periodStart = await ubi.periodStart();
     // initializing the ubi
     let encodedCall = ubi.interface.encodeFunctionData("setCycleLength", [1]);
@@ -167,10 +142,7 @@ describe("UBISchemeV2", () => {
   });
 
   it.skip("should set the ubi scheme by avatar", async () => {
-    let encodedCall = firstClaimPool.interface.encodeFunctionData(
-      "setUBIScheme",
-      [NULL_ADDRESS]
-    );
+    let encodedCall = firstClaimPool.interface.encodeFunctionData("setUBIScheme", [NULL_ADDRESS]);
     await genericCall(firstClaimPool.address, encodedCall);
     const newUbi = await firstClaimPool.ubi();
     expect(newUbi.toString()).to.be.equal(NULL_ADDRESS);
@@ -186,10 +158,7 @@ describe("UBISchemeV2", () => {
     expect(error.message).to.have.string("ubi has not initialized");
 
     // initializing the ubi
-    let encodedCall = firstClaimPool.interface.encodeFunctionData(
-      "setUBIScheme",
-      [ubi.address]
-    );
+    let encodedCall = firstClaimPool.interface.encodeFunctionData("setUBIScheme", [ubi.address]);
     await genericCall(firstClaimPool.address, encodedCall);
   });
 
@@ -241,8 +210,7 @@ describe("UBISchemeV2", () => {
     expect(amountClaimed.eq(100));
     expect(activeUsersCount.toNumber()).to.be.equal(2);
     expect(claimersCount.eq(2));
-    expect(transaction.events.find(_ => _.event === "ActivatedUser")).to.be.not
-      .empty;
+    expect(transaction.events.find(_ => _.event === "ActivatedUser")).to.be.not.empty;
   });
 
   it.skip("should not be able to fish a new user", async () => {
@@ -296,16 +264,10 @@ describe("UBISchemeV2", () => {
     // in the ubi and in the next day after transferring the balances from the
     // dao, making sure that the tokens that have not been claimed are
     // taken by the formula as expected.
-    let encoded = goodDollar.interface.encodeFunctionData("transfer", [
-      signers[0].address,
-      "1000"
-    ]);
+    let encoded = goodDollar.interface.encodeFunctionData("transfer", [signers[0].address, "1000"]);
 
     await genericCall(goodDollar.address, encoded); // There is 10gd initially allocated to avatar so I send it to another address for further transactions
-    let encodedCall = ubi.interface.encodeFunctionData(
-      "setShouldWithdrawFromDAO",
-      [true]
-    );
+    let encodedCall = ubi.interface.encodeFunctionData("setShouldWithdrawFromDAO", [true]);
     await genericCall(ubi.address, encodedCall); // we should set cyclelength to one cause this tests was implemented according to it
     const currentDay = await ubi.currentDayInCycle().then(_ => _.toNumber());
     await increaseTime(ONE_DAY);
@@ -358,12 +320,8 @@ describe("UBISchemeV2", () => {
     let dailyUbi = await ubi.dailyUbi();
     await ubi.connect(claimer4).claim();
     let claimer4Balance3 = await goodDollar.balanceOf(claimer4.address);
-    expect(
-      claimer4Balance2.toNumber() - claimer4Balance1.toNumber()
-    ).to.be.equal(dailyUbi.toNumber());
-    expect(
-      claimer4Balance3.toNumber() - claimer4Balance1.toNumber()
-    ).to.be.equal(dailyUbi.toNumber());
+    expect(claimer4Balance2.toNumber() - claimer4Balance1.toNumber()).to.be.equal(dailyUbi.toNumber());
+    expect(claimer4Balance3.toNumber() - claimer4Balance1.toNumber()).to.be.equal(dailyUbi.toNumber());
   });
 
   it("should return the daily ubi for entitlement user", async () => {
@@ -390,11 +348,8 @@ describe("UBISchemeV2", () => {
     let dailyUbi = await ubi.dailyUbi();
     expect(isFishedBefore).to.be.false;
     expect(isFishedAfter).to.be.true;
-    expect(tx.events.find(_ => _.event === "InactiveUserFished")).to.be.not
-      .empty;
-    expect(
-      claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
-    ).to.be.equal(dailyUbi.toNumber());
+    expect(tx.events.find(_ => _.event === "InactiveUserFished")).to.be.not.empty;
+    expect(claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()).to.be.equal(dailyUbi.toNumber());
   });
 
   it.skip("should not be able to fish the same user twice", async () => {
@@ -411,27 +366,18 @@ describe("UBISchemeV2", () => {
     expect(error.message).to.have.string("can't fish");
     expect(isFishedBefore).to.be.true;
     expect(isFishedAfter).to.be.true;
-    expect(claimer4BalanceAfter.toNumber()).to.be.equal(
-      claimer4BalanceBefore.toNumber()
-    );
+    expect(claimer4BalanceAfter.toNumber()).to.be.equal(claimer4BalanceBefore.toNumber());
   });
   it.skip("should be able to fish multiple user", async () => {
     await goodDollar.mint(avatar, "20");
     await increaseTime(MAX_INACTIVE_DAYS * ONE_DAY);
     let claimer4BalanceBefore = await goodDollar.balanceOf(claimer4.address);
-    let tx = await (
-      await ubi
-        .connect(claimer4)
-        .fishMulti([claimer2.address, claimer3.address])
-    ).wait();
+    let tx = await (await ubi.connect(claimer4).fishMulti([claimer2.address, claimer3.address])).wait();
     let claimer4BalanceAfter = await goodDollar.balanceOf(claimer4.address);
     let dailyUbi = await ubi.dailyUbi();
     const totalFishedEvent = tx.events.find(e => e.event === "TotalFished");
-    expect(tx.events.find(e => e.event === "InactiveUserFished")).to.be.not
-      .empty;
-    expect(
-      claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
-    ).to.be.equal(2 * dailyUbi.toNumber());
+    expect(tx.events.find(e => e.event === "InactiveUserFished")).to.be.not.empty;
+    expect(claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()).to.be.equal(2 * dailyUbi.toNumber());
     expect(totalFishedEvent.args.total.toNumber() === 2).to.be.true;
   });
 
@@ -450,9 +396,7 @@ describe("UBISchemeV2", () => {
     expect(error.message).to.have.string("can't fish");
     expect(isFishedBefore).to.be.false;
     expect(isFishedAfter).to.be.false;
-    expect(claimer4BalanceAfter.toNumber()).to.be.equal(
-      claimer4BalanceBefore.toNumber()
-    );
+    expect(claimer4BalanceAfter.toNumber()).to.be.equal(claimer4BalanceBefore.toNumber());
   });
 
   it.skip("should be able to remove an inactive user that no longer whitelisted", async () => {
@@ -466,11 +410,8 @@ describe("UBISchemeV2", () => {
     let dailyUbi = await ubi.dailyUbi();
     expect(isFishedBefore).to.be.false;
     expect(isFishedAfter).to.be.true;
-    expect(tx.events.find(e => e.event === "InactiveUserFished")).to.be.not
-      .empty;
-    expect(
-      claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
-    ).to.be.equal(dailyUbi.toNumber());
+    expect(tx.events.find(e => e.event === "InactiveUserFished")).to.be.not.empty;
+    expect(claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()).to.be.equal(dailyUbi.toNumber());
   });
 
   it.skip("should be able to fish user that removed from the whitelist", async () => {
@@ -487,11 +428,8 @@ describe("UBISchemeV2", () => {
     let dailyUbi = await ubi.dailyUbi();
     expect(isFishedBefore).to.be.false;
     expect(isFishedAfter).to.be.true;
-    expect(tx.events.find(e => e.event === "InactiveUserFished")).to.be.not
-      .empty;
-    expect(
-      claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
-    ).to.be.equal(dailyUbi.toNumber());
+    expect(tx.events.find(e => e.event === "InactiveUserFished")).to.be.not.empty;
+    expect(claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()).to.be.equal(dailyUbi.toNumber());
   });
 
   it.skip("should recieves a claim reward on claim after removed and added again to the whitelist", async () => {
@@ -505,12 +443,8 @@ describe("UBISchemeV2", () => {
     let activeUsersCountAfter = await ubi.activeUsersCount();
     expect(isFishedBefore).to.be.true;
     expect(isFishedAfter).to.be.false;
-    expect(
-      activeUsersCountAfter.toNumber() - activeUsersCountBefore.toNumber()
-    ).to.be.equal(1);
-    expect(
-      claimerBalanceAfter.toNumber() - claimerBalanceBefore.toNumber()
-    ).to.be.equal(100);
+    expect(activeUsersCountAfter.toNumber() - activeUsersCountBefore.toNumber()).to.be.equal(1);
+    expect(claimerBalanceAfter.toNumber() - claimerBalanceBefore.toNumber()).to.be.equal(100);
   });
 
   it("distribute formula should return correct value", async () => {
@@ -544,9 +478,7 @@ describe("UBISchemeV2", () => {
     expect(ubiBalance.div(activeUsersCount).toNumber()).to.be.equal(
       claimer4BalanceAfter.toNumber() - claimer4BalanceBefore.toNumber()
     );
-    expect(ubiBalance.div(activeUsersCount).toNumber()).to.be.equal(
-      dailyUbi.toNumber()
-    );
+    expect(ubiBalance.div(activeUsersCount).toNumber()).to.be.equal(dailyUbi.toNumber());
   });
 
   it("should calcualte the correct distribution formula and transfer the correct amount when the ubi has a large amount of tokens", async () => {
@@ -564,9 +496,7 @@ describe("UBISchemeV2", () => {
     let dailyCyclePool = await ubi.dailyCyclePool();
     let activeUsersCount = await ubi.minActiveUsers(); // await ubi.activeUsersCount();
     // the dailyCyclePool  divided by max(activeUser,minActiveUsers) should give the daily claim (diff between ubipool balances)
-    expect(claimer1Balance2.sub(claimer1Balance1).toString()).to.be.equal(
-      dailyCyclePool.div(activeUsersCount)
-    );
+    expect(claimer1Balance2.sub(claimer1Balance1).toString()).to.be.equal(dailyCyclePool.div(activeUsersCount));
   });
 
   it.skip("should be able to iterate over all accounts if enough gas in fishMulti", async () => {
@@ -600,10 +530,7 @@ describe("UBISchemeV2", () => {
   });
 
   it.skip("should set the ubi claim amount by avatar", async () => {
-    let encodedCall = firstClaimPool.interface.encodeFunctionData(
-      "setClaimAmount",
-      [200]
-    );
+    let encodedCall = firstClaimPool.interface.encodeFunctionData("setClaimAmount", [200]);
 
     await genericCall(firstClaimPool.address, encodedCall);
     const claimAmount = await firstClaimPool.claimAmount();
@@ -611,10 +538,7 @@ describe("UBISchemeV2", () => {
   });
 
   it.skip("should set if withdraw from the dao or not", async () => {
-    let encodedCall = ubi.interface.encodeFunctionData(
-      "setShouldWithdrawFromDAO",
-      [false]
-    );
+    let encodedCall = ubi.interface.encodeFunctionData("setShouldWithdrawFromDAO", [false]);
     await genericCall(ubi.address, encodedCall); // we should set cyclelength to one cause this tests was implemented according to it
     const shouldWithdrawFromDAO = await ubi.shouldWithdrawFromDAO();
     expect(shouldWithdrawFromDAO).to.be.equal(false);

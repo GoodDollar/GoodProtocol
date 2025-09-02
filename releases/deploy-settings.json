@@ -34,7 +34,8 @@
       "blocksPerYear": "6307200"
     },
     "ubi": {
-      "maxInactiveDays": 14
+      "maxInactiveDays": 14,
+      "minActiveUsers": 1000
     }
   },
   "develop": {
@@ -302,5 +303,13 @@
   "development-xdc": {
     "gasPrice": 12.5e9,
     "superfluidHost": "0x0000000000000000000000000000000000000000"
+  },
+  "production-xdc": {
+    "gasPrice": 12.5e9,
+    "superfluidHost": "0x0000000000000000000000000000000000000000",
+    "ubi": {
+      "maxInactiveDays": 14,
+      "minActiveUsers": 30000
+    }
   }
 }
