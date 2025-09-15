@@ -657,6 +657,11 @@
     "AdminWallet": "0x63B69B1b986427a63cB8d6Ba25CdF08605471BE9",
     "Faucet": "0x5CE5e22329914F3317B770184a405E91ef72e489",
     "Invites": "0xE376DAd6FAe634332B514cE8fF2aD23FBB5d82EF",
-    "UBIScheme": "0xA2619D468EfE2f6D8b3D915B999327C8fE13aE2c"
+    "UBIScheme": "0xA2619D468EfE2f6D8b3D915B999327C8fE13aE2c",
+    "MentoReserve": "0x27ad26f569439de66cc0d5e8d7a3abc5df512a52",
+    "MentoBroker": "0x6ef11986dc7ebde345134068877efecd18d7430c",
+    "MentoExchangeProvider": "0x1fad5a713da1f51e2a1ac4ca2e1d621919f0aba0",
+    "MentoExpansionController": "0xe69bd25ca06264780e377e8d81a59271299adb36",
+    "MentoProxyAdmin": "0x54f44fBE2943c2196D94831288E716cdeAF5657"
   }
 }
