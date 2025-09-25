@@ -660,6 +660,11 @@
     "UBIScheme": "0xA2619D468EfE2f6D8b3D915B999327C8fE13aE2c",
     "StaticOracle": "0x725244458f011551Dde1104c9728746EEBEA19f9",
     "UniswapV3Router": "0x3b9edecc4286ba33ea6e27119c2a4db99829839d",
-    "DistributionHelper": "0xE68B7960b17bd49693B0219a42c5ffE86F512e6f"
+    "DistributionHelper": "0xE68B7960b17bd49693B0219a42c5ffE86F512e6f",
+    "MentoReserve": "0x27ad26f569439de66cc0d5e8d7a3abc5df512a52",
+    "MentoBroker": "0x6ef11986dc7ebde345134068877efecd18d7430c",
+    "MentoExchangeProvider": "0x1fad5a713da1f51e2a1ac4ca2e1d621919f0aba0",
+    "MentoExpansionController": "0xe69bd25ca06264780e377e8d81a59271299adb36",
+    "MentoProxyAdmin": "0x54f44fBE2943c2196D94831288E716cdeAF5657"
   }
 }
