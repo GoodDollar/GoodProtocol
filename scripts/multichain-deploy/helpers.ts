@@ -224,6 +224,75 @@ export const deployDeterministic = async (contract, args: any[], factoryOpts = {
   }
 };
 
+export const upgradeDeterministicToNewImplViaGuardian = async (contract, factoryOpts = {}) => {
+  try {
+    let proxyFactory: ProxyFactory1967;
+    proxyFactory = (await ethers.getContractAt("ProxyFactory1967", release.ProxyFactory)) as ProxyFactory1967;
+    const Contract =
+      (contract.factory as ContractFactory) || (await ethers.getContractFactory(contract.name, factoryOpts));
+
+    const salt = ethers.BigNumber.from(
+      ethers.utils.keccak256(ethers.utils.toUtf8Bytes(contract.salt || contract.name))
+    );
+
+    if (contract.isUpgradeable === true) {
+      const proxyAddr = await proxyFactory["getDeploymentAddress(uint256,address)"](
+        salt,
+        await proxyFactory.signer.getAddress()
+      );
+      const code = await ethers.provider.getCode(proxyAddr);
+      if (code && code !== "0x") {
+        const implAddr = await getImplementationAddress(ethers.provider, proxyAddr).catch(e => "0x");
+        if (implAddr && implAddr !== "0x") {
+          console.log("proxy exists and impl set already:", contract.name, proxyAddr, implAddr);
+          console.log("Deploying:", contract.name, " implementation", {
+            proxyAddr,
+          });
+
+          const tx = await Contract.deploy(GAS_SETTINGS);
+          const impl = await tx.deployed();
+          console.log("implementation deployed:", contract.name, impl.address);
+          await countTotalGas(tx, contract.name);
+
+          const proposalContracts = [
+            release.DistributionHelper
+          ];
+
+          const proposalEthValues = proposalContracts.map(_ => 0);
+
+          const proposalFunctionSignatures = [
+            "upgradeTo(address)" //add ubischeme
+          ];
+
+          const proposalFunctionInputs = [
+            ethers.utils.defaultAbiCoder.encode(
+              ["address"],
+              [impl.address]
+            )
+          ];
+          let [root] = await ethers.getSigners();
+          await executeViaGuardian(
+            proposalContracts,
+            proposalEthValues,
+            proposalFunctionSignatures,
+            proposalFunctionInputs,
+            root
+          );
+
+          console.log("proxy upgraded:", contract.name, { proxyAddr, implAddr: impl.address });
+          return Contract.attach(proxyAddr);
+        }
+      }
+    } else {
+      console.log("This contract is not upgradeable");
+    }
+  } catch (e) {
+    console.log("Failed deploying contract:", { contract });
+    throw e;
+  }
+};
+
+
 export const executeViaGuardian = async (
   contracts,
   ethValues,

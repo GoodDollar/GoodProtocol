@@ -81,19 +81,31 @@ export const deployHelpers = async () => {
 
   console.log("setting nameservice addresses via guardian");
   const proposalContracts = [
-    release.NameService //nameservice
+    release.NameService, //nameservice
+    release.DistributionHelper
   ];
 
   const proposalEthValues = proposalContracts.map(_ => 0);
 
   const proposalFunctionSignatures = [
-    "setAddresses(bytes32[],address[])" //add ubischeme
+    "setAddresses(bytes32[],address[])", //add ubischeme
+    "addOrUpdateRecipient((uint32,uint32,address,uint8))"
   ];
 
+  const recipient = {
+    bps: 10000, // 100% (bps = basis points)
+    chainId: network.config.chainId, // XDC mainnet
+    addr: release.UBIScheme,
+    transferType: 1 // enum TransferType.Transfer = 0
+  };
   const proposalFunctionInputs = [
     ethers.utils.defaultAbiCoder.encode(
       ["bytes32[]", "address[]"],
       [[keccak256(toUtf8Bytes("DISTRIBUTION_HELPER"))], [DistHelper.address]]
+    ),
+    ethers.utils.defaultAbiCoder.encode(
+      ["tuple(uint32 bps,uint32 chainId,address addr,uint8 transferType)"],
+      [[recipient.bps, recipient.chainId, recipient.addr, recipient.transferType]]
     )
   ];
 

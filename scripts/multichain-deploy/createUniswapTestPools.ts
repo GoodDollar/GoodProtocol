@@ -47,12 +47,12 @@ const main = async () => {
 
   const existingPrice = (Number(sqrtPriceX96.toString()) / 2 ** 96) ** 2;
   console.log("created pool at:", gdstablePool.address, { existingPrice });
-  let price = BigInt(Math.sqrt(10000) * 2 ** 96); //1 G$ = 0.0001 Stable
+  let price = BigInt(Math.sqrt(10000 * (10 ** (18 - STABLE_DECIMALS))) * 2 ** 96); //1 G$ = 0.0001 Stable
   let amount1 = ethers.utils.parseUnits("50000", 18);
   let amount0 = ethers.utils.parseUnits("5", STABLE_DECIMALS);
 
-  if ((await gdstablePool.token0()) === release.GoodDollar) {
-    price = BigInt(Math.sqrt(0.0001) * 2 ** 96);
+  if ((await gdstablePool.token0()).toLowerCase() === release.GoodDollar.toLowerCase()) {
+    price = BigInt(Math.sqrt(0.0001 * (10 ** (STABLE_DECIMALS - 18))) * 2 ** 96);
     amount0 = ethers.utils.parseUnits("50000", 18);
     amount1 = ethers.utils.parseUnits("5", STABLE_DECIMALS);
   }
@@ -118,12 +118,12 @@ const main = async () => {
 
   const gasexistingPrice = (Number(gasSqrtPriceX96.toString()) / 2 ** 96) ** 2;
   console.log("created pool at:", gasstablePool.address, { gasexistingPrice });
-  price = BigInt(Math.sqrt(GASPRICE_STABLE) * 2 ** 96); //1 G$ = 0.0001 Stable
+  price = BigInt(Math.sqrt(GASPRICE_STABLE * (10 ** (18 - STABLE_DECIMALS))) * 2 ** 96); //1 G$ = 0.0001 Stable
   amount1 = ethers.utils.parseUnits((5 / GASPRICE_STABLE).toString(), 18);
   amount0 = ethers.utils.parseUnits("5", STABLE_DECIMALS);
 
-  if ((await gasstablePool.token0()) === protocolSettings.reserve.gasToken) {
-    price = BigInt(Math.sqrt(1 / GASPRICE_STABLE) * 2 ** 96);
+  if ((await gasstablePool.token0()).toLowerCase() === protocolSettings.reserve.gasToken.toLowerCase()) {
+    price = BigInt(Math.sqrt(1 / GASPRICE_STABLE / (10 ** (18 - STABLE_DECIMALS))) * 2 ** 96);
     let temp = amount0;
     amount0 = amount1;
     amount1 = temp;
