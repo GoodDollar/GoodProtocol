@@ -82,8 +82,8 @@ const main = async () => {
       tickUpper: 887220,
       amount0Desired: amount0,
       amount1Desired: amount1,
-      amount0Min: 0,
-      amount1Min: 0,
+      amount0Min: amount0.mul(8).div(10),
+      amount1Min: amount1.mul(8).div(10),
       recipient: root.address,
       deadline: Math.floor(Date.now() / 1000) + 60 * 10
     })
@@ -153,8 +153,8 @@ const main = async () => {
       tickUpper: 887220,
       amount0Desired: amount0,
       amount1Desired: amount1,
-      amount0Min: 0,
-      amount1Min: 0,
+      amount0Min: amount0.mul(8).div(10),
+      amount1Min: amount1.mul(8).div(10),
       recipient: root.address,
       deadline: Math.floor(Date.now() / 1000) + 60 * 10
     })
