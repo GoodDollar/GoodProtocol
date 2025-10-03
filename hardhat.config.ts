@@ -269,12 +269,16 @@ const hhconfig: HardhatUserConfig = {
       url: "https://rpc.apothem.network",
       chainId: 51
     },
+    xdc: {
+      ...xdc
+    },
     "production-xdc": {
       ...xdc,
       accounts: [deployerPrivateKey]
     },
     "development-xdc": {
-      ...xdc
+      ...xdc,
+      accounts: [deployerPrivateKey]
     }
   },
   mocha: {

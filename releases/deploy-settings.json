@@ -34,7 +34,8 @@
       "blocksPerYear": "6307200"
     },
     "ubi": {
-      "maxInactiveDays": 14
+      "maxInactiveDays": 14,
+      "minActiveUsers": 1000
     }
   },
   "develop": {
@@ -301,6 +302,18 @@
   },
   "development-xdc": {
     "gasPrice": 12.5e9,
-    "superfluidHost": "0x0000000000000000000000000000000000000000"
+    "superfluidHost": "0x0000000000000000000000000000000000000000",
+    "reserve": {
+      "gasToken": "0x951857744785e80e2de051c32ee7b25f9c458c42",
+      "reserveToken": "0xCCE5f6B605164B7784b4719829d84b0f7493b906"
+    }
+  },
+  "production-xdc": {
+    "gasPrice": 12.5e9,
+    "superfluidHost": "0x0000000000000000000000000000000000000000",
+    "ubi": {
+      "maxInactiveDays": 14,
+      "minActiveUsers": 30000
+    }
   }
 }

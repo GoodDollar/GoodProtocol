@@ -130,13 +130,16 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 	 * @dev Constructor
 	 * @param _ns the DAO
 	 */
-	function initialize(INameService _ns) public initializer {
+	function initialize(
+		INameService _ns,
+		uint256 _minActiveUsers
+	) public initializer {
 		setDAO(_ns);
 		shouldWithdrawFromDAO = false;
 		cycleLength = 30; //30 days
 		periodStart = (block.timestamp / (1 days)) * 1 days - 12 hours; //set start time to GMT noon
 		startOfCycle = periodStart;
-		minActiveUsers = 1000;
+		minActiveUsers = _minActiveUsers;
 		reserveFactor = 10500;
 	}
 

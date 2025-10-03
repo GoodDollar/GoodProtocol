@@ -53,18 +53,25 @@ export const deployHelpers = async () => {
     balance: await ethers.provider.getBalance(root.address).then(_ => _.toString())
   });
 
-  console.log("deploying ubi pool");
-  const UBIScheme = (await deployDeterministic(
+  console.log("deploying dist helper");
+  const DistHelper = (await deployDeterministic(
     {
-      name: "UBISchemeV2",
-      factory: await ethers.getContractFactory("UBISchemeV2"),
+      name: "DistributionHelper",
+      factory: await ethers.getContractFactory("GenericDistributionHelper"),
       isUpgradeable: true
     },
-    [release.NameService, protocolSettings.ubi.minActiveUsers]
+    [
+      release.NameService,
+      release.StaticOracle,
+      protocolSettings.reserve.gasToken,
+      protocolSettings.reserve.reserveToken,
+      release.UniswapV3Router,
+      [ethers.utils.parseEther("100"), ethers.utils.parseEther("100"), 5, 5]
+    ]
   ).then(printDeploy)) as Contract;
 
   const torelease = {
-    UBIScheme: UBIScheme.address
+    DistributionHelper: DistHelper.address
   };
   release = {
     ...release,
@@ -74,28 +81,33 @@ export const deployHelpers = async () => {
 
   console.log("setting nameservice addresses via guardian");
   const proposalContracts = [
-    release.NameService //nameservice
+    release.NameService, //nameservice
+    release.DistributionHelper
   ];
 
   const proposalEthValues = proposalContracts.map(_ => 0);
 
   const proposalFunctionSignatures = [
-    "setAddresses(bytes32[],address[])" //add ubischeme
+    "setAddresses(bytes32[],address[])", //add ubischeme
+    "addOrUpdateRecipient((uint32,uint32,address,uint8))"
   ];
 
+  const recipient = {
+    bps: 10000, // 100% (bps = basis points)
+    chainId: network.config.chainId, // XDC mainnet
+    addr: release.UBIScheme,
+    transferType: 1 // enum TransferType.Transfer = 0
+  };
   const proposalFunctionInputs = [
     ethers.utils.defaultAbiCoder.encode(
       ["bytes32[]", "address[]"],
-      [[keccak256(toUtf8Bytes("UBISCHEME"))], [UBIScheme.address]]
+      [[keccak256(toUtf8Bytes("DISTRIBUTION_HELPER"))], [DistHelper.address]]
+    ),
+    ethers.utils.defaultAbiCoder.encode(
+      ["tuple(uint32 bps,uint32 chainId,address addr,uint8 transferType)"],
+      [[recipient.bps, recipient.chainId, recipient.addr, recipient.transferType]]
     )
   ];
-
-  if (!name.includes("production")) {
-    console.log("minting G$s to pool on dev envs");
-    const gd = await ethers.getContractAt("IGoodDollar", release.GoodDollar);
-    const decimals = await gd.decimals();
-    await gd.mint(UBIScheme.address, ethers.BigNumber.from(1e6).mul(ethers.BigNumber.from("10").pow(decimals))); //1million GD
-  }
 
   try {
     if (viaGuardians) {
@@ -119,8 +131,8 @@ export const deployHelpers = async () => {
     console.error("proposal execution failed...", e.message);
   }
 
-  let impl = await getImplementationAddress(ethers.provider, UBIScheme.address);
-  await verifyContract(impl, "contracts/ubi/UBISchemeV2.sol:UBISchemeV2", network.name);
+  let impl = await getImplementationAddress(ethers.provider, DistHelper.address);
+  await verifyContract(impl, "contracts/reserve/GenericDistributionHelper.sol:GenericDistributionHelper", network.name);
 };
 
 export const main = async (networkName = name) => {
