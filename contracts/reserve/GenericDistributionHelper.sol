@@ -67,7 +67,11 @@ contract GenericDistributionHelper is
 	);
 	event RecipientUpdated(DistributionRecipient recipient, uint256 index);
 	event RecipientAdded(DistributionRecipient recipient, uint256 index);
-	event BuyNativeFailed(string reason);
+	event BuyNativeFailed(
+		string reason,
+		uint256 amountToSell,
+		uint256 amountOutMinimum
+	);
 
 	receive() external payable {}
 
@@ -148,9 +152,9 @@ contract GenericDistributionHelper is
 			try IWETH(gasToken).withdraw(boughtNative) {
 				// success
 			} catch Error(string memory reason) {
-				emit BuyNativeFailed(reason);
+				emit BuyNativeFailed(reason, boughtNative, 0);
 			} catch {
-				emit BuyNativeFailed("WETH withdraw failed");
+				emit BuyNativeFailed("WETH withdraw failed", boughtNative, 0);
 			}
 		}
 
@@ -308,7 +312,7 @@ contract GenericDistributionHelper is
 		try ROUTER.exactInput(params) returns (uint256 amountOut) {
 			return amountOut;
 		} catch Error(string memory reason) {
-			emit BuyNativeFailed(reason);
+			emit BuyNativeFailed(reason, amountToSell, amountOutMinimum);
 			return 0;
 		}
 	}
