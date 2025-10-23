@@ -286,8 +286,8 @@ const hhconfig: HardhatUserConfig = {
       accounts: [deployerPrivateKey]
     },
     "development-xdc": {
-      ...xdc,
-      accounts: [deployerPrivateKey]
+      ...xdc
+      // url: "http://localhost:8545"
     }
   },
   mocha: {
