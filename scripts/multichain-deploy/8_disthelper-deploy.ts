@@ -109,7 +109,7 @@ export const deployHelpers = async () => {
       "addOrUpdateRecipient((uint32,uint32,address,uint8))",
       ethers.utils.defaultAbiCoder.encode(
         ["uint32", "uint32", "address", "uint8"],
-        [1000, 42220, dao[celoNetwork].CommunitySafe, 0] //10% to celo community safe
+        [1000, 42220, dao[celoNetwork].CommunitySafe, network.name === celoNetwork ? 1 : 0] //10% to celo community safe, use LZ bridge if not on celo
       ),
       0
     ]);
