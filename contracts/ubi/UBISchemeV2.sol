@@ -269,7 +269,7 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 				dailyCyclePool /
 				max((prevDayClaimers * reserveFactor) / 10000, minActiveUsers);
 			//update minActiveUsers as claimers grow
-			minActiveUsers = (prevDayClaimers + minActiveUsers * 4) / 5; //smooth it a bit
+			minActiveUsers = (prevDayClaimers + minActiveUsers * 29) / 30; //smooth it a bit
 
 			emit UBICalculated(currentDay, dailyUbi, block.number);
 		}
