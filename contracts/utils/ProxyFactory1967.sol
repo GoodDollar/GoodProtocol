@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+//pragma solidity =0.8.16; // xdc deployed version
 pragma solidity >=0.8;
 
 import "@openzeppelin/contracts/proxy/Proxy.sol";
