@@ -67,6 +67,7 @@ export const deploySuperGoodDollar = async (
     [superfluidHost]
   ).then(printDeploy)) as Contract;
 
+  console.log("supergoodollar logic deployed:", SuperGoodDollar.address);
   const uupsFactory = await ethers.getContractFactory("UUPSProxy");
   const GoodDollarProxy = (await deployDeterministic(
     {
@@ -75,9 +76,13 @@ export const deploySuperGoodDollar = async (
     },
     []
   ).then(printDeploy)) as Contract;
-
-  await GoodDollarProxy.initializeProxy(SuperGoodDollar.address).then(printDeploy);
-
+  console.log("supergoodollar proxy deployed:", GoodDollarProxy.address);
+  try {
+    await GoodDollarProxy.initializeProxy(SuperGoodDollar.address).then(printDeploy);
+  } catch (e) {
+    console.log("failed initialized supergd proxy. probably already was init");
+  }
+  console.log("supergoodollar proxy initialized:", GoodDollarProxy.address);
   let OutFlowNFT = await ethers.getContractAt("ConstantOutflowNFT", ethers.constants.AddressZero);
   let InFlowNFT = await ethers.getContractAt("ConstantOutflowNFT", ethers.constants.AddressZero);
 
@@ -103,9 +108,13 @@ export const deploySuperGoodDollar = async (
     await InFlowNFT.initializeProxy(superfluidInflowNFTLogic);
   }
   console.log("initializing supergooddollar");
-  await SuperGoodDollar.attach(GoodDollarProxy.address)[
-    "initialize(string,string,uint256,address,address,address,address)"
-  ](...tokenArgs);
+  try {
+    await SuperGoodDollar.attach(GoodDollarProxy.address)[
+      "initialize(string,string,uint256,address,address,address,address)"
+    ](...tokenArgs);
+  } catch (e) {
+    console.log("failed initializing supergd. probably already was init");
+  }
 
   const GoodDollar = await ethers.getContractAt("ISuperGoodDollar", GoodDollarProxy.address);
 
@@ -246,7 +255,7 @@ export const upgradeDeterministicToNewImplViaGuardian = async (contract, factory
         if (implAddr && implAddr !== "0x") {
           console.log("proxy exists and impl set already:", contract.name, proxyAddr, implAddr);
           console.log("Deploying:", contract.name, " implementation", {
-            proxyAddr,
+            proxyAddr
           });
 
           const tx = await Contract.deploy(GAS_SETTINGS);
@@ -254,9 +263,7 @@ export const upgradeDeterministicToNewImplViaGuardian = async (contract, factory
           console.log("implementation deployed:", contract.name, impl.address);
           await countTotalGas(tx, contract.name);
 
-          const proposalContracts = [
-            release.DistributionHelper
-          ];
+          const proposalContracts = [release.DistributionHelper];
 
           const proposalEthValues = proposalContracts.map(_ => 0);
 
@@ -264,12 +271,7 @@ export const upgradeDeterministicToNewImplViaGuardian = async (contract, factory
             "upgradeTo(address)" //add ubischeme
           ];
 
-          const proposalFunctionInputs = [
-            ethers.utils.defaultAbiCoder.encode(
-              ["address"],
-              [impl.address]
-            )
-          ];
+          const proposalFunctionInputs = [ethers.utils.defaultAbiCoder.encode(["address"], [impl.address])];
           let [root] = await ethers.getSigners();
           await executeViaGuardian(
             proposalContracts,
@@ -291,7 +293,6 @@ export const upgradeDeterministicToNewImplViaGuardian = async (contract, factory
     throw e;
   }
 };
-
 
 export const executeViaGuardian = async (
   contracts,
