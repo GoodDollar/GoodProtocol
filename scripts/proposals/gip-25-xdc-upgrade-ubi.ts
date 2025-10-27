@@ -45,11 +45,10 @@ import {
 import releaser from "../releaser";
 let { name: networkName } = network;
 const isSimulation = network.name === "hardhat" || network.name === "fork" || network.name === "localhost";
-
 const bridgeUpgradeImpl = {
   "production-celo": "0x7bDaF2Fb332761b2a6A565a43ccB0ACfC36d2C3D",
   production: "0x6f252280eB53df085eAD27BBe55d615741A8268D",
-  "production-mainnet": "0x6f252280eB53df085eAD27BBe55d615741A8268D"
+  "production-mainnet": "0x7baFe060A37E31E707b8B28a90a36731ee99aFBa"
 };
 export const upgradeCeloStep1 = async (network, checksOnly) => {
   let [root] = await ethers.getSigners();
