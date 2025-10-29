@@ -59,23 +59,32 @@ const hhconfig: HardhatUserConfig = {
     outDir: "types"
   },
   sourcify: {
-    enabled: false
+    enabled: true
   },
   etherscan: {
     apiKey: {
       mainnet: etherscan_key,
       txdc: etherscan_key,
       xdc: etherscan_key,
-      celo: celoscan_key,
+      celo: etherscan_key,
       alfajores: celoscan_key,
-      base: basescan_key
+      base: basescan_key,
+      fuse: etherscan_key
     },
     customChains: [
+      {
+        network: "fuse",
+        chainId: 122,
+        urls: {
+          apiURL: "https://explorer.fuse.io/api",
+          browserURL: "https://explorer.fuse.io/"
+        }
+      },
       {
         network: "celo",
         chainId: 42220,
         urls: {
-          apiURL: "https://api.celoscan.io/api",
+          apiURL: "https://api.etherscan.io/v2/api?chainid=42220",
           browserURL: "https://celoscan.io/"
         }
       },
@@ -154,7 +163,7 @@ const hhconfig: HardhatUserConfig = {
       url: "https://rpc.fuse.io/",
       chainId: 122,
       gas: 6000000,
-      gasPrice: 10000000000
+      gasPrice: 11e9
     },
     fuseexplorer: {
       accounts: { mnemonic },
@@ -182,7 +191,7 @@ const hhconfig: HardhatUserConfig = {
       url: "https://rpc.fuse.io/",
       chainId: 122,
       gas: 6000000,
-      gasPrice: 10000000000
+      gasPrice: 11e9
     },
     "staging-mainnet": {
       accounts: { mnemonic },
@@ -195,7 +204,7 @@ const hhconfig: HardhatUserConfig = {
       accounts: [deployerPrivateKey],
       url: "https://rpc.fuse.io/",
       gas: 3000000,
-      gasPrice: 10000000000,
+      gasPrice: 11e9,
       chainId: 122
     },
     "production-mainnet": {
@@ -216,7 +225,7 @@ const hhconfig: HardhatUserConfig = {
       accounts: { mnemonic },
       url: "https://forno.celo.org",
       gas: 3000000,
-      gasPrice: 25.01e9,
+      gasPrice: 26e9,
       chainId: 42220
     },
     alfajores: {
@@ -235,14 +244,14 @@ const hhconfig: HardhatUserConfig = {
       accounts: { mnemonic },
       url: "https://forno.celo.org",
       gas: 3000000,
-      gasPrice: 25e9,
+      gasPrice: 26e9,
       chainId: 42220
     },
     "development-celo": {
       accounts: { mnemonic },
       url: "https://forno.celo.org",
       gas: 3000000,
-      gasPrice: 25e9,
+      gasPrice: 26e9,
       chainId: 42220
     },
     "development-base": {
