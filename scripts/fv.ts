@@ -13,6 +13,7 @@ const saveImage = async (id, idx) => {
   }).then(_ => _.json());
   console.log({ age });
   const i1 = await fetch("http://localhost:9090/enrollment-3d/" + id).then(_ => _.json());
+  console.log(i1);
   fs.writeFileSync("fvimages/" + id + "_" + idx + ".jpg", i1.auditTrailBase64, {
     encoding: "base64"
   });
@@ -239,9 +240,24 @@ const exportScans = async ids => {
   });
   await Promise.all(exports);
 };
+
+const deleteIdentifier = async (id, walletAddress) => {
+  const res = await fetch("https://goodserver.gooddollar.org/admin/verify/face/delete", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      password: process.env.ADMIN_PASSWORD,
+      enrollmentIdentifier: id,
+      walletAddress
+    })
+  })
+    .then(_ => _.json())
+    .catch(_ => _);
+  console.log(res);
+};
 // checkIndexedOrDelete();
 // fixInvalidIndexed();
 // console.log(process.env.ADMIN_PASSWORD);
 // deleteIdentifiers(process.env.ADMIN_PASSWORD);
 // main();
-saveImages(["", "", ""]);
+// saveImages(["", "", ""]);
