@@ -51,6 +51,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	uint32 public version;
 	uint8 public minTopping; //percentage of topping amount, that user can request to top
 	address public votingContract; //flowstate voting users get extra gas
+	mapping(address => uint256) public bans;
 
 	function initialize(
 		NameService _ns,
@@ -99,6 +100,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 				hasRole(RELAYER_ROLE, msg.sender),
 			"not authorized"
 		);
+		require(bans[toTop] < block.timestamp, "banned");
 		_;
 	}
 
@@ -270,5 +272,9 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		address _voting
 	) external onlyRole(DEFAULT_ADMIN_ROLE) {
 		votingContract = _voting;
+	}
+
+	function banAddress(address _user) external onlyRole(RELAYER_ROLE) {
+		bans[_user] = block.timestamp + 3 days;
 	}
 }

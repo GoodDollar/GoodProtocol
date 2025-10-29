@@ -47,6 +47,7 @@ contract FuseFaucetV2 is Initializable {
 	address public owner;
 	uint32 public version;
 	uint8 public minTopping;
+	mapping(address => uint256) public bans;
 
 	function initialize(
 		NameService _ns,
@@ -109,6 +110,10 @@ contract FuseFaucetV2 is Initializable {
 		require(msg.sender == owner, "not owner");
 		_;
 	}
+	modifier onlyOwnerOrRelayer() {
+		require(msg.sender == owner || msg.sender == relayer, "not owner");
+		_;
+	}
 
 	receive() external payable {}
 
@@ -122,6 +127,7 @@ contract FuseFaucetV2 is Initializable {
 				msg.sender == relayer,
 			"not authorized"
 		);
+		require(bans[toTop] < block.timestamp, "banned");
 		_;
 	}
 
@@ -281,5 +287,9 @@ contract FuseFaucetV2 is Initializable {
 
 	function setMinTopping(uint8 _minTop) external onlyOwner {
 		minTopping = _minTop;
+	}
+
+	function banAddress(address _user) external onlyOwner {
+		bans[_user] = block.timestamp + 3 days;
 	}
 }
