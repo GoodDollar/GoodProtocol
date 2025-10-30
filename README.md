@@ -32,3 +32,15 @@ Dual upgradeability of the 2 connected logic contracts is achieved this way:
 2. upgrades of the GoodDollar logic is handled by the configured owner(s). The interface is the same (UUPSProxy), but with changed method names in order to avoid naming clashes. See example test case.
 
 The tests in `SuperGoodDollar.ts` aren't comprehensive (not ready for production), but sufficient to prove that the mechanism with 2 logic contracts works.
+
+## Packages or Apps dependencies
+
+The following packages or app repositories are relient on the @gooddollar/goodprotocol package and should be notified to review potential needed updates:
+
+- [GoodWeb3-Mono](https://github.com/GoodDollar/GoodWeb3-Mono)
+- [GoodSDKs](https://github.com/GoodDollar/GoodSDKs)
+- [GoodProtocolUI](https://github.com/GoodDollar/GoodProtocolUI)
+- [GoodCollective](https://github.com/GoodDollar/GoodCollective)
+- [GoodWalletV2](https://github.com/GoodDollar/GoodWalletV2)
+- [GoodBridge](https://github.com/GoodDollar/GoodBridge)
+- [GoodServer](https://github.com/GoodDollar/GoodServer)
