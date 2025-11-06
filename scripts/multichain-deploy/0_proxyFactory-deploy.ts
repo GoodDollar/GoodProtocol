@@ -32,7 +32,8 @@ export const deployUniversalProxyFactory = async () => {
   if (name.includes("staging")) {
     deployTx.gasLimit = 892000;
   } else if (name.includes("production")) {
-    deployTx.gasLimit = 890000;
+    // deployTx.gasLimit = 890000; // was used on celo
+    deployTx.gasLimit = 1500000; //xdc needs more gas
   }
 
   const rawTx = ethers.utils.serializeTransaction(deployTx);
@@ -121,8 +122,8 @@ const deployProxyMethod2 = async (defaultAdmin = null) => {
   await verifyContract(deployed.address, artifact.sourceName + ":" + artifact.contractName);
 };
 export const main = async (networkName = name) => {
-  // await deployProxy();
-  await deployProxyMethod2();
+  await deployProxy();
+  // await deployProxyMethod2();
 };
 
 if (process.argv[1].includes("proxyFactory-deploy")) {

@@ -41,6 +41,8 @@ export const deployHelpers = async () => {
 
   let [root, ...signers] = await ethers.getSigners();
   const isProduction = network.name.includes("production");
+  let networkEnv = network.name.split("-")[0];
+  const celoNetwork = networkEnv + "-celo";
 
   if (isProduction) verifyProductionSigner(root);
   //generic call permissions
@@ -80,35 +82,44 @@ export const deployHelpers = async () => {
   await releaser(torelease, network.name, "deployment", false);
 
   console.log("setting nameservice addresses via guardian");
-  const proposalContracts = [
-    release.NameService, //nameservice
-    release.DistributionHelper
+  const proposalActions = [
+    [
+      release.NameService, //nameservice
+      "setAddresses(bytes32[],address[])", //add ubischeme
+      ethers.utils.defaultAbiCoder.encode(
+        ["bytes32[]", "address[]"],
+        [[keccak256(toUtf8Bytes("DISTRIBUTION_HELPER"))], [DistHelper.address]]
+      ),
+      0
+    ],
+    [
+      DistHelper.address,
+      "addOrUpdateRecipient((uint32,uint32,address,uint8))",
+      ethers.utils.defaultAbiCoder.encode(
+        ["uint32", "uint32", "address", "uint8"],
+        [dao[celoNetwork].CommunitySafe ? 9000 : 10000, network.config.chainId, release.UBIScheme, 1] //90% to ubi scheme
+      ),
+      0
+    ]
   ];
 
-  const proposalEthValues = proposalContracts.map(_ => 0);
-
-  const proposalFunctionSignatures = [
-    "setAddresses(bytes32[],address[])", //add ubischeme
-    "addOrUpdateRecipient((uint32,uint32,address,uint8))"
+  if (dao[celoNetwork].CommunitySafe) {
+    proposalActions.push([
+      DistHelper.address,
+      "addOrUpdateRecipient((uint32,uint32,address,uint8))",
+      ethers.utils.defaultAbiCoder.encode(
+        ["uint32", "uint32", "address", "uint8"],
+        [1000, 42220, dao[celoNetwork].CommunitySafe, network.name === celoNetwork ? 1 : 0] //10% to celo community safe, use LZ bridge if not on celo
+      ),
+      0
+    ]);
+  }
+  const [proposalContracts, proposalFunctionSignatures, proposalFunctionInputs, proposalEthValues] = [
+    proposalActions.map(_ => _[0]),
+    proposalActions.map(_ => _[1]),
+    proposalActions.map(_ => _[2]),
+    proposalActions.map(_ => _[3])
   ];
-
-  const recipient = {
-    bps: 10000, // 100% (bps = basis points)
-    chainId: network.config.chainId, // XDC mainnet
-    addr: release.UBIScheme,
-    transferType: 1 // enum TransferType.Transfer = 0
-  };
-  const proposalFunctionInputs = [
-    ethers.utils.defaultAbiCoder.encode(
-      ["bytes32[]", "address[]"],
-      [[keccak256(toUtf8Bytes("DISTRIBUTION_HELPER"))], [DistHelper.address]]
-    ),
-    ethers.utils.defaultAbiCoder.encode(
-      ["tuple(uint32 bps,uint32 chainId,address addr,uint8 transferType)"],
-      [[recipient.bps, recipient.chainId, recipient.addr, recipient.transferType]]
-    )
-  ];
-
   try {
     if (viaGuardians) {
       await executeViaSafe(

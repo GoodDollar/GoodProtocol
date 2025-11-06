@@ -1443,6 +1443,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@chainlink/env-enc@npm:^1.0.5":
+  version: 1.0.5
+  resolution: "@chainlink/env-enc@npm:1.0.5"
+  dependencies:
+    yargs: ^17.7.1
+  bin:
+    env-enc: dist/cli.js
+  checksum: dec4ab663de90b6aa110f137a5bf00f55c1224c62bad896e247a2ba026a5bd4505565799a73aac70509f06dc24a5f046b2c2798f5cb3cd8c2ce9f4cf12a4656b
+  languageName: node
+  linkType: hard
+
 "@colors/colors@npm:1.5.0":
   version: 1.5.0
   resolution: "@colors/colors@npm:1.5.0"
@@ -2752,6 +2763,7 @@ __metadata:
     "@babel/preset-env": "*"
     "@babel/register": "*"
     "@celo-tools/celo-ethers-wrapper": ^0.4.0
+    "@chainlink/env-enc": ^1.0.5
     "@gnosis.pm/safe-core-sdk": ^3.2.0
     "@gnosis.pm/safe-core-sdk-types": ^1.7.0
     "@gnosis.pm/safe-ethers-lib": ^1.7.0
@@ -2768,7 +2780,7 @@ __metadata:
     "@openzeppelin/contracts": ^4.8.0
     "@openzeppelin/contracts-upgradeable": ^4.8.0
     "@openzeppelin/hardhat-upgrades": ^1.22.1
-    "@safe-global/api-kit": ^3.0.1
+    "@safe-global/api-kit": ^4.0.0
     "@safe-global/protocol-kit": ^6.0.2
     "@safe-global/types-kit": ^2.0.1
     "@superfluid-finance/ethereum-contracts": 1.8.1
@@ -3760,19 +3772,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@safe-global/api-kit@npm:^3.0.1":
-  version: 3.0.1
-  resolution: "@safe-global/api-kit@npm:3.0.1"
+"@safe-global/api-kit@npm:^4.0.0":
+  version: 4.0.0
+  resolution: "@safe-global/api-kit@npm:4.0.0"
   dependencies:
-    "@safe-global/protocol-kit": ^6.0.1
-    "@safe-global/types-kit": ^2.0.0
+    "@safe-global/protocol-kit": ^6.1.0
+    "@safe-global/types-kit": ^3.0.0
     node-fetch: ^2.7.0
     viem: ^2.21.8
-  checksum: e8a50ec6b7b818af5c400811d7c4ce918943676b476860dca9a0dd49943a38980708d7d44223de016e0748a6a879307ecc9928e10b83d2019c56bce3c5af58d3
+  checksum: 187ce7a1ddba432cdc95c05064366128dd21e9948f5b14ac304c7aef230a3d3fc8e91861303f8ecfedeaf3805fc258184511062bdfd1150b42d65a3afb145adc
   languageName: node
   linkType: hard
 
-"@safe-global/protocol-kit@npm:^6.0.1, @safe-global/protocol-kit@npm:^6.0.2":
+"@safe-global/protocol-kit@npm:^6.0.2":
   version: 6.0.2
   resolution: "@safe-global/protocol-kit@npm:6.0.2"
   dependencies:
@@ -3793,12 +3805,49 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@safe-global/protocol-kit@npm:^6.1.0":
+  version: 6.1.1
+  resolution: "@safe-global/protocol-kit@npm:6.1.1"
+  dependencies:
+    "@noble/curves": ^1.6.0
+    "@peculiar/asn1-schema": ^2.3.13
+    "@safe-global/safe-deployments": ^1.37.42
+    "@safe-global/safe-modules-deployments": ^2.2.14
+    "@safe-global/types-kit": ^3.0.0
+    abitype: ^1.0.2
+    semver: ^7.7.2
+    viem: ^2.21.8
+  dependenciesMeta:
+    "@noble/curves":
+      optional: true
+    "@peculiar/asn1-schema":
+      optional: true
+  checksum: 3999727d68a0504f5fd0e4ffa64fe83ff3d4ae80797106c52070cbd541f0bbaf6758f76ebf1161cce7c323d87d9e989e4aaaf8d9a3135101c1329c62443992ff
+  languageName: node
+  linkType: hard
+
 "@safe-global/safe-deployments@npm:^1.37.31":
   version: 1.37.31
   resolution: "@safe-global/safe-deployments@npm:1.37.31"
   dependencies:
     semver: ^7.6.2
   checksum: 8f209f5acf4fcffed46f2489b45fdbc58178cdafb2bc081f62442d5aeb60de581a63748e18f43d990fa1ee536ff75b6c64adacbc8264360aa8435697bfed9240
+  languageName: node
+  linkType: hard
+
+"@safe-global/safe-deployments@npm:^1.37.42":
+  version: 1.37.47
+  resolution: "@safe-global/safe-deployments@npm:1.37.47"
+  dependencies:
+    semver: ^7.6.2
+  checksum: 952ff6e6272622d2fcde1c5a5542bdb89613f6ddf9852f829f5961096b64fffe7d8f6924ad8ca1beaf970036242d11e4027b68c202b7d205dc9c4556750983d0
+  languageName: node
+  linkType: hard
+
+"@safe-global/safe-modules-deployments@npm:^2.2.14":
+  version: 2.2.18
+  resolution: "@safe-global/safe-modules-deployments@npm:2.2.18"
+  checksum: 4713a9deb5d39ffa1af273c427e7647cb8e81b6212281b9f6cb83fb69701114b2c3b0bb2e0e889ea8bc71860daa8dacd1082a20df5617677d235ffdfb4ab226b
   languageName: node
   linkType: hard
 
@@ -3809,12 +3858,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@safe-global/types-kit@npm:^2.0.0, @safe-global/types-kit@npm:^2.0.1":
+"@safe-global/types-kit@npm:^2.0.1":
   version: 2.0.1
   resolution: "@safe-global/types-kit@npm:2.0.1"
   dependencies:
     abitype: ^1.0.2
   checksum: eefcf5897a4fa3a883abf46a99955d83ffa8f384579c9835598075a32046ac943c0ec42c3fa5fa6d5763fb95d2d168a70142cf30241dd8f7bf41da59d6689eab
+  languageName: node
+  linkType: hard
+
+"@safe-global/types-kit@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "@safe-global/types-kit@npm:3.0.0"
+  dependencies:
+    abitype: ^1.0.2
+  checksum: 02f868e8a2de0681c637ed853473766468a4e4b9ee024c3d807b72bf0cbd3555593d88711c0ebd7b0cee159e8d61320542d659dd291cbff0829a2466b5b6fa3f
   languageName: node
   linkType: hard
 
@@ -8439,6 +8497,17 @@ __metadata:
     strip-ansi: ^6.0.0
     wrap-ansi: ^7.0.0
   checksum: ce2e8f578a4813806788ac399b9e866297740eecd4ad1823c27fd344d78b22c5f8597d548adbcc46f0573e43e21e751f39446c5a5e804a12aace402b7a315d7f
+  languageName: node
+  linkType: hard
+
+"cliui@npm:^8.0.1":
+  version: 8.0.1
+  resolution: "cliui@npm:8.0.1"
+  dependencies:
+    string-width: ^4.2.0
+    strip-ansi: ^6.0.1
+    wrap-ansi: ^7.0.0
+  checksum: 79648b3b0045f2e285b76fb2e24e207c6db44323581e421c3acbd0e86454cba1b37aea976ab50195a49e7384b871e6dfb2247ad7dec53c02454ac6497394cb56
   languageName: node
   linkType: hard
 
@@ -19577,6 +19646,15 @@ patch-package@latest:
   languageName: node
   linkType: hard
 
+"semver@npm:^7.7.2":
+  version: 7.7.3
+  resolution: "semver@npm:7.7.3"
+  bin:
+    semver: bin/semver.js
+  checksum: f013a3ee4607857bcd3503b6ac1d80165f7f8ea94f5d55e2d3e33df82fce487aa3313b987abf9b39e0793c83c9fc67b76c36c067625141a9f6f704ae0ea18db2
+  languageName: node
+  linkType: hard
+
 "semver@npm:~5.4.1":
   version: 5.4.1
   resolution: "semver@npm:5.4.1"
@@ -24371,6 +24449,13 @@ patch-package@latest:
   languageName: node
   linkType: hard
 
+"yargs-parser@npm:^21.1.1":
+  version: 21.1.1
+  resolution: "yargs-parser@npm:21.1.1"
+  checksum: ed2d96a616a9e3e1cc7d204c62ecc61f7aaab633dcbfab2c6df50f7f87b393993fe6640d017759fe112d0cb1e0119f2b4150a87305cc873fd90831c6a58ccf1c
+  languageName: node
+  linkType: hard
+
 "yargs-unparser@npm:1.6.0":
   version: 1.6.0
   resolution: "yargs-unparser@npm:1.6.0"
@@ -24424,6 +24509,21 @@ patch-package@latest:
     y18n: ^5.0.5
     yargs-parser: ^20.2.2
   checksum: b14afbb51e3251a204d81937c86a7e9d4bdbf9a2bcee38226c900d00f522969ab675703bee2a6f99f8e20103f608382936034e64d921b74df82b63c07c5e8f59
+  languageName: node
+  linkType: hard
+
+"yargs@npm:^17.7.1":
+  version: 17.7.2
+  resolution: "yargs@npm:17.7.2"
+  dependencies:
+    cliui: ^8.0.1
+    escalade: ^3.1.1
+    get-caller-file: ^2.0.5
+    require-directory: ^2.1.1
+    string-width: ^4.2.3
+    y18n: ^5.0.5
+    yargs-parser: ^21.1.1
+  checksum: 73b572e863aa4a8cbef323dd911d79d193b772defd5a51aab0aca2d446655216f5002c42c5306033968193bdbf892a7a4c110b0d77954a7fdf563e653967b56a
   languageName: node
   linkType: hard
 

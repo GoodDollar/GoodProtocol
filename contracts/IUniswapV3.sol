@@ -8,6 +8,8 @@ interface IUniswapV3Pool {
 
 	function token1() external view returns (address);
 
+	function fee() external view returns (uint24);
+
 	function slot0()
 		external
 		view

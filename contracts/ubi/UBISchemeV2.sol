@@ -269,7 +269,7 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 				dailyCyclePool /
 				max((prevDayClaimers * reserveFactor) / 10000, minActiveUsers);
 			//update minActiveUsers as claimers grow
-			minActiveUsers = max(prevDayClaimers / 2, minActiveUsers);
+			minActiveUsers = (prevDayClaimers + minActiveUsers * 29) / 30; //smooth it a bit
 
 			emit UBICalculated(currentDay, dailyUbi, block.number);
 		}
@@ -347,7 +347,8 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 		bool shouldStartEarlyCycle = currentDayInCycle() + 1 >=
 			currentCycleLength ||
 			nextDailyPool > (dailyCyclePool * 105) / 100 ||
-			currentBalance < (dailyCyclePool * (cycleLength - currentDayInCycle()));
+			currentBalance <
+			(dailyCyclePool * (cycleLength - currentDayInCycle() - 1));
 
 		uint256 _dailyCyclePool = dailyCyclePool;
 		uint256 _dailyUbi;

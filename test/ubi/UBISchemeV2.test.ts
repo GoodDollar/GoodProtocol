@@ -84,7 +84,10 @@ describe("UBISchemeV2", () => {
   it("should deploy the ubi", async () => {
     const block = await ethers.provider.getBlock("latest");
     const startUBI = block.timestamp;
-    ubi = await upgrades.deployProxy(await ethers.getContractFactory("UBISchemeV2"), [nameService.address, 1000]);
+    ubi = (await upgrades.deployProxy(await ethers.getContractFactory("UBISchemeV2"), [
+      nameService.address,
+      1000
+    ])) as UBISchemeV2;
     const periodStart = await ubi.periodStart();
     // initializing the ubi
     let encodedCall = ubi.interface.encodeFunctionData("setCycleLength", [1]);

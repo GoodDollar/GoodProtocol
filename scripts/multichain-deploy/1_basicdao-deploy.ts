@@ -24,6 +24,7 @@ import ProtocolSettings from "../../releases/deploy-settings.json";
 import dao from "../../releases/deployment.json";
 import { TransactionResponse } from "@ethersproject/providers";
 import { getImplementationAddress } from "@openzeppelin/upgrades-core";
+import { IdentityV3 } from "../../types";
 const printDeploy = async (c: Contract | TransactionResponse): Promise<Contract | TransactionResponse> => {
   if (c instanceof Contract) {
     await c.deployed();
@@ -60,8 +61,8 @@ export const createDAO = async () => {
   const FeeFormulaFactory = new ethers.ContractFactory(FeeFormulaABI.abi, FeeFormulaABI.bytecode, root);
 
   console.log("deploying identity");
-  let Identity;
-  if (release.Identity) Identity = await ethers.getContractAt("IdentityV3", release.Identity);
+  let Identity: IdentityV3;
+  if (release.Identity) Identity = (await ethers.getContractAt("IdentityV3", release.Identity)) as IdentityV3;
   else
     Identity = (await deployDeterministic(
       {
@@ -70,7 +71,7 @@ export const createDAO = async () => {
         isUpgradeable: true
       },
       [root.address, ethers.constants.AddressZero]
-    ).then(printDeploy)) as Contract;
+    ).then(printDeploy)) as IdentityV3;
 
   let daoCreator;
   if (release.DAOCreator) daoCreator = await DAOCreatorFactory.attach(release.DAOCreator);
@@ -131,10 +132,7 @@ export const createDAO = async () => {
     ).then(printDeploy)) as Contract;
   }
 
-  // console.log("setting identity auth period");
-  // await Identity.setAuthenticationPeriod(365).then(printDeploy);
-
-  const avatar = await daoCreator.avatar();
+  const avatar = release.Avatar || (await daoCreator.avatar());
   let Avatar = new ethers.Contract(
     avatar,
     ["function owner() view returns (address)", "function nativeToken() view returns (address)"],
@@ -151,7 +149,7 @@ export const createDAO = async () => {
       ["function owner() view returns (address)", "function nativeToken() view returns (address)"],
       root
     );
-    let schemes = [daoOwner, Identity.address];
+    let schemes = [daoOwner, release.GuardiansSafe];
 
     console.log("setting schemes", schemes);
 
@@ -160,7 +158,7 @@ export const createDAO = async () => {
         Avatar.address,
         schemes,
         schemes.map(_ => ethers.constants.HashZero),
-        ["0x0000001f", "0x00000001"],
+        ["0x0000001f", "0x0000001f"],
         ""
       )
       .then(printDeploy);
@@ -172,6 +170,7 @@ export const createDAO = async () => {
 
   const controller = await Avatar.owner();
 
+  console.log("deploying nameservice");
   const NameService = await deployDeterministic({ name: "NameService", isUpgradeable: true }, [
     controller,
     ["CONTROLLER", "AVATAR", "IDENTITY", "GOODDOLLAR"].map(_ => ethers.utils.keccak256(ethers.utils.toUtf8Bytes(_))),
@@ -189,6 +188,16 @@ export const createDAO = async () => {
   if (isProduction) {
     console.log("renouncing minting rights on production env");
     await GoodDollar.renounceMinter().then(printDeploy);
+    const ctrl = await ethers.getContractAt("Controller", await Avatar.owner());
+    console.log("setting identity authentication period to 180 days");
+    await ctrl
+      .genericCall(
+        Identity.address,
+        Identity.interface.encodeFunctionData("setAuthenticationPeriod", [180]),
+        Avatar.address,
+        0
+      )
+      .then(printDeploy);
   }
 
   const daoOwnerDaoPermissions = await Controller.getSchemePermissions(daoOwner, Avatar.address);

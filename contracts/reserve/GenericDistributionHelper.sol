@@ -9,6 +9,7 @@ import "@gooddollar/bridge-contracts/contracts/messagePassingBridge/IMessagePass
 import "@uniswap/v2-periphery/contracts/interfaces/IWETH.sol";
 
 import "../utils/DAOUpgradeableContract.sol";
+import "../IUniswapV3.sol";
 
 // import "hardhat/console.sol";
 
@@ -67,7 +68,11 @@ contract GenericDistributionHelper is
 	);
 	event RecipientUpdated(DistributionRecipient recipient, uint256 index);
 	event RecipientAdded(DistributionRecipient recipient, uint256 index);
-	event BuyNativeFailed(string reason);
+	event BuyNativeFailed(
+		string reason,
+		uint256 amountToSell,
+		uint256 amountOutMinimum
+	);
 
 	receive() external payable {}
 
@@ -90,7 +95,7 @@ contract GenericDistributionHelper is
 		_setReserveToken(_reserveToken);
 	}
 
-	function getBridge() public view returns (IMessagePassingBridge) {
+	function getBridge() public view virtual returns (IMessagePassingBridge) {
 		return IMessagePassingBridge(nameService.getAddress("MPBBRIDGE_CONTRACT"));
 	}
 
@@ -101,19 +106,15 @@ contract GenericDistributionHelper is
 	}
 
 	function _setReserveToken(address _reserveToken) internal {
-		uint24[] memory fees = new uint24[](1);
-		fees[0] = 100;
 		reserveToken = _reserveToken;
-		STATIC_ORACLE.prepareSpecificFeeTiersWithTimePeriod(
+		STATIC_ORACLE.prepareAllAvailablePoolsWithTimePeriod(
 			reserveToken,
 			address(nativeToken()),
-			fees,
 			60
 		);
-		STATIC_ORACLE.prepareSpecificFeeTiersWithTimePeriod(
+		STATIC_ORACLE.prepareAllAvailablePoolsWithTimePeriod(
 			reserveToken,
 			gasToken,
-			fees,
 			60
 		);
 	}
@@ -148,9 +149,9 @@ contract GenericDistributionHelper is
 			try IWETH(gasToken).withdraw(boughtNative) {
 				// success
 			} catch Error(string memory reason) {
-				emit BuyNativeFailed(reason);
+				emit BuyNativeFailed(reason, boughtNative, 0);
 			} catch {
-				emit BuyNativeFailed("WETH withdraw failed");
+				emit BuyNativeFailed("WETH withdraw failed", boughtNative, 0);
 			}
 		}
 
@@ -239,25 +240,21 @@ contract GenericDistributionHelper is
 	function calcGDToSell(
 		uint256 maxAmountToSell
 	) public view returns (uint256 gdToSell, uint256 minReceived) {
-		uint24[] memory fees = new uint24[](1);
-		fees[0] = 100;
 		uint256 nativeToBuy = feeSettings.minBalanceForFees *
 			3 -
 			address(this).balance;
 		(uint256 nativeValueInUSD, ) = STATIC_ORACLE
-			.quoteSpecificFeeTiersWithTimePeriod(
+			.quoteAllAvailablePoolsWithTimePeriod(
 				uint128(nativeToBuy),
 				gasToken,
 				reserveToken,
-				fees,
 				60 //last 1 minute
 			);
 
-		(gdToSell, ) = STATIC_ORACLE.quoteSpecificFeeTiersWithTimePeriod(
+		(gdToSell, ) = STATIC_ORACLE.quoteAllAvailablePoolsWithTimePeriod(
 			uint128(nativeValueInUSD),
 			reserveToken,
 			address(nativeToken()),
-			fees,
 			60 //last 1 minute
 		);
 
@@ -265,22 +262,19 @@ contract GenericDistributionHelper is
 		if (gdToSell > maxAmountToSell) {
 			gdToSell = maxAmountToSell;
 
-			fees[0] = 100;
 			// gdToSell = (nativeValueInUSD * 1e18) / gdPriceInUSD; // mul by 1e18 so result is in 18 decimals
 			(uint256 minReceivedCUSD, ) = STATIC_ORACLE
-				.quoteSpecificFeeTiersWithTimePeriod(
+				.quoteAllAvailablePoolsWithTimePeriod(
 					uint128(gdToSell),
 					address(nativeToken()),
 					reserveToken,
-					fees,
 					60 //last 1 minute
 				);
 
-			(minReceived, ) = STATIC_ORACLE.quoteSpecificFeeTiersWithTimePeriod(
+			(minReceived, ) = STATIC_ORACLE.quoteAllAvailablePoolsWithTimePeriod(
 				uint128(minReceivedCUSD),
 				reserveToken,
 				gasToken,
-				fees,
 				60 //last 1 minute
 			);
 		}
@@ -290,15 +284,33 @@ contract GenericDistributionHelper is
 		uint256 amountToSell,
 		uint256 minReceived
 	) internal returns (uint256 nativeBought) {
+		address[] memory gdPools = STATIC_ORACLE.getAllPoolsForPair(
+			reserveToken,
+			address(nativeToken())
+		);
+		address[] memory gasPools = STATIC_ORACLE.getAllPoolsForPair(
+			reserveToken,
+			gasToken
+		);
+		uint24 gasFee = IUniswapV3Pool(gasPools[0]).fee();
+		uint24 gdFee = IUniswapV3Pool(gdPools[0]).fee();
+		for (uint i = 1; i < gasPools.length; i++) {
+			uint24 fee = IUniswapV3Pool(gasPools[i]).fee();
+			gasFee = gasFee < fee ? gasFee : fee;
+		}
+		for (uint i = 1; i < gdPools.length; i++) {
+			uint24 fee = IUniswapV3Pool(gdPools[i]).fee();
+			gdFee = gasFee < fee ? gasFee : fee;
+		}
 		ERC20(nativeToken()).approve(address(ROUTER), amountToSell);
 		uint256 amountOutMinimum = (minReceived * (100 - feeSettings.maxSlippage)) /
 			100; // 5% slippage
 		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
 			path: abi.encodePacked(
 				nativeToken(),
-				uint24(100),
+				gdFee,
 				reserveToken,
-				uint24(100),
+				gasFee,
 				gasToken
 			),
 			recipient: address(this),
@@ -308,7 +320,7 @@ contract GenericDistributionHelper is
 		try ROUTER.exactInput(params) returns (uint256 amountOut) {
 			return amountOut;
 		} catch Error(string memory reason) {
-			emit BuyNativeFailed(reason);
+			emit BuyNativeFailed(reason, amountToSell, amountOutMinimum);
 			return 0;
 		}
 	}

@@ -23,6 +23,9 @@ import { sumStakersGdRewards } from "./scripts/staking/stakersGdRewardsCalculati
 import { verify } from "./scripts/verify";
 import { ethers } from "ethers";
 import { fstat, readFileSync, writeFileSync } from "fs";
+import * as envEnc from "@chainlink/env-enc";
+envEnc.config();
+
 config();
 
 const mnemonic = process.env.MNEMONIC || "test test test test test test test test test test test junk";
@@ -38,7 +41,7 @@ const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
 
 const xdc = {
   accounts: { mnemonic },
-  url: "https://rpc.xdc.network",
+  url: "https://rpc.ankr.com/xdc/ef07ba6590dc46db9275bba237aed203ed6d5fb3e3203ff237a82a841f75b2ce",
   gas: 3000000,
   gasPrice: 12.5e9,
   chainId: 50
@@ -286,8 +289,8 @@ const hhconfig: HardhatUserConfig = {
       accounts: [deployerPrivateKey]
     },
     "development-xdc": {
-      ...xdc,
-      accounts: [deployerPrivateKey]
+      ...xdc
+      // url: "http://localhost:8545"
     }
   },
   mocha: {

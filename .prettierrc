@@ -10,12 +10,6 @@
         "bracketSpacing": true,
         "explicitTypes": "always"
       }
-    },
-    {
-      "files": "test/**/*.ts",
-      "options": {
-        "printWidth": 80
-      }
     }
   ],
   "printWidth": 120,

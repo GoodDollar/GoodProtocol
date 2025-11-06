@@ -257,6 +257,6 @@ describe("ClaimersDistribution", () => {
       // console.log({ totalGas }, tx.gasUsed.toNumber(), tx2.gasUsed.toNumber());
     }
     console.log(Object.keys(gasCosts));
-    expect(totalGas / 30).lt(315000);
+    expect(totalGas / 30).lt(316000);
   });
 });

@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "2.0.34-beta.2",
+  "version": "2.1.0",
   "description": "GoodDollar Protocol",
   "engines": {
     "node": ">=16.x"
@@ -66,6 +66,7 @@
     "@babel/preset-env": "*",
     "@babel/register": "*",
     "@celo-tools/celo-ethers-wrapper": "^0.4.0",
+    "@chainlink/env-enc": "^1.0.5",
     "@gnosis.pm/safe-core-sdk": "^3.2.0",
     "@gnosis.pm/safe-core-sdk-types": "^1.7.0",
     "@gnosis.pm/safe-ethers-lib": "^1.7.0",
@@ -82,7 +83,7 @@
     "@openzeppelin/contracts": "^4.8.0",
     "@openzeppelin/contracts-upgradeable": "^4.8.0",
     "@openzeppelin/hardhat-upgrades": "^1.22.1",
-    "@safe-global/api-kit": "^3.0.1",
+    "@safe-global/api-kit": "^4.0.0",
     "@safe-global/protocol-kit": "^6.0.2",
     "@safe-global/types-kit": "^2.0.1",
     "@superfluid-finance/ethereum-contracts": "1.8.1",
