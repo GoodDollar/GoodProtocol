@@ -368,7 +368,7 @@ export const executeViaSafe = async (
   //   new ethers.providers.JsonRpcProvider("https://rpc.flashbots.net")
   // );
   let chainId = 1;
-  let provider = "https://mainnet.infura.io";
+  let provider = "https://mainnet.gateway.tenderly.co";
   if (typeof safeSignerOrNetwork === "string") {
     switch (safeSignerOrNetwork) {
       case "mainnet":
@@ -396,18 +396,20 @@ export const executeViaSafe = async (
   let txServiceUrl;
   switch (chainId) {
     case 1:
-      txServiceUrl = "https://safe-transaction-mainnet.safe.global";
+      // txServiceUrl = "https://safe-transaction-mainnet.safe.global";
       break;
     case 122:
-      txServiceUrl = "https://transaction-fuse.safe.fuse.io";
+      txServiceUrl = "https://transaction-fuse.safe.fuse.io/api";
       break;
     case 42220:
-      txServiceUrl = "https://safe-transaction-celo.safe.global";
+      // txServiceUrl = "https://safe-transaction-celo.safe.global";
       break;
   }
   console.log("creating safe adapter", { txServiceUrl });
   const safeService = new SafeApiKit({
-    chainId: BigInt(chainId)
+    chainId: BigInt(chainId),
+    txServiceUrl,
+    apiKey: process.env.SAFE_TX_SERVICE_API_KEY || ""
   });
 
   const safeSdk = await Safe.init({

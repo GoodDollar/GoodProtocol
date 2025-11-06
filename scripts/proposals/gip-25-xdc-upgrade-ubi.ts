@@ -21,28 +21,15 @@ import { reset } from "@nomicfoundation/hardhat-network-helpers";
 import { defaultsDeep, last } from "lodash";
 import prompt from "prompt";
 
-import { executeViaGuardian, executeViaSafe, verifyProductionSigner } from "../multichain-deploy/helpers";
-
-import ProtocolSettings from "../../releases/deploy-settings.json";
+import {
+  executeViaGuardian,
+  executeViaSafe,
+  verifyContract,
+  verifyProductionSigner
+} from "../multichain-deploy/helpers";
 
 import dao from "../../releases/deployment.json";
-import {
-  CeloDistributionHelper,
-  Controller,
-  FuseOldBridgeKill,
-  GoodMarketMaker,
-  IBancorExchangeProvider,
-  IBroker,
-  IdentityV3,
-  IGoodDollar,
-  IGoodDollarExchangeProvider,
-  IGoodDollarExpansionController,
-  IMentoReserve,
-  IMessagePassingBridge,
-  ProtocolUpgradeV4Mento,
-  UBISchemeV2
-} from "../../types";
-import releaser from "../releaser";
+import { Controller, IdentityV3, IGoodDollar, IMessagePassingBridge, UBISchemeV2 } from "../../types";
 let { name: networkName } = network;
 const isSimulation = network.name === "hardhat" || network.name === "fork" || network.name === "localhost";
 const bridgeUpgradeImpl = {
@@ -111,6 +98,15 @@ export const upgradeCeloStep1 = async (network, checksOnly) => {
     ], //upgrade bridge
     [
       release.MpbBridge,
+      "setConfig(uint16,uint16,uint256,bytes)",
+      ethers.utils.defaultAbiCoder.encode(
+        ["uint16", "uint16", "uint256", "bytes"],
+        [0, 365, 5, "0x000000000000000000000000000000000000000000000000000000000000000f"]
+      ),
+      "0"
+    ], //fix xdc bridge setting of outbound blocks confirmations
+    [
+      release.MpbBridge,
       "withdraw(address,uint256)",
       ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [release.GoodDollar, 0]),
       "0"
@@ -160,10 +156,9 @@ export const upgradeCeloStep1 = async (network, checksOnly) => {
   }
 
   if (isSimulation || !isProduction) {
-    const supplyAfter = await (await ethers.getContractAt("IGoodDollar", release.GoodDollar)).totalSupply();
-    const bridgeBalanceAfter = await (
-      await ethers.getContractAt("IGoodDollar", release.GoodDollar)
-    ).balanceOf(release.MpbBridge);
+    const gd = await ethers.getContractAt("IGoodDollar", release.GoodDollar);
+    const supplyAfter = await gd.totalSupply();
+    const bridgeBalanceAfter = await gd.balanceOf(release.MpbBridge);
     console.log("Bridge balance after upgrade:", { bridgeBalanceAfter });
     console.log("Supply after upgrade:", { supplyAfter });
 
@@ -231,7 +226,16 @@ export const upgradeFuseStep1 = async (network, checksOnly) => {
       "upgradeToAndCall(address,bytes)",
       ethers.utils.defaultAbiCoder.encode(["address", "bytes"], [bridgeImpl, upgradeCall]),
       "0"
-    ] //upgrade bridge
+    ], //upgrade bridge
+    [
+      release.MpbBridge,
+      "setConfig(uint16,uint16,uint256,bytes)",
+      ethers.utils.defaultAbiCoder.encode(
+        ["uint16", "uint16", "uint256", "bytes"],
+        [0, 365, 5, "0x000000000000000000000000000000000000000000000000000000000000000f"]
+      ),
+      "0"
+    ] //fix xdc bridge setting of outbound blocks confirmations
   ];
 
   console.log({
@@ -253,7 +257,7 @@ export const upgradeFuseStep1 = async (network, checksOnly) => {
       proposalFunctionSignatures,
       proposalFunctionInputs,
       release.GuardiansSafe,
-      "celo"
+      "fuse"
     );
   } else if (!checksOnly) {
     await executeViaGuardian(
@@ -341,7 +345,7 @@ export const upgradeEthStep1 = async (network, checksOnly) => {
       proposalFunctionSignatures,
       proposalFunctionInputs,
       release.GuardiansSafe,
-      "celo"
+      "mainnet"
     );
   } else if (!checksOnly) {
     await executeViaGuardian(
