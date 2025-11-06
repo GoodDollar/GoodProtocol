@@ -118,7 +118,7 @@ describe("UBIScheme cycle", () => {
     const estimatedUbi = await ubiScheme.estimateNextDailyUBI();
     let totalClaimed = 0;
     const currentDay = (await ubiScheme.currentDay()).toNumber();
-    for (let i = currentDay - 1; i >= 0; i--) {
+    for (let i = currentDay; i >= 0; i--) {
       totalClaimed += (await ubiScheme.claimDay(i)).claimAmount.toNumber();
     }
     let transaction = await (await ubiScheme.connect(claimer1).claim()).wait(); //claims in new ubi cycle
