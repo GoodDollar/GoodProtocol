@@ -6,8 +6,10 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgrad
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@mean-finance/uniswap-v3-oracle/solidity/interfaces/IStaticOracle.sol";
 import "@gooddollar/bridge-contracts/contracts/messagePassingBridge/IMessagePassingBridge.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IWETH.sol";
 
 import "../utils/DAOUpgradeableContract.sol";
+import "../IUniswapV3.sol";
 
 // import "hardhat/console.sol";
 
@@ -16,7 +18,7 @@ import "../utils/DAOUpgradeableContract.sol";
  * recipients can be on other blockchains and get their funds via fuse/multichain bridge
  * accounts with ADMIN_ROLE can update the recipients, defaults to Avatar
  */
-contract CeloDistributionHelper is
+contract GenericDistributionHelper is
 	DAOUpgradeableContract,
 	AccessControlEnumerableUpgradeable
 {
@@ -24,13 +26,6 @@ contract CeloDistributionHelper is
 	error INVALID_CHAINID();
 
 	bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
-
-	address public constant CELO = 0x471EcE3750Da237f93B8E339c536989b8978a438;
-
-	address public constant CUSD = 0x765DE816845861e75A25fCA122bb6898B8B1282a;
-
-	ISwapRouter public constant ROUTER =
-		ISwapRouter(0x5615CDAb10dc425a742d643d949a7F474C01abc4);
 
 	enum TransferType {
 		LayerZeroBridge,
@@ -54,9 +49,14 @@ contract CeloDistributionHelper is
 
 	DistributionRecipient[] public distributionRecipients;
 
-	IMessagePassingBridge public mpbBridge;
+	IMessagePassingBridge private _unused_mpbBridge;
 	FeeSettings public feeSettings;
 	IStaticOracle public STATIC_ORACLE;
+	ISwapRouter public ROUTER;
+
+	address public gasToken;
+
+	address public reserveToken;
 
 	event Distribution(
 		uint256 distributed,
@@ -68,32 +68,55 @@ contract CeloDistributionHelper is
 	);
 	event RecipientUpdated(DistributionRecipient recipient, uint256 index);
 	event RecipientAdded(DistributionRecipient recipient, uint256 index);
-	event BuyNativeFailed(string reason);
+	event BuyNativeFailed(
+		string reason,
+		uint256 amountToSell,
+		uint256 amountOutMinimum
+	);
 
 	receive() external payable {}
 
 	function initialize(
 		INameService _ns,
-		IStaticOracle _oracle
+		IStaticOracle _oracle,
+		address _gasToken, //weth
+		address _reserveToken,
+		ISwapRouter _router,
+		FeeSettings memory _feeData
 	) external initializer {
 		__AccessControlEnumerable_init();
 		setDAO(_ns);
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar); //this needs to happen after setDAO for avatar to be non empty
 		_setupRole(GUARDIAN_ROLE, avatar);
-		mpbBridge = IMessagePassingBridge(
-			nameService.getAddress("MPBBRIDGE_CONTRACT")
-		);
 		STATIC_ORACLE = _oracle;
-		uint24[] memory fees = new uint24[](1);
-		fees[0] = 10000;
-		STATIC_ORACLE.prepareSpecificFeeTiersWithTimePeriod(
-			CUSD,
+		ROUTER = _router;
+		feeSettings = _feeData;
+		gasToken = _gasToken;
+		_setReserveToken(_reserveToken);
+	}
+
+	function getBridge() public view virtual returns (IMessagePassingBridge) {
+		return IMessagePassingBridge(nameService.getAddress("MPBBRIDGE_CONTRACT"));
+	}
+
+	function setReserveToken(
+		address _reserveToken
+	) public onlyRole(GUARDIAN_ROLE) {
+		_setReserveToken(_reserveToken);
+	}
+
+	function _setReserveToken(address _reserveToken) internal {
+		reserveToken = _reserveToken;
+		STATIC_ORACLE.prepareAllAvailablePoolsWithTimePeriod(
+			reserveToken,
 			address(nativeToken()),
-			fees,
 			60
 		);
-		fees[0] = 100;
-		STATIC_ORACLE.prepareSpecificFeeTiersWithTimePeriod(CUSD, CELO, fees, 60);
+		STATIC_ORACLE.prepareAllAvailablePoolsWithTimePeriod(
+			reserveToken,
+			gasToken,
+			60
+		);
 	}
 
 	function setFeeSettings(
@@ -121,6 +144,15 @@ contract CeloDistributionHelper is
 			(gdToSellForFee, minReceived) = calcGDToSell(gdToSellForFee);
 			toDistribute -= gdToSellForFee;
 			boughtNative = buyNativeWithGD(gdToSellForFee, minReceived);
+
+			//try to unwrap to native
+			try IWETH(gasToken).withdraw(boughtNative) {
+				// success
+			} catch Error(string memory reason) {
+				emit BuyNativeFailed(reason, boughtNative, 0);
+			} catch {
+				emit BuyNativeFailed("WETH withdraw failed", boughtNative, 0);
+			}
 		}
 
 		uint256 totalDistributed;
@@ -179,10 +211,10 @@ contract CeloDistributionHelper is
 		uint256 _amount
 	) internal {
 		if (_recipient.transferType == TransferType.LayerZeroBridge) {
-			nativeToken().approve(address(mpbBridge), _amount);
-			(uint256 lzFee, ) = ILayerZeroFeeEstimator(address(mpbBridge))
+			nativeToken().approve(address(getBridge()), _amount);
+			(uint256 lzFee, ) = ILayerZeroFeeEstimator(address(getBridge()))
 				.estimateSendFee(
-					mpbBridge.toLzChainId(_recipient.chainId),
+					getBridge().toLzChainId(_recipient.chainId),
 					address(this),
 					_recipient.addr,
 					_amount,
@@ -192,7 +224,7 @@ contract CeloDistributionHelper is
 			if (lzFee > feeSettings.maxFee || lzFee > address(this).balance)
 				revert FEE_LIMIT(lzFee);
 
-			mpbBridge.bridgeToWithLz{ value: lzFee }(
+			getBridge().bridgeToWithLz{ value: lzFee }(
 				_recipient.addr,
 				_recipient.chainId,
 				_amount,
@@ -208,26 +240,21 @@ contract CeloDistributionHelper is
 	function calcGDToSell(
 		uint256 maxAmountToSell
 	) public view returns (uint256 gdToSell, uint256 minReceived) {
-		uint24[] memory fees = new uint24[](1);
-		fees[0] = 100;
 		uint256 nativeToBuy = feeSettings.minBalanceForFees *
 			3 -
 			address(this).balance;
 		(uint256 nativeValueInUSD, ) = STATIC_ORACLE
-			.quoteSpecificFeeTiersWithTimePeriod(
+			.quoteAllAvailablePoolsWithTimePeriod(
 				uint128(nativeToBuy),
-				CELO,
-				CUSD,
-				fees,
+				gasToken,
+				reserveToken,
 				60 //last 1 minute
 			);
 
-		fees[0] = 10000;
-		(gdToSell, ) = STATIC_ORACLE.quoteSpecificFeeTiersWithTimePeriod(
+		(gdToSell, ) = STATIC_ORACLE.quoteAllAvailablePoolsWithTimePeriod(
 			uint128(nativeValueInUSD),
-			CUSD,
+			reserveToken,
 			address(nativeToken()),
-			fees,
 			60 //last 1 minute
 		);
 
@@ -235,23 +262,19 @@ contract CeloDistributionHelper is
 		if (gdToSell > maxAmountToSell) {
 			gdToSell = maxAmountToSell;
 
-			fees[0] = 10000;
 			// gdToSell = (nativeValueInUSD * 1e18) / gdPriceInUSD; // mul by 1e18 so result is in 18 decimals
 			(uint256 minReceivedCUSD, ) = STATIC_ORACLE
-				.quoteSpecificFeeTiersWithTimePeriod(
+				.quoteAllAvailablePoolsWithTimePeriod(
 					uint128(gdToSell),
 					address(nativeToken()),
-					CUSD,
-					fees,
+					reserveToken,
 					60 //last 1 minute
 				);
 
-			fees[0] = 100;
-			(minReceived, ) = STATIC_ORACLE.quoteSpecificFeeTiersWithTimePeriod(
+			(minReceived, ) = STATIC_ORACLE.quoteAllAvailablePoolsWithTimePeriod(
 				uint128(minReceivedCUSD),
-				CUSD,
-				CELO,
-				fees,
+				reserveToken,
+				gasToken,
 				60 //last 1 minute
 			);
 		}
@@ -261,16 +284,34 @@ contract CeloDistributionHelper is
 		uint256 amountToSell,
 		uint256 minReceived
 	) internal returns (uint256 nativeBought) {
+		address[] memory gdPools = STATIC_ORACLE.getAllPoolsForPair(
+			reserveToken,
+			address(nativeToken())
+		);
+		address[] memory gasPools = STATIC_ORACLE.getAllPoolsForPair(
+			reserveToken,
+			gasToken
+		);
+		uint24 gasFee = IUniswapV3Pool(gasPools[0]).fee();
+		uint24 gdFee = IUniswapV3Pool(gdPools[0]).fee();
+		for (uint i = 1; i < gasPools.length; i++) {
+			uint24 fee = IUniswapV3Pool(gasPools[i]).fee();
+			gasFee = gasFee < fee ? gasFee : fee;
+		}
+		for (uint i = 1; i < gdPools.length; i++) {
+			uint24 fee = IUniswapV3Pool(gdPools[i]).fee();
+			gdFee = gasFee < fee ? gasFee : fee;
+		}
 		ERC20(nativeToken()).approve(address(ROUTER), amountToSell);
 		uint256 amountOutMinimum = (minReceived * (100 - feeSettings.maxSlippage)) /
 			100; // 5% slippage
 		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
 			path: abi.encodePacked(
 				nativeToken(),
-				uint24(10000),
-				CUSD,
-				uint24(100),
-				CELO
+				gdFee,
+				reserveToken,
+				gasFee,
+				gasToken
 			),
 			recipient: address(this),
 			amountIn: amountToSell,
@@ -279,7 +320,7 @@ contract CeloDistributionHelper is
 		try ROUTER.exactInput(params) returns (uint256 amountOut) {
 			return amountOut;
 		} catch Error(string memory reason) {
-			emit BuyNativeFailed(reason);
+			emit BuyNativeFailed(reason, amountToSell, amountOutMinimum);
 			return 0;
 		}
 	}
