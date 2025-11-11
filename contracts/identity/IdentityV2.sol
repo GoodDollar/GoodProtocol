@@ -16,7 +16,7 @@ import "../Interfaces.sol";
 /* @title Identity contract responsible for whitelisting
  * and keeping track of amount of whitelisted users
  */
-contract IdentityV2 is
+contract IdentityV3 is
 	DAOUpgradeableContract,
 	AccessControlUpgradeable,
 	PausableUpgradeable,
@@ -411,44 +411,14 @@ contract IdentityV2 is
 	/**
 	 @dev allows user to connect more accounts to his identity. msg.sender needs to be whitelisted
 	 @param account the account to connect to msg.sender
-	 @param signature the eip712 signed typed data by _account see TYPED_STRUCTURE
-	 @param blockDeadline the expiration block of the signature as specified in the typed data
 	 */
-	function connectAccount(
-		address account,
-		bytes memory signature,
-		uint256 blockDeadline
-	) external onlyWhitelisted {
-		require(
-			blockDeadline > 0 && blockDeadline >= block.number,
-			"invalid deadline"
-		);
+	function connectAccount(address account) external onlyWhitelisted {
 		require(
 			!isWhitelisted(account) && !isBlacklisted(account),
 			"invalid account"
 		);
 		require(connectedAccounts[account] == address(0x0), "already connected");
 
-		bytes32 digest = _hashTypedDataV4(
-			keccak256(
-				abi.encode(
-					keccak256(bytes(TYPED_STRUCTURE)),
-					msg.sender,
-					account,
-					blockDeadline
-				)
-			)
-		);
-		//signature ensures the whitelisted (msg.sender) has submited a signature by connected account
-		//that connects both accounts
-		require(
-			SignatureCheckerUpgradeable.isValidSignatureNow(
-				account,
-				digest,
-				signature
-			),
-			"invalid signature"
-		);
 		connectedAccounts[account] = msg.sender;
 	}
 
