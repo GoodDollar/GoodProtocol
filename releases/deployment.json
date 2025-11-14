@@ -669,6 +669,7 @@
     "MentoProxyAdmin": "0x54f44fBE2943c2196D94831288E716cdeAF5657"
   },
   "production-xdc": {
+    "networkId": 50,
     "ProxyFactory": "0x5BE34022c26FA03a8d6926314a42414c7ca2dF51",
     "GuardiansSafe": "0xE0c5daa7CC6F88d29505f702a53bb5E67600e7Ec",
     "CUSD": "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1",
