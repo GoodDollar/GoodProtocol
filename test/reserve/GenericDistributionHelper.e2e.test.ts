@@ -1,4 +1,4 @@
-import { ethers, network } from "hardhat";
+import { ethers, network, upgrades } from "hardhat";
 import { expect } from "chai";
 import { GenericDistributionHelper, IGoodDollar, IERC20, IStaticOracle, ISwapRouter, IUniswapV3Pool, gooddollar } from "../../types";
 import dao from "../../releases/deployment.json";
@@ -33,14 +33,12 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
 
   // XDC development network addresses
   const XDC_ADDRESSES = {
-    GoodDollar: "0xA13625A72Aef90645CfCe34e25c114629d7855e7",
-    CUSD: "0xCCE5f6B605164B7784b4719829d84b0f7493b906",
     WXDC: "0x951857744785e80e2de051c32ee7b25f9c458c42",
     StaticOracle: "0x725244458f011551Dde1104c9728746EEBEA19f9",
     UniswapV3Router: "0x3b9edecc4286ba33ea6e27119c2a4db99829839d",
-    NameService: "0x00a619Ee0Fe0c3646Acf2C6D2FC89FA1aDE98f1D",
-    Avatar: "0xC47747659b74Cc23210DD851b254260b0B039eED"
+    ...dao["development-xdc"]
   };
+  
 
   before(async function () {
     [deployer, testAccount] = await ethers.getSigners();
@@ -60,7 +58,7 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
     swapRouter = (await ethers.getContractAt("ISwapRouter", XDC_ADDRESSES.UniswapV3Router)) as ISwapRouter;
 
     // Check if GenericDistributionHelper is already deployed
-    const existingDistHelper = dao["development-xdc"]?.DistributionHelper;
+    const existingDistHelper = dao["development-xdc"] && (dao["development-xdc"] as any).DistributionHelper;
     
     if (existingDistHelper && existingDistHelper !== ethers.constants.AddressZero) {
       distHelper = (await ethers.getContractAt(
@@ -83,7 +81,7 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
         maxSlippage: 5 // 5%
       };
 
-      distHelper = (await ethers.upgrades.deployProxy(
+      distHelper = (await upgrades.deployProxy(
         GenericDistributionHelperFactory,
         [
           nameService.address,
@@ -127,7 +125,7 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
       // Alterxdc: transfer from an account that has G$
       // For fork tests, we might need to find an account with G$ balance
       const accountsWithGD = [
-        "0x63B69B1b986427a63cB8d6Ba25CdF08605471BE9", // AdminWallet
+        XDC_ADDRESSES.AdminWallet, // AdminWallet
         XDC_ADDRESSES.Avatar
       ];
 
