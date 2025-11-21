@@ -41,6 +41,14 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
   
 
   before(async function () {
+    // Skip all tests if not running on XDC network (chain ID 50)
+    const chainId = network.config.chainId;
+    if (chainId !== XDC_CHAIN_ID) {
+      console.log(`Skipping tests - expected XDC chain ID ${XDC_CHAIN_ID}, got ${chainId}`);
+      this.skip();
+      return;
+    }
+
     [deployer, testAccount] = await ethers.getSigners();
 
     // Impersonate the Avatar account to have permissions
