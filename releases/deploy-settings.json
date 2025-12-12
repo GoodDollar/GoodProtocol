@@ -267,6 +267,9 @@
     "governance": {
       "claimersGOODMonthly": "1000000000000000000000000",
       "stakersGOODMonthly": "1000000000000000000000000"
+    },
+    "layerZero": {
+      "endpoint": "0x1a44076050125825900e736c501f859c50fE728c"
     }
   },
   "alfajores": {
@@ -306,6 +309,9 @@
     "reserve": {
       "gasToken": "0x951857744785e80e2de051c32ee7b25f9c458c42",
       "reserveToken": "0xCCE5f6B605164B7784b4719829d84b0f7493b906"
+    },
+    "layerZero": {
+      "endpoint": "0xcb566e3B6934Fa77258d68ea18E931fa75e1aaAa"
     }
   },
   "production-xdc": {
