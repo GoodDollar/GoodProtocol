@@ -1,17 +1,26 @@
 /***
- * Script to bridge 1 G$ token from XDC to CELO using LayerZero OFT adapter
+ * Script to bridge 1 G$ token between XDC and CELO using LayerZero OFT adapter
  * 
  * Usage:
+ *   # Bridge from XDC to CELO:
  *   npx hardhat run scripts/bridge-oft-xdc-to-celo.ts --network production-xdc
+ *   # or
+ *   npx hardhat run scripts/bridge-oft-xdc-to-celo.ts --network development-xdc
+ * 
+ *   # Bridge from CELO to XDC:
+ *   npx hardhat run scripts/bridge-oft-xdc-to-celo.ts --network production-celo
+ *   # or
+ *   npx hardhat run scripts/bridge-oft-xdc-to-celo.ts --network development-celo
  * 
  * Note: Make sure you have:
  * - GoodDollarOFTAdapter deployed on both XDC and CELO
- * - Sufficient G$ balance on XDC
- * - Sufficient native token (XDC) for gas and LayerZero fees
+ * - Sufficient G$ balance on the source chain
+ * - Sufficient native token (XDC or CELO) for gas and LayerZero fees
  */
 
 import { network, ethers } from "hardhat";
 import { Contract } from "ethers";
+import { EndpointId } from "@layerzerolabs/lz-definitions";
 import dao from "../releases/deployment.json";
 
 // IERC20 interface for token operations
@@ -24,35 +33,47 @@ const IERC20_ABI = [
 
 // LayerZero Endpoint IDs (eid)
 // These are LayerZero v2 endpoint IDs, not chain IDs
-// NOTE: These endpoint IDs need to be verified from LayerZero documentation
-// You can override via CELO_LZ_ENDPOINT_ID environment variable
+const XDC_ENDPOINT_ID = EndpointId.XDC_V2_MAINNET;
 const CELO_ENDPOINT_ID = process.env.CELO_LZ_ENDPOINT_ID 
   ? parseInt(process.env.CELO_LZ_ENDPOINT_ID) 
-  : 30125; // Default CELO LayerZero endpoint ID (verify this is correct!)
+  : EndpointId.CELO_V2_MAINNET; // Default CELO LayerZero endpoint ID
 
 const main = async () => {
   const networkName = network.name;
   const [sender] = await ethers.getSigners();
 
-  console.log("=== Bridge G$ from XDC to CELO ===");
-  console.log("Network:", networkName);
-  console.log("Sender:", sender.address);
-  console.log("Sender balance:", ethers.utils.formatEther(await ethers.provider.getBalance(sender.address)), "XDC");
+  // Detect source and destination networks
+  const isXDC = networkName.includes("xdc");
+  const isCELO = networkName.includes("celo");
 
-  // Validate we're on XDC network
-  if (!networkName.includes("xdc")) {
-    throw new Error(`This script should be run on XDC network. Current network: ${networkName}`);
+  if (!isXDC && !isCELO) {
+    throw new Error(
+      `Network must be XDC or CELO. Current network: ${networkName}\n` +
+      `Supported networks: production-xdc, development-xdc, production-celo, development-celo`
+    );
   }
 
-  // Get deployment info
-  const release = dao[networkName];
-  if (!release) {
+  const sourceNetwork = isXDC ? "XDC" : "CELO";
+  const destNetwork = isXDC ? "CELO" : "XDC";
+  const sourceEndpointId = isXDC ? XDC_ENDPOINT_ID : CELO_ENDPOINT_ID;
+  const destEndpointId = isXDC ? CELO_ENDPOINT_ID : XDC_ENDPOINT_ID;
+  const nativeTokenName = isXDC ? "XDC" : "CELO";
+
+  console.log("=== Bridge G$ ===");
+  console.log(`Bridging from ${sourceNetwork} to ${destNetwork}`);
+  console.log("Source Network:", networkName);
+  console.log("Sender:", sender.address);
+  console.log(`Sender balance: ${ethers.utils.formatEther(await ethers.provider.getBalance(sender.address))} ${nativeTokenName}`);
+
+  // Get deployment info for source network
+  const sourceRelease = dao[networkName];
+  if (!sourceRelease) {
     throw new Error(`No deployment found for network: ${networkName}`);
   }
 
-  const oftAdapterAddress = release.GoodDollarOFTAdapter;
-  const tokenAddress = release.GoodDollar;
-  const minterBurnerAddress = release.GoodDollarMinterBurner;
+  const oftAdapterAddress = sourceRelease.GoodDollarOFTAdapter;
+  const tokenAddress = sourceRelease.GoodDollar;
+  const minterBurnerAddress = sourceRelease.GoodDollarMinterBurner;
 
   if (!oftAdapterAddress) {
     throw new Error(`GoodDollarOFTAdapter not found in deployment.json for ${networkName}`);
@@ -66,7 +87,7 @@ const main = async () => {
     throw new Error(`GoodDollarMinterBurner not found in deployment.json for ${networkName}`);
   }
 
-  console.log("\nContract addresses:");
+  console.log("\nSource chain contract addresses:");
   console.log("OFT Adapter:", oftAdapterAddress);
   console.log("Token:", tokenAddress);
   console.log("MinterBurner:", minterBurnerAddress);
@@ -116,52 +137,67 @@ const main = async () => {
     console.log("Sufficient OFT adapter allowance already set");
   }
 
-  // Recipient address (same address on CELO)
+  // Recipient address (same address on destination chain)
   const recipient = sender.address;
-  console.log("\nRecipient on CELO:", recipient);
+  console.log(`\nRecipient on ${destNetwork}:`, recipient);
 
-  // Check if peer is set for CELO
-  console.log("\nChecking if CELO peer is configured...");
-  const celoPeer = await oftAdapter.peers(CELO_ENDPOINT_ID);
-  console.log("Current CELO peer:", celoPeer);
-  
-  // Get CELO OFT adapter address
-  // Can be provided via environment variable or from deployment.json
-  let celoOFTAdapter = dao["development-celo"].GoodDollarOFTAdapter;
-  
-  if (!celoOFTAdapter) {
-    const celoRelease = dao["production-celo"] || dao["development-celo"] || dao["celo"];
-    if (celoRelease) {
-      celoOFTAdapter = celoRelease.GoodDollarOFTAdapter;
-    }
+  // Get destination network OFT adapter address
+  let destNetworkName: string;
+  if (isXDC) {
+    // Bridging to CELO - try production-celo first, then development-celo
+    destNetworkName = (dao["production-celo"] as any)?.GoodDollarOFTAdapter 
+      ? "production-celo" 
+      : "development-celo";
+  } else {
+    // Bridging to XDC - try production-xdc first, then development-xdc
+    destNetworkName = (dao["production-xdc"] as any)?.GoodDollarOFTAdapter 
+      ? "production-xdc" 
+      : "development-xdc";
   }
+
+  const destRelease = dao[destNetworkName] as any;
+  if (!destRelease) {
+    throw new Error(`No deployment found for destination network: ${destNetworkName}`);
+  }
+
+  const destOFTAdapter = destRelease.GoodDollarOFTAdapter;
   
-  if (!celoOFTAdapter) {
+  if (!destOFTAdapter) {
     throw new Error(
-      "CELO OFT adapter address not found. Please either:\n" +
-      "  1. Set CELO_OFT_ADAPTER environment variable, or\n" +
-      "  2. Deploy OFT adapter on CELO and add it to deployment.json, or\n" +
-      "  3. Manually set the peer using: scripts/set-oft-peer.ts"
+      `${destNetwork} OFT adapter address not found in deployment.json.\n` +
+      `Please either:\n` +
+      `  1. Deploy OFT adapter on ${destNetwork} and add it to deployment.json, or\n` +
+      `  2. Manually set the peer using: scripts/set-oft-peer.ts`
     );
   }
+
+  console.log(`\nDestination chain (${destNetwork}):`);
+  console.log(`OFT Adapter: ${destOFTAdapter}`);
+  console.log(`Network name: ${destNetworkName}`);
+
+  // Check if peer is set for destination chain
+  console.log(`\nChecking if ${destNetwork} peer is configured...`);
+  const destPeer = await oftAdapter.peers(destEndpointId);
+  console.log(`Current ${destNetwork} peer:`, destPeer);
   
-  const expectedPeer = ethers.utils.hexZeroPad(celoOFTAdapter, 32);
-  console.log("Expected CELO peer (OFT adapter on CELO):", celoOFTAdapter);
+  const expectedPeer = ethers.utils.hexZeroPad(destOFTAdapter, 32);
+  console.log(`Expected ${destNetwork} peer (OFT adapter on ${destNetwork}):`, destOFTAdapter);
   console.log("Expected peer (bytes32):", expectedPeer);
   
   // Compare case-insensitively (addresses can have different case)
-  const celoPeerLower = celoPeer.toLowerCase();
+  const destPeerLower = destPeer.toLowerCase();
   const expectedPeerLower = expectedPeer.toLowerCase();
   
-  if (celoPeerLower === ethers.constants.HashZero.toLowerCase() || celoPeerLower !== expectedPeerLower) {
-    console.log("\n⚠️  WARNING: CELO peer is not configured correctly!");
+  if (destPeerLower === ethers.constants.HashZero.toLowerCase() || destPeerLower !== expectedPeerLower) {
+    console.log(`\n⚠️  WARNING: ${destNetwork} peer is not configured correctly!`);
     console.log("You need to set the peer before bridging. Run this command:");
-    console.log(`  oftAdapter.setPeer(${CELO_ENDPOINT_ID}, "${expectedPeer}")`);
-    console.log("\nOr use a script to set peers. The owner of the OFT adapter must call setPeer().");
-    throw new Error(`NoPeer: CELO peer (endpoint ${CELO_ENDPOINT_ID}) is not set. Expected: ${celoOFTAdapter}`);
+    console.log(`  oftAdapter.setPeer(${destEndpointId}, "${expectedPeer}")`);
+    console.log("\nOr use the LayerZero wire command:");
+    console.log(`  npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts --network ${networkName}`);
+    throw new Error(`NoPeer: ${destNetwork} peer (endpoint ${destEndpointId}) is not set. Expected: ${destOFTAdapter}`);
   }
   
-  console.log("✅ CELO peer is configured correctly");
+  console.log(`✅ ${destNetwork} peer is configured correctly`);
 
   // Double-check approvals before calling quoteSend
   console.log("\nVerifying approvals before quoteSend...");
@@ -182,7 +218,7 @@ const main = async () => {
     // LayerZero v2 OFT uses quoteSend with SendParam struct
     // SendParam: { dstEid, to, amountLD, minAmountLD, extraOptions, composeMsg, oftCmd }
     const sendParam = {
-      dstEid: CELO_ENDPOINT_ID, // destination endpoint ID
+      dstEid: destEndpointId, // destination endpoint ID
       to: ethers.utils.hexZeroPad(recipient, 32), // recipient address (bytes32 encoded)
       amountLD: amount, // amount to send in local decimals
       minAmountLD: amount, // minimum amount to receive (slippage protection)
@@ -194,14 +230,14 @@ const main = async () => {
     // Quote the fee (payInLzToken = false means pay in native token)
     const msgFee = await oftAdapter.quoteSend(sendParam, false);
 
-    console.log("Estimated native fee:", ethers.utils.formatEther(msgFee.nativeFee), "XDC");
+    console.log(`Estimated native fee: ${ethers.utils.formatEther(msgFee.nativeFee)} ${nativeTokenName}`);
     console.log("Estimated LZ token fee:", ethers.utils.formatEther(msgFee.lzTokenFee), "LZ");
 
     // Check if sender has enough native token for fee
     const senderBalance = await ethers.provider.getBalance(sender.address);
     if (senderBalance.lt(msgFee.nativeFee)) {
       throw new Error(
-        `Insufficient native token for fee. Need ${ethers.utils.formatEther(msgFee.nativeFee)} XDC, have ${ethers.utils.formatEther(senderBalance)} XDC`
+        `Insufficient native token for fee. Need ${ethers.utils.formatEther(msgFee.nativeFee)} ${nativeTokenName}, have ${ethers.utils.formatEther(senderBalance)} ${nativeTokenName}`
       );
     }
 
@@ -233,12 +269,13 @@ const main = async () => {
     }
 
     console.log("\n=== Bridge Initiated Successfully ===");
+    console.log(`Bridging from ${sourceNetwork} to ${destNetwork}`);
     console.log("Transaction hash:", sendTx.hash);
-    console.log("Recipient on CELO:", recipient);
+    console.log(`Recipient on ${destNetwork}:`, recipient);
     console.log("Amount:", ethers.utils.formatEther(amount), "G$");
     console.log("\nYou can track the cross-chain message at:");
     console.log(`https://layerzeroscan.com/tx/${sendTx.hash}`);
-    console.log("\nNote: The tokens will arrive on CELO after the LayerZero message is delivered.");
+    console.log(`\nNote: The tokens will arrive on ${destNetwork} after the LayerZero message is delivered.`);
     console.log("This typically takes a few minutes.");
 
   } catch (error: any) {
