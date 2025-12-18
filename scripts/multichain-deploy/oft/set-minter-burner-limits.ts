@@ -62,25 +62,17 @@ const main = async () => {
   console.log("Weekly Burn Limit:", ethers.utils.formatEther(currentWeeklyBurnLimit), "G$");
   console.log("Monthly Burn Limit:", ethers.utils.formatEther(currentMonthlyBurnLimit), "G$");
 
-  // Get new limits from environment variables or command line args
-  // Format: values should be in G$ (will be converted to wei)
-  const weeklyMintLimitStr = process.env.WEEKLY_MINT_LIMIT;
-  const monthlyMintLimitStr = process.env.MONTHLY_MINT_LIMIT;
-  const weeklyBurnLimitStr = process.env.WEEKLY_BURN_LIMIT;
-  const monthlyBurnLimitStr = process.env.MONTHLY_BURN_LIMIT;
-
-  const newWeeklyMintLimit = ethers.utils.parseUnits(weeklyMintLimitStr, 18);
-  const newMonthlyMintLimit = ethers.utils.parseUnits(monthlyMintLimitStr, 18);
-  const newWeeklyBurnLimit = ethers.utils.parseUnits(weeklyBurnLimitStr, 18);
-  const newMonthlyBurnLimit = ethers.utils.parseUnits(monthlyBurnLimitStr, 18);
+  const weeklyMintLimit = Number(process.env.WEEKLY_MINT_LIMIT);
+  const monthlyMintLimit = Number(process.env.MONTHLY_MINT_LIMIT);
+  const weeklyBurnLimit = Number(process.env.WEEKLY_BURN_LIMIT);
+  const monthlyBurnLimit = Number(process.env.MONTHLY_BURN_LIMIT);
 
   // Check if any limits are being set
-  if (!newWeeklyMintLimit && !newMonthlyMintLimit && !newWeeklyBurnLimit && !newMonthlyBurnLimit) {
+  if (weeklyMintLimit == undefined && monthlyMintLimit == undefined && weeklyBurnLimit == undefined && monthlyBurnLimit == undefined) {
     console.log("\n⚠️  No limits specified. Please provide at least one limit to set.");
-      console.log("\nUsage examples:");
-      console.log("  WEEKLY_MINT_LIMIT=1000000 npx hardhat run scripts/multichain-deploy/oft/set-minter-burner-limits.ts --network development-celo");
-      console.log("  --weekly-mint=1000000 --monthly-mint=5000000 npx hardhat run scripts/multichain-deploy/oft/set-minter-burner-limits.ts --network development-celo");
-    console.log("\nTo disable a limit, set it to 0 or 'disable'");
+    console.log("\nUsage examples:");
+    console.log("  WEEKLY_MINT_LIMIT=1000000 npx hardhat run scripts/multichain-deploy/oft/set-minter-burner-limits.ts --network development-celo");
+    console.log("\nTo disable a limit, set it to 0");
     return;
   }
 
@@ -92,9 +84,9 @@ const main = async () => {
 
   const abiCoder = ethers.utils.defaultAbiCoder;
 
-  if (newWeeklyMintLimit !== null) {
-    const limit = ethers.BigNumber.from(newWeeklyMintLimit);
-    if (!limit.eq(currentWeeklyMintLimit)) {
+  if (weeklyMintLimit != null) {
+    const limit = weeklyMintLimit;
+    if (limit != currentWeeklyMintLimit) {
       console.log(`\n📝 Setting Weekly Mint Limit: ${ethers.utils.formatEther(limit)} G$`);
       proposalContracts.push(minterBurnerAddress);
       proposalEthValues.push("0");
@@ -105,9 +97,9 @@ const main = async () => {
     }
   }
 
-  if (newMonthlyMintLimit !== null) {
-    const limit = ethers.BigNumber.from(newMonthlyMintLimit);
-    if (!limit.eq(currentMonthlyMintLimit)) {
+  if (monthlyMintLimit != null) {
+    const limit = monthlyMintLimit;
+    if (limit != currentMonthlyMintLimit) {
       console.log(`\n📝 Setting Monthly Mint Limit: ${ethers.utils.formatEther(limit)} G$`);
       proposalContracts.push(minterBurnerAddress);
       proposalEthValues.push("0");
@@ -118,9 +110,9 @@ const main = async () => {
     }
   }
 
-  if (newWeeklyBurnLimit !== null) {
-    const limit = ethers.BigNumber.from(newWeeklyBurnLimit);
-    if (!limit.eq(currentWeeklyBurnLimit)) {
+  if (weeklyBurnLimit != null) {
+    const limit = weeklyBurnLimit;
+    if (limit != currentWeeklyBurnLimit) {
       console.log(`\n📝 Setting Weekly Burn Limit: ${ethers.utils.formatEther(limit)} G$`);
       proposalContracts.push(minterBurnerAddress);
       proposalEthValues.push("0");
@@ -131,9 +123,9 @@ const main = async () => {
     }
   }
 
-  if (newMonthlyBurnLimit !== null) {
-    const limit = ethers.BigNumber.from(newMonthlyBurnLimit);
-    if (!limit.eq(currentMonthlyBurnLimit)) {
+  if (monthlyBurnLimit != null) {
+    const limit = monthlyBurnLimit;
+    if (limit != currentMonthlyBurnLimit) {
       console.log(`\n📝 Setting Monthly Burn Limit: ${ethers.utils.formatEther(limit)} G$`);
       proposalContracts.push(minterBurnerAddress);
       proposalEthValues.push("0");

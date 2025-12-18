@@ -19,7 +19,10 @@ const main = async () => {
   console.log("=== Grant MINTER_ROLE to GoodDollarMinterBurner ===");
   console.log("Network:", networkName);
   console.log("Signer:", signer.address);
-  console.log("Signer balance:", ethers.utils.formatEther(await ethers.provider.getBalance(signer.address)), "CELO");
+  
+  // Derive native token name from network
+  const nativeTokenName = networkName.includes("celo") ? "CELO" : networkName.includes("xdc") ? "XDC" : "native token";
+  console.log("Signer balance:", ethers.utils.formatEther(await ethers.provider.getBalance(signer.address)), nativeTokenName);
 
   // Get deployment info
   const release = dao[networkName];

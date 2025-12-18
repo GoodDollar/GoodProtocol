@@ -19,10 +19,10 @@ import {
   deployDeterministic,
   printDeploy,
   verifyProductionSigner
-} from "./helpers";
-import releaser from "../../scripts/releaser";
-import ProtocolSettings from "../../releases/deploy-settings.json";
-import dao from "../../releases/deployment.json";
+} from "../helpers";
+import releaser from "../../../scripts/releaser";
+import ProtocolSettings from "../../../releases/deploy-settings.json";
+import dao from "../../../releases/deployment.json";
 // Types will be inferred from contract instances
 
 const { name: networkName } = network;

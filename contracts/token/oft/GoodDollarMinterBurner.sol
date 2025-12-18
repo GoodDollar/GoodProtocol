@@ -53,6 +53,8 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
     event MonthlyMintLimitSet(uint256 oldLimit, uint256 newLimit);
     event WeeklyBurnLimitSet(uint256 oldLimit, uint256 newLimit);
     event MonthlyBurnLimitSet(uint256 oldLimit, uint256 newLimit);
+    event TokensMinted(address indexed to, uint256 amount, address indexed operator);
+    event TokensBurned(address indexed from, uint256 amount, address indexed operator);
     
     modifier onlyOperators() {
         require(operators[msg.sender] || msg.sender == avatar, "Not authorized");
@@ -192,6 +194,8 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
         monthlyBurned += _amount;
         
         token.burnFrom(_from, _amount);
+        
+        emit TokensBurned(_from, _amount, msg.sender);
         return true;
     }
 
@@ -223,7 +227,11 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
         weeklyMinted += _amount;
         monthlyMinted += _amount;
         
-        return token.mint(_to, _amount);
+        bool success = token.mint(_to, _amount);
+        if (success) {
+            emit TokensMinted(_to, _amount, msg.sender);
+        }
+        return success;
     }
 
     /**
