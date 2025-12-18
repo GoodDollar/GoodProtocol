@@ -2,13 +2,13 @@
  * Deployment script for GoodDollar OFT (Omnichain Fungible Token) contracts
  * 
  * Deploys:
- * 1. GoodDollarMinterBurner - Contract that handles minting and burning of GoodDollar tokens for OFT
- * 2. GoodDollarOFTAdapter - LayerZero OFT adapter that wraps GoodDollar token for cross-chain transfers
+ * 1. GoodDollarMinterBurner - DAO-upgradeable contract that handles minting and burning of GoodDollar tokens for OFT
+ * 2. GoodDollarOFTAdapter - Non-upgradeable LayerZero OFT adapter that wraps GoodDollar token for cross-chain transfers
  * 
  * Steps:
- * 1. Deploy GoodDollarMinterBurner with token address and owner
- * 2. Deploy GoodDollarOFTAdapter with token, minterBurner, LayerZero endpoint, and owner
- * 3. Set OFT adapter as operator on GoodDollarMinterBurner
+ * 1. Deploy GoodDollarMinterBurner as upgradeable proxy with token address and NameService
+ * 2. Deploy GoodDollarOFTAdapter (non-upgradeable) with token, minterBurner, LayerZero endpoint, and owner (avatar)
+ * 3. Set OFT adapter as operator on GoodDollarMinterBurner via DAO
  */
 
 import { network, ethers } from "hardhat";
@@ -48,6 +48,13 @@ export const deployOFTContracts = async () => {
     throw new Error(`Token address not found in deployment.json for network ${networkName}. Please deploy SuperGoodDollar or GoodDollar first.`);
   }
 
+  // Get NameService for DAO integration
+  const nameServiceAddress = release.NameService;
+  if (!nameServiceAddress) {
+    throw new Error(`NameService address not found in deployment.json for network ${networkName}. Please deploy NameService first.`);
+  }
+  const NameService = await ethers.getContractAt("NameService", nameServiceAddress);
+
   // Get owner - use Avatar if available, otherwise use deployer
   const owner = root.address;
 
@@ -65,16 +72,17 @@ export const deployOFTContracts = async () => {
     networkName
   });
 
-  // Deploy GoodDollarMinterBurner
+  // Deploy GoodDollarMinterBurner (upgradeable)
   let MinterBurner: Contract;
   if (!release.GoodDollarMinterBurner) {
-    console.log("Deploying GoodDollarMinterBurner...");
+    console.log("Deploying GoodDollarMinterBurner as upgradeable contract...");
     MinterBurner = (await deployDeterministic(
       {
         name: "GoodDollarMinterBurner",
-        isUpgradeable: false
+        isUpgradeable: true,
+        initializer: "initialize"
       },
-      [tokenAddress, owner]
+      [tokenAddress, nameServiceAddress]
     ).then(printDeploy)) as Contract;
 
     let torelease = {
@@ -88,10 +96,15 @@ export const deployOFTContracts = async () => {
     MinterBurner = await ethers.getContractAt("GoodDollarMinterBurner", release.GoodDollarMinterBurner);
   }
 
-  // Deploy GoodDollarOFTAdapter
+  // Get Controller and Avatar addresses (used for OFT adapter owner and operator setup)
+  const Controller = await ethers.getContractAt("Controller", await NameService.getAddress("CONTROLLER"));
+  const avatarAddress = await Controller.avatar();
+
+  // Deploy GoodDollarOFTAdapter (non-upgradeable)
   let OFTAdapter: Contract;
   if (!release.GoodDollarOFTAdapter) {
-    console.log("Deploying GoodDollarOFTAdapter...");
+    console.log("Deploying GoodDollarOFTAdapter (non-upgradeable)...");
+    
     OFTAdapter = (await deployDeterministic(
       {
         name: "GoodDollarOFTAdapter",
@@ -106,38 +119,30 @@ export const deployOFTContracts = async () => {
 
     await releaser(torelease, networkName, "deployment", false);
     console.log("GoodDollarOFTAdapter deployed to:", OFTAdapter.address);
+    console.log("Owner set to DAO avatar:", avatarAddress);
   } else {
     console.log("GoodDollarOFTAdapter already deployed at:", release.GoodDollarOFTAdapter);
     OFTAdapter = await ethers.getContractAt("GoodDollarOFTAdapter", release.GoodDollarOFTAdapter);
   }
 
   // Set OFT adapter as operator on MinterBurner if not already set
-  // Only if deployer is the owner (not if owner is Avatar/DAO)
+  // This must be done via DAO governance since MinterBurner is DAO-controlled
   const isOperator = await MinterBurner.operators(OFTAdapter.address);
-  const currentOwner = await MinterBurner.owner();
-  const deployerAddress = root.address;
   
   if (!isOperator) {
-    if (currentOwner.toLowerCase() === deployerAddress.toLowerCase()) {
-      console.log("Setting OFT adapter as operator on MinterBurner...");
-      const tx = await MinterBurner.setOperator(OFTAdapter.address, true);
-      await printDeploy(tx);
-      console.log("OFT adapter set as operator");
-    } else {
-      console.log("WARNING: Owner is not the deployer. Please set OFT adapter as operator manually via governance:");
-      console.log(`  MinterBurner.setOperator(${OFTAdapter.address}, true)`);
-      console.log(`  MinterBurner address: ${MinterBurner.address}`);
-    }
+    console.log("WARNING: OFT adapter is not yet set as operator on MinterBurner.");
+    console.log(`  MinterBurner address: ${MinterBurner.address}`);
+    console.log(`  OFTAdapter address: ${OFTAdapter.address}`);
   } else {
     console.log("OFT adapter is already an operator on MinterBurner");
   }
 
   console.log("\n=== Deployment Summary ===");
   console.log("Network:", networkName);
-  console.log("GoodDollarMinterBurner:", MinterBurner.address);
-  console.log("GoodDollarOFTAdapter:", OFTAdapter.address);
+  console.log("GoodDollarMinterBurner:", MinterBurner.address, "(upgradeable)");
+  console.log("GoodDollarOFTAdapter:", OFTAdapter.address, "(non-upgradeable)");
   console.log("Token:", tokenAddress);
-  console.log("Owner:", owner);
+  console.log("OFT Adapter Owner (Avatar):", avatarAddress);
   console.log("LayerZero Endpoint:", lzEndpoint);
   console.log("========================\n");
 

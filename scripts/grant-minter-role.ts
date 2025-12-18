@@ -21,11 +21,6 @@ const main = async () => {
   console.log("Signer:", signer.address);
   console.log("Signer balance:", ethers.utils.formatEther(await ethers.provider.getBalance(signer.address)), "CELO");
 
-  // Validate we're on development-celo network
-  if (networkName !== "development-celo") {
-    throw new Error(`This script should be run on development-celo network. Current network: ${networkName}`);
-  }
-
   // Get deployment info
   const release = dao[networkName];
   if (!release) {
