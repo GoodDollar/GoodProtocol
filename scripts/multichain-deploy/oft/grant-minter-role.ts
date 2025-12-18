@@ -3,14 +3,14 @@
  * Uses genericCall through Avatar/Controller to execute the transaction
  * 
  * Usage:
- *   npx hardhat run scripts/grant-minter-role.ts --network development-celo
+ *   npx hardhat run scripts/multichain-deploy/oft/grant-minter-role.ts --network development-celo
  * 
  * Note: This script must be run by a guardian or address with permissions to execute via Controller
  */
 
 import { network, ethers } from "hardhat";
-import { executeViaGuardian } from "./multichain-deploy/helpers";
-import dao from "../releases/deployment.json";
+import { executeViaGuardian } from "../helpers";
+import dao from "../../../releases/deployment.json";
 
 const main = async () => {
   const networkName = network.name;

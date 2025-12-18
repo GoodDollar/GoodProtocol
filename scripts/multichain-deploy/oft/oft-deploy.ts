@@ -130,9 +130,45 @@ export const deployOFTContracts = async () => {
   const isOperator = await MinterBurner.operators(OFTAdapter.address);
   
   if (!isOperator) {
-    console.log("WARNING: OFT adapter is not yet set as operator on MinterBurner.");
+    console.log("Setting OFT adapter as operator on MinterBurner via DAO...");
     console.log(`  MinterBurner address: ${MinterBurner.address}`);
     console.log(`  OFTAdapter address: ${OFTAdapter.address}`);
+    
+    // Encode the setOperator function call
+    const setOperatorEncoded = MinterBurner.interface.encodeFunctionData("setOperator", [
+      OFTAdapter.address,
+      true
+    ]);
+    
+    // Execute via Controller/Avatar
+    try {
+      const tx = await Controller.genericCall(
+        MinterBurner.address,
+        setOperatorEncoded,
+        avatarAddress,
+        0
+      );
+      await tx.wait();
+      console.log("✅ Successfully set OFT adapter as operator on MinterBurner");
+      console.log("Transaction hash:", tx.hash);
+      
+      // Verify it was set
+      const isOperatorAfter = await MinterBurner.operators(OFTAdapter.address);
+      if (isOperatorAfter) {
+        console.log("✅ Verified: OFT adapter is now an operator");
+      } else {
+        console.log("⚠️  Warning: Operator status not set. Please check the transaction.");
+      }
+    } catch (error: any) {
+      console.error("❌ Error setting operator:");
+      if (error.message) {
+        console.error("Error message:", error.message);
+      }
+      if (error.reason) {
+        console.error("Reason:", error.reason);
+      }
+      throw error;
+    }
   } else {
     console.log("OFT adapter is already an operator on MinterBurner");
   }

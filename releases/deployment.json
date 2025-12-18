@@ -537,8 +537,8 @@
     "MentoExpansionController": "0x0F6bEc7ba1e7f5D98c4Dc04c2F1F219d6B650963",
     "MentoReserve": "0x1cbDc8C2F57C3988cbE1B7bD2a323AaDb17379a7",
     "MentoBroker": "0xE60cf1cb6a56131CE135c604D0BD67e84B57CA3C",
-    "GoodDollarMinterBurner": "0x57D60087b69b7bA13afbAbc41CB56A24A8B648F8",
-    "GoodDollarOFTAdapter": "0xb8e2aae105fb0637B08806e855057A0985bf859c"
+    "GoodDollarMinterBurner": "0x6E7C284B500dAC8b16d3B4703c774A8e0AA58800",
+    "GoodDollarOFTAdapter": "0x62a963695AA0f043362Aff9aaaDdf34B56D7dF76"
   },
   "staging-celo": {
     "network": "staging-celo",
@@ -734,8 +734,8 @@
     "MentoExchangeProvider": "0x1fad5a713da1f51e2a1ac4ca2e1d621919f0aba0",
     "MentoExpansionController": "0xe69bd25ca06264780e377e8d81a59271299adb36",
     "MentoProxyAdmin": "0x54f44fBE2943c2196D94831288E716cdeAF5657",
-    "GoodDollarMinterBurner": "0x91e02521E76A3d64050b15Ac419bc9D64fA99fe7",
-    "GoodDollarOFTAdapter": "0xFe9ed346a232b45A0Ed699ab86B1AaB162eDCCA7"
+    "GoodDollarMinterBurner": "0xb3E736a7579B9e565dD1ae4fCdEc8f321C288411",
+    "GoodDollarOFTAdapter": "0xD660CA0962a6Eb1be73a05D5c82152bf849D339f"
   },
   "production-xdc": {
     "networkId": 50,

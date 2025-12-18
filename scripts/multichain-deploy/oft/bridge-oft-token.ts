@@ -3,14 +3,14 @@
  * 
  * Usage:
  *   # Bridge from XDC to CELO:
- *   npx hardhat run scripts/bridge-oft-xdc-to-celo.ts --network production-xdc
+ *   npx hardhat run scripts/multichain-deploy/oft/bridge-oft-token.ts --network production-xdc
  *   # or
- *   npx hardhat run scripts/bridge-oft-xdc-to-celo.ts --network development-xdc
+ *   npx hardhat run scripts/multichain-deploy/oft/bridge-oft-token.ts --network development-xdc
  * 
  *   # Bridge from CELO to XDC:
- *   npx hardhat run scripts/bridge-oft-xdc-to-celo.ts --network production-celo
+ *   npx hardhat run scripts/multichain-deploy/oft/bridge-oft-token.ts --network production-celo
  *   # or
- *   npx hardhat run scripts/bridge-oft-xdc-to-celo.ts --network development-celo
+ *   npx hardhat run scripts/multichain-deploy/oft/bridge-oft-token.ts --network development-celo
  * 
  * Note: Make sure you have:
  * - GoodDollarOFTAdapter deployed on both XDC and CELO
@@ -21,7 +21,7 @@
 import { network, ethers } from "hardhat";
 import { Contract } from "ethers";
 import { EndpointId } from "@layerzerolabs/lz-definitions";
-import dao from "../releases/deployment.json";
+import dao from "../../../releases/deployment.json";
 
 // IERC20 interface for token operations
 const IERC20_ABI = [
@@ -145,14 +145,10 @@ const main = async () => {
   let destNetworkName: string;
   if (isXDC) {
     // Bridging to CELO - try production-celo first, then development-celo
-    destNetworkName = (dao["production-celo"] as any)?.GoodDollarOFTAdapter 
-      ? "production-celo" 
-      : "development-celo";
+    destNetworkName = "development-celo";
   } else {
     // Bridging to XDC - try production-xdc first, then development-xdc
-    destNetworkName = (dao["production-xdc"] as any)?.GoodDollarOFTAdapter 
-      ? "production-xdc" 
-      : "development-xdc";
+    destNetworkName = "development-xdc";
   }
 
   const destRelease = dao[destNetworkName] as any;
@@ -280,47 +276,6 @@ const main = async () => {
 
   } catch (error: any) {
     console.error("\n❌ Error during bridge:");
-    if (error.message) {
-      console.error("Error message:", error.message);
-    }
-    if (error.reason) {
-      console.error("Reason:", error.reason);
-    }
-    if (error.data) {
-      console.error("Error data:", error.data);
-      
-      // Try to decode common LayerZero OFT errors
-      const errorData = error.data;
-      if (typeof errorData === 'string' && errorData.startsWith('0x')) {
-        const errorSelector = errorData.slice(0, 10);
-        console.error("Error selector:", errorSelector);
-        
-        // Common error selectors (first 4 bytes of keccak256(error signature))
-        const errorMap: { [key: string]: string } = {
-          '0x6592671c': 'LZ_ULN_InvalidWorkerOptions - Invalid extraOptions format',
-          '0xdcbaa175': 'InsufficientAllowance',
-          '0xf6deaa04': 'InsufficientBalance',
-          '0x830d2e7b': 'InvalidSendParam',
-          '0xdaffed9a': 'NoPeer - Destination peer not configured',
-          '0x5bb2ebcc': 'InvalidPeer',
-        };
-        
-        if (errorMap[errorSelector]) {
-          console.error("Likely error:", errorMap[errorSelector]);
-        }
-        
-        // If it's the LZ_ULN_InvalidWorkerOptions error, provide specific guidance
-        if (errorSelector === '0x6592671c') {
-          console.error("\n💡 LZ_ULN_InvalidWorkerOptions error means:");
-          console.error("   - The extraOptions in SendParam are invalid or incorrectly formatted");
-          console.error("   - extraOptions must be properly encoded LayerZero options");
-          console.error("   - For simple sends, you may need to use empty bytes '0x' or properly formatted options");
-          console.error("   - Check if you need to encode executor options or DVN options");
-          console.error("\n   Solution: Ensure extraOptions are correctly formatted or use the OApp's");
-          console.error("   combineOptions() helper to build proper options.");
-        }
-      }
-    }
     throw error;
   }
 };
