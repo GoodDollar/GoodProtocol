@@ -8,11 +8,11 @@ import "../Interfaces.sol";
 
 /*
  * @title BuyGDClone
- * @notice This contract allows users to swap Celo or cUSD for GoodDollar (GD) tokens.
+ * @notice This contract allows users to swap Celo or stable for GoodDollar (GD) tokens.
  * @dev This contract is a clone of the BuyGD contract, which is used to buy GD tokens on the GoodDollar platform.
  * @dev This contract uses the SwapRouter contract to perform the swaps.
  */
-contract BuyGDClone is Initializable {
+contract BuyGDCloneV2 is Initializable {
 	error REFUND_FAILED(uint256);
 	error NO_BALANCE();
 
@@ -20,8 +20,10 @@ contract BuyGDClone is Initializable {
 
 	ISwapRouter public immutable router;
 	address public constant celo = 0x471EcE3750Da237f93B8E339c536989b8978a438;
+	address public constant CUSD = 0x765DE816845861e75A25fCA122bb6898B8B1282a;
+	uint24 public constant GD_FEE_TIER = 500;
 	uint32 public immutable twapPeriod;
-	address public immutable cusd;
+	address public immutable stable;
 	address public immutable gd;
 	IStaticOracle public immutable oracle;
 
@@ -31,12 +33,12 @@ contract BuyGDClone is Initializable {
 
 	constructor(
 		ISwapRouter _router,
-		address _cusd,
+		address _stable,
 		address _gd,
 		IStaticOracle _oracle
 	) {
 		router = _router;
-		cusd = _cusd;
+		stable = _stable;
 		gd = _gd;
 		oracle = _oracle;
 		twapPeriod = 300; //5 minutes
@@ -51,9 +53,9 @@ contract BuyGDClone is Initializable {
 	}
 
 	/**
-	 * @notice Swaps either Celo or cUSD for GD tokens.
+	 * @notice Swaps either Celo or stable for GD tokens.
 	 * @dev If the contract has a balance of Celo, it will swap Celo for GD tokens.
-	 * @dev If the contract has a balance of cUSD, it will swap cUSD for GD tokens.
+	 * @dev If the contract has a balance of stable, it will swap stable for GD tokens.
 	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
 	 */
 	function swap(
@@ -67,7 +69,7 @@ contract BuyGDClone is Initializable {
 			emit Bought(celo, balance, bought);
 			return bought;
 		}
-		balance = ERC20(cusd).balanceOf(address(this));
+		balance = ERC20(CUSD).balanceOf(address(this));
 		if (balance > 0) {
 			bought = swapCusd(_minAmount, refundGas);
 			emit Bought(celo, balance, bought);
@@ -86,11 +88,14 @@ contract BuyGDClone is Initializable {
 		address payable refundGas
 	) public payable returns (uint256 bought) {
 		uint256 gasCosts;
+		uint24[] memory fees = new uint24[](1);
+		fees[0] = 100;
 		if (refundGas != owner) {
-			(gasCosts, ) = oracle.quoteAllAvailablePoolsWithTimePeriod(
+			(gasCosts, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
 				1e17, //0.1$
-				cusd,
+				stable,
 				celo,
+				fees,
 				60
 			);
 		}
@@ -102,7 +107,7 @@ contract BuyGDClone is Initializable {
 
 		ERC20(celo).approve(address(router), amountIn);
 		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
-			path: abi.encodePacked(celo, uint24(3000), cusd, uint24(10000), gd),
+			path: abi.encodePacked(celo, uint24(100), stable, GD_FEE_TIER, gd),
 			recipient: owner,
 			amountIn: amountIn,
 			amountOutMinimum: _minAmount
@@ -115,7 +120,7 @@ contract BuyGDClone is Initializable {
 	}
 
 	/**
-	 * @notice Swaps cUSD for GD tokens.
+	 * @notice Swaps cusd for GD tokens.
 	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
 	 */
 	function swapCusd(
@@ -123,21 +128,27 @@ contract BuyGDClone is Initializable {
 		address refundGas
 	) public returns (uint256 bought) {
 		uint256 gasCosts = refundGas != owner ? 1e17 : 0; //fixed 0.1$
-		uint256 amountIn = ERC20(cusd).balanceOf(address(this)) - gasCosts;
+		uint256 amountIn = ERC20(CUSD).balanceOf(address(this)) - gasCosts;
 
-		(uint256 minByTwap, ) = minAmountByTWAP(amountIn, cusd, twapPeriod);
+		(uint256 minByTwap, ) = minAmountByTWAP(amountIn, CUSD, twapPeriod);
 		_minAmount = _minAmount > minByTwap ? _minAmount : minByTwap;
 
-		ERC20(cusd).approve(address(router), amountIn);
+		ERC20(CUSD).approve(address(router), amountIn);
+		bytes memory path;
+		if (stable == CUSD) {
+			path = abi.encodePacked(CUSD, GD_FEE_TIER, gd);
+		} else {
+			path = abi.encodePacked(CUSD, uint24(100), stable, GD_FEE_TIER, gd);
+		}
 		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
-			path: abi.encodePacked(cusd, uint24(10000), gd),
+			path: path,
 			recipient: owner,
 			amountIn: amountIn,
 			amountOutMinimum: _minAmount
 		});
 		bought = router.exactInput(params);
 		if (refundGas != owner) {
-			ERC20(cusd).transfer(refundGas, gasCosts);
+			ERC20(stable).transfer(refundGas, gasCosts);
 		}
 	}
 
@@ -154,21 +165,32 @@ contract BuyGDClone is Initializable {
 		uint32 period
 	) public view returns (uint256 minTwap, uint256 quote) {
 		uint24[] memory fees = new uint24[](1);
-		fees[0] = 10000;
+		fees[0] = 100;
 
 		uint128 toConvert = uint128(baseAmount);
 		if (baseToken == celo) {
-			(quote, ) = oracle.quoteAllAvailablePoolsWithTimePeriod(
+			(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
 				toConvert,
 				baseToken,
-				cusd,
+				stable,
+				fees,
+				period
+			);
+			toConvert = uint128(quote);
+		} else if (baseToken == CUSD && stable != CUSD) {
+			(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
+				toConvert,
+				baseToken,
+				stable,
+				fees,
 				period
 			);
 			toConvert = uint128(quote);
 		}
+		fees[0] = GD_FEE_TIER;
 		(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
 			toConvert,
-			cusd,
+			stable,
 			gd,
 			fees,
 			period
@@ -191,7 +213,7 @@ contract BuyGDClone is Initializable {
 	}
 }
 
-contract DonateGDClone is BuyGDClone {
+contract DonateGDClone is BuyGDCloneV2 {
 	error EXEC_FAILED(bytes error);
 
 	event Donated(
@@ -209,7 +231,7 @@ contract DonateGDClone is BuyGDClone {
 		address _cusd,
 		address _gd,
 		IStaticOracle _oracle
-	) BuyGDClone(_router, _cusd, _gd, _oracle) {}
+	) BuyGDCloneV2(_router, _cusd, _gd, _oracle) {}
 
 	/**
 	 * @notice Initializes the contract with the owner's address.
@@ -248,13 +270,13 @@ contract DonateGDClone is BuyGDClone {
 		//now exec
 		if (callData.length > 0) {
 			// approve spend of the different possible tokens, before calling the target contract
-			uint256 cusdBalance = ERC20(cusd).balanceOf(address(this));
+			uint256 cusdBalance = ERC20(CUSD).balanceOf(address(this));
 			uint256 gdBalance = ERC20(gd).balanceOf(address(this));
 			uint256 celoBalance = address(this).balance;
 
 			if (cusdBalance > 0) {
-				ERC20(cusd).approve(address(owner), cusdBalance);
-				token = cusd;
+				ERC20(CUSD).approve(address(owner), cusdBalance);
+				token = CUSD;
 				donated = cusdBalance;
 			}
 			if (gdBalance > 0) {
@@ -302,11 +324,12 @@ contract BuyGDCloneFactory {
 
 	IQuoterV2 public constant quoter =
 		IQuoterV2(0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8); // celo quoter
+	address public constant CUSD = 0x765DE816845861e75A25fCA122bb6898B8B1282a;
 
 	address public immutable impl;
 	address public immutable donateImpl;
 	address public immutable gd;
-	address public immutable cusd;
+	address public immutable stable;
 	IStaticOracle public immutable oracle;
 	ISwapRouter public immutable router;
 
@@ -321,23 +344,29 @@ contract BuyGDCloneFactory {
 	/**
 	 * @notice Initializes the BuyGDCloneFactory contract with the provided parameters.
 	 * @param _router The address of the SwapRouter contract.
-	 * @param _cusd The address of the cUSD token contract.
+	 * @param _stable The address of the stable token contract.
 	 * @param _gd The address of the GD token contract.
 	 * @param _oracle The address of the StaticOracle contract.
 	 */
 	constructor(
 		ISwapRouter _router,
-		address _cusd,
+		address _stable,
 		address _gd,
 		IStaticOracle _oracle
 	) {
-		impl = address(new BuyGDClone(_router, _cusd, _gd, _oracle));
-		donateImpl = address(new DonateGDClone(_router, _cusd, _gd, _oracle));
+		impl = address(new BuyGDCloneV2(_router, _stable, _gd, _oracle));
+		donateImpl = address(new DonateGDClone(_router, _stable, _gd, _oracle));
 		gd = _gd;
-		cusd = _cusd;
+		stable = _stable;
 		oracle = _oracle;
 		router = _router;
-		_oracle.prepareAllAvailablePoolsWithTimePeriod(_gd, _cusd, 600);
+		_oracle.prepareAllAvailablePoolsWithTimePeriod(_gd, _stable, 600); //stable/gd pools
+		_oracle.prepareAllAvailablePoolsWithTimePeriod(
+			address(0x471EcE3750Da237f93B8E339c536989b8978a438),
+			_stable,
+			600
+		); //celo/stable pools
+		_oracle.prepareAllAvailablePoolsWithTimePeriod(CUSD, _stable, 600); //cusd/stable pools
 	}
 
 	/**
@@ -348,7 +377,7 @@ contract BuyGDCloneFactory {
 	function create(address owner) public returns (address) {
 		bytes32 salt = keccak256(abi.encode(owner));
 		address clone = ClonesUpgradeable.cloneDeterministic(impl, salt);
-		BuyGDClone(payable(clone)).initialize(owner);
+		BuyGDCloneV2(payable(clone)).initialize(owner);
 		return clone;
 	}
 
@@ -376,7 +405,7 @@ contract BuyGDCloneFactory {
 		uint256 minAmount
 	) external returns (address) {
 		address clone = create(owner);
-		BuyGDClone(payable(clone)).swap(minAmount, payable(msg.sender));
+		BuyGDCloneV2(payable(clone)).swap(minAmount, payable(msg.sender));
 		return clone;
 	}
 
@@ -432,134 +461,134 @@ contract BuyGDCloneFactory {
 		return block.basefee;
 	}
 
-	function onTokenTransfer(
-		address from,
-		uint256 amount,
-		bytes calldata data
-	) external returns (bool) {
-		if (msg.sender != gd) revert NOT_GD_TOKEN();
-		(address to, uint256 minAmount, bytes memory note) = abi.decode(
-			data,
-			(address, uint256, bytes)
-		);
-		if (to == address(0)) revert RECIPIENT_ZERO();
+	// function onTokenTransfer(
+	// 	address from,
+	// 	uint256 amount,
+	// 	bytes calldata data
+	// ) external returns (bool) {
+	// 	if (msg.sender != gd) revert NOT_GD_TOKEN();
+	// 	(address to, uint256 minAmount, bytes memory note) = abi.decode(
+	// 		data,
+	// 		(address, uint256, bytes)
+	// 	);
+	// 	if (to == address(0)) revert RECIPIENT_ZERO();
 
-		uint256 amountIn = ERC20(gd).balanceOf(address(this));
+	// 	uint256 amountIn = ERC20(gd).balanceOf(address(this));
 
-		uint256 amountReceived = swapToCusd(amountIn, minAmount, to);
-		emit GDSwapToCusd(from, to, amount, amountReceived, note);
-		return true;
-	}
+	// 	uint256 amountReceived = swapToCusd(amountIn, minAmount, to);
+	// 	emit GDSwapToCusd(from, to, amount, amountReceived, note);
+	// 	return true;
+	// }
 
-	/**
-	 * @notice Swaps cUSD for GD tokens.
-	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
-	 */
-	function swapToCusd(
-		uint256 amountIn,
-		uint256 _minAmount,
-		address recipient
-	) public returns (uint256) {
-		if (msg.sender != gd) {
-			ERC20(gd).transferFrom(msg.sender, address(this), amountIn);
-		}
+	// /**
+	//  * @notice Swaps cUSD for GD tokens.
+	//  * @param _minAmount The minimum amount of GD tokens to receive from the swap.
+	//  */
+	// function swapToCusd(
+	// 	uint256 amountIn,
+	// 	uint256 _minAmount,
+	// 	address recipient
+	// ) public returns (uint256) {
+	// 	if (msg.sender != gd) {
+	// 		ERC20(gd).transferFrom(msg.sender, address(this), amountIn);
+	// 	}
 
-		if (_minAmount == 0)
-			(_minAmount, ) = minAmountByTWAP(amountIn, gd, cusd, 60);
+	// 	if (_minAmount == 0)
+	// 		(_minAmount, ) = minAmountByTWAP(amountIn, gd, cusd, 60);
 
-		ERC20(gd).approve(address(router), amountIn);
-		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
-			path: abi.encodePacked(gd, uint24(10000), cusd),
-			recipient: recipient,
-			amountIn: amountIn,
-			amountOutMinimum: _minAmount
-		});
-		return router.exactInput(params);
-	}
+	// 	ERC20(gd).approve(address(router), amountIn);
+	// 	ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
+	// 		path: abi.encodePacked(gd, uint24(10000), cusd),
+	// 		recipient: recipient,
+	// 		amountIn: amountIn,
+	// 		amountOutMinimum: _minAmount
+	// 	});
+	// 	return router.exactInput(params);
+	// }
 
-	/**
-	 * @notice Swaps cUSD for GD tokens.
-	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
-	 */
-	function swapFromCusd(
-		uint256 amountIn,
-		uint256 _minAmount,
-		address recipient
-	) public returns (uint256) {
-		ERC20(cusd).transferFrom(msg.sender, address(this), amountIn);
+	// /**
+	//  * @notice Swaps cUSD for GD tokens.
+	//  * @param _minAmount The minimum amount of GD tokens to receive from the swap.
+	//  */
+	// function swapFromCusd(
+	// 	uint256 amountIn,
+	// 	uint256 _minAmount,
+	// 	address recipient
+	// ) public returns (uint256) {
+	// 	ERC20(cusd).transferFrom(msg.sender, address(this), amountIn);
 
-		if (_minAmount == 0)
-			(_minAmount, ) = minAmountByTWAP(amountIn, cusd, gd, 60);
+	// 	if (_minAmount == 0)
+	// 		(_minAmount, ) = minAmountByTWAP(amountIn, cusd, gd, 60);
 
-		ERC20(cusd).approve(address(router), amountIn);
-		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
-			path: abi.encodePacked(cusd, uint24(10000), gd),
-			recipient: recipient,
-			amountIn: amountIn,
-			amountOutMinimum: _minAmount
-		});
-		return router.exactInput(params);
-	}
+	// 	ERC20(cusd).approve(address(router), amountIn);
+	// 	ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
+	// 		path: abi.encodePacked(cusd, uint24(10000), gd),
+	// 		recipient: recipient,
+	// 		amountIn: amountIn,
+	// 		amountOutMinimum: _minAmount
+	// 	});
+	// 	return router.exactInput(params);
+	// }
 
-	/**
-	 * @notice Calculates the minimum amount of tokens that can be received for a given amount of base tokens,
-	 * based on the time-weighted average price (TWAP) of the token pair over a specified period of time.
-	 * @param baseAmount The amount of base tokens to swap.
-	 * @param baseToken The address of the base token.
-	 * @param qtToken The address of the quote token.
+	// /**
+	//  * @notice Calculates the minimum amount of tokens that can be received for a given amount of base tokens,
+	//  * based on the time-weighted average price (TWAP) of the token pair over a specified period of time.
+	//  * @param baseAmount The amount of base tokens to swap.
+	//  * @param baseToken The address of the base token.
+	//  * @param qtToken The address of the quote token.
 
-	 * @return minTwap The minimum amount of G$ expected to receive by twap
-	 */
-	function minAmountByTWAP(
-		uint256 baseAmount,
-		address baseToken,
-		address qtToken,
-		uint32 period
-	) public view returns (uint256 minTwap, uint256 quote) {
-		uint24[] memory fees = new uint24[](1);
-		fees[0] = 10000;
-		uint128 toConvert = uint128(baseAmount);
-		(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
-			toConvert,
-			baseToken,
-			qtToken,
-			fees,
-			period
-		);
+	//  * @return minTwap The minimum amount of G$ expected to receive by twap
+	//  */
+	// function minAmountByTWAP(
+	// 	uint256 baseAmount,
+	// 	address baseToken,
+	// 	address qtToken,
+	// 	uint32 period
+	// ) public view returns (uint256 minTwap, uint256 quote) {
+	// 	uint24[] memory fees = new uint24[](1);
+	// 	fees[0] = 10000;
+	// 	uint128 toConvert = uint128(baseAmount);
+	// 	(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
+	// 		toConvert,
+	// 		baseToken,
+	// 		qtToken,
+	// 		fees,
+	// 		period
+	// 	);
 
-		(uint256 curPrice, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
-			toConvert,
-			baseToken,
-			qtToken,
-			fees,
-			0
-		);
+	// 	(uint256 curPrice, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
+	// 		toConvert,
+	// 		baseToken,
+	// 		qtToken,
+	// 		fees,
+	// 		0
+	// 	);
 
-		// (ie we dont expect price movement > 2% in timePeriod)
-		if ((quote * 98) / 100 > curPrice) {
-			revert INVALID_TWAP();
-		}
-		//minAmount should not be 2% under curPrice (including slippage and price impact)
-		//this is just a guesstimate, for accurate results use uniswap sdk to get price quote
-		//v3 price quote is not available on chain
-		return ((curPrice * 980) / 1000, quote);
-	}
+	// 	// (ie we dont expect price movement > 2% in timePeriod)
+	// 	if ((quote * 98) / 100 > curPrice) {
+	// 		revert INVALID_TWAP();
+	// 	}
+	// 	//minAmount should not be 2% under curPrice (including slippage and price impact)
+	// 	//this is just a guesstimate, for accurate results use uniswap sdk to get price quote
+	// 	//v3 price quote is not available on chain
+	// 	return ((curPrice * 980) / 1000, quote);
+	// }
 
-	function quoteCusd(uint256 amountIn) external returns (uint256 amountOut) {
-		return quoteToken(amountIn, 10000, cusd);
-	}
+	// function quoteCusd(uint256 amountIn) external returns (uint256 amountOut) {
+	// 	return quoteToken(amountIn, 10000, cusd);
+	// }
 
-	function quoteToken(
-		uint256 amountIn,
-		uint24 fee,
-		address targetToken
-	) public returns (uint256 amountOut) {
-		IQuoterV2.QuoteExactInputSingleParams memory params;
-		params.amountIn = amountIn;
-		params.tokenIn = gd;
-		params.tokenOut = targetToken;
-		params.fee = fee;
+	// function quoteToken(
+	// 	uint256 amountIn,
+	// 	uint24 fee,
+	// 	address targetToken
+	// ) public returns (uint256 amountOut) {
+	// 	IQuoterV2.QuoteExactInputSingleParams memory params;
+	// 	params.amountIn = amountIn;
+	// 	params.tokenIn = gd;
+	// 	params.tokenOut = targetToken;
+	// 	params.fee = fee;
 
-		(amountOut, , , ) = quoter.quoteExactInputSingle(params);
-	}
+	// 	(amountOut, , , ) = quoter.quoteExactInputSingle(params);
+	// }
 }
