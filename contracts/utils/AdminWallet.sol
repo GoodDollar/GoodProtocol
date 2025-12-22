@@ -280,4 +280,31 @@ contract AdminWallet is
 		(success, returnValue) = _contract.call{ value: _value }(_data);
 		emit GenericCall(_contract, _data, _value, success);
 	}
+
+	/**
+	 * @dev perform a generic call to an arbitrary contract
+	 * @param _contracts  the contract's addresses to call
+	 * @param _datas ABI-encoded contract call to call `_contract` address.
+	 * @param _values value (ETH) to transfer with the transaction
+	 * @return success    success or fail
+	 *         bytes - the return bytes of the called contract's function.
+	 */
+	function genericCallBatch(
+		address[] memory _contracts,
+		bytes[] memory _datas,
+		uint256[] memory _values
+	)
+		public
+		onlyAdmin
+		reimburseGas
+		returns (bool success, bytes memory returnValue)
+	{
+		for (uint i = 0; i < _contracts.length; i++) {
+			// solhint-disable-next-line avoid-call-value
+			(success, returnValue) = _contracts[i].call{ value: _values[i] }(
+				_datas[i]
+			);
+			emit GenericCall(_contracts[i], _datas[i], _values[i], success);
+		}
+	}
 }
