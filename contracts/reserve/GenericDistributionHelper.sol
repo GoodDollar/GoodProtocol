@@ -58,6 +58,8 @@ contract GenericDistributionHelper is
 
 	address public reserveToken;
 
+	uint256 private _status; //for reentrancy guard
+
 	event Distribution(
 		uint256 distributed,
 		uint256 startingBalance,
@@ -75,6 +77,18 @@ contract GenericDistributionHelper is
 	);
 
 	receive() external payable {}
+
+	modifier nonReentrant() {
+		// On the first call to nonReentrant, _status will be _NOT_ENTERED
+		require(_status != 1, "ReentrancyGuard: reentrant call");
+
+		// Any calls to nonReentrant after this point will fail
+		_status = 1;
+		_;
+		// By storing the original value once again, a refund is triggered (see
+		// https://eips.ethereum.org/EIPS/eip-2200)
+		_status = 0;
+	}
 
 	function initialize(
 		INameService _ns,
@@ -129,7 +143,7 @@ contract GenericDistributionHelper is
 	 * @notice this is usually called by reserve, but can be called by anyone anytime to trigger distribution
 	 * @param _amount how much was sent, informational only
 	 */
-	function onDistribution(uint256 _amount) external virtual {
+	function onDistribution(uint256 _amount) external virtual nonReentrant {
 		//we consider the actual balance and not _amount
 		uint256 toDistribute = nativeToken().balanceOf(address(this));
 		if (toDistribute == 0) return;
@@ -300,7 +314,7 @@ contract GenericDistributionHelper is
 		}
 		for (uint i = 1; i < gdPools.length; i++) {
 			uint24 fee = IUniswapV3Pool(gdPools[i]).fee();
-			gdFee = gasFee < fee ? gasFee : fee;
+			gdFee = gdFee < fee ? gdFee : fee;
 		}
 		ERC20(nativeToken()).approve(address(ROUTER), amountToSell);
 		uint256 amountOutMinimum = (minReceived * (100 - feeSettings.maxSlippage)) /
