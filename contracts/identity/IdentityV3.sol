@@ -35,6 +35,7 @@ contract IdentityV3 is
 	string public constant TYPED_STRUCTURE =
 		"ConnectIdentity(address whitelisted,address connected,uint256 deadline)";
 
+	/* @dev rough estimate of number of whitelisted addresses */
 	uint256 public whitelistedCount;
 	uint256 public whitelistedContracts;
 	uint256 public authenticationPeriod;
@@ -237,6 +238,7 @@ contract IdentityV3 is
 		address account
 	) public onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
 		identities[account].status = 255;
+		whitelistedCount -= 1;
 		emit BlacklistAdded(account);
 	}
 
