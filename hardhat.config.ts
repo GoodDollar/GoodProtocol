@@ -65,15 +65,7 @@ const hhconfig: HardhatUserConfig = {
     enabled: true
   },
   etherscan: {
-    apiKey: {
-      mainnet: etherscan_key,
-      txdc: etherscan_key,
-      xdc: etherscan_key,
-      celo: etherscan_key,
-      alfajores: celoscan_key,
-      base: basescan_key,
-      fuse: etherscan_key
-    },
+    apiKey: etherscan_key,
     customChains: [
       {
         network: "fuse",
