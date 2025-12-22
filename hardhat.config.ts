@@ -41,7 +41,7 @@ const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
 
 const xdc = {
   accounts: { mnemonic },
-  url: "https://rpc.ankr.com/xdc/ef07ba6590dc46db9275bba237aed203ed6d5fb3e3203ff237a82a841f75b2ce",
+  url: "https://rpc.ankr.com/xdc",
   gas: 3000000,
   gasPrice: 12.5e9,
   chainId: 50
