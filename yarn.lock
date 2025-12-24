@@ -2780,9 +2780,9 @@ __metadata:
     "@openzeppelin/contracts": ^4.8.0
     "@openzeppelin/contracts-upgradeable": ^4.8.0
     "@openzeppelin/hardhat-upgrades": ^1.22.1
-    "@safe-global/api-kit": ^4.0.1
-    "@safe-global/protocol-kit": ^6.1.2
-    "@safe-global/types-kit": ^3.0.0
+    "@safe-global/api-kit": ^4.0.0
+    "@safe-global/protocol-kit": ^6.0.2
+    "@safe-global/types-kit": ^2.0.1
     "@superfluid-finance/ethereum-contracts": 1.8.1
     "@superfluid-finance/sdk-core": ^0.5.8
     "@swc/core": 1.3.96
@@ -3772,7 +3772,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@safe-global/api-kit@npm:^4.0.1":
+"@safe-global/api-kit@npm:^4.0.0":
   version: 4.0.1
   resolution: "@safe-global/api-kit@npm:4.0.1"
   dependencies:
@@ -3784,7 +3784,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@safe-global/protocol-kit@npm:^6.1.2":
+"@safe-global/protocol-kit@npm:^6.0.2, @safe-global/protocol-kit@npm:^6.1.2":
   version: 6.1.2
   resolution: "@safe-global/protocol-kit@npm:6.1.2"
   dependencies:
@@ -3818,6 +3818,15 @@ __metadata:
   version: 2.2.21
   resolution: "@safe-global/safe-modules-deployments@npm:2.2.21"
   checksum: 967fd772a27242bea089c07ab98f963551474967ff087d1a9e385909e05db572515969fd21a6965ddd50ee1018f9229d26516069809400eb11c7c4663293f9db
+  languageName: node
+  linkType: hard
+
+"@safe-global/types-kit@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "@safe-global/types-kit@npm:2.0.1"
+  dependencies:
+    abitype: ^1.0.2
+  checksum: eefcf5897a4fa3a883abf46a99955d83ffa8f384579c9835598075a32046ac943c0ec42c3fa5fa6d5763fb95d2d168a70142cf30241dd8f7bf41da59d6689eab
   languageName: node
   linkType: hard
 
