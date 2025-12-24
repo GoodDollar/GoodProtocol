@@ -237,8 +237,8 @@ contract IdentityV3 is
 	function addBlacklisted(
 		address account
 	) public onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
+		_removeWhitelisted(account);
 		identities[account].status = 255;
-		whitelistedCount -= 1;
 		emit BlacklistAdded(account);
 	}
 
