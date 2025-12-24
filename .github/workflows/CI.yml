@@ -49,9 +49,9 @@ jobs:
       - run: yarn compile
       - name: Run tests
         run: |
-          export TESTFILES=$(echo $CHUNKS | jq '.[${{ matrix.chunk }}][]') 
+          export TESTFILES=$(echo $CHUNKS | jq -r '.[${{ matrix.chunk }}][]|@sh') 
           echo $TESTFILES
-          yarn test $TESTFILES
+          echo $TESTFILES | xargs yarn test
 
   coverage:
     if: false
