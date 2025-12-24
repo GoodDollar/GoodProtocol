@@ -1,21 +1,29 @@
 import { ethers, network, upgrades } from "hardhat";
 import { expect } from "chai";
-import { GenericDistributionHelper, IGoodDollar, IERC20, IStaticOracle, ISwapRouter, IUniswapV3Pool, gooddollar } from "../../types";
+import {
+  GenericDistributionHelper,
+  IGoodDollar,
+  IERC20,
+  IStaticOracle,
+  ISwapRouter,
+  IUniswapV3Pool
+} from "../../types";
+import * as networkHelpers from "@nomicfoundation/hardhat-network-helpers";
 import dao from "../../releases/deployment.json";
 import ProtocolSettings from "../../releases/deploy-settings.json";
 
 const BN = ethers.BigNumber;
-const XDC_RPC_URL = "https://rpc.ankr.com/xdc/ef07ba6590dc46db9275bba237aed203ed6d5fb3e3203ff237a82a841f75b2ce";
+const XDC_RPC_URL = "https://rpc.ankr.com/xdc";
 const XDC_CHAIN_ID = 50;
 
 /**
  * E2E test for GenericDistributionHelper on XDC network using XSWAP pools
- * 
+ *
  * To run this test:
  * 1. Set up fork environment variable: FORK_CHAIN_ID=50
  * 2. Set up XDC RPC URL in hardhat config or use: FORK_URL=https://rpc.ankr.com/xdc/...
  * 3. Run: npx hardhat test test/reserve/GenericDistributionHelper.e2e.test.ts --network hardhat
- * 
+ *
  * Note: This test requires forking XDC mainnet, so it may take longer to run
  */
 describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
@@ -38,16 +46,15 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
     UniswapV3Router: "0x3b9edecc4286ba33ea6e27119c2a4db99829839d",
     ...dao["development-xdc"]
   };
-  
+
+  this.afterAll(async () => {
+    // Reset network after tests
+    console.log("reseting network...");
+    await networkHelpers.reset();
+  });
 
   before(async function () {
-    // Skip all tests if not running on XDC network (chain ID 50)
-    const chainId = network.config.chainId;
-    if (chainId !== XDC_CHAIN_ID) {
-      console.log(`Skipping tests - expected XDC chain ID ${XDC_CHAIN_ID}, got ${chainId}`);
-      this.skip();
-      return;
-    }
+    await networkHelpers.reset(XDC_RPC_URL);
 
     [deployer, testAccount] = await ethers.getSigners();
 
@@ -67,7 +74,7 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
 
     // Check if GenericDistributionHelper is already deployed
     const existingDistHelper = dao["development-xdc"] && (dao["development-xdc"] as any).DistributionHelper;
-    
+
     if (existingDistHelper && existingDistHelper !== ethers.constants.AddressZero) {
       distHelper = (await ethers.getContractAt(
         "GenericDistributionHelper",
@@ -78,7 +85,7 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
       // Deploy new GenericDistributionHelper
       console.log("Deploying new GenericDistributionHelper...");
       const GenericDistributionHelperFactory = await ethers.getContractFactory("GenericDistributionHelper");
-      
+
       // Get NameService instance
       const nameService = await ethers.getContractAt("NameService", XDC_ADDRESSES.NameService);
 
@@ -114,7 +121,7 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
 
     // Mint some G$ to the distribution helper for testing
     const amountToSwap = ethers.utils.parseEther("1000"); // 1000 G$
-    
+
     // Try to mint G$ to the helper (if we have minter role)
     try {
       // Impersonate a minter if needed
@@ -159,14 +166,8 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
     }
 
     // Get pools for the swap path
-    const gdPools = await staticOracle.getAllPoolsForPair(
-      reserveToken.address,
-      goodDollar.address
-    );
-    const gasPools = await staticOracle.getAllPoolsForPair(
-      reserveToken.address,
-      gasToken.address
-    );
+    const gdPools = await staticOracle.getAllPoolsForPair(reserveToken.address, goodDollar.address);
+    const gasPools = await staticOracle.getAllPoolsForPair(reserveToken.address, gasToken.address);
 
     expect(gdPools.length).to.be.gt(0, "No G$/CUSD pools found");
     expect(gasPools.length).to.be.gt(0, "No CUSD/WXDC pools found");
@@ -179,7 +180,7 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
     // Get pool fees
     const gdPool = (await ethers.getContractAt("IUniswapV3Pool", gdPools[0])) as IUniswapV3Pool;
     const gasPool = (await ethers.getContractAt("IUniswapV3Pool", gasPools[0])) as IUniswapV3Pool;
-    
+
     const gdFee = await gdPool.fee();
     const gasFee = await gasPool.fee();
 
@@ -190,14 +191,14 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
 
     // Calculate expected output using oracle
     const amountToSell = amountToSwap.div(20); // 5% for fees (50 G$)
-    const [quoteAmount, ] = await staticOracle.quoteAllAvailablePoolsWithTimePeriod(
+    const [quoteAmount] = await staticOracle.quoteAllAvailablePoolsWithTimePeriod(
       amountToSell,
       goodDollar.address,
       reserveToken.address,
       60
     );
 
-    const [quoteGasAmount, ] = await staticOracle.quoteAllAvailablePoolsWithTimePeriod(
+    const [quoteGasAmount] = await staticOracle.quoteAllAvailablePoolsWithTimePeriod(
       quoteAmount,
       reserveToken.address,
       gasToken.address,
@@ -238,10 +239,10 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
         to: tempAccount.address,
         value: ethers.utils.parseEther("0.01")
       });
-      
+
       // Transfer xdc balance from distHelper
       const distHelperSigner = await ethers.getImpersonatedSigner(distHelper.address);
-      
+
       await distHelperSigner.sendTransaction({
         to: tempAccount.address,
         value: currentxdcBalance.sub(ethers.utils.parseEther("0.05"))
@@ -272,10 +273,7 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
     // Either WXDC balance increased or xdc balance increased (after unwrapping)
     const xdcIncrease = xdcBalanceAfter.sub(xdcBalanceBefore);
 
-    expect(
-      xdcIncrease.gt(0),
-      "Swap should have increased either WXDC or xdc balance"
-    ).to.be.true;
+    expect(xdcIncrease.gt(0), "Swap should have increased either WXDC or xdc balance").to.be.true;
   });
 
   it("should correctly calculate swap amounts using XSWAP pools", async function () {
@@ -330,14 +328,14 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
     const amountToSell = ethers.utils.parseEther("50"); // 50 G$
 
     // Get quote
-    const [quoteCUSD, ] = await staticOracle.quoteAllAvailablePoolsWithTimePeriod(
+    const [quoteCUSD] = await staticOracle.quoteAllAvailablePoolsWithTimePeriod(
       amountToSell,
       goodDollar.address,
       reserveToken.address,
       60
     );
 
-    const [quoteWXDC, ] = await staticOracle.quoteAllAvailablePoolsWithTimePeriod(
+    const [quoteWXDC] = await staticOracle.quoteAllAvailablePoolsWithTimePeriod(
       quoteCUSD,
       reserveToken.address,
       gasToken.address,
@@ -360,4 +358,3 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
     expect(minOutput.lt(quoteWXDC)).to.be.true;
   });
 });
-
