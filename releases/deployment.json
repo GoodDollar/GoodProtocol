@@ -58,7 +58,12 @@
     "UniswapV2SwapHelper": "0xC9a43158891282A2B1475592D5719c001986Aaec",
     "CompoundStakingFactory": "0x1c85638e118b37167e9298c2268758e058DdfDA0",
     "AaveStakingFactory": "0x367761085BF3C12e5DA2Df99AC6E1a824612b8fb",
-    "StakingContracts": [["0xC87F335Ec42BE3A3DF4E306CD9A929eD741919a0", 13888]],
+    "StakingContracts": [
+      [
+        "0xC87F335Ec42BE3A3DF4E306CD9A929eD741919a0",
+        13888
+      ]
+    ],
     "DonationsStaking": "0xe9aE5B6b526B813AcBBC587a4c7C2861BA75Daa6",
     "network": "dapptest-mainnet",
     "networkId": 4447,
@@ -98,12 +103,24 @@
     "CompoundStakingFactory": "0xba5b519b80d044038159b980d1c8657d53ed08a8",
     "AaveStakingFactory": "0xd30dacCE904EBACC642Ab6dd3415e6Fc7B7B2E10",
     "StakingContracts": [
-      ["0xbc371c5c98d40de18382e3e0eeb58805d76d3d50", 13888],
-      ["0x97336539bF2ab85ED83e63f294af113A7A110Cd3", 6944]
+      [
+        "0xbc371c5c98d40de18382e3e0eeb58805d76d3d50",
+        13888
+      ],
+      [
+        "0x97336539bF2ab85ED83e63f294af113A7A110Cd3",
+        6944
+      ]
     ],
     "StakingContractsV3": [
-      ["0x19afea8633db478a5d7a8910dc2adc982c576045", 13888],
-      ["0x2e34a18CeDf2485fbA4e19495f29245A07869039", 6944]
+      [
+        "0x19afea8633db478a5d7a8910dc2adc982c576045",
+        13888
+      ],
+      [
+        "0x2e34a18CeDf2485fbA4e19495f29245A07869039",
+        6944
+      ]
     ],
     "DonationsStaking": "0xe58501733711B966f9c1d81B29557674c11bD840",
     "ExchangeHelper": "0x7C8f7F618c2F84C656aeb51D652848ce76990dB7",
@@ -168,7 +185,12 @@
     "StakersDistribution": "0xe8C67A909d3231ddD97E4CC2c1B17a8FFA94475E",
     "ProtocolUpgrade": "0x1a521868ED7B4d8835f1F52172d38C1C3e630E92",
     "CompoundStakingFactory": "0xE1193dE8716400ee5aD7b4B96CBdf0dABaF7d088",
-    "StakingContracts": [["0x98867484E2F0c902F64bCdEDc2e289307c988214", 13888]],
+    "StakingContracts": [
+      [
+        "0x98867484E2F0c902F64bCdEDc2e289307c988214",
+        13888
+      ]
+    ],
     "DonationsStaking": "0x2aAd517DE8256ee6DC7ce31Ae09EBb99F17F9975",
     "Contribution": "0x2250c5131bf9DdCbD55F9bEFc999D691c419ad93",
     "DAI": "0xB5E5D0F8C0cbA267CD3D7035d6AdC8eBA7Df7Cdd",
@@ -208,7 +230,12 @@
     "networkId": 3,
     "ForeignBridge": "0xF629c80BfCaA9080e229b555924D5c72B47F5C22",
     "Contribution": "0x27816e32270a413AF676A2E3a25dB93C7F565a80",
-    "StakingContracts": [["0x1189c2227bAa8f0749e842B366b0912d29A5A04E", 13888]],
+    "StakingContracts": [
+      [
+        "0x1189c2227bAa8f0749e842B366b0912d29A5A04E",
+        13888
+      ]
+    ],
     "Identity": "0x7599F95677cb14d7D8834a58B3b0545a13870A56",
     "GoodDollar": "0x2e975e7711088aAfb38119454fF7fb99bAA9142F",
     "Controller": "0x52F0584bfB6F55cc4a3E351427fACbA7e23A3fd4",
@@ -299,10 +326,21 @@
     "networkId": 1,
     "ForeignBridge": "0xD5D11eE582c8931F336fbcd135e98CEE4DB8CCB0",
     "Contribution": "0x8eEC64bb6807c0178f96277cCE6a334B4e565E5C",
-    "StakingContracts": [["0xD33bA17C8A644C585089145e86E282fada6F3bfd", 310]],
+    "StakingContracts": [
+      [
+        "0xD33bA17C8A644C585089145e86E282fada6F3bfd",
+        310
+      ]
+    ],
     "StakingContractsV2": [
-      ["0x02416eb83cff1f19163f21010149c3867f3261e1", 13888],
-      ["0xf4c34bed7dd779485692bb1857acf9c561b45010", 6944]
+      [
+        "0x02416eb83cff1f19163f21010149c3867f3261e1",
+        13888
+      ],
+      [
+        "0xf4c34bed7dd779485692bb1857acf9c561b45010",
+        6944
+      ]
     ],
     "DonationsStaking": "0x06EAFc6749723583672Fc8f4451c8ec0E59F5798",
     "Identity": "0x76e76e10Ac308A1D54a00f9df27EdCE4801F288b",
@@ -341,14 +379,31 @@
     "DAI": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
     "cDAI": "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
     "COMP": "0xc00e94cb662c3520282e6f5717214004a7f26888",
-    "StakingContracts": [["0xD33bA17C8A644C585089145e86E282fada6F3bfd", 310]],
+    "StakingContracts": [
+      [
+        "0xD33bA17C8A644C585089145e86E282fada6F3bfd",
+        310
+      ]
+    ],
     "StakingContractsV2": [
-      ["0x02416eb83cff1f19163f21010149c3867f3261e1", 13888],
-      ["0xf4c34bed7dd779485692bb1857acf9c561b45010", 6944]
+      [
+        "0x02416eb83cff1f19163f21010149c3867f3261e1",
+        13888
+      ],
+      [
+        "0xf4c34bed7dd779485692bb1857acf9c561b45010",
+        6944
+      ]
     ],
     "StakingContractsV3": [
-      ["0x7b7246c78e2f900d17646ff0cb2ec47d6ba10754", 13888],
-      ["0x3ff2d8eb2573819a9ef7167d2ba6fd6d31b17f4f", 6944]
+      [
+        "0x7b7246c78e2f900d17646ff0cb2ec47d6ba10754",
+        13888
+      ],
+      [
+        "0x3ff2d8eb2573819a9ef7167d2ba6fd6d31b17f4f",
+        6944
+      ]
     ],
     "MultichainRouter": "0x765277eebeca2e31912c9946eae1021199b39c61",
     "AnyGoodDollar": "0xd17652350cfd2a37ba2f947c910987a3b1a1c60d",
@@ -445,7 +500,9 @@
     "CeloDistributionHelper": "0x6B845eFfAf36c374e8E7cf543Efa680f2F71F098",
     "CUSDExchangeId": "0xba77f5c7bb3317643c6d81d1ef3f9913561741d92095f88efa402faf2cbe9124"
   },
-  "gnosis": { "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8" },
+  "gnosis": {
+    "GuardiansSafe": "0x84c10b45fe51bfb4f86c19a47fdbc187d4572fb8"
+  },
   "development-celo": {
     "network": "development-celo",
     "networkId": 42220,
@@ -479,7 +536,9 @@
     "MentoExchangeProvider": "0x558eC7E55855FAC9403De3ADB3aa1e588234A92C",
     "MentoExpansionController": "0x0F6bEc7ba1e7f5D98c4Dc04c2F1F219d6B650963",
     "MentoReserve": "0x1cbDc8C2F57C3988cbE1B7bD2a323AaDb17379a7",
-    "MentoBroker": "0xE60cf1cb6a56131CE135c604D0BD67e84B57CA3C"
+    "MentoBroker": "0xE60cf1cb6a56131CE135c604D0BD67e84B57CA3C",
+    "GoodDollarMinterBurner": "0x6E7C284B500dAC8b16d3B4703c774A8e0AA58800",
+    "GoodDollarOFTAdapter": "0x62a963695AA0f043362Aff9aaaDdf34B56D7dF76"
   },
   "staging-celo": {
     "network": "staging-celo",
@@ -565,7 +624,9 @@
     "GoodDollarMintBurnWrapper": "0x69d9c8d240E282a4ec0058CF0AC4E9D8ac7a11ac",
     "GoodDollarStaking": "0xC9a3DdadC753e6a7675Aa125991096623d06c437"
   },
-  "development-mainnet": { "networkId": 1 },
+  "development-mainnet": {
+    "networkId": 1
+  },
   "test": {
     "ProxyFactory": "0xCd7c00Ac6dc51e8dCc773971Ac9221cC582F3b1b",
     "NameService": "0x421eF26e50B0a9B22BEbEb034ef62409E4982eAf",
@@ -605,8 +666,14 @@
     "CompoundStakingFactory": "0x01cf58e264d7578D4C67022c58A24CbC4C4a304E",
     "AaveStakingFactory": "0xd038A2EE73b64F30d65802Ad188F27921656f28F",
     "StakingContracts": [
-      ["0xBAb9F0Bfaf3FbC4041e23F50f17A5dd8E52D5866", 13888],
-      ["0xEdB0C48Ab3d332B5FBA86c83162C734F2acCf8F1", "6944"]
+      [
+        "0xBAb9F0Bfaf3FbC4041e23F50f17A5dd8E52D5866",
+        13888
+      ],
+      [
+        "0xEdB0C48Ab3d332B5FBA86c83162C734F2acCf8F1",
+        "6944"
+      ]
     ],
     "DonationsStaking": "0xbE811FF6E7e40Db414ecFA0d18946Df83C0a1ed8",
     "network": "test-mainnet",
@@ -666,7 +733,9 @@
     "MentoBroker": "0x6ef11986dc7ebde345134068877efecd18d7430c",
     "MentoExchangeProvider": "0x1fad5a713da1f51e2a1ac4ca2e1d621919f0aba0",
     "MentoExpansionController": "0xe69bd25ca06264780e377e8d81a59271299adb36",
-    "MentoProxyAdmin": "0x54f44fBE2943c2196D94831288E716cdeAF5657"
+    "MentoProxyAdmin": "0x54f44fBE2943c2196D94831288E716cdeAF5657",
+    "GoodDollarMinterBurner": "0xb3E736a7579B9e565dD1ae4fCdEc8f321C288411",
+    "GoodDollarOFTAdapter": "0xD660CA0962a6Eb1be73a05D5c82152bf849D339f"
   },
   "production-xdc": {
     "networkId": 50,

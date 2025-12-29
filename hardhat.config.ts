@@ -24,6 +24,10 @@ import { verify } from "./scripts/verify";
 import { ethers } from "ethers";
 import { fstat, readFileSync, writeFileSync } from "fs";
 import * as envEnc from "@chainlink/env-enc";
+
+import '@layerzerolabs/toolbox-hardhat'
+import { EndpointId } from '@layerzerolabs/lz-definitions'
+
 envEnc.config();
 
 config();
@@ -50,13 +54,26 @@ const xdc = {
 // console.log({ mnemonic: sha3(mnemonic) });
 const hhconfig: HardhatUserConfig = {
   solidity: {
-    version: "0.8.19",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 0
+    compilers: [
+      {
+        version: "0.8.19",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 0
+          }
+        }
+      },
+      {
+        version: "0.8.22",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 0
+          }
+        }
       }
-    }
+    ]
   },
   typechain: {
     outDir: "types"
@@ -289,7 +306,8 @@ const hhconfig: HardhatUserConfig = {
       accounts: [deployerPrivateKey]
     },
     "development-xdc": {
-      ...xdc
+      ...xdc,
+      eid: EndpointId.XDC_V2_MAINNET,
       // url: "http://localhost:8545"
     }
   },
