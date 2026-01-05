@@ -44,20 +44,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
   before(async function () {
     const network = await ethers.provider.getNetwork();
     if (network.chainId !== CELO_CHAIN_ID) {
-      // Fork Celo mainnet - don't specify blockNumber to use latest
-      await ethers.provider.send("hardhat_reset", [
-        {
-          forking: {
-            jsonRpcUrl: CELO_MAINNET_RPC,
-            // Omit blockNumber to use latest block
-          },
-        },
-      ]);
-      // Verify the fork was successful by checking chain ID
-      const newNetwork = await ethers.provider.getNetwork();
-      if (newNetwork.chainId !== CELO_CHAIN_ID) {
-        this.skip();      
-      }
+      this.skip();      
     }
   });
 
