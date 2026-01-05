@@ -402,9 +402,11 @@ contract BuyGDCloneFactory {
 
 	function createAndSwap(
 		address owner,
-		uint256 minAmount
-	) external returns (address) {
+		uint256 minAmount,
+		uint256 cusdAmount
+	) payable external returns (address) {
 		address clone = create(owner);
+		ERC20(CUSD).transferFrom(owner, address(clone), cusdAmount);
 		BuyGDCloneV2(payable(clone)).swap(minAmount, payable(msg.sender));
 		return clone;
 	}
