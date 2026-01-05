@@ -40,19 +40,32 @@ describe("BuyGDClone - Celo Fork E2E", function () {
   // Increase timeout for fork tests
   this.timeout(600000);
 
-  async function forkCelo() {
-    // Check if we need to fork Celo mainnet
+  // Set up fork once before all tests
+  before(async function () {
     const network = await ethers.provider.getNetwork();
     if (network.chainId !== CELO_CHAIN_ID) {
-      // Fork Celo mainnet at a recent block
+      // Fork Celo mainnet - don't specify blockNumber to use latest
       await ethers.provider.send("hardhat_reset", [
         {
           forking: {
             jsonRpcUrl: CELO_MAINNET_RPC,
-            blockNumber: undefined, // Use latest block
+            // Omit blockNumber to use latest block
           },
         },
       ]);
+      // Verify the fork was successful by checking chain ID
+      const newNetwork = await ethers.provider.getNetwork();
+      if (newNetwork.chainId !== CELO_CHAIN_ID) {
+        throw new Error(`Failed to fork Celo. Expected chain ID ${CELO_CHAIN_ID}, got ${newNetwork.chainId}`);
+      }
+    }
+  });
+
+  async function forkCelo() {
+    // Verify we're on the correct chain
+    const network = await ethers.provider.getNetwork();
+    if (network.chainId !== CELO_CHAIN_ID) {
+      throw new Error(`Expected chain ID ${CELO_CHAIN_ID}, got ${network.chainId}`);
     }
 
     const [deployer, user] = await ethers.getSigners();
