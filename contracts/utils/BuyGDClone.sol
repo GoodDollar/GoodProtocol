@@ -148,7 +148,7 @@ contract BuyGDCloneV2 is Initializable {
 		});
 		bought = router.exactInput(params);
 		if (refundGas != owner) {
-			ERC20(stable).transfer(refundGas, gasCosts);
+			ERC20(CUSD).transfer(refundGas, gasCosts);
 		}
 	}
 
@@ -325,6 +325,8 @@ contract BuyGDCloneFactory {
 	IQuoterV2 public constant quoter =
 		IQuoterV2(0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8); // celo quoter
 	address public constant CUSD = 0x765DE816845861e75A25fCA122bb6898B8B1282a;
+	address public constant celo = 0x471EcE3750Da237f93B8E339c536989b8978a438;
+	uint24 public constant PERIOD = 600;
 
 	address public immutable impl;
 	address public immutable donateImpl;
@@ -360,13 +362,14 @@ contract BuyGDCloneFactory {
 		stable = _stable;
 		oracle = _oracle;
 		router = _router;
-		_oracle.prepareAllAvailablePoolsWithTimePeriod(_gd, _stable, 600); //stable/gd pools
+		
+		_oracle.prepareAllAvailablePoolsWithTimePeriod(_gd, _stable, PERIOD); //stable/gd pools
 		_oracle.prepareAllAvailablePoolsWithTimePeriod(
-			address(0x471EcE3750Da237f93B8E339c536989b8978a438),
+			celo,
 			_stable,
-			600
+			PERIOD
 		); //celo/stable pools
-		_oracle.prepareAllAvailablePoolsWithTimePeriod(CUSD, _stable, 600); //cusd/stable pools
+		_oracle.prepareAllAvailablePoolsWithTimePeriod(CUSD, _stable, PERIOD); //cusd/stable pools
 	}
 
 	/**
@@ -404,9 +407,8 @@ contract BuyGDCloneFactory {
 		address owner,
 		uint256 minAmount,
 		uint256 cusdAmount
-	) payable external returns (address) {
+	) external returns (address) {
 		address clone = create(owner);
-		ERC20(CUSD).transferFrom(owner, address(clone), cusdAmount);
 		BuyGDCloneV2(payable(clone)).swap(minAmount, payable(msg.sender));
 		return clone;
 	}
