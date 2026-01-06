@@ -210,7 +210,6 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       this.skip();
       return;
     }
-    cusdToken.connect(whale).transfer(user.address, swapAmount);
 
     // Get initial G$ balance
     const initialGdBalance = await gdToken.balanceOf(user.address);
@@ -231,6 +230,8 @@ describe("BuyGDClone - Celo Fork E2E", function () {
     );
     const minAmount = minByTwap.mul(95).div(100);
 
+    const predictedAddress = await factory.predict(user.address);
+    cusdToken.connect(whale).transfer(predictedAddress, swapAmount);
     // Use createAndSwap
     await cusdToken.connect(user).approve(factory.address, swapAmount);
     const tx = await factory.connect(user).createAndSwap(user.address, minAmount, swapAmount);
