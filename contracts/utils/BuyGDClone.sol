@@ -228,10 +228,10 @@ contract DonateGDClone is BuyGDCloneV2 {
 
 	constructor(
 		ISwapRouter _router,
-		address _cusd,
+		address _stable,
 		address _gd,
 		IStaticOracle _oracle
-	) BuyGDCloneV2(_router, _cusd, _gd, _oracle) {}
+	) BuyGDCloneV2(_router, _stable, _gd, _oracle) {}
 
 	/**
 	 * @notice Initializes the contract with the owner's address.

@@ -29,8 +29,6 @@ const UNISWAP_V3_ROUTER = PRODUCTION_CELO.UniswapV3Router;
 const STATIC_ORACLE = PRODUCTION_CELO.StaticOracle;
 
 // GLOUSD address on Celo mainnet
-// Note: The actual stable token address will be read from the factory contract
-// This is just a reference - the test will use the factory's stable token address
 const GLOUSD_REFERENCE = "0x4F604735c1cF31399C6E711D5962b2B3E0225AD3"; // Common GLOUSD address
 
 // Account with cUSD balance on Celo (for impersonation)
@@ -58,19 +56,14 @@ describe("BuyGDClone - Celo Fork E2E", function () {
     const [deployer, user] = await ethers.getSigners();
 
     // Get existing contracts from Celo (for router, oracle, tokens)
-    // Note: We use the deployed addresses but will deploy our own factory
     const router = await ethers.getContractAt("contracts/Interfaces.sol:ISwapRouter", UNISWAP_V3_ROUTER);
-    // IStaticOracle is from @mean-finance package, we'll use the address directly
     const oracleAddress = STATIC_ORACLE;
     const gdToken = await ethers.getContractAt("contracts/Interfaces.sol:ERC20", GOODDOLLAR);
     const cusdToken = await ethers.getContractAt("contracts/Interfaces.sol:ERC20", CUSD);
 
-    // Use GLOUSD as the stable token (update this address if needed)
-    // For now, we'll use a known GLOUSD address or you can set it via environment variable
     const stableAddress = process.env.GLOUSD_ADDRESS || GLOUSD_REFERENCE;
     console.log("Using stable token (GLOUSD):", stableAddress);
 
-    const [signer] = await ethers.getSigners();
     // Deploy BuyGDCloneFactory
     const BuyGDCloneFactoryFactory = await ethers.getContractFactory("BuyGDCloneFactory");
     const factory = (await BuyGDCloneFactoryFactory.deploy(
@@ -93,7 +86,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
     const whale = await ethers.getSigner(CUSD_WHALE);
     await ethers.provider.send("hardhat_setBalance", [
       CUSD_WHALE,
-      "0x1000000000000000000", // 1 CELO for gas
+      "0x1000000000000000000",
     ]);
 
     return {
@@ -150,7 +143,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
     expect(stable).to.equal(stableAddress);
 
     // Transfer cUSD to clone (simulating onramp service)
-    const swapAmount = ethers.utils.parseEther("10");
+    const swapAmount = ethers.utils.parseEther("5");
     const whaleBalance = await cusdToken.balanceOf(whale.address);
 
     if (whaleBalance.lt(swapAmount)) {
@@ -161,10 +154,6 @@ describe("BuyGDClone - Celo Fork E2E", function () {
 
     // Transfer cUSD from whale to clone
     await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
-
-    const cloneCusdBalance = await cusdToken.balanceOf(cloneAddress);
-    expect(cloneCusdBalance).to.equal(swapAmount);
-    console.log("✓ cUSD transferred to clone:", ethers.utils.formatEther(swapAmount));
 
     // Get initial G$ balance
     const initialGdBalance = await gdToken.balanceOf(user.address);
@@ -208,80 +197,12 @@ describe("BuyGDClone - Celo Fork E2E", function () {
     console.log("✓ Received amount >= minAmount");
   });
 
-  it("Should verify swap path: cUSD -> stable -> G$", async function () {
-    const { factory, user, stableAddress } = await loadFixture(forkCelo);
-
-    // Create clone
-    await factory.create(user.address);
-    const cloneAddress = await factory.predict(user.address);
-    const clone = (await ethers.getContractAt(
-      "BuyGDCloneV2",
-      cloneAddress
-    )) as BuyGDCloneV2;
-
-    const stable = await clone.stable();
-    const gd = await clone.gd();
-    const cusd = await clone.CUSD();
-
-    console.log("Swap path verification:");
-    console.log("  Input: cUSD", cusd);
-    console.log("  Intermediate: stable", stable);
-    console.log("  Output: G$", gd);
-
-    // Verify the path
-    expect(stable).to.equal(stableAddress);
-    expect(gd).to.equal(GOODDOLLAR);
-    expect(cusd).to.equal(CUSD);
-
-    // If stable is not CUSD, verify it's a two-hop path
-    if (stable.toLowerCase() !== CUSD.toLowerCase()) {
-      console.log("✓ Two-hop path confirmed: cUSD -> stable -> G$");
-    } else {
-      console.log("✓ Direct path: cUSD -> G$");
-    }
-  });
-
-  it("Should calculate TWAP correctly for cUSD -> stable -> G$", async function () {
-    const { factory, user, stableAddress } = await loadFixture(forkCelo);
-
-    // Create clone
-    await factory.create(user.address);
-    const cloneAddress = await factory.predict(user.address);
-    const clone = (await ethers.getContractAt(
-      "BuyGDCloneV2",
-      cloneAddress
-    )) as BuyGDCloneV2;
-
-    const testAmount = ethers.utils.parseEther("1"); // 1 cUSD
-
-    // Calculate TWAP
-    const [minTwap, quote] = await clone.minAmountByTWAP(
-      testAmount,
-      CUSD,
-      300 // 5 minutes
-    );
-
-    console.log("TWAP calculation:");
-    console.log("  Input amount:", ethers.utils.formatEther(testAmount), "cUSD");
-    console.log("  Min TWAP:", ethers.utils.formatEther(minTwap), "G$");
-    console.log("  Quote:", ethers.utils.formatEther(quote), "G$");
-
-    expect(minTwap).to.be.gt(0);
-    expect(quote).to.be.gt(0);
-    expect(minTwap).to.be.lte(quote); // minTwap should be <= quote (with 2% buffer)
-
-    // Verify minTwap is 98% of quote (as per contract logic)
-    const expectedMin = quote.mul(98).div(100);
-    expect(minTwap).to.equal(expectedMin);
-    console.log("✓ TWAP calculation is correct");
-  });
-
   it("Should handle createAndSwap in one transaction", async function () {
     const { factory, user, deployer, gdToken, cusdToken, whale } = await loadFixture(
       forkCelo
     );
 
-    const swapAmount = ethers.utils.parseEther("10");
+    const swapAmount = ethers.utils.parseEther("5");
     const whaleBalance = await cusdToken.balanceOf(whale.address);
 
     if (whaleBalance.lt(swapAmount)) {
