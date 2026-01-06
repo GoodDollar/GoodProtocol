@@ -15,6 +15,7 @@
 // deploy distribution helper
 // transfer usdc to xdc reserve
 // update celo reserve parameters accordingly
+// upgrade celo's distribution helper to genericdistributionhelper (simulate it is working)
 
 import { network, ethers, upgrades } from "hardhat";
 import { reset } from "@nomicfoundation/hardhat-network-helpers";
@@ -30,12 +31,14 @@ import {
 
 import dao from "../../releases/deployment.json";
 import { Controller, IdentityV3, IGoodDollar, IMessagePassingBridge, UBISchemeV2 } from "../../types";
+import { upgrade } from "./gip-15";
 let { name: networkName } = network;
 const isSimulation = network.name === "hardhat" || network.name === "fork" || network.name === "localhost";
 const bridgeUpgradeImpl = {
-  "production-celo": "0x7bDaF2Fb332761b2a6A565a43ccB0ACfC36d2C3D",
-  production: "0x6f252280eB53df085eAD27BBe55d615741A8268D",
-  "production-mainnet": "0x7baFe060A37E31E707b8B28a90a36731ee99aFBa"
+  "production-celo": "0xF3eAB7018d74E7Df95A5d8dC70987C0539bDF48f",
+  production: "0xFB62aA509a7B260b6697B671C969a184d6c39E90",
+  "production-mainnet": "0x12ab702f015D3302f3cc0c4AbA0626A127D06A07",
+  "production-xdc": "0xe4CFA18A3d0a7d77fAA42961ee943c9221d61937"
 };
 export const upgradeCeloStep1 = async (network, checksOnly) => {
   let [root] = await ethers.getSigners();
@@ -176,6 +179,297 @@ export const upgradeCeloStep1 = async (network, checksOnly) => {
     const claimTx = await (await ubi.connect(guardian).claim()).wait();
     console.log("UBI claim from connected account tx:", claimTx.events);
   }
+};
+export const upgradeCeloFix = async (network, checksOnly) => {
+  let [root] = await ethers.getSigners();
+
+  const isProduction = networkName.includes("production");
+
+  if (isProduction) verifyProductionSigner(root);
+
+  let networkEnv = networkName;
+  let guardian = root;
+  if (isSimulation) {
+    networkEnv = network;
+  }
+
+  let release: { [key: string]: any } = dao[networkEnv];
+
+  console.log("signer:", root.address, { networkEnv, isSimulation, isProduction, release });
+
+  if (isSimulation) {
+    networkEnv = network;
+    guardian = await ethers.getImpersonatedSigner(release.GuardiansSafe);
+
+    await root.sendTransaction({
+      value: ethers.utils.parseEther("1"),
+      to: release.GuardiansSafe
+    });
+  }
+
+  const bridgeImpl = bridgeUpgradeImpl[networkEnv];
+  const toBurn = "5515965554075495700269228267";
+  const proposalActions = [
+    [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"], //upgrade bridge
+    [release.GoodDollar, "burn(uint256)", ethers.utils.defaultAbiCoder.encode(["uint256"], [toBurn.toString()]), "0"] //burn locked supply on celo bridge
+  ];
+
+  console.log({
+    networkEnv,
+    guardian: guardian.address,
+    isSimulation,
+    isProduction,
+    release
+  });
+
+  const proposalContracts = proposalActions.map(a => a[0]);
+  const proposalFunctionSignatures = proposalActions.map(a => a[1]);
+  const proposalFunctionInputs = proposalActions.map(a => a[2]);
+  const proposalEthValues = proposalActions.map(a => a[3]);
+  if (isProduction && !checksOnly) {
+    await executeViaSafe(
+      proposalContracts,
+      proposalEthValues,
+      proposalFunctionSignatures,
+      proposalFunctionInputs,
+      release.GuardiansSafe,
+      "celo",
+      { nonce: 5 }
+    );
+  } else if (!checksOnly) {
+    await executeViaGuardian(
+      proposalContracts,
+      proposalEthValues,
+      proposalFunctionSignatures,
+      proposalFunctionInputs,
+      guardian,
+      networkEnv
+    );
+  }
+};
+export const upgradeXdcFix = async (network, checksOnly) => {
+  let [root] = await ethers.getSigners();
+
+  const isProduction = networkName.includes("production");
+
+  if (isProduction) verifyProductionSigner(root);
+
+  let networkEnv = networkName;
+  let guardian = root;
+  if (isSimulation) {
+    networkEnv = network;
+  }
+
+  let release: { [key: string]: any } = dao[networkEnv];
+
+  console.log("signer:", root.address, { networkEnv, isSimulation, isProduction, release });
+
+  if (isSimulation) {
+    networkEnv = network;
+    guardian = await ethers.getImpersonatedSigner(release.GuardiansSafe);
+
+    await root.sendTransaction({
+      value: ethers.utils.parseEther("1"),
+      to: release.GuardiansSafe
+    });
+  }
+
+  const bridgeImpl = bridgeUpgradeImpl[networkEnv];
+  const proposalActions = [
+    [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"] //upgrade bridge
+  ];
+
+  console.log({
+    networkEnv,
+    guardian: guardian.address,
+    isSimulation,
+    isProduction,
+    release
+  });
+
+  const proposalContracts = proposalActions.map(a => a[0]);
+  const proposalFunctionSignatures = proposalActions.map(a => a[1]);
+  const proposalFunctionInputs = proposalActions.map(a => a[2]);
+  const proposalEthValues = proposalActions.map(a => a[3]);
+  if (isProduction && !checksOnly) {
+    await executeViaSafe(
+      proposalContracts,
+      proposalEthValues,
+      proposalFunctionSignatures,
+      proposalFunctionInputs,
+      release.GuardiansSafe,
+      "xdc"
+    );
+  } else if (!checksOnly) {
+    await executeViaGuardian(
+      proposalContracts,
+      proposalEthValues,
+      proposalFunctionSignatures,
+      proposalFunctionInputs,
+      guardian,
+      networkEnv
+    );
+  }
+};
+export const upgradeFuseFix = async (network, checksOnly) => {
+  let [root] = await ethers.getSigners();
+
+  const isProduction = networkName.includes("production");
+
+  if (isProduction) verifyProductionSigner(root);
+
+  let networkEnv = networkName;
+  let guardian = root;
+  if (isSimulation) {
+    networkEnv = network;
+  }
+
+  let release: { [key: string]: any } = dao[networkEnv];
+
+  console.log("signer:", root.address, { networkEnv, isSimulation, isProduction, release });
+
+  if (isSimulation) {
+    networkEnv = network;
+    guardian = await ethers.getImpersonatedSigner(release.GuardiansSafe);
+
+    await root.sendTransaction({
+      value: ethers.utils.parseEther("1"),
+      to: release.GuardiansSafe
+    });
+  }
+
+  const bridgeImpl = bridgeUpgradeImpl[networkEnv];
+  const proposalActions = [
+    [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"] //upgrade bridge
+  ];
+
+  console.log({
+    networkEnv,
+    guardian: guardian.address,
+    isSimulation,
+    isProduction,
+    release
+  });
+
+  const proposalContracts = proposalActions.map(a => a[0]);
+  const proposalFunctionSignatures = proposalActions.map(a => a[1]);
+  const proposalFunctionInputs = proposalActions.map(a => a[2]);
+  const proposalEthValues = proposalActions.map(a => a[3]);
+  if (isProduction && !checksOnly) {
+    await executeViaSafe(
+      proposalContracts,
+      proposalEthValues,
+      proposalFunctionSignatures,
+      proposalFunctionInputs,
+      release.GuardiansSafe,
+      "fuse"
+    );
+  } else if (!checksOnly) {
+    await executeViaGuardian(
+      proposalContracts,
+      proposalEthValues,
+      proposalFunctionSignatures,
+      proposalFunctionInputs,
+      guardian,
+      networkEnv
+    );
+  }
+};
+export const upgradeEthFix = async (network, checksOnly) => {
+  let [root] = await ethers.getSigners();
+
+  const isProduction = networkName.includes("production");
+
+  if (isProduction) verifyProductionSigner(root);
+
+  let networkEnv = networkName;
+  let guardian = root;
+  if (isSimulation) {
+    networkEnv = network;
+  }
+
+  let release: { [key: string]: any } = dao[networkEnv];
+
+  console.log("signer:", root.address, { networkEnv, isSimulation, isProduction, release });
+
+  if (isSimulation) {
+    networkEnv = network;
+    guardian = await ethers.getImpersonatedSigner(release.GuardiansSafe);
+
+    await root.sendTransaction({
+      value: ethers.utils.parseEther("1"),
+      to: release.GuardiansSafe
+    });
+  }
+
+  const bridgeImpl = bridgeUpgradeImpl[networkEnv];
+  const upgradeCall = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("upgrade()")).substring(0, 10);
+
+  const proposalActions = [
+    [
+      release.MpbBridge,
+      "upgradeToAndCall(address,bytes)",
+      ethers.utils.defaultAbiCoder.encode(["address", "bytes"], [bridgeImpl, upgradeCall]),
+      "0"
+    ] //upgrade bridge
+  ];
+
+  console.log({
+    networkEnv,
+    guardian: guardian.address,
+    isSimulation,
+    isProduction,
+    release
+  });
+
+  const proposalContracts = proposalActions.map(a => a[0]);
+  const proposalFunctionSignatures = proposalActions.map(a => a[1]);
+  const proposalFunctionInputs = proposalActions.map(a => a[2]);
+  const proposalEthValues = proposalActions.map(a => a[3]);
+  if (isProduction && !checksOnly) {
+    await executeViaSafe(
+      proposalContracts,
+      proposalEthValues,
+      proposalFunctionSignatures,
+      proposalFunctionInputs,
+      release.GuardiansSafe,
+      "mainnet",
+      { nonce: 15 }
+    );
+  } else if (!checksOnly) {
+    await executeViaGuardian(
+      proposalContracts,
+      proposalEthValues,
+      proposalFunctionSignatures,
+      proposalFunctionInputs,
+      guardian,
+      networkEnv
+    );
+  }
+
+  if (isSimulation || !isProduction) {
+    const ctrl = (await ethers.getContractAt("Controller", release.Controller)) as Controller;
+    const isMinterScheme = await ctrl.getSchemePermissions(release.MpbBridge, release.Avatar);
+    console.log("Bridge minter permissions on avatar:", isMinterScheme);
+    // check xdc chainid in bridge
+    const mpb = (await ethers.getContractAt("IMessagePassingBridge", release.MpbBridge)) as IMessagePassingBridge;
+    console.log("xdc lz chainid:", await mpb.toLzChainId(50));
+  }
+};
+
+export const verifyUpgradeCeloStep1 = async networkEnv => {
+  let release: { [key: string]: any } = dao[networkEnv];
+  const ctrl = (await ethers.getContractAt("Controller", release.Controller)) as Controller;
+  const isMinterScheme = await ctrl.getSchemePermissions(release.MpbBridge, release.Avatar);
+  console.log("Bridge minter permissions on avatar:", isMinterScheme);
+  // check xdc chainid in bridge
+  const mpb = (await ethers.getContractAt("IMessagePassingBridge", release.MpbBridge)) as IMessagePassingBridge;
+  console.log("xdc lz chainid:", await mpb.toLzChainId(50));
+  const gd = await ethers.getContractAt("IGoodDollar", release.GoodDollar);
+  const supplyAfter = await gd.totalSupply();
+  const bridgeBalanceAfter = await gd.balanceOf(release.MpbBridge);
+  const avatarBalanceAfter = await gd.balanceOf(release.Avatar);
+  console.log({ bridgeBalanceAfter, avatarBalanceAfter, supplyAfter });
 };
 
 export const upgradeFuseStep1 = async (network, checksOnly) => {
@@ -444,4 +738,9 @@ export const main = async () => {
   }
 };
 
-main().catch(console.log);
+// upgradeCeloFix("production-celo", false).catch(console.log);
+// upgradeEthFix("production-mainnet", false).catch(console.log);
+upgradeFuseFix("production", false).catch(console.log);
+// upgradeXdcFix("production-xdc", false).catch(console.log);
+// verifyUpgradeCeloStep1("production-celo");
+// main().catch(console.log);

@@ -3773,46 +3773,25 @@ __metadata:
   linkType: hard
 
 "@safe-global/api-kit@npm:^4.0.0":
-  version: 4.0.0
-  resolution: "@safe-global/api-kit@npm:4.0.0"
+  version: 4.0.1
+  resolution: "@safe-global/api-kit@npm:4.0.1"
   dependencies:
-    "@safe-global/protocol-kit": ^6.1.0
+    "@safe-global/protocol-kit": ^6.1.2
     "@safe-global/types-kit": ^3.0.0
     node-fetch: ^2.7.0
     viem: ^2.21.8
-  checksum: 187ce7a1ddba432cdc95c05064366128dd21e9948f5b14ac304c7aef230a3d3fc8e91861303f8ecfedeaf3805fc258184511062bdfd1150b42d65a3afb145adc
+  checksum: f90d8939fbac4e4887576d66b61c3b24656b51816092c5a5c3b914b0d4ed6bed5475f1f2cf284696dfcfbb44740b93a23a4d8e1ccf4dc6a6f78779ea382ed351
   languageName: node
   linkType: hard
 
-"@safe-global/protocol-kit@npm:^6.0.2":
-  version: 6.0.2
-  resolution: "@safe-global/protocol-kit@npm:6.0.2"
+"@safe-global/protocol-kit@npm:^6.0.2, @safe-global/protocol-kit@npm:^6.1.2":
+  version: 6.1.2
+  resolution: "@safe-global/protocol-kit@npm:6.1.2"
   dependencies:
     "@noble/curves": ^1.6.0
     "@peculiar/asn1-schema": ^2.3.13
-    "@safe-global/safe-deployments": ^1.37.31
-    "@safe-global/safe-modules-deployments": ^2.2.7
-    "@safe-global/types-kit": ^2.0.1
-    abitype: ^1.0.2
-    semver: ^7.7.1
-    viem: ^2.21.8
-  dependenciesMeta:
-    "@noble/curves":
-      optional: true
-    "@peculiar/asn1-schema":
-      optional: true
-  checksum: c3ebedb87b5ee76750cf6e7b63bf55e87f1a76bb1925f01773297dcf769845eb767a037b9182032067a524229475e88994015e467144ec96bfe870906b0caac1
-  languageName: node
-  linkType: hard
-
-"@safe-global/protocol-kit@npm:^6.1.0":
-  version: 6.1.1
-  resolution: "@safe-global/protocol-kit@npm:6.1.1"
-  dependencies:
-    "@noble/curves": ^1.6.0
-    "@peculiar/asn1-schema": ^2.3.13
-    "@safe-global/safe-deployments": ^1.37.42
-    "@safe-global/safe-modules-deployments": ^2.2.14
+    "@safe-global/safe-deployments": ^1.37.49
+    "@safe-global/safe-modules-deployments": ^2.2.21
     "@safe-global/types-kit": ^3.0.0
     abitype: ^1.0.2
     semver: ^7.7.2
@@ -3822,39 +3801,23 @@ __metadata:
       optional: true
     "@peculiar/asn1-schema":
       optional: true
-  checksum: 3999727d68a0504f5fd0e4ffa64fe83ff3d4ae80797106c52070cbd541f0bbaf6758f76ebf1161cce7c323d87d9e989e4aaaf8d9a3135101c1329c62443992ff
+  checksum: d6dfa653676e9486ac104c95b8b69fdc7d66c53a875263d0181136767e34c0e4c40500b093a2ad77672b1e2497e36f44da334eccbfd81cb12fd1a7b39ed7ee3d
   languageName: node
   linkType: hard
 
-"@safe-global/safe-deployments@npm:^1.37.31":
-  version: 1.37.31
-  resolution: "@safe-global/safe-deployments@npm:1.37.31"
+"@safe-global/safe-deployments@npm:^1.37.49":
+  version: 1.37.49
+  resolution: "@safe-global/safe-deployments@npm:1.37.49"
   dependencies:
     semver: ^7.6.2
-  checksum: 8f209f5acf4fcffed46f2489b45fdbc58178cdafb2bc081f62442d5aeb60de581a63748e18f43d990fa1ee536ff75b6c64adacbc8264360aa8435697bfed9240
+  checksum: b004057e84ae1ca68f0829bdb9f4a303e592a87cadc7688110d85d218de2f7a79b790449235e3d96b11827028b774f5becbfe1d02f9b46f4bbe50bbfe3246c78
   languageName: node
   linkType: hard
 
-"@safe-global/safe-deployments@npm:^1.37.42":
-  version: 1.37.47
-  resolution: "@safe-global/safe-deployments@npm:1.37.47"
-  dependencies:
-    semver: ^7.6.2
-  checksum: 952ff6e6272622d2fcde1c5a5542bdb89613f6ddf9852f829f5961096b64fffe7d8f6924ad8ca1beaf970036242d11e4027b68c202b7d205dc9c4556750983d0
-  languageName: node
-  linkType: hard
-
-"@safe-global/safe-modules-deployments@npm:^2.2.14":
-  version: 2.2.18
-  resolution: "@safe-global/safe-modules-deployments@npm:2.2.18"
-  checksum: 4713a9deb5d39ffa1af273c427e7647cb8e81b6212281b9f6cb83fb69701114b2c3b0bb2e0e889ea8bc71860daa8dacd1082a20df5617677d235ffdfb4ab226b
-  languageName: node
-  linkType: hard
-
-"@safe-global/safe-modules-deployments@npm:^2.2.7":
-  version: 2.2.7
-  resolution: "@safe-global/safe-modules-deployments@npm:2.2.7"
-  checksum: 73fadef510c172f282bf73ff99d650fad7b9b70da79f09abd3d5e5907b8a33e42bf85021ceca8f345d9c57ddddffd562d2e90d4bc89b95b5dc1faf256d65cd49
+"@safe-global/safe-modules-deployments@npm:^2.2.21":
+  version: 2.2.21
+  resolution: "@safe-global/safe-modules-deployments@npm:2.2.21"
+  checksum: 967fd772a27242bea089c07ab98f963551474967ff087d1a9e385909e05db572515969fd21a6965ddd50ee1018f9229d26516069809400eb11c7c4663293f9db
   languageName: node
   linkType: hard
 
@@ -19637,7 +19600,7 @@ patch-package@latest:
   languageName: node
   linkType: hard
 
-"semver@npm:^7.6.2, semver@npm:^7.7.1":
+"semver@npm:^7.6.2":
   version: 7.7.1
   resolution: "semver@npm:7.7.1"
   bin:
