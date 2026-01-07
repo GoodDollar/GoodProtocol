@@ -126,7 +126,6 @@ const hhconfig: HardhatUserConfig = {
       forking: process.env.FORK_CHAIN_ID && {
         url: "https://eth-mainnet.alchemyapi.io/v2/" + process.env.ALCHEMY_KEY
       },
-      blockGasLimit: 100000000429720,
     },
     fork: {
       chainId: 1,
