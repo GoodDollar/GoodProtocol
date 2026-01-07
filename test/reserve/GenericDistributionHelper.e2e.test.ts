@@ -321,10 +321,12 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
       gdToSell: ethers.utils.formatEther(gdToSell),
       minReceived: ethers.utils.formatEther(minReceived)
     });
+
+    expect(quoteWXDC).to.be.equal(minReceived);
   });
 
-  it("should handle swap with correct slippage protection", async function () {
-    // This test verifies that the swap respects maxSlippage settings
+  it("should correctly calculate minimum output with slippage protection", async function () {
+    // This test verifies the calculation of minimum output based on maxSlippage settings
     const amountToSell = ethers.utils.parseEther("50"); // 50 G$
 
     // Get quote
