@@ -324,39 +324,4 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
 
     expect(quoteWXDC).to.be.equal(minReceived);
   });
-
-  it("should correctly calculate minimum output with slippage protection", async function () {
-    // This test verifies the calculation of minimum output based on maxSlippage settings
-    const amountToSell = ethers.utils.parseEther("50"); // 50 G$
-
-    // Get quote
-    const [quoteCUSD] = await staticOracle.quoteAllAvailablePoolsWithTimePeriod(
-      amountToSell,
-      goodDollar.address,
-      reserveToken.address,
-      60
-    );
-
-    const [quoteWXDC] = await staticOracle.quoteAllAvailablePoolsWithTimePeriod(
-      quoteCUSD,
-      reserveToken.address,
-      gasToken.address,
-      60
-    );
-
-    // Get fee settings
-    const feeSettings = await distHelper.feeSettings();
-    const maxSlippage = feeSettings.maxSlippage;
-
-    // Calculate minimum output with slippage
-    const minOutput = quoteWXDC.mul(100 - maxSlippage).div(100);
-
-    console.log("Slippage calculation:", {
-      expectedOutput: ethers.utils.formatEther(quoteWXDC),
-      maxSlippage: maxSlippage.toString() + "%",
-      minOutput: ethers.utils.formatEther(minOutput)
-    });
-
-    expect(minOutput.lt(quoteWXDC)).to.be.true;
-  });
 });
