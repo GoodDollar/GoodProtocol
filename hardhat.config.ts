@@ -29,7 +29,7 @@ envEnc.config();
 config();
 
 const mnemonic = process.env.MNEMONIC || "test test test test test test test test test test test junk";
-const deployerPrivateKey = process.env.PRIVATE_KEY || ethers.utils.hexZeroPad("0x11", 32);
+const deployerPrivateKey = process.env.ADMIN_KEY || ethers.utils.hexZeroPad("0x11", 32);
 const infura_api = process.env.INFURA_API;
 const alchemy_key = process.env.ALCHEMY_KEY;
 const etherscan_key = process.env.ETHERSCAN_KEY;
@@ -41,7 +41,7 @@ const MAINNET_URL = "https://mainnet.infura.io/v3/" + infura_api;
 
 const xdc = {
   accounts: { mnemonic },
-  url: "https://rpc.ankr.com/xdc",
+  url: "https://rpc.xdc.org",
   gas: 3000000,
   gasPrice: 12.5e9,
   chainId: 50
@@ -125,7 +125,8 @@ const hhconfig: HardhatUserConfig = {
       initialDate: "2021-12-01", //required for DAO tests like guardian
       forking: process.env.FORK_CHAIN_ID && {
         url: "https://eth-mainnet.alchemyapi.io/v2/" + process.env.ALCHEMY_KEY
-      }
+      },
+      blockGasLimit: 100000000429720,
     },
     fork: {
       chainId: 1,
@@ -147,6 +148,7 @@ const hhconfig: HardhatUserConfig = {
     },
     dapptest: {
       gasPrice: 1000000000, //1 gwei
+      blockGasLimit: 100000000429720,
       url: "http://127.0.0.1:8545/"
     },
     "dapptest-mainnet": {
