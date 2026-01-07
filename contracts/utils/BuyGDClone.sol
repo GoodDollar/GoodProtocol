@@ -89,7 +89,7 @@ contract BuyGDCloneV2 is Initializable {
 	) public payable returns (uint256 bought) {
 		uint256 gasCosts;
 		uint24[] memory fees = new uint24[](1);
-		fees[0] = 100;
+		fees[0] = 500;
 		if (refundGas != owner) {
 			(gasCosts, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
 				1e17, //0.1$
@@ -107,7 +107,7 @@ contract BuyGDCloneV2 is Initializable {
 
 		ERC20(celo).approve(address(router), amountIn);
 		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
-			path: abi.encodePacked(celo, uint24(100), stable, GD_FEE_TIER, gd),
+			path: abi.encodePacked(celo, uint24(500), stable, GD_FEE_TIER, gd),
 			recipient: owner,
 			amountIn: amountIn,
 			amountOutMinimum: _minAmount
@@ -165,10 +165,11 @@ contract BuyGDCloneV2 is Initializable {
 		uint32 period
 	) public view returns (uint256 minTwap, uint256 quote) {
 		uint24[] memory fees = new uint24[](1);
-		fees[0] = 100;
 
 		uint128 toConvert = uint128(baseAmount);
 		if (baseToken == celo) {
+			/// Set the fee to 500 since there is no pool with a 100 fee tier
+			fees[0] = 500;
 			(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
 				toConvert,
 				baseToken,
@@ -178,6 +179,7 @@ contract BuyGDCloneV2 is Initializable {
 			);
 			toConvert = uint128(quote);
 		} else if (baseToken == CUSD && stable != CUSD) {
+			fees[0] = 100;
 			(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
 				toConvert,
 				baseToken,
@@ -405,8 +407,7 @@ contract BuyGDCloneFactory {
 
 	function createAndSwap(
 		address owner,
-		uint256 minAmount,
-		uint256 cusdAmount
+		uint256 minAmount
 	) external returns (address) {
 		address clone = create(owner);
 		BuyGDCloneV2(payable(clone)).swap(minAmount, payable(msg.sender));
