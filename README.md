@@ -6,8 +6,6 @@
 
 ### Versions 2+ of GoodDollar smart contracts
 
-## Submit bug bounties via [Hats.Finance](https://app.hats.finance)
-
 # SuperGoodDollar
 
 _SuperGoodDollar_ is an implementation of the GoodDollar token which adds functionality implemented by the Superfluid protocol, making it a _Super Token_.
