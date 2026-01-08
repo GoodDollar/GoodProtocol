@@ -27,6 +27,9 @@ const GOODDOLLAR = PRODUCTION_CELO.GoodDollar;
 const CUSD = PRODUCTION_CELO.CUSD;
 const UNISWAP_V3_ROUTER = PRODUCTION_CELO.UniswapV3Router;
 const STATIC_ORACLE = PRODUCTION_CELO.StaticOracle;
+const MENTO_BROKER = PRODUCTION_CELO.MentoBroker;
+const MENTO_EXCHANGE_PROVIDER = PRODUCTION_CELO.MentoExchangeProvider;
+const MENTO_EXCHANGE_ID = PRODUCTION_CELO.CUSDExchangeId;
 const CELO = "0x471EcE3750Da237f93B8E339c536989b8978a438";
 
 // GLOUSD address on Celo mainnet
@@ -72,7 +75,10 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       router.address,
       stableAddress,
       GOODDOLLAR,
-      oracleAddress
+      oracleAddress,
+      MENTO_BROKER,
+      MENTO_EXCHANGE_PROVIDER,
+      MENTO_EXCHANGE_ID
     )) as BuyGDCloneFactory;
 
     await factory.deployed();
@@ -101,6 +107,9 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       whale,
       router,
       oracleAddress,
+      MENTO_BROKER,
+      MENTO_EXCHANGE_PROVIDER,
+      MENTO_EXCHANGE_ID
     };
   }
 
@@ -338,15 +347,9 @@ describe("BuyGDClone - Celo Fork E2E", function () {
     console.log("  TWAP Quote vs Actual:", twapVsActual.toString(), "%");
     console.log("  Min TWAP vs Actual:", minTwapVsActual.toString(), "%");
 
-    // TWAP should be close to actual (within reasonable range)
-    // TWAP is time-weighted average, so it might be slightly different
-    expect(actualPrice).to.be.gt(0);
-    expect(twapQuote).to.be.gt(0);
-    expect(minTwap).to.be.gt(0);
-
-    // Min TWAP should be less than or equal to actual (98% buffer)
+    // Min TWAP should be less than or equal to actual
     // But allow some tolerance for price movement
-    expect(minTwap).to.be.lte(actualPrice.mul(105).div(100)); // Allow 5% tolerance
+    expect(minTwap).to.be.lte(actualPrice);
 
     console.log("✓ TWAP quote comparison completed");
   });
@@ -450,6 +453,125 @@ describe("BuyGDClone - Celo Fork E2E", function () {
 
     expect(gdReceived).to.be.gt(0);
     console.log("✓ createAndSwap successful, G$ received:", ethers.utils.formatEther(gdReceived));
+  });
+
+  it("Should swap cUSD -> G$ via Mento reserve", async function () {
+    const {
+      factory,
+      user,
+      gdToken,
+      cusdToken,
+      whale,
+    } = await loadFixture(forkCelo);
+
+    // Create clone
+    await factory.create(user.address);
+    const cloneAddress = await factory.predict(user.address);
+    const clone = (await ethers.getContractAt(
+      "BuyGDCloneV2",
+      cloneAddress
+    )) as BuyGDCloneV2;
+
+    // Transfer cUSD to clone (simulating onramp service)
+    const swapAmount = ethers.utils.parseEther("5");
+    const whaleBalance = await cusdToken.balanceOf(whale.address);
+
+    if (whaleBalance.lt(swapAmount)) {
+      console.log("⚠ Whale doesn't have enough cUSD, skipping test");
+      this.skip();
+      return;
+    }
+
+    // Transfer cUSD from whale to clone
+    await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
+
+    const cloneCusdBalance = await cusdToken.balanceOf(cloneAddress);
+    expect(cloneCusdBalance).to.equal(swapAmount);
+    console.log("✓ cUSD transferred to clone:", ethers.utils.formatEther(swapAmount));
+
+    // Get initial G$ balance
+    const initialGdBalance = await gdToken.balanceOf(user.address);
+    console.log("Initial G$ balance:", ethers.utils.formatEther(initialGdBalance));
+
+    // Get expected return from Mento
+    const expectedReturn = await clone.getExpectedReturnFromMento(swapAmount);
+    console.log("Expected return from Mento:", ethers.utils.formatEther(expectedReturn), "G$");
+
+    // Use expected return as min amount
+    const minAmount = expectedReturn
+    console.log("Using minAmount:", ethers.utils.formatEther(minAmount));
+
+    // Perform swap via Mento
+    const swapTx = await clone.swapCusdFromMento(minAmount, user.address);
+    const swapReceipt = await swapTx.wait();
+
+    // Check for BoughtFromMento event
+    const boughtEvent = swapReceipt.events?.find(
+      (e: any) => e.event === "BoughtFromMento"
+    );
+    expect(boughtEvent).to.not.be.undefined;
+    console.log("✓ BoughtFromMento event emitted:", {
+      inToken: boughtEvent?.args?.inToken,
+      inAmount: ethers.utils.formatEther(boughtEvent?.args?.inAmount),
+      outAmount: ethers.utils.formatEther(boughtEvent?.args?.outAmount),
+    });
+
+    // Check final G$ balance
+    const finalGdBalance = await gdToken.balanceOf(user.address);
+    const gdReceived = finalGdBalance.sub(initialGdBalance);
+    expect(gdReceived).to.be.gt(0);
+    console.log("✓ G$ received from Mento:", ethers.utils.formatEther(gdReceived));
+    console.log("Final G$ balance:", ethers.utils.formatEther(finalGdBalance));
+
+    // Verify minimum amount
+    expect(gdReceived).to.be.gte(minAmount);
+    console.log("✓ Received amount >= minAmount");
+    console.log("✓ Received amount is within expected range");
+  });
+
+  it("Should revert when calling Mento functions without configuration", async function () {
+    const { factory, user, cusdToken, whale } = await loadFixture(forkCelo);
+
+    // Create a factory without Mento configuration (using zero addresses)
+    const BuyGDCloneFactoryFactory = await ethers.getContractFactory("BuyGDCloneFactory");
+    const factoryWithoutMento = (await BuyGDCloneFactoryFactory.deploy(
+      UNISWAP_V3_ROUTER,
+      process.env.GLOUSD_ADDRESS || GLOUSD_REFERENCE,
+      GOODDOLLAR,
+      STATIC_ORACLE,
+      ethers.constants.AddressZero,
+      ethers.constants.AddressZero,
+      ethers.constants.HashZero
+    )) as BuyGDCloneFactory;
+
+    await factoryWithoutMento.create(user.address);
+    const cloneAddress = await factoryWithoutMento.predict(user.address);
+    const clone = (await ethers.getContractAt(
+      "BuyGDCloneV2",
+      cloneAddress
+    )) as BuyGDCloneV2;
+
+    const testAmount = ethers.utils.parseEther("10");
+
+    // Should revert when getting expected return
+    await expect(clone.getExpectedReturnFromMento(testAmount)).to.be.revertedWithCustomError(
+      clone, 
+      "MENTO_NOT_CONFIGURED"
+    );
+
+    // Transfer cUSD to clone from whale
+    const whaleBalance = await cusdToken.balanceOf(whale.address);
+    if (whaleBalance.gte(testAmount)) {
+      await cusdToken.connect(whale).transfer(cloneAddress, testAmount);
+
+      // Should revert when trying to swap
+      await expect(clone.swapCusdFromMento(0, user.address)).to.be.revertedWithCustomError(
+        clone,
+        "MENTO_NOT_CONFIGURED"
+      );
+    }
+
+    console.log("✓ Mento functions correctly revert when not configured");
   });
 });
 

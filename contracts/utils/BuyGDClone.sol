@@ -5,6 +5,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@mean-finance/uniswap-v3-oracle/solidity/interfaces/IStaticOracle.sol";
 import "../Interfaces.sol";
+import "../MentoInterfaces.sol";
+
 
 /*
  * @title BuyGDClone
@@ -15,8 +17,10 @@ import "../Interfaces.sol";
 contract BuyGDCloneV2 is Initializable {
 	error REFUND_FAILED(uint256);
 	error NO_BALANCE();
+	error MENTO_NOT_CONFIGURED();
 
 	event Bought(address inToken, uint256 inAmount, uint256 outAmount);
+	event BoughtFromMento(address inToken, uint256 inAmount, uint256 outAmount);
 
 	ISwapRouter public immutable router;
 	address public constant celo = 0x471EcE3750Da237f93B8E339c536989b8978a438;
@@ -27,6 +31,11 @@ contract BuyGDCloneV2 is Initializable {
 	address public immutable gd;
 	IStaticOracle public immutable oracle;
 
+	// Mento reserve configuration (optional)
+	IBroker public immutable mentoBroker;
+	address public immutable mentoExchangeProvider;
+	bytes32 public immutable mentoExchangeId;
+
 	address public owner;
 
 	receive() external payable {}
@@ -35,13 +44,19 @@ contract BuyGDCloneV2 is Initializable {
 		ISwapRouter _router,
 		address _stable,
 		address _gd,
-		IStaticOracle _oracle
+		IStaticOracle _oracle,
+		IBroker _mentoBroker,
+		address _mentoExchangeProvider,
+		bytes32 _mentoExchangeId
 	) {
 		router = _router;
 		stable = _stable;
 		gd = _gd;
 		oracle = _oracle;
 		twapPeriod = 300; //5 minutes
+		mentoBroker = _mentoBroker;
+		mentoExchangeProvider = _mentoExchangeProvider;
+		mentoExchangeId = _mentoExchangeId;
 	}
 
 	/**
@@ -202,6 +217,75 @@ contract BuyGDCloneV2 is Initializable {
 	}
 
 	/**
+	 * @notice Swaps cUSD for G$ tokens using Mento reserve.
+	 * @dev Requires Mento broker, exchange provider, and exchange ID to be configured.
+	 * @param _minAmount The minimum amount of G$ tokens to receive from the swap.
+	 * @param refundGas The address to refund gas costs to (if not owner).
+	 * @return bought The amount of G$ tokens received.
+	 */
+	function swapCusdFromMento(
+		uint256 _minAmount,
+		address refundGas
+	) public returns (uint256 bought) {
+		if (address(mentoBroker) == address(0) || mentoExchangeProvider == address(0) || mentoExchangeId == bytes32(0)) {
+			revert MENTO_NOT_CONFIGURED();
+		}
+
+		uint256 gasCosts = refundGas != owner ? 1e17 : 0; //fixed 0.1$
+		uint256 amountIn = ERC20(CUSD).balanceOf(address(this)) - gasCosts;
+		require(amountIn > 0, "No cUSD balance");
+
+		// Get expected return from Mento
+		uint256 expectedReturn = getExpectedReturnFromMento(amountIn);
+		require(expectedReturn >= _minAmount, "Expected return below minimum");
+
+		// Approve broker to spend cUSD
+		ERC20(CUSD).approve(address(mentoBroker), amountIn);
+
+		// Execute swap through Mento broker
+		bought = mentoBroker.swapIn(
+			mentoExchangeProvider,
+			mentoExchangeId,
+			CUSD,
+			gd,
+			amountIn,
+			_minAmount
+		);
+
+		// Transfer G$ to owner
+		ERC20(gd).transfer(owner, bought);
+
+		// Refund gas costs if needed
+		if (refundGas != owner && gasCosts > 0) {
+			ERC20(CUSD).transfer(refundGas, gasCosts);
+		}
+
+		emit BoughtFromMento(CUSD, amountIn, bought);
+	}
+
+	/**
+	 * @notice Calculates the expected return of G$ tokens for a given amount of cUSD using Mento reserve.
+	 * @dev This is a view function that queries the Mento broker for the expected output.
+	 * @param cusdAmount The amount of cUSD to swap.
+	 * @return expectedReturn The expected amount of G$ tokens to receive.
+	 */
+	function getExpectedReturnFromMento(
+		uint256 cusdAmount
+	) public view returns (uint256 expectedReturn) {
+		if (address(mentoBroker) == address(0) || mentoExchangeProvider == address(0) || mentoExchangeId == bytes32(0)) {
+			revert MENTO_NOT_CONFIGURED();
+		}
+
+		expectedReturn = mentoBroker.getAmountOut(
+			mentoExchangeProvider,
+			mentoExchangeId,
+			CUSD,
+			gd,
+			cusdAmount
+		);
+	}
+
+	/**
 	 * @notice Recovers tokens accidentally sent to the contract.
 	 * @param token The address of the token to recover. Use address(0) to recover ETH.
 	 */
@@ -232,8 +316,11 @@ contract DonateGDClone is BuyGDCloneV2 {
 		ISwapRouter _router,
 		address _stable,
 		address _gd,
-		IStaticOracle _oracle
-	) BuyGDCloneV2(_router, _stable, _gd, _oracle) {}
+		IStaticOracle _oracle,
+		IBroker _mentoBroker,
+		address _mentoExchangeProvider,
+		bytes32 _mentoExchangeId
+	) BuyGDCloneV2(_router, _stable, _gd, _oracle, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId) {}
 
 	/**
 	 * @notice Initializes the contract with the owner's address.
@@ -345,26 +432,41 @@ contract BuyGDCloneFactory {
 		bytes note
 	);
 
+	// Mento configuration (optional)
+	IBroker public immutable mentoBroker;
+	address public immutable mentoExchangeProvider;
+	bytes32 public immutable mentoExchangeId;
+
 	/**
 	 * @notice Initializes the BuyGDCloneFactory contract with the provided parameters.
 	 * @param _router The address of the SwapRouter contract.
 	 * @param _stable The address of the stable token contract.
 	 * @param _gd The address of the GD token contract.
 	 * @param _oracle The address of the StaticOracle contract.
+	 * @param _mentoBroker The address of the Mento broker contract (optional, can be address(0)).
+	 * @param _mentoExchangeProvider The address of the Mento exchange provider (optional, can be address(0)).
+	 * @param _mentoExchangeId The exchange ID for the Mento G$/cUSD exchange (optional, can be bytes32(0)).
 	 */
 	constructor(
 		ISwapRouter _router,
 		address _stable,
 		address _gd,
-		IStaticOracle _oracle
+		IStaticOracle _oracle,
+		IBroker _mentoBroker,
+		address _mentoExchangeProvider,
+		bytes32 _mentoExchangeId
 	) {
-		impl = address(new BuyGDCloneV2(_router, _stable, _gd, _oracle));
-		donateImpl = address(new DonateGDClone(_router, _stable, _gd, _oracle));
+		impl = address(new BuyGDCloneV2(_router, _stable, _gd, _oracle, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId));
+		donateImpl = address(new DonateGDClone(_router, _stable, _gd, _oracle, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId));
 		gd = _gd;
 		stable = _stable;
 		oracle = _oracle;
 		router = _router;
 		
+		mentoBroker = _mentoBroker;
+		mentoExchangeProvider = _mentoExchangeProvider;
+		mentoExchangeId = _mentoExchangeId;
+
 		_oracle.prepareAllAvailablePoolsWithTimePeriod(_gd, _stable, PERIOD); //stable/gd pools
 		_oracle.prepareAllAvailablePoolsWithTimePeriod(
 			celo,
