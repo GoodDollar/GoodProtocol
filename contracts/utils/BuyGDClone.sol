@@ -21,6 +21,7 @@ contract BuyGDCloneV2 is Initializable {
 
 	event Bought(address inToken, uint256 inAmount, uint256 outAmount);
 	event BoughtFromMento(address inToken, uint256 inAmount, uint256 outAmount);
+	event BoughtFromUniswap(address inToken, uint256 inAmount, uint256 outAmount);
 
 	ISwapRouter public immutable router;
 	address public constant celo = 0x471EcE3750Da237f93B8E339c536989b8978a438;
@@ -135,10 +136,12 @@ contract BuyGDCloneV2 is Initializable {
 	}
 
 	/**
-	 * @notice Swaps cusd for GD tokens.
+	 * @notice Swaps cUSD for GD tokens using Uniswap pools.
 	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
+	 * @param refundGas The address to refund gas costs to (if not owner).
+	 * @return bought The amount of GD tokens received.
 	 */
-	function swapCusd(
+	function swapCUSDfromUniswap(
 		uint256 _minAmount,
 		address refundGas
 	) public returns (uint256 bought) {
@@ -164,6 +167,57 @@ contract BuyGDCloneV2 is Initializable {
 		bought = router.exactInput(params);
 		if (refundGas != owner) {
 			ERC20(CUSD).transfer(refundGas, gasCosts);
+		}
+		emit BoughtFromUniswap(CUSD, amountIn, bought);
+	}
+
+	/**
+	 * @notice Gets expected return from Uniswap for a given amount of cUSD.
+	 * @param cusdAmount The amount of cUSD to swap.
+	 * @return expectedReturn The expected amount of G$ tokens to receive from Uniswap.
+	 */
+	function getExpectedReturnFromUniswap(
+		uint256 cusdAmount
+	) public view returns (uint256 expectedReturn) {
+		(uint256 minTwap,) = minAmountByTWAP(cusdAmount, CUSD, twapPeriod);
+		return minTwap;
+	}
+
+	/**
+	 * @notice Swaps cUSD for GD tokens, choosing the best route between Uniswap and Mento.
+	 * @dev Compares expected returns from both Uniswap and Mento (if available) and uses the better option.
+	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
+	 * @param refundGas The address to refund gas costs to (if not owner).
+	 * @return bought The amount of GD tokens received.
+	 */
+	function swapCusd(
+		uint256 _minAmount,
+		address refundGas
+	) public returns (uint256 bought) {
+		uint256 gasCosts = refundGas != owner ? 1e17 : 0; //fixed 0.1$
+		uint256 amountIn = ERC20(CUSD).balanceOf(address(this)) - gasCosts;
+		require(amountIn > 0, "No cUSD balance");
+
+		// Get expected return from Uniswap
+		uint256 uniswapExpected = getExpectedReturnFromUniswap(amountIn);
+
+		// Get expected return from Mento (if configured)
+		uint256 mentoExpected = 0;
+		bool mentoAvailable = address(mentoBroker) != address(0) && 
+		                      mentoExchangeProvider != address(0) && 
+		                      mentoExchangeId != bytes32(0);
+		
+		if (mentoAvailable) {
+			mentoExpected = getExpectedReturnFromMento(amountIn);
+		}
+
+		// Choose the better option
+		if (mentoAvailable && mentoExpected > uniswapExpected) {
+			// Use Mento if it provides better return
+			bought = swapCusdFromMento(_minAmount, refundGas);
+		} else {
+			// Use Uniswap (default or if Mento not available/not better)
+			bought = swapCUSDfromUniswap(_minAmount, refundGas);
 		}
 	}
 
