@@ -633,6 +633,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
     // Min TWAP should be less than or equal to actual
     // But allow some tolerance for price movement
     expect(minTwap).to.be.lte(actualPrice);
+    expect(minTwap).to.be.gte(actualPrice.mul(98).div(100));
 
       console.log("✓ TWAP quote comparison completed");
     });
