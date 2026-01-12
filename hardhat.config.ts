@@ -119,20 +119,20 @@ const hhconfig: HardhatUserConfig = {
   },
   contractSizer: {
     alphaSort: false,
-    runOnCompile: true,
+    runOnCompile: false,
     disambiguatePaths: false
   },
 
   networks: {
     hardhat: {
-      chainId: process.env.FORK_CHAIN_ID ? Number(process.env.FORK_CHAIN_ID) : 4447,
+      chainId: process.env.FORK_CHAIN_ID ? Number(process.env.FORK_CHAIN_ID) : 42220,
       allowUnlimitedContractSize: true,
       accounts: {
         accountsBalance: "10000000000000000000000000"
       },
       initialDate: "2021-12-01", //required for DAO tests like guardian
       forking: process.env.FORK_CHAIN_ID && {
-        url: "https://eth-mainnet.alchemyapi.io/v2/" + process.env.ALCHEMY_KEY
+        url: "https://forno.celo.org"
       }
     },
     fork: {

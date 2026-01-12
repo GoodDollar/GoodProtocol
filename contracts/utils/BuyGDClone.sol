@@ -136,54 +136,6 @@ contract BuyGDCloneV2 is Initializable {
 	}
 
 	/**
-	 * @notice Swaps cUSD for GD tokens using Uniswap pools.
-	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
-	 * @param refundGas The address to refund gas costs to (if not owner).
-	 * @return bought The amount of GD tokens received.
-	 */
-	function swapCUSDfromUniswap(
-		uint256 _minAmount,
-		address refundGas
-	) public returns (uint256 bought) {
-		uint256 gasCosts = refundGas != owner ? 1e17 : 0; //fixed 0.1$
-		uint256 amountIn = ERC20(CUSD).balanceOf(address(this)) - gasCosts;
-
-		(uint256 minByTwap, ) = minAmountByTWAP(amountIn, CUSD, twapPeriod);
-		_minAmount = _minAmount > minByTwap ? _minAmount : minByTwap;
-
-		ERC20(CUSD).approve(address(router), amountIn);
-		bytes memory path;
-		if (stable == CUSD) {
-			path = abi.encodePacked(CUSD, GD_FEE_TIER, gd);
-		} else {
-			path = abi.encodePacked(CUSD, uint24(100), stable, GD_FEE_TIER, gd);
-		}
-		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
-			path: path,
-			recipient: owner,
-			amountIn: amountIn,
-			amountOutMinimum: _minAmount
-		});
-		bought = router.exactInput(params);
-		if (refundGas != owner) {
-			ERC20(CUSD).transfer(refundGas, gasCosts);
-		}
-		emit BoughtFromUniswap(CUSD, amountIn, bought);
-	}
-
-	/**
-	 * @notice Gets expected return from Uniswap for a given amount of cUSD.
-	 * @param cusdAmount The amount of cUSD to swap.
-	 * @return expectedReturn The expected amount of G$ tokens to receive from Uniswap.
-	 */
-	function getExpectedReturnFromUniswap(
-		uint256 cusdAmount
-	) public view returns (uint256 expectedReturn) {
-		(uint256 minTwap,) = minAmountByTWAP(cusdAmount, CUSD, twapPeriod);
-		return minTwap;
-	}
-
-	/**
 	 * @notice Swaps cUSD for GD tokens, choosing the best route between Uniswap and Mento.
 	 * @dev Compares expected returns from both Uniswap and Mento (if available) and uses the better option.
 	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
@@ -222,52 +174,39 @@ contract BuyGDCloneV2 is Initializable {
 	}
 
 	/**
-	 * @notice Calculates the minimum amount of tokens that can be received for a given amount of base tokens,
-	 * based on the time-weighted average price (TWAP) of the token pair over a specified period of time.
-	 * @param baseAmount The amount of base tokens to swap.
-	 * @param baseToken The address of the base token.
-	 * @return minTwap The minimum amount of G$ expected to receive by twap
+	 * @notice Swaps cUSD for GD tokens using Uniswap pools.
+	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
+	 * @param refundGas The address to refund gas costs to (if not owner).
+	 * @return bought The amount of GD tokens received.
 	 */
-	function minAmountByTWAP(
-		uint256 baseAmount,
-		address baseToken,
-		uint32 period
-	) public view returns (uint256 minTwap, uint256 quote) {
-		uint24[] memory fees = new uint24[](1);
+	function swapCUSDfromUniswap(
+		uint256 _minAmount,
+		address refundGas
+	) public returns (uint256 bought) {
+		uint256 gasCosts = refundGas != owner ? 1e17 : 0; //fixed 0.1$
+		uint256 amountIn = ERC20(CUSD).balanceOf(address(this)) - gasCosts;
 
-		uint128 toConvert = uint128(baseAmount);
-		if (baseToken == celo) {
-			/// Set the fee to 500 since there is no pool with a 100 fee tier
-			fees[0] = 500;
-			(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
-				toConvert,
-				baseToken,
-				stable,
-				fees,
-				period
-			);
-			toConvert = uint128(quote);
-		} else if (baseToken == CUSD && stable != CUSD) {
-			fees[0] = 100;
-			(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
-				toConvert,
-				baseToken,
-				stable,
-				fees,
-				period
-			);
-			toConvert = uint128(quote);
+		(uint256 minByTwap, ) = minAmountByTWAP(amountIn, CUSD, twapPeriod);
+		_minAmount = _minAmount > minByTwap ? _minAmount : minByTwap;
+
+		ERC20(CUSD).approve(address(router), amountIn);
+		bytes memory path;
+		if (stable == CUSD) {
+			path = abi.encodePacked(CUSD, GD_FEE_TIER, gd);
+		} else {
+			path = abi.encodePacked(CUSD, uint24(100), stable, GD_FEE_TIER, gd);
 		}
-		fees[0] = GD_FEE_TIER;
-		(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
-			toConvert,
-			stable,
-			gd,
-			fees,
-			period
-		);
-		//minAmount should not be 2% under twap (ie we dont expect price movement > 2% in timePeriod)
-		return ((quote * 98) / 100, quote);
+		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
+			path: path,
+			recipient: owner,
+			amountIn: amountIn,
+			amountOutMinimum: _minAmount
+		});
+		bought = router.exactInput(params);
+		if (refundGas != owner) {
+			ERC20(CUSD).transfer(refundGas, gasCosts);
+		}
+		emit BoughtFromUniswap(CUSD, amountIn, bought);
 	}
 
 	/**
@@ -318,6 +257,18 @@ contract BuyGDCloneV2 is Initializable {
 	}
 
 	/**
+	 * @notice Gets expected return from Uniswap for a given amount of cUSD.
+	 * @param cusdAmount The amount of cUSD to swap.
+	 * @return expectedReturn The expected amount of G$ tokens to receive from Uniswap.
+	 */
+	function getExpectedReturnFromUniswap(
+		uint256 cusdAmount
+	) public view returns (uint256 expectedReturn) {
+		(, uint256 quote) = minAmountByTWAP(cusdAmount, CUSD, twapPeriod);
+		return quote;
+	}
+
+	/**
 	 * @notice Calculates the expected return of G$ tokens for a given amount of cUSD using Mento reserve.
 	 * @dev This is a view function that queries the Mento broker for the expected output.
 	 * @param cusdAmount The amount of cUSD to swap.
@@ -337,6 +288,55 @@ contract BuyGDCloneV2 is Initializable {
 			gd,
 			cusdAmount
 		);
+	}
+
+	/**
+	 * @notice Calculates the minimum amount of tokens that can be received for a given amount of base tokens,
+	 * based on the time-weighted average price (TWAP) of the token pair over a specified period of time.
+	 * @param baseAmount The amount of base tokens to swap.
+	 * @param baseToken The address of the base token.
+	 * @return minTwap The minimum amount of G$ expected to receive by twap
+	 */
+	function minAmountByTWAP(
+		uint256 baseAmount,
+		address baseToken,
+		uint32 period
+	) public view returns (uint256 minTwap, uint256 quote) {
+		uint24[] memory fees = new uint24[](1);
+
+		uint128 toConvert = uint128(baseAmount);
+		if (baseToken == celo) {
+			/// Set the fee to 500 since there is no pool with a 100 fee tier
+			fees[0] = 500;
+			(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
+				toConvert,
+				baseToken,
+				stable,
+				fees,
+				period
+			);
+			toConvert = uint128(quote);
+		} else if (baseToken == CUSD && stable != CUSD) {
+			fees[0] = 100;
+			(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
+				toConvert,
+				baseToken,
+				stable,
+				fees,
+				period
+			);
+			toConvert = uint128(quote);
+		}
+		fees[0] = GD_FEE_TIER;
+		(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
+			toConvert,
+			stable,
+			gd,
+			fees,
+			period
+		);
+		//minAmount should not be 2% under twap (ie we dont expect price movement > 2% in timePeriod)
+		return ((quote * 98) / 100, quote);
 	}
 
 	/**
