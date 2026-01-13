@@ -94,13 +94,13 @@ describe("CompoundVotingMachine#CastVote", () => {
 
         await gov
           .connect(actor)
-          ["propose(address[],uint256[],string[],bytes[],string)"](
-            targets,
-            values,
-            signatures,
-            callDatas,
-            "do nothing"
-          );
+        ["propose(address[],uint256[],string[],bytes[],string)"](
+          targets,
+          values,
+          signatures,
+          callDatas,
+          "do nothing"
+        );
         await ethers.provider.send("evm_mine", []);
         await ethers.provider.send("evm_mine", []);
         let proposalId = await gov.latestProposalIds(actor.address);
@@ -123,13 +123,13 @@ describe("CompoundVotingMachine#CastVote", () => {
         );
         let tx = await gov
           .connect(actor)
-          ["propose(address[],uint256[],string[],bytes[],string)"](
-            targets,
-            values,
-            signatures,
-            callDatas,
-            "do nothing"
-          );
+        ["propose(address[],uint256[],string[],bytes[],string)"](
+          targets,
+          values,
+          signatures,
+          callDatas,
+          "do nothing"
+        );
         await ethers.provider.send("evm_mine", []);
         await ethers.provider.send("evm_mine", []);
         let proposalId = await gov.latestProposalIds(actor.address);
@@ -171,10 +171,10 @@ describe("CompoundVotingMachine#CastVote", () => {
         describe("casts vote on behalf of the signatory", async () => {
           let receipt;
           it("should cast vote", async () => {
-            let wallet = ethers.Wallet.createRandom({ gasPrice: 10000000 });
+            let wallet = ethers.Wallet.createRandom();
             await acct.sendTransaction({
               to: wallet.address,
-              value: ethers.utils.parseEther("9999")
+              value: ethers.utils.parseEther("1")
             });
 
             wallet = wallet.connect(ethers.provider);
@@ -182,13 +182,13 @@ describe("CompoundVotingMachine#CastVote", () => {
             await grep.mint(actor.address, ethers.BigNumber.from("100001"));
             await gov
               .connect(actor)
-              ["propose(address[],uint256[],string[],bytes[],string)"](
-                targets,
-                values,
-                signatures,
-                callDatas,
-                "do nothing"
-              );
+            ["propose(address[],uint256[],string[],bytes[],string)"](
+              targets,
+              values,
+              signatures,
+              callDatas,
+              "do nothing"
+              , { gasPrice: 1e6, gasLimit: 1000000 });
             let proposalId = await gov.latestProposalIds(actor.address);
 
             const signature = await wallet._signTypedData(
@@ -231,13 +231,13 @@ describe("CompoundVotingMachine#CastVote", () => {
           await grep.mint(actor.address, ethers.BigNumber.from("100001"));
           await gov
             .connect(actor)
-            ["propose(address[],uint256[],string[],bytes[],string)"](
-              targets,
-              values,
-              signatures,
-              callDatas,
-              "do nothing"
-            );
+          ["propose(address[],uint256[],string[],bytes[],string)"](
+            targets,
+            values,
+            signatures,
+            callDatas,
+            "do nothing"
+          );
           let proposalId = await gov.latestProposalIds(actor.address);
 
           const sigsFor = [];

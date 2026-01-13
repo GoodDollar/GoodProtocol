@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "2.1.0",
+  "version": "2.1.4",
   "description": "GoodDollar Protocol",
   "engines": {
     "node": ">=16.x"
@@ -110,7 +110,7 @@
     "fs-extra": "9.0.0",
     "graphql": "^15.5.0",
     "graphql-request": "^3.4.0",
-    "hardhat": "^2.*",
+    "hardhat": "2.27.2",
     "hardhat-contract-sizer": "^2.6.1",
     "hardhat-deploy": "^1.0.4",
     "hardhat-gas-reporter": "^1.0.8",
