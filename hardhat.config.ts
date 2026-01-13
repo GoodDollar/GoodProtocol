@@ -111,7 +111,7 @@ const hhconfig: HardhatUserConfig = {
   },
   contractSizer: {
     alphaSort: false,
-    runOnCompile: false,
+    runOnCompile: true,
     disambiguatePaths: false
   },
 
