@@ -96,11 +96,12 @@ describe("BuyGDClone - Celo Fork E2E", function () {
     console.log("✓ Factory stable token verified:", factoryStable);
 
     // Impersonate a whale account to get cUSD
-    const whale = await ethers.getImpersonatedSigner(CUSD_WHALE);
+    await ethers.provider.send("hardhat_impersonateAccount", [CUSD_WHALE]);
     await ethers.provider.send("hardhat_setBalance", [
       CUSD_WHALE,
       "0x1000000000000000000",
     ]);
+    const whale = await ethers.getSigner(CUSD_WHALE);
 
     return {
       deployer,
