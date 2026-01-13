@@ -5,7 +5,7 @@ import { TransactionResponse, TransactionReceipt } from "@ethersproject/provider
 import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 
 import SafeApiKit from "@safe-global/api-kit";
-import Safe from "@safe-global/protocol-kit";
+import Safe, { SafeTransactionOptionalProps } from "@safe-global/protocol-kit";
 import { MetaTransactionData } from "@safe-global/types-kit";
 
 import util from "util";
@@ -357,6 +357,7 @@ export const executeViaSafe = async (
   functionInputs,
   safeAddress: string,
   safeSignerOrNetwork?: Signer | string,
+  safeOptions: SafeTransactionOptionalProps = {},
   isSimulation = false
 ) => {
   if (typeof safeSignerOrNetwork !== "object" && !process.env.SAFEOWNER_PRIVATE_KEY) {
@@ -386,6 +387,10 @@ export const executeViaSafe = async (
         // safeSigner = new ethers.Wallet(process.env.SAFEOWNER_PRIVATE_KEY).connect(
         //   new ethers.providers.JsonRpcProvider("https://rpc.fuse.io")
         // );
+        break;
+      case "xdc":
+        chainId = 50;
+        provider = "https://rpc.xdcrpc.com";
         break;
     }
   } else if (safeSignerOrNetwork) {
