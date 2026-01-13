@@ -132,7 +132,7 @@ const hhconfig: HardhatUserConfig = {
       },
       initialDate: "2021-12-01", //required for DAO tests like guardian
       forking: process.env.FORK_CHAIN_ID && {
-        url: "https://eth-mainnet.alchemyapi.io/v2/" + process.env.ALCHEMY_KEY
+        url: "https://forno.celo.org"
       }
     },
     fork: {

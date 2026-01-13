@@ -45,14 +45,15 @@ describe("BuyGDClone - Celo Fork E2E", function () {
   // Increase timeout for fork tests
   this.timeout(600000);
 
+  // Set up fork once before all tests
+  before(async function () {
+    await networkHelpers.reset(CELO_RPC_URL);
+  });
+
   this.afterAll(async () => {
     // Reset network after tests
     console.log("reseting network...");
     await networkHelpers.reset();
-  });
-  // Set up fork once before all tests
-  before(async function () {
-    await networkHelpers.reset(CELO_RPC_URL);
   });
 
   async function forkCelo() {
