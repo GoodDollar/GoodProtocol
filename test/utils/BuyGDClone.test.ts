@@ -50,11 +50,11 @@ describe("BuyGDClone - Celo Fork E2E", function () {
   });
 
   async function forkCelo() {
-    // // Verify we're on the correct chain
-    // const network = await ethers.provider.getNetwork();
-    // if (network.chainId !== CELO_CHAIN_ID) {
-    //   throw new Error(`Expected chain ID ${CELO_CHAIN_ID}, got ${network.chainId}`);
-    // }
+    // Verify we're on the correct chain
+    const network = await ethers.provider.getNetwork();
+    if (network.chainId !== CELO_CHAIN_ID) {
+      throw new Error(`Expected chain ID ${CELO_CHAIN_ID}, got ${network.chainId}`);
+    }
 
     const [deployer, user] = await ethers.getSigners();
 
