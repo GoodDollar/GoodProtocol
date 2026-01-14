@@ -47,14 +47,12 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
     ...dao["development-xdc"]
   };
 
-  this.afterAll(async () => {
-    // Reset network after tests
-    console.log("reseting network...");
-    await networkHelpers.reset();
-  });
-
   before(async function () {
-    await networkHelpers.reset(XDC_RPC_URL);
+    const chainId = await ethers.provider.getNetwork().then(network => network.chainId);
+    if(chainId !== XDC_CHAIN_ID) {
+      this.skip();
+      return;
+    }
 
     [deployer, testAccount] = await ethers.getSigners();
 
