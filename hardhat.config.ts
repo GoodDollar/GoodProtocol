@@ -123,8 +123,9 @@ const hhconfig: HardhatUserConfig = {
         accountsBalance: "10000000000000000000000000"
       },
       initialDate: "2021-12-01", //required for DAO tests like guardian
+      blockGasLimit: 50000000, // or higher, like 50000000
       forking: process.env.FORK_CHAIN_ID && {
-        url: "https://eth-mainnet.alchemyapi.io/v2/" + process.env.ALCHEMY_KEY
+        url: "https://eth-mainnet.public.blastapi.io"
       },
     },
     fork: {
