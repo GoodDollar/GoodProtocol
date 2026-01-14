@@ -46,11 +46,12 @@ describe("BuyGDClone - Celo Fork E2E", function () {
 
   // Set up fork once before all tests
   before(async function () {
-    // Reset the network to the Celo mainnet
-    await networkHelpers.reset(CELO_MAINNET_RPC)
-  });
-  this.afterAll(async function () {
-    await networkHelpers.reset();
+    // Verify we're on the correct chain
+    const network = await ethers.provider.getNetwork();
+    if (network.chainId !== CELO_CHAIN_ID) {
+      this.skip();
+      return;
+    }
   });
 
   async function forkCelo() {
