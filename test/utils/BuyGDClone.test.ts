@@ -77,7 +77,8 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       oracleAddress,
       MENTO_BROKER,
       MENTO_EXCHANGE_PROVIDER,
-      MENTO_EXCHANGE_ID
+      MENTO_EXCHANGE_ID,
+      {gasLimit: 15000000}
     )) as BuyGDCloneFactory;
 
     await factory.deployed();
