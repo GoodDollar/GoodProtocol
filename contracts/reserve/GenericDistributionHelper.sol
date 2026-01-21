@@ -308,13 +308,21 @@ contract GenericDistributionHelper is
 		);
 		uint24 gasFee = IUniswapV3Pool(gasPools[0]).fee();
 		uint24 gdFee = IUniswapV3Pool(gdPools[0]).fee();
+
+		// find the pool with the best liquidity for gasToken and reserveToken
+		uint256 gasBalance = ERC20(gasToken).balanceOf(gasPools[0]);
+		uint256 stableBalance = ERC20(reserveToken).balanceOf(gdPools[0]);
 		for (uint i = 1; i < gasPools.length; i++) {
-			uint24 fee = IUniswapV3Pool(gasPools[i]).fee();
-			gasFee = gasFee < fee ? gasFee : fee;
+			uint256 balance = ERC20(gasToken).balanceOf(gasPools[i]);
+			gasFee = gasBalance < balance
+				? IUniswapV3Pool(gasPools[i]).fee()
+				: gasFee;
 		}
 		for (uint i = 1; i < gdPools.length; i++) {
-			uint24 fee = IUniswapV3Pool(gdPools[i]).fee();
-			gdFee = gdFee < fee ? gdFee : fee;
+			uint256 balance = ERC20(reserveToken).balanceOf(gdPools[i]);
+			gdFee = stableBalance < balance
+				? IUniswapV3Pool(gdPools[i]).fee()
+				: gdFee;
 		}
 		ERC20(nativeToken()).approve(address(ROUTER), amountToSell);
 		uint256 amountOutMinimum = (minReceived * (100 - feeSettings.maxSlippage)) /
