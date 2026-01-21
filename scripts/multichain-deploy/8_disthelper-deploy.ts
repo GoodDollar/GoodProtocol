@@ -33,15 +33,15 @@ const printDeploy = async (c: Contract | TransactionResponse): Promise<Contract 
   return c;
 };
 
-export const deployHelpers = async () => {
+export const deployHelpers = async (networkName: string = network.name) => {
   const viaGuardians = false;
 
-  let protocolSettings = defaultsDeep({}, ProtocolSettings[network.name], ProtocolSettings["default"]);
-  let release: { [key: string]: any } = dao[network.name];
+  let protocolSettings = defaultsDeep({}, ProtocolSettings[networkName], ProtocolSettings["default"]);
+  let release: { [key: string]: any } = dao[networkName];
 
   let [root, ...signers] = await ethers.getSigners();
-  const isProduction = network.name.includes("production");
-  let networkEnv = network.name.split("-")[0];
+  const isProduction = networkName.includes("production");
+  let networkEnv = networkName.split("-")[0];
   const celoNetwork = networkEnv + "-celo";
 
   if (isProduction) verifyProductionSigner(root);
@@ -66,9 +66,9 @@ export const deployHelpers = async () => {
       release.NameService,
       release.StaticOracle,
       protocolSettings.reserve.gasToken,
-      protocolSettings.reserve.reserveToken,
+      release.ReserveToken,
       release.UniswapV3Router,
-      [ethers.utils.parseEther("100"), ethers.utils.parseEther("100"), 5, 5]
+      [ethers.utils.parseEther("20"), ethers.utils.parseEther("20"), 5, 5]
     ]
   ).then(printDeploy)) as Contract;
 
@@ -79,7 +79,7 @@ export const deployHelpers = async () => {
     ...release,
     ...torelease
   };
-  await releaser(torelease, network.name, "deployment", false);
+  await releaser(torelease, networkName, "deployment", false);
 
   console.log("setting nameservice addresses via guardian");
   const proposalActions = [
@@ -109,7 +109,7 @@ export const deployHelpers = async () => {
       "addOrUpdateRecipient((uint32,uint32,address,uint8))",
       ethers.utils.defaultAbiCoder.encode(
         ["uint32", "uint32", "address", "uint8"],
-        [1000, 42220, dao[celoNetwork].CommunitySafe, network.name === celoNetwork ? 1 : 0] //10% to celo community safe, use LZ bridge if not on celo
+        [1000, 42220, dao[celoNetwork].CommunitySafe, networkName === celoNetwork ? 1 : 0] //10% to celo community safe, use LZ bridge if not on celo
       ),
       0
     ]);
@@ -143,7 +143,7 @@ export const deployHelpers = async () => {
   }
 
   let impl = await getImplementationAddress(ethers.provider, DistHelper.address);
-  await verifyContract(impl, "contracts/reserve/GenericDistributionHelper.sol:GenericDistributionHelper", network.name);
+  await verifyContract(impl, "contracts/reserve/GenericDistributionHelper.sol:GenericDistributionHelper", networkName);
 };
 
 export const main = async (networkName = name) => {

@@ -142,8 +142,15 @@ export const deploySuperGoodDollar = async (
   return GoodDollar;
 };
 
-export const deployDeterministic = async (contract, args: any[], factoryOpts = {}, redeployProxyFactory = false) => {
+export const deployDeterministic = async (
+  contract,
+  args: any[],
+  factoryOpts = {},
+  redeployProxyFactory = false,
+  networkName = network.name
+) => {
   try {
+    let release: { [key: string]: any } = dao[networkName];
     let proxyFactory: ProxyFactory1967;
     if (networkName.startsWith("develop") && redeployProxyFactory) {
       proxyFactory = (await (await ethers.getContractFactory("ProxyFactory1967")).deploy()) as ProxyFactory1967;
@@ -300,7 +307,8 @@ export const executeViaGuardian = async (
   functionSigs,
   functionInputs,
   guardian: Signer,
-  network?: string
+  network?: string,
+  simulateOnly?: boolean
 ) => {
   let release: { [key: string]: any } = dao[network || networkName];
   const ctrl = await (await ethers.getContractAt("Controller", release.Controller)).connect(guardian);
@@ -338,6 +346,7 @@ export const executeViaGuardian = async (
         simulationResult
       });
       if (simulationResult[0] === false) throw new Error("simulation failed:" + contract);
+      if (simulateOnly) continue;
       const tx = await ctrl
         .genericCall(contract, encoded, release.Avatar, ethValues[i], {
           gasLimit: 8000000
