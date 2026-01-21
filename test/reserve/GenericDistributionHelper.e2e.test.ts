@@ -330,4 +330,132 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
     expect(gdToSell).to.be.equal(amountToSell);
     expect(quoteWXDC).to.be.equal(minReceived);
   });
+
+  it("should revert swap when slippage exceeds maxSlippage", async function () {
+    // Set maxSlippage to 0% to ensure swap will fail if there's any slippage
+    // This tests the slippage protection mechanism
+    const feeSettings = {
+      maxFee: ethers.utils.parseEther("100"),
+      minBalanceForFees: ethers.utils.parseEther("1"),
+      percentageToSellForFee: 5,
+      maxSlippage: 0 // 0% - no slippage tolerance, swap should fail
+    };
+
+    await deployer.sendTransaction({
+      to: XDC_ADDRESSES.Avatar,
+      value: ethers.utils.parseEther("1")
+    });
+
+    const avatarSigner = await ethers.getImpersonatedSigner(XDC_ADDRESSES.Avatar);
+    await distHelper.connect(avatarSigner).setFeeSettings(feeSettings);
+
+    // Mint some G$ to the distribution helper for testing
+    const amountToSwap = ethers.utils.parseEther("1000"); // 1000 G$
+
+    // Try to mint G$ to the helper
+    try {
+      const minterAddress = XDC_ADDRESSES.Avatar;
+      const minterSigner = await ethers.getImpersonatedSigner(minterAddress);
+      await deployer.sendTransaction({
+        to: minterAddress,
+        value: ethers.utils.parseEther("1")
+      });
+      const goodDollarWithMinter = goodDollar.connect(minterSigner);
+      await goodDollarWithMinter.mint(distHelper.address, amountToSwap);
+    } catch (error) {
+      // Try to transfer from an account that has G$
+      const accountsWithGD = [
+        XDC_ADDRESSES.AdminWallet,
+        XDC_ADDRESSES.Avatar
+      ];
+
+      let transferred = false;
+      for (const account of accountsWithGD) {
+        const balance = await goodDollar.balanceOf(account);
+        if (balance.gte(amountToSwap)) {
+          const accountSigner = await ethers.getImpersonatedSigner(account);
+          await deployer.sendTransaction({
+            to: account,
+            value: ethers.utils.parseEther("1")
+          });
+          await goodDollar.connect(accountSigner).transfer(distHelper.address, amountToSwap);
+          transferred = true;
+          break;
+        }
+      }
+
+      if (!transferred) {
+        console.log("Skipping slippage test - insufficient G$ balance available");
+        this.skip();
+        return;
+      }
+    }
+
+    // Calculate expected output using oracle
+    const amountToSell = amountToSwap.div(20); // 5% for fees (50 G$)
+    const [calculatedGDToSell, calculatedMinReceived] = await distHelper.calcGDToSell(amountToSell);
+
+    // With maxSlippage = 0%, amountOutMinimum should equal minReceived exactly
+    // amountOutMinimum = minReceived * (100 - 0) / 100 = minReceived
+    const expectedMinAmountOut = calculatedMinReceived; // 100% of minReceived (0% slippage)
+
+    // Ensure distHelper has low xdc balance to trigger swap
+    const currentxdcBalance = await ethers.provider.getBalance(distHelper.address);
+    if (currentxdcBalance.gte(feeSettings.minBalanceForFees)) {
+      const tempAccount = ethers.Wallet.createRandom().connect(ethers.provider);
+      await deployer.sendTransaction({
+        to: tempAccount.address,
+        value: ethers.utils.parseEther("0.01")
+      });
+
+      const distHelperSigner = await ethers.getImpersonatedSigner(distHelper.address);
+      await deployer.sendTransaction({
+        to: distHelper.address,
+        value: ethers.utils.parseEther("0.01")
+      });
+      
+      await distHelperSigner.sendTransaction({
+        to: tempAccount.address,
+        value: currentxdcBalance.sub(ethers.utils.parseEther("0.05"))
+      });
+    }
+
+    // Get balances before swap attempt
+    const xdcBalanceBefore = await ethers.provider.getBalance(distHelper.address);
+    const goodDollarBalanceBefore = await goodDollar.balanceOf(distHelper.address);
+
+    // Trigger distribution which should attempt the swap
+    // With 0% maxSlippage, the swap should fail because real swaps always have some slippage
+    const tx = await distHelper.onDistribution(0);
+    const receipt = await tx.wait();
+
+    // Check for BuyNativeFailed event
+    const buyNativeFailedEvents = receipt.events?.filter(
+      (e: any) => e.event === "BuyNativeFailed"
+    );
+
+    const xdcBalanceAfter = await ethers.provider.getBalance(distHelper.address);
+    const xdcIncrease = xdcBalanceAfter.sub(xdcBalanceBefore);
+
+    // With 0% slippage tolerance, the swap should fail
+    // Verify that BuyNativeFailed event was emitted
+    const swapFailed = buyNativeFailedEvents && buyNativeFailedEvents.length > 0;
+
+    expect(
+      swapFailed,
+      "Swap should have failed with BuyNativeFailed event when maxSlippage is 0%"
+    ).to.be.true;
+
+    // Verify the event details
+    const failedEvent = buyNativeFailedEvents[0];
+    const eventAmountOutMinimum = failedEvent.args?.amountOutMinimum || BN.from(0);
+    
+    console.log("BuyNativeFailed event details:", {
+      reason: failedEvent.args?.reason,
+      amountToSell: ethers.utils.formatEther(failedEvent.args?.amountToSell || 0),
+      amountOutMinimum: ethers.utils.formatEther(eventAmountOutMinimum)
+    });
+
+    console.log("Slippage protection test passed: swap correctly reverted when slippage exceeded maxSlippage");
+  });
 });
