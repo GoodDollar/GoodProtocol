@@ -50,11 +50,7 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
   // this.afterAll(async function () {
   //   await networkHelpers.reset(XDC_RPC_URL);
   // });
-  before(async function () {
-    
-    // const provider = network.provider;
-    // await provider.send("hardhat_reset", [{url: XDC_RPC_URL}]);
-    await networkHelpers.reset(XDC_RPC_URL);
+  before(async function () {    
     const chainId = await ethers.provider.getNetwork().then(network => network.chainId);
     if(chainId !== XDC_CHAIN_ID) {
       this.skip();
