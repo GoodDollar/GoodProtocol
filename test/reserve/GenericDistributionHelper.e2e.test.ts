@@ -47,15 +47,11 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
     ...dao["development-xdc"]
   };
 
-  // this.afterAll(async function () {
-  //   await networkHelpers.reset(XDC_RPC_URL);
-  // });
-  before(async function () {    
-    const chainId = await ethers.provider.getNetwork().then(network => network.chainId);
-    if(chainId !== XDC_CHAIN_ID) {
-      this.skip();
-      return;
-    }
+  after(async function () {
+    await networkHelpers.reset();
+  });
+  before(async function () {
+    await networkHelpers.reset(XDC_RPC_URL);
 
     [deployer, testAccount] = await ethers.getSigners();
 
@@ -360,10 +356,7 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
       await goodDollarWithMinter.mint(distHelper.address, amountToSwap);
     } catch (error) {
       // Try to transfer from an account that has G$
-      const accountsWithGD = [
-        XDC_ADDRESSES.AdminWallet,
-        XDC_ADDRESSES.Avatar
-      ];
+      const accountsWithGD = [XDC_ADDRESSES.AdminWallet, XDC_ADDRESSES.Avatar];
 
       let transferred = false;
       for (const account of accountsWithGD) {
@@ -409,7 +402,7 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
         to: distHelper.address,
         value: ethers.utils.parseEther("0.01")
       });
-      
+
       await distHelperSigner.sendTransaction({
         to: tempAccount.address,
         value: currentxdcBalance.sub(ethers.utils.parseEther("0.05"))
@@ -426,9 +419,7 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
     const receipt = await tx.wait();
 
     // Check for BuyNativeFailed event
-    const buyNativeFailedEvents = receipt.events?.filter(
-      (e: any) => e.event === "BuyNativeFailed"
-    );
+    const buyNativeFailedEvents = receipt.events?.filter((e: any) => e.event === "BuyNativeFailed");
 
     const xdcBalanceAfter = await ethers.provider.getBalance(distHelper.address);
     const xdcIncrease = xdcBalanceAfter.sub(xdcBalanceBefore);
@@ -437,15 +428,12 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
     // Verify that BuyNativeFailed event was emitted
     const swapFailed = buyNativeFailedEvents && buyNativeFailedEvents.length > 0;
 
-    expect(
-      swapFailed,
-      "Swap should have failed with BuyNativeFailed event when maxSlippage is 0%"
-    ).to.be.true;
+    expect(swapFailed, "Swap should have failed with BuyNativeFailed event when maxSlippage is 0%").to.be.true;
 
     // Verify the event details
     const failedEvent = buyNativeFailedEvents[0];
     const eventAmountOutMinimum = failedEvent.args?.amountOutMinimum || BN.from(0);
-    
+
     console.log("BuyNativeFailed event details:", {
       reason: failedEvent.args?.reason,
       amountToSell: ethers.utils.formatEther(failedEvent.args?.amountToSell || 0),
