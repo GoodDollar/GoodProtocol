@@ -127,9 +127,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       const whaleBalance = await cusdToken.balanceOf(whale.address);
 
       if (whaleBalance.lt(swapAmount)) {
-        console.log("⚠ Whale doesn't have enough cUSD, skipping test");
-        this.skip();
-        return;
+        throw new Error(`Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(whaleBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
       }
 
       await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
@@ -190,9 +188,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       const whaleBalance = await cusdToken.balanceOf(whale.address);
 
       if (whaleBalance.lt(swapAmount)) {
-        console.log("⚠ Whale doesn't have enough cUSD, skipping test");
-        this.skip();
-        return;
+        throw new Error(`Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(whaleBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
       }
 
       await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
@@ -261,9 +257,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       const whaleBalance = await cusdToken.balanceOf(whale.address);
 
       if (whaleBalance.lt(swapAmount)) {
-        console.log("⚠ Whale doesn't have enough cUSD, skipping test");
-        this.skip();
-        return;
+        throw new Error(`Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(whaleBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
       }
 
       // Transfer cUSD from whale to clone
@@ -326,9 +320,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       const whaleBalance = await cusdToken.balanceOf(whale.address);
 
       if (whaleBalance.lt(swapAmount)) {
-        console.log("⚠ Whale doesn't have enough cUSD, skipping test");
-        this.skip();
-        return;
+        throw new Error(`Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(whaleBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
       }
 
       await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
@@ -403,9 +395,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
     const whaleCeloBalance = await celoToken.balanceOf(whale.address);
 
     if (whaleCeloBalance.lt(swapAmount)) {
-      console.log("⚠ Whale doesn't have enough CELO, skipping test");
-      this.skip();
-      return;
+      throw new Error(`Whale doesn't have enough CELO. Balance: ${ethers.utils.formatEther(whaleCeloBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
     }
 
     // Transfer CELO from whale to clone
@@ -547,9 +537,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       const whaleBalance = await cusdToken.balanceOf(whale.address);
 
       if (whaleBalance.lt(swapAmount)) {
-        console.log("⚠ Whale doesn't have enough cUSD, skipping test");
-        this.skip();
-        return;
+        throw new Error(`Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(whaleBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
       }
 
       await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
@@ -589,9 +577,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       const whaleBalance = await cusdToken.balanceOf(whale.address);
 
       if (whaleBalance.lt(swapAmount)) {
-        console.log("⚠ Whale doesn't have enough cUSD, skipping test");
-        this.skip();
-        return;
+        throw new Error(`Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(whaleBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
       }
 
       // Get initial G$ balance
