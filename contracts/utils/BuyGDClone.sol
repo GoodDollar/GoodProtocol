@@ -3,6 +3,7 @@
 pragma solidity >=0.8;
 import "@openzeppelin/contracts-upgradeable/proxy/ClonesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@mean-finance/uniswap-v3-oracle/solidity/interfaces/IStaticOracle.sol";
 import "../Interfaces.sol";
 import "../MentoInterfaces.sol";
@@ -162,14 +163,14 @@ contract BuyGDCloneV2 is Initializable {
 		if (mentoAvailable) {
 			mentoExpected = getExpectedReturnFromMento(amountIn);
 		}
-
+		uint256 maxExpected = Math.max(_minAmount, Math.max(uniswapExpected, mentoExpected));
 		// Choose the better option
 		if (mentoExpected > uniswapExpected) {
 			// Use Mento if it provides better return
-			bought = swapCusdFromMento(_minAmount, refundGas);
+			bought = _swapCusdFromMento(maxExpected, refundGas);
 		} else {
 			// Use Uniswap (default or if Mento not available/not better)
-			bought = swapCUSDfromUniswap(_minAmount, refundGas);
+			bought = _swapCUSDfromUniswap(maxExpected, refundGas);
 		}
 	}
 
@@ -179,15 +180,12 @@ contract BuyGDCloneV2 is Initializable {
 	 * @param refundGas The address to refund gas costs to (if not owner).
 	 * @return bought The amount of GD tokens received.
 	 */
-	function swapCUSDfromUniswap(
+	function _swapCUSDfromUniswap(
 		uint256 _minAmount,
 		address refundGas
-	) public returns (uint256 bought) {
+	) internal returns (uint256 bought) {
 		uint256 gasCosts = refundGas != owner ? 1e17 : 0; //fixed 0.1$
 		uint256 amountIn = ERC20(CUSD).balanceOf(address(this)) - gasCosts;
-
-		(uint256 minByTwap, ) = minAmountByTWAP(amountIn, CUSD, twapPeriod);
-		_minAmount = _minAmount > minByTwap ? _minAmount : minByTwap;
 
 		ERC20(CUSD).approve(address(router), amountIn);
 		bytes memory path;
@@ -216,10 +214,10 @@ contract BuyGDCloneV2 is Initializable {
 	 * @param refundGas The address to refund gas costs to (if not owner).
 	 * @return bought The amount of G$ tokens received.
 	 */
-	function swapCusdFromMento(
+	function _swapCusdFromMento(
 		uint256 _minAmount,
 		address refundGas
-	) public returns (uint256 bought) {
+	) internal returns (uint256 bought) {
 		if (address(mentoBroker) == address(0) || mentoExchangeProvider == address(0) || mentoExchangeId == bytes32(0)) {
 			revert MENTO_NOT_CONFIGURED();
 		}
@@ -227,10 +225,6 @@ contract BuyGDCloneV2 is Initializable {
 		uint256 gasCosts = refundGas != owner ? 1e17 : 0; //fixed 0.1$
 		uint256 amountIn = ERC20(CUSD).balanceOf(address(this)) - gasCosts;
 		require(amountIn > 0, "No cUSD balance");
-
-		// Get expected return from Mento
-		uint256 expectedReturn = getExpectedReturnFromMento(amountIn);
-		require(expectedReturn >= _minAmount, "Expected return below minimum");
 
 		// Approve broker to spend cUSD
 		ERC20(CUSD).approve(address(mentoBroker), amountIn);
