@@ -164,7 +164,7 @@ contract BuyGDCloneV2 is Initializable {
 		}
 
 		// Choose the better option
-		if (mentoAvailable && mentoExpected > uniswapExpected) {
+		if (mentoExpected > uniswapExpected) {
 			// Use Mento if it provides better return
 			bought = swapCusdFromMento(_minAmount, refundGas);
 		} else {
