@@ -8,7 +8,6 @@ import "@mean-finance/uniswap-v3-oracle/solidity/interfaces/IStaticOracle.sol";
 import "../Interfaces.sol";
 import "../MentoInterfaces.sol";
 
-
 /*
  * @title BuyGDClone
  * @notice This contract allows users to swap Celo or stable for GoodDollar (GD) tokens.
@@ -170,7 +169,7 @@ contract BuyGDCloneV2 is Initializable {
 			bought = _swapCusdFromMento(maxExpected, refundGas);
 		} else {
 			// Use Uniswap (default or if Mento not available/not better)
-			bought = _swapCUSDfromUniswap(maxExpected, refundGas);
+			bought = _swapCUSDfromUniswap(maxExpected - 1, refundGas);
 		}
 	}
 
@@ -258,8 +257,8 @@ contract BuyGDCloneV2 is Initializable {
 	function getExpectedReturnFromUniswap(
 		uint256 cusdAmount
 	) public view returns (uint256 expectedReturn) {
-		(, uint256 quote) = minAmountByTWAP(cusdAmount, CUSD, twapPeriod);
-		return quote;
+		(uint256 minByTwap,) = minAmountByTWAP(cusdAmount, CUSD, twapPeriod);
+		return minByTwap;
 	}
 
 	/**
