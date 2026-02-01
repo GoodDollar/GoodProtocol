@@ -16,7 +16,7 @@ import "../Interfaces.sol";
 /* @title Identity contract responsible for whitelisting
  * and keeping track of amount of whitelisted users
  */
-contract IdentityV3 is
+contract IdentityV4 is
 	DAOUpgradeableContract,
 	AccessControlUpgradeable,
 	PausableUpgradeable,
@@ -28,6 +28,7 @@ contract IdentityV3 is
 		string did;
 		uint256 whitelistedOnChainId;
 		uint8 status; //0 nothing, 1 whitelisted, 2 daocontract, 255 blacklisted
+		uint32 authCount;
 	}
 
 	bytes32 public constant IDENTITY_ADMIN_ROLE = keccak256("identity_admin");
@@ -38,7 +39,7 @@ contract IdentityV3 is
 	/* @dev rough estimate of number of whitelisted addresses */
 	uint256 public whitelistedCount;
 	uint256 public whitelistedContracts;
-	uint256 public authenticationPeriod;
+	uint256 private unused_authenticationPeriod;
 
 	mapping(address => Identity) public identities;
 
@@ -47,6 +48,8 @@ contract IdentityV3 is
 	mapping(address => address) public connectedAccounts;
 
 	IIdentity public oldIdentity;
+
+	uint32[] public reverifyDaysOptions;
 
 	event BlacklistAdded(address indexed account);
 	event BlacklistRemoved(address indexed account);
@@ -68,7 +71,6 @@ contract IdentityV3 is
 		__AccessControl_init_unchained();
 		__Pausable_init_unchained();
 		__EIP712_init_unchained("Identity", "1.0.0");
-		authenticationPeriod = 365 * 3;
 		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
 		_setupRole(DEFAULT_ADMIN_ROLE, _owner);
 		_setupRole(PAUSER_ROLE, avatar);
@@ -77,6 +79,12 @@ contract IdentityV3 is
 		_setupRole(IDENTITY_ADMIN_ROLE, avatar);
 
 		oldIdentity = _oldIdentity;
+
+		// default reverify schedule (days)
+		// adjust as needed via setReverifyDaysOptions
+		reverifyDaysOptions.push(1);
+		reverifyDaysOptions.push(7);
+		reverifyDaysOptions.push(180);
 	}
 
 	/**
@@ -96,13 +104,18 @@ contract IdentityV3 is
 	}
 
 	/**
-	 * @dev Sets a new value for authenticationPeriod.
-	 * Can only be called by Identity Administrators.
-	 * @param period new value for authenticationPeriod
+	 * @dev Set the reverification schedule (days). Only identity admins.
+	 * Provide non-empty array. Values must fit in uint8 (<=255).
 	 */
-	function setAuthenticationPeriod(uint256 period) external whenNotPaused {
-		_onlyAvatar();
-		authenticationPeriod = period;
+	function setReverifyDaysOptions(
+		uint8[] calldata options
+	) external onlyRole(IDENTITY_ADMIN_ROLE) {
+		require(options.length > 0, "empty options");
+		// replace storage array
+		delete reverifyDaysOptions;
+		for (uint256 i = 0; i < options.length; i++) {
+			reverifyDaysOptions.push(options[i]);
+		}
 	}
 
 	/**
@@ -127,7 +140,21 @@ contract IdentityV3 is
 		uint256 timestamp
 	) public onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
 		require(identities[account].status == 1, "not whitelisted");
+		uint daysSinceAuthentication = (timestamp -
+			identities[account].dateAuthenticated) / 1 days;
+
+		// should happen before updating dateAuthenticated
+		if (shouldReverify(account, daysSinceAuthentication)) {
+			identities[account].authCount += 1;
+			// if authCount has advanced past the last configured reverify step,
+			// reset back to start (cycle). This ensures we won't index out of bounds
+			// and allows repeated cycles through the reverify schedule.
+			if (identities[account].authCount >= reverifyDaysOptions.length) {
+				identities[account].authCount = 0;
+			}
+		}
 		identities[account].dateAuthenticated = timestamp;
+
 		emit WhitelistedAuthenticated(account, timestamp);
 	}
 
@@ -191,6 +218,18 @@ contract IdentityV3 is
 		_removeWhitelisted(msg.sender);
 	}
 
+	function shouldReverify(
+		address account,
+		uint daysSinceAuth
+	) public view returns (bool) {
+		if (identities[account].authCount >= reverifyDaysOptions.length)
+			return false;
+		uint reverifyAfterDays = reverifyDaysOptions[identities[account].authCount];
+		if (daysSinceAuth >= reverifyAfterDays) return true;
+
+		return false;
+	}
+
 	/**
 	 * @dev Returns true if given address has been added to whitelist
 	 * @param account the address to check
@@ -199,10 +238,11 @@ contract IdentityV3 is
 	function isWhitelisted(address account) public view returns (bool) {
 		uint256 daysSinceAuthentication = (block.timestamp -
 			identities[account].dateAuthenticated) / 1 days;
-		if (
-			(daysSinceAuthentication <= authenticationPeriod) &&
-			identities[account].status == 1
-		) return true;
+
+		if (shouldReverify(account, daysSinceAuthentication)) {
+			return false;
+		}
+		if (identities[account].status == 1) return true;
 
 		if (address(oldIdentity) != address(0)) {
 			try oldIdentity.isWhitelisted(account) returns (bool res) {
@@ -320,6 +360,7 @@ contract IdentityV3 is
 		identities[account].dateAdded = block.timestamp;
 		identities[account].dateAuthenticated = block.timestamp;
 		identities[account].whitelistedOnChainId = orgChain;
+		identities[account].authCount = 0;
 		connectedAccounts[account] = address(0);
 
 		if (isContract(account)) {
