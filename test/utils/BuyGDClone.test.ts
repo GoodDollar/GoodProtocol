@@ -375,15 +375,14 @@ describe("BuyGDClone - Celo Fork E2E", function () {
 
       // Get quote from actual pool
       const [actualAmountOut] = await quoter.callStatic.quoteExactInput(path, testAmount);
-      const actualPrice = actualAmountOut;
 
       console.log("Actual Pool Price:");
       console.log("  Input:", ethers.utils.formatEther(testAmount), "cUSD");
-      console.log("  Actual Output:", ethers.utils.formatEther(actualPrice), "G$");
+      console.log("  Actual Output:", ethers.utils.formatEther(actualAmountOut), "G$");
 
       // Compare TWAP vs actual
-      const twapVsActual = twapQuote.mul(100).div(actualPrice);
-      const minTwapVsActual = minTwap.mul(100).div(actualPrice);
+      const twapVsActual = twapQuote.mul(100).div(actualAmountOut);
+      const minTwapVsActual = minTwap.mul(100).div(actualAmountOut);
 
       console.log("Comparison:");
       console.log("  TWAP Quote vs Actual:", twapVsActual.toString(), "%");
@@ -391,8 +390,8 @@ describe("BuyGDClone - Celo Fork E2E", function () {
 
       // Min TWAP should be less than or equal to actual
       // But allow some tolerance for price movement
-      expect(minTwap).to.be.lte(actualPrice);
-      expect(minTwap).to.be.gte(actualPrice.mul(98).div(100));
+      expect(minTwap).to.be.lte(actualAmountOut);
+      expect(minTwap).to.be.gte(actualAmountOut.mul(98).div(100));
 
       console.log("✓ TWAP quote comparison completed");
     });

@@ -169,7 +169,7 @@ contract BuyGDCloneV2 is Initializable {
 			bought = _swapCusdFromMento(maxExpected, refundGas);
 		} else {
 			// Use Uniswap (default or if Mento not available/not better)
-			bought = _swapCUSDfromUniswap(maxExpected - 1, refundGas);
+			bought = _swapCUSDfromUniswap(maxExpected, refundGas);
 		}
 	}
 
