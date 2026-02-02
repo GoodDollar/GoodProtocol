@@ -386,7 +386,14 @@ contract UBISchemeV2 is DAOUpgradeableContract {
 		if (
 			currentDay == (block.timestamp - periodStart) / (1 days) && dailyUbi > 0
 		) {
-			return hasClaimed(_member) ? 0 : dailyUbi;
+			return
+				hasClaimed(
+					IIdentityV2(nameService.getAddress("IDENTITY")).getWhitelistedRoot(
+						_member
+					)
+				)
+					? 0
+					: dailyUbi;
 		}
 		return estimateNextDailyUBI();
 	}
