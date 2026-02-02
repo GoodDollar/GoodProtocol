@@ -389,6 +389,8 @@ describe("IdentityV4", () => {
   });
 
   it("should follow reverify schedule and cycle authCount", async () => {
+    await expect(identity.setReverifyDaysOptions([1, 7, 180])).not.reverted;
+
     const u = signers[12];
     // ensure a fresh account is whitelisted
     await identity.addWhitelisted(u.address);
@@ -404,6 +406,7 @@ describe("IdentityV4", () => {
     await identity.authenticate(u.address);
     record = await identity.identities(u.address);
     expect(record.authCount).to.equal(1);
+    expect(await identity.isWhitelisted(u.address)).to.be.true;
 
     // move forward 8 days (past second reverify day = 7)
     await increaseTime(8 * 24 * 3600);
@@ -413,7 +416,7 @@ describe("IdentityV4", () => {
     await identity.authenticate(u.address);
     record = await identity.identities(u.address);
     expect(record.authCount).to.equal(2);
-
+    expect(await identity.isWhitelisted(u.address)).to.be.true;
     // move forward 181 days (past third reverify day = 180)
     await increaseTime(181 * 24 * 3600);
     expect(await identity.isWhitelisted(u.address)).to.be.false;
@@ -422,7 +425,7 @@ describe("IdentityV4", () => {
     await identity.authenticate(u.address);
     record = await identity.identities(u.address);
     expect(record.authCount).to.equal(0);
-
+    expect(await identity.isWhitelisted(u.address)).to.be.true;
     // cleanup (remove whitelisted) to avoid affecting other tests
     await identity.removeWhitelisted(u.address);
   });

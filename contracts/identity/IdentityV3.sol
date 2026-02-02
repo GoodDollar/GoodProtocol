@@ -66,12 +66,9 @@ contract IdentityV3 is
 		__Pausable_init_unchained();
 		__EIP712_init_unchained("Identity", "1.0.0");
 		authenticationPeriod = 365 * 3;
-		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
 		_setupRole(DEFAULT_ADMIN_ROLE, _owner);
-		_setupRole(PAUSER_ROLE, avatar);
 		_setupRole(PAUSER_ROLE, _owner);
 		_setupRole(IDENTITY_ADMIN_ROLE, _owner);
-		_setupRole(IDENTITY_ADMIN_ROLE, avatar);
 
 		oldIdentity = _oldIdentity;
 	}

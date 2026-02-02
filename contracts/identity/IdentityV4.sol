@@ -71,12 +71,9 @@ contract IdentityV4 is
 		__AccessControl_init_unchained();
 		__Pausable_init_unchained();
 		__EIP712_init_unchained("Identity", "1.0.0");
-		_setupRole(DEFAULT_ADMIN_ROLE, avatar);
 		_setupRole(DEFAULT_ADMIN_ROLE, _owner);
-		_setupRole(PAUSER_ROLE, avatar);
 		_setupRole(PAUSER_ROLE, _owner);
 		_setupRole(IDENTITY_ADMIN_ROLE, _owner);
-		_setupRole(IDENTITY_ADMIN_ROLE, avatar);
 
 		oldIdentity = _oldIdentity;
 
