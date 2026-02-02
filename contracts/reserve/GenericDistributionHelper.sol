@@ -298,6 +298,8 @@ contract GenericDistributionHelper is
 		uint256 amountToSell,
 		uint256 minReceived
 	) internal returns (uint256 nativeBought) {
+		if (amountToSell == 0) return 0;
+
 		address[] memory gdPools = STATIC_ORACLE.getAllPoolsForPair(
 			reserveToken,
 			address(nativeToken())
@@ -306,25 +308,35 @@ contract GenericDistributionHelper is
 			reserveToken,
 			gasToken
 		);
-		uint24 gasFee = IUniswapV3Pool(gasPools[0]).fee();
-		uint24 gdFee = IUniswapV3Pool(gdPools[0]).fee();
 
-		// find the pool with the best liquidity for gasToken and reserveToken
-		uint256 gasBalance = ERC20(gasToken).balanceOf(gasPools[0]);
-		uint256 stableBalance = ERC20(reserveToken).balanceOf(gdPools[0]);
-		for (uint i = 1; i < gasPools.length; i++) {
+		if (gdPools.length == 0 || gasPools.length == 0) {
+			emit BuyNativeFailed("no pools available", amountToSell, minReceived);
+			return 0;
+		}
+
+		// initialize with first pool and track max liquidity
+		uint24 gasFee = IUniswapV3Pool(gasPools[0]).fee();
+		uint256 maxGasBalance = ERC20(gasToken).balanceOf(gasPools[0]);
+		for (uint256 i = 1; i < gasPools.length; i++) {
 			uint256 balance = ERC20(gasToken).balanceOf(gasPools[i]);
-			gasFee = gasBalance < balance
-				? IUniswapV3Pool(gasPools[i]).fee()
-				: gasFee;
+			if (balance > maxGasBalance) {
+				maxGasBalance = balance;
+				gasFee = IUniswapV3Pool(gasPools[i]).fee();
+			}
 		}
-		for (uint i = 1; i < gdPools.length; i++) {
+
+		uint24 gdFee = IUniswapV3Pool(gdPools[0]).fee();
+		uint256 maxStableBalance = ERC20(reserveToken).balanceOf(gdPools[0]);
+		for (uint256 i = 1; i < gdPools.length; i++) {
 			uint256 balance = ERC20(reserveToken).balanceOf(gdPools[i]);
-			gdFee = stableBalance < balance
-				? IUniswapV3Pool(gdPools[i]).fee()
-				: gdFee;
+			if (balance > maxStableBalance) {
+				maxStableBalance = balance;
+				gdFee = IUniswapV3Pool(gdPools[i]).fee();
+			}
 		}
+
 		ERC20(nativeToken()).approve(address(ROUTER), amountToSell);
+
 		uint256 amountOutMinimum = (minReceived * (100 - feeSettings.maxSlippage)) /
 			100; // 5% slippage
 		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
@@ -339,10 +351,18 @@ contract GenericDistributionHelper is
 			amountIn: amountToSell,
 			amountOutMinimum: amountOutMinimum
 		});
+
 		try ROUTER.exactInput(params) returns (uint256 amountOut) {
 			return amountOut;
 		} catch Error(string memory reason) {
 			emit BuyNativeFailed(reason, amountToSell, amountOutMinimum);
+			return 0;
+		} catch {
+			emit BuyNativeFailed(
+				"swap reverted without reason",
+				amountToSell,
+				amountOutMinimum
+			);
 			return 0;
 		}
 	}
