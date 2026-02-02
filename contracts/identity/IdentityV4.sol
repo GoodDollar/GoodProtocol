@@ -239,10 +239,9 @@ contract IdentityV4 is
 		uint256 daysSinceAuthentication = (block.timestamp -
 			identities[account].dateAuthenticated) / 1 days;
 
-		if (shouldReverify(account, daysSinceAuthentication)) {
-			return false;
+		if (identities[account].status == 1) {
+			return shouldReverify(account, daysSinceAuthentication) == false;
 		}
-		if (identities[account].status == 1) return true;
 
 		if (address(oldIdentity) != address(0)) {
 			try oldIdentity.isWhitelisted(account) returns (bool res) {

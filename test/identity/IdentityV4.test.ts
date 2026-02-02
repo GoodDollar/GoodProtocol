@@ -1,14 +1,14 @@
 import hre, { ethers, upgrades } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
-import { IGoodDollar, IIdentity, IdentityV3 } from "../../types";
+import { IGoodDollar, IIdentity, IdentityV4 } from "../../types";
 import { createDAO, increaseTime, advanceBlocks } from "../helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 const BN = ethers.BigNumber;
 
-describe("IdentityV3", () => {
-  let identity: IdentityV3, founder: SignerWithAddress;
+describe("IdentityV4", () => {
+  let identity: IdentityV4, founder: SignerWithAddress;
   let user1 = ethers.Wallet.createRandom().connect(ethers.provider);
   let user2 = ethers.Wallet.createRandom().connect(ethers.provider);
   let signers: Array<SignerWithAddress>;
@@ -16,14 +16,12 @@ describe("IdentityV3", () => {
 
   let avatar, gd: IGoodDollar, Controller, id: IIdentity;
 
-  const createDAOv3 = async () => {
-    return createDAO("super", "v3");
-  };
   before(async () => {
     [founder, ...signers] = await ethers.getSigners();
-    let { controller, avatar: av, gd: gooddollar, identity: idv2, genericCall: gc } = await loadFixture(createDAOv3);
+    let { controller, avatar: av, gd: gooddollar, identity: idv2, genericCall: gc } = await loadFixture(createDAO);
+
     genericCall = gc;
-    identity = (await ethers.getContractAt("IdentityV3", idv2)) as IdentityV3;
+    identity = (await ethers.getContractAt("IdentityV4", idv2)) as IdentityV4;
     Controller = controller;
     avatar = av;
     // await daoCreator.setSchemes(
@@ -38,20 +36,20 @@ describe("IdentityV3", () => {
   });
 
   it("should set DAO by creator", async () => {
-    let f = await ethers.getContractFactory("IdentityV3");
+    let f = await ethers.getContractFactory("IdentityV4");
     let newid = (await upgrades.deployProxy(f, [signers[0].address, ethers.constants.AddressZero], {
       kind: "uups"
-    })) as IdentityV3;
+    })) as IdentityV4;
     expect(await newid.dao()).eq(ethers.constants.AddressZero);
     await expect(newid.connect(signers[0]).initDAO(await identity.nameService())).not.reverted;
     expect(await newid.dao()).not.eq(ethers.constants.AddressZero);
   });
 
   it("should not be able to set DAO by non-creator", async () => {
-    let f = await ethers.getContractFactory("IdentityV3");
+    let f = await ethers.getContractFactory("IdentityV4");
     let newid = (await upgrades.deployProxy(f, [signers[0].address, ethers.constants.AddressZero], {
       kind: "uups"
-    })) as IdentityV3;
+    })) as IdentityV4;
     expect(await newid.dao()).eq(ethers.constants.AddressZero);
     await expect(newid.initDAO(await identity.nameService())).reverted;
   });
@@ -105,15 +103,15 @@ describe("IdentityV3", () => {
     );
   });
 
-  it("should revert when non admin tries to set the authentication period", async () => {
-    await expect(identity.connect(signers[2]).setAuthenticationPeriod(10)).reverted;
-  });
+  // it("should revert when non admin tries to set the authentication period", async () => {
+  //   await expect(identity.connect(signers[2]).setAuthenticationPeriod(10)).reverted;
+  // });
 
-  it("should let owner set auth period", async () => {
-    const encoded = identity.interface.encodeFunctionData("setAuthenticationPeriod", [10]);
-    await genericCall(identity.address, encoded);
-    expect(await identity.authenticationPeriod()).eq(10);
-  });
+  // it("should let owner set auth period", async () => {
+  //   const encoded = identity.interface.encodeFunctionData("setAuthenticationPeriod", [10]);
+  //   await genericCall(identity.address, encoded);
+  //   expect(await identity.authenticationPeriod()).eq(10);
+  // });
 
   it("should revert when non admin tries to pause", async () => {
     await expect(identity.connect(signers[2]).pause(true)).reverted;
@@ -296,10 +294,10 @@ describe("IdentityV3", () => {
   });
 
   const oldidFixture = async () => {
-    const newid = (await upgrades.deployProxy(await ethers.getContractFactory("IdentityV3"), [
+    const newid = (await upgrades.deployProxy(await ethers.getContractFactory("IdentityV4"), [
       founder.address,
       identity.address
-    ])) as IdentityV3;
+    ])) as IdentityV4;
 
     await identity.grantRole(await identity.IDENTITY_ADMIN_ROLE(), newid.address);
     await identity.addBlacklisted(signers[4].address);
@@ -369,5 +367,63 @@ describe("IdentityV3", () => {
 
   it("should be registered for v1 compatability", async () => {
     expect(await identity.isRegistered()).true;
+  });
+
+  // New tests added below ---------------------------------------------------
+
+  it("should allow identity admin to set reverifyDaysOptions and reject empty", async () => {
+    // admin (default signer) sets new schedule
+    await expect(identity.setReverifyDaysOptions([2, 5, 10])).not.reverted;
+    expect(await identity.reverifyDaysOptions(0)).to.equal(2);
+    expect(await identity.reverifyDaysOptions(1)).to.equal(5);
+    expect(await identity.reverifyDaysOptions(2)).to.equal(10);
+
+    // empty options should revert
+    await expect(identity.setReverifyDaysOptions([])).revertedWith("empty options");
+  });
+
+  it("non-admin should not set reverifyDaysOptions", async () => {
+    await expect(identity.connect(signers[2]).setReverifyDaysOptions([1, 7, 180])).revertedWith(
+      /AccessControl: account/
+    );
+  });
+
+  it("should follow reverify schedule and cycle authCount", async () => {
+    const u = signers[12];
+    // ensure a fresh account is whitelisted
+    await identity.addWhitelisted(u.address);
+    let record = await identity.identities(u.address);
+    expect(record.authCount).to.equal(0);
+
+    // default reverifyDaysOptions set in initialize: [1,7,180]
+    // move forward 2 days (past first reverify day)
+    await increaseTime(2 * 24 * 3600);
+    expect(await identity.isWhitelisted(u.address)).to.be.false;
+
+    // admin authenticates -> should increment authCount to 1
+    await identity.authenticate(u.address);
+    record = await identity.identities(u.address);
+    expect(record.authCount).to.equal(1);
+
+    // move forward 8 days (past second reverify day = 7)
+    await increaseTime(8 * 24 * 3600);
+    expect(await identity.isWhitelisted(u.address)).to.be.false;
+
+    // authenticate again -> authCount becomes 2
+    await identity.authenticate(u.address);
+    record = await identity.identities(u.address);
+    expect(record.authCount).to.equal(2);
+
+    // move forward 181 days (past third reverify day = 180)
+    await increaseTime(181 * 24 * 3600);
+    expect(await identity.isWhitelisted(u.address)).to.be.false;
+
+    // authenticate again -> authCount should wrap back to 0 (cycle)
+    await identity.authenticate(u.address);
+    record = await identity.identities(u.address);
+    expect(record.authCount).to.equal(0);
+
+    // cleanup (remove whitelisted) to avoid affecting other tests
+    await identity.removeWhitelisted(u.address);
   });
 });
