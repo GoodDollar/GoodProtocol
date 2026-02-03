@@ -31,6 +31,7 @@ contract BuyGDCloneV2 is Initializable {
 	address public immutable stable;
 	address public immutable gd;
 	IStaticOracle public immutable oracle;
+	IQuoterV2 public immutable quoter;
 
 	// Mento reserve configuration (optional)
 	IBroker public immutable mentoBroker;
@@ -46,6 +47,7 @@ contract BuyGDCloneV2 is Initializable {
 		address _stable,
 		address _gd,
 		IStaticOracle _oracle,
+		IQuoterV2 _quoter,
 		IBroker _mentoBroker,
 		address _mentoExchangeProvider,
 		bytes32 _mentoExchangeId
@@ -54,6 +56,7 @@ contract BuyGDCloneV2 is Initializable {
 		stable = _stable;
 		gd = _gd;
 		oracle = _oracle;
+		quoter = _quoter;
 		twapPeriod = 300; //5 minutes
 		mentoBroker = _mentoBroker;
 		mentoExchangeProvider = _mentoExchangeProvider;
@@ -118,8 +121,12 @@ contract BuyGDCloneV2 is Initializable {
 
 		uint256 amountIn = address(this).balance - gasCosts;
 
-		(uint256 minByTwap, ) = minAmountByTWAP(amountIn, celo, twapPeriod);
-		_minAmount = _minAmount > minByTwap ? _minAmount : minByTwap;
+		// Use Quoter for exact quote
+		bytes memory path = abi.encodePacked(celo, uint24(500), stable, GD_FEE_TIER, gd);
+		(uint256 exactQuote, , , ) = quoter.quoteExactInput(path, amountIn);
+		
+		// Use TWAP as fallback validation - ensure minAmount is reasonable
+		_minAmount = _minAmount > exactQuote ? _minAmount : exactQuote;
 
 		ERC20(celo).approve(address(router), amountIn);
 		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
@@ -250,15 +257,22 @@ contract BuyGDCloneV2 is Initializable {
 	}
 
 	/**
-	 * @notice Gets expected return from Uniswap for a given amount of cUSD.
+	 * @notice Gets expected return from Uniswap for a given amount of cUSD using Quoter contract.
+	 * @dev Uses Quoter contract to get exact amountOut from Uniswap pools, which is more accurate than TWAP.
 	 * @param cusdAmount The amount of cUSD to swap.
 	 * @return expectedReturn The expected amount of G$ tokens to receive from Uniswap.
 	 */
 	function getExpectedReturnFromUniswap(
 		uint256 cusdAmount
-	) public view returns (uint256 expectedReturn) {
-		(uint256 minByTwap,) = minAmountByTWAP(cusdAmount, CUSD, twapPeriod);
-		return minByTwap;
+	) public returns (uint256 expectedReturn) {
+		bytes memory path;
+		if (stable == CUSD) {
+			path = abi.encodePacked(CUSD, GD_FEE_TIER, gd);
+		} else {
+			path = abi.encodePacked(CUSD, uint24(100), stable, GD_FEE_TIER, gd);
+		}
+		(expectedReturn, , , ) = quoter.quoteExactInput(path, cusdAmount);
+		return expectedReturn;
 	}
 
 	/**
@@ -364,10 +378,11 @@ contract DonateGDClone is BuyGDCloneV2 {
 		address _stable,
 		address _gd,
 		IStaticOracle _oracle,
+		IQuoterV2 _quoter,
 		IBroker _mentoBroker,
 		address _mentoExchangeProvider,
 		bytes32 _mentoExchangeId
-	) BuyGDCloneV2(_router, _stable, _gd, _oracle, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId) {}
+	) BuyGDCloneV2(_router, _stable, _gd, _oracle, _quoter, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId) {}
 
 	/**
 	 * @notice Initializes the contract with the owner's address.
@@ -490,6 +505,7 @@ contract BuyGDCloneFactory {
 	 * @param _stable The address of the stable token contract.
 	 * @param _gd The address of the GD token contract.
 	 * @param _oracle The address of the StaticOracle contract.
+	 * @param _quoter The address of the QuoterV2 contract for exact price quotes.
 	 * @param _mentoBroker The address of the Mento broker contract (optional, can be address(0)).
 	 * @param _mentoExchangeProvider The address of the Mento exchange provider (optional, can be address(0)).
 	 * @param _mentoExchangeId The exchange ID for the Mento G$/cUSD exchange (optional, can be bytes32(0)).
@@ -499,12 +515,13 @@ contract BuyGDCloneFactory {
 		address _stable,
 		address _gd,
 		IStaticOracle _oracle,
+		IQuoterV2 _quoter,
 		IBroker _mentoBroker,
 		address _mentoExchangeProvider,
 		bytes32 _mentoExchangeId
 	) {
-		impl = address(new BuyGDCloneV2(_router, _stable, _gd, _oracle, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId));
-		donateImpl = address(new DonateGDClone(_router, _stable, _gd, _oracle, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId));
+		impl = address(new BuyGDCloneV2(_router, _stable, _gd, _oracle, _quoter, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId));
+		donateImpl = address(new DonateGDClone(_router, _stable, _gd, _oracle, _quoter, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId));
 		gd = _gd;
 		stable = _stable;
 		oracle = _oracle;

@@ -71,6 +71,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       stableAddress,
       GOODDOLLAR,
       oracleAddress,
+      QUOTE,
       MENTO_BROKER,
       MENTO_EXCHANGE_PROVIDER,
       MENTO_EXCHANGE_ID,
@@ -120,6 +121,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
         process.env.GLOUSD_ADDRESS || GLOUSD_REFERENCE,
         GOODDOLLAR,
         oracleAddress,
+        QUOTE,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
         ethers.constants.HashZero
@@ -142,7 +144,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
 
       // Should be able to get Uniswap expected return
-      const uniswapExpected = await clone.getExpectedReturnFromUniswap(swapAmount);
+      const uniswapExpected = await clone.callStatic.getExpectedReturnFromUniswap(swapAmount);
       expect(uniswapExpected).to.be.gt(0);
 
       // Should revert when trying to get Mento expected return
@@ -202,7 +204,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
 
       // Get expected returns
-      const uniswapExpected = await clone.getExpectedReturnFromUniswap(swapAmount);
+      const uniswapExpected = await clone.callStatic.getExpectedReturnFromUniswap(swapAmount);
       const mentoExpected = await clone.getExpectedReturnFromMento(swapAmount);
 
       console.log("Route comparison:");
@@ -245,6 +247,71 @@ describe("BuyGDClone - Celo Fork E2E", function () {
         console.log("✓ BoughtFromUniswap event emitted");
       }
 
+      console.log("✓ Received:", ethers.utils.formatEther(gdReceived), "G$");
+    });
+
+    it("Should force Mento usage with large swap amount", async function () {
+      const { factory, user, gdToken, cusdToken, whale } = await loadFixture(forkCelo);
+
+      await factory.create(user.address);
+      const cloneAddress = await factory.predict(user.address);
+      const clone = (await ethers.getContractAt(
+        "BuyGDCloneV2",
+        cloneAddress
+      )) as BuyGDCloneV2;
+
+      // Use a large swap amount to force Mento (large amounts favor Mento due to lower slippage)
+      const swapAmount = ethers.utils.parseEther("130"); // 10,000 cUSD
+      const whaleBalance = await cusdToken.balanceOf(whale.address);
+
+      if (whaleBalance.lt(swapAmount)) {
+        throw new Error(`Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(whaleBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
+      }
+
+      await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
+
+      // Get expected returns
+      const uniswapExpected = await clone.callStatic.getExpectedReturnFromUniswap(swapAmount);
+      const mentoExpected = await clone.getExpectedReturnFromMento(swapAmount);
+
+      console.log("Large swap route comparison:");
+      console.log("  Swap amount:", ethers.utils.formatEther(swapAmount), "cUSD");
+      console.log("  Uniswap expected:", ethers.utils.formatEther(uniswapExpected), "G$");
+      console.log("  Mento expected:", ethers.utils.formatEther(mentoExpected), "G$");
+
+      // For large amounts, Mento should provide better returns
+      expect(mentoExpected).to.be.gt(uniswapExpected);
+      console.log("✓ Mento provides better return for large swap");
+      const initialGdBalance = await gdToken.balanceOf(user.address);
+
+      // Call swapCusd which should choose Mento
+      const swapTx = await clone.swapCusd(mentoExpected, user.address);
+      console.log("Mike test 4");
+      const swapReceipt = await swapTx.wait();
+
+      console.log("Mike test 5");
+      const finalGdBalance = await gdToken.balanceOf(user.address);
+      const gdReceived = finalGdBalance.sub(initialGdBalance);
+
+      expect(gdReceived).to.be.gt(0);
+      expect(gdReceived).to.be.gte(mentoExpected);
+
+      // Verify Mento was used
+      const mentoEvent = swapReceipt.events?.find(
+        (e: any) => e.event === "BoughtFromMento"
+      );
+      const uniswapEvent = swapReceipt.events?.find(
+        (e: any) => e.event === "BoughtFromUniswap"
+      );
+
+      expect(mentoEvent).to.not.be.undefined;
+      expect(uniswapEvent).to.be.undefined;
+      
+      console.log("✓ BoughtFromMento event emitted:", {
+        inToken: mentoEvent?.args?.inToken,
+        inAmount: ethers.utils.formatEther(mentoEvent?.args?.inAmount),
+        outAmount: ethers.utils.formatEther(mentoEvent?.args?.outAmount),
+      });
       console.log("✓ Received:", ethers.utils.formatEther(gdReceived), "G$");
     });
   });
