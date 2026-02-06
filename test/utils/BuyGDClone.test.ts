@@ -33,12 +33,15 @@ const MENTO_EXCHANGE_PROVIDER = PRODUCTION_CELO.MentoExchangeProvider;
 const MENTO_EXCHANGE_ID = PRODUCTION_CELO.CUSDExchangeId;
 const CELO = "0x471EcE3750Da237f93B8E339c536989b8978a438";
 const QUOTE = "0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8";
+const USDC = "0xceba9300f2b948710d2653dd7b07f33a8b32118c";
 
 // GLOUSD address on Celo mainnet
 const GLOUSD_REFERENCE = "0x4F604735c1cF31399C6E711D5962b2B3E0225AD3"; // Common GLOUSD address
 
 // Account with cUSD balance on Celo (for impersonation)
 const CUSD_WHALE = "0xAC19B8Ab514623144CBc92C9C4ACb3583E594bE3"; // Example whale address
+const cusdPath = {tokens: [CUSD, USDC, GLOUSD_REFERENCE,  GOODDOLLAR], fees: [100, 100, 500]};
+const celoPath = {tokens: [CELO, GLOUSD_REFERENCE, GOODDOLLAR], fees: [500, 500]};
 
 describe("BuyGDClone - Celo Fork E2E", function () {
   // Increase timeout for fork tests
@@ -75,7 +78,9 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       MENTO_BROKER,
       MENTO_EXCHANGE_PROVIDER,
       MENTO_EXCHANGE_ID,
-      {gasLimit: 15000000}
+      cusdPath,
+      celoPath,
+      {gasLimit: 25000000}
     )) as BuyGDCloneFactory;
 
     await factory.deployed();
@@ -124,8 +129,10 @@ describe("BuyGDClone - Celo Fork E2E", function () {
         QUOTE,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
-        ethers.constants.HashZero
-      )) as BuyGDCloneFactory;
+        ethers.constants.HashZero,
+        cusdPath,
+        celoPath,
+    )) as BuyGDCloneFactory;
 
       await factoryWithoutMento.create(user.address);
       const cloneAddress = await factoryWithoutMento.predict(user.address);
@@ -261,7 +268,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       )) as BuyGDCloneV2;
 
       // Use a large swap amount to force Mento (large amounts favor Mento due to lower slippage)
-      const swapAmount = ethers.utils.parseEther("130"); // 10,000 cUSD
+      const swapAmount = ethers.utils.parseEther("10000"); // 10,000 cUSD
       const whaleBalance = await cusdToken.balanceOf(whale.address);
 
       if (whaleBalance.lt(swapAmount)) {
@@ -286,10 +293,8 @@ describe("BuyGDClone - Celo Fork E2E", function () {
 
       // Call swapCusd which should choose Mento
       const swapTx = await clone.swapCusd(mentoExpected, user.address);
-      console.log("Mike test 4");
       const swapReceipt = await swapTx.wait();
 
-      console.log("Mike test 5");
       const finalGdBalance = await gdToken.balanceOf(user.address);
       const gdReceived = finalGdBalance.sub(initialGdBalance);
 

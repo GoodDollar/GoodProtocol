@@ -8,6 +8,13 @@ import "@mean-finance/uniswap-v3-oracle/solidity/interfaces/IStaticOracle.sol";
 import "../Interfaces.sol";
 import "../MentoInterfaces.sol";
 
+/**
+ * @dev This struct is used to store the Uniswap path for a given token.
+ */
+struct UniswapPath {
+	address[] tokens;
+	uint24[] fees;
+}
 /*
  * @title BuyGDClone
  * @notice This contract allows users to swap Celo or stable for GoodDollar (GD) tokens.
@@ -40,6 +47,9 @@ contract BuyGDCloneV2 is Initializable {
 
 	address public owner;
 
+	UniswapPath internal cusdPath;
+	UniswapPath internal celoPath;
+
 	receive() external payable {}
 
 	constructor(
@@ -67,8 +77,37 @@ contract BuyGDCloneV2 is Initializable {
 	 * @notice Initializes the contract with the owner's address.
 	 * @param _owner The address of the owner of the contract.
 	 */
-	function initialize(address _owner) external initializer {
+	function initialize(address _owner, UniswapPath memory _cusdPath, UniswapPath memory _celoPath)
+		external 
+		initializer {
 		owner = _owner;
+		cusdPath = _cusdPath;
+		celoPath = _celoPath;
+	}
+
+	/**
+	 * @notice Sets the Uniswap paths for the contract.
+	 * @param _cusdPath The Uniswap path for cUSD.
+	 * @param _celoPath The Uniswap path for Celo.
+	 */
+	function setPaths(UniswapPath memory _cusdPath, UniswapPath memory _celoPath) external {
+		require(msg.sender == owner, "Only owner can set paths");
+		cusdPath = _cusdPath;
+		celoPath = _celoPath;
+	}
+
+	/**
+		@notice Returns the Uniswap path for cUSD.
+		@return The Uniswap path for cUSD.
+	 */
+	function getCUsdPath() external view returns (UniswapPath memory) {
+		return cusdPath;
+	}
+	/**
+		@notice Returns the Uniswap path for Celo.
+	 */
+	function getCeloPath() external view returns (UniswapPath memory) {
+		return celoPath;
 	}
 
 	/**
@@ -122,7 +161,7 @@ contract BuyGDCloneV2 is Initializable {
 		uint256 amountIn = address(this).balance - gasCosts;
 
 		// Use Quoter for exact quote
-		bytes memory path = abi.encodePacked(celo, uint24(500), stable, GD_FEE_TIER, gd);
+		bytes memory path = getSwapPath(celoPath.tokens, celoPath.fees);
 		(uint256 exactQuote, , , ) = quoter.quoteExactInput(path, amountIn);
 		
 		// Use TWAP as fallback validation - ensure minAmount is reasonable
@@ -194,12 +233,7 @@ contract BuyGDCloneV2 is Initializable {
 		uint256 amountIn = ERC20(CUSD).balanceOf(address(this)) - gasCosts;
 
 		ERC20(CUSD).approve(address(router), amountIn);
-		bytes memory path;
-		if (stable == CUSD) {
-			path = abi.encodePacked(CUSD, GD_FEE_TIER, gd);
-		} else {
-			path = abi.encodePacked(CUSD, uint24(100), stable, GD_FEE_TIER, gd);
-		}
+		bytes memory path = getSwapPath(cusdPath.tokens, cusdPath.fees);
 		ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
 			path: path,
 			recipient: owner,
@@ -213,6 +247,15 @@ contract BuyGDCloneV2 is Initializable {
 		emit BoughtFromUniswap(CUSD, amountIn, bought);
 	}
 
+	function getSwapPath(address[] memory tokens, uint24[] memory fees) public pure returns (bytes memory path) {
+		require(tokens.length == fees.length + 1 && fees.length > 0, "wrong input parameters");
+		path = abi.encodePacked(tokens[0]);
+		for (uint256 i = 0; i < fees.length; i++) {
+			path = abi.encodePacked(path, fees[i], tokens[i + 1]);
+		}
+		path = abi.encodePacked(path, tokens[tokens.length - 1]);
+		return path;
+	}
 	/**
 	 * @notice Swaps cUSD for G$ tokens using Mento reserve.
 	 * @dev Requires Mento broker, exchange provider, and exchange ID to be configured.
@@ -265,12 +308,7 @@ contract BuyGDCloneV2 is Initializable {
 	function getExpectedReturnFromUniswap(
 		uint256 cusdAmount
 	) public returns (uint256 expectedReturn) {
-		bytes memory path;
-		if (stable == CUSD) {
-			path = abi.encodePacked(CUSD, GD_FEE_TIER, gd);
-		} else {
-			path = abi.encodePacked(CUSD, uint24(100), stable, GD_FEE_TIER, gd);
-		}
+		bytes memory path = getSwapPath(cusdPath.tokens, cusdPath.fees);
 		(expectedReturn, , , ) = quoter.quoteExactInput(path, cusdAmount);
 		return expectedReturn;
 	}
@@ -499,6 +537,9 @@ contract BuyGDCloneFactory {
 	address public immutable mentoExchangeProvider;
 	bytes32 public immutable mentoExchangeId;
 
+	UniswapPath internal cusdPath;
+	UniswapPath internal celoPath;
+
 	/**
 	 * @notice Initializes the BuyGDCloneFactory contract with the provided parameters.
 	 * @param _router The address of the SwapRouter contract.
@@ -518,7 +559,9 @@ contract BuyGDCloneFactory {
 		IQuoterV2 _quoter,
 		IBroker _mentoBroker,
 		address _mentoExchangeProvider,
-		bytes32 _mentoExchangeId
+		bytes32 _mentoExchangeId,
+		UniswapPath memory _cusdPath,
+		UniswapPath memory _celoPath
 	) {
 		impl = address(new BuyGDCloneV2(_router, _stable, _gd, _oracle, _quoter, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId));
 		donateImpl = address(new DonateGDClone(_router, _stable, _gd, _oracle, _quoter, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId));
@@ -531,15 +574,29 @@ contract BuyGDCloneFactory {
 		mentoExchangeProvider = _mentoExchangeProvider;
 		mentoExchangeId = _mentoExchangeId;
 
-		_oracle.prepareAllAvailablePoolsWithTimePeriod(_gd, _stable, PERIOD); //stable/gd pools
-		_oracle.prepareAllAvailablePoolsWithTimePeriod(
-			celo,
-			_stable,
-			PERIOD
-		); //celo/stable pools
-		_oracle.prepareAllAvailablePoolsWithTimePeriod(CUSD, _stable, PERIOD); //cusd/stable pools
+		cusdPath = _cusdPath;
+		celoPath = _celoPath;
+		for (uint256 i = 0; i < cusdPath.tokens.length - 2; i++) {
+			_oracle.prepareAllAvailablePoolsWithTimePeriod(cusdPath.tokens[i], cusdPath.tokens[i + 1], PERIOD); //cusd/stable pools
+		}
+		for (uint256 i = 0; i < celoPath.tokens.length - 2; i++) {
+			_oracle.prepareAllAvailablePoolsWithTimePeriod(celoPath.tokens[i], celoPath.tokens[i + 1], PERIOD); //celo/stable pools
+		}
+		_oracle.prepareAllAvailablePoolsWithTimePeriod(stable, gd, PERIOD); //cusd/stable pools
 	}
 
+	/**
+		@dev Returns the Uniswap path for cUSD.
+	 */
+	function getCUsdPath() external view returns (UniswapPath memory) {
+		return cusdPath;
+	}
+	/**
+		@dev Returns the Uniswap path for Celo.
+	 */
+	function getCeloPath() external view returns (UniswapPath memory) {
+		return celoPath;
+	}
 	/**
 	 * @notice Creates a new clone of the BuyGDClone contract with the provided owner address.
 	 * @param owner The address of the owner of the new BuyGDClone contract.
@@ -548,7 +605,7 @@ contract BuyGDCloneFactory {
 	function create(address owner) public returns (address) {
 		bytes32 salt = keccak256(abi.encode(owner));
 		address clone = ClonesUpgradeable.cloneDeterministic(impl, salt);
-		BuyGDCloneV2(payable(clone)).initialize(owner);
+		BuyGDCloneV2(payable(clone)).initialize(owner, cusdPath, celoPath);
 		return clone;
 	}
 
