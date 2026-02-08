@@ -1,7 +1,7 @@
 import hre, { ethers, upgrades } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
-import { IGoodDollar, IIdentity, IdentityV4 } from "../../types";
+import { IGoodDollar, IIdentity, IdentityV3, IdentityV4 } from "../../types";
 import { createDAO, increaseTime, advanceBlocks } from "../helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
@@ -306,6 +306,28 @@ describe("IdentityV4", () => {
     await identity.addWhitelistedWithDID(signers[3].address, "testolddid");
     return { newid };
   };
+
+  it("should upgrade v3 to v4", async () => {
+    const impl = (await ethers.deployContract("IdentityV4", [])) as IdentityV4;
+    const upgradeCall = impl.interface.encodeFunctionData("setReverifyDaysOptions", [[6, 15, 30]]);
+    const encoded = identity.interface.encodeFunctionData("upgradeToAndCall", [impl.address, upgradeCall]);
+    await genericCall(identity.address, encoded);
+
+    expect(await identity.reverifyDaysOptions(0)).to.equal(6);
+    expect(await identity.reverifyDaysOptions(1)).to.equal(15);
+    expect(await identity.reverifyDaysOptions(2)).to.equal(30);
+
+    const oldid = (await upgrades.deployProxy(await ethers.getContractFactory("IdentityV3"), [
+      founder.address,
+      ethers.constants.AddressZero
+    ])) as IdentityV3;
+    await oldid.initDAO(await identity.nameService());
+    await genericCall(oldid.address, encoded);
+    const upgraded = await ethers.getContractAt("IdentityV4", oldid.address);
+    expect(await upgraded.reverifyDaysOptions(0)).to.equal(6);
+    expect(await upgraded.reverifyDaysOptions(1)).to.equal(15);
+    expect(await upgraded.reverifyDaysOptions(2)).to.equal(30);
+  });
 
   it("should default to old identity isWhitelisted, isBlacklisted, isContract", async () => {
     const { newid } = await loadFixture(oldidFixture);
