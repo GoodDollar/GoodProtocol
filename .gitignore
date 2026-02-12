@@ -113,3 +113,5 @@ artifacts/*
 build/*
 .yarn/cache
 .yarn/install-state.gz
+scripts/fv.ts
+.env.enc
