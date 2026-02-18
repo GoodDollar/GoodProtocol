@@ -7,6 +7,10 @@
 // calculate how much G$s each reserve is backing - V
 // deploy distribution helper on xdc - V
 // set distribution helper on xdc expansion controller - V
+// deploy mento contracts on xdc before upgrade
+// deploy circuit breakers on xdc/fuse/ethereum/celo before upgrade
+// give genericcall permissions to circuit breaker on all networks
+// deploy identity v4 on all chains
 // create exchange on mento reserve xdc with calculated parameters - V
 // give mento broker minting rights on xdc - V
 // give expansion controller minting rights - V
@@ -36,8 +40,7 @@ import {
   IMessagePassingBridge,
   Ownable,
   UBISchemeV2,
-  UpdateReserveRatio,
-  UpdateReserveRatioAfterXDC
+  UpdateReserveRatio
 } from "../../types";
 import releaser from "../releaser";
 import { keccak256, toUtf8Bytes } from "ethers/lib/utils";
@@ -136,7 +139,7 @@ export const upgradeCeloStep2 = async (network, checksOnly) => {
       "registerScheme(address,bytes32,bytes4,address)",
       ethers.utils.defaultAbiCoder.encode(
         ["address", "bytes32", "bytes4", "address"],
-        [reserveUpdate.address, ethers.constants.HashZero, "0x0000001f", release.Avatar]
+        [reserveUpdate.address, ethers.constants.HashZero, "0x00000010", release.Avatar]
       ),
       "0"
     ] //give generic call rights to update reserve ratio
