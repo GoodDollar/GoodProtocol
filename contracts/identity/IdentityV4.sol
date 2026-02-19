@@ -85,6 +85,13 @@ contract IdentityV4 is
 	}
 
 	/**
+	 * @dev Returns the longest time (in days) that can pass before an authentication needs to be renewed for `account`
+	 */
+	function authenticationPeriod() external view returns (uint256) {
+		return reverifyDaysOptions[reverifyDaysOptions.length - 1];
+	}
+
+	/**
 	 * @dev used to initialize after deployment once nameservice is available
 	 */
 	function initDAO(address _ns) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -111,6 +118,10 @@ contract IdentityV4 is
 		// replace storage array
 		delete reverifyDaysOptions;
 		for (uint256 i = 0; i < options.length; i++) {
+			require(
+				i == 0 || options[i] > options[i - 1],
+				"options not in ascending order"
+			);
 			reverifyDaysOptions.push(options[i]);
 		}
 	}
@@ -219,8 +230,6 @@ contract IdentityV4 is
 		address account,
 		uint daysSinceAuth
 	) public view returns (bool) {
-		if (identities[account].authCount >= reverifyDaysOptions.length)
-			return false;
 		uint reverifyAfterDays = reverifyDaysOptions[identities[account].authCount];
 		if (daysSinceAuth >= reverifyAfterDays) return true;
 

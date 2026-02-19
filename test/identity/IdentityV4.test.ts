@@ -107,11 +107,14 @@ describe("IdentityV4", () => {
   //   await expect(identity.connect(signers[2]).setAuthenticationPeriod(10)).reverted;
   // });
 
-  // it("should let owner set auth period", async () => {
-  //   const encoded = identity.interface.encodeFunctionData("setAuthenticationPeriod", [10]);
-  //   await genericCall(identity.address, encoded);
-  //   expect(await identity.authenticationPeriod()).eq(10);
-  // });
+  it("should retun the last reverify period as authenticationPeriod", async () => {
+    await expect(identity.setReverifyDaysOptions([1, 7, 111])).not.reverted;
+    expect(await identity.authenticationPeriod()).eq(111);
+  });
+
+  it("should enforce order in reverify days options", async () => {
+    await expect(identity.setReverifyDaysOptions([1, 111, 7])).reverted;
+  });
 
   it("should revert when non admin tries to pause", async () => {
     await expect(identity.connect(signers[2]).pause(true)).reverted;
