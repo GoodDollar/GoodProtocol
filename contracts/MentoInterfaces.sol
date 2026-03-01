@@ -568,8 +568,10 @@ interface ITradingLimits {
 	struct Config {
 		uint32 timestep0;
 		uint32 timestep1;
-		int48 limit0;
-		int48 limit1;
+		int48 limit0In;
+		int48 limit0Out;
+		int48 limit1In;
+		int48 limit1Out;
 		int48 limitGlobal;
 		uint8 flags;
 	}
@@ -777,4 +779,12 @@ interface IBroker {
 	function isExchangeProvider(
 		address exchangeProvider
 	) external view returns (bool);
+
+	function tradingLimitsState(
+		bytes32 eid
+	) external view returns (ITradingLimits.State memory);
+
+	function tradingLimitsConfig(
+		bytes32 eid
+	) external view returns (ITradingLimits.Config memory);
 }

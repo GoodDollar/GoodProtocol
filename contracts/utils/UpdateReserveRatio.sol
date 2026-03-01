@@ -65,3 +65,34 @@ contract UpdateReserveRatio {
 		require(_controller.unregisterSelf(avatar), "unregistering failed");
 	}
 }
+
+contract CreateReserveExchange {
+	address owner;
+
+	constructor(address _owner) {
+		owner = _owner;
+	}
+
+	function upgrade(
+		Controller _controller,
+		address _mentoExchange,
+		IBancorExchangeProvider.PoolExchange memory _exchange
+	) external {
+		require(msg.sender == owner, "only owner can call this");
+		address avatar = _controller.avatar();
+
+		(bool ok, ) = _controller.genericCall(
+			address(_mentoExchange),
+			abi.encodeCall(IBancorExchangeProvider.createExchange, _exchange),
+			address(avatar),
+			0
+		);
+
+		// console.log("createExchange %s", ok);
+		require(ok, "createExchange failed");
+
+		owner = address(0); //mark as run;
+		// prevent executing again
+		require(_controller.unregisterSelf(avatar), "unregistering failed");
+	}
+}

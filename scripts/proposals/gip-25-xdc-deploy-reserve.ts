@@ -3,19 +3,26 @@
 // upgrade celo exchangeprovider so we can update the params - V
 // upgrade celo broker so it can support no in limits - V
 // set the new limits on the broker - V
-// create uniswap pools on xdc - they exists
+// create uniswap pools on xdc - they exists - V
 // calculate how much G$s each reserve is backing - V
 // deploy distribution helper on xdc - V
 // set distribution helper on xdc expansion controller - V
-// deploy mento contracts on xdc before upgrade
-// deploy circuit breakers on xdc/fuse/ethereum/celo before upgrade
-// give genericcall permissions to circuit breaker on all networks
-// deploy identity v4 on all chains
 // create exchange on mento reserve xdc with calculated parameters - V
 // give mento broker minting rights on xdc - V
 // give expansion controller minting rights - V
+// give genericcall permissions to circuit breaker on all networks - V
+// deploy identity v4 on all chains
+
+// Before upgrade:
+// verify bridge impl are the latest
+// verify exchange provider and broker impl on celo are the latest
+// deploy circuti breaker on all chains and update address in deployment.json
+// deploy mento contracts on xdc before upgrade
+
+// Post upgrade:
+// run script update celo reserve parameters accordingly
+// run script to create exchange on xdc with the calculated parameters
 // transfer usdc to xdc reserve
-// update celo reserve parameters accordingly
 
 import { network, ethers, upgrades } from "hardhat";
 import { reset } from "@nomicfoundation/hardhat-network-helpers";
@@ -34,12 +41,8 @@ import {
   Controller,
   IBancorExchangeProvider,
   IBroker,
-  IdentityV3,
   IGoodDollar,
   IGoodDollarExpansionController,
-  IMessagePassingBridge,
-  Ownable,
-  UBISchemeV2,
   UpdateReserveRatio
 } from "../../types";
 import releaser from "../releaser";
@@ -142,7 +145,16 @@ export const upgradeCeloStep2 = async (network, checksOnly) => {
         [reserveUpdate.address, ethers.constants.HashZero, "0x00000010", release.Avatar]
       ),
       "0"
-    ] //give generic call rights to update reserve ratio
+    ], //give generic call rights to update reserve ratio
+    [
+      release.Controller,
+      "registerScheme(address,bytes32,bytes4,address)",
+      ethers.utils.defaultAbiCoder.encode(
+        ["address", "bytes32", "bytes4", "address"],
+        [release.CircuitBreaker, ethers.constants.HashZero, "0x00000010", release.Avatar]
+      ),
+      "0"
+    ] //give generic call rights to circuit breaker
   ];
 
   console.log({
@@ -239,7 +251,16 @@ export const upgradeFuseStep2 = async (network, checksOnly) => {
       ethers.utils.defaultAbiCoder.encode(["address"], [identityImpl.address]),
       "0"
     ], //upgrade identity
-    [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"] //upgrade bridge
+    [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"], //upgrade bridge
+    [
+      release.Controller,
+      "registerScheme(address,bytes32,bytes4,address)",
+      ethers.utils.defaultAbiCoder.encode(
+        ["address", "bytes32", "bytes4", "address"],
+        [release.CircuitBreaker, ethers.constants.HashZero, "0x00000010", release.Avatar]
+      ),
+      "0"
+    ] //give generic call rights to circuit breaker
   ];
 
   console.log({
@@ -305,7 +326,16 @@ export const upgradeEthStep2 = async (network, checksOnly) => {
   const bridgeImpl = bridgeUpgradeImpl[networkEnv];
 
   const proposalActions = [
-    [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"] //upgrade bridge
+    [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"], //upgrade bridge
+    [
+      release.Controller,
+      "registerScheme(address,bytes32,bytes4,address)",
+      ethers.utils.defaultAbiCoder.encode(
+        ["address", "bytes32", "bytes4", "address"],
+        [release.CircuitBreaker, ethers.constants.HashZero, "0x00000010", release.Avatar]
+      ),
+      "0"
+    ] //give generic call rights to circuit breaker
   ];
 
   console.log({
@@ -350,8 +380,13 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
 
   let networkEnv = networkName;
   let guardian = root;
+  let reserveParams;
   if (isSimulation) {
     networkEnv = network;
+    reserveParams = {
+      xdcGdSupplyEquivalent: ethers.utils.parseEther("4000000000").toString(),
+      reserveRatioXdc: 40000000
+    };
   }
 
   const celoNetwork = networkEnv.split("-")[0] + "-celo";
@@ -413,7 +448,6 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
   await releaser(torelease, networkName, "deployment", false);
 
   console.log({ exchangeId });
-  const reserveParams = undefined;
 
   const proposalActions = [
     [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"], //upgrade bridge
@@ -479,7 +513,16 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
       "addMinter(address)",
       ethers.utils.defaultAbiCoder.encode(["address"], [release.MentoExpansionController]),
       "0"
-    ] //give minting rights to expansion controller
+    ], //give minting rights to expansion controller
+    [
+      release.Controller,
+      "registerScheme(address,bytes32,bytes4,address)",
+      ethers.utils.defaultAbiCoder.encode(
+        ["address", "bytes32", "bytes4", "address"],
+        [release.CircuitBreaker, ethers.constants.HashZero, "0x00000010", release.Avatar]
+      ),
+      "0"
+    ] //give generic call rights to circuit breaker
   ];
 
   if (dao[celoNetwork].CommunitySafe) {
@@ -535,8 +578,8 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
       release.MentoExchangeProvider
     )) as IBancorExchangeProvider;
     const mentoBroker = (await ethers.getContractAt("IBroker", release.MentoBroker)) as IBroker;
-    // const eids = await mentoExchange.getExchangeIds();
-    const eids = ["0xf8d028730f58a008390c265fca425bb912e4c7efa370d4cef756a06f5029acd2"];
+    const eids = await mentoExchange.getExchangeIds();
+    // const eids = ["0xf8d028730f58a008390c265fca425bb912e4c7efa370d4cef756a06f5029acd2"];
     const exchange = await mentoExchange.getPoolExchange(eids[0]);
     const price = (await mentoExchange.currentPrice(eids[0])).toNumber() / 1e6;
     console.log("current price:", price, await mentoExchange.currentPrice(eids[0]));
@@ -576,10 +619,8 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
     )) as IGoodDollarExpansionController;
     await usdc.connect(swapper).approve(mentomint.address, USDC_AMOUNT);
     const tx = await (await mentomint.connect(swapper).mintUBIFromInterest(eids[0], USDC_AMOUNT)).wait();
-    console.log(
-      "mint from interest:",
-      tx.events.find(_ => _.event === "InterestUBIMinted").args.amount.toString() / 1e18
-    );
+    const mintedFromInterest = tx.events.find(_ => _.event === "InterestUBIMinted").args.amount;
+    console.log("mint from interest:", mintedFromInterest.toString() / 1e18);
     console.log("price after interest mint:", (await mentoExchange.currentPrice(eids[0])).toNumber() / 1e6);
     const distTx = await (await DistHelper.onDistribution(0, { gasLimit: 4000000 })).wait();
     const { distributionRecipients, distributed } = distTx.events.find(_ => _.event === "Distribution").args;
@@ -590,6 +631,11 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
       distTx.events.length,
       distTx.events.map(_ => _.address)
     );
+    const ctrl = (await ethers.getContractAt("Controller", release.Controller)) as Controller;
+
+    await (await ctrl.connect(guardian).mintTokens(mintedFromInterest, swapper.address, release.Avatar)).wait();
+
+    await gd.connect(swapper).approve(release.MentoBroker, mintedFromInterest);
   }
 };
 
@@ -678,6 +724,79 @@ const calculateReserveParams = async () => {
   };
 };
 
+const testSwap = async () => {
+  let release: { [key: string]: any } = dao["production-xdc"];
+  const swapper = await ethers.getImpersonatedSigner("0x66582D24FEaD72555adaC681Cc621caCbB208324");
+  const usdc = await ethers.getContractAt("IERC20", release.USDC);
+  const usdcSwapper = await ethers.getImpersonatedSigner("0x6E23963b9Ccbfba0e57692Cd6E66A1682fb3B8f6");
+  await usdc.connect(usdcSwapper).transfer(release.MentoReserve, await usdc.balanceOf(usdcSwapper.address));
+
+  // await usdc.connect(usdcSwapper).transfer(swapper.address, 10000e6);
+  const gd = (await ethers.getContractAt("IGoodDollar", release.GoodDollar)) as IGoodDollar;
+  const ctrl = (await ethers.getContractAt("Controller", release.Controller)) as Controller;
+  const guardian = await ethers.getImpersonatedSigner(release.GuardiansSafe);
+  const mentoBroker = (await ethers.getContractAt("IBroker", release.MentoBroker)) as IBroker;
+  const mentoExchange = (await ethers.getContractAt(
+    "IBancorExchangeProvider",
+    release.MentoExchangeProvider
+  )) as IBancorExchangeProvider;
+  const eids = await mentoExchange.getExchangeIds();
+  const exchangeId = eids[0]; //keccak256(ethers.utils.solidityPack(["string", "string"], ["USDC", "G$"]));
+  // uint256(uint160(token)) as bytes32 -> left-pad address to 32 bytes
+  const tokenAsBytes32 = ethers.utils.hexZeroPad(usdc.address, 32);
+
+  // XOR using BigNumber and return a bytes32 hex string
+  const limitId = ethers.BigNumber.from(exchangeId).xor(ethers.BigNumber.from(tokenAsBytes32)).toHexString();
+
+  console.log("reserve balance:", await usdc.balanceOf(release.MentoReserve));
+  console.log("trading limits:", await mentoBroker.tradingLimitsState(limitId));
+  console.log("trading limits config:", await mentoBroker.tradingLimitsConfig(limitId));
+  // const eids = ["0xf8d028730f58a008390c265fca425bb912e4c7efa370d4cef756a06f5029acd2"];
+  const mintedFromInterest = ethers.utils.parseEther("90000000");
+  await (await ctrl.connect(guardian).mintTokens(mintedFromInterest, swapper.address, release.Avatar)).wait();
+
+  await gd.connect(swapper).approve(release.MentoBroker, mintedFromInterest);
+  console.log(
+    "Balance before mintedFromInterest swap:",
+    await gd.balanceOf(swapper.address),
+    await usdc.balanceOf(swapper.address)
+  );
+  const txswap = await mentoBroker
+    .connect(swapper)
+    .swapIn(mentoExchange.address, eids[0], gd.address, usdc.address, mintedFromInterest, 0)
+    .then(_ => _.wait());
+
+  // console.log(
+  //   "Balance after mintedFromInterest swap:",
+  //   txswap.events,
+  //   swapper.address,
+  //   await gd.balanceOf(swapper.address),
+  //   await usdc.balanceOf(swapper.address)
+  // );
+  // console.log("reserve balance:", await usdc.balanceOf(release.MentoReserve));
+  let amountout = await mentoBroker.getAmountOut(
+    mentoExchange.address,
+    exchangeId,
+    gd.address,
+    usdc.address,
+    ethers.utils.parseEther("90000000")
+  );
+  console.log("amount out:", amountout);
+  // const mentomint = (await ethers.getContractAt(
+  //   "IGoodDollarExpansionController",
+  //   release.MentoExpansionController
+  // )) as IGoodDollarExpansionController;
+  // await usdc.connect(swapper).approve(mentomint.address, 5000e6);
+  // const tx = await (await mentomint.connect(swapper).mintUBIFromInterest(eids[0], 5000e6)).wait();
+  // amountout = await mentoBroker.getAmountOut(
+  //   mentoExchange.address,
+  //   exchangeId,
+  //   gd.address,
+  //   usdc.address,
+  //   ethers.utils.parseEther("90000000")
+  // );
+  // console.log("amount out:", amountout);
+};
 export const main = async () => {
   // await calculateReserveParams();
   // return;
@@ -707,4 +826,5 @@ export const main = async () => {
   }
 };
 
-main().catch(console.log);
+testSwap().catch(console.log);
+// main().catch(console.log);
