@@ -196,6 +196,16 @@ contract BuyGDCloneV2 is Initializable {
 	}
 
 	/**
+	 * @notice Swaps cUSD for GD tokens, choosing the best route between Uniswap (default path) and Mento.
+	 */
+	function swapCusd(
+		uint256 _minAmount,
+		address refundGas
+	) public returns (uint256 bought) {
+		return swapCusdWithPath(_minAmount, refundGas, cusdPath);
+	}
+
+	/**
 	 * @notice Swaps cUSD for GD tokens, choosing the best route between Uniswap (custom path) and Mento.
 	 * @param _path The custom Uniswap path to use when Uniswap is chosen.
 	 */
@@ -207,6 +217,9 @@ contract BuyGDCloneV2 is Initializable {
 		return _swapCusdChooseRoute(_minAmount, refundGas, _path);
 	}
 
+	/**
+	 @dev internal function to swap cUSD for GD tokens, choosing the best route between Uniswap (custom path) and Mento.
+	 */
 	function _swapCusdChooseRoute(
 		uint256 _minAmount,
 		address refundGas,
@@ -256,16 +269,6 @@ contract BuyGDCloneV2 is Initializable {
 			ERC20(CUSD).transfer(refundGas, gasCosts);
 		}
 		emit BoughtFromUniswap(CUSD, amountIn, bought);
-	}
-
-	/**
-	 * @notice Swaps cUSD for GD tokens, choosing the best route between Uniswap (default path) and Mento.
-	 */
-	function swapCusd(
-		uint256 _minAmount,
-		address refundGas
-	) public returns (uint256 bought) {
-		return swapCusdWithPath(_minAmount, refundGas, cusdPath);
 	}
 
 	/**
