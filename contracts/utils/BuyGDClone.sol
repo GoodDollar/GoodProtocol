@@ -155,7 +155,7 @@ contract BuyGDCloneV2 is Initializable {
 		uint256 _minAmount,
 		address payable refundGas
 	) public payable returns (uint256 bought) {
-		return _swapCeloViaUniswap(_minAmount, refundGas, celoPath);
+		return swapCeloWithPath(_minAmount, refundGas, celoPath);
 	}
 
 	/**
