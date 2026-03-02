@@ -159,6 +159,17 @@ contract BuyGDCloneV2 is Initializable {
 	}
 
 	/**
+	 * @notice Swaps Celo for GD tokens using a custom Uniswap path.
+	 */
+	function swapCeloWithPath(
+		uint256 _minAmount,
+		address payable refundGas,
+		UniswapPath memory _path
+	) public payable returns (uint256 bought) {
+		return _swapCeloViaUniswap(_minAmount, refundGas, _path);
+	}
+
+	/**
 	 * @notice Swaps Celo for GD tokens via Uniswap using the given path.
 	 * @dev Uses quoter (same as getExpectedReturnFromUniswapPath) for expected output; no oracle.
 	 */
@@ -269,17 +280,6 @@ contract BuyGDCloneV2 is Initializable {
 			ERC20(CUSD).transfer(refundGas, gasCosts);
 		}
 		emit BoughtFromUniswap(CUSD, amountIn, bought);
-	}
-
-	/**
-	 * @notice Swaps Celo for GD tokens using a custom Uniswap path.
-	 */
-	function swapCeloWithPath(
-		uint256 _minAmount,
-		address payable refundGas,
-		UniswapPath memory _path
-	) public payable returns (uint256 bought) {
-		return _swapCeloViaUniswap(_minAmount, refundGas, _path);
 	}
 
 	/**
