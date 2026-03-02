@@ -53,6 +53,9 @@ contract BuyGDCloneV2 is Initializable {
 	// Hardcoded default paths for Uniswap swaps
 	UniswapPath internal cusdPath;
 	UniswapPath internal celoPath;
+	
+	/** Gas cost reserve when refundGas != owner (0.1$) */
+	uint256 public constant CUSD_GAS_COSTS = 1e17;
 
 	receive() external payable {}
 
@@ -145,9 +148,6 @@ contract BuyGDCloneV2 is Initializable {
 		revert NO_BALANCE();
 	}
 
-	/** Gas cost reserve when refundGas != owner (0.1$) */
-	uint256 private constant CUSD_GAS_COSTS = 1e17;
-
 	/**
 	 * @notice Swaps Celo for GD tokens using the default path.
 	 */
@@ -156,16 +156,6 @@ contract BuyGDCloneV2 is Initializable {
 		address payable refundGas
 	) public payable returns (uint256 bought) {
 		return _swapCeloViaUniswap(_minAmount, refundGas, celoPath);
-	}
-
-	/**
-	 * @notice Swaps cUSD for GD tokens, choosing the best route between Uniswap (default path) and Mento.
-	 */
-	function swapCusd(
-		uint256 _minAmount,
-		address refundGas
-	) public returns (uint256 bought) {
-		return _swapCusdChooseRoute(_minAmount, refundGas, cusdPath);
 	}
 
 	/**
@@ -268,6 +258,16 @@ contract BuyGDCloneV2 is Initializable {
 		emit BoughtFromUniswap(celo, amountIn, bought);
 	}
 
+	/**
+	 * @notice Swaps cUSD for GD tokens, choosing the best route between Uniswap (default path) and Mento.
+	 */
+	function swapCusd(
+		uint256 _minAmount,
+		address refundGas
+	) public returns (uint256 bought) {
+		return _swapCusdChooseRoute(_minAmount, refundGas, cusdPath);
+	}
+	
 	/**
 	 * @notice Swaps Celo for GD tokens using a custom Uniswap path.
 	 */
