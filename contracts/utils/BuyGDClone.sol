@@ -84,31 +84,14 @@ contract BuyGDCloneV2 is Initializable {
 	 * @notice Initializes the contract with the owner's address.
 	 * @param _owner The address of the owner of the contract.
 	 */
-	function initialize(address _owner)
+	function initialize(address _owner, UniswapPath memory _cusdPath, UniswapPath memory _celoPath)
 		external 
 		initializer {
 		owner = _owner;
 
 		// Initialize hardcoded default paths
-		address[] memory cusdTokens = new address[](4);
-		cusdTokens[0] = CUSD;
-		cusdTokens[1] = USDC;
-		cusdTokens[2] = GLOUSD;
-		cusdTokens[3] = gd;
-		uint24[] memory cusdFees = new uint24[](3);
-		cusdFees[0] = 100;
-		cusdFees[1] = 100;
-		cusdFees[2] = GD_FEE_TIER;
-		cusdPath = UniswapPath({tokens: cusdTokens, fees: cusdFees});
-
-		address[] memory celoTokens = new address[](3);
-		celoTokens[0] = celo;
-		celoTokens[1] = GLOUSD;
-		celoTokens[2] = gd;
-		uint24[] memory celoFees = new uint24[](2);
-		celoFees[0] = 500;
-		celoFees[1] = GD_FEE_TIER;
-		celoPath = UniswapPath({tokens: celoTokens, fees: celoFees});
+		cusdPath = _cusdPath;
+		celoPath = _celoPath;
 	}
 
 	function getSwapPath(address[] memory tokens, uint24[] memory fees) public pure returns (bytes memory path) {
@@ -629,7 +612,7 @@ contract BuyGDCloneFactory {
 	function create(address owner) public returns (address) {
 		bytes32 salt = keccak256(abi.encode(owner));
 		address clone = ClonesUpgradeable.cloneDeterministic(impl, salt);
-		BuyGDCloneV2(payable(clone)).initialize(owner);
+		BuyGDCloneV2(payable(clone)).initialize(owner, cusdPath, celoPath);
 		return clone;
 	}
 
