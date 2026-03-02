@@ -265,7 +265,7 @@ contract BuyGDCloneV2 is Initializable {
 		uint256 _minAmount,
 		address refundGas
 	) public returns (uint256 bought) {
-		return _swapCusdChooseRoute(_minAmount, refundGas, cusdPath);
+		return swapCusdWithPath(_minAmount, refundGas, cusdPath);
 	}
 
 	/**
