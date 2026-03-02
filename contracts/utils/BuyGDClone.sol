@@ -108,6 +108,15 @@ contract BuyGDCloneV2 is Initializable {
 		celoPath = UniswapPath({tokens: celoTokens, fees: celoFees});
 	}
 
+	function getSwapPath(address[] memory tokens, uint24[] memory fees) public pure returns (bytes memory path) {
+		require(tokens.length == fees.length + 1 && fees.length > 0, "wrong input parameters");
+		path = abi.encodePacked(tokens[0]);
+		for (uint256 i = 0; i < fees.length; i++) {
+			path = abi.encodePacked(path, fees[i], tokens[i + 1]);
+		}
+		path = abi.encodePacked(path, tokens[tokens.length - 1]);
+		return path;
+	}
 
 	/**
 	 * @notice Swaps either Celo or stable for GD tokens.
@@ -139,28 +148,14 @@ contract BuyGDCloneV2 is Initializable {
 	/** Gas cost reserve when refundGas != owner (0.1$) */
 	uint256 private constant CUSD_GAS_COSTS = 1e17;
 
-	function _swapCusdChooseRoute(
+	/**
+	 * @notice Swaps Celo for GD tokens using the default path.
+	 */
+	function swapCelo(
 		uint256 _minAmount,
-		address refundGas,
-		UniswapPath memory _path
-	) internal returns (uint256 bought) {
-		uint256 amountIn = ERC20(CUSD).balanceOf(address(this)) - (refundGas != owner ? CUSD_GAS_COSTS : 0);
-		require(amountIn > 0, "No cUSD balance");
-
-		uint256 uniswapExpected = getExpectedReturnFromUniswapPath(amountIn, _path);
-		uint256 mentoExpected = 0;
-		bool mentoAvailable = address(mentoBroker) != address(0) &&
-			mentoExchangeProvider != address(0) &&
-			mentoExchangeId != bytes32(0);
-		if (mentoAvailable) {
-			mentoExpected = getExpectedReturnFromMento(amountIn);
-		}
-		uint256 maxExpected = Math.max(_minAmount, Math.max(uniswapExpected, mentoExpected));
-		if (mentoExpected > uniswapExpected) {
-			bought = _swapCusdFromMento(maxExpected, refundGas);
-		} else {
-			bought = _swapCUSDfromUniswap(maxExpected, refundGas, _path);
-		}
+		address payable refundGas
+	) public payable returns (uint256 bought) {
+		return _swapCeloViaUniswap(_minAmount, refundGas, celoPath);
 	}
 
 	/**
@@ -183,6 +178,30 @@ contract BuyGDCloneV2 is Initializable {
 		UniswapPath memory _path
 	) public returns (uint256 bought) {
 		return _swapCusdChooseRoute(_minAmount, refundGas, _path);
+	}
+
+	function _swapCusdChooseRoute(
+		uint256 _minAmount,
+		address refundGas,
+		UniswapPath memory _path
+	) internal returns (uint256 bought) {
+		uint256 amountIn = ERC20(CUSD).balanceOf(address(this)) - (refundGas != owner ? CUSD_GAS_COSTS : 0);
+		require(amountIn > 0, "No cUSD balance");
+
+		uint256 uniswapExpected = getExpectedReturnFromUniswapPath(amountIn, _path);
+		uint256 mentoExpected = 0;
+		bool mentoAvailable = address(mentoBroker) != address(0) &&
+			mentoExchangeProvider != address(0) &&
+			mentoExchangeId != bytes32(0);
+		if (mentoAvailable) {
+			mentoExpected = getExpectedReturnFromMento(amountIn);
+		}
+		uint256 maxExpected = Math.max(_minAmount, Math.max(uniswapExpected, mentoExpected));
+		if (mentoExpected > uniswapExpected) {
+			bought = _swapCusdFromMento(maxExpected, refundGas);
+		} else {
+			bought = _swapCUSDfromUniswap(maxExpected, refundGas, _path);
+		}
 	}
 
 	/**
@@ -250,16 +269,6 @@ contract BuyGDCloneV2 is Initializable {
 	}
 
 	/**
-	 * @notice Swaps Celo for GD tokens using the default path.
-	 */
-	function swapCelo(
-		uint256 _minAmount,
-		address payable refundGas
-	) public payable returns (uint256 bought) {
-		return _swapCeloViaUniswap(_minAmount, refundGas, celoPath);
-	}
-
-	/**
 	 * @notice Swaps Celo for GD tokens using a custom Uniswap path.
 	 */
 	function swapCeloWithPath(
@@ -270,15 +279,6 @@ contract BuyGDCloneV2 is Initializable {
 		return _swapCeloViaUniswap(_minAmount, refundGas, _path);
 	}
 
-	function getSwapPath(address[] memory tokens, uint24[] memory fees) public pure returns (bytes memory path) {
-		require(tokens.length == fees.length + 1 && fees.length > 0, "wrong input parameters");
-		path = abi.encodePacked(tokens[0]);
-		for (uint256 i = 0; i < fees.length; i++) {
-			path = abi.encodePacked(path, fees[i], tokens[i + 1]);
-		}
-		path = abi.encodePacked(path, tokens[tokens.length - 1]);
-		return path;
-	}
 	/**
 	 * @notice Swaps cUSD for G$ tokens using Mento reserve.
 	 * @dev Requires Mento broker, exchange provider, and exchange ID to be configured.
