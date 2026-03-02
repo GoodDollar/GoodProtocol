@@ -159,6 +159,43 @@ contract BuyGDCloneV2 is Initializable {
 	}
 
 	/**
+	 * @notice Swaps Celo for GD tokens via Uniswap using the given path.
+	 * @dev Uses quoter (same as getExpectedReturnFromUniswapPath) for expected output; no oracle.
+	 */
+	function _swapCeloViaUniswap(
+		uint256 _minAmount,
+		address payable refundGas,
+		UniswapPath memory _path
+	) internal returns (uint256 bought) {
+		uint256 gasCosts;
+		uint24[] memory fees = new uint24[](1);
+		fees[0] = 500;
+		if (refundGas != owner) {
+			(gasCosts, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(1e17, stable, celo, fees, 60);
+		}
+		uint256 amountIn = address(this).balance - gasCosts;
+
+		bytes memory path = getSwapPath(_path.tokens, _path.fees);
+		uint256 exactQuote = getExpectedReturnFromUniswapPath(amountIn, _path);
+		uint256 minOut = _minAmount > exactQuote ? _minAmount : exactQuote;
+
+		ERC20(celo).approve(address(router), amountIn);
+		bought = router.exactInput(
+			ISwapRouter.ExactInputParams({
+				path: path,
+				recipient: owner,
+				amountIn: amountIn,
+				amountOutMinimum: minOut
+			})
+		);
+		if (refundGas != owner) {
+			(bool sent, ) = refundGas.call{ value: gasCosts }("");
+			if (!sent) revert REFUND_FAILED(gasCosts);
+		}
+		emit BoughtFromUniswap(celo, amountIn, bought);
+	}
+
+	/**
 	 * @notice Swaps cUSD for GD tokens, choosing the best route between Uniswap (custom path) and Mento.
 	 * @param _path The custom Uniswap path to use when Uniswap is chosen.
 	 */
@@ -222,43 +259,6 @@ contract BuyGDCloneV2 is Initializable {
 	}
 
 	/**
-	 * @notice Swaps Celo for GD tokens via Uniswap using the given path.
-	 * @dev Uses quoter (same as getExpectedReturnFromUniswapPath) for expected output; no oracle.
-	 */
-	function _swapCeloViaUniswap(
-		uint256 _minAmount,
-		address payable refundGas,
-		UniswapPath memory _path
-	) internal returns (uint256 bought) {
-		uint256 gasCosts;
-		uint24[] memory fees = new uint24[](1);
-		fees[0] = 500;
-		if (refundGas != owner) {
-			(gasCosts, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(1e17, stable, celo, fees, 60);
-		}
-		uint256 amountIn = address(this).balance - gasCosts;
-
-		bytes memory path = getSwapPath(_path.tokens, _path.fees);
-		uint256 exactQuote = getExpectedReturnFromUniswapPath(amountIn, _path);
-		uint256 minOut = _minAmount > exactQuote ? _minAmount : exactQuote;
-
-		ERC20(celo).approve(address(router), amountIn);
-		bought = router.exactInput(
-			ISwapRouter.ExactInputParams({
-				path: path,
-				recipient: owner,
-				amountIn: amountIn,
-				amountOutMinimum: minOut
-			})
-		);
-		if (refundGas != owner) {
-			(bool sent, ) = refundGas.call{ value: gasCosts }("");
-			if (!sent) revert REFUND_FAILED(gasCosts);
-		}
-		emit BoughtFromUniswap(celo, amountIn, bought);
-	}
-
-	/**
 	 * @notice Swaps cUSD for GD tokens, choosing the best route between Uniswap (default path) and Mento.
 	 */
 	function swapCusd(
@@ -267,7 +267,7 @@ contract BuyGDCloneV2 is Initializable {
 	) public returns (uint256 bought) {
 		return _swapCusdChooseRoute(_minAmount, refundGas, cusdPath);
 	}
-	
+
 	/**
 	 * @notice Swaps Celo for GD tokens using a custom Uniswap path.
 	 */
