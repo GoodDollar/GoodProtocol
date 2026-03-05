@@ -2,7 +2,8 @@ import fs from "fs";
 import { chunk, uniqBy } from "lodash";
 import delay from "delay";
 import { bulkIsWhitelisted, bulkLastAuth } from "./utils";
-
+import phash from "sharp-phash";
+import distance from "sharp-phash/distance";
 //create tunnel to fv server ssh -L 9090:server:8080 -N user@server -i sshkey
 
 const saveImage = async (id, idx) => {
@@ -261,3 +262,46 @@ const deleteIdentifier = async (id, walletAddress) => {
 // deleteIdentifiers(process.env.ADMIN_PASSWORD);
 // main();
 // saveImages(["", "", ""]);
+const checkLiveness2d = async id => {
+  //read jpg image and convert to base64
+  const data0 = fs.readFileSync("./scripts/photo2d-2.jpg");
+  const data1 = fs.readFileSync("./scripts/photo2d-4.jpg");
+  const data2 = fs.readFileSync("./scripts/photo2d-app-1.jpg");
+  const data3 = fs.readFileSync("./scripts/photo2d-app-2.jpg");
+  const data4 = fs.readFileSync("./scripts/photo2d-3.jpg");
+  const data5 = fs.readFileSync("./scripts/photo2d-app-3.jpg");
+  const data6 = fs.readFileSync("./scripts/photo2d-app-4.jpg");
+  const data7 = fs.readFileSync("./scripts/photo2d-app-4-spoof.png");
+
+  const imgs = [data0, data1, data2, data3, data4, data5, data6, data7];
+  //compare phash of the images to see if they are similar
+  const phashes = await Promise.all(imgs.map(_ => phash(_)));
+  console.log("phashes", phashes);
+  for (let i = 0; i < phashes.length; i++) {
+    for (let j = i + 1; j < phashes.length; j++) {
+      console.log(`distance between image ${i} and ${j}:`, distance(phashes[i], phashes[j]));
+    }
+  }
+  const data = fs.readFileSync("./scripts/photo2d-app-4-spoof.png").toString("base64");
+
+  const res = await fetch("http://localhost:9090/liveness-2d/", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ image: data })
+  }).then(_ => _.json());
+  console.log(res);
+};
+const match2d = async id => {
+  //read jpg image and convert to base64
+  const data = fs.readFileSync("./scripts/photo2d-app-4-spoof.png").toString("base64");
+
+  const res = await fetch("http://localhost:9090/match-3d-2d-face-portrait/", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ image: data, externalDatabaseRefID: id, minMatchLevel: 5 })
+  }).then(_ => _.json());
+  console.log(res);
+};
+
+checkLiveness2d("");
+match2d("");

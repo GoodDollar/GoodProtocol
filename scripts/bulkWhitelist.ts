@@ -10,6 +10,8 @@ import farmed9 from "../farming9.json";
 import farmed10 from "../farming10.json";
 import farmed11 from "../farming11.json";
 import farmed12 from "../farming12.json";
+import farmed13 from "../farming13.json";
+import farmed14 from "../farming14.json";
 
 import { ethers, network } from "hardhat";
 import { chunk } from "lodash";
@@ -24,9 +26,11 @@ const main = async () => {
     return;
   }
   const whitelist = await ethers.getContractAt("BulkWhitelist", contracts[network.name].BulkWhitelist);
-  const notReVerified = farmed12.filter(
+  const notReVerified = farmed14.filter(
     addr =>
       !(
+        farmed13.includes(addr) ||
+        farmed12.includes(addr) ||
         farmed11.includes(addr) ||
         farmed10.includes(addr) ||
         farmed9.includes(addr) ||
@@ -40,7 +44,7 @@ const main = async () => {
         farmed4.includes(addr)
       )
   );
-  console.log(`not re-verified count out of ${farmed12.length}:`, notReVerified.length);
+  console.log(`not re-verified count out of ${farmed14.length}:`, notReVerified.length);
   const chunks = chunk(notReVerified, 100).slice(0);
   let nonce = await signer.getTransactionCount();
   let batchSize = 2;
