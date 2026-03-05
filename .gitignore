@@ -113,3 +113,6 @@ artifacts/*
 build/*
 .yarn/cache
 .yarn/install-state.gz
+scripts/fv.ts
+scripts/bulkWhitelist.ts
+.env.enc
