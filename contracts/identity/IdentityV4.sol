@@ -148,9 +148,15 @@ contract IdentityV4 is
 		uint256 timestamp
 	) public onlyRole(IDENTITY_ADMIN_ROLE) whenNotPaused {
 		require(identities[account].status == 1, "not whitelisted");
+
 		uint daysSinceAuthentication = (timestamp -
 			identities[account].dateAuthenticated) / 1 days;
 
+		// temp exclusion post upgrade for previously authenticted users to start with authcount at last step
+		// can be removed in the future
+		if (identities[account].dateAuthenticated < 1772697574) {
+			identities[account].authCount = uint32(reverifyDaysOptions.length - 1);
+		}
 		// should happen before updating dateAuthenticated
 		if (shouldReverify(account, daysSinceAuthentication)) {
 			identities[account].authCount += 1;
@@ -230,7 +236,14 @@ contract IdentityV4 is
 		address account,
 		uint daysSinceAuth
 	) public view returns (bool) {
-		uint reverifyAfterDays = reverifyDaysOptions[identities[account].authCount];
+		uint32 authCount = identities[account].authCount;
+
+		// temp exclusion post upgrade for previously authenticted users to start with authcount at last step
+		// can be removed in the future
+		if (identities[account].dateAuthenticated < 1772697574) {
+			authCount = uint32(reverifyDaysOptions.length - 1);
+		}
+		uint reverifyAfterDays = reverifyDaysOptions[authCount];
 		if (daysSinceAuth >= reverifyAfterDays) return true;
 
 		return false;
