@@ -8,6 +8,17 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "../Interfaces.sol";
 import "../utils/NameService.sol";
 
+/// Voters interface + structs
+interface Voters {
+	/// @notice The voter structure
+	struct Voter {
+		address account;
+		uint96 votingPower;
+	}
+
+	function voters(address _account) external view returns (Voter memory);
+}
+
 /**
  * @title FuseFaucet contract that can top up users wallets
  */
@@ -241,8 +252,10 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 
 		// Check voting balance if contract is set
 		if (votingContract != address(0)) {
-			try ERC20(votingContract).balanceOf(_user) returns (uint256 balance) {
-				if (balance > 0) {
+			try Voters(votingContract).voters(_user) returns (
+				Voters.Voter memory voter
+			) {
+				if (voter.votingPower > 0) {
 					return baseAmount * 2; // Double amount for voters
 				}
 			} catch {

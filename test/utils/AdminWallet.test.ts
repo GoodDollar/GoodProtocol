@@ -153,10 +153,10 @@ describe("AdminWallet", () => {
 
     await adminWallet
       .connect(admin2)
-      ["whitelist(address,string)"](
-        toWhitelist.address,
-        "did:test" + Math.random()
-      );
+    ["whitelist(address,string)"](
+      toWhitelist.address,
+      "did:test" + Math.random()
+    );
     const newBalance = await ethers.provider.getBalance(admin2.address);
     expect(newBalance).to.be.gte(expectedTopping);
   });
@@ -170,7 +170,7 @@ describe("AdminWallet", () => {
     expect(await identity.isWhitelisted(whitelisted.address)).to.false;
     await adminWallet
       .connect(admin)
-      ["whitelist(address,string)"](whitelisted.address, "did:test");
+    ["whitelist(address,string)"](whitelisted.address, "did:test");
 
     expect(await identity.isWhitelisted(whitelisted.address)).to.true;
     await adminWallet.connect(admin).removeWhitelist(whitelisted.address);
@@ -182,12 +182,12 @@ describe("AdminWallet", () => {
     await expect(
       adminWallet
         .connect(stranger)
-        ["whitelist(address,string)"](whitelisted.address, "did:test")
+      ["whitelist(address,string)"](whitelisted.address, "did:test")
     ).revertedWith(/Caller is not admin/);
     expect(await identity.isWhitelisted(whitelisted.address)).to.false;
     await adminWallet
       .connect(admin)
-      ["whitelist(address,string)"](whitelisted.address, "did:test");
+    ["whitelist(address,string)"](whitelisted.address, "did:test");
     expect(await identity.isWhitelisted(whitelisted.address)).to.true;
     await expect(
       adminWallet.connect(stranger).removeWhitelist(whitelisted.address)
@@ -273,7 +273,7 @@ describe("AdminWallet", () => {
     expect(await identity.isWhitelisted(stranger2.address)).to.false;
     await adminWallet
       .connect(admin2)
-      ["whitelist(address,string)"](stranger2.address, "did:test3");
+    ["whitelist(address,string)"](stranger2.address, "did:test3");
     expect(await identity.isWhitelisted(stranger2.address)).to.true;
   });
 
@@ -281,7 +281,7 @@ describe("AdminWallet", () => {
     await expect(
       adminWallet
         .connect(admin2)
-        ["whitelist(address,string)"](stranger.address, "did:test")
+      ["whitelist(address,string)"](stranger.address, "did:test")
     ).revertedWith(/DID already registered/);
   });
 
@@ -303,11 +303,10 @@ describe("AdminWallet", () => {
       await ethers.getContractFactory("AdminWallet"),
       { kind: "uups" }
     );
-    await expect(
-      upgrades.upgradeProxy(
-        adminWallet.address,
-        await ethers.getContractFactory("AdminWallet")
-      )
-    ).not.throws;
+    const result = await upgrades.upgradeProxy(
+      adminWallet.address,
+      await ethers.getContractFactory("AdminWallet")
+    ).catch(_ => false)
+    expect(result).not.false
   });
 });
