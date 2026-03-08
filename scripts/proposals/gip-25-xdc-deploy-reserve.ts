@@ -52,7 +52,7 @@ let { name: networkName } = network;
 const isSimulation = network.name === "hardhat" || network.name === "fork" || network.name === "localhost";
 const bridgeUpgradeImpl = {
   "production-celo": "0xF3eAB7018d74E7Df95A5d8dC70987C0539bDF48f",
-  production: "0xFB62aA509a7B260b6697B671C969a184d6c39E90",
+  production: "0xCaC4215c57ef199210E759AF92bcaD012f61E7A1",
   "production-mainnet": "0x12ab702f015D3302f3cc0c4AbA0626A127D06A07",
   "production-xdc": "0xe4CFA18A3d0a7d77fAA42961ee943c9221d61937"
 };
