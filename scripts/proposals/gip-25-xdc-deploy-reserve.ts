@@ -7,17 +7,16 @@
 // calculate how much G$s each reserve is backing - V
 // deploy distribution helper on xdc - V
 // set distribution helper on xdc expansion controller - V
-// create exchange on mento reserve xdc with calculated parameters - V
 // give mento broker minting rights on xdc - V
 // give expansion controller minting rights - V
 // give genericcall permissions to circuit breaker on all networks - V
 // deploy identity v4 on all chains - V
 
 // Before upgrade:
-// verify bridge impl are the latest
-// verify exchange provider and broker impl on celo are the latest
-// deploy circuti breaker on all chains and update address in deployment.json
-// deploy mento contracts on xdc before upgrade
+// verify bridge impl are the latest - V
+// deploy circuti breaker on all chains and update address in deployment.json - V
+// verify exchange provider and broker impl on celo are the latest - V
+// deploy mento contracts on xdc before upgrade - V
 
 // Post upgrade:
 // run script update celo reserve parameters accordingly
@@ -51,13 +50,13 @@ import { keccak256, toUtf8Bytes } from "ethers/lib/utils";
 let { name: networkName } = network;
 const isSimulation = network.name === "hardhat" || network.name === "fork" || network.name === "localhost";
 const bridgeUpgradeImpl = {
-  "production-celo": "0xF3eAB7018d74E7Df95A5d8dC70987C0539bDF48f",
+  "production-celo": "0x3eDD30A1Cd94dd6D3329B5EbafF5Aa4E0a4E4a55",
   production: "0xCaC4215c57ef199210E759AF92bcaD012f61E7A1",
-  "production-mainnet": "0x12ab702f015D3302f3cc0c4AbA0626A127D06A07",
-  "production-xdc": "0xe4CFA18A3d0a7d77fAA42961ee943c9221d61937"
+  "production-mainnet": "0x3A2D0a9EF558b42AF5FF8d27FE438b466Fa7692F",
+  "production-xdc": "0x00F7f61080EF40d3832C8C06e8A2af757839e1F7"
 };
-const XDC_INITIAL_USDC = 200000 * 1e6;
 
+const circuitBreaker = "";
 export const upgradeCeloStep2 = async (network, checksOnly) => {
   const ExchangeProviderV2Impl = "0xe930CDE20f60d0A4fc9487874861AE259F5Bed48";
   const MentoBrokerV2Impl = "0xc69ae3550E25C7AB28301B9Bf75F20f5AF47B7d2";
@@ -141,15 +140,17 @@ export const upgradeCeloStep2 = async (network, checksOnly) => {
     [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"], //upgrade bridge
     [
       release.MpbBridge,
-      "setBridgeLimits(uint256,uint256,uint256,uint256,bool)",
+      "setBridgeLimits((uint256,uint256,uint256,uint256,bool))",
       ethers.utils.defaultAbiCoder.encode(
         ["(uint256,uint256,uint256,uint256,bool)"],
         [
-          ethers.constants.WeiPerEther.mul(300e6),
-          ethers.constants.WeiPerEther.mul(300e6),
-          ethers.constants.WeiPerEther.mul(300e6),
-          ethers.constants.WeiPerEther.mul(10),
-          false
+          [
+            ethers.constants.WeiPerEther.mul(300e6),
+            ethers.constants.WeiPerEther.mul(300e6),
+            ethers.constants.WeiPerEther.mul(300e6),
+            ethers.constants.WeiPerEther.mul(10),
+            false
+          ]
         ]
       ),
       "0" //set bridge limits
@@ -168,7 +169,7 @@ export const upgradeCeloStep2 = async (network, checksOnly) => {
       "registerScheme(address,bytes32,bytes4,address)",
       ethers.utils.defaultAbiCoder.encode(
         ["address", "bytes32", "bytes4", "address"],
-        [release.CircuitBreaker, ethers.constants.HashZero, "0x00000010", release.Avatar]
+        [circuitBreaker, ethers.constants.HashZero, "0x00000010", release.Avatar]
       ),
       "0"
     ] //give generic call rights to circuit breaker
@@ -274,15 +275,17 @@ export const upgradeFuseStep2 = async (network, checksOnly) => {
     [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"], //upgrade bridge
     [
       release.MpbBridge,
-      "setBridgeLimits(uint256,uint256,uint256,uint256,bool)",
+      "setBridgeLimits((uint256,uint256,uint256,uint256,bool))",
       ethers.utils.defaultAbiCoder.encode(
         ["(uint256,uint256,uint256,uint256,bool)"],
         [
-          ethers.constants.WeiPerEther.mul(300e6),
-          ethers.constants.WeiPerEther.mul(300e6),
-          ethers.constants.WeiPerEther.mul(300e6),
-          ethers.constants.WeiPerEther.mul(10),
-          false
+          [
+            ethers.constants.WeiPerEther.mul(300e6),
+            ethers.constants.WeiPerEther.mul(300e6),
+            ethers.constants.WeiPerEther.mul(300e6),
+            ethers.constants.WeiPerEther.mul(10),
+            false
+          ]
         ]
       ),
       "0" //set bridge limits
@@ -292,7 +295,7 @@ export const upgradeFuseStep2 = async (network, checksOnly) => {
       "registerScheme(address,bytes32,bytes4,address)",
       ethers.utils.defaultAbiCoder.encode(
         ["address", "bytes32", "bytes4", "address"],
-        [release.CircuitBreaker, ethers.constants.HashZero, "0x00000010", release.Avatar]
+        [circuitBreaker, ethers.constants.HashZero, "0x00000010", release.Avatar]
       ),
       "0"
     ], //give generic call rights to circuit breaker
@@ -364,15 +367,17 @@ export const upgradeEthStep2 = async (network, checksOnly) => {
     [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"], //upgrade bridge
     [
       release.MpbBridge,
-      "setBridgeLimits(uint256,uint256,uint256,uint256,bool)",
+      "setBridgeLimits((uint256,uint256,uint256,uint256,bool))",
       ethers.utils.defaultAbiCoder.encode(
         ["(uint256,uint256,uint256,uint256,bool)"],
         [
-          ethers.constants.WeiPerEther.mul(300e6),
-          ethers.constants.WeiPerEther.mul(300e6),
-          ethers.constants.WeiPerEther.mul(300e6),
-          ethers.constants.WeiPerEther.mul(10),
-          false
+          [
+            ethers.constants.WeiPerEther.mul(300e6),
+            ethers.constants.WeiPerEther.mul(300e6),
+            ethers.constants.WeiPerEther.mul(300e6),
+            ethers.constants.WeiPerEther.mul(10),
+            false
+          ]
         ]
       ),
       "0" //set bridge limits
@@ -382,7 +387,7 @@ export const upgradeEthStep2 = async (network, checksOnly) => {
       "registerScheme(address,bytes32,bytes4,address)",
       ethers.utils.defaultAbiCoder.encode(
         ["address", "bytes32", "bytes4", "address"],
-        [release.CircuitBreaker, ethers.constants.HashZero, "0x00000010", release.Avatar]
+        [circuitBreaker, ethers.constants.HashZero, "0x00000010", release.Avatar]
       ),
       "0"
     ] //give generic call rights to circuit breaker
@@ -423,6 +428,9 @@ export const upgradeEthStep2 = async (network, checksOnly) => {
 
 export const upgradeXdcStep2 = async (network, checksOnly) => {
   let [root] = await ethers.getSigners();
+  const MentoReserveImpl = "0xBdaA65e8175875340365d76A660bB2A7a4EFE909";
+  const ExchangeProviderV2Impl = "0xe930CDE20f60d0A4fc9487874861AE259F5Bed48";
+  const MentoBrokerV2Impl = "0xc69ae3550E25C7AB28301B9Bf75F20f5AF47B7d2";
 
   const isProduction = networkName.includes("production");
 
@@ -507,9 +515,30 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
   };
   await releaser(torelease, networkName, "deployment", false);
 
-  console.log({ exchangeId });
+  console.log({ exchangeId, DistHelper: DistHelper.address });
 
   const proposalActions = [
+    [
+      release.MentoProxyAdmin,
+      "upgrade(address,address)",
+      ethers.utils.defaultAbiCoder.encode(
+        ["address", "address"],
+        [release.MentoExchangeProvider, ExchangeProviderV2Impl]
+      ),
+      "0"
+    ],
+    [
+      release.MentoProxyAdmin,
+      "upgrade(address,address)",
+      ethers.utils.defaultAbiCoder.encode(["address", "address"], [release.MentoBroker, MentoBrokerV2Impl]),
+      "0"
+    ],
+    [
+      release.MentoProxyAdmin,
+      "upgrade(address,address)",
+      ethers.utils.defaultAbiCoder.encode(["address", "address"], [release.MentoReserve, MentoReserveImpl]),
+      "0"
+    ],
     [
       release.Controller,
       "registerScheme(address,bytes32,bytes4,address)",
@@ -522,15 +551,17 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
     [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"], //upgrade bridge
     [
       release.MpbBridge,
-      "setBridgeLimits(uint256,uint256,uint256,uint256,bool)",
+      "setBridgeLimits((uint256,uint256,uint256,uint256,bool))",
       ethers.utils.defaultAbiCoder.encode(
         ["(uint256,uint256,uint256,uint256,bool)"],
         [
-          ethers.constants.WeiPerEther.mul(300e6),
-          ethers.constants.WeiPerEther.mul(300e6),
-          ethers.constants.WeiPerEther.mul(300e6),
-          ethers.constants.WeiPerEther.mul(10),
-          false
+          [
+            ethers.constants.WeiPerEther.mul(300e6),
+            ethers.constants.WeiPerEther.mul(300e6),
+            ethers.constants.WeiPerEther.mul(300e6),
+            ethers.constants.WeiPerEther.mul(10),
+            false
+          ]
         ]
       ),
       "0" //set bridge limits
@@ -585,7 +616,7 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
       "registerScheme(address,bytes32,bytes4,address)",
       ethers.utils.defaultAbiCoder.encode(
         ["address", "bytes32", "bytes4", "address"],
-        [release.CircuitBreaker, ethers.constants.HashZero, "0x00000010", release.Avatar]
+        [circuitBreaker, ethers.constants.HashZero, "0x00000010", release.Avatar]
       ),
       "0"
     ] //give generic call rights to circuit breaker

@@ -697,6 +697,6 @@
     "MentoExpansionController": "0x5557E9dEF86ad6564462741a7A3f3679C1223f5d",
     "MentoReserve": "0x94A3240f484A04F5e3d524f528d02694c109463b",
     "MentoBroker": "0x88de45906D4F5a57315c133620cfa484cB297541",
-    "CircuitBreaker": "0xE0c5daa7CC6F88d29505f702a53bb5E67600e7Ec"
+    "DistributionHelper": "0xFebd62fEB51045567a095e0A6050CC66e9289A3c"
   }
 }
