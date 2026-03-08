@@ -11,7 +11,7 @@
 // give mento broker minting rights on xdc - V
 // give expansion controller minting rights - V
 // give genericcall permissions to circuit breaker on all networks - V
-// deploy identity v4 on all chains
+// deploy identity v4 on all chains - V
 
 // Before upgrade:
 // verify bridge impl are the latest
@@ -23,6 +23,7 @@
 // run script update celo reserve parameters accordingly
 // run script to create exchange on xdc with the calculated parameters
 // transfer usdc to xdc reserve
+// verify identity, bridge contract
 
 import { network, ethers, upgrades } from "hardhat";
 import { reset } from "@nomicfoundation/hardhat-network-helpers";
@@ -87,7 +88,8 @@ export const upgradeCeloStep2 = async (network, checksOnly) => {
     });
   }
 
-  const identityImpl = await ethers.deployContract("IdentityV3");
+  const identityImpl = await ethers.deployContract("IdentityV4");
+  const upgradeCall = identityImpl.interface.encodeFunctionData("setReverifyDaysOptions", [[180]]);
   const reserveUpdate = (await deployDeterministic(
     { name: "UpdateReserveRatio" },
     [root.address],
@@ -132,11 +134,26 @@ export const upgradeCeloStep2 = async (network, checksOnly) => {
     ],
     [
       release.Identity,
-      "upgradeTo(address)",
-      ethers.utils.defaultAbiCoder.encode(["address"], [identityImpl.address]),
+      "upgradeToAndCall(address,bytes)",
+      ethers.utils.defaultAbiCoder.encode(["address", "bytes"], [identityImpl.address, upgradeCall]),
       "0"
     ], //upgrade identity
     [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"], //upgrade bridge
+    [
+      release.MpbBridge,
+      "setBridgeLimits(uint256,uint256,uint256,uint256,bool)",
+      ethers.utils.defaultAbiCoder.encode(
+        ["(uint256,uint256,uint256,uint256,bool)"],
+        [
+          ethers.constants.WeiPerEther.mul(300e6),
+          ethers.constants.WeiPerEther.mul(300e6),
+          ethers.constants.WeiPerEther.mul(300e6),
+          ethers.constants.WeiPerEther.mul(10),
+          false
+        ]
+      ),
+      "0" //set bridge limits
+    ],
     [
       release.Controller,
       "registerScheme(address,bytes32,bytes4,address)",
@@ -195,6 +212,8 @@ export const upgradeCeloStep2 = async (network, checksOnly) => {
       release.MentoExchangeProvider
     )) as IBancorExchangeProvider;
 
+    const gd = (await ethers.getContractAt("IGoodDollar", release.GoodDollar)) as IGoodDollar;
+
     const reserveParams = await calculateReserveParams();
     const reserveUpdateResult = await (
       await reserveUpdate.upgrade(
@@ -202,7 +221,7 @@ export const upgradeCeloStep2 = async (network, checksOnly) => {
         release.MentoExchangeProvider,
         release.CUSDExchangeId,
         reserveParams.reserveRatioCelo,
-        reserveParams.celoSupply,
+        await gd.totalSupply(),
         reserveParams.celoGdSupplyEquivalent
       )
     ).wait();
@@ -238,7 +257,8 @@ export const upgradeFuseStep2 = async (network, checksOnly) => {
     });
   }
 
-  const identityImpl = await ethers.deployContract("IdentityV3");
+  const identityImpl = await ethers.deployContract("IdentityV4");
+  const upgradeCall = identityImpl.interface.encodeFunctionData("setReverifyDaysOptions", [[180]]);
   const bridgeImpl = bridgeUpgradeImpl[networkEnv];
 
   // Extract the first four bytes as the function selector
@@ -247,11 +267,26 @@ export const upgradeFuseStep2 = async (network, checksOnly) => {
   const proposalActions = [
     [
       release.Identity,
-      "upgradeTo(address)",
-      ethers.utils.defaultAbiCoder.encode(["address"], [identityImpl.address]),
+      "upgradeToAndCall(address,bytes)",
+      ethers.utils.defaultAbiCoder.encode(["address", "bytes"], [identityImpl.address, upgradeCall]),
       "0"
     ], //upgrade identity
     [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"], //upgrade bridge
+    [
+      release.MpbBridge,
+      "setBridgeLimits(uint256,uint256,uint256,uint256,bool)",
+      ethers.utils.defaultAbiCoder.encode(
+        ["(uint256,uint256,uint256,uint256,bool)"],
+        [
+          ethers.constants.WeiPerEther.mul(300e6),
+          ethers.constants.WeiPerEther.mul(300e6),
+          ethers.constants.WeiPerEther.mul(300e6),
+          ethers.constants.WeiPerEther.mul(10),
+          false
+        ]
+      ),
+      "0" //set bridge limits
+    ],
     [
       release.Controller,
       "registerScheme(address,bytes32,bytes4,address)",
@@ -260,7 +295,8 @@ export const upgradeFuseStep2 = async (network, checksOnly) => {
         [release.CircuitBreaker, ethers.constants.HashZero, "0x00000010", release.Avatar]
       ),
       "0"
-    ] //give generic call rights to circuit breaker
+    ], //give generic call rights to circuit breaker
+    [release.MPBBridge]
   ];
 
   console.log({
@@ -324,9 +360,23 @@ export const upgradeEthStep2 = async (network, checksOnly) => {
   }
 
   const bridgeImpl = bridgeUpgradeImpl[networkEnv];
-
   const proposalActions = [
     [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"], //upgrade bridge
+    [
+      release.MpbBridge,
+      "setBridgeLimits(uint256,uint256,uint256,uint256,bool)",
+      ethers.utils.defaultAbiCoder.encode(
+        ["(uint256,uint256,uint256,uint256,bool)"],
+        [
+          ethers.constants.WeiPerEther.mul(300e6),
+          ethers.constants.WeiPerEther.mul(300e6),
+          ethers.constants.WeiPerEther.mul(300e6),
+          ethers.constants.WeiPerEther.mul(10),
+          false
+        ]
+      ),
+      "0" //set bridge limits
+    ],
     [
       release.Controller,
       "registerScheme(address,bytes32,bytes4,address)",
@@ -412,8 +462,18 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
     release
   });
 
-  const identityImpl = await ethers.deployContract("IdentityV3");
+  const identityImpl = await ethers.deployContract("IdentityV4");
+  const upgradeCall = identityImpl.interface.encodeFunctionData("setReverifyDaysOptions", [[180]]);
   const bridgeImpl = bridgeUpgradeImpl[networkEnv];
+  const reserveUpdate = (await deployDeterministic(
+    { name: "UpdateReserveRatio" },
+    [root.address],
+    {},
+    false,
+    networkEnv
+  )) as UpdateReserveRatio;
+
+  console.log("reserve update deployed at:", reserveUpdate.address);
   console.log("deploying dist helper");
 
   const DistHelper = await deployDeterministic(
@@ -450,11 +510,35 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
   console.log({ exchangeId });
 
   const proposalActions = [
+    [
+      release.Controller,
+      "registerScheme(address,bytes32,bytes4,address)",
+      ethers.utils.defaultAbiCoder.encode(
+        ["address", "bytes32", "bytes4", "address"],
+        [reserveUpdate.address, ethers.constants.HashZero, "0x00000010", release.Avatar]
+      ),
+      "0"
+    ], //give generic call rights to update reserve ratio
     [release.MpbBridge, "upgradeTo(address)", ethers.utils.defaultAbiCoder.encode(["address"], [bridgeImpl]), "0"], //upgrade bridge
     [
+      release.MpbBridge,
+      "setBridgeLimits(uint256,uint256,uint256,uint256,bool)",
+      ethers.utils.defaultAbiCoder.encode(
+        ["(uint256,uint256,uint256,uint256,bool)"],
+        [
+          ethers.constants.WeiPerEther.mul(300e6),
+          ethers.constants.WeiPerEther.mul(300e6),
+          ethers.constants.WeiPerEther.mul(300e6),
+          ethers.constants.WeiPerEther.mul(10),
+          false
+        ]
+      ),
+      "0" //set bridge limits
+    ],
+    [
       release.Identity,
-      "upgradeTo(address)",
-      ethers.utils.defaultAbiCoder.encode(["address"], [identityImpl.address]),
+      "upgradeToAndCall(address,bytes)",
+      ethers.utils.defaultAbiCoder.encode(["address", "bytes"], [identityImpl.address, upgradeCall]),
       "0"
     ], //upgrade identity
     [
@@ -482,24 +566,6 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
       release.MentoExpansionController,
       "setDistributionHelper(address)",
       ethers.utils.defaultAbiCoder.encode(["address"], [DistHelper.address]),
-      "0"
-    ],
-    [
-      release.MentoExchangeProvider,
-      "createExchange((address,address,uint256,uint256,uint32,uint32))",
-      ethers.utils.defaultAbiCoder.encode(
-        ["tuple(address, address, uint256, uint256, uint32, uint32)"],
-        [
-          [
-            release.ReserveToken,
-            release.GoodDollar,
-            reserveParams.xdcGdSupplyEquivalent,
-            XDC_INITIAL_USDC,
-            reserveParams.reserveRatioXdc,
-            10000000
-          ]
-        ]
-      ),
       "0"
     ],
     [
@@ -563,6 +629,18 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
   }
 
   if (!isProduction && isSimulation) {
+    const gd = (await ethers.getContractAt("IGoodDollar", release.GoodDollar)) as IGoodDollar;
+    await reserveUpdate
+      .connect(root)
+      .upgrade(
+        release.Controller,
+        release.MentoExchangeProvider,
+        release.USDCEXchangeId,
+        reserveParams.reserveRatioXdc,
+        await gd.totalSupply(),
+        reserveParams.xdcGdSupplyEquivalent
+      )
+      .then(_ => _.wait());
     const swapper = networkEnv.includes("production")
       ? await ethers.getImpersonatedSigner("0x66582D24FEaD72555adaC681Cc621caCbB208324")
       : root;
@@ -570,7 +648,6 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
     const usdc = await ethers.getContractAt("IERC20", release.USDC);
     const usdcSwapper = await ethers.getImpersonatedSigner("0xD0Ad6BC1c9E6fd9fC1Be1d674109E1AFcC78B058");
     await usdc.connect(usdcSwapper).transfer(swapper.address, 10000e6);
-    const gd = (await ethers.getContractAt("IGoodDollar", release.GoodDollar)) as IGoodDollar;
     const isBrokerMinter = await gd.isMinter(release.MentoBroker);
     const isExpansionMinter = await gd.isMinter(release.MentoExpansionController);
     const mentoExchange = (await ethers.getContractAt(
@@ -716,6 +793,7 @@ const calculateReserveParams = async () => {
   const normalizedRatioXdc = reserveRatioXdc.div("10000000000"); //reduce to 1e8 basis points
   const normalizedRatioCelo = reserveRatioCelo.div("10000000000"); //reduce to 1e8 basis points
   return {
+    realSupply,
     celoSupply,
     reserveRatioXdc: normalizedRatioXdc,
     xdcGdSupplyEquivalent,
@@ -826,5 +904,5 @@ export const main = async () => {
   }
 };
 
-testSwap().catch(console.log);
-// main().catch(console.log);
+// testSwap().catch(console.log);
+main().catch(console.log);
