@@ -314,23 +314,26 @@ export const executeViaGuardian = async (
   const ctrl = await (await ethers.getContractAt("Controller", release.Controller)).connect(guardian);
 
   const results = [];
+  let gasUsed = 0;
   for (let i = 0; i < contracts.length; i++) {
     const contract = contracts[i];
     if (!contract) {
       console.warn("skipping executing missing contract", i, contracts[i], functionSigs[i], functionInputs[i]);
       continue;
     }
+
     console.log("executing:", contracts[i], functionSigs[i], functionInputs[i]);
     const sigHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(functionSigs[i])).slice(0, 10);
     const encoded = ethers.utils.solidityPack(["bytes4", "bytes"], [sigHash, functionInputs[i]]);
     if (contract.toLowerCase().startsWith((await guardian.getAddress()).toLocaleLowerCase())) {
       const [, target] = contract.split("_");
       console.log("executing directly on target contract:", sigHash, encoded);
-
+      gasUsed += await guardian.estimateGas({ to: target, data: encoded }).then(_ => _.toNumber());
       const tx = await guardian.sendTransaction({ to: target, data: encoded }).then(printDeploy);
       results.push(tx);
     } else if (contract === ctrl.address) {
       console.log("executing directly on controller:", sigHash, encoded);
+      gasUsed += await guardian.estimateGas({ to: contract, data: encoded }).then(_ => _.toNumber());
 
       const tx = await guardian.sendTransaction({ to: contract, data: encoded }).then(printDeploy);
 
@@ -339,6 +342,12 @@ export const executeViaGuardian = async (
       const simulationResult = await ctrl.callStatic.genericCall(contract, encoded, release.Avatar, ethValues[i], {
         from: await guardian.getAddress()
       });
+      gasUsed += await ctrl.estimateGas
+        .genericCall(contract, encoded, release.Avatar, ethValues[i], {
+          from: await guardian.getAddress()
+        })
+        .then(_ => _.toNumber());
+
       console.log("executing genericCall:", {
         sigHash,
         contract,
@@ -356,6 +365,7 @@ export const executeViaGuardian = async (
       results.push(tx);
     }
   }
+  console.log("total gas used:", gasUsed);
   return results;
 };
 
@@ -423,7 +433,7 @@ export const executeViaSafe = async (
   const safeService = new SafeApiKit({
     chainId: BigInt(chainId),
     txServiceUrl,
-    apiKey: process.env.SAFE_TX_SERVICE_API_KEY || ""
+    apiKey: txServiceUrl ? undefined : process.env.SAFE_TX_SERVICE_API_KEY
   });
 
   const safeSdk = await Safe.init({
@@ -522,7 +532,10 @@ export const executeViaSafe = async (
   }
 
   const safeTransaction = await safeSdk.createTransaction({
-    transactions: safeTransactionData
+    transactions: safeTransactionData,
+    options: {
+      ...safeOptions
+    }
   });
 
   const safeTxHash = await safeSdk.getTransactionHash(safeTransaction);
@@ -536,13 +549,63 @@ export const executeViaSafe = async (
     senderSignature: signedHash,
     senderAddress
   });
-  await safeService.proposeTransaction({
-    safeAddress,
-    safeTransactionData: safeTransaction.data,
-    safeTxHash,
-    senderSignature: signedHash.data,
-    senderAddress
-  });
+
+  if (chainId === 122) {
+    const fuseResult = await proposeFuseTx({
+      safeAddress,
+      safeTransactionData: safeTransaction.data,
+      safeTxHash,
+      senderSignature: signedHash.data,
+      senderAddress,
+      origin: "safe.fuse.io"
+    });
+  } else {
+    await safeService.proposeTransaction({
+      safeAddress,
+      safeTransactionData: safeTransaction.data,
+      safeTxHash,
+      senderSignature: signedHash.data,
+      senderAddress
+    });
+  }
+};
+
+const proposeFuseTx = async ({
+  safeAddress,
+  safeTransactionData,
+  safeTxHash,
+  senderAddress,
+  senderSignature,
+  origin
+}) => {
+  const headers = {
+    Accept: "application/json",
+    "Content-Type": "application/json"
+  };
+
+  const response = await fetch(
+    `https://transaction-fuse.safe.fuse.io/api/v1/safes/${safeAddress}/multisig-transactions/`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        ...safeTransactionData,
+        contractTransactionHash: safeTxHash,
+        sender: senderAddress,
+        signature: senderSignature,
+        origin
+      })
+    }
+  );
+  let jsonResponse;
+  try {
+    jsonResponse = await response.json();
+  } catch (error) {
+    if (!response.ok) {
+      throw new Error(response.statusText);
+    }
+  }
+  return jsonResponse;
 };
 
 export const verifyContract = async (

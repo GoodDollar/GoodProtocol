@@ -194,7 +194,8 @@ export const upgradeCeloStep2 = async (network, checksOnly) => {
       proposalFunctionSignatures,
       proposalFunctionInputs,
       release.GuardiansSafe,
-      "celo"
+      "celo",
+      { safeTxGas: "2000000" }
     );
   } else if (!checksOnly) {
     await executeViaGuardian(
@@ -298,8 +299,7 @@ export const upgradeFuseStep2 = async (network, checksOnly) => {
         [circuitBreaker, ethers.constants.HashZero, "0x00000010", release.Avatar]
       ),
       "0"
-    ], //give generic call rights to circuit breaker
-    [release.MPBBridge]
+    ] //give generic call rights to circuit breaker
   ];
 
   console.log({
@@ -321,7 +321,8 @@ export const upgradeFuseStep2 = async (network, checksOnly) => {
       proposalFunctionSignatures,
       proposalFunctionInputs,
       release.GuardiansSafe,
-      "fuse"
+      "fuse",
+      { safeTxGas: "2000000" }
     );
   } else if (!checksOnly) {
     await executeViaGuardian(
@@ -412,7 +413,8 @@ export const upgradeEthStep2 = async (network, checksOnly) => {
       proposalFunctionSignatures,
       proposalFunctionInputs,
       release.GuardiansSafe,
-      "mainnet"
+      "mainnet",
+      { safeTxGas: "2000000" }
     );
   } else if (!checksOnly) {
     await executeViaGuardian(
@@ -645,7 +647,8 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
       proposalFunctionSignatures,
       proposalFunctionInputs,
       release.GuardiansSafe,
-      "xdc"
+      "xdc",
+      { safeTxGas: "2000000" }
     );
   } else if (!checksOnly) {
     await executeViaGuardian(
