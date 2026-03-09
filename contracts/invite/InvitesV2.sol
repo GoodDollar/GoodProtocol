@@ -7,8 +7,9 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "../Interfaces.sol";
 import "../utils/NameService.sol";
 import "../utils/DAOUpgradeableContract.sol";
+import "../ubi/UBISchemeV2.sol";
 
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 /**
  * @title InvitesV1 contract that handles invites with pre allocated bounty pool
@@ -58,6 +59,9 @@ contract InvitesV2 is DAOUpgradeableContract {
 	bool public levelExpirationEnabled;
 
 	bytes32 private campaignCode;
+
+	uint8 public minimumClaims; // minimum claims required for invitee to be eligible for bounty
+	uint8 public minimumDays; // minimum days since join required for invitee to be eligible for bounty
 
 	event InviteeJoined(address indexed inviter, address indexed invitee);
 	event InviterBounty(
@@ -173,8 +177,21 @@ contract InvitesV2 is DAOUpgradeableContract {
 
 	function canCollectBountyFor(address _invitee) public view returns (bool) {
 		address invitedBy = users[_invitee].invitedBy;
+		bool hasMinClaims = true;
+
+		try
+			UBISchemeV2(nameService.getAddress("UBISCHEME")).totalClaimsPerUser(
+				_invitee
+			)
+		returns (uint256 claims) {
+			hasMinClaims = claims >= minimumClaims;
+		} catch {
+			hasMinClaims = true; // if call fails for any reason we dont want to block bounty collection
+		}
 
 		return
+			block.timestamp >= users[_invitee].joinedAt + minimumDays * 1 days && // wait at least 7 day before allowing bounty collection
+			hasMinClaims && // invitee needs to have made at least 3 claim
 			users[_invitee].bountyAtJoin > 0 &&
 			!users[_invitee].bountyPaid &&
 			getIdentity().isWhitelisted(_invitee) &&
@@ -247,14 +264,6 @@ contract InvitesV2 is DAOUpgradeableContract {
 		if (invitedBy != address(this) && invitedBy != address(0)) {
 			uint256 joinedAt = users[_invitee].joinedAt;
 			Level memory level = levels[users[invitedBy].level];
-
-			//hardcoded for users invited before the bountyAtJoin change
-			if (bountyToPay == 0) {
-				uint precision = 10 ** goodDollar.decimals();
-				bountyToPay = joinedAt > 1687878272
-					? 1000 * precision
-					: 500 * precision;
-			}
 
 			// if inviter level is now higher than when invitee joined or the base level has changed
 			// we give level bounty if it is higher otherwise the original bounty at the time the user registered
@@ -338,6 +347,12 @@ contract InvitesV2 is DAOUpgradeableContract {
 		codeToUser[campaignCode] = address(this);
 	}
 
+	/// @notice set minimum claims and days required for invitee to be eligible for reward
+	function setMinimums(uint8 _minClaims, uint8 _minDays) public ownerOrAvatar {
+		minimumClaims = _minClaims;
+		minimumDays = _minDays;
+	}
+
 	function end() public ownerOrAvatar isActive {
 		uint256 gdBalance = goodDollar.balanceOf(address(this));
 		goodDollar.transfer(msg.sender, gdBalance);
@@ -363,8 +378,9 @@ contract InvitesV2 is DAOUpgradeableContract {
 	 * 2.1 prevent multichain claims
 	 * 2.2 record bounty at join time
 	 * 2.3 support campaignCode
+	 * 2.4 minimum claims and days requirement for bounty eligibility
 	 */
 	function version() public pure returns (string memory) {
-		return "2.3";
+		return "2.4";
 	}
 }

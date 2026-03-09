@@ -1,7 +1,7 @@
 import hre, { ethers, upgrades } from "hardhat";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
-import { InvitesV2, IGoodDollar, IIdentity, IdentityV2 } from "../../types";
+import { InvitesV2, IGoodDollar, IIdentity, IdentityV2, UBISchemeV2 } from "../../types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import IdentityABI from "@gooddollar/goodcontracts/build/contracts/Identity.json";
 
@@ -14,6 +14,8 @@ describe("InvitesV2", () => {
   let inviter1, inviter2, invitee1, invitee2, invitee3, invitee4, invitee5, invitee6, invitee7, invitee8;
 
   let avatar, gd: IGoodDollar, Controller, id: IdentityV2, setDAOAddress, setSchemes;
+
+  let ubi: UBISchemeV2;
 
   const initialState = async () => {};
   before(async () => {
@@ -40,10 +42,10 @@ describe("InvitesV2", () => {
     invites = (await upgrades.deployProxy(InvitesV2, [nameService.address, 500, founder.address], {
       kind: "uups"
     })) as InvitesV2;
-
+    ubi = await upgrades.deployProxy(await ethers.getContractFactory("UBISchemeV2"), [nameService.address, 1000]);
+    await setDAOAddress("UBISCHEME", ubi.address);
     gd = (await ethers.getContractAt("IGoodDollar", gooddollar, founder)) as IGoodDollar;
     id = (await ethers.getContractAt("IdentityV3", identity, founder)) as IdentityV2;
-
     await gd["mint(address,uint256)"](invites.address, BN.from(5000));
     await loadFixture(initialState);
     // await gd.transfer(invites.address, BN.from(5000));
@@ -69,7 +71,7 @@ describe("InvitesV2", () => {
   it("should have version", async () => {
     expect(await invites.active()).to.be.true;
     const version = await invites.version();
-    expect(version).to.be.equal("2.3");
+    expect(version).to.be.equal("2.4");
   });
 
   it("should let anyone join", async () => {
@@ -409,5 +411,48 @@ describe("InvitesV2", () => {
     expect(await gd.balanceOf(invites.address).then(_ => _.toNumber())).to.be.gt(0);
     await invites.end();
     expect(await gd.balanceOf(invites.address).then(_ => _.toNumber())).to.be.eq(0);
+  });
+
+  describe("minimums", () => {
+    it("should not allow bounty collection before minimum days", async () => {
+      await loadFixture(initialState);
+      await invites.setMinimums(0, 1);
+      await invites.setCampaignCode(ethers.utils.formatBytes32String("test"));
+
+      const tx = await invites
+        .connect(invitee1)
+        .join(ethers.utils.hexZeroPad(invitee1.address, 32), ethers.utils.formatBytes32String("test"));
+      const { events } = await tx.wait();
+      const bountyEvent = events.find(_ => _.event === "InviterBounty");
+      expect(bountyEvent).undefined;
+
+      await id.addWhitelistedWithDID(invitee1.address, Math.random() + "").catch(e => e);
+
+      expect(await invites.canCollectBountyFor(invitee1.address)).to.be.false;
+      await time.increase(1 * 24 * 3600); // increase time by 2 days
+      expect(await invites.canCollectBountyFor(invitee1.address)).to.be.true;
+    });
+
+    it("should not allow bounty collection before minimum claims", async () => {
+      await loadFixture(initialState);
+      await invites.setMinimums(1, 0);
+      await invites.setCampaignCode(ethers.utils.formatBytes32String("test"));
+
+      const tx = await invites
+        .connect(invitee1)
+        .join(ethers.utils.hexZeroPad(invitee1.address, 32), ethers.utils.formatBytes32String("test"));
+      const { events } = await tx.wait();
+      const bountyEvent = events.find(_ => _.event === "InviterBounty");
+      expect(bountyEvent).undefined;
+
+      await id.addWhitelistedWithDID(invitee1.address, Math.random() + "").catch(e => e);
+
+      expect(await invites.canCollectBountyFor(invitee1.address)).to.be.false;
+      await ubi
+        .connect(invitee1)
+        .claim()
+        .then(_ => _.wait());
+      expect(await invites.canCollectBountyFor(invitee1.address)).to.be.true;
+    });
   });
 });

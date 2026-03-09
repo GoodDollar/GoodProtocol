@@ -459,7 +459,10 @@ export const deployUBI = async (deployedDAO, withFirstClaim = true) => {
 
   await genericCall(gd, encoded);
 
-  console.log("set firstclaim,ubischeme as scheme and starting...");
+  console.log("set firstclaim,ubischeme as scheme and starting...", {
+    ubischeme: ubiScheme.address,
+    firstClaim: firstClaim.address
+  });
   await setSchemes([firstClaim.address, ubiScheme.address]);
 
   if (withFirstClaim) {
