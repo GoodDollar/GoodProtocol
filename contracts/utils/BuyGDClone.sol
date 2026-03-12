@@ -571,9 +571,6 @@ contract BuyGDCloneFactory {
 	address public immutable mentoExchangeProvider;
 	bytes32 public immutable mentoExchangeId;
 
-	UniswapPath internal cusdPath;
-	UniswapPath internal celoPath;
-
 	/**
 	 * @notice Initializes the BuyGDCloneFactory contract with the provided parameters.
 	 * @param _router The address of the SwapRouter contract.
@@ -625,19 +622,7 @@ contract BuyGDCloneFactory {
 		}
 		_oracle.prepareAllAvailablePoolsWithTimePeriod(stable, gd, PERIOD); //cusd/stable pools
 	}
-
-	/**
-		@dev Returns the Uniswap path for cUSD.
-	 */
-	function getCUsdPath() external view returns (UniswapPath memory) {
-		return cusdPath;
-	}
-	/**
-		@dev Returns the Uniswap path for Celo.
-	 */
-	function getCeloPath() external view returns (UniswapPath memory) {
-		return celoPath;
-	}
+	
 	/**
 	 * @notice Creates a new clone of the BuyGDClone contract with the provided owner address.
 	 * @param owner The address of the owner of the new BuyGDClone contract.
