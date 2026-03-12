@@ -360,6 +360,10 @@ contract InvitesV2 is DAOUpgradeableContract {
 		active = false;
 	}
 
+	function setOwner(address _owner) public ownerOrAvatar {
+		owner = _owner;
+	}
+
 	/// @notice helper function to get current chain id
 	/// @return chainId id
 	function _chainId() internal view returns (uint256 chainId) {
