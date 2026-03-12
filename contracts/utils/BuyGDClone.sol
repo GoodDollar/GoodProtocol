@@ -84,14 +84,35 @@ contract BuyGDCloneV2 is Initializable {
 	 * @notice Initializes the contract with the owner's address.
 	 * @param _owner The address of the owner of the contract.
 	 */
-	function initialize(address _owner, UniswapPath memory _cusdPath, UniswapPath memory _celoPath)
-		external 
-		initializer {
+	function initialize(address _owner) external initializer {
 		owner = _owner;
 
-		// Initialize hardcoded default paths
-		cusdPath = _cusdPath;
-		celoPath = _celoPath;
+		// Initialize hardcoded default Uniswap paths
+		// cUSD -> USDC -> GLOUSD -> G$
+		address[] memory cusdTokens = new address[](4);
+		cusdTokens[0] = CUSD;
+		cusdTokens[1] = USDC;
+		cusdTokens[2] = GLOUSD;
+		cusdTokens[3] = gd;
+
+		uint24[] memory cusdFees = new uint24[](3);
+		cusdFees[0] = 100;
+		cusdFees[1] = 100;
+		cusdFees[2] = GD_FEE_TIER;
+
+		cusdPath = UniswapPath({tokens: cusdTokens, fees: cusdFees});
+
+		// CELO -> GLOUSD -> G$
+		address[] memory celoTokens = new address[](3);
+		celoTokens[0] = celo;
+		celoTokens[1] = GLOUSD;
+		celoTokens[2] = gd;
+
+		uint24[] memory celoFees = new uint24[](2);
+		celoFees[0] = 500;
+		celoFees[1] = GD_FEE_TIER;
+
+		celoPath = UniswapPath({tokens: celoTokens, fees: celoFees});
 	}
 
 	function getSwapPath(address[] memory tokens, uint24[] memory fees) public pure returns (bytes memory path) {
@@ -522,6 +543,8 @@ contract BuyGDCloneFactory {
 		IQuoterV2(0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8); // celo quoter
 	address public constant CUSD = 0x765DE816845861e75A25fCA122bb6898B8B1282a;
 	address public constant celo = 0x471EcE3750Da237f93B8E339c536989b8978a438;
+	address public constant USDC = 0xcebA9300f2b948710d2653dD7B07f33A8B32118C;
+	address public constant GLOUSD = 0x4F604735c1cF31399C6E711D5962b2B3E0225AD3;
 	uint24 public constant PERIOD = 600;
 
 	address public immutable impl;
@@ -566,9 +589,7 @@ contract BuyGDCloneFactory {
 		IQuoterV2 _quoter,
 		IBroker _mentoBroker,
 		address _mentoExchangeProvider,
-		bytes32 _mentoExchangeId,
-		UniswapPath memory _cusdPath,
-		UniswapPath memory _celoPath
+		bytes32 _mentoExchangeId
 	) {
 		impl = address(new BuyGDCloneV2(_router, _stable, _gd, _oracle, _quoter, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId));
 		donateImpl = address(new DonateGDClone(_router, _stable, _gd, _oracle, _quoter, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId));
@@ -576,18 +597,27 @@ contract BuyGDCloneFactory {
 		stable = _stable;
 		oracle = _oracle;
 		router = _router;
-		
+
 		mentoBroker = _mentoBroker;
 		mentoExchangeProvider = _mentoExchangeProvider;
 		mentoExchangeId = _mentoExchangeId;
 
-		cusdPath = _cusdPath;
-		celoPath = _celoPath;
-		for (uint256 i = 0; i < cusdPath.tokens.length - 2; i++) {
-			_oracle.prepareAllAvailablePoolsWithTimePeriod(cusdPath.tokens[i], cusdPath.tokens[i + 1], PERIOD); //cusd/stable pools
+		address[] memory cusdTokens = new address[](4);
+		cusdTokens[0] = CUSD;
+		cusdTokens[1] = USDC;
+		cusdTokens[2] = GLOUSD;
+		cusdTokens[3] = gd;
+
+		address[] memory celoTokens = new address[](3);
+		celoTokens[0] = celo;
+		celoTokens[1] = GLOUSD;
+		celoTokens[2] = gd;
+
+		for (uint256 i = 0; i < cusdTokens.length - 2; i++) {
+			_oracle.prepareAllAvailablePoolsWithTimePeriod(cusdTokens[i], cusdTokens[i + 1], PERIOD); //cusd/stable pools
 		}
-		for (uint256 i = 0; i < celoPath.tokens.length - 2; i++) {
-			_oracle.prepareAllAvailablePoolsWithTimePeriod(celoPath.tokens[i], celoPath.tokens[i + 1], PERIOD); //celo/stable pools
+		for (uint256 i = 0; i < celoTokens.length - 2; i++) {
+			_oracle.prepareAllAvailablePoolsWithTimePeriod(celoTokens[i], celoTokens[i + 1], PERIOD); //celo/stable pools
 		}
 		_oracle.prepareAllAvailablePoolsWithTimePeriod(stable, gd, PERIOD); //cusd/stable pools
 	}
@@ -612,7 +642,7 @@ contract BuyGDCloneFactory {
 	function create(address owner) public returns (address) {
 		bytes32 salt = keccak256(abi.encode(owner));
 		address clone = ClonesUpgradeable.cloneDeterministic(impl, salt);
-		BuyGDCloneV2(payable(clone)).initialize(owner, cusdPath, celoPath);
+		BuyGDCloneV2(payable(clone)).initialize(owner);
 		return clone;
 	}
 

@@ -78,9 +78,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       MENTO_BROKER,
       MENTO_EXCHANGE_PROVIDER,
       MENTO_EXCHANGE_ID,
-      cusdPath,
-      celoPath,
-      {gasLimit: 25000000}
+      { gasLimit: 25000000 }
     )) as BuyGDCloneFactory;
 
     await factory.deployed();
@@ -129,10 +127,8 @@ describe("BuyGDClone - Celo Fork E2E", function () {
         QUOTE,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
-        ethers.constants.HashZero,
-        cusdPath,
-        celoPath,
-    )) as BuyGDCloneFactory;
+        ethers.constants.HashZero
+      )) as BuyGDCloneFactory;
 
       await factoryWithoutMento.create(user.address);
       const cloneAddress = await factoryWithoutMento.predict(user.address);
@@ -204,9 +200,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
         QUOTE,
         ethers.constants.AddressZero,
         ethers.constants.AddressZero,
-        ethers.constants.HashZero,
-        cusdPath,
-        celoPath,
+        ethers.constants.HashZero
       )) as BuyGDCloneFactory;
 
       await factoryWithoutMento.create(user.address);
