@@ -126,7 +126,7 @@ contract BuyGDCloneV2 is Initializable {
 	}
 
 	/**
-	 * @notice Swaps either Celo or stable for GD tokens.
+	 * @notice Swaps either Celo or CUSD for GD tokens.
 	 * @dev If the contract has a balance of Celo, it will swap Celo for GD tokens.
 	 * @dev If the contract has a balance of stable, it will swap stable for GD tokens.
 	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
