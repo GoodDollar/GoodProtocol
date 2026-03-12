@@ -37,6 +37,9 @@ contract BuyGDCloneV2 is Initializable {
 	address public constant GLOUSD = 0x4F604735c1cF31399C6E711D5962b2B3E0225AD3;
 
 	uint24 public constant GD_FEE_TIER = 500;
+	uint24 public constant CUSD_STABLE_FEE_TIER = 100;
+	uint24 public constant CELO_STABLE_FEE_TIER = 500;
+
 	uint32 public immutable twapPeriod;
 	address public immutable stable;
 	address public immutable gd;
@@ -48,11 +51,12 @@ contract BuyGDCloneV2 is Initializable {
 	address public immutable mentoExchangeProvider;
 	bytes32 public immutable mentoExchangeId;
 
-	address public owner;
-
 	// Hardcoded default paths for Uniswap swaps
 	UniswapPath internal cusdPath;
 	UniswapPath internal celoPath;
+	
+	address public owner;
+
 	
 	/** Gas cost reserve when refundGas != owner (0.1$) */
 	uint256 public constant CUSD_GAS_COSTS = 1e17;
@@ -380,7 +384,7 @@ contract BuyGDCloneV2 is Initializable {
 		uint128 toConvert = uint128(baseAmount);
 		if (baseToken == celo) {
 			/// Set the fee to 500 since there is no pool with a 100 fee tier
-			fees[0] = 500;
+			fees[0] = CELO_STABLE_FEE_TIER;
 			(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
 				toConvert,
 				baseToken,
@@ -390,7 +394,7 @@ contract BuyGDCloneV2 is Initializable {
 			);
 			toConvert = uint128(quote);
 		} else if (baseToken == CUSD && stable != CUSD) {
-			fees[0] = 100;
+			fees[0] = CUSD_STABLE_FEE_TIER;
 			(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
 				toConvert,
 				baseToken,
