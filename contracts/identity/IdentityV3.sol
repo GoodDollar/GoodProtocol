@@ -58,6 +58,9 @@ contract IdentityV3 is
 	event ContractAdded(address indexed account);
 	event ContractRemoved(address indexed account);
 
+	event AccountConnected(address indexed connected, address indexed to);
+	event AccountDisconnected(address indexed disconnected, address indexed from);
+
 	function initialize(
 		address _owner,
 		IIdentity _oldIdentity
@@ -419,6 +422,7 @@ contract IdentityV3 is
 		require(connectedAccounts[account] == address(0x0), "already connected");
 
 		connectedAccounts[account] = msg.sender;
+		emit AccountConnected(account, msg.sender);
 	}
 
 	/**
@@ -431,6 +435,7 @@ contract IdentityV3 is
 			"unauthorized"
 		);
 		delete connectedAccounts[connected];
+		emit AccountDisconnected(connected, msg.sender);
 	}
 
 	/**

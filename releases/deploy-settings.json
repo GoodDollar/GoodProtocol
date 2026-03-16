@@ -311,6 +311,9 @@
   "production-xdc": {
     "gasPrice": 12.5e9,
     "superfluidHost": "0x0000000000000000000000000000000000000000",
+    "reserve": {
+      "gasToken": "0x951857744785e80e2de051c32ee7b25f9c458c42"
+    },
     "ubi": {
       "maxInactiveDays": 14,
       "minActiveUsers": 30000
