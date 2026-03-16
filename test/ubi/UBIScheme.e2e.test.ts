@@ -207,7 +207,7 @@ describe("UBIScheme - network e2e tests", () => {
       founder.address,
       ethers.utils.parseEther("1000")
     );
-    dai.approve(simpleStaking.address, ethers.utils.parseEther("1000"));
+    await dai.approve(simpleStaking.address, ethers.utils.parseEther("1000"));
     await simpleStaking.stake(ethers.utils.parseEther("1000"), 0, false);
     await cDAI["mint(address,uint256)"](
       founder.address,
