@@ -19,10 +19,10 @@
 // deploy mento contracts on xdc before upgrade - V
 
 // Post upgrade:
-// run script update celo reserve parameters accordingly
-// run script to create exchange on xdc with the calculated parameters
-// transfer usdc to xdc reserve
-// verify identity, bridge contract
+// run script update celo reserve parameters accordingly - V
+// run script to create exchange on xdc with the calculated parameters - V
+// transfer usdc to xdc reserve - V
+// verify identity, bridge contract - V
 
 import { network, ethers, upgrades } from "hardhat";
 import { reset } from "@nomicfoundation/hardhat-network-helpers";
@@ -475,35 +475,39 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
   const identityImpl = await ethers.deployContract("IdentityV4");
   const upgradeCall = identityImpl.interface.encodeFunctionData("setReverifyDaysOptions", [[180]]);
   const bridgeImpl = bridgeUpgradeImpl[networkEnv];
-  const reserveUpdate = (await deployDeterministic(
-    { name: "UpdateReserveRatio" },
-    [root.address],
-    {},
-    false,
-    networkEnv
-  )) as UpdateReserveRatio;
+  const reserveUpdate = checksOnly
+    ? await ethers.getContractAt("UpdateReserveRatio", "0x2431F53AFda24130722dBEb9F9b1B0b8d2fbB197")
+    : ((await deployDeterministic(
+        { name: "UpdateReserveRatio" },
+        [root.address],
+        {},
+        false,
+        networkEnv
+      )) as UpdateReserveRatio);
 
   console.log("reserve update deployed at:", reserveUpdate.address);
   console.log("deploying dist helper");
 
-  const DistHelper = await deployDeterministic(
-    {
-      name: "DistributionHelper",
-      factory: await ethers.getContractFactory("GenericDistributionHelper"),
-      isUpgradeable: true
-    },
-    [
-      release.NameService,
-      release.StaticOracle,
-      release.WXDC,
-      release.ReserveToken,
-      release.UniswapV3Router,
-      [ethers.utils.parseEther("20"), ethers.utils.parseEther("20"), 5, 5]
-    ],
-    {},
-    false,
-    networkEnv
-  );
+  const DistHelper = checksOnly
+    ? await ethers.getContractAt("GenericDistributionHelper", release.DistributionHelper)
+    : await deployDeterministic(
+        {
+          name: "DistributionHelper",
+          factory: await ethers.getContractFactory("GenericDistributionHelper"),
+          isUpgradeable: true
+        },
+        [
+          release.NameService,
+          release.StaticOracle,
+          release.WXDC,
+          release.ReserveToken,
+          release.UniswapV3Router,
+          [ethers.utils.parseEther("20"), ethers.utils.parseEther("20"), 5, 5]
+        ],
+        {},
+        false,
+        networkEnv
+      );
 
   const exchangeId = keccak256(ethers.utils.solidityPack(["string", "string"], ["USDC", "G$"]));
 
@@ -515,6 +519,7 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
     ...release,
     ...torelease
   };
+
   await releaser(torelease, networkName, "deployment", false);
 
   console.log({ exchangeId, DistHelper: DistHelper.address });
@@ -664,6 +669,7 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
 
   if (!isProduction && isSimulation) {
     const gd = (await ethers.getContractAt("IGoodDollar", release.GoodDollar)) as IGoodDollar;
+    console.log({ reserveParams }, reserveUpdate.address);
     await reserveUpdate
       .connect(root)
       .upgrade(
@@ -675,6 +681,7 @@ export const upgradeXdcStep2 = async (network, checksOnly) => {
         reserveParams.xdcGdSupplyEquivalent
       )
       .then(_ => _.wait());
+    console.log("reserve update executed....");
     const swapper = networkEnv.includes("production")
       ? await ethers.getImpersonatedSigner("0x66582D24FEaD72555adaC681Cc621caCbB208324")
       : root;
@@ -784,11 +791,12 @@ const calculateReserveParams = async () => {
   const totalUSD = reserveBalance.add(xdcReserveBalance); //reserve + 200k in xdc
   const xdcSupplyShare = xdcReserveBalance.mul(ethers.constants.WeiPerEther).div(totalUSD);
   const xdcGdSupplyEquivalent = realSupply.mul(xdcSupplyShare).div(ethers.constants.WeiPerEther);
-  const price = ethers.utils.parseUnits("0.0001283", 18);
+  const price = ethers.utils.parseUnits("0.00013", 18);
   const celoGdSupplyEquivalent = realSupply.sub(xdcGdSupplyEquivalent);
 
   console.log({
     totalSupply,
+    celoSupply,
     totalLocked,
     realSupply,
     reserveBalance,
@@ -909,9 +917,70 @@ const testSwap = async () => {
   // );
   // console.log("amount out:", amountout);
 };
+
+const celoUpgrade = async () => {
+  let release: { [key: string]: any } = dao["production-celo"];
+  let root = (await ethers.getSigners())[0];
+  const exchange = (await ethers.getContractAt(
+    "IBancorExchangeProvider",
+    release.MentoExchangeProvider
+  )) as IBancorExchangeProvider;
+  if (root.address.toLowerCase() != "0x5128E3C1f8846724cc1007Af9b4189713922E4BB".toLowerCase())
+    root = await ethers.getImpersonatedSigner("0x5128E3C1f8846724cc1007Af9b4189713922E4BB");
+  const exchangeBefore = await exchange.getPoolExchange(release.CUSDExchangeId);
+  console.log("Exchange before update", exchangeBefore);
+
+  const reserveUpdate = await ethers.getContractAt("UpdateReserveRatio", "0x1f3d49414E4B7b32a5E23FbCA71778dF760D97A3");
+  const reserveParams = await calculateReserveParams();
+  const total = reserveParams.celoGdSupplyEquivalent.add(reserveParams.xdcGdSupplyEquivalent);
+  console.log("supply match:", total == exchangeBefore.tokenSupply, { total, onexchange: exchangeBefore.tokenSupply });
+  const reserveUpdateResult = await (
+    await reserveUpdate
+      .connect(root)
+      .upgrade(
+        release.Controller,
+        release.MentoExchangeProvider,
+        release.CUSDExchangeId,
+        reserveParams.reserveRatioCelo,
+        reserveParams.celoSupply,
+        reserveParams.celoGdSupplyEquivalent
+      )
+  ).wait();
+  console.log("Exchange after update", await exchange.getPoolExchange(release.CUSDExchangeId));
+  console.log("Price:", await exchange.currentPrice(release.CUSDExchangeId));
+};
+const xdcUpgrade = async () => {
+  console.log("network:", await ethers.provider.getNetwork());
+  let release: { [key: string]: any } = dao["production-xdc"];
+  let root = (await ethers.getSigners())[0];
+  const exchange = (await ethers.getContractAt(
+    "IBancorExchangeProvider",
+    release.MentoExchangeProvider
+  )) as IBancorExchangeProvider;
+  if (root.address.toLowerCase() != "0x5128E3C1f8846724cc1007Af9b4189713922E4BB".toLowerCase())
+    root = await ethers.getImpersonatedSigner("0x5128E3C1f8846724cc1007Af9b4189713922E4BB");
+  // const exchangeBefore = await exchange.getPoolExchange(release.CUSDExchangeId);
+  // console.log("Exchange before update", exchangeBefore);
+
+  const reserveUpdate = await ethers.getContractAt("UpdateReserveRatio", "0x2431F53AFda24130722dBEb9F9b1B0b8d2fbB197");
+  const reserveUpdateResult = await (
+    await reserveUpdate
+      .connect(root)
+      .upgrade(
+        release.Controller,
+        release.MentoExchangeProvider,
+        release.USDCEXchangeId,
+        "41408110",
+        "102060618533016992274287903",
+        "3715362840972879360199738714"
+      )
+  ).wait();
+  console.log("Exchange after update", await exchange.getPoolExchange(release.USDCEXchangeId));
+  console.log("Price:", await exchange.currentPrice(release.USDCEXchangeId));
+};
 export const main = async () => {
-  // await calculateReserveParams();
-  // return;
+  await xdcUpgrade();
+  return;
   prompt.start();
   const { network } = await prompt.get(["network"]);
 
@@ -933,7 +1002,7 @@ export const main = async () => {
 
       break;
     case "xdc":
-      await upgradeXdcStep2(network, false);
+      await upgradeXdcStep2(network, true);
       break;
   }
 };
