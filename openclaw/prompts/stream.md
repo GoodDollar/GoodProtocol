@@ -1,3 +1,8 @@
+---
+name: stream
+description: Manage Superfluid Constant Flow Agreement v1 streams for GoodDollar's SuperToken.
+---
+
 Action: `stream` (Superfluid Constant Flow Agreement v1)
 
 When to use:

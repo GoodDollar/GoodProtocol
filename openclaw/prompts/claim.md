@@ -1,3 +1,8 @@
+---
+name: claim
+description: Claim daily GoodDollar UBI via `UBIScheme.claim()` using `IDENTITY` whitelist checks.
+---
+
 Action: `claim` (GoodProtocol UBI claim)
 
 When to use:

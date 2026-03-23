@@ -1,3 +1,8 @@
+---
+name: check-identity
+description: Check whether an address is whitelisted/authenticated for UBI/claim eligibility.
+---
+
 Action: `check identity` (is account whitelisted/authenticated?)
 
 When to use:

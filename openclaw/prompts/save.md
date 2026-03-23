@@ -1,3 +1,8 @@
+---
+name: save
+description: Stake/save GoodDollar by calling `GoodDollarStaking.stake` after resolving `GDAO_STAKING` via `INameService`.
+---
+
 Action: `save` (stake/supply GoodDollar)
 
 When to use:

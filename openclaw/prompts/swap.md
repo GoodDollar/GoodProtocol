@@ -1,3 +1,8 @@
+---
+name: swap
+description: Buy or sell GoodDollar (G$) using Mento Reserve + Mento exchange via `MentoBroker.swapIn` (buy) or `swapOut` (sell).
+---
+
 Action: `swap` (MentoReserve + Mento exchange via `MentoBroker.swapIn` / `swapOut`)
 
 When to use:
@@ -7,6 +12,7 @@ When to use:
 
 Inputs to request (if missing):
 Common:
+- `nameServiceAddress` (required if `gdAddress` is not provided; used for `nameService.getAddress("GOODDOLLAR")`)
 - `rpcUrl` + `chainId`
 - `privateKey` (or other signer) for sending the tx
 
@@ -17,7 +23,7 @@ Mento config (required):
 
 Tokens (required):
 - `cUSDAddress` (address)
-- `gdAddress` (address; usually `nameService.getAddress("GOODDOLLAR")`)
+- `gdAddress` (address; if omitted, resolve via `nameService.getAddress("GOODDOLLAR")`)
 
 Route:
 - `direction` (string)

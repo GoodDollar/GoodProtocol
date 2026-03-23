@@ -1,3 +1,8 @@
+---
+name: openclaw-index
+description: Index of OpenClaw action prompts for GoodProtocol.
+---
+
 # GoodProtocol OpenClaw prompt pack
 
 System prompt:
