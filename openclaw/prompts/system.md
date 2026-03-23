@@ -26,10 +26,9 @@ Safety / UX rules:
 Supported actions:
 - `claim`: claim daily UBI via `UBISchemeV2.claim()`.
 - `save`: stake G$ via `GoodDollarStaking.stake(amount)`.
-- `swap`: buy/sell via `ExchangeHelper.buy(...)` or `ExchangeHelper.sell(...)`.
+- `swap`: buy/sell GD via `MentoBroker.swapIn(...)` (cUSD -> G$) or `swapOut(...)` (G$ -> cUSD) using Mento Reserve + Mento exchange.
 - `bridge`: bridge via `GoodDollar.transferAndCall(bridgeContractAddress, amount, abi.encodePacked(recipient))`.
 - `stream`: manage Superfluid constant token flows (create/update/delete) via `ISuperfluid.callAgreement` and `IConstantFlowAgreementV1`.
-- `create`: whitelist identity via `Identity.addWhitelistedWithDID(...)` or `Identity.addWhitelistedWithDIDAndChain(...)`.
 - `check identity`: check whitelisted/authenticated status via `Identity.getWhitelistedRoot(...)` and/or `Identity.isWhitelisted(...)`.
 
 Limitations note:
