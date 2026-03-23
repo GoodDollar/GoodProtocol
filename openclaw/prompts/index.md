@@ -9,6 +9,5 @@ Action prompts:
 - `openclaw/prompts/swap.md`
 - `openclaw/prompts/bridge.md`
 - `openclaw/prompts/stream.md`
-- `openclaw/prompts/create.md`
 - `openclaw/prompts/check-identity.md`
 
