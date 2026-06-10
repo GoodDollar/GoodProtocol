@@ -1,0 +1,259 @@
+# Mento Broker (IBroker + IBrokerAdmin) — swap router and trading-limit gate for GoodDollar Mento rails
+# Interface definitions are vendored in GoodProtocol; implementation lives in mento-core.
+
+meta:
+  name: Broker
+  version: IBroker / IBrokerAdmin
+  source:
+    - https://raw.githubusercontent.com/GoodDollar/GoodProtocol/master/contracts/MentoInterfaces.sol
+    - https://raw.githubusercontent.com/mento-org/mento-core/main/contracts/swap/Broker.sol
+    - https://raw.githubusercontent.com/mento-org/mento-core/main/contracts/interfaces/IBroker.sol
+  implements: [IBroker, IBrokerAdmin]
+  note: >
+    swapIn is exact-input; swapOut is exact-output. Quotes route through the
+    configured exchangeProvider + exchangeId. Reverts use require strings in
+    Broker.sol plus TradingLimits library checks ("amountOutMin not met",
+    "amountInMax exceeded", trading-limit errors).
+  deployments:
+    mainnet:
+      production-celo:
+        MentoBroker:
+          networkId: 42220
+          address: "0x88de45906D4F5a57315c133620cfa484cB297541"
+          creationBlock: 31415857
+      production-xdc:
+        MentoBroker:
+          networkId: 50
+          address: "0x88de45906D4F5a57315c133620cfa484cB297541"
+          creationBlock: 100091095
+  related:
+    - https://docs.gooddollar.org/for-developers/core-contracts/mentobroker
+    - references/guides/swap.md
+
+initialize:
+  mutability: nonpayable
+  access: initializer
+  inputs:
+    - _exchangeProviders: address[]
+    - _reserves: address[]
+  outputs: []
+
+setReserves:
+  notes:
+    - "Updates reserve address per already-listed provider without changing provider registration."
+  mutability: nonpayable
+  access: owner
+  inputs:
+    - _exchangeProviders: address[]
+    - _reserves: address[]
+  outputs: []
+  emits: [ReserveSet]
+  errors:
+    - EXCHANGE_PROVIDER_MISSING
+    - RESERVE_ZERO
+
+addExchangeProvider:
+  mutability: nonpayable
+  access: owner
+  inputs:
+    - exchangeProvider: address
+    - reserve: address
+  outputs:
+    - index: uint256
+  emits: [ExchangeProviderAdded, ReserveSet]
+  errors:
+    - PROVIDER_ALREADY_LISTED
+    - PROVIDER_ZERO
+    - RESERVE_ZERO
+
+removeExchangeProvider:
+  mutability: nonpayable
+  access: owner
+  inputs:
+    - exchangeProvider: address
+    - index: uint256
+  outputs: []
+  emits: [ExchangeProviderRemoved]
+  errors:
+    - INDEX_MISMATCH
+
+getAmountIn:
+  notes:
+    - "Exact-output quote path: returns required tokenIn for target amountOut."
+    - "Pre-checks collateral reserve balance when tokenOut is collateral."
+  mutability: view
+  inputs:
+    - exchangeProvider: address
+    - exchangeId: bytes32
+    - tokenIn: address
+    - tokenOut: address
+    - amountOut: uint256
+  outputs:
+    - amountIn: uint256
+  errors:
+    - EXCHANGE_PROVIDER_MISSING
+    - INSUFFICIENT_RESERVE_BALANCE
+
+getAmountOut:
+  notes:
+    - "Exact-input quote path: returns expected tokenOut for fixed amountIn."
+    - "Pre-checks collateral reserve balance when tokenOut is collateral."
+  mutability: view
+  inputs:
+    - exchangeProvider: address
+    - exchangeId: bytes32
+    - tokenIn: address
+    - tokenOut: address
+    - amountIn: uint256
+  outputs:
+    - amountOut: uint256
+  errors:
+    - EXCHANGE_PROVIDER_MISSING
+    - INSUFFICIENT_RESERVE_BALANCE
+
+swapIn:
+  notes:
+    - "Transfers tokenIn from msg.sender then delivers tokenOut; enforces amountOut >= amountOutMin after exchange + limits."
+  mutability: nonpayable
+  access: nonReentrant
+  inputs:
+    - exchangeProvider: address
+    - exchangeId: bytes32
+    - tokenIn: address
+    - tokenOut: address
+    - amountIn: uint256
+    - amountOutMin: uint256
+  outputs:
+    - amountOut: uint256
+  emits: [Swap]
+  errors:
+    - EXCHANGE_PROVIDER_MISSING
+    - INSUFFICIENT_RESERVE_BALANCE
+    - AMOUNT_OUT_MIN_NOT_MET
+    - TRADING_LIMIT_OR_SAFE_TRANSFER
+
+swapOut:
+  notes:
+    - "Computes required tokenIn then pulls up to amountInMax; reverts if amountIn would exceed cap."
+  mutability: nonpayable
+  access: nonReentrant
+  inputs:
+    - exchangeProvider: address
+    - exchangeId: bytes32
+    - tokenIn: address
+    - tokenOut: address
+    - amountOut: uint256
+    - amountInMax: uint256
+  outputs:
+    - amountIn: uint256
+  emits: [Swap]
+  errors:
+    - EXCHANGE_PROVIDER_MISSING
+    - INSUFFICIENT_RESERVE_BALANCE
+    - AMOUNT_IN_MAX_EXCEEDED
+    - TRADING_LIMIT_OR_SAFE_TRANSFER
+
+burnStableTokens:
+  notes:
+    - "Owner-maintained escape hatch burning stables from msg.sender via reserve plumbing."
+  mutability: nonpayable
+  access: owner
+  inputs:
+    - token: address
+    - amount: uint256
+  outputs:
+    - ok: bool
+  errors:
+    - COLLATERAL_TRANSFER_FAILED
+
+configureTradingLimit:
+  notes:
+    - "Sets per (exchangeId, token) limit config used by swapIn/swapOut guardTradingLimits checks."
+  mutability: nonpayable
+  access: owner
+  inputs:
+    - exchangeId: bytes32
+    - token: address
+    - config: TradingLimits.Config
+  outputs: []
+  emits: [TradingLimitConfigured]
+
+getExchangeProviders:
+  notes:
+    - "Discovery helper for clients that need the active provider set before quoting/swapping."
+  mutability: view
+  inputs: []
+  outputs:
+    - providers: address[]
+
+exchangeProviders:
+  mutability: view
+  inputs:
+    - index: uint256
+  outputs:
+    - exchangeProvider: address
+
+isExchangeProvider:
+  mutability: view
+  inputs:
+    - exchangeProvider: address
+  outputs:
+    - ok: bool
+
+tradingLimitsState:
+  mutability: view
+  inputs:
+    - eid: bytes32
+  outputs:
+    - state: TradingLimits.State
+
+tradingLimitsConfig:
+  mutability: view
+  inputs:
+    - eid: bytes32
+  outputs:
+    - config: TradingLimits.Config
+
+events:
+  Swap:
+    indexed:
+      - exchangeId: bytes32
+      - trader: address
+      - tokenIn: address
+    data:
+      - exchangeProvider: address
+      - tokenOut: address
+      - amountIn: uint256
+      - amountOut: uint256
+  TradingLimitConfigured:
+    indexed: []
+    data:
+      - exchangeId: bytes32
+      - token: address
+      - config: TradingLimits.Config
+  ExchangeProviderAdded:
+    indexed:
+      - exchangeProvider: address
+    data: []
+  ExchangeProviderRemoved:
+    indexed:
+      - exchangeProvider: address
+    data: []
+  ReserveSet:
+    indexed:
+      - newAddress: address
+      - prevAddress: address
+    data: []
+
+errors:
+  EXCHANGE_PROVIDER_MISSING: "ExchangeProvider does not exist"
+  EXCHANGE_PROVIDER_EXISTS: "ExchangeProvider already exists in the list"
+  PROVIDER_ZERO: "ExchangeProvider address can't be 0"
+  RESERVE_ZERO: "Reserve address can't be 0"
+  INDEX_MISMATCH: "index doesn't match provider"
+  INSUFFICIENT_RESERVE_BALANCE: "Insufficient balance in reserve"
+  AMOUNT_OUT_MIN_NOT_MET: "amountOutMin not met"
+  AMOUNT_IN_MAX_EXCEEDED: "amountInMax exceeded"
+  COLLATERAL_TRANSFER_FAILED: "Transfer of the collateral asset failed"
+  AMOUNT_TOO_LARGE: "amountIn too large / amountOut too large — uint256 to int256 safety checks"
+  TRADING_LIMIT_OR_SAFE_TRANSFER: "TradingLimits library reverts or ERC20 safety failures during swap"

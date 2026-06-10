@@ -1,0 +1,205 @@
+meta:
+  name: BuyGDCloneFactory
+  version: "1"
+  source:
+    - https://raw.githubusercontent.com/GoodDollar/GoodProtocol/master/contracts/utils/BuyGDClone.sol
+  note: >
+    Deterministic clone factory for BuyGDCloneV2 and DonateGDClone. Used to create per-owner
+    executors and optional create+swap flows for ramp services.
+  deployments:
+    mainnet:
+      production-celo:
+        BuyGDFactoryV2:
+          networkId: 42220
+          address: "0x1F60C4C7037C6766924A43666B781ED1479587a2"
+          creationBlock: 22909812
+        BuyGDFactory:
+          networkId: 42220
+          address: "0x00e533B7d6255D05b7f15034B1c989c21F51b91C"
+          creationBlock: 21006324
+  related:
+    - references/deep-researches/on-off-ramp-service.md
+    - references/guides/on-off-ramp.md
+
+create:
+  notes:
+    - "Deploys deterministic BuyGDCloneV2 clone for owner and initializes it."
+    - "Difference vs createAndSwap: this only deploys; no swap is executed."
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - owner: address
+  outputs:
+    - clone: address
+
+createDonation:
+  notes:
+    - "Deploys deterministic DonateGDClone with donation target and call payload."
+    - "Difference vs create: deploys donation-capable implementation instead of plain swap clone."
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - owner: address
+    - donateOrExecTo: address
+    - callData: bytes
+  outputs:
+    - clone: address
+
+createAndSwap:
+  notes:
+    - "One-transaction helper: create BuyGDCloneV2 then immediately call clone.swap(minAmount, msg.sender)."
+    - "Difference vs create: bundles deployment and first swap for faster ramp UX."
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - owner: address
+    - minAmount: uint256
+  outputs:
+    - clone: address
+
+createDonationAndSwap:
+  notes:
+    - "One-transaction helper for DonateGDClone: deploy, then execute donation flow with optional pre-swap."
+    - "Difference vs createDonation: can execute immediate swap and/or target call instead of deployment only."
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - owner: address
+    - donateOrExecTo: address
+    - withSwap: bool
+    - minAmount: uint256
+    - callData: bytes
+  outputs:
+    - clone: address
+
+predict:
+  notes:
+    - "Computes deterministic address for create(owner) salt."
+  mutability: view
+  inputs:
+    - owner: address
+  outputs:
+    - clone: address
+
+predictDonation:
+  notes:
+    - "Computes deterministic address for createDonation(owner, donateOrExecTo, callData) salt."
+  mutability: view
+  inputs:
+    - owner: address
+    - donateOrExecTo: address
+    - callData: bytes
+  outputs:
+    - clone: address
+
+getBaseFee:
+  mutability: view
+  inputs: []
+  outputs:
+    - baseFee: uint256
+
+quoter:
+  mutability: pure
+  inputs: []
+  outputs:
+    - addr: address
+
+CUSD:
+  mutability: pure
+  inputs: []
+  outputs:
+    - token: address
+
+celo:
+  mutability: pure
+  inputs: []
+  outputs:
+    - token: address
+
+USDC:
+  mutability: pure
+  inputs: []
+  outputs:
+    - token: address
+
+GLOUSD:
+  mutability: pure
+  inputs: []
+  outputs:
+    - token: address
+
+PERIOD:
+  mutability: pure
+  inputs: []
+  outputs:
+    - seconds: uint24
+
+impl:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+donateImpl:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+gd:
+  mutability: view
+  inputs: []
+  outputs:
+    - token: address
+
+stable:
+  mutability: view
+  inputs: []
+  outputs:
+    - token: address
+
+oracle:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+router:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+mentoBroker:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+mentoExchangeProvider:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+mentoExchangeId:
+  mutability: view
+  inputs: []
+  outputs:
+    - id: bytes32
+
+events:
+  GDSwapToCusd:
+    indexed: []
+    data:
+      - from: address
+      - to: address
+      - amountIn: uint256
+      - amountOut: uint256
+      - note: bytes
+
+errors:
+  NOT_GD_TOKEN: "onTokenTransfer caller is not G$ token."
+  INVALID_TWAP: "TWAP validation failed."
+  RECIPIENT_ZERO: "Recipient cannot be zero address."
+  ZERO_MINAMOUNT: "Minimum amount cannot be zero."

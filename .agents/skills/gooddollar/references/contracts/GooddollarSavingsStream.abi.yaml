@@ -1,0 +1,210 @@
+# GooddollarSavingsStream (Ubeswap) — G$ native Super Token stake with Superfluid GDA reward stream
+
+meta:
+  name: GooddollarSavingsStream
+  version: "1"
+  source:
+    - https://raw.githubusercontent.com/Ubeswap/gooddollar-contracts/main/contracts/GooddollarSavingsStream.sol
+    - https://raw.githubusercontent.com/Ubeswap/gooddollar-contracts/main/contracts/interfaces/IGooddollarSavingsStream.sol
+    - https://raw.githubusercontent.com/Ubeswap/gooddollar-contracts/main/contracts/StakingVault.sol
+  inherits:
+    - IGooddollarSavingsStream
+    - Ownable
+    - ERC2771Context
+    - ReentrancyGuard
+  note: >
+    Celo production savings. Staked principal sits in StakingVault; this contract holds reward
+    balance and streams via a Superfluid GDA distribution pool (`distributeFlow`). Effective rate is
+    min(rewardRate, maxRewardRatePerToken * totalSupply / 1e18), throttled when reward balance is low.
+    Staking token is the G$ native Super Token (`superToken`). Fuse->CELO migration uses `stakeFor`
+    after bridge. Ubeswap lists this as Celo mainnet savings (streaming).
+  deployments:
+    mainnet:
+      production-celo:
+        GooddollarSavingsStream:
+          networkId: 42220
+          address: "0x059ee811414230d1Fb157878D2b491240F4D8d3B"
+          creationBlock: 66685884
+  related:
+    - https://github.com/Ubeswap/gooddollar-contracts/blob/main/README.md
+    - https://celoscan.io/address/0x059ee811414230d1Fb157878D2b491240F4D8d3B
+    - references/contracts/SuperToken.abi.yaml
+    - references/guides/migrate-fuse-staking-to-celo-savings.md
+    - references/deep-researches/fuse-to-celo-staking-migration.md
+
+totalSupply:
+  mutability: view
+  inputs: []
+  outputs:
+    - supply: uint256
+
+balanceOf:
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - balance: uint256
+
+getDailyRewards:
+  mutability: view
+  inputs: []
+  outputs:
+    - daily: uint256
+
+getEffectiveFlowRate:
+  notes:
+    - "Returns 0 when totalSupply is 0, rewardRate is 0, or reward balance cannot sustain MIN_STREAM_BUFFER_SECONDS."
+    - "Otherwise min(global rewardRate, APR cap) as int96 for Superfluid distributeFlow."
+  mutability: view
+  inputs: []
+  outputs:
+    - flowRate: int96
+
+periodFinish:
+  notes:
+    - "Estimated timestamp when current reward balance is drained at getEffectiveFlowRate; 0 if not streaming."
+  mutability: view
+  inputs: []
+  outputs:
+    - finish: uint256
+
+getUnits:
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - units: uint128
+
+getTotalUnits:
+  mutability: view
+  inputs: []
+  outputs:
+    - units: uint128
+
+stake:
+  notes:
+    - "Pulls G$ Super Token from msg.sender, deposits principal to StakingVault, updates GDA pool units, syncFlowRate."
+    - "Requires prior superToken.approve(this, amount)."
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - amount: uint256
+  outputs: []
+  emits: [Staked]
+
+stakeFor:
+  notes:
+    - "Migrator path: caller funds transfer; stake credits `_balances[recipient]` and pool units for recipient."
+    - "recipient must not be zero, this, superToken, or vault."
+    - "Used after Fuse->CELO bridge when backend wallet holds bridged G$."
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - amount: uint256
+    - recipient: address
+  outputs: []
+  emits: [Staked]
+
+withdraw:
+  notes:
+    - "Reduces stake and pool units, syncFlowRate, then vault.withdraw to msg.sender."
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - amount: uint256
+  outputs: []
+  emits: [Withdrawn]
+
+exit:
+  notes:
+    - "Full withdraw of caller principal via withdraw(balance)."
+  mutability: nonpayable
+  access: anyone
+  inputs: []
+  outputs: []
+  emits: [Withdrawn]
+
+addToReward:
+  notes:
+    - "Pulls reward Super Token from caller; re-syncs flow rate when balance was throttling the stream."
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - reward: uint256
+  outputs: []
+  emits: [RewardAdded]
+
+syncFlowRate:
+  notes:
+    - "Permissionless; call when tokens were sent directly to the contract so distributeFlow picks up balance."
+  mutability: nonpayable
+  access: anyone
+  inputs: []
+  outputs: []
+  emits: [FlowRateUpdated]
+
+setDailyRewards:
+  mutability: nonpayable
+  access: owner
+  inputs:
+    - _dailyRewards: uint256
+  outputs: []
+  emits: [DailyRewardsUpdated]
+
+setMaxRewardRatePerToken:
+  mutability: nonpayable
+  access: owner
+  inputs:
+    - _value: uint256
+  outputs: []
+  emits: [MaxRewardRateUpdated]
+
+recoverERC20:
+  notes:
+    - "Cannot recover the G$ Super Token (staking/reward asset)."
+  mutability: nonpayable
+  access: owner
+  inputs:
+    - tokenAddress: address
+    - tokenAmount: uint256
+  outputs: []
+  emits: [Recovered]
+
+events:
+  Staked:
+    indexed:
+      - user: address
+    data:
+      - amount: uint256
+  Withdrawn:
+    indexed:
+      - user: address
+    data:
+      - amount: uint256
+  RewardAdded:
+    data:
+      - reward: uint256
+  DailyRewardsUpdated:
+    data:
+      - rewardRate: uint256
+      - givenDailyRewards: uint256
+  MaxRewardRateUpdated:
+    data:
+      - newMaxRate: uint256
+  FlowRateUpdated:
+    data:
+      - newFlowRate: int96
+  Recovered:
+    indexed:
+      - token: address
+    data:
+      - amount: uint256
+      - receiver: address
+
+errors:
+  - CannotStakeZero
+  - CannotWithdrawZero
+  - InsufficientStake
+  - InvalidAddress
+  - NoRewardToAdd
+  - CannotRecoverStakingToken

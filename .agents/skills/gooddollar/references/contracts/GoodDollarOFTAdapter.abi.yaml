@@ -1,0 +1,100 @@
+# GoodDollarOFTAdapter — LayerZero V2 OFT adapter pattern bridging underlying G$
+# Exact bytecode lives in the GoodDollar OFT deployment; this documents the surface agents call.
+
+meta:
+  name: GoodDollarOFTAdapter
+  version: LayerZero-OFT-adapter (generic)
+  source:
+    - https://docs.layerzero.network/
+    - https://github.com/LayerZero-Labs/devtools
+  note: >
+    Flow: optional peers(dstEid) check -> approve underlying to minterBurner if
+    MessagingFee, refundAddress) paying nativeFee in msg.value when applicable.
+    SendParam mirrors LayerZero OFT: dstEid, to (bytes32 padded recipient),
+    amountLD, minAmountLD, extraOptions, composeMsg, oftCmd.
+    Verify tuple field order and OFT revision against your deployed artifact before mainnet use.
+    Event names and topic0 hashes vary by OFT package version — pull from the deployment ABI.
+  related:
+    - references/guides/bridge.md
+
+token:
+  mutability: view
+  inputs: []
+  outputs:
+    - underlyingToken: address
+
+minterBurner:
+  notes:
+    - "Underlying G$ must approve this spender when burning for cross-chain send."
+  mutability: view
+  inputs: []
+  outputs:
+    - minterBurner: address
+
+oftVersion:
+  mutability: view
+  inputs: []
+  outputs:
+    - interfaceId: bytes4
+    - version: uint64
+
+peers:
+  notes:
+    - "Returns bytes32 peer address configured for destination endpoint id."
+  mutability: view
+  inputs:
+    - dstEid: uint32
+  outputs:
+    - peer: bytes32
+
+endpoint:
+  mutability: view
+  inputs: []
+  outputs:
+    - lzEndpoint: address
+
+owner:
+  mutability: view
+  inputs: []
+  outputs:
+    - account: address
+
+quoteSend:
+  notes:
+    - "Simulates messaging + bridge fee; use nativeFee as msg.value on send when paying in native gas token."
+  mutability: view
+  inputs:
+    - sendParam: SendParam
+    - payInLzToken: bool
+  outputs:
+    - nativeFee: uint256
+    - lzTokenFee: uint256
+  errors:
+    - NO_PEER
+    - LZ_INVALID_OPTIONS
+
+send:
+  notes:
+    - "Payable: include MessagingFee.nativeFee in msg.value when fee is native."
+    - "Consumes sendParam.amountLD from sender on source chain and emits cross-chain message to dstEid peer."
+    - "sendParam.to must be destination receiver encoded as bytes32."
+  mutability: payable
+  access: sender
+  inputs:
+    - sendParam: SendParam
+    - fee: MessagingFee
+    - refundAddress: address
+  outputs:
+    - msgReceipt: MessageReceipt
+    - oftReceipt: OFTReceipt
+  errors:
+    - NO_PEER
+    - SLIPPAGE_OR_AMOUNT
+    - LZ_INVALID_OPTIONS
+
+events: {}
+
+errors:
+  NO_PEER: "Destination peer not configured for dstEid."
+  LZ_INVALID_OPTIONS: "Composer/options payload rejected by LayerZero."
+  SLIPPAGE_OR_AMOUNT: "Bridged amount violates minAmount or available balance."

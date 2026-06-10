@@ -1,0 +1,200 @@
+scalar BigDecimal
+
+scalar BigInt
+
+scalar Boolean
+
+scalar Bytes
+
+type Claim {
+  id: String!
+  collective: Collective!
+  txHash: String!
+  networkFee: BigInt!
+  totalRewards: BigInt!
+  events: [ClaimEvent!]!
+  timestamp: Int!
+}
+
+type ClaimEvent {
+  id: String!
+  eventType: Int!
+  timestamp: Int!
+  quantity: BigInt!
+  rewardPerContributor: BigInt!
+  contributors: [Steward!]!
+  nft: ProvableNFT
+  claim: Claim!
+}
+
+type Collective {
+  id: String!
+  pooltype: PoolType!
+  ipfs: IpfsCollective
+  settings: PoolSettings!
+  ubiLimits: UBILimits
+  limits: SafetyLimits
+  donors: [DonorCollective!]
+  stewards: [StewardCollective!]
+  projectId: String!
+  isVerified: Boolean!
+  poolFactory: String!
+  timestamp: Int!
+  paymentsMade: Int!
+  totalDonations: BigInt!
+  totalRewards: BigInt!
+  claims: [Claim!]!
+}
+
+type Donor {
+  id: String!
+  timestamp: Int!
+  totalDonated: BigInt!
+  collectives: [DonorCollective!]!
+}
+
+"""
+Represents the relationship between a Donor and a Collective
+
+"""
+
+type DonorCollective {
+  id: String!
+  donor: Donor!
+  collective: Collective!
+  contribution: BigInt!
+  flowRate: BigInt!
+  timestamp: Int!
+  events: [SupportEvent!]!
+}
+
+scalar Float
+
+scalar ID
+
+"""
+4 bytes signed integer
+
+"""
+
+scalar Int
+
+"""
+8 bytes signed integer
+
+"""
+
+scalar Int8
+
+type IpfsCollective {
+  id: String!
+  name: String!
+  description: String!
+  rewardDescription: String
+  goodidDescription: String
+  email: String
+  website: String
+  twitter: String
+  instagram: String
+  threads: String
+  infoLabel: String
+  headerImage: String!
+  logo: String!
+  images: [String!]
+}
+
+type PoolSettings {
+  id: String!
+  nftType: BigInt!
+  manager: Bytes!
+  membersValidator: Bytes!
+  uniquenessValidator: Bytes!
+  rewardToken: Bytes!
+}
+
+enum PoolType {
+  DirectPayments
+  UBI
+}
+
+type ProvableNFT {
+  id: String!
+  owner: String!
+  hash: String!
+  stewards: [Steward!]!
+  collective: Collective
+}
+
+type SafetyLimits {
+  id: String!
+  maxTotalPerMonth: BigInt!
+  maxMemberPerMonth: BigInt!
+  maxMemberPerDay: BigInt!
+}
+
+type Steward {
+  """
+  { user address}
+
+  """
+  id: String!
+  """
+  Number of actions performed
+
+  """
+  actions: Int!
+  totalEarned: BigInt!
+  totalUBIEarned: BigInt!
+  """
+  NFT's minted to steward
+
+  """
+  nfts: [ProvableNFT!]!
+  """
+  Collectives the steward is apart of
+
+  """
+  collectives: [StewardCollective!]!
+}
+
+"""
+Represents the relationship between a Steward and a Collective
+
+"""
+
+type StewardCollective {
+  id: String!
+  steward: Steward!
+  collective: Collective!
+  actions: Int!
+  totalEarned: BigInt!
+}
+
+scalar String
+
+type SupportEvent {
+  id: String!
+  networkFee: BigInt!
+  donor: Donor!
+  collective: Collective!
+  donorCollective: DonorCollective!
+  contribution: BigInt!
+  previousContribution: BigInt!
+  isFlowUpdate: Boolean!
+  flowRate: BigInt!
+  previousFlowRate: BigInt!
+  timestamp: Int!
+}
+
+scalar Timestamp
+
+type UBILimits {
+  id: String!
+  cycleLengthDays: BigInt!
+  claimPeriodDays: BigInt!
+  minActiveUsers: BigInt!
+  claimForEnabled: Boolean!
+  maxClaimAmount: BigInt!
+  maxClaimers: BigInt!
+  onlyMembers: Boolean!
+}
