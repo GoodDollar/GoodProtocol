@@ -1,0 +1,113 @@
+scalar BigDecimal
+
+scalar BigInt
+
+scalar Boolean
+
+scalar Bytes
+
+type DailyUBI {
+  id: ID!
+  pool: BigInt!
+  quota: BigInt!
+  activeUsers: BigInt!
+  totalUBIDistributed: BigInt!
+  totalClaims: BigInt!
+  newClaimers: BigInt!
+  timestamp: BigInt!
+  ubiSchemeAddress: Bytes
+  balance: BigInt!
+  cycleLength: BigInt!
+  dayInCycle: BigInt!
+}
+
+scalar Float
+
+type GlobalStatistics {
+  id: ID!
+  TransactionStat: TransactionStat
+  totalUBIDistributed: BigInt!
+  uniqueClaimers: BigInt!
+  totalClaims: BigInt!
+}
+
+scalar ID
+
+"""
+4 bytes signed integer
+"""
+
+scalar Int
+
+"""
+8 bytes signed integer
+"""
+
+scalar Int8
+
+"""
+Defines the order direction, either ascending or descending
+"""
+
+scalar String
+
+"""
+A string representation of microseconds UNIX timestamp (16 digits)
+"""
+
+scalar Timestamp
+
+type TransactionStat {
+  id: ID!
+  dayStartBlockNumber: BigInt!
+  transactionsCount: BigInt!
+  transactionsCountClean: BigInt!
+  transactionsValue: BigInt!
+  transactionsValueClean: BigInt!
+  totalInCirculation: BigInt!
+}
+
+type UBICollected {
+  id: ID!
+  contract: Bytes
+  block: BigInt!
+  blockTimestamp: BigInt!
+  ubi: BigDecimal!
+  communityPool: BigDecimal!
+}
+
+type UBIHistory {
+  id: ID!
+  block: BigInt!
+  blockTimestamp: BigInt!
+  totalDailyUBI: BigDecimal!
+  totalDailyCommunityPool: BigDecimal!
+}
+
+type WalletStat {
+  id: ID!
+  dateAppeared: BigInt!
+  balance: BigInt!
+  inTransactionsCount: BigInt!
+  inTransactionsCountClean: BigInt!
+  inTransactionsValue: BigInt!
+  inTransactionsValueClean: BigInt!
+  outTransactionsCount: BigInt!
+  outTransactionsCountClean: BigInt!
+  outTransactionsValue: BigInt!
+  outTransactionsValueClean: BigInt!
+  totalTransactionsCount: BigInt!
+  totalTransactionsCountClean: BigInt!
+  totalTransactionsValue: BigInt!
+  totalTransactionsValueClean: BigInt!
+  lastClaimed: BigInt!
+  totalClaimedCount: BigInt!
+  totalClaimedValue: BigInt!
+  claimStreak: BigInt!
+  longestClaimStreak: BigInt!
+  isWhitelisted: Boolean!
+  isActiveUser: Boolean!
+  dateJoined: BigInt!
+  lastTransactionFrom: BigInt!
+  lastTransactionTo: BigInt!
+}

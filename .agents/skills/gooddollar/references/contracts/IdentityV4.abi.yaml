@@ -1,0 +1,424 @@
+# IdentityV4 — whitelist, blacklist, DID, connected accounts, and reverification schedule
+# isWhitelisted uses shouldReverify against reverifyDaysOptions and authCount; oldIdentity fallback preserved.
+
+meta:
+  name: IdentityV4
+  version: v4
+  source:
+    - https://raw.githubusercontent.com/GoodDollar/GoodProtocol/master/contracts/identity/IdentityV4.sol
+  inherits:
+    - DAOUpgradeableContract
+    - AccessControlUpgradeable
+    - PausableUpgradeable
+    - EIP712Upgradeable
+  note: >
+    authenticationPeriod() returns the largest reverify interval in days (last entry of reverifyDaysOptions),
+    not seconds. isWhitelisted is false when shouldReverify is true for the current elapsed days since
+    dateAuthenticated. Post-upgrade, accounts with dateAuthenticated before 1772697574 are treated as
+    having authCount at the last schedule step for reverify logic.
+  deployments:
+    mainnet:
+      production:
+        Identity:
+          networkId: 122
+          address: "0x2F9C28de9e6d44b71B91b8BA337A5D82e308E7BE"
+          creationBlock: 22022901
+      production-celo:
+        Identity:
+          networkId: 42220
+          address: "0xC361A6E67822a0EDc17D899227dd9FC50BD62F42"
+          creationBlock: 17237952
+      production-xdc:
+        Identity:
+          networkId: 50
+          address: "0x27a4a02C9ed591E1a86e2e5D05870292c34622C9"
+          creationBlock: 95143058
+  related:
+    - https://docs.gooddollar.org/for-developers/core-contracts/identity
+    - https://docs.gooddollar.org/user-guides/connect-another-wallet-address-to-identity
+
+initialize:
+  mutability: nonpayable
+  access: initializer
+  inputs:
+    - _owner: address
+    - _oldIdentity: address
+  outputs: []
+
+initDAO:
+  notes:
+    - "Wires NameService via setDAO and transfers DEFAULT_ADMIN_ROLE, PAUSER_ROLE, IDENTITY_ADMIN_ROLE to avatar."
+  mutability: nonpayable
+  access: DEFAULT_ADMIN_ROLE
+  inputs:
+    - _ns: address
+  outputs: []
+  errors: [ALREADY_INITIALIZED]
+
+setReverifyDaysOptions:
+  notes:
+    - "Replaces the full schedule; values must be strictly ascending uint8 days; non-empty array."
+  mutability: nonpayable
+  access: IDENTITY_ADMIN_ROLE
+  inputs:
+    - options: uint8[]
+  outputs: []
+  errors: [EMPTY_REVERIFY_OPTIONS, OPTIONS_NOT_ASCENDING, WHEN_NOT_PAUSED_REVERT]
+
+authenticate:
+  notes:
+    - "Forwards to authenticateWithTimestamp(account, block.timestamp); requires IDENTITY_ADMIN_ROLE on the inner call."
+  mutability: nonpayable
+  access: IDENTITY_ADMIN_ROLE
+  inputs:
+    - account: address
+  outputs: []
+  errors: [NOT_WHITELISTED_STATUS, WHEN_NOT_PAUSED_REVERT]
+
+authenticateWithTimestamp:
+  notes:
+    - "Refreshes authentication timestamp for status-1 account and advances authCount when reverification threshold is reached."
+    - "Legacy accounts before cutoff are evaluated at last schedule step for reverify math."
+  mutability: nonpayable
+  access: IDENTITY_ADMIN_ROLE
+  inputs:
+    - account: address
+    - timestamp: uint256
+  outputs: []
+  emits: [WhitelistedAuthenticated]
+  errors: [NOT_WHITELISTED_STATUS, WHEN_NOT_PAUSED_REVERT]
+
+addWhitelisted:
+  mutability: nonpayable
+  access: IDENTITY_ADMIN_ROLE
+  inputs:
+    - account: address
+  outputs: []
+  emits: [WhitelistedAdded]
+  errors: [ALREADY_HAS_STATUS, WHEN_NOT_PAUSED_REVERT]
+
+addWhitelistedWithDIDAndChain:
+  notes:
+    - "Adds whitelisted account and stores DID plus originating chain id and authentication timestamp."
+  mutability: nonpayable
+  access: IDENTITY_ADMIN_ROLE
+  inputs:
+    - account: address
+    - did: string
+    - orgChain: uint256
+    - dateAuthenticated: uint256
+  outputs: []
+  emits: [WhitelistedAdded]
+  errors: [DID_ALREADY_REGISTERED, ALREADY_HAS_STATUS, WHEN_NOT_PAUSED_REVERT]
+
+addWhitelistedWithDID:
+  mutability: nonpayable
+  access: IDENTITY_ADMIN_ROLE
+  inputs:
+    - account: address
+    - did: string
+  outputs: []
+  emits: [WhitelistedAdded]
+  errors: [DID_ALREADY_REGISTERED, ALREADY_HAS_STATUS, WHEN_NOT_PAUSED_REVERT]
+
+removeWhitelisted:
+  mutability: nonpayable
+  access: IDENTITY_ADMIN_ROLE
+  inputs:
+    - account: address
+  outputs: []
+  emits: [WhitelistedRemoved]
+  errors: [WHEN_NOT_PAUSED_REVERT]
+
+renounceWhitelisted:
+  mutability: nonpayable
+  access: whitelisted sender
+  inputs: []
+  outputs: []
+  emits: [WhitelistedRemoved]
+  errors: [NOT_WHITELISTED_SENDER, WHEN_NOT_PAUSED_REVERT]
+
+shouldReverify:
+  notes:
+    - "Compares daysSinceAuth against current reverifyDaysOptions step selected by authCount."
+  mutability: view
+  inputs:
+    - account: address
+    - daysSinceAuth: uint256
+  outputs:
+    - needed: bool
+
+isWhitelisted:
+  notes:
+    - "Local status 1 with shouldReverify false; else oldIdentity.isWhitelisted try/catch."
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - ok: bool
+
+lastAuthenticated:
+  notes:
+    - "Returns local dateAuthenticated or falls back to oldIdentity when local record has no timestamp."
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - ts: uint256
+
+addBlacklisted:
+  mutability: nonpayable
+  access: IDENTITY_ADMIN_ROLE
+  inputs:
+    - account: address
+  outputs: []
+  emits: [BlacklistAdded, WhitelistedRemoved]
+  errors: [WHEN_NOT_PAUSED_REVERT]
+
+removeBlacklisted:
+  mutability: nonpayable
+  access: IDENTITY_ADMIN_ROLE
+  inputs:
+    - account: address
+  outputs: []
+  emits: [BlacklistRemoved]
+  errors: [WHEN_NOT_PAUSED_REVERT]
+
+addContract:
+  mutability: nonpayable
+  access: IDENTITY_ADMIN_ROLE
+  inputs:
+    - account: address
+  outputs: []
+  emits: [ContractAdded]
+  errors: [NOT_CONTRACT, ALREADY_HAS_STATUS, WHEN_NOT_PAUSED_REVERT]
+
+removeContract:
+  mutability: nonpayable
+  access: IDENTITY_ADMIN_ROLE
+  inputs:
+    - account: address
+  outputs: []
+  emits: [ContractRemoved]
+  errors: [WHEN_NOT_PAUSED_REVERT]
+
+isDAOContract:
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - ok: bool
+
+isBlacklisted:
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - ok: bool
+
+connectAccount:
+  notes:
+    - "Caller must be whitelisted; target must not already be whitelisted or blacklisted; stores connectedAccounts[account]=msg.sender."
+  mutability: nonpayable
+  access: whitelisted sender
+  inputs:
+    - account: address
+  outputs: []
+  emits: [AccountConnected]
+  errors: [INVALID_ACCOUNT_FOR_CONNECT, ALREADY_CONNECTED, WHEN_NOT_PAUSED_REVERT]
+
+disconnectAccount:
+  notes:
+    - "Caller must be either the linked root or the connected wallet."
+  mutability: nonpayable
+  inputs:
+    - connected: address
+  outputs: []
+  emits: [AccountDisconnected]
+  errors: [UNAUTHORIZED_DISCONNECT]
+
+getWhitelistedRoot:
+  notes:
+    - "Returns account if directly whitelisted; returns connected root if connected account is whitelisted; else zero."
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - whitelisted: address
+
+pause:
+  mutability: nonpayable
+  access: PAUSER_ROLE
+  inputs:
+    - toPause: bool
+  outputs: []
+
+setDID:
+  notes:
+    - "Sets DID for account by admin or account itself when whitelisted; enforces uniqueness across local and old identity."
+  mutability: nonpayable
+  inputs:
+    - account: address
+    - did: string
+  outputs: []
+  errors: [NOT_AUTHORIZED_SET_DID, NOT_WHITELISTED_FOR_DID, DID_EMPTY, DID_ALREADY_REGISTERED, DID_ALREADY_REGISTERED_OLD, WHEN_NOT_PAUSED_REVERT]
+
+addrToDID:
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - did: string
+
+getWhitelistedOnChainId:
+  notes:
+    - "Returns chain id recorded during whitelisting for cross-chain eligibility checks."
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - chainId: uint256
+
+isRegistered:
+  notes:
+    - "Compatibility shim; always returns true."
+  mutability: pure
+  inputs: []
+  outputs:
+    - ok: bool
+
+IDENTITY_ADMIN_ROLE:
+  mutability: view
+  inputs: []
+  outputs:
+    - role: bytes32
+
+PAUSER_ROLE:
+  mutability: view
+  inputs: []
+  outputs:
+    - role: bytes32
+
+TYPED_STRUCTURE:
+  mutability: view
+  inputs: []
+  outputs:
+    - schema: string
+
+whitelistedCount:
+  mutability: view
+  inputs: []
+  outputs:
+    - n: uint256
+
+whitelistedContracts:
+  mutability: view
+  inputs: []
+  outputs:
+    - n: uint256
+
+authenticationPeriod:
+  notes:
+    - "Returns reverifyDaysOptions[last] in days, not seconds."
+  mutability: view
+  inputs: []
+  outputs:
+    - days: uint256
+
+reverifyDaysOptions:
+  mutability: view
+  inputs:
+    - index: uint256
+  outputs:
+    - days: uint32
+
+identities:
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - dateAuthenticated: uint256
+    - dateAdded: uint256
+    - did: string
+    - whitelistedOnChainId: uint256
+    - status: uint8
+    - authCount: uint32
+
+didHashToAddress:
+  mutability: view
+  inputs:
+    - hash: bytes32
+  outputs:
+    - account: address
+
+connectedAccounts:
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - root: address
+
+oldIdentity:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+events:
+  BlacklistAdded:
+    indexed:
+      - account: address
+    data: []
+  BlacklistRemoved:
+    indexed:
+      - account: address
+    data: []
+  WhitelistedAdded:
+    indexed:
+      - account: address
+    data: []
+  WhitelistedRemoved:
+    indexed:
+      - account: address
+    data: []
+  WhitelistedAuthenticated:
+    indexed:
+      - account: address
+    data:
+      - timestamp: uint256
+  ContractAdded:
+    indexed:
+      - account: address
+    data: []
+  ContractRemoved:
+    indexed:
+      - account: address
+    data: []
+  AccountConnected:
+    indexed:
+      - connected: address
+      - to: address
+    data: []
+  AccountDisconnected:
+    indexed:
+      - disconnected: address
+      - from: address
+    data: []
+
+errors:
+  ALREADY_INITIALIZED: "already initialized — initDAO twice."
+  EMPTY_REVERIFY_OPTIONS: "empty options — setReverifyDaysOptions."
+  OPTIONS_NOT_ASCENDING: "options not in ascending order — setReverifyDaysOptions."
+  NOT_WHITELISTED_STATUS: "not whitelisted — authenticateWithTimestamp."
+  NOT_WHITELISTED_SENDER: "not whitelisted — renounceWhitelisted modifier."
+  NOT_WHITELISTED_FOR_DID: "not whitelisted — _setDID."
+  ALREADY_HAS_STATUS: "already has status — _addWhitelisted."
+  DID_ALREADY_REGISTERED: "DID already registered — _addWhitelistedWithDID or _setDID."
+  DID_ALREADY_REGISTERED_OLD: "DID already registered oldIdentity — _setDID conflict path."
+  NOT_CONTRACT: "Given address is not a contract — addContract."
+  INVALID_ACCOUNT_FOR_CONNECT: "invalid account — connectAccount target checks."
+  ALREADY_CONNECTED: "already connected — connectAccount."
+  UNAUTHORIZED_DISCONNECT: "unauthorized — disconnectAccount."
+  NOT_AUTHORIZED_SET_DID: "not authorized — setDID caller."
+  DID_EMPTY: "did empty — _setDID."
+  WHEN_NOT_PAUSED_REVERT: "OpenZeppelin Pausable whenNotPaused on gated calls."

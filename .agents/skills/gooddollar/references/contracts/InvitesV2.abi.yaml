@@ -1,0 +1,333 @@
+# InvitesV2 — invite codes, inviter levels, and G$ bounties (UUPS upgradeable)
+# Bounty amounts on Level use G$ cents (2 decimals). Invitee receives half the inviter bounty on payout.
+
+meta:
+  name: InvitesV2
+  version: "2.4"
+  source:
+    - https://raw.githubusercontent.com/GoodDollar/GoodProtocol/master/contracts/invite/InvitesV2.sol
+  inherits:
+    - DAOUpgradeableContract
+  note: >
+    join binds invite code and optional inviter; bounty eligibility uses minimumDays, minimumClaims,
+    whitelist on invitee (and inviter when present), and same-chain whitelisting via Identity
+    getWhitelistedOnChainId. collectBounties and bountyFor pay invitee bountyToPay/2 and inviter
+    bountyToPay when applicable. Campaign inviter is address(this) when inviter code maps to contract.
+  deployments:
+    mainnet:
+      production:
+        Invites:
+          networkId: 122
+          address: "0xCa2F09c3ccFD7aD5cB9276918Bd1868f2b922ea0"
+          creationBlock: 8853311
+      production-celo:
+        Invites:
+          networkId: 42220
+          address: "0x36829D1Cda92FFF5782d5d48991620664FC857d3"
+          creationBlock: 18003063
+      production-xdc:
+        Invites:
+          networkId: 50
+          address: "0x6bd698566632bf2e81e2278f1656CB24aAF06D2e"
+          creationBlock: 95144756
+  related:
+    - references/deep-researches/inviter-invitee-reward-model.md
+
+initialize:
+  mutability: nonpayable
+  access: initializer
+  inputs:
+    - _ns: address
+    - _level0Bounty: uint256
+    - _owner: address
+  outputs: []
+
+updateAvatar:
+  mutability: nonpayable
+  access: anyone
+  inputs: []
+  outputs: []
+
+nativeToken:
+  mutability: view
+  inputs: []
+  outputs:
+    - token: address
+
+dao:
+  mutability: view
+  inputs: []
+  outputs:
+    - controller: address
+
+avatar:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+nameService:
+  mutability: view
+  inputs: []
+  outputs:
+    - ns: address
+
+upgradeTo:
+  mutability: nonpayable
+  access: ownerOrAvatar
+  inputs:
+    - newImplementation: address
+  outputs: []
+
+upgradeToAndCall:
+  mutability: payable
+  access: ownerOrAvatar
+  inputs:
+    - newImplementation: address
+    - data: bytes
+  outputs: []
+
+proxiableUUID:
+  mutability: view
+  inputs: []
+  outputs:
+    - slot: bytes32
+
+setLevelExpirationEnabled:
+  mutability: nonpayable
+  access: ownerOrAvatar
+  inputs:
+    - _isEnabled: bool
+  outputs: []
+
+getIdentity:
+  mutability: view
+  inputs: []
+  outputs:
+    - identity: address
+
+join:
+  notes:
+    - "Registers invite code; may set inviter; may trigger _bountyFor when canCollectBountyFor is already true."
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - _myCode: bytes32
+    - _inviterCode: bytes32
+  outputs: []
+  emits: [InviteeJoined]
+  errors: [NOT_ACTIVE, INVITE_CODE_IN_USE, SELF_INVITE, USER_ALREADY_JOINED]
+
+canCollectBountyFor:
+  notes:
+    - "Primary eligibility gate: checks active state, whitelist, minimumDays, minimumClaims, unpaid bounty, and chain constraints."
+  mutability: view
+  inputs:
+    - _invitee: address
+  outputs:
+    - ok: bool
+
+getInvitees:
+  mutability: view
+  inputs:
+    - _inviter: address
+  outputs:
+    - invitees: address[]
+
+getPendingInvitees:
+  mutability: view
+  inputs:
+    - _inviter: address
+  outputs:
+    - pending: address[]
+
+getPendingBounties:
+  mutability: view
+  inputs:
+    - _inviter: address
+  outputs:
+    - count: uint256
+
+bountyFor:
+  notes:
+    - "Single-invitee payout path; revalidates eligibility and transfers bounty shares to inviter/invitee on success."
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - _invitee: address
+  outputs:
+    - bounty: uint256
+  emits: [InviterBounty]
+  errors: [NOT_ACTIVE, NOT_ELIGIBLE_BOUNTY]
+
+collectBounties:
+  notes:
+    - "Batch payout path over caller pending invitees; useful for claiming multiple matured bounties in one tx."
+  mutability: nonpayable
+  access: anyone
+  inputs: []
+  outputs: []
+  emits: [InviterBounty]
+  errors: [NOT_ACTIVE]
+
+setLevel:
+  notes:
+    - "Configures inviter level progression rule and bounty amount (bounty units are G$ cents)."
+  mutability: nonpayable
+  access: ownerOrAvatar
+  inputs:
+    - _lvl: uint256
+    - _toNext: uint256
+    - _bounty: uint256
+    - _daysToComplete: uint256
+  outputs: []
+
+setActive:
+  mutability: nonpayable
+  access: ownerOrAvatar
+  inputs:
+    - _active: bool
+  outputs: []
+
+setCampaignCode:
+  notes:
+    - "Maps a campaign code to contract-address inviter flow (address(this)) used by join."
+  mutability: nonpayable
+  access: ownerOrAvatar
+  inputs:
+    - _code: bytes32
+  outputs: []
+
+setMinimums:
+  notes:
+    - "Sets minimumClaims and minimumDays thresholds used by canCollectBountyFor."
+  mutability: nonpayable
+  access: ownerOrAvatar
+  inputs:
+    - _minClaims: uint8
+    - _minDays: uint8
+  outputs: []
+
+end:
+  mutability: nonpayable
+  access: ownerOrAvatar
+  inputs: []
+  outputs: []
+  errors: [NOT_ACTIVE]
+
+setOwner:
+  mutability: nonpayable
+  access: ownerOrAvatar
+  inputs:
+    - _owner: address
+  outputs: []
+
+version:
+  mutability: pure
+  inputs: []
+  outputs:
+    - v: string
+
+codeToUser:
+  mutability: view
+  inputs:
+    - code: bytes32
+  outputs:
+    - user: address
+
+users:
+  notes:
+    - "Public getter omits dynamic invitees/pending arrays; use getInvitees and getPendingInvitees."
+  mutability: view
+  inputs:
+    - user: address
+  outputs:
+    - invitedBy: address
+    - inviteCode: bytes32
+    - bountyPaid: bool
+    - level: uint256
+    - levelStarted: uint256
+    - totalApprovedInvites: uint256
+    - totalEarned: uint256
+    - joinedAt: uint256
+    - bountyAtJoin: uint256
+
+levels:
+  notes:
+    - "bounty is in G$ cents (2 decimals). Reserved struct slots are not exposed on the getter."
+  mutability: view
+  inputs:
+    - lvl: uint256
+  outputs:
+    - toNext: uint256
+    - bounty: uint256
+    - daysToComplete: uint256
+
+owner:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+goodDollar:
+  mutability: view
+  inputs: []
+  outputs:
+    - token: address
+
+active:
+  mutability: view
+  inputs: []
+  outputs:
+    - ok: bool
+
+stats:
+  notes:
+    - "Reserved Stats struct slots are not exposed on the getter."
+  mutability: view
+  inputs: []
+  outputs:
+    - totalApprovedInvites: uint256
+    - totalBountiesPaid: uint256
+    - totalInvited: uint256
+
+levelExpirationEnabled:
+  mutability: view
+  inputs: []
+  outputs:
+    - ok: bool
+
+minimumClaims:
+  mutability: view
+  inputs: []
+  outputs:
+    - n: uint8
+
+minimumDays:
+  mutability: view
+  inputs: []
+  outputs:
+    - n: uint8
+
+events:
+  InviteeJoined:
+    indexed:
+      - inviter: address
+      - invitee: address
+    data: []
+  InviterBounty:
+    indexed:
+      - inviter: address
+      - invitee: address
+    data:
+      - bountyPaid: uint256
+      - inviterLevel: uint256
+      - earnedLevel: bool
+
+errors:
+  NOT_ACTIVE: "not active — isActive modifier."
+  ONLY_OWNER_OR_AVATAR: "Only owner or avatar can perform this action — ownerOrAvatar."
+  INVITE_CODE_IN_USE: "invite code already in use — join."
+  SELF_INVITE: "self invite — join."
+  USER_ALREADY_JOINED: "user already joined — join."
+  NOT_ELIGIBLE_BOUNTY: "user not elligble for bounty yet — bountyFor."

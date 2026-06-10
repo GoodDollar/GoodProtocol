@@ -1,0 +1,282 @@
+meta:
+  name: BuyGDCloneV2
+  version: "2"
+  source:
+    - https://raw.githubusercontent.com/GoodDollar/GoodProtocol/master/contracts/utils/BuyGDClone.sol
+  inherits:
+    - Initializable
+  note: >
+    Clone implementation used by BuyGDCloneFactory for deterministic per-owner swap executors.
+    Supports CELO and cUSD flows, with cUSD route selection between Uniswap and Mento when configured.
+  deployments:
+    mainnet:
+      production-celo:
+        BuyGDFactoryV2:
+          networkId: 42220
+          address: "0x1F60C4C7037C6766924A43666B781ED1479587a2"
+          creationBlock: 22909812
+  related:
+    - references/deep-researches/on-off-ramp-service.md
+    - references/guides/on-off-ramp.md
+
+initialize:
+  mutability: nonpayable
+  access: initializer
+  inputs:
+    - _owner: address
+  outputs: []
+
+getSwapPath:
+  mutability: pure
+  inputs:
+    - tokens: address[]
+    - fees: uint24[]
+  outputs:
+    - path: bytes
+
+swap:
+  notes:
+    - "Dispatcher entrypoint: if clone holds native CELO balance it executes CELO route, otherwise uses cUSD route."
+    - "Difference vs swapCelo/swapCusd: this function chooses route by contract balances; specialized functions force a specific asset path."
+  mutability: payable
+  access: anyone
+  inputs:
+    - _minAmount: uint256
+    - refundGas: address
+  outputs:
+    - bought: uint256
+  emits: [Bought]
+  errors: [NO_BALANCE]
+
+swapCelo:
+  notes:
+    - "CELO-only convenience path using the default preconfigured Uniswap route."
+    - "Difference vs swapCeloWithPath: same Uniswap execution, but caller cannot override token path and fee tiers."
+    - "Difference vs cUSD paths: CELO path does not use Mento route selection."
+  mutability: payable
+  access: anyone
+  inputs:
+    - _minAmount: uint256
+    - refundGas: address
+  outputs:
+    - bought: uint256
+  emits: [BoughtFromUniswap]
+  errors: [REFUND_FAILED]
+
+swapCeloWithPath:
+  notes:
+    - "CELO-only path with caller-supplied Uniswap multi-hop route."
+    - "Difference vs swapCelo: allows custom path optimization when default route is not preferred."
+    - "Difference vs cUSD paths: still Uniswap-only and does not compare against Mento."
+  mutability: payable
+  access: anyone
+  inputs:
+    - _minAmount: uint256
+    - refundGas: address
+    - _path: (address[],uint24[])
+  outputs:
+    - bought: uint256
+  emits: [BoughtFromUniswap]
+  errors: [REFUND_FAILED]
+
+swapCusd:
+  notes:
+    - "cUSD-only convenience path that compares expected output from default-path Uniswap and Mento, then executes the better quote."
+    - "Difference vs swapCusdWithPath: this uses hardcoded default Uniswap path for comparison."
+    - "Difference vs CELO paths: includes dual-route best-execution logic with optional Mento."
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - _minAmount: uint256
+    - refundGas: address
+  outputs:
+    - bought: uint256
+  emits: [BoughtFromMento, BoughtFromUniswap]
+  errors: [MENTO_NOT_CONFIGURED]
+
+swapCusdWithPath:
+  notes:
+    - "cUSD path with caller-supplied Uniswap route; still compares custom Uniswap quote against Mento quote and picks larger expected output."
+    - "Difference vs swapCusd: custom path changes only the Uniswap side of the comparison."
+    - "Difference vs swapCeloWithPath: this function performs route competition (Uniswap vs Mento), not only route customization."
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - _minAmount: uint256
+    - refundGas: address
+    - _path: (address[],uint24[])
+  outputs:
+    - bought: uint256
+  emits: [BoughtFromMento, BoughtFromUniswap]
+  errors: [MENTO_NOT_CONFIGURED]
+
+getExpectedReturnFromUniswapPath:
+  notes:
+    - "Quote helper for Uniswap path expected output used by cUSD route selection and preflight checks."
+  mutability: nonpayable
+  inputs:
+    - amountIn: uint256
+    - _path: (address[],uint24[])
+  outputs:
+    - expectedReturn: uint256
+
+getExpectedReturnFromMento:
+  notes:
+    - "Quote helper for Mento expected output for cUSD->G$ used in best-route decision."
+  mutability: view
+  inputs:
+    - cusdAmount: uint256
+  outputs:
+    - expectedReturn: uint256
+  errors: [MENTO_NOT_CONFIGURED]
+
+minAmountByTWAP:
+  mutability: view
+  inputs:
+    - baseAmount: uint256
+    - baseToken: address
+    - period: uint32
+  outputs:
+    - minTwap: uint256
+    - quote: uint256
+
+recover:
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - token: address
+  outputs: []
+  errors: [REFUND_FAILED]
+
+router:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+celo:
+  mutability: pure
+  inputs: []
+  outputs:
+    - token: address
+
+CUSD:
+  mutability: pure
+  inputs: []
+  outputs:
+    - token: address
+
+USDC:
+  mutability: pure
+  inputs: []
+  outputs:
+    - token: address
+
+GLOUSD:
+  mutability: pure
+  inputs: []
+  outputs:
+    - token: address
+
+GD_FEE_TIER:
+  mutability: pure
+  inputs: []
+  outputs:
+    - tier: uint24
+
+CUSD_STABLE_FEE_TIER:
+  mutability: pure
+  inputs: []
+  outputs:
+    - tier: uint24
+
+CELO_STABLE_FEE_TIER:
+  mutability: pure
+  inputs: []
+  outputs:
+    - tier: uint24
+
+twapPeriod:
+  mutability: view
+  inputs: []
+  outputs:
+    - period: uint32
+
+stable:
+  mutability: view
+  inputs: []
+  outputs:
+    - token: address
+
+gd:
+  mutability: view
+  inputs: []
+  outputs:
+    - token: address
+
+oracle:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+quoter:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+mentoBroker:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+mentoExchangeProvider:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+mentoExchangeId:
+  mutability: view
+  inputs: []
+  outputs:
+    - id: bytes32
+
+owner:
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+CUSD_GAS_COSTS:
+  mutability: pure
+  inputs: []
+  outputs:
+    - amount: uint256
+
+events:
+  Bought:
+    indexed: []
+    data:
+      - inToken: address
+      - inAmount: uint256
+      - outAmount: uint256
+  BoughtFromMento:
+    indexed: []
+    data:
+      - inToken: address
+      - inAmount: uint256
+      - outAmount: uint256
+  BoughtFromUniswap:
+    indexed: []
+    data:
+      - inToken: address
+      - inAmount: uint256
+      - outAmount: uint256
+
+errors:
+  REFUND_FAILED: "Refund call failed."
+  NO_BALANCE: "No CELO or cUSD available on clone."
+  MENTO_NOT_CONFIGURED: "Mento broker path not configured."

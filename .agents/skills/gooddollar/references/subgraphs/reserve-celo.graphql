@@ -1,0 +1,90 @@
+scalar BigDecimal
+
+scalar BigInt
+
+scalar Boolean
+
+scalar Bytes
+
+scalar Float
+
+scalar ID
+
+"""
+4 bytes signed integer
+"""
+
+scalar Int
+
+"""
+8 bytes signed integer
+"""
+
+scalar Int8
+
+"""
+Defines the order direction, either ascending or descending
+"""
+
+type ReservePrice {
+  """
+  Exchange ID combined with timestamp
+  """
+  id: ID!
+  """
+  The exchange ID from the Swap event
+  """
+  exchangeId: Bytes!
+  """
+  The exchange provider address
+  """
+  exchangeProvider: Bytes!
+  """
+  The current price from IBancorExchangeProvider.currentPrice()
+  """
+  price: BigInt!
+  """
+  Transaction timestamp
+  """
+  timestamp: BigInt!
+  """
+  Day ID (timestamp / 86400)
+  """
+  day: BigInt!
+  """
+  Token in address from the swap
+  """
+  tokenIn: Bytes!
+  """
+  Token out address from the swap
+  """
+  tokenOut: Bytes!
+  """
+  Amount in from the swap
+  """
+  amountIn: BigInt!
+  """
+  Amount out from the swap
+  """
+  amountOut: BigInt!
+  """
+  User who initiated the swap
+  """
+  user: Bytes!
+  """
+  Block number
+  """
+  blockNumber: BigInt!
+  """
+  Transaction hash
+  """
+  transactionHash: Bytes!
+}
+
+scalar String
+
+"""
+A string representation of microseconds UNIX timestamp (16 digits)
+"""
+
+scalar Timestamp

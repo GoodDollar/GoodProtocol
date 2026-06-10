@@ -1,0 +1,305 @@
+# UBISchemeV2 — dynamic daily UBI pool with per-root claiming and cycle accounting
+# Claim uses Identity getWhitelistedRoot(msg.sender); transfers use the root as claim key.
+
+meta:
+  name: UBISchemeV2
+  version: v2
+  source:
+    - https://raw.githubusercontent.com/GoodDollar/GoodProtocol/master/contracts/ubi/UBISchemeV2.sol
+  inherits: [DAOUpgradeableContract]
+  note: >
+    Pool sizing uses cycleLength, reserveFactor, minActiveUsers, and on-chain G$
+    balance. claim() reverts if Identity root is zero. Internal accounting keys
+    claims by whitelisted root, payouts go to msg.sender.
+  deployments:
+    mainnet:
+      production:
+        UBIScheme:
+          networkId: 122
+          address: "0xd253A5203817225e9768C05E5996d642fb96bA86"
+          creationBlock: 15747401
+      production-celo:
+        UBIScheme:
+          networkId: 42220
+          address: "0x43d72Ff17701B2DA814620735C39C620Ce0ea4A1"
+          creationBlock: 18006679
+      production-xdc:
+        UBIScheme:
+          networkId: 50
+          address: "0x22867567E2D80f2049200E25C6F31CB6Ec2F0faf"
+          creationBlock: 95249624
+  related:
+    - https://docs.gooddollar.org/for-developers/core-contracts/ubischeme
+    - references/guides/claim.md
+
+getClaimerCount:
+  mutability: view
+  inputs:
+    - day: uint256
+  outputs:
+    - count: uint256
+
+getClaimAmount:
+  notes:
+    - "Returns aggregate amount claimed for the provided day index."
+  mutability: view
+  inputs:
+    - day: uint256
+  outputs:
+    - amount: uint256
+
+getDailyStats:
+  notes:
+    - "Returns (claimer count, total claimed amount) for the calendar day derived from periodStart."
+  mutability: view
+  inputs: []
+  outputs:
+    - claimerCount: uint256
+    - claimAmount: uint256
+
+setCycleLength:
+  mutability: nonpayable
+  access: avatar
+  inputs:
+    - _newLength: uint256
+  outputs: []
+  emits: [CycleLengthSet]
+  errors: [CYCLE_TOO_SHORT, ONLY_AVATAR]
+
+setDay:
+  notes:
+    - "Anyone may advance currentDay when wall-clock day crosses the next boundary."
+  mutability: nonpayable
+  inputs: []
+  outputs: []
+  emits: [DaySet]
+
+hasClaimed:
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - claimed: bool
+
+isNotNewUser:
+  mutability: view
+  inputs:
+    - _account: address
+  outputs:
+    - isReturning: bool
+
+estimateNextDailyUBI:
+  notes:
+    - "View-only projection when dailyUbi not yet fixed for the current wall day."
+  mutability: view
+  inputs: []
+  outputs:
+    - projected: uint256
+
+"checkEntitlement()":
+  notes:
+    - "Uses msg.sender as member; resolves Identity root before hasClaimed check."
+  mutability: view
+  inputs: []
+  outputs:
+    - amount: uint256
+
+"checkEntitlement(address)":
+  notes:
+    - "Checks claimable amount for the provided member using that account's whitelisted root."
+  mutability: view
+  inputs:
+    - _member: address
+  outputs:
+    - amount: uint256
+
+claim:
+  notes:
+    - "Resolves whitelistedRoot = Identity.getWhitelistedRoot(msg.sender); reverts if zero."
+    - "_claim keys bookkeeping by root but pays msg.sender."
+    - "May notify ClaimersDistribution at GDAO_CLAIMERS if configured."
+    - "On success emits UBIClaimed; distributionFormula may emit UBICalculated, UBICycleCalculated, DaySet, WithdrawFromDao."
+  mutability: nonpayable
+  access: anyone
+  inputs: []
+  outputs:
+    - didClaim: bool
+  errors:
+    - NOT_IN_PERIOD_OR_PAUSED
+    - NOT_WHITELISTED
+    - CLAIM_TRANSFER_FAILED
+    - DAO_TRANSFER_FAILED
+
+setShouldWithdrawFromDAO:
+  mutability: nonpayable
+  access: avatar
+  inputs:
+    - _shouldWithdraw: bool
+  outputs: []
+  emits: [ShouldWithdrawFromDAOSet]
+  errors: [ONLY_AVATAR]
+
+pause:
+  mutability: nonpayable
+  access: avatar
+  inputs:
+    - _pause: bool
+  outputs: []
+  errors: [ONLY_AVATAR]
+
+setNewClaimersReserveFactor:
+  notes:
+    - "Adjusts reserveFactor used by distribution formula to reserve part of pool for new claimers."
+  mutability: nonpayable
+  access: avatar
+  inputs:
+    - _reserveFactor: uint32
+  outputs: []
+  errors: [ONLY_AVATAR]
+
+withdraw:
+  notes:
+    - "Avatar-controlled treasury action transferring G$ from scheme balance to recipient."
+  mutability: nonpayable
+  access: avatar
+  inputs:
+    - _amount: uint256
+    - _recipient: address
+  outputs: []
+  errors:
+    - ONLY_AVATAR
+    - WITHDRAW_FAILED
+
+lastClaimed:
+  notes:
+    - "Returns last claim timestamp keyed by account root logic used by hasClaimed checks."
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - ts: uint256
+
+currentDay:
+  mutability: view
+  inputs: []
+  outputs:
+    - day: uint256
+
+periodStart:
+  mutability: view
+  inputs: []
+  outputs:
+    - ts: uint256
+
+dailyUbi:
+  mutability: view
+  inputs: []
+  outputs:
+    - amount: uint256
+
+lastWithdrawDay:
+  mutability: view
+  inputs: []
+  outputs:
+    - day: uint256
+
+shouldWithdrawFromDAO:
+  mutability: view
+  inputs: []
+  outputs:
+    - flag: bool
+
+cycleLength:
+  mutability: view
+  inputs: []
+  outputs:
+    - days: uint256
+
+dailyCyclePool:
+  mutability: view
+  inputs: []
+  outputs:
+    - pool: uint256
+
+startOfCycle:
+  mutability: view
+  inputs: []
+  outputs:
+    - ts: uint256
+
+currentCycleLength:
+  mutability: view
+  inputs: []
+  outputs:
+    - length: uint256
+
+minActiveUsers:
+  mutability: view
+  inputs: []
+  outputs:
+    - n: uint256
+
+totalClaimsPerUser:
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - count: uint256
+
+reserveFactor:
+  mutability: view
+  inputs: []
+  outputs:
+    - bps: uint32
+
+paused:
+  mutability: view
+  inputs: []
+  outputs:
+    - isPaused: bool
+
+events:
+  WithdrawFromDao:
+    indexed: []
+    data:
+      - prevBalance: uint256
+      - newBalance: uint256
+  UBICalculated:
+    indexed: []
+    data:
+      - day: uint256
+      - dailyUbi: uint256
+      - blockNumber: uint256
+  UBICycleCalculated:
+    indexed: []
+    data:
+      - day: uint256
+      - pool: uint256
+      - cycleLength: uint256
+      - dailyUBIPool: uint256
+  UBIClaimed:
+    indexed:
+      - claimer: address
+    data:
+      - amount: uint256
+  CycleLengthSet:
+    indexed: []
+    data:
+      - newCycleLength: uint256
+  DaySet:
+    indexed: []
+    data:
+      - newDay: uint256
+  ShouldWithdrawFromDAOSet:
+    indexed: []
+    data:
+      - ShouldWithdrawFromDAO: bool
+
+errors:
+  NOT_IN_PERIOD_OR_PAUSED: "not in periodStarted or paused — requireStarted modifier."
+  CYCLE_TOO_SHORT: "cycle must be at least 1 day long"
+  DAO_TRANSFER_FAILED: "DAO transfer has failed — _withdrawFromDao balance check."
+  NOT_WHITELISTED: "UBIScheme: not whitelisted — claim()"
+  CLAIM_TRANSFER_FAILED: "claim transfer failed — G$ transfer in _transferTokens."
+  WITHDRAW_FAILED: "withdraw failed — avatar withdraw."
+  ONLY_AVATAR: "Inherited avatar-only guard on DAOUpgradeable paths."

@@ -1,0 +1,104 @@
+# NameService — string-key to address registry for GoodProtocol deployments
+# Resolves keys such as IDENTITY, UBISCHEME, GOODDOLLAR, GDAO_STAKING.
+
+meta:
+  name: NameService
+  version: UUPS-upgradeable v1
+  source:
+    - https://raw.githubusercontent.com/GoodDollar/GoodProtocol/master/contracts/utils/NameService.sol
+  implements: []
+  inherits: [Initializable, UUPSUpgradeable]
+  note: >
+    Almost every integration starts here. Writes are restricted to the DAO
+    avatar. Reads are permissionless. Use getAddress(string) with the same
+    key strings your deployment documented in releases/deployment.json.
+  deployments:
+    mainnet:
+      production:
+        NameService:
+          networkId: 122
+          address: "0xec6dcE387B1616a0c44fF2E4fA9E90e53Cf14eb0"
+          creationBlock: 15740314
+      production-celo:
+        NameService:
+          networkId: 42220
+          address: "0x0F5dB7a64A6a64052693676CA898EC7F7A94FF4e"
+          creationBlock: 17237962
+      production-xdc:
+        NameService:
+          networkId: 50
+          address: "0x1e5154Bf5e31FF56051bbd45958b879Fb7a290FE"
+          creationBlock: 95143608
+  related:
+    - https://docs.gooddollar.org/for-developers/core-contracts/nameservice
+    - https://github.com/GoodDollar/GoodProtocol/blob/master/releases/deployment.json
+
+addresses:
+  # Solidity auto-getter for public mapping addresses(bytes32 => address).
+  notes:
+    - "Prefer getAddress(string) off-chain; this expects keccak256(abi.encodePacked(name)) for manual lookups."
+  mutability: view
+  inputs:
+    - nameHash: bytes32
+  outputs:
+    - addr: address
+
+dao:
+  mutability: view
+  inputs: []
+  outputs:
+    - controller: address
+
+initialize:
+  notes:
+    - "Initializer wires Controller and optional pre-hashed name batch."
+    - "Automatically registers CONTROLLER and AVATAR hashes to dao and dao.avatar()."
+  mutability: nonpayable
+  access: initializer
+  inputs:
+    - _dao: address
+    - _nameHashes: bytes32[]
+    - _addresses: address[]
+  outputs: []
+
+setAddress:
+  notes:
+    - "Stores addresses[keccak256(bytes(name))] = addr and emits AddressChanged."
+  mutability: nonpayable
+  access: avatar
+  inputs:
+    - name: string
+    - addr: address
+  outputs: []
+  emits: [AddressChanged]
+  errors: [ONLY_AVATAR]
+
+setAddresses:
+  notes:
+    - "Batch write by raw bytes32 keys; no per-name event emission in this loop."
+  mutability: nonpayable
+  access: avatar
+  inputs:
+    - hash: bytes32[]
+    - addrs: address[]
+  outputs: []
+  errors: [ONLY_AVATAR]
+
+getAddress:
+  notes:
+    - "Primary lookup used by claim, staking, identity, and swap integrations."
+  mutability: view
+  inputs:
+    - name: string
+  outputs:
+    - addr: address
+
+events:
+  AddressChanged:
+    indexed: []
+    data:
+      - name: string
+      - addr: address
+
+errors:
+  ONLY_AVATAR: "only avatar can call this method — revert string on any avatar-gated path including UUPS _authorizeUpgrade."
