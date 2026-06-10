@@ -1,0 +1,202 @@
+# GovernanceStakingV2 (Fuse) — G$ staking share token with GDAO reward accrual
+# Deployment key in GoodProtocol release metadata is GovernanceStakingV2.
+
+meta:
+  name: GovernanceStakingV2
+  version: "2"
+  source:
+    - https://raw.githubusercontent.com/GoodDollar/GoodProtocol/master/contracts/governance/GovernanceStaking.sol
+    - https://raw.githubusercontent.com/GoodDollar/GoodProtocol/master/releases/deployment.json
+  inherits:
+    - ERC20Upgradeable
+    - MultiBaseGovernanceShareField
+    - DAOUpgradeableContract
+    - ReentrancyGuardUpgradeable
+  note: >
+    Fuse governance staking contract where users stake G$ and receive staking shares (`sG$`) with
+    GDAO-style rewards minted on reward withdrawal paths. `withdrawStake(0)` means full unstake.
+    In GoodProtocol `releases/deployment.json` this address is listed as GovernanceStakingV2 on Fuse `production`.
+    This is the old staking contract in Fuse->CELO migration flows.
+  deployments:
+    mainnet:
+      production:
+        GovernanceStakingV2:
+          networkId: 122
+          address: "0xB7C3e738224625289C573c54d402E9Be46205546"
+          creationBlock: 15956809
+  related:
+    - references/guides/migrate-fuse-staking-to-celo-savings.md
+    - references/deep-researches/fuse-to-celo-staking-migration.md
+
+getChainBlocksPerMonth:
+  mutability: pure
+  inputs: []
+  outputs:
+    - blocks: uint256
+
+stake:
+  notes:
+    - "Requires prior G$ ERC20 approval to staking contract."
+    - "Mints staking share token and updates reward productivity before event emission."
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - _amount: uint256
+  outputs: []
+  emits: [Staked]
+
+withdrawStake:
+  notes:
+    - "If _amount is 0, contract interprets it as full user unstake."
+    - "Burns staking shares, updates productivity, mints pending rewards, then transfers G$ out."
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - _amount: uint256
+  outputs: []
+  emits: [StakeWithdraw]
+
+withdrawRewards:
+  notes:
+    - "Claims rewards without changing staked principal."
+  mutability: nonpayable
+  access: anyone
+  inputs: []
+  outputs:
+    - minted: uint256
+  emits: [ReputationEarned]
+
+setMonthlyRewards:
+  notes:
+    - "DAO-controlled update of rewardsPerBlock schedule via avatar authorization."
+  mutability: nonpayable
+  access: avatar
+  inputs:
+    - _monthlyAmount: uint256
+  outputs: []
+
+getRewardsPerBlock:
+  mutability: view
+  inputs: []
+  outputs:
+    - amount: uint256
+
+getProductivity:
+  mutability: view
+  inputs:
+    - _user: address
+  outputs:
+    - productivity: uint256
+    - rewardDebt: uint256
+
+getUserPendingReward:
+  mutability: view
+  inputs:
+    - _user: address
+  outputs:
+    - pending: uint256
+
+users:
+  notes:
+    - "UserInfo getter for internal staking productivity record."
+  mutability: view
+  inputs:
+    - _user: address
+  outputs:
+    - amount: uint256
+    - rewardDebt: uint256
+
+totalRewardsPerShare:
+  mutability: view
+  inputs: []
+  outputs:
+    - value: uint256
+
+decimals:
+  mutability: view
+  inputs: []
+  outputs:
+    - d: uint8
+
+totalSupply:
+  mutability: view
+  inputs: []
+  outputs:
+    - supply: uint256
+
+balanceOf:
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - balance: uint256
+
+allowance:
+  mutability: view
+  inputs:
+    - owner: address
+    - spender: address
+  outputs:
+    - amount: uint256
+
+approve:
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - spender: address
+    - amount: uint256
+  outputs:
+    - ok: bool
+  emits: [Approval]
+
+transfer:
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - to: address
+    - amount: uint256
+  outputs:
+    - ok: bool
+  emits: [Transfer]
+
+transferFrom:
+  mutability: nonpayable
+  access: anyone
+  inputs:
+    - from: address
+    - to: address
+    - amount: uint256
+  outputs:
+    - ok: bool
+  emits: [Transfer, Approval]
+
+events:
+  ReputationEarned:
+    indexed:
+      - staker: address
+    data:
+      - amount: uint256
+  Staked:
+    indexed:
+      - staker: address
+    data:
+      - amount: uint256
+  StakeWithdraw:
+    indexed:
+      - staker: address
+    data:
+      - amount: uint256
+  Transfer:
+    indexed:
+      - from: address
+      - to: address
+    data:
+      - value: uint256
+  Approval:
+    indexed:
+      - owner: address
+      - spender: address
+    data:
+      - value: uint256
+
+errors: {}

@@ -1,0 +1,542 @@
+meta:
+  name: MessagePassingBridge
+  version: Axelar + LayerZero message passing
+  source:
+    - https://raw.githubusercontent.com/GoodDollar/GoodBridge/master/packages/bridge-contracts/contracts/messagePassingBridge/MessagePassingBridge.sol
+    - https://raw.githubusercontent.com/GoodDollar/GoodBridge/master/packages/bridge-contracts/contracts/messagePassingBridge/IMessagePassingBridge.sol
+  note: >
+    Bridge implementation that burns source tokens and mints destination tokens,
+    transporting requests through Axelar or LayerZero.
+    Cross-chain transport uses msg.value on the source (LayerZero estimateSendFee path, Axelar gas prepay); destination mint applies bridgeFees bps to the delivered G$ amount. See references/guides/bridge.md "Bridge fee context".
+  deployments:
+    mainnet:
+      production:
+        MpbBridge:
+          networkId: 122
+          address: "0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5"
+          creationBlock: 25464921
+      production-celo:
+        MpbBridge:
+          networkId: 42220
+          address: "0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5"
+          creationBlock: 21473545
+      production-xdc:
+        MpbBridge:
+          networkId: 50
+          address: "0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5"
+          creationBlock: 95254417
+  related:
+    - references/guides/bridge.md
+
+initialize:
+  notes:
+    - "Initial bootstrap for DAO wiring and bridge policy state."
+    - "Sets guardian to msg.sender and uses NameService UBISCHEME as feeRecipient fallback to avatar when missing."
+    - "Preloads default LZ mappings for Ethereum, Celo, Fuse, and XDC using this contract as trusted remote."
+  mutability: nonpayable
+  access: initializer
+  inputs:
+    - nameService: address
+    - limits: (uint256,uint256,uint256,uint256,bool)
+    - fees: (uint256,uint256,uint256)
+  outputs: []
+
+upgrade:
+  notes:
+    - "Reinitializer for migration path; re-applies default LZ mappings through internal add function."
+    - "Used when upgrading existing proxy deployments to mapping-aware version."
+  mutability: nonpayable
+  access: reinitializer
+  inputs: []
+  outputs: []
+
+addLzChainSupport:
+  notes:
+    - "Administrative chain wiring method for LayerZero transport."
+    - "Writes both forward (chainId->lzChainId) and reverse (lzChainId->chainId) mappings."
+    - "Also updates trustedRemoteLookup to enforce source-contract authenticity on receive."
+  mutability: nonpayable
+  access: ownerOrAvatarOrGuardian
+  inputs:
+    - lzChainId: uint16
+    - chainId: uint256
+    - remote: address
+  outputs: []
+
+approveRequest:
+  notes:
+    - "Manual override for stuck/exceptional inbound requests."
+    - "When approved, destination _bridgeFrom skips limits enforcement for that request id."
+  mutability: nonpayable
+  access: ownerOrAvatarOrGuardian
+  inputs:
+    - id: uint256
+  outputs: []
+
+preventRequest:
+  notes:
+    - "Emergency/manual block for a specific request id."
+    - "Prevents execution by pre-marking executedRequests[id]=true."
+  mutability: nonpayable
+  access: ownerOrAvatarOrGuardian
+  inputs:
+    - id: uint256
+  outputs: []
+
+setFeeRecipient:
+  notes:
+    - "Sets destination fee mint recipient."
+    - "If feeRecipient is zero, fee minting is skipped in _bridgeFrom."
+  mutability: nonpayable
+  access: ownerOrAvatarOrGuardian
+  inputs:
+    - recipient: address
+  outputs: []
+
+setBridgeLimits:
+  notes:
+    - "Updates operational throttles: min amount, tx cap, account/day cap, global/day cap, whitelist mode."
+    - "These limits are checked by canBridge and enforced in _enforceLimits."
+  mutability: nonpayable
+  access: ownerOrAvatarOrGuardian
+  inputs:
+    - limits: (uint256,uint256,uint256,uint256,bool)
+  outputs: []
+
+setBridgeFees:
+  notes:
+    - "Updates bridge fee parameters in basis points with min/max clamps."
+    - "Reverts when fee exceeds 10000 bps."
+    - "Effective fee deduction is computed in _takeFee during destination execution."
+  mutability: nonpayable
+  access: ownerOrAvatarOrGuardian
+  inputs:
+    - fees: (uint256,uint256,uint256)
+  outputs: []
+
+setDisabledBridges:
+  notes:
+    - "Toggles allowlist state for source bridge combinations."
+    - "Key format is keccak256(abi.encode(sourceChainId, BridgeService))."
+    - "Checked in _bridgeFrom before request execution."
+  mutability: nonpayable
+  access: ownerOrAvatarOrGuardian
+  inputs:
+    - bridgeKeys: bytes32[]
+    - disabled: bool[]
+  outputs: []
+
+setFaucet:
+  notes:
+    - "Configures optional faucet top-up callback used after successful destination processing."
+  mutability: nonpayable
+  access: ownerOrAvatarOrGuardian
+  inputs:
+    - _faucet: address
+  outputs: []
+
+setGuardian:
+  notes:
+    - "Rotates guardian authority used by owner/avatar/guardian admin gate."
+  mutability: nonpayable
+  access: ownerOrAvatarOrGuardian
+  inputs:
+    - _guardian: address
+  outputs: []
+
+withdraw:
+  notes:
+    - "Avatar-only rescue function for arbitrary token balances held by bridge."
+    - "Amount 0 means full balance withdrawal."
+  mutability: nonpayable
+  access: avatar
+  inputs:
+    - token: address
+    - amount: uint256
+  outputs: []
+
+pauseBridge:
+  notes:
+    - "Sets isClosed state for outbound flow."
+    - "When closed, _bridgeTo reverts with BRIDGE_LIMITS('closed')."
+  mutability: nonpayable
+  access: ownerOrAvatarOrGuardian
+  inputs:
+    - isPaused: bool
+  outputs: []
+
+canBridge:
+  notes:
+    - "Purely diagnostic read path for preflight checks."
+    - "Returns (ok, reason) using BridgeHelperLibrary policy evaluation."
+    - "Includes close flag, whitelist gate, and per-account/global daily limit windows."
+  mutability: view
+  inputs:
+    - from: address
+    - amount: uint256
+  outputs:
+    - isWithinLimit: bool
+    - error: string
+
+bridgeTo:
+  notes:
+    - "Generic outbound bridge entrypoint selecting BridgeService.AXELAR or BridgeService.LZ."
+    - "Burns source-side token amount, normalizes to 18 decimals, and emits BridgeRequest with request id."
+    - "Requires msg.value for transport fee payment."
+  mutability: payable
+  access: anyone
+  inputs:
+    - target: address
+    - targetChainId: uint256
+    - amount: uint256
+    - bridge: uint8
+  outputs: []
+
+bridgeToWithLz:
+  notes:
+    - "Outbound convenience wrapper fixed to LayerZero transport."
+    - "If adapterParams is empty, contract injects default type-1 options with 400k gas."
+    - "Compares required native fee from estimateSendFee against msg.value and reverts on underpayment."
+  mutability: payable
+  access: anyone
+  inputs:
+    - target: address
+    - targetChainId: uint256
+    - amount: uint256
+    - adapterParams: bytes
+  outputs: []
+
+bridgeToWithAxelar:
+  notes:
+    - "Outbound convenience wrapper fixed to Axelar transport."
+    - "Uses gasRefundAddress when provided, otherwise msg.sender as refund recipient."
+  mutability: payable
+  access: anyone
+  inputs:
+    - target: address
+    - targetChainId: uint256
+    - amount: uint256
+    - gasRefundAddress: address
+  outputs: []
+
+toLzChainId:
+  notes:
+    - "Lookup helper from local chain id to LayerZero chain id."
+  mutability: view
+  inputs:
+    - chainId: uint256
+  outputs:
+    - lzChainId: uint16
+
+fromLzChainId:
+  notes:
+    - "Lookup helper from LayerZero chain id to local chain id."
+  mutability: view
+  inputs:
+    - lzChainId: uint16
+  outputs:
+    - chainId: uint256
+
+toAxelarChainId:
+  notes:
+    - "Pure mapping in current implementation: chainId 1 -> 'Ethereum', 5 -> 'ethereum-2', 42220 and 44787 -> 'celo'; any other id returns empty string and outbound Axelar reverts UNSUPPORTED_CHAIN."
+  mutability: pure
+  inputs:
+    - chainId: uint256
+  outputs:
+    - axlChainId: string
+
+fromAxelarChainId:
+  notes:
+    - "Maps Axelar chain-name strings back into local numeric chain ids."
+  mutability: pure
+  inputs:
+    - axlChainId: string
+  outputs:
+    - chainId: uint256
+
+estimateSendFee:
+  notes:
+    - "Transport fee preflight for LZ path."
+    - "Builds payload with request id set to 0 for estimation."
+    - "Returns (0,0) on endpoint estimation failure in handler implementation."
+    - "_normalizedAmount must match BridgeHelperLibrary.normalizeFromTokenTo18Decimals burned raw amount using native token decimals on the outbound chain."
+  mutability: view
+  inputs:
+    - _dstChainId: uint16
+    - _fromAddress: address
+    - _toAddress: address
+    - _normalizedAmount: uint256
+    - _useZro: bool
+    - _adapterParams: bytes
+  outputs:
+    - nativeFee: uint256
+    - zroFee: uint256
+
+lzReceive:
+  notes:
+    - "LayerZero receive entrypoint."
+    - "Validates caller is configured endpoint before dispatching nonblocking receive pipeline."
+  mutability: nonpayable
+  inputs:
+    - _srcChainId: uint16
+    - _srcAddress: bytes
+    - _nonce: uint64
+    - _payload: bytes
+  outputs: []
+
+lzEndpoint_:
+  notes:
+    - "Immutable LayerZero endpoint configured in constructor."
+  mutability: view
+  inputs: []
+  outputs:
+    - endpoint: address
+
+HOME_CHAIN_ID:
+  notes:
+    - "Immutable deployment home chain marker."
+  mutability: view
+  inputs: []
+  outputs:
+    - chainId: uint32
+
+guardian:
+  notes:
+    - "Current guardian account authorized for admin operations."
+  mutability: view
+  inputs: []
+  outputs:
+    - account: address
+
+executedRequests:
+  notes:
+    - "Replay protection state for inbound request ids."
+  mutability: view
+  inputs:
+    - id: uint256
+  outputs:
+    - done: bool
+
+disabledSourceBridges:
+  notes:
+    - "Per-source bridge toggle state keyed by (sourceChainId, bridgeService) hash."
+  mutability: view
+  inputs:
+    - key: bytes32
+  outputs:
+    - disabled: bool
+
+isClosed:
+  notes:
+    - "Outbound bridge pause state."
+  mutability: view
+  inputs: []
+  outputs:
+    - closed: bool
+
+bridgeFees:
+  notes:
+    - "Current fee policy parameters: minFee, maxFee, feeBps."
+  mutability: view
+  inputs: []
+  outputs:
+    - minFee: uint256
+    - maxFee: uint256
+    - fee: uint256
+
+bridgeLimits:
+  notes:
+    - "Current bridge traffic limits and whitelist policy."
+  mutability: view
+  inputs: []
+  outputs:
+    - dailyLimit: uint256
+    - txLimit: uint256
+    - accountDailyLimit: uint256
+    - minAmount: uint256
+    - onlyWhitelisted: bool
+
+bridgeDailyLimit:
+  notes:
+    - "Aggregate 24h bridge usage tracker."
+  mutability: view
+  inputs: []
+  outputs:
+    - lastTransferReset: uint256
+    - bridged24Hours: uint256
+
+accountsDailyLimit:
+  notes:
+    - "Per-account 24h usage tracker."
+  mutability: view
+  inputs:
+    - account: address
+  outputs:
+    - lastTransferReset: uint256
+    - bridged24Hours: uint256
+
+faucet:
+  notes:
+    - "Optional gas top-up contract used on destination completion."
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+currentId:
+  notes:
+    - "Monotonic nonce component used to derive outbound request ids."
+  mutability: view
+  inputs: []
+  outputs:
+    - id: uint256
+
+lzChainIdsMapping:
+  notes:
+    - "Local chain id -> LayerZero chain id mapping."
+  mutability: view
+  inputs:
+    - chainId: uint256
+  outputs:
+    - lzChainId: uint16
+
+feeRecipient:
+  notes:
+    - "Address receiving bridge fee mints on destination."
+  mutability: view
+  inputs: []
+  outputs:
+    - recipient: address
+
+approvedRequests:
+  notes:
+    - "Manual approvals allowing request execution above standard limits."
+  mutability: view
+  inputs:
+    - id: uint256
+  outputs:
+    - approved: bool
+
+lzChainToIdsMapping:
+  notes:
+    - "LayerZero chain id -> local chain id mapping."
+  mutability: view
+  inputs:
+    - lzChainId: uint16
+  outputs:
+    - chainId: uint256
+
+trustedRemoteLookup:
+  notes:
+    - "Trusted remote path used to authenticate inbound LZ/Axelar source contract."
+  mutability: view
+  inputs:
+    - lzChainId: uint16
+  outputs:
+    - path: bytes
+
+gateway:
+  notes:
+    - "Axelar gateway address inherited from AxelarExecutable."
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+gasService:
+  notes:
+    - "Axelar gas service used to prepay cross-chain execution."
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+nameService:
+  notes:
+    - "DAO NameService pointer from DAOUpgradeableContract."
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+avatar:
+  notes:
+    - "DAO avatar authority address."
+  mutability: view
+  inputs: []
+  outputs:
+    - addr: address
+
+owner:
+  notes:
+    - "Ownable owner from upgradeable ownership flow."
+  mutability: view
+  inputs: []
+  outputs:
+    - account: address
+
+events:
+  BridgeRequest:
+    indexed:
+      - from: address
+      - to: address
+      - id: uint256
+    data:
+      - targetChainId: uint256
+      - normalizedAmount: uint256
+      - timestamp: uint256
+      - bridge: uint8
+    note: "Outbound intent event; relayers consume this to deliver payload on destination."
+  ExecutedTransfer:
+    indexed:
+      - from: address
+      - to: address
+      - id: uint256
+    data:
+      - normalizedAmount: uint256
+      - fee: uint256
+      - sourceChainId: uint256
+      - bridge: uint8
+    note: "Destination completion event after replay checks, source-auth checks, limit checks, and mint/fee mint."
+  FalseSender:
+    indexed: []
+    data:
+      - sourceChainId: uint256
+      - sourceAddress: address
+    note: "Inbound message ignored because source contract does not match trusted remote path."
+
+errors:
+  AlreadyInitialized: "LZ chain support already initialized for this lz chain id."
+  NOT_GUARDIAN:
+    inputs:
+      - sender: address
+  WRONG_TOKEN:
+    inputs:
+      - token: address
+  INVALID_TARGET_OR_CHAINID:
+    inputs:
+      - target: address
+      - chainId: uint256
+  BRIDGE_LIMITS:
+    inputs:
+      - reason: string
+  TRANSFER_FROM: "Source burn/transferFrom style failure."
+  TRANSFER: "Destination transfer style failure."
+  ALREADY_EXECUTED:
+    inputs:
+      - requestId: uint256
+  MISSING_FEE: "Bridge call requires msg.value for transport fee."
+  UNSUPPORTED_CHAIN:
+    inputs:
+      - chainId: uint256
+  LZ_FEE:
+    inputs:
+      - required: uint256
+      - sent: uint256
+  INVALID_SENDER:
+    inputs:
+      - _srcAddress: bytes
+  INVALID_ENDPOINT:
+    inputs:
+      - lzEndpoint: address
