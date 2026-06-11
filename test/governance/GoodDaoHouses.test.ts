@@ -13,9 +13,18 @@ const UNSTAKED = 4;
 describe("GoodDaoHouses", () => {
   const citizensMinimumStake = 1000;
   const alignmentMinimumStake = 2000;
+  const alignmentForumUrl = "https://forum.gooddollar.org/t/alignment-one";
 
   const fixture = async () => {
-    const [admin, committee, citizenOne, citizenTwo, alignmentOne, alignmentTwo] =
+    const [
+      admin,
+      committee,
+      citizenOne,
+      citizenTwo,
+      alignmentOne,
+      alignmentTwo,
+      lateCitizen
+    ] =
       await ethers.getSigners();
 
     const { gd, nameService } = await loadFixture(createDAO);
@@ -41,6 +50,7 @@ describe("GoodDaoHouses", () => {
       citizenTwo,
       alignmentOne,
       alignmentTwo,
+      lateCitizen,
       goodDollar,
       flowSplitter,
       houses
@@ -53,18 +63,74 @@ describe("GoodDaoHouses", () => {
     signer,
     house,
     amount,
-    metadata
+    details
   ) => {
     const data = ethers.utils.defaultAbiCoder.encode(
-      ["uint8", "string"],
-      [house, metadata]
+      ["uint8", "string", "string", "string", "string", "string"],
+      [
+        house,
+        details.name,
+        details.socialLinks ?? "",
+        details.projectWebpage ?? "",
+        details.missionStatement ?? "",
+        details.distributionStrategy ?? ""
+      ]
     );
 
     await goodDollar.mint(signer.address, amount);
     await goodDollar.connect(signer).transferAndCall(houses.address, amount, data);
   };
 
-  it("registers citizens immediately and alignment members through eligibility plus approval", async () => {
+  const registerCitizen = async (goodDollar, houses, signer, name = "citizen") =>
+    registerViaTransferAndCall(goodDollar, houses, signer, CITIZENS, citizensMinimumStake, {
+      name,
+      socialLinks: "https://social.example/" + name
+    });
+
+  const registerAlignment = async (
+    goodDollar,
+    houses,
+    signer,
+    name,
+    distributionStrategy = alignmentForumUrl
+  ) =>
+    registerViaTransferAndCall(
+      goodDollar,
+      houses,
+      signer,
+      ALIGNMENT,
+      alignmentMinimumStake,
+      {
+        name,
+        projectWebpage: `https://${name}.example`,
+        missionStatement: `${name} mission`,
+        distributionStrategy
+      }
+    );
+
+  const moveToNextVotingWindow = async houses => {
+    const latestBlock = await ethers.provider.getBlock("latest");
+    const termDuration = (await houses.termDuration()).toNumber();
+    const offset = latestBlock.timestamp % termDuration;
+    const delta = offset === 0 ? 1 : termDuration - offset + 1;
+
+    await increaseTime(delta);
+
+    return houses.getCurrentVoteId();
+  };
+
+  const movePastVotingWindow = async houses => {
+    const latestBlock = await ethers.provider.getBlock("latest");
+    const termDuration = (await houses.termDuration()).toNumber();
+    const votingTermLength = (await houses.votingTermLength()).toNumber();
+    const offset = latestBlock.timestamp % termDuration;
+
+    if (offset <= votingTermLength) {
+      await increaseTime(votingTermLength - offset + 1);
+    }
+  };
+
+  it("writes house fields on chain and approves alignment members after eligibility", async () => {
     const { committee, citizenOne, alignmentOne, goodDollar, houses } =
       await loadFixture(fixture);
 
@@ -72,21 +138,13 @@ describe("GoodDaoHouses", () => {
       .connect(committee)
       .setAlignmentEligibility(alignmentOne.address, true);
 
-    await registerViaTransferAndCall(
-      goodDollar,
-      houses,
-      citizenOne,
-      CITIZENS,
-      citizensMinimumStake,
-      "citizen-one"
-    );
-    await registerViaTransferAndCall(
+    await registerCitizen(goodDollar, houses, citizenOne, "citizen-one");
+    await registerAlignment(
       goodDollar,
       houses,
       alignmentOne,
-      ALIGNMENT,
-      alignmentMinimumStake,
-      "alignment-one"
+      "alignment-one",
+      alignmentForumUrl
     );
 
     const citizenMember = await houses.getMember(citizenOne.address);
@@ -95,7 +153,20 @@ describe("GoodDaoHouses", () => {
     );
 
     expect(citizenMember.status).to.equal(ACTIVE);
+    expect(citizenMember.name).to.equal("citizen-one");
+    expect(citizenMember.socialLinks).to.equal(
+      "https://social.example/citizen-one"
+    );
     expect(alignmentMemberBeforeApproval.status).to.equal(PENDING);
+    expect(alignmentMemberBeforeApproval.projectWebpage).to.equal(
+      "https://alignment-one.example"
+    );
+    expect(alignmentMemberBeforeApproval.missionStatement).to.equal(
+      "alignment-one mission"
+    );
+    expect(alignmentMemberBeforeApproval.distributionStrategy).to.equal(
+      alignmentForumUrl
+    );
 
     await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
 
@@ -108,13 +179,14 @@ describe("GoodDaoHouses", () => {
     expect(activeAlignmentMembers).to.deep.equal([alignmentOne.address]);
   });
 
-  it("snapshots voters, allows ballot replacement, and finalizes deterministic units", async () => {
+  it("creates the term vote on first ballot, blocks late joiners, and stores direct weighted units", async () => {
     const {
       committee,
       citizenOne,
       citizenTwo,
       alignmentOne,
       alignmentTwo,
+      lateCitizen,
       goodDollar,
       houses
     } = await loadFixture(fixture);
@@ -126,89 +198,79 @@ describe("GoodDaoHouses", () => {
       .connect(committee)
       .setAlignmentEligibility(alignmentTwo.address, true);
 
-    await registerViaTransferAndCall(
-      goodDollar,
-      houses,
-      citizenOne,
-      CITIZENS,
-      citizensMinimumStake,
-      "citizen-one"
-    );
-    await registerViaTransferAndCall(
-      goodDollar,
-      houses,
-      citizenTwo,
-      CITIZENS,
-      citizensMinimumStake,
-      "citizen-two"
-    );
-    await registerViaTransferAndCall(
-      goodDollar,
-      houses,
-      alignmentOne,
-      ALIGNMENT,
-      alignmentMinimumStake,
-      "alignment-one"
-    );
-    await registerViaTransferAndCall(
-      goodDollar,
-      houses,
-      alignmentTwo,
-      ALIGNMENT,
-      alignmentMinimumStake,
-      "alignment-two"
-    );
+    await registerCitizen(goodDollar, houses, citizenOne, "citizen-one");
+    await registerCitizen(goodDollar, houses, citizenTwo, "citizen-two");
+    await registerAlignment(goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(goodDollar, houses, alignmentTwo, "alignment-two");
 
     await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
     await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
 
-    await houses.connect(committee).createAlignmentVote(3600, 1000, "Q1");
+    const voteId = await moveToNextVotingWindow(houses);
 
-    const voteId = await houses.voteCount();
     const [alignmentVoters, citizensVoters] = await houses.getVoteVoters(voteId);
 
-    expect(alignmentVoters).to.deep.equal([
-      alignmentOne.address,
-      alignmentTwo.address
-    ]);
-    expect(citizensVoters).to.deep.equal([
-      citizenOne.address,
-      citizenTwo.address
-    ]);
+    expect(alignmentVoters).to.deep.equal([]);
+    expect(citizensVoters).to.deep.equal([]);
 
     await houses
       .connect(alignmentOne)
-      .castVote(voteId, [alignmentOne.address], [10000]);
+      .castVote([alignmentOne.address], [10000]);
     await houses
       .connect(citizenOne)
-      .castVote(voteId, [alignmentTwo.address], [10000]);
+      .castVote([alignmentTwo.address], [10000]);
     await houses
       .connect(citizenTwo)
-      .castVote(voteId, [alignmentTwo.address], [10000]);
+      .castVote([alignmentTwo.address], [10000]);
 
     await houses
       .connect(alignmentTwo)
-      .castVote(voteId, [alignmentTwo.address], [10000]);
+      .castVote([alignmentTwo.address], [10000]);
     await houses
       .connect(alignmentTwo)
-      .castVote(voteId, [alignmentOne.address], [10000]);
+      .castVote([alignmentOne.address], [10000]);
+
+    const createdVoteId = await houses.getCurrentVoteId();
+    const vote = await houses.getVote(createdVoteId);
+    const [createdAlignmentVoters, createdCitizensVoters] =
+      await houses.getVoteVoters(createdVoteId);
+
+    expect(createdVoteId).to.equal(voteId);
+    expect(createdAlignmentVoters).to.deep.equal([
+      alignmentOne.address,
+      alignmentTwo.address
+    ]);
+    expect(createdCitizensVoters).to.deep.equal([
+      citizenOne.address,
+      citizenTwo.address
+    ]);
+    expect(vote.startTime).to.equal(
+      createdVoteId.mul(await houses.termDuration())
+    );
+
+    await registerCitizen(goodDollar, houses, lateCitizen, "late-citizen");
+
+    await expect(
+      houses.connect(lateCitizen).castVote([alignmentOne.address], [10000])
+    ).to.be.revertedWith("VE");
 
     const [ballotRecipients, ballotAllocations] = await houses.getBallot(
-      voteId,
+      createdVoteId,
       alignmentTwo.address
     );
 
     expect(ballotRecipients).to.deep.equal([alignmentOne.address]);
     expect(ballotAllocations[0]).to.equal(10000);
 
-    await increaseTime(3601);
-    await houses.connect(committee).finalizeAlignmentVote(voteId);
-
-    expect(await houses.getFinalizedUnits(voteId, alignmentOne.address)).to.equal(
-      909
+    expect(
+      await houses.getFinalizedUnits(createdVoteId, alignmentOne.address)
+    ).to.equal(
+      80
     );
-    expect(await houses.getFinalizedUnits(voteId, alignmentTwo.address)).to.equal(
-      90
+    expect(
+      await houses.getFinalizedUnits(createdVoteId, alignmentTwo.address)
+    ).to.equal(
+      8
     );
   });
 
@@ -231,38 +293,10 @@ describe("GoodDaoHouses", () => {
       .connect(committee)
       .setAlignmentEligibility(alignmentTwo.address, true);
 
-    await registerViaTransferAndCall(
-      goodDollar,
-      houses,
-      citizenOne,
-      CITIZENS,
-      citizensMinimumStake,
-      "citizen-one"
-    );
-    await registerViaTransferAndCall(
-      goodDollar,
-      houses,
-      citizenTwo,
-      CITIZENS,
-      citizensMinimumStake,
-      "citizen-two"
-    );
-    await registerViaTransferAndCall(
-      goodDollar,
-      houses,
-      alignmentOne,
-      ALIGNMENT,
-      alignmentMinimumStake,
-      "alignment-one"
-    );
-    await registerViaTransferAndCall(
-      goodDollar,
-      houses,
-      alignmentTwo,
-      ALIGNMENT,
-      alignmentMinimumStake,
-      "alignment-two"
-    );
+    await registerCitizen(goodDollar, houses, citizenOne, "citizen-one");
+    await registerCitizen(goodDollar, houses, citizenTwo, "citizen-two");
+    await registerAlignment(goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(goodDollar, houses, alignmentTwo, "alignment-two");
 
     await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
     await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
@@ -278,24 +312,22 @@ describe("GoodDaoHouses", () => {
       false
     );
 
-    await houses.connect(committee).createAlignmentVote(3600, 1000, "Q1");
-    let voteId = await houses.voteCount();
+    let voteId = await moveToNextVotingWindow(houses);
 
     await houses
       .connect(alignmentOne)
-      .castVote(voteId, [alignmentOne.address], [10000]);
+      .castVote([alignmentOne.address], [10000]);
     await houses
       .connect(alignmentTwo)
-      .castVote(voteId, [alignmentOne.address], [10000]);
+      .castVote([alignmentOne.address], [10000]);
     await houses
       .connect(citizenOne)
-      .castVote(voteId, [alignmentOne.address], [10000]);
+      .castVote([alignmentOne.address], [10000]);
     await houses
       .connect(citizenTwo)
-      .castVote(voteId, [alignmentOne.address], [10000]);
+      .castVote([alignmentOne.address], [10000]);
 
-    await increaseTime(3601);
-    await houses.connect(committee).finalizeAlignmentVote(voteId);
+    await movePastVotingWindow(houses);
     await houses.connect(committee).executeVote(voteId);
 
     let flowConfig = await houses.getFlowSplitterConfig();
@@ -303,35 +335,33 @@ describe("GoodDaoHouses", () => {
     expect(flowConfig.poolInitialized).to.equal(true);
     expect(flowConfig.poolId).to.equal(1);
     expect(await flowSplitter.getMemberUnits(1, alignmentOne.address)).to.equal(
-      1000
+      88
     );
     expect(await flowSplitter.getMemberUnits(1, alignmentTwo.address)).to.equal(0);
 
-    await houses.connect(committee).createAlignmentVote(3600, 1000, "Q2");
-    voteId = await houses.voteCount();
+    voteId = await moveToNextVotingWindow(houses);
 
     await houses
       .connect(alignmentOne)
-      .castVote(voteId, [alignmentTwo.address], [10000]);
+      .castVote([alignmentTwo.address], [10000]);
     await houses
       .connect(alignmentTwo)
-      .castVote(voteId, [alignmentTwo.address], [10000]);
+      .castVote([alignmentTwo.address], [10000]);
     await houses
       .connect(citizenOne)
-      .castVote(voteId, [alignmentTwo.address], [10000]);
+      .castVote([alignmentTwo.address], [10000]);
     await houses
       .connect(citizenTwo)
-      .castVote(voteId, [alignmentTwo.address], [10000]);
+      .castVote([alignmentTwo.address], [10000]);
 
-    await increaseTime(3601);
-    await houses.connect(committee).finalizeAlignmentVote(voteId);
+    await movePastVotingWindow(houses);
     await houses.connect(committee).executeVote(voteId);
 
     flowConfig = await houses.getFlowSplitterConfig();
     expect(flowConfig.poolId).to.equal(1);
     expect(await flowSplitter.getMemberUnits(1, alignmentOne.address)).to.equal(0);
     expect(await flowSplitter.getMemberUnits(1, alignmentTwo.address)).to.equal(
-      1000
+      88
     );
 
     await houses.connect(alignmentTwo).unstake();

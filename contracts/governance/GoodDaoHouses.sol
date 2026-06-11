@@ -5,7 +5,6 @@ pragma solidity 0.8.19;
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import "../Interfaces.sol";
 import "../token/ERC677.sol";
@@ -23,15 +22,14 @@ contract GoodDaoHouses is
 	DAOUpgradeableContract,
 	ERC677Receiver
 {
-	using EnumerableSet for EnumerableSet.AddressSet;
-
 	bytes32 public constant GOVERNANCE_COMMITTEE_ROLE =
 		keccak256("GOVERNANCE_COMMITTEE_ROLE");
 
 	uint256 public constant HOUSE_ALIGNMENT_WEIGHT = 40;
 	uint256 public constant HOUSE_CITIZENS_WEIGHT = 4;
 	uint256 public constant BASIS_POINTS = 10000;
-	uint64 public constant DEFAULT_VOTE_DURATION = 7 days;
+	uint64 public constant DEFAULT_TERM_DURATION = 90 days;
+	uint64 public constant DEFAULT_VOTING_TERM_LENGTH = 7 days;
 
 	enum House {
 		Citizens,
@@ -53,7 +51,11 @@ contract GoodDaoHouses is
 		uint64 joinedAt;
 		uint64 updatedAt;
 		uint64 unstakedAt;
-		string metadata;
+		string name;
+		string socialLinks;
+		string projectWebpage;
+		string missionStatement;
+		string distributionStrategy;
 	}
 
 	struct EligibilityRecord {
@@ -66,12 +68,7 @@ contract GoodDaoHouses is
 	struct VoteConfig {
 		uint64 startTime;
 		uint64 endTime;
-		uint64 finalizedAt;
 		uint64 executedAt;
-		uint256 totalUnits;
-		uint256 totalWeight;
-		string metadata;
-		bool finalized;
 		bool executed;
 	}
 
@@ -92,20 +89,17 @@ contract GoodDaoHouses is
 	mapping(address => MemberRecord) private _members;
 	mapping(address => EligibilityRecord) private _alignmentEligibility;
 	mapping(House => uint256) public minimumStake;
-
-	EnumerableSet.AddressSet private _activeCitizens;
-	EnumerableSet.AddressSet private _activeAlignment;
+	address[] private _memberAccounts;
+	mapping(address => bool) private _knownMember;
+	uint64 public termDuration;
+	uint64 public votingTermLength;
 
 	uint256 public voteCount;
 	mapping(uint256 => VoteConfig) private _votes;
 	mapping(uint256 => address[]) private _voteRecipients;
-	mapping(uint256 => address[]) private _voteAlignmentVoters;
-	mapping(uint256 => address[]) private _voteCitizensVoters;
 	mapping(uint256 => mapping(address => bool)) private _isVoteRecipient;
-	mapping(uint256 => mapping(address => uint256)) private _voteWeightSnapshot;
 	mapping(uint256 => mapping(address => uint256))
 		private _voteRecipientWeightedVotes;
-	mapping(uint256 => mapping(address => uint128)) private _finalizedUnits;
 	mapping(uint256 => mapping(address => address[])) private _voterBallotRecipients;
 	mapping(uint256 => mapping(address => mapping(address => uint256)))
 		private _voterBallotBps;
@@ -118,8 +112,7 @@ contract GoodDaoHouses is
 		address indexed account,
 		House indexed house,
 		MemberStatus status,
-		uint256 amount,
-		string metadata
+		uint256 amount
 	);
 	event MemberApproved(address indexed account, House indexed house);
 	event MemberRevoked(address indexed account, House indexed house);
@@ -128,12 +121,9 @@ contract GoodDaoHouses is
 	event VoteCreated(
 		uint256 indexed voteId,
 		uint64 startTime,
-		uint64 endTime,
-		uint256 totalUnits,
-		string metadata
+		uint64 endTime
 	);
 	event VoteUpdated(uint256 indexed voteId, address indexed voter);
-	event VoteFinalized(uint256 indexed voteId, uint256 totalWeight);
 	event VoteExecuted(uint256 indexed voteId, uint256 poolId, address poolAddress);
 	event FlowSplitterConfigured(address indexed splitter, address indexed superToken);
 	event FlowSplitterPoolCreated(uint256 indexed poolId, address poolAddress);
@@ -161,6 +151,8 @@ contract GoodDaoHouses is
 
 		minimumStake[House.Citizens] = citizensMinimumStake;
 		minimumStake[House.Alignment] = alignmentMinimumStake;
+		termDuration = DEFAULT_TERM_DURATION;
+		votingTermLength = DEFAULT_VOTING_TERM_LENGTH;
 
 		emit StakeRequirementSet(House.Citizens, citizensMinimumStake);
 		emit StakeRequirementSet(House.Alignment, alignmentMinimumStake);
@@ -196,13 +188,26 @@ contract GoodDaoHouses is
 	function registerAndStake(
 		House house,
 		uint256 amount,
-		string calldata metadata
+		string calldata name,
+		string calldata socialLinks,
+		string calldata projectWebpage,
+		string calldata missionStatement,
+		string calldata distributionStrategy
 	) external whenNotPaused {
 		require(
 			_goodDollar().transferFrom(msg.sender, address(this), amount),
 			"TF"
 		);
-		_registerMember(msg.sender, house, amount, metadata);
+		_registerMember(
+			msg.sender,
+			house,
+			amount,
+			name,
+			socialLinks,
+			projectWebpage,
+			missionStatement,
+			distributionStrategy
+		);
 	}
 
 	function stake(uint256 amount) external whenNotPaused {
@@ -225,11 +230,27 @@ contract GoodDaoHouses is
 			return true;
 		}
 
-		(House house, string memory metadata) = abi.decode(
+		(
+			House house,
+			string memory name,
+			string memory socialLinks,
+			string memory projectWebpage,
+			string memory missionStatement,
+			string memory distributionStrategy
+		) = abi.decode(
 			_data,
-			(House, string)
+			(House, string, string, string, string, string)
 		);
-		_registerMember(_from, house, _amount, metadata);
+		_registerMember(
+			_from,
+			house,
+			_amount,
+			name,
+			socialLinks,
+			projectWebpage,
+			missionStatement,
+			distributionStrategy
+		);
 		return true;
 	}
 
@@ -252,7 +273,6 @@ contract GoodDaoHouses is
 
 		member.status = MemberStatus.Active;
 		member.updatedAt = uint64(block.timestamp);
-		_activeAlignment.add(account);
 
 		emit MemberApproved(account, member.house);
 	}
@@ -269,7 +289,6 @@ contract GoodDaoHouses is
 			"NA"
 		);
 
-		_removeFromActiveSet(member.house, account);
 		member.status = MemberStatus.Revoked;
 		member.updatedAt = uint64(block.timestamp);
 
@@ -283,7 +302,6 @@ contract GoodDaoHouses is
 
 		require(amount > 0, "NS");
 
-		_removeFromActiveSet(member.house, msg.sender);
 		member.stakedAmount = 0;
 		member.status = MemberStatus.Unstaked;
 		member.updatedAt = uint64(block.timestamp);
@@ -296,76 +314,22 @@ contract GoodDaoHouses is
 		emit MemberUnstaked(msg.sender, member.house, amount);
 	}
 
-	function createAlignmentVote(
-		uint64 duration,
-		uint256 totalUnits,
-		string calldata metadata
-	)
+	function castVote(address[] calldata recipients, uint256[] calldata allocations)
 		external
-		onlyRole(GOVERNANCE_COMMITTEE_ROLE)
 		whenNotPaused
-		returns (uint256 voteId)
 	{
-		address[] memory recipients = _activeAlignment.values();
-		address[] memory alignmentVoters = _activeAlignment.values();
-		address[] memory citizensVoters = _activeCitizens.values();
+		(uint256 voteId, uint64 voteStartTime) = _getCurrentVoteWindow();
+		uint256 voterWeight = _getVoterWeight(msg.sender, voteStartTime);
 
-		require(recipients.length > 0, "NAM");
-
-		voteId = ++voteCount;
-
-		if (duration == 0) {
-			duration = DEFAULT_VOTE_DURATION;
-		}
-
-		VoteConfig storage vote = _votes[voteId];
-		vote.startTime = uint64(block.timestamp);
-		vote.endTime = uint64(block.timestamp) + duration;
-		vote.totalUnits = totalUnits;
-		vote.totalWeight =
-			(alignmentVoters.length * HOUSE_ALIGNMENT_WEIGHT) +
-			(citizensVoters.length * HOUSE_CITIZENS_WEIGHT);
-		vote.metadata = metadata;
-
-		for (uint256 i = 0; i < recipients.length; i++) {
-			_voteRecipients[voteId].push(recipients[i]);
-			_isVoteRecipient[voteId][recipients[i]] = true;
-		}
-
-		for (uint256 i = 0; i < alignmentVoters.length; i++) {
-			address voter = alignmentVoters[i];
-			_voteAlignmentVoters[voteId].push(voter);
-			_voteWeightSnapshot[voteId][voter] = HOUSE_ALIGNMENT_WEIGHT;
-		}
-
-		for (uint256 i = 0; i < citizensVoters.length; i++) {
-			address voter = citizensVoters[i];
-			_voteCitizensVoters[voteId].push(voter);
-			_voteWeightSnapshot[voteId][voter] = HOUSE_CITIZENS_WEIGHT;
-		}
-
-		emit VoteCreated(
-			voteId,
-			vote.startTime,
-			vote.endTime,
-			totalUnits,
-			metadata
-		);
-	}
-
-	function castVote(
-		uint256 voteId,
-		address[] calldata recipients,
-		uint256[] calldata allocations
-	) external whenNotPaused {
-		VoteConfig storage vote = _votes[voteId];
-		uint256 voterWeight = _voteWeightSnapshot[voteId][msg.sender];
-
-		require(vote.startTime > 0, "VNF");
-		require(block.timestamp >= vote.startTime, "VNS");
-		require(block.timestamp <= vote.endTime, "VC");
-		require(!vote.finalized, "VF");
+		require(_isVotingPeriod(block.timestamp), "VNP");
 		require(voterWeight > 0, "VE");
+
+		if (_votes[voteId].startTime == 0) {
+			_createAlignmentVote(voteId, voteStartTime);
+		}
+
+		VoteConfig storage vote = _votes[voteId];
+		require(!vote.executed, "VAE");
 		require(recipients.length == allocations.length, "LM");
 		require(recipients.length > 0, "EB");
 
@@ -390,46 +354,11 @@ contract GoodDaoHouses is
 			storedRecipients.push(recipient);
 			_voterBallotBps[voteId][msg.sender][recipient] = allocation;
 			_voteRecipientWeightedVotes[voteId][recipient] +=
-				allocation *
-				voterWeight;
+				(allocation * voterWeight) /
+				BASIS_POINTS;
 		}
 
 		emit VoteUpdated(voteId, msg.sender);
-	}
-
-	function finalizeAlignmentVote(uint256 voteId)
-		external
-		onlyRole(GOVERNANCE_COMMITTEE_ROLE)
-		whenNotPaused
-	{
-		VoteConfig storage vote = _votes[voteId];
-		address[] storage recipients = _voteRecipients[voteId];
-		uint256 voteWeightTotal;
-
-		require(vote.startTime > 0, "VNF");
-		require(block.timestamp > vote.endTime, "VSO");
-		require(!vote.finalized, "VF");
-
-		for (uint256 i = 0; i < recipients.length; i++) {
-			voteWeightTotal += _voteRecipientWeightedVotes[voteId][recipients[i]];
-		}
-
-		for (uint256 i = 0; i < recipients.length; i++) {
-			address recipient = recipients[i];
-			if (voteWeightTotal == 0 || vote.totalUnits == 0) {
-				_finalizedUnits[voteId][recipient] = 0;
-			} else {
-				_finalizedUnits[voteId][recipient] = uint128(
-					(_voteRecipientWeightedVotes[voteId][recipient] * vote.totalUnits) /
-						voteWeightTotal
-				);
-			}
-		}
-
-		vote.finalized = true;
-		vote.finalizedAt = uint64(block.timestamp);
-
-		emit VoteFinalized(voteId, voteWeightTotal);
 	}
 
 	function executeVote(uint256 voteId)
@@ -444,7 +373,8 @@ contract GoodDaoHouses is
 			recipients.length
 		);
 
-		require(vote.finalized, "VNFN");
+		require(vote.startTime > 0, "VNF");
+		require(block.timestamp > vote.endTime, "VSO");
 		require(!vote.executed, "VAE");
 		require(flowConfig.splitter != address(0), "FNC");
 		require(flowConfig.superToken != address(0), "STNC");
@@ -453,7 +383,7 @@ contract GoodDaoHouses is
 			address recipient = recipients[i];
 			members[i] = IFlowSplitter.Member({
 				account: recipient,
-				units: _finalizedUnits[voteId][recipient]
+				units: uint128(_voteRecipientWeightedVotes[voteId][recipient])
 			});
 		}
 
@@ -595,10 +525,26 @@ contract GoodDaoHouses is
 		view
 		returns (address[] memory)
 	{
-		return
-			house == House.Alignment
-				? _activeAlignment.values()
-				: _activeCitizens.values();
+		uint256 activeCount;
+		for (uint256 i = 0; i < _memberAccounts.length; i++) {
+			MemberRecord storage member = _members[_memberAccounts[i]];
+			if (member.house == house && member.status == MemberStatus.Active) {
+				activeCount++;
+			}
+		}
+
+		address[] memory activeMembers = new address[](activeCount);
+		uint256 index;
+		for (uint256 i = 0; i < _memberAccounts.length; i++) {
+			address account = _memberAccounts[i];
+			MemberRecord storage member = _members[account];
+			if (member.house == house && member.status == MemberStatus.Active) {
+				activeMembers[index] = account;
+				index++;
+			}
+		}
+
+		return activeMembers;
 	}
 
 	function getVote(uint256 voteId) external view returns (VoteConfig memory) {
@@ -621,7 +567,47 @@ contract GoodDaoHouses is
 			address[] memory citizensVoters
 		)
 	{
-		return (_voteAlignmentVoters[voteId], _voteCitizensVoters[voteId]);
+		VoteConfig storage vote = _votes[voteId];
+		uint256 alignmentCount;
+		uint256 citizensCount;
+
+		for (uint256 i = 0; i < _memberAccounts.length; i++) {
+			MemberRecord storage member = _members[_memberAccounts[i]];
+			if (
+				member.status != MemberStatus.Active || member.joinedAt > vote.startTime
+			) {
+				continue;
+			}
+
+			if (member.house == House.Alignment) {
+				alignmentCount++;
+			} else if (member.house == House.Citizens) {
+				citizensCount++;
+			}
+		}
+
+		alignmentVoters = new address[](alignmentCount);
+		citizensVoters = new address[](citizensCount);
+		uint256 alignmentIndex;
+		uint256 citizensIndex;
+
+		for (uint256 i = 0; i < _memberAccounts.length; i++) {
+			address account = _memberAccounts[i];
+			MemberRecord storage member = _members[account];
+			if (
+				member.status != MemberStatus.Active || member.joinedAt > vote.startTime
+			) {
+				continue;
+			}
+
+			if (member.house == House.Alignment) {
+				alignmentVoters[alignmentIndex] = account;
+				alignmentIndex++;
+			} else if (member.house == House.Citizens) {
+				citizensVoters[citizensIndex] = account;
+				citizensIndex++;
+			}
+		}
 	}
 
 	function getBallot(uint256 voteId, address voter)
@@ -641,7 +627,16 @@ contract GoodDaoHouses is
 		view
 		returns (uint128)
 	{
-		return _finalizedUnits[voteId][recipient];
+		return uint128(_voteRecipientWeightedVotes[voteId][recipient]);
+	}
+
+	function getCurrentVoteId() external view returns (uint256) {
+		(uint256 voteId, ) = _getCurrentVoteWindow();
+		return voteId;
+	}
+
+	function isVotingPeriod() external view returns (bool) {
+		return _isVotingPeriod(block.timestamp);
 	}
 
 	function getFlowSplitterConfig()
@@ -656,7 +651,11 @@ contract GoodDaoHouses is
 		address account,
 		House house,
 		uint256 amount,
-		string memory metadata
+		string memory name,
+		string memory socialLinks,
+		string memory projectWebpage,
+		string memory missionStatement,
+		string memory distributionStrategy
 	) internal {
 		MemberRecord storage member = _members[account];
 		uint64 joinedAt = member.joinedAt == 0
@@ -686,20 +685,19 @@ contract GoodDaoHouses is
 			joinedAt: joinedAt,
 			updatedAt: uint64(block.timestamp),
 			unstakedAt: 0,
-			metadata: metadata
+			name: name,
+			socialLinks: socialLinks,
+			projectWebpage: projectWebpage,
+			missionStatement: missionStatement,
+			distributionStrategy: distributionStrategy
 		});
 
-		if (house == House.Citizens) {
-			_activeCitizens.add(account);
+		if (!_knownMember[account]) {
+			_knownMember[account] = true;
+			_memberAccounts.push(account);
 		}
 
-		emit MemberRegistered(
-			account,
-			house,
-			_members[account].status,
-			amount,
-			metadata
-		);
+		emit MemberRegistered(account, house, _members[account].status, amount);
 	}
 
 	function _addStake(address account, uint256 amount) internal {
@@ -725,13 +723,54 @@ contract GoodDaoHouses is
 			uint256 previousAllocation = _voterBallotBps[voteId][voter][recipient];
 			if (previousAllocation > 0) {
 				_voteRecipientWeightedVotes[voteId][recipient] -=
-					previousAllocation *
-					voterWeight;
+					(previousAllocation * voterWeight) /
+					BASIS_POINTS;
 				delete _voterBallotBps[voteId][voter][recipient];
 			}
 		}
 
 		delete _voterBallotRecipients[voteId][voter];
+	}
+
+	function _createAlignmentVote(uint256 voteId, uint64 voteStartTime) internal {
+		uint64 voteEndTime = voteStartTime + votingTermLength;
+		uint256 recipientCount;
+
+		for (uint256 i = 0; i < _memberAccounts.length; i++) {
+			MemberRecord storage member = _members[_memberAccounts[i]];
+			if (
+				member.house == House.Alignment &&
+				member.status == MemberStatus.Active &&
+				member.joinedAt <= voteStartTime
+			) {
+				recipientCount++;
+			}
+		}
+
+		require(recipientCount > 0, "NAM");
+
+		VoteConfig storage vote = _votes[voteId];
+		vote.startTime = voteStartTime;
+		vote.endTime = voteEndTime;
+
+		for (uint256 i = 0; i < _memberAccounts.length; i++) {
+			address account = _memberAccounts[i];
+			MemberRecord storage member = _members[account];
+			if (
+				member.house == House.Alignment &&
+				member.status == MemberStatus.Active &&
+				member.joinedAt <= voteStartTime
+			) {
+				_voteRecipients[voteId].push(account);
+				_isVoteRecipient[voteId][account] = true;
+			}
+		}
+
+		if (voteId > voteCount) {
+			voteCount = voteId;
+		}
+
+		emit VoteCreated(voteId, voteStartTime, voteEndTime);
 	}
 
 	function _clearMemberUnits(address account) internal {
@@ -748,12 +787,42 @@ contract GoodDaoHouses is
 		);
 	}
 
-	function _removeFromActiveSet(House house, address account) internal {
-		if (house == House.Alignment) {
-			_activeAlignment.remove(account);
-		} else {
-			_activeCitizens.remove(account);
+	function _getCurrentVoteWindow()
+		internal
+		view
+		returns (uint256 voteId, uint64 voteStartTime)
+	{
+		voteId = block.timestamp / termDuration;
+		voteStartTime = uint64(voteId * termDuration);
+	}
+
+	function _getVoterWeight(address voter, uint64 voteStartTime)
+		internal
+		view
+		returns (uint256)
+	{
+		MemberRecord storage member = _members[voter];
+		if (
+			member.status != MemberStatus.Active ||
+			member.joinedAt == 0 ||
+			member.joinedAt > voteStartTime
+		) {
+			return 0;
 		}
+
+		if (member.house == House.Alignment) {
+			return HOUSE_ALIGNMENT_WEIGHT;
+		}
+
+		if (member.house == House.Citizens) {
+			return HOUSE_CITIZENS_WEIGHT;
+		}
+
+		return 0;
+	}
+
+	function _isVotingPeriod(uint256 timestamp) internal view returns (bool) {
+		return timestamp % termDuration <= votingTermLength;
 	}
 
 	function _goodDollar() internal view returns (IGoodDollar) {
