@@ -79,6 +79,7 @@ contract GoodDaoHouses is
 	mapping(House => uint256) public minimumStake;
 	address[] private _memberAccounts;
 	mapping(address => bool) private _knownMember;
+	uint64 public cycleStartTime;
 	uint64 public termDuration;
 	uint64 public votingTermLength;
 
@@ -118,6 +119,20 @@ contract GoodDaoHouses is
 		uint256 indexed poolId,
 		address poolAddress
 	);
+	event VotingScheduleUpdated(
+		uint64 cycleStartTime,
+		uint64 termDuration,
+		uint64 votingTermLength
+	);
+
+	modifier onlyAdminOrCommittee() {
+		require(
+			hasRole(DEFAULT_ADMIN_ROLE, msg.sender) ||
+				hasRole(GOVERNANCE_COMMITTEE_ROLE, msg.sender),
+			"Caller is not admin or committee"
+		);
+		_;
+	}
 
 	function initialize(
 		INameService _ns,
@@ -141,11 +156,17 @@ contract GoodDaoHouses is
 
 		minimumStake[House.Citizens] = citizensMinimumStake;
 		minimumStake[House.Alignment] = alignmentMinimumStake;
+		cycleStartTime = uint64(block.timestamp);
 		termDuration = DEFAULT_TERM_DURATION;
 		votingTermLength = DEFAULT_VOTING_TERM_LENGTH;
 
 		emit StakeRequirementSet(House.Citizens, citizensMinimumStake);
 		emit StakeRequirementSet(House.Alignment, alignmentMinimumStake);
+		emit VotingScheduleUpdated(
+			cycleStartTime,
+			termDuration,
+			votingTermLength
+		);
 	}
 
 	function setStakeRequirement(House house, uint256 amount)
@@ -154,6 +175,28 @@ contract GoodDaoHouses is
 	{
 		minimumStake[house] = amount;
 		emit StakeRequirementSet(house, amount);
+	}
+
+	function setVotingSchedule(
+		uint64 newCycleStartTime,
+		uint64 newTermDuration,
+		uint64 newVotingTermLength
+	) external onlyAdminOrCommittee {
+		require(newTermDuration > 0, "Term duration must be greater than zero");
+		require(
+			newVotingTermLength <= newTermDuration,
+			"Voting term length cannot exceed term duration"
+		);
+
+		cycleStartTime = newCycleStartTime;
+		termDuration = newTermDuration;
+		votingTermLength = newVotingTermLength;
+
+		emit VotingScheduleUpdated(
+			cycleStartTime,
+			termDuration,
+			votingTermLength
+		);
 	}
 
 	function setAlignmentEligibility(address account, bool isEligible)
@@ -303,7 +346,9 @@ contract GoodDaoHouses is
 		member.updatedAt = uint64(block.timestamp);
 		member.unstakedAt = uint64(block.timestamp);
 
-		_clearMemberUnits(msg.sender);
+		if (member.house == House.Alignment) {
+			_clearMemberUnits(msg.sender);
+		}
 
 		require(_goodDollar().transfer(msg.sender, amount), "G$ transfer failed");
 
@@ -732,8 +777,13 @@ contract GoodDaoHouses is
 		view
 		returns (uint256 voteId, uint64 voteStartTime)
 	{
-		voteId = block.timestamp / termDuration;
-		voteStartTime = uint64(voteId * termDuration);
+		if (block.timestamp < cycleStartTime) {
+			return (0, cycleStartTime);
+		}
+
+		uint256 elapsed = block.timestamp - cycleStartTime;
+		voteId = elapsed / termDuration;
+		voteStartTime = cycleStartTime + uint64(voteId * termDuration);
 	}
 
 	function _getVoterWeight(address voter, uint64 voteStartTime)
@@ -762,7 +812,11 @@ contract GoodDaoHouses is
 	}
 
 	function _isVotingPeriod(uint256 timestamp) internal view returns (bool) {
-		return timestamp % termDuration <= votingTermLength;
+		if (timestamp < cycleStartTime) {
+			return false;
+		}
+
+		return ((timestamp - cycleStartTime) % termDuration) <= votingTermLength;
 	}
 
 	function _goodDollar() internal view returns (IGoodDollar) {

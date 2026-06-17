@@ -7,8 +7,8 @@ import { createDAO, increaseTime } from "../helpers";
 const CITIZENS = 0;
 const ALIGNMENT = 1;
 const PENDING = 1;
-  const ACTIVE = 2;
-  const UNSTAKED = 4;
+const ACTIVE = 2;
+const UNSTAKED = 4;
 
 describe("GoodDaoHouses", () => {
   const citizensMinimumStake = 1000;
@@ -110,9 +110,15 @@ describe("GoodDaoHouses", () => {
 
   const moveToNextVotingWindow = async houses => {
     const latestBlock = await ethers.provider.getBlock("latest");
+    const cycleStartTime = (await houses.cycleStartTime()).toNumber();
     const termDuration = (await houses.termDuration()).toNumber();
-    const offset = latestBlock.timestamp % termDuration;
-    const delta = offset === 0 ? 1 : termDuration - offset + 1;
+    const delta =
+      latestBlock.timestamp < cycleStartTime
+        ? cycleStartTime - latestBlock.timestamp
+        : (() => {
+            const offset = (latestBlock.timestamp - cycleStartTime) % termDuration;
+            return offset === 0 ? 1 : termDuration - offset + 1;
+          })();
 
     await increaseTime(delta);
 
@@ -121,9 +127,13 @@ describe("GoodDaoHouses", () => {
 
   const movePastVotingWindow = async houses => {
     const latestBlock = await ethers.provider.getBlock("latest");
+    const cycleStartTime = (await houses.cycleStartTime()).toNumber();
     const termDuration = (await houses.termDuration()).toNumber();
     const votingTermLength = (await houses.votingTermLength()).toNumber();
-    const offset = latestBlock.timestamp % termDuration;
+    const offset =
+      latestBlock.timestamp < cycleStartTime
+        ? 0
+        : (latestBlock.timestamp - cycleStartTime) % termDuration;
 
     if (offset <= votingTermLength) {
       await increaseTime(votingTermLength - offset + 1);
@@ -199,6 +209,29 @@ describe("GoodDaoHouses", () => {
     expect(activeAlignmentMembers).to.deep.equal([alignmentOne.address]);
   });
 
+  it("lets admin or committee set the voting schedule anchor and term lengths", async () => {
+    const { admin, committee, houses } = await loadFixture(fixture);
+    const latestBlock = await ethers.provider.getBlock("latest");
+    const nextCycleStart = latestBlock.timestamp + 3 * 24 * 60 * 60;
+
+    await houses
+      .connect(committee)
+      .setVotingSchedule(nextCycleStart, 120 * 24 * 60 * 60, 10 * 24 * 60 * 60);
+
+    expect(await houses.cycleStartTime()).to.equal(nextCycleStart);
+    expect(await houses.termDuration()).to.equal(120 * 24 * 60 * 60);
+    expect(await houses.votingTermLength()).to.equal(10 * 24 * 60 * 60);
+
+    const updatedCycleStart = nextCycleStart + 24 * 60 * 60;
+    await houses
+      .connect(admin)
+      .setVotingSchedule(updatedCycleStart, 90 * 24 * 60 * 60, 7 * 24 * 60 * 60);
+
+    expect(await houses.cycleStartTime()).to.equal(updatedCycleStart);
+    expect(await houses.termDuration()).to.equal(90 * 24 * 60 * 60);
+    expect(await houses.votingTermLength()).to.equal(7 * 24 * 60 * 60);
+  });
+
   it("creates the term vote on first ballot, blocks late joiners, and stores direct weighted units", async () => {
     const {
       committee,
@@ -265,7 +298,9 @@ describe("GoodDaoHouses", () => {
       citizenTwo.address
     ]);
     expect(vote.startTime).to.equal(
-      createdVoteId.mul(await houses.termDuration())
+      (await houses.cycleStartTime()).add(
+        createdVoteId.mul(await houses.termDuration())
+      )
     );
 
     await registerCitizen(goodDollar, houses, lateCitizen, "late-citizen");
