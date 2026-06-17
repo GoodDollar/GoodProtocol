@@ -193,11 +193,11 @@ contract GoodDaoHouses is
 		string calldata projectWebpage,
 		string calldata missionStatement,
 		string calldata distributionStrategy
-	) external whenNotPaused {
-		require(
-			_goodDollar().transferFrom(msg.sender, address(this), amount),
-			"TF"
-		);
+		) external whenNotPaused {
+			require(
+				_goodDollar().transferFrom(msg.sender, address(this), amount),
+				"G$ transferFrom failed"
+			);
 		_registerMember(
 			msg.sender,
 			house,
@@ -213,7 +213,7 @@ contract GoodDaoHouses is
 	function stake(uint256 amount) external whenNotPaused {
 		require(
 			_goodDollar().transferFrom(msg.sender, address(this), amount),
-			"TF"
+			"G$ transferFrom failed"
 		);
 		_addStake(msg.sender, amount);
 	}
@@ -223,7 +223,7 @@ contract GoodDaoHouses is
 		uint256 _amount,
 		bytes calldata _data
 	) external override whenNotPaused returns (bool success) {
-		require(msg.sender == address(_goodDollar()), "UT");
+		require(msg.sender == address(_goodDollar()), "Only G$ token can call");
 
 		if (_data.length == 0) {
 			_addStake(_from, _amount);
@@ -260,15 +260,21 @@ contract GoodDaoHouses is
 		whenNotPaused
 	{
 		MemberRecord storage member = _members[account];
-		require(member.house == House.Alignment, "WH");
-		require(member.status == MemberStatus.Pending, "NP");
+		require(
+			member.house == House.Alignment,
+			"Member is not in Alignment house"
+		);
+		require(
+			member.status == MemberStatus.Pending,
+			"Alignment member is not pending"
+		);
 		require(
 			_alignmentEligibility[account].isEligible,
-			"NE"
+			"Alignment member is not eligible"
 		);
 		require(
 			member.stakedAmount >= minimumStake[House.Alignment],
-			"SBM"
+			"Stake is below Alignment minimum"
 		);
 
 		member.status = MemberStatus.Active;
@@ -286,7 +292,7 @@ contract GoodDaoHouses is
 		require(
 			member.status == MemberStatus.Active ||
 				member.status == MemberStatus.Pending,
-			"NA"
+			"Member is not active or pending"
 		);
 
 		member.status = MemberStatus.Revoked;
@@ -300,7 +306,7 @@ contract GoodDaoHouses is
 		MemberRecord storage member = _members[msg.sender];
 		uint256 amount = member.stakedAmount;
 
-		require(amount > 0, "NS");
+		require(amount > 0, "No stake to unstake");
 
 		member.stakedAmount = 0;
 		member.status = MemberStatus.Unstaked;
@@ -309,7 +315,7 @@ contract GoodDaoHouses is
 
 		_clearMemberUnits(msg.sender);
 
-		require(_goodDollar().transfer(msg.sender, amount), "WTF");
+		require(_goodDollar().transfer(msg.sender, amount), "G$ transfer failed");
 
 		emit MemberUnstaked(msg.sender, member.house, amount);
 	}
@@ -321,27 +327,36 @@ contract GoodDaoHouses is
 		(uint256 voteId, uint64 voteStartTime) = _getCurrentVoteWindow();
 		uint256 voterWeight = _getVoterWeight(msg.sender, voteStartTime);
 
-		require(_isVotingPeriod(block.timestamp), "VNP");
-		require(voterWeight > 0, "VE");
+		require(_isVotingPeriod(block.timestamp), "Voting period is closed");
+		require(voterWeight > 0, "Voter is not eligible for this term");
 
 		if (_votes[voteId].startTime == 0) {
 			_createAlignmentVote(voteId, voteStartTime);
 		}
 
 		VoteConfig storage vote = _votes[voteId];
-		require(!vote.executed, "VAE");
-		require(recipients.length == allocations.length, "LM");
-		require(recipients.length > 0, "EB");
+		require(!vote.executed, "Vote already executed");
+		require(
+			recipients.length == allocations.length,
+			"Recipients and allocations length mismatch"
+		);
+		require(recipients.length > 0, "Ballot must include at least one recipient");
 
 		uint256 allocationTotal;
 		for (uint256 i = 0; i < recipients.length; i++) {
-			require(_isVoteRecipient[voteId][recipients[i]], "IR");
+			require(
+				_isVoteRecipient[voteId][recipients[i]],
+				"Recipient is not eligible for this vote"
+			);
 			for (uint256 j = i + 1; j < recipients.length; j++) {
-				require(recipients[i] != recipients[j], "DR");
+				require(recipients[i] != recipients[j], "Duplicate recipient in ballot");
 			}
 			allocationTotal += allocations[i];
 		}
-		require(allocationTotal == BASIS_POINTS, "ASI");
+		require(
+			allocationTotal == BASIS_POINTS,
+			"Allocations must sum to 10000 basis points"
+		);
 
 		_clearBallot(voteId, msg.sender, voterWeight);
 
@@ -373,11 +388,11 @@ contract GoodDaoHouses is
 			recipients.length
 		);
 
-		require(vote.startTime > 0, "VNF");
-		require(block.timestamp > vote.endTime, "VSO");
-		require(!vote.executed, "VAE");
-		require(flowConfig.splitter != address(0), "FNC");
-		require(flowConfig.superToken != address(0), "STNC");
+		require(vote.startTime > 0, "Vote does not exist");
+		require(block.timestamp > vote.endTime, "Voting window is still open");
+		require(!vote.executed, "Vote already executed");
+		require(flowConfig.splitter != address(0), "FlowSplitter is not configured");
+		require(flowConfig.superToken != address(0), "FlowSplitter super token is not configured");
 
 		for (uint256 i = 0; i < recipients.length; i++) {
 			address recipient = recipients[i];
@@ -463,7 +478,7 @@ contract GoodDaoHouses is
 	{
 		IFlowSplitter.Pool memory pool = IFlowSplitter(_flowSplitterConfig.splitter)
 			.getPoolById(poolId);
-		require(pool.poolAddress != address(0), "PNF");
+		require(pool.poolAddress != address(0), "FlowSplitter pool not found");
 
 		_flowSplitterConfig.poolId = pool.id;
 		_flowSplitterConfig.poolAddress = pool.poolAddress;
@@ -662,17 +677,17 @@ contract GoodDaoHouses is
 			? uint64(block.timestamp)
 			: member.joinedAt;
 
-		require(amount >= minimumStake[house], "SBM");
+		require(amount >= minimumStake[house], "Stake is below house minimum");
 		require(
 			member.status == MemberStatus.None ||
 				member.status == MemberStatus.Unstaked,
-			"MAR"
+			"Member already registered"
 		);
 
 		if (house == House.Alignment) {
 			require(
 				_alignmentEligibility[account].isEligible,
-				"NE"
+				"Alignment member is not eligible"
 			);
 		}
 
@@ -702,8 +717,8 @@ contract GoodDaoHouses is
 
 	function _addStake(address account, uint256 amount) internal {
 		MemberRecord storage member = _members[account];
-		require(member.status != MemberStatus.None, "MNF");
-		require(member.status != MemberStatus.Unstaked, "MU");
+		require(member.status != MemberStatus.None, "Member not found");
+		require(member.status != MemberStatus.Unstaked, "Cannot add stake after unstake");
 
 		member.stakedAmount += amount;
 		member.updatedAt = uint64(block.timestamp);
@@ -747,7 +762,7 @@ contract GoodDaoHouses is
 			}
 		}
 
-		require(recipientCount > 0, "NAM");
+		require(recipientCount > 0, "No active Alignment members for this vote");
 
 		VoteConfig storage vote = _votes[voteId];
 		vote.startTime = voteStartTime;

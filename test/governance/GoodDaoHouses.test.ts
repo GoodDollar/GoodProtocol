@@ -252,7 +252,7 @@ describe("GoodDaoHouses", () => {
 
     await expect(
       houses.connect(lateCitizen).castVote([alignmentOne.address], [10000])
-    ).to.be.revertedWith("VE");
+    ).to.be.revertedWith("Voter is not eligible for this term");
 
     const [ballotRecipients, ballotAllocations] = await houses.getBallot(
       createdVoteId,
