@@ -11,10 +11,6 @@ import "../token/ERC677.sol";
 import "../utils/DAOUpgradeableContract.sol";
 import "./IFlowSplitter.sol";
 
-interface IFlowSplitterCounter is IFlowSplitter {
-	function poolCounter() external view returns (uint256);
-}
-
 contract GoodDaoHouses is
 	AccessControlUpgradeable,
 	PausableUpgradeable,
@@ -74,16 +70,8 @@ contract GoodDaoHouses is
 
 	struct FlowSplitterConfig {
 		address splitter;
-		address superToken;
-		string metadata;
-		string poolName;
-		string poolSymbol;
-		uint8 poolDecimals;
-		bool transferabilityForUnitsOwner;
-		bool distributionFromAnyAddress;
 		uint256 poolId;
 		address poolAddress;
-		bool poolInitialized;
 	}
 
 	mapping(address => MemberRecord) private _members;
@@ -125,9 +113,11 @@ contract GoodDaoHouses is
 	);
 	event VoteUpdated(uint256 indexed voteId, address indexed voter);
 	event VoteExecuted(uint256 indexed voteId, uint256 poolId, address poolAddress);
-	event FlowSplitterConfigured(address indexed splitter, address indexed superToken);
-	event FlowSplitterPoolCreated(uint256 indexed poolId, address poolAddress);
-	event FlowSplitterMetadataUpdated(uint256 indexed poolId, string metadata);
+	event FlowSplitterConfigured(
+		address indexed splitter,
+		uint256 indexed poolId,
+		address poolAddress
+	);
 
 	function initialize(
 		INameService _ns,
@@ -392,7 +382,7 @@ contract GoodDaoHouses is
 		require(block.timestamp > vote.endTime, "Voting window is still open");
 		require(!vote.executed, "Vote already executed");
 		require(flowConfig.splitter != address(0), "FlowSplitter is not configured");
-		require(flowConfig.superToken != address(0), "FlowSplitter super token is not configured");
+		require(flowConfig.poolId > 0, "FlowSplitter pool is not configured");
 
 		for (uint256 i = 0; i < recipients.length; i++) {
 			address recipient = recipients[i];
@@ -402,47 +392,10 @@ contract GoodDaoHouses is
 			});
 		}
 
-		if (!flowConfig.poolInitialized) {
-			address[] memory admins = new address[](1);
-			admins[0] = address(this);
-
-			ISuperfluidPool pool = IFlowSplitter(flowConfig.splitter).createPool(
-				ISuperToken(flowConfig.superToken),
-				PoolConfig({
-					transferabilityForUnitsOwner: flowConfig
-						.transferabilityForUnitsOwner,
-					distributionFromAnyAddress: flowConfig.distributionFromAnyAddress
-				}),
-				PoolERC20Metadata({
-					name: flowConfig.poolName,
-					symbol: flowConfig.poolSymbol,
-					decimals: flowConfig.poolDecimals
-				}),
-				members,
-				admins,
-				flowConfig.metadata
-			);
-
-			flowConfig.poolId = IFlowSplitterCounter(flowConfig.splitter)
-				.poolCounter();
-			IFlowSplitter.Pool memory poolInfo = IFlowSplitter(flowConfig.splitter)
-				.getPoolById(flowConfig.poolId);
-
-			flowConfig.poolInitialized = true;
-			flowConfig.poolAddress = poolInfo.poolAddress == address(0)
-				? address(pool)
-				: poolInfo.poolAddress;
-
-			emit FlowSplitterPoolCreated(
-				flowConfig.poolId,
-				flowConfig.poolAddress
-			);
-		} else {
-			IFlowSplitter(flowConfig.splitter).updateMembersUnits(
-				flowConfig.poolId,
-				members
-			);
-		}
+		IFlowSplitter(flowConfig.splitter).updateMembersUnits(
+			flowConfig.poolId,
+			members
+		);
 
 		vote.executed = true;
 		vote.executedAt = uint64(block.timestamp);
@@ -450,56 +403,25 @@ contract GoodDaoHouses is
 		emit VoteExecuted(voteId, flowConfig.poolId, flowConfig.poolAddress);
 	}
 
-	function configureFlowSplitter(
-		address splitter,
-		address superToken,
-		string calldata metadata,
-		string calldata poolName,
-		string calldata poolSymbol,
-		uint8 poolDecimals,
-		bool transferabilityForUnitsOwner,
-		bool distributionFromAnyAddress
-	) external onlyRole(GOVERNANCE_COMMITTEE_ROLE) {
-		_flowSplitterConfig.splitter = splitter;
-		_flowSplitterConfig.superToken = superToken;
-		_flowSplitterConfig.metadata = metadata;
-		_flowSplitterConfig.poolName = poolName;
-		_flowSplitterConfig.poolSymbol = poolSymbol;
-		_flowSplitterConfig.poolDecimals = poolDecimals;
-		_flowSplitterConfig.transferabilityForUnitsOwner = transferabilityForUnitsOwner;
-		_flowSplitterConfig.distributionFromAnyAddress = distributionFromAnyAddress;
-
-		emit FlowSplitterConfigured(splitter, superToken);
-	}
-
-	function syncFlowSplitterPool(uint256 poolId)
+	function configureFlowSplitter(address splitter, uint256 poolId)
 		external
 		onlyRole(GOVERNANCE_COMMITTEE_ROLE)
 	{
-		IFlowSplitter.Pool memory pool = IFlowSplitter(_flowSplitterConfig.splitter)
-			.getPoolById(poolId);
-		require(pool.poolAddress != address(0), "FlowSplitter pool not found");
+		require(splitter != address(0), "FlowSplitter address is required");
+		require(poolId > 0, "FlowSplitter pool id is required");
 
+		IFlowSplitter.Pool memory pool = IFlowSplitter(splitter).getPoolById(poolId);
+		require(pool.poolAddress != address(0), "FlowSplitter pool not found");
+		require(
+			IFlowSplitter(splitter).isPoolAdmin(poolId, address(this)),
+			"GoodDaoHouses is not a pool admin"
+		);
+
+		_flowSplitterConfig.splitter = splitter;
 		_flowSplitterConfig.poolId = pool.id;
 		_flowSplitterConfig.poolAddress = pool.poolAddress;
-		_flowSplitterConfig.poolInitialized = true;
-	}
 
-	function syncFlowSplitterMetadata(string calldata metadata)
-		external
-		onlyRole(GOVERNANCE_COMMITTEE_ROLE)
-	{
-		_flowSplitterConfig.metadata = metadata;
-		if (_flowSplitterConfig.poolInitialized) {
-			IFlowSplitter(_flowSplitterConfig.splitter).updatePoolMetadata(
-				_flowSplitterConfig.poolId,
-				metadata
-			);
-			emit FlowSplitterMetadataUpdated(
-				_flowSplitterConfig.poolId,
-				metadata
-			);
-		}
+		emit FlowSplitterConfigured(splitter, pool.id, pool.poolAddress);
 	}
 
 	function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -789,7 +711,10 @@ contract GoodDaoHouses is
 	}
 
 	function _clearMemberUnits(address account) internal {
-		if (!_flowSplitterConfig.poolInitialized) {
+		if (
+			_flowSplitterConfig.splitter == address(0) ||
+			_flowSplitterConfig.poolId == 0
+		) {
 			return;
 		}
 

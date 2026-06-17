@@ -7,8 +7,8 @@ import { createDAO, increaseTime } from "../helpers";
 const CITIZENS = 0;
 const ALIGNMENT = 1;
 const PENDING = 1;
-const ACTIVE = 2;
-const UNSTAKED = 4;
+  const ACTIVE = 2;
+  const UNSTAKED = 4;
 
 describe("GoodDaoHouses", () => {
   const citizensMinimumStake = 1000;
@@ -128,6 +128,26 @@ describe("GoodDaoHouses", () => {
     if (offset <= votingTermLength) {
       await increaseTime(votingTermLength - offset + 1);
     }
+  };
+
+  const createManagedFlowSplitterPool = async (flowSplitter, goodDollar, houses) => {
+    await flowSplitter.createPool(
+      goodDollar.address,
+      {
+        transferabilityForUnitsOwner: false,
+        distributionFromAnyAddress: false
+      },
+      {
+        name: "GoodDao Houses",
+        symbol: "GDH",
+        decimals: 18
+      },
+      [],
+      [houses.address],
+      "GoodDao Houses pool"
+    );
+
+    return flowSplitter.poolCounter();
   };
 
   it("writes house fields on chain and approves alignment members after eligibility", async () => {
@@ -274,7 +294,7 @@ describe("GoodDaoHouses", () => {
     );
   });
 
-  it("creates the flow splitter pool once, updates units on later votes, and zeroes units on unstake", async () => {
+  it("updates units on the managed flow splitter pool and zeroes units on unstake", async () => {
     const {
       committee,
       citizenOne,
@@ -301,16 +321,13 @@ describe("GoodDaoHouses", () => {
     await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
     await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
 
-    await houses.connect(committee).configureFlowSplitter(
-      flowSplitter.address,
-      goodDollar.address,
-      "GoodDao Houses pool",
-      "GoodDao Houses",
-      "GDH",
-      18,
-      false,
-      false
+    const poolId = await createManagedFlowSplitterPool(
+      flowSplitter,
+      goodDollar,
+      houses
     );
+
+    await houses.connect(committee).configureFlowSplitter(flowSplitter.address, poolId);
 
     let voteId = await moveToNextVotingWindow(houses);
 
@@ -332,7 +349,6 @@ describe("GoodDaoHouses", () => {
 
     let flowConfig = await houses.getFlowSplitterConfig();
 
-    expect(flowConfig.poolInitialized).to.equal(true);
     expect(flowConfig.poolId).to.equal(1);
     expect(await flowSplitter.getMemberUnits(1, alignmentOne.address)).to.equal(
       88
