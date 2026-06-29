@@ -663,4 +663,42 @@ describe("GoodDaoHouses", () => {
     const units = await flowSplitter.getMemberUnits(poolId, alignmentOne.address);
     expect(units).to.be.gt(0);
   });
+
+  it("executeVote: uint128 cast safety – reverts when accumulated weight exceeds uint128 max", async () => {
+    // Normal voting can never accumulate enough weight to overflow uint128, so this
+    // test injects a value above 2**128 - 1 directly via GoodDaoHousesHarness.
+    const [admin, committee, , , alignmentOne, alignmentTwo] = await ethers.getSigners();
+    const { gd, nameService } = await loadFixture(createDAO);
+
+    const goodDollar = await ethers.getContractAt("IGoodDollar", gd);
+    const flowSplitter = await ethers.deployContract("MockFlowSplitter");
+
+    // Deploy the harness (extends GoodDaoHouses with a test-only weight setter)
+    const harness = await upgrades.deployProxy(
+      await ethers.getContractFactory("GoodDaoHousesHarness"),
+      [nameService.address, admin.address, committee.address, citizensMinimumStake, alignmentMinimumStake],
+      { kind: "uups" }
+    );
+
+    await registerAlignment(goodDollar, harness, alignmentOne, "alignment-one");
+    await registerAlignment(goodDollar, harness, alignmentTwo, "alignment-two");
+    await harness.connect(committee).approveAlignmentMember(alignmentOne.address);
+    await harness.connect(committee).approveAlignmentMember(alignmentTwo.address);
+
+    const poolId = await createManagedFlowSplitterPool(flowSplitter, goodDollar, harness);
+    await harness.connect(committee).configureFlowSplitter(flowSplitter.address, poolId);
+
+    // Cast a normal vote first to create the vote record and register alignmentOne as a recipient
+    const voteId = await moveToNextVotingWindow(harness);
+    await harness.connect(alignmentOne).castVote([alignmentOne.address], [10000]);
+
+    await movePastVotingWindow(harness);
+
+    // Inject a weight above type(uint128).max (= 2**128) to simulate the overflow scenario
+    const overflow = ethers.BigNumber.from(2).pow(128);
+    await harness.connect(committee).setVoteWeightForTest(voteId, alignmentOne.address, overflow);
+
+    // executeVote must revert rather than silently truncate the cast
+    await expect(harness.connect(committee).executeVote(voteId)).to.be.revertedWith("Units overflow");
+  });
 });

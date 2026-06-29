@@ -83,7 +83,7 @@ contract GoodDaoHouses is
 	mapping(uint256 => address[]) private voteRecipients;
 	mapping(uint256 => mapping(address => bool)) private isVoteRecipient;
 	mapping(uint256 => mapping(address => uint256))
-		private voteRecipientWeightedVotes;
+		internal voteRecipientWeightedVotes;
 	mapping(uint256 => mapping(address => bool)) private hasVoted;
 
 	FlowSplitterConfig public flowSplitterConfig;
