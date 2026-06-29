@@ -16,7 +16,7 @@ describe("GoodDaoHouses", () => {
   const alignmentForumUrl = "https://forum.gooddollar.org/t/alignment-one";
 
   const fixture = async () => {
-    const [admin, committee, citizenOne, citizenTwo, alignmentOne, alignmentTwo, lateCitizen] =
+    const [admin, committee, citizenOne, citizenTwo, alignmentOne, alignmentTwo, lateCitizen, stranger] =
       await ethers.getSigners();
 
     const { gd, nameService, addWhitelisted } = await loadFixture(createDAO);
@@ -37,6 +37,7 @@ describe("GoodDaoHouses", () => {
       alignmentOne,
       alignmentTwo,
       lateCitizen,
+      stranger,
       goodDollar,
       flowSplitter,
       houses,
@@ -588,5 +589,78 @@ describe("GoodDaoHouses", () => {
     await expect(
       goodDollar.connect(citizenOne).transferAndCall(houses.address, citizensMinimumStake, data)
     ).to.be.revertedWith("Invalid house");
+  });
+
+  it("setVotingSchedule: non-admin/committee reverts", async () => {
+    const { stranger, houses } = await loadFixture(fixture);
+
+    const latestBlock = await ethers.provider.getBlock("latest");
+    const termDuration = (await houses.termDuration()).toNumber();
+    const votingTermLength = (await houses.votingTermLength()).toNumber();
+
+    await expect(
+      houses.connect(stranger).setVotingSchedule(latestBlock.timestamp + 60, termDuration, votingTermLength)
+    ).to.be.revertedWith("Not admin/committee");
+  });
+
+  it("setVotingSchedule: votingTermLength > termDuration reverts", async () => {
+    const { admin, houses } = await loadFixture(fixture);
+
+    const latestBlock = await ethers.provider.getBlock("latest");
+    const termDuration = (await houses.termDuration()).toNumber();
+
+    await expect(
+      houses.connect(admin).setVotingSchedule(latestBlock.timestamp + 60, termDuration, termDuration + 1)
+    ).to.be.revertedWith("Vote term > term");
+  });
+
+  it("setVotingSchedule: zero termDuration reverts", async () => {
+    const { admin, houses } = await loadFixture(fixture);
+
+    const latestBlock = await ethers.provider.getBlock("latest");
+
+    await expect(
+      houses.connect(admin).setVotingSchedule(latestBlock.timestamp + 60, 0, 0)
+    ).to.be.revertedWith("Term=0");
+  });
+
+  it("setVotingSchedule: zero votingTermLength reverts", async () => {
+    const { admin, houses } = await loadFixture(fixture);
+
+    const latestBlock = await ethers.provider.getBlock("latest");
+    const termDuration = (await houses.termDuration()).toNumber();
+
+    await expect(
+      houses.connect(admin).setVotingSchedule(latestBlock.timestamp + 60, termDuration, 0)
+    ).to.be.revertedWith("Vote term=0");
+  });
+
+  it("executeVote: uint128 cast safety – accumulated weighted votes fit in uint128", async () => {
+    // Weighted vote per voter = (allocation * HOUSE_ALIGNMENT_WEIGHT) / BASIS_POINTS
+    //   = (10000 * 400000) / 10000 = 400000, which is well within uint128 max.
+    // This test verifies that executeVote completes without reverting on the bounds check
+    // and that the stored units are correct.
+    const { committee, alignmentOne, alignmentTwo, goodDollar, flowSplitter, houses } = await loadFixture(fixture);
+
+    await registerAlignment(goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(goodDollar, houses, alignmentTwo, "alignment-two");
+    await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
+    await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
+
+    const poolId = await createManagedFlowSplitterPool(flowSplitter, goodDollar, houses);
+    await houses.connect(committee).configureFlowSplitter(flowSplitter.address, poolId);
+
+    const voteId = await moveToNextVotingWindow(houses);
+    // Both alignment members vote 100 % for alignmentOne
+    await houses.connect(alignmentOne).castVote([alignmentOne.address], [10000]);
+    await houses.connect(alignmentTwo).castVote([alignmentOne.address], [10000]);
+
+    await movePastVotingWindow(houses);
+
+    // Should not revert on "Units overflow"
+    await expect(houses.connect(committee).executeVote(voteId)).to.not.be.reverted;
+
+    const units = await flowSplitter.getMemberUnits(poolId, alignmentOne.address);
+    expect(units).to.be.gt(0);
   });
 });

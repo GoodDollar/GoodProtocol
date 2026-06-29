@@ -206,6 +206,7 @@ contract GoodDaoHouses is
 		uint64 newVotingTermLength
 	) external onlyAdminOrCommittee {
 		require(newTermDuration > 0, "Term=0");
+		require(newVotingTermLength > 0, "Vote term=0");
 		require(newVotingTermLength <= newTermDuration, "Vote term > term");
 
 		cycleStartTime = newCycleStartTime;
@@ -456,7 +457,9 @@ contract GoodDaoHouses is
 		// Translate finalized weighted votes into FlowSplitter unit updates.
 		for (uint256 i = 0; i < count; i++) {
 			address recipient = recipients[i];
-			uint128 units = uint128(voteRecipientWeightedVotes[voteId][recipient]);
+			uint256 raw = voteRecipientWeightedVotes[voteId][recipient];
+			require(raw <= type(uint128).max, "Units overflow");
+			uint128 units = uint128(raw);
 			flowMembers[i] = IFlowSplitter.Member({
 				account: recipient,
 				units: units
