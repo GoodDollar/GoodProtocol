@@ -231,11 +231,13 @@ contract GoodDaoHouses is
 		string calldata distributionStrategy
 	) external whenNotPaused {
 		// Collect only the missing delta between current stake and the house minimum.
-		int amount = int(minimumStake[house]) -
-			int(members[msg.sender].stakedAmount);
-		if (amount > 0) {
+		int256 delta = int256(minimumStake[house]) -
+			int256(members[msg.sender].stakedAmount);
+		uint256 transferAmount = 0;
+		if (delta > 0) {
+			transferAmount = uint256(delta);
 			require(
-				_goodDollar().transferFrom(msg.sender, address(this), uint256(amount)),
+				_goodDollar().transferFrom(msg.sender, address(this), transferAmount),
 				"G$ transferFrom"
 			);
 		}
@@ -243,7 +245,7 @@ contract GoodDaoHouses is
 		_registerMember(
 			msg.sender,
 			house,
-			uint(amount),
+			transferAmount,
 			name,
 			socialLinks,
 			projectWebpage,
@@ -324,6 +326,7 @@ contract GoodDaoHouses is
 	function revokeMember(
 		address account
 	) external onlyRole(GOVERNANCE_COMMITTEE_ROLE) whenNotPaused {
+		require(members[account].status != MemberStatus.None, "Not a member");
 		members[account].status = MemberStatus.Revoked;
 		members[account].updatedAt = uint64(block.timestamp);
 
@@ -637,6 +640,7 @@ contract GoodDaoHouses is
 		string memory missionStatement,
 		string memory distributionStrategy
 	) internal {
+		require(uint8(house) <= uint8(House.Alignment), "Invalid house");
 		bool isNewMember = members[account].status == MemberStatus.None;
 		uint64 joinedAt = isNewMember
 			? uint64(block.timestamp)

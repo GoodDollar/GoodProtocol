@@ -543,4 +543,50 @@ describe("GoodDaoHouses", () => {
 
     expect(await houses.getFinalizedUnits(voteId, alignmentOne.address)).to.be.gt(0);
   });
+
+  it("reverts when revokeMember is called on an address with no membership", async () => {
+    const { committee, citizenOne, houses } = await loadFixture(fixture);
+
+    // citizenOne has never registered — MemberStatus.None
+    await expect(
+      houses.connect(committee).revokeMember(citizenOne.address)
+    ).to.be.revertedWith("Not a member");
+  });
+
+  it("registerAndStake transfers no tokens when caller already meets the minimum stake", async () => {
+    const { committee, citizenOne, goodDollar, houses } = await loadFixture(fixture);
+
+    // Register with the exact minimum via transferAndCall
+    await registerCitizen(goodDollar, houses, citizenOne, "citizen-one");
+    expect((await houses.getMember(citizenOne.address)).stakedAmount).to.equal(citizensMinimumStake);
+
+    // Lower the minimum so the caller is already above it — no additional transfer should occur
+    await houses.connect(committee).setStakeRequirement(CITIZENS, citizensMinimumStake - 100);
+
+    await goodDollar.connect(citizenOne).approve(houses.address, citizensMinimumStake);
+
+    const balanceBefore = await goodDollar.balanceOf(citizenOne.address);
+    await houses.connect(citizenOne).registerAndStake(CITIZENS, "citizen-one-v2", "", "", "", "");
+    const balanceAfter = await goodDollar.balanceOf(citizenOne.address);
+
+    // No tokens transferred — stake unchanged at the original amount
+    expect(balanceBefore).to.equal(balanceAfter);
+    expect((await houses.getMember(citizenOne.address)).stakedAmount).to.equal(citizensMinimumStake);
+    expect((await houses.getMember(citizenOne.address)).name).to.equal("citizen-one-v2");
+  });
+
+  it("rejects registration with an out-of-range house value via transferAndCall", async () => {
+    const { citizenOne, goodDollar, houses } = await loadFixture(fixture);
+
+    const invalidHouse = 2; // beyond House.Alignment (max = 1)
+    const data = ethers.utils.defaultAbiCoder.encode(
+      ["uint8", "string", "string", "string", "string", "string"],
+      [invalidHouse, "bad", "", "", "", ""]
+    );
+
+    await goodDollar.mint(citizenOne.address, citizensMinimumStake);
+    await expect(
+      goodDollar.connect(citizenOne).transferAndCall(houses.address, citizensMinimumStake, data)
+    ).to.be.revertedWith("Invalid house");
+  });
 });
