@@ -23,7 +23,7 @@ contract GoodDaoHouses is
 
 	uint256 public constant BASIS_POINTS = 10000;
 
-	// multiply by BASICS_POINTS to get the weight in basis points for each house so 1 basis point vote is non zero
+	// multiply by BASIS_POINTS to get the weight in basis points for each house so a 1 basis-point vote is non-zero
 	uint256 public constant HOUSE_ALIGNMENT_WEIGHT = 40 * BASIS_POINTS;
 	uint256 public constant HOUSE_CITIZENS_WEIGHT = 4 * BASIS_POINTS;
 	uint64 public constant DEFAULT_TERM_DURATION = 90 days;
