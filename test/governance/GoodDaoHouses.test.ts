@@ -68,13 +68,15 @@ describe("GoodDaoHouses", () => {
       socialLinks: "https://social.example/" + name
     });
 
-  const registerAlignment = async (goodDollar, houses, signer, name, distributionStrategy = alignmentForumUrl) =>
-    registerViaTransferAndCall(goodDollar, houses, signer, ALIGNMENT, alignmentMinimumStake, {
+  const registerAlignment = async (committee, goodDollar, houses, signer, name, distributionStrategy = alignmentForumUrl) => {
+    await houses.connect(committee).setHoaEligibility(signer.address, true);
+    return registerViaTransferAndCall(goodDollar, houses, signer, ALIGNMENT, alignmentMinimumStake, {
       name,
       projectWebpage: `https://${name}.example`,
       missionStatement: `${name} mission`,
       distributionStrategy
     });
+  };
 
   const moveToNextVotingWindow = async houses => {
     const latestBlock = await ethers.provider.getBlock("latest");
@@ -129,7 +131,7 @@ describe("GoodDaoHouses", () => {
     const { committee, citizenOne, alignmentOne, goodDollar, houses } = await loadFixture(fixture);
 
     await registerCitizen(goodDollar, houses, citizenOne, "citizen-one");
-    await registerAlignment(goodDollar, houses, alignmentOne, "alignment-one", alignmentForumUrl);
+    await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one", alignmentForumUrl);
 
     const citizenMember = await houses.getMember(citizenOne.address);
     const alignmentMemberBeforeApproval = await houses.getMember(alignmentOne.address);
@@ -189,8 +191,8 @@ describe("GoodDaoHouses", () => {
 
     await registerCitizen(goodDollar, houses, citizenOne, "citizen-one");
     await registerCitizen(goodDollar, houses, citizenTwo, "citizen-two");
-    await registerAlignment(goodDollar, houses, alignmentOne, "alignment-one");
-    await registerAlignment(goodDollar, houses, alignmentTwo, "alignment-two");
+    await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentTwo, "alignment-two");
 
     await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
     await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
@@ -243,8 +245,8 @@ describe("GoodDaoHouses", () => {
 
     await registerCitizen(goodDollar, houses, citizenOne, "citizen-one");
     await registerCitizen(goodDollar, houses, citizenTwo, "citizen-two");
-    await registerAlignment(goodDollar, houses, alignmentOne, "alignment-one");
-    await registerAlignment(goodDollar, houses, alignmentTwo, "alignment-two");
+    await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentTwo, "alignment-two");
 
     await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
     await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
@@ -300,8 +302,8 @@ describe("GoodDaoHouses", () => {
   it("prevents voting twice in the same term", async () => {
     const { committee, alignmentOne, alignmentTwo, goodDollar, houses } = await loadFixture(fixture);
 
-    await registerAlignment(goodDollar, houses, alignmentOne, "alignment-one");
-    await registerAlignment(goodDollar, houses, alignmentTwo, "alignment-two");
+    await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentTwo, "alignment-two");
     await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
     await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
 
@@ -318,7 +320,7 @@ describe("GoodDaoHouses", () => {
     const { committee, citizenOne, alignmentOne, goodDollar, houses } = await loadFixture(fixture);
 
     await registerCitizen(goodDollar, houses, citizenOne, "citizen-one");
-    await registerAlignment(goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one");
     await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
 
     await moveToNextVotingWindow(houses);
@@ -427,7 +429,7 @@ describe("GoodDaoHouses", () => {
     const { committee, citizenOne, alignmentOne, goodDollar, flowSplitter, houses } = await loadFixture(fixture);
 
     await registerCitizen(goodDollar, houses, citizenOne, "citizen-one");
-    await registerAlignment(goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one");
     await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
 
     const poolId = await createManagedFlowSplitterPool(flowSplitter, goodDollar, houses);
@@ -443,8 +445,8 @@ describe("GoodDaoHouses", () => {
   it("revoking an alignment member clears their FlowSplitter units", async () => {
     const { committee, alignmentOne, alignmentTwo, goodDollar, flowSplitter, houses } = await loadFixture(fixture);
 
-    await registerAlignment(goodDollar, houses, alignmentOne, "alignment-one");
-    await registerAlignment(goodDollar, houses, alignmentTwo, "alignment-two");
+    await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentTwo, "alignment-two");
     await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
     await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
 
@@ -469,8 +471,8 @@ describe("GoodDaoHouses", () => {
   it("emits VoteCreated with recipients and VoteCast with voter details on first ballot", async () => {
     const { committee, alignmentOne, alignmentTwo, goodDollar, houses } = await loadFixture(fixture);
 
-    await registerAlignment(goodDollar, houses, alignmentOne, "alignment-one");
-    await registerAlignment(goodDollar, houses, alignmentTwo, "alignment-two");
+    await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentTwo, "alignment-two");
     await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
     await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
 
@@ -488,8 +490,8 @@ describe("GoodDaoHouses", () => {
   it("persists the executed flag and blocks re-execution for the same voteId", async () => {
     const { committee, alignmentOne, alignmentTwo, goodDollar, flowSplitter, houses } = await loadFixture(fixture);
 
-    await registerAlignment(goodDollar, houses, alignmentOne, "alignment-one");
-    await registerAlignment(goodDollar, houses, alignmentTwo, "alignment-two");
+    await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentTwo, "alignment-two");
     await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
     await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
 
@@ -533,8 +535,8 @@ describe("GoodDaoHouses", () => {
   it("stores a non-zero finalized unit for a 1 basis-point allocation", async () => {
     const { committee, alignmentOne, alignmentTwo, goodDollar, houses } = await loadFixture(fixture);
 
-    await registerAlignment(goodDollar, houses, alignmentOne, "alignment-one");
-    await registerAlignment(goodDollar, houses, alignmentTwo, "alignment-two");
+    await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentTwo, "alignment-two");
     await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
     await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
 
@@ -642,8 +644,8 @@ describe("GoodDaoHouses", () => {
     // and that the stored units are correct.
     const { committee, alignmentOne, alignmentTwo, goodDollar, flowSplitter, houses } = await loadFixture(fixture);
 
-    await registerAlignment(goodDollar, houses, alignmentOne, "alignment-one");
-    await registerAlignment(goodDollar, houses, alignmentTwo, "alignment-two");
+    await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentTwo, "alignment-two");
     await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
     await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
 
@@ -680,8 +682,8 @@ describe("GoodDaoHouses", () => {
       { kind: "uups" }
     );
 
-    await registerAlignment(goodDollar, harness, alignmentOne, "alignment-one");
-    await registerAlignment(goodDollar, harness, alignmentTwo, "alignment-two");
+    await registerAlignment(committee, goodDollar, harness, alignmentOne, "alignment-one");
+    await registerAlignment(committee, goodDollar, harness, alignmentTwo, "alignment-two");
     await harness.connect(committee).approveAlignmentMember(alignmentOne.address);
     await harness.connect(committee).approveAlignmentMember(alignmentTwo.address);
 
@@ -700,5 +702,121 @@ describe("GoodDaoHouses", () => {
 
     // executeVote must revert rather than silently truncate the cast
     await expect(harness.connect(committee).executeVote(voteId)).to.be.revertedWith("Units overflow");
+  });
+
+  // ── HoA eligibility registry ──────────────────────────────────────────────
+
+  it("setHoaEligibility: only GOVERNANCE_COMMITTEE_ROLE can update eligibility", async () => {
+    const { committee, stranger, alignmentOne, houses } = await loadFixture(fixture);
+
+    // Committee can grant eligibility
+    await expect(houses.connect(committee).setHoaEligibility(alignmentOne.address, true))
+      .to.emit(houses, "HoaEligibilityChanged")
+      .withArgs(alignmentOne.address, true);
+
+    expect((await houses.getHoaEligibility(alignmentOne.address)).isEligible).to.equal(true);
+
+    // Non-committee cannot update
+    await expect(
+      houses.connect(stranger).setHoaEligibility(alignmentOne.address, false)
+    ).to.be.reverted;
+  });
+
+  it("setHoaEligibility: records listedAt on first listing, delistedAt on removal, and preserves history", async () => {
+    const { committee, alignmentOne, houses } = await loadFixture(fixture);
+
+    // Grant eligibility — listedAt and updatedAt should be set
+    await houses.connect(committee).setHoaEligibility(alignmentOne.address, true);
+    const afterListing = await houses.getHoaEligibility(alignmentOne.address);
+    expect(afterListing.isEligible).to.equal(true);
+    expect(afterListing.listedAt).to.be.gt(0);
+    expect(afterListing.updatedAt).to.be.gt(0);
+    expect(afterListing.delistedAt).to.equal(0);
+    const originalListedAt = afterListing.listedAt;
+
+    // Remove eligibility — delistedAt set, listedAt preserved
+    await houses.connect(committee).setHoaEligibility(alignmentOne.address, false);
+    const afterDelisting = await houses.getHoaEligibility(alignmentOne.address);
+    expect(afterDelisting.isEligible).to.equal(false);
+    expect(afterDelisting.listedAt).to.equal(originalListedAt);
+    expect(afterDelisting.delistedAt).to.be.gt(0);
+
+    // Re-list — listedAt stays at original value (not overwritten)
+    await houses.connect(committee).setHoaEligibility(alignmentOne.address, true);
+    const afterRelisting = await houses.getHoaEligibility(alignmentOne.address);
+    expect(afterRelisting.isEligible).to.equal(true);
+    expect(afterRelisting.listedAt).to.equal(originalListedAt);
+  });
+
+  it("HoA registration via transferAndCall reverts when wallet is not eligible", async () => {
+    const { alignmentOne, goodDollar, houses } = await loadFixture(fixture);
+
+    // alignmentOne has NOT been added to the eligibility registry
+    await goodDollar.mint(alignmentOne.address, alignmentMinimumStake);
+    const data = ethers.utils.defaultAbiCoder.encode(
+      ["uint8", "string", "string", "string", "string", "string"],
+      [ALIGNMENT, "alignment-one", "", "https://alignment-one.example", "mission", alignmentForumUrl]
+    );
+
+    await expect(
+      goodDollar.connect(alignmentOne).transferAndCall(houses.address, alignmentMinimumStake, data)
+    ).to.be.revertedWith("Not HoA eligible");
+  });
+
+  it("HoA registration via registerAndStake reverts when wallet is not eligible", async () => {
+    const { alignmentOne, goodDollar, houses } = await loadFixture(fixture);
+
+    await goodDollar.mint(alignmentOne.address, alignmentMinimumStake);
+    await goodDollar.connect(alignmentOne).approve(houses.address, alignmentMinimumStake);
+
+    await expect(
+      houses
+        .connect(alignmentOne)
+        .registerAndStake(ALIGNMENT, "alignment-one", "", "https://alignment-one.example", "mission", alignmentForumUrl)
+    ).to.be.revertedWith("Not HoA eligible");
+  });
+
+  it("HoA registration succeeds and status is Pending after eligibility is granted", async () => {
+    const { committee, alignmentOne, goodDollar, houses } = await loadFixture(fixture);
+
+    await houses.connect(committee).setHoaEligibility(alignmentOne.address, true);
+
+    // registerAndStake path
+    await goodDollar.mint(alignmentOne.address, alignmentMinimumStake);
+    await goodDollar.connect(alignmentOne).approve(houses.address, alignmentMinimumStake);
+    await houses
+      .connect(alignmentOne)
+      .registerAndStake(ALIGNMENT, "alignment-one", "", "https://alignment-one.example", "mission", alignmentForumUrl);
+
+    const member = await houses.getMember(alignmentOne.address);
+    expect(member.status).to.equal(PENDING);
+    expect(member.house).to.equal(ALIGNMENT);
+  });
+
+  it("HoA registration via transferAndCall succeeds and status is Pending after eligibility is granted", async () => {
+    const { committee, alignmentOne, goodDollar, houses } = await loadFixture(fixture);
+
+    await houses.connect(committee).setHoaEligibility(alignmentOne.address, true);
+
+    await goodDollar.mint(alignmentOne.address, alignmentMinimumStake);
+    const data = ethers.utils.defaultAbiCoder.encode(
+      ["uint8", "string", "string", "string", "string", "string"],
+      [ALIGNMENT, "alignment-one", "", "https://alignment-one.example", "mission", alignmentForumUrl]
+    );
+    await goodDollar.connect(alignmentOne).transferAndCall(houses.address, alignmentMinimumStake, data);
+
+    const member = await houses.getMember(alignmentOne.address);
+    expect(member.status).to.equal(PENDING);
+  });
+
+  it("Citizens registration is unaffected by the HoA eligibility gate", async () => {
+    const { citizenOne, goodDollar, houses } = await loadFixture(fixture);
+
+    // citizenOne is NOT in the HoA eligibility registry — Citizens must still register freely
+    await registerCitizen(goodDollar, houses, citizenOne, "citizen-one");
+
+    const member = await houses.getMember(citizenOne.address);
+    expect(member.status).to.equal(ACTIVE);
+    expect(member.house).to.equal(CITIZENS);
   });
 });
