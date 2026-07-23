@@ -15,6 +15,7 @@ struct UniswapPath {
 	address[] tokens;
 	uint24[] fees;
 }
+
 /*
  * @title BuyGDClone
  * @notice This contract allows users to swap Celo or stable for GoodDollar (GD) tokens.
@@ -53,13 +54,14 @@ contract BuyGDCloneV2 is Initializable {
 
 	// Hardcoded default paths for Uniswap swaps
 	UniswapPath internal cusdPath;
+	UniswapPath internal usdcPath;
 	UniswapPath internal celoPath;
-	
+
 	address public owner;
 
-	
 	/** Gas cost reserve when refundGas != owner (0.1$) */
 	uint256 public constant CUSD_GAS_COSTS = 1e17;
+	uint256 public constant USDC_GAS_COSTS = 1e5;
 
 	receive() external payable {}
 
@@ -104,7 +106,19 @@ contract BuyGDCloneV2 is Initializable {
 		cusdFees[1] = 100;
 		cusdFees[2] = GD_FEE_TIER;
 
-		cusdPath = UniswapPath({tokens: cusdTokens, fees: cusdFees});
+		cusdPath = UniswapPath({ tokens: cusdTokens, fees: cusdFees });
+
+		// USDC -> GLOUSD -> G$
+		address[] memory usdcTokens = new address[](3);
+		usdcTokens[0] = USDC;
+		usdcTokens[1] = GLOUSD;
+		usdcTokens[2] = gd;
+
+		uint24[] memory usdcFees = new uint24[](2);
+		usdcFees[0] = 100;
+		usdcFees[1] = GD_FEE_TIER;
+
+		usdcPath = UniswapPath({ tokens: usdcTokens, fees: usdcFees });
 
 		// CELO -> GLOUSD -> G$
 		address[] memory celoTokens = new address[](3);
@@ -116,11 +130,17 @@ contract BuyGDCloneV2 is Initializable {
 		celoFees[0] = 500;
 		celoFees[1] = GD_FEE_TIER;
 
-		celoPath = UniswapPath({tokens: celoTokens, fees: celoFees});
+		celoPath = UniswapPath({ tokens: celoTokens, fees: celoFees });
 	}
 
-	function getSwapPath(address[] memory tokens, uint24[] memory fees) public pure returns (bytes memory path) {
-		require(tokens.length == fees.length + 1 && fees.length > 0, "wrong input parameters");
+	function getSwapPath(
+		address[] memory tokens,
+		uint24[] memory fees
+	) public pure returns (bytes memory path) {
+		require(
+			tokens.length == fees.length + 1 && fees.length > 0,
+			"wrong input parameters"
+		);
 		path = abi.encodePacked(tokens[0]);
 		for (uint256 i = 0; i < fees.length; i++) {
 			path = abi.encodePacked(path, fees[i], tokens[i + 1]);
@@ -130,9 +150,9 @@ contract BuyGDCloneV2 is Initializable {
 	}
 
 	/**
-	 * @notice Swaps either Celo or CUSD for GD tokens.
+	 * @notice Swaps either Celo, CUSD, or USDC for GD tokens.
 	 * @dev If the contract has a balance of Celo, it will swap Celo for GD tokens.
-	 * @dev If the contract has a balance of stable, it will swap stable for GD tokens.
+	 * @dev If the contract has a balance of CUSD or USDC, it will swap stable for GD tokens.
 	 * @param _minAmount The minimum amount of GD tokens to receive from the swap.
 	 */
 	function swap(
@@ -149,7 +169,13 @@ contract BuyGDCloneV2 is Initializable {
 		balance = ERC20(CUSD).balanceOf(address(this));
 		if (balance > 0) {
 			bought = swapCusd(_minAmount, refundGas);
-			emit Bought(celo, balance, bought);
+			emit Bought(CUSD, balance, bought);
+			return bought;
+		}
+		balance = ERC20(USDC).balanceOf(address(this));
+		if (balance > 0) {
+			bought = swapUsdc(_minAmount, refundGas);
+			emit Bought(USDC, balance, bought);
 			return bought;
 		}
 
@@ -178,6 +204,27 @@ contract BuyGDCloneV2 is Initializable {
 	}
 
 	/**
+	 * @notice Swaps USDC for GD tokens using the default path.
+	 */
+	function swapUsdc(
+		uint256 _minAmount,
+		address refundGas
+	) public returns (uint256 bought) {
+		return swapUsdcWithPath(_minAmount, refundGas, usdcPath);
+	}
+
+	/**
+	 * @notice Swaps USDC for GD tokens via Uniswap using the given path.
+	 */
+	function swapUsdcWithPath(
+		uint256 _minAmount,
+		address refundGas,
+		UniswapPath memory _path
+	) public returns (uint256 bought) {
+		return _swapUSDCfromUniswap(_minAmount, refundGas, _path);
+	}
+
+	/**
 	 * @notice Swaps Celo for GD tokens via Uniswap using the given path.
 	 * @dev Uses quoter (same as getExpectedReturnFromUniswapPath) for expected output; no oracle.
 	 */
@@ -190,7 +237,13 @@ contract BuyGDCloneV2 is Initializable {
 		uint24[] memory fees = new uint24[](1);
 		fees[0] = 500;
 		if (refundGas != owner) {
-			(gasCosts, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(1e17, stable, celo, fees, 60);
+			(gasCosts, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
+				1e17,
+				stable,
+				celo,
+				fees,
+				60
+			);
 		}
 		uint256 amountIn = address(this).balance - gasCosts;
 
@@ -244,7 +297,8 @@ contract BuyGDCloneV2 is Initializable {
 		address refundGas,
 		UniswapPath memory _path
 	) internal returns (uint256 bought) {
-		uint256 amountIn = ERC20(CUSD).balanceOf(address(this)) - (refundGas != owner ? CUSD_GAS_COSTS : 0);
+		uint256 amountIn = ERC20(CUSD).balanceOf(address(this)) -
+			(refundGas != owner ? CUSD_GAS_COSTS : 0);
 		require(amountIn > 0, "No cUSD balance");
 
 		uint256 uniswapExpected = getExpectedReturnFromUniswapPath(amountIn, _path);
@@ -255,7 +309,10 @@ contract BuyGDCloneV2 is Initializable {
 		if (mentoAvailable) {
 			mentoExpected = getExpectedReturnFromMento(amountIn);
 		}
-		uint256 maxExpected = Math.max(_minAmount, Math.max(uniswapExpected, mentoExpected));
+		uint256 maxExpected = Math.max(
+			_minAmount,
+			Math.max(uniswapExpected, mentoExpected)
+		);
 		if (mentoExpected > uniswapExpected) {
 			bought = _swapCusdFromMento(maxExpected, refundGas);
 		} else {
@@ -271,10 +328,49 @@ contract BuyGDCloneV2 is Initializable {
 		address refundGas,
 		UniswapPath memory _path
 	) internal returns (uint256 bought) {
-		uint256 gasCosts = refundGas != owner ? CUSD_GAS_COSTS : 0;
-		uint256 amountIn = ERC20(CUSD).balanceOf(address(this)) - gasCosts;
+		return
+			_swapStableFromUniswap(
+				CUSD,
+				CUSD_GAS_COSTS,
+				_minAmount,
+				refundGas,
+				_path
+			);
+	}
 
-		ERC20(CUSD).approve(address(router), amountIn);
+	/**
+	 * @notice Swaps USDC for GD tokens via Uniswap using the given path.
+	 */
+	function _swapUSDCfromUniswap(
+		uint256 _minAmount,
+		address refundGas,
+		UniswapPath memory _path
+	) internal returns (uint256 bought) {
+		return
+			_swapStableFromUniswap(
+				USDC,
+				USDC_GAS_COSTS,
+				_minAmount,
+				refundGas,
+				_path
+			);
+	}
+
+	/**
+	 * @notice Swaps a stable token for GD tokens via Uniswap using the given path.
+	 */
+	function _swapStableFromUniswap(
+		address inToken,
+		uint256 gasReserve,
+		uint256 _minAmount,
+		address refundGas,
+		UniswapPath memory _path
+	) internal returns (uint256 bought) {
+		uint256 gasCosts = refundGas != owner ? gasReserve : 0;
+		uint256 amountIn = ERC20(inToken).balanceOf(address(this)) - gasCosts;
+		require(amountIn > 0, "No stable balance");
+
+		ERC20(inToken).approve(address(router), amountIn);
 		bytes memory path = getSwapPath(_path.tokens, _path.fees);
 		bought = router.exactInput(
 			ISwapRouter.ExactInputParams({
@@ -285,9 +381,9 @@ contract BuyGDCloneV2 is Initializable {
 			})
 		);
 		if (refundGas != owner) {
-			ERC20(CUSD).transfer(refundGas, gasCosts);
+			ERC20(inToken).transfer(refundGas, gasCosts);
 		}
-		emit BoughtFromUniswap(CUSD, amountIn, bought);
+		emit BoughtFromUniswap(inToken, amountIn, bought);
 	}
 
 	/**
@@ -301,7 +397,11 @@ contract BuyGDCloneV2 is Initializable {
 		uint256 _minAmount,
 		address refundGas
 	) internal returns (uint256 bought) {
-		if (address(mentoBroker) == address(0) || mentoExchangeProvider == address(0) || mentoExchangeId == bytes32(0)) {
+		if (
+			address(mentoBroker) == address(0) ||
+			mentoExchangeProvider == address(0) ||
+			mentoExchangeId == bytes32(0)
+		) {
 			revert MENTO_NOT_CONFIGURED();
 		}
 
@@ -354,7 +454,11 @@ contract BuyGDCloneV2 is Initializable {
 	function getExpectedReturnFromMento(
 		uint256 cusdAmount
 	) public view returns (uint256 expectedReturn) {
-		if (address(mentoBroker) == address(0) || mentoExchangeProvider == address(0) || mentoExchangeId == bytes32(0)) {
+		if (
+			address(mentoBroker) == address(0) ||
+			mentoExchangeProvider == address(0) ||
+			mentoExchangeId == bytes32(0)
+		) {
 			revert MENTO_NOT_CONFIGURED();
 		}
 
@@ -394,6 +498,16 @@ contract BuyGDCloneV2 is Initializable {
 			);
 			toConvert = uint128(quote);
 		} else if (baseToken == CUSD && stable != CUSD) {
+			fees[0] = CUSD_STABLE_FEE_TIER;
+			(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
+				toConvert,
+				baseToken,
+				stable,
+				fees,
+				period
+			);
+			toConvert = uint128(quote);
+		} else if (baseToken == USDC && stable != USDC) {
 			fees[0] = CUSD_STABLE_FEE_TIER;
 			(quote, ) = oracle.quoteSpecificFeeTiersWithTimePeriod(
 				toConvert,
@@ -452,7 +566,18 @@ contract DonateGDClone is BuyGDCloneV2 {
 		IBroker _mentoBroker,
 		address _mentoExchangeProvider,
 		bytes32 _mentoExchangeId
-	) BuyGDCloneV2(_router, _stable, _gd, _oracle, _quoter, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId) {}
+	)
+		BuyGDCloneV2(
+			_router,
+			_stable,
+			_gd,
+			_oracle,
+			_quoter,
+			_mentoBroker,
+			_mentoExchangeProvider,
+			_mentoExchangeId
+		)
+	{}
 
 	/**
 	 * @notice Initializes the contract with the owner's address.
@@ -543,8 +668,6 @@ contract BuyGDCloneFactory {
 	error RECIPIENT_ZERO();
 	error ZERO_MINAMOUNT();
 
-	IQuoterV2 public constant quoter =
-		IQuoterV2(0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8); // celo quoter
 	address public constant CUSD = 0x765DE816845861e75A25fCA122bb6898B8B1282a;
 	address public constant celo = 0x471EcE3750Da237f93B8E339c536989b8978a438;
 	address public constant USDC = 0xcebA9300f2b948710d2653dD7B07f33A8B32118C;
@@ -557,6 +680,7 @@ contract BuyGDCloneFactory {
 	address public immutable stable;
 	IStaticOracle public immutable oracle;
 	ISwapRouter public immutable router;
+	IQuoterV2 public immutable quoter; //IQuoterV2(0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8); // celo quoter
 
 	event GDSwapToCusd(
 		address from,
@@ -582,6 +706,9 @@ contract BuyGDCloneFactory {
 	 * @param _mentoExchangeProvider The address of the Mento exchange provider (optional, can be address(0)).
 	 * @param _mentoExchangeId The exchange ID for the Mento G$/cUSD exchange (optional, can be bytes32(0)).
 	 */
+
+	// celo defaults
+	//
 	constructor(
 		ISwapRouter _router,
 		address _stable,
@@ -592,12 +719,35 @@ contract BuyGDCloneFactory {
 		address _mentoExchangeProvider,
 		bytes32 _mentoExchangeId
 	) {
-		impl = address(new BuyGDCloneV2(_router, _stable, _gd, _oracle, _quoter, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId));
-		donateImpl = address(new DonateGDClone(_router, _stable, _gd, _oracle, _quoter, _mentoBroker, _mentoExchangeProvider, _mentoExchangeId));
+		impl = address(
+			new BuyGDCloneV2(
+				_router,
+				_stable,
+				_gd,
+				_oracle,
+				_quoter,
+				_mentoBroker,
+				_mentoExchangeProvider,
+				_mentoExchangeId
+			)
+		);
+		donateImpl = address(
+			new DonateGDClone(
+				_router,
+				_stable,
+				_gd,
+				_oracle,
+				_quoter,
+				_mentoBroker,
+				_mentoExchangeProvider,
+				_mentoExchangeId
+			)
+		);
 		gd = _gd;
 		stable = _stable;
 		oracle = _oracle;
 		router = _router;
+		quoter = _quoter;
 
 		mentoBroker = _mentoBroker;
 		mentoExchangeProvider = _mentoExchangeProvider;
@@ -615,14 +765,22 @@ contract BuyGDCloneFactory {
 		celoTokens[2] = gd;
 
 		for (uint256 i = 0; i < cusdTokens.length - 2; i++) {
-			_oracle.prepareAllAvailablePoolsWithTimePeriod(cusdTokens[i], cusdTokens[i + 1], PERIOD); //cusd/stable pools
+			_oracle.prepareAllAvailablePoolsWithTimePeriod(
+				cusdTokens[i],
+				cusdTokens[i + 1],
+				PERIOD
+			); //cusd/stable pools
 		}
 		for (uint256 i = 0; i < celoTokens.length - 2; i++) {
-			_oracle.prepareAllAvailablePoolsWithTimePeriod(celoTokens[i], celoTokens[i + 1], PERIOD); //celo/stable pools
+			_oracle.prepareAllAvailablePoolsWithTimePeriod(
+				celoTokens[i],
+				celoTokens[i + 1],
+				PERIOD
+			); //celo/stable pools
 		}
 		_oracle.prepareAllAvailablePoolsWithTimePeriod(stable, gd, PERIOD); //cusd/stable pools
 	}
-	
+
 	/**
 	 * @notice Creates a new clone of the BuyGDClone contract with the provided owner address.
 	 * @param owner The address of the owner of the new BuyGDClone contract.

@@ -1,13 +1,13 @@
 /**
  * @file E2E test for BuyGDClone contract on Celo fork
- * 
+ *
  * This test suite verifies the BuyGDClone contract functionality on a Celo mainnet fork.
  * It tests the cUSD -> GLOUSD -> G$ swap path as specified in the GitHub issue.
- * 
+ *
  * To run this test:
  * 1. Make sure you have a Celo RPC endpoint available (or use public forno.celo.org)
  * 2. Run: npx hardhat test test/utils/BuyGDClone.celo-fork.test.ts
- * 
+ *
  * Note: This test forks Celo mainnet, so it requires network access and may take longer to run.
  */
 
@@ -34,14 +34,33 @@ const MENTO_EXCHANGE_ID = PRODUCTION_CELO.CUSDExchangeId;
 const CELO = "0x471EcE3750Da237f93B8E339c536989b8978a438";
 const QUOTE = "0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8";
 const USDC = "0xceba9300f2b948710d2653dd7b07f33a8b32118c";
+const USDC_GAS_COSTS = ethers.BigNumber.from("100000");
 
 // GLOUSD address on Celo mainnet
 const GLOUSD_REFERENCE = "0x4F604735c1cF31399C6E711D5962b2B3E0225AD3"; // Common GLOUSD address
 
 // Account with cUSD balance on Celo (for impersonation)
 const CUSD_WHALE = "0x167030Be27a0383b14E645884BB3786Ee7f5d0a8"; // Example whale address
-const cusdPath = {tokens: [CUSD, USDC, GLOUSD_REFERENCE,  GOODDOLLAR], fees: [100, 100, 500]};
-const celoPath = {tokens: [CELO, GLOUSD_REFERENCE, GOODDOLLAR], fees: [500, 500]};
+const USDC_WHALE_CANDIDATES = [
+  "0xBc7C8E7fC7a8ce54C50d17523FB031FFdC203fEC",
+  "0x0E962B16c8C0A5D47DD446E0493f5b0B2c2dDd77",
+  "0x5B2E3392d0fc9A6b31D509A9d613C85E87F4552B"
+];
+const cusdPath = { tokens: [CUSD, USDC, GLOUSD_REFERENCE, GOODDOLLAR], fees: [100, 100, 500] };
+const usdcPath = { tokens: [USDC, GLOUSD_REFERENCE, GOODDOLLAR], fees: [100, 500] };
+const celoPath = { tokens: [CELO, GLOUSD_REFERENCE, GOODDOLLAR], fees: [500, 500] };
+
+async function getFundedWhale(tokenAddress: string, minAmount: any, candidates: string[]) {
+  const token = await ethers.getContractAt("contracts/Interfaces.sol:ERC20", tokenAddress);
+  for (const candidate of candidates) {
+    const balance = await token.balanceOf(candidate);
+    if (balance.gte(minAmount)) {
+      await ethers.provider.send("hardhat_setBalance", [candidate, "0x1000000000000000000"]);
+      return await ethers.getImpersonatedSigner(candidate);
+    }
+  }
+  return null;
+}
 
 describe("BuyGDClone - Celo Fork E2E", function () {
   // Increase timeout for fork tests
@@ -62,6 +81,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
     const oracleAddress = STATIC_ORACLE;
     const gdToken = await ethers.getContractAt("contracts/Interfaces.sol:ERC20", GOODDOLLAR);
     const cusdToken = await ethers.getContractAt("contracts/Interfaces.sol:ERC20", CUSD);
+    const usdcToken = await ethers.getContractAt("contracts/Interfaces.sol:ERC20", USDC);
     const celoToken = await ethers.getContractAt("contracts/Interfaces.sol:ERC20", CELO);
 
     const stableAddress = process.env.GLOUSD_ADDRESS || GLOUSD_REFERENCE;
@@ -91,10 +111,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
 
     // Impersonate a whale account to get cUSD
     const whale = await ethers.getImpersonatedSigner(CUSD_WHALE);
-    await ethers.provider.send("hardhat_setBalance", [
-      CUSD_WHALE,
-      "0x1000000000000000000",
-    ]);
+    await ethers.provider.send("hardhat_setBalance", [CUSD_WHALE, "0x1000000000000000000"]);
 
     return {
       deployer,
@@ -102,6 +119,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       factory,
       gdToken,
       cusdToken,
+      usdcToken,
       celoToken,
       stableAddress,
       whale,
@@ -132,16 +150,17 @@ describe("BuyGDClone - Celo Fork E2E", function () {
 
       await factoryWithoutMento.create(user.address);
       const cloneAddress = await factoryWithoutMento.predict(user.address);
-      const clone = (await ethers.getContractAt(
-        "BuyGDCloneV2",
-        cloneAddress
-      )) as BuyGDCloneV2;
+      const clone = (await ethers.getContractAt("BuyGDCloneV2", cloneAddress)) as BuyGDCloneV2;
 
       const swapAmount = ethers.utils.parseEther("5");
       const whaleBalance = await cusdToken.balanceOf(whale.address);
 
       if (whaleBalance.lt(swapAmount)) {
-        throw new Error(`Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(whaleBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
+        throw new Error(
+          `Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(
+            whaleBalance
+          )}, Required: ${ethers.utils.formatEther(swapAmount)}`
+        );
       }
 
       await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
@@ -165,20 +184,16 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       const swapReceipt = await swapTx.wait();
 
       // Should emit BoughtFromUniswap event
-      const uniswapEvent = swapReceipt.events?.find(
-        (e: any) => e.event === "BoughtFromUniswap"
-      );
+      const uniswapEvent = swapReceipt.events?.find((e: any) => e.event === "BoughtFromUniswap");
       expect(uniswapEvent).to.not.be.undefined;
       console.log("✓ BoughtFromUniswap event emitted:", {
         inToken: uniswapEvent?.args?.inToken,
         inAmount: ethers.utils.formatEther(uniswapEvent?.args?.inAmount),
-        outAmount: ethers.utils.formatEther(uniswapEvent?.args?.outAmount),
+        outAmount: ethers.utils.formatEther(uniswapEvent?.args?.outAmount)
       });
 
       // Should not emit BoughtFromMento event
-      const mentoEvent = swapReceipt.events?.find(
-        (e: any) => e.event === "BoughtFromMento"
-      );
+      const mentoEvent = swapReceipt.events?.find((e: any) => e.event === "BoughtFromMento");
       expect(mentoEvent).to.be.undefined;
 
       const finalGdBalance = await gdToken.balanceOf(user.address);
@@ -205,15 +220,16 @@ describe("BuyGDClone - Celo Fork E2E", function () {
 
       await factoryWithoutMento.create(user.address);
       const cloneAddress = await factoryWithoutMento.predict(user.address);
-      const clone = (await ethers.getContractAt(
-        "BuyGDCloneV2",
-        cloneAddress
-      )) as BuyGDCloneV2;
+      const clone = (await ethers.getContractAt("BuyGDCloneV2", cloneAddress)) as BuyGDCloneV2;
 
       const swapAmount = ethers.utils.parseEther("5");
       const whaleBalance = await cusdToken.balanceOf(whale.address);
       if (whaleBalance.lt(swapAmount)) {
-        throw new Error(`Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(whaleBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
+        throw new Error(
+          `Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(
+            whaleBalance
+          )}, Required: ${ethers.utils.formatEther(swapAmount)}`
+        );
       }
       await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
 
@@ -233,7 +249,11 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       const gdReceived = finalGdBalance.sub(initialGdBalance);
       expect(gdReceived).to.be.gt(0);
       expect(gdReceived).to.be.gte(minAmount);
-      console.log("✓ swapCusdWithPath used Uniswap with custom path, received:", ethers.utils.formatEther(gdReceived), "G$");
+      console.log(
+        "✓ swapCusdWithPath used Uniswap with custom path, received:",
+        ethers.utils.formatEther(gdReceived),
+        "G$"
+      );
     });
 
     it("Should compare Uniswap vs Mento and choose better route", async function () {
@@ -241,16 +261,17 @@ describe("BuyGDClone - Celo Fork E2E", function () {
 
       await factory.create(user.address);
       const cloneAddress = await factory.predict(user.address);
-      const clone = (await ethers.getContractAt(
-        "BuyGDCloneV2",
-        cloneAddress
-      )) as BuyGDCloneV2;
+      const clone = (await ethers.getContractAt("BuyGDCloneV2", cloneAddress)) as BuyGDCloneV2;
 
       const swapAmount = ethers.utils.parseEther("5");
       const whaleBalance = await cusdToken.balanceOf(whale.address);
 
       if (whaleBalance.lt(swapAmount)) {
-        throw new Error(`Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(whaleBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
+        throw new Error(
+          `Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(
+            whaleBalance
+          )}, Required: ${ethers.utils.formatEther(swapAmount)}`
+        );
       }
 
       await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
@@ -278,12 +299,8 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       expect(gdReceived).to.be.gte(minAmount);
 
       // Check which route was used based on event
-      const mentoEvent = swapReceipt.events?.find(
-        (e: any) => e.event === "BoughtFromMento"
-      );
-      const uniswapEvent = swapReceipt.events?.find(
-        (e: any) => e.event === "BoughtFromUniswap"
-      );
+      const mentoEvent = swapReceipt.events?.find((e: any) => e.event === "BoughtFromMento");
+      const uniswapEvent = swapReceipt.events?.find((e: any) => e.event === "BoughtFromUniswap");
       const usedMento = mentoEvent !== undefined;
       const usedUniswap = uniswapEvent !== undefined;
 
@@ -307,15 +324,16 @@ describe("BuyGDClone - Celo Fork E2E", function () {
 
       await factory.create(user.address);
       const cloneAddress = await factory.predict(user.address);
-      const clone = (await ethers.getContractAt(
-        "BuyGDCloneV2",
-        cloneAddress
-      )) as BuyGDCloneV2;
+      const clone = (await ethers.getContractAt("BuyGDCloneV2", cloneAddress)) as BuyGDCloneV2;
 
       const swapAmount = ethers.utils.parseEther("5");
       const whaleBalance = await cusdToken.balanceOf(whale.address);
       if (whaleBalance.lt(swapAmount)) {
-        throw new Error(`Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(whaleBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
+        throw new Error(
+          `Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(
+            whaleBalance
+          )}, Required: ${ethers.utils.formatEther(swapAmount)}`
+        );
       }
       await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
 
@@ -342,17 +360,18 @@ describe("BuyGDClone - Celo Fork E2E", function () {
 
       await factory.create(user.address);
       const cloneAddress = await factory.predict(user.address);
-      const clone = (await ethers.getContractAt(
-        "BuyGDCloneV2",
-        cloneAddress
-      )) as BuyGDCloneV2;
+      const clone = (await ethers.getContractAt("BuyGDCloneV2", cloneAddress)) as BuyGDCloneV2;
 
       // Use a large swap amount to force Mento (large amounts favor Mento due to lower slippage)
       const swapAmount = ethers.utils.parseEther("10000"); // 10,000 cUSD
       const whaleBalance = await cusdToken.balanceOf(whale.address);
 
       if (whaleBalance.lt(swapAmount)) {
-        throw new Error(`Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(whaleBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
+        throw new Error(
+          `Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(
+            whaleBalance
+          )}, Required: ${ethers.utils.formatEther(swapAmount)}`
+        );
       }
 
       await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
@@ -382,97 +401,163 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       expect(gdReceived).to.be.gte(mentoExpected);
 
       // Verify Mento was used
-      const mentoEvent = swapReceipt.events?.find(
-        (e: any) => e.event === "BoughtFromMento"
-      );
-      const uniswapEvent = swapReceipt.events?.find(
-        (e: any) => e.event === "BoughtFromUniswap"
-      );
+      const mentoEvent = swapReceipt.events?.find((e: any) => e.event === "BoughtFromMento");
+      const uniswapEvent = swapReceipt.events?.find((e: any) => e.event === "BoughtFromUniswap");
 
       expect(mentoEvent).to.not.be.undefined;
       expect(uniswapEvent).to.be.undefined;
-      
+
       console.log("✓ BoughtFromMento event emitted:", {
         inToken: mentoEvent?.args?.inToken,
         inAmount: ethers.utils.formatEther(mentoEvent?.args?.inAmount),
-        outAmount: ethers.utils.formatEther(mentoEvent?.args?.outAmount),
+        outAmount: ethers.utils.formatEther(mentoEvent?.args?.outAmount)
       });
       console.log("✓ Received:", ethers.utils.formatEther(gdReceived), "G$");
     });
   });
 
+  describe("USDC Swap Tests", function () {
+    it("Should swap USDC -> GLOUSD -> G$ via swapUsdc", async function () {
+      const { factory, user, gdToken, usdcToken } = await loadFixture(forkCelo);
+
+      await factory.create(user.address);
+      const cloneAddress = await factory.predict(user.address);
+      const clone = (await ethers.getContractAt("BuyGDCloneV2", cloneAddress)) as BuyGDCloneV2;
+
+      const swapAmount = ethers.utils.parseUnits("10", 6);
+      const usdcWhale = await getFundedWhale(USDC, swapAmount, USDC_WHALE_CANDIDATES);
+      if (!usdcWhale) {
+        this.skip();
+        return;
+      }
+      await usdcToken.connect(usdcWhale).transfer(cloneAddress, swapAmount);
+
+      const initialGdBalance = await gdToken.balanceOf(user.address);
+      const [minByTwap] = await clone.minAmountByTWAP(swapAmount, USDC, 300);
+      const minAmount = minByTwap;
+
+      const swapTx = await clone.swapUsdcWithPath(minAmount, user.address, usdcPath);
+      const swapReceipt = await swapTx.wait();
+
+      const uniswapEvent = swapReceipt.events?.find((e: any) => e.event === "BoughtFromUniswap");
+      expect(uniswapEvent).to.not.be.undefined;
+      expect(uniswapEvent?.args?.inToken.toLowerCase()).to.equal(USDC.toLowerCase());
+
+      const finalGdBalance = await gdToken.balanceOf(user.address);
+      const gdReceived = finalGdBalance.sub(initialGdBalance);
+      expect(gdReceived).to.be.gt(0);
+      expect(gdReceived).to.be.gte(minAmount);
+    });
+
+    it("Should route swap() to USDC and refund 0.1 USDC when refundGas != owner", async function () {
+      const { factory, deployer, user, gdToken, usdcToken } = await loadFixture(forkCelo);
+
+      await factory.create(user.address);
+      const cloneAddress = await factory.predict(user.address);
+      const clone = (await ethers.getContractAt("BuyGDCloneV2", cloneAddress)) as BuyGDCloneV2;
+
+      const swapAmount = ethers.utils.parseUnits("10", 6);
+      const usdcWhale = await getFundedWhale(USDC, swapAmount, USDC_WHALE_CANDIDATES);
+      if (!usdcWhale) {
+        this.skip();
+        return;
+      }
+      await usdcToken.connect(usdcWhale).transfer(cloneAddress, swapAmount);
+
+      const initialGdBalance = await gdToken.balanceOf(user.address);
+      const initialRefundUsdc = await usdcToken.balanceOf(deployer.address);
+
+      const [minByTwap] = await clone.minAmountByTWAP(swapAmount.sub(USDC_GAS_COSTS), USDC, 300);
+      const minAmount = minByTwap;
+
+      const swapTx = await clone.swap(minAmount, deployer.address);
+      const swapReceipt = await swapTx.wait();
+
+      const boughtEvent = swapReceipt.events?.find((e: any) => e.event === "Bought");
+      expect(boughtEvent).to.not.be.undefined;
+      expect(boughtEvent?.args?.inToken.toLowerCase()).to.equal(USDC.toLowerCase());
+
+      const finalGdBalance = await gdToken.balanceOf(user.address);
+      const gdReceived = finalGdBalance.sub(initialGdBalance);
+      expect(gdReceived).to.be.gt(0);
+      expect(gdReceived).to.be.gte(minAmount);
+
+      const finalRefundUsdc = await usdcToken.balanceOf(deployer.address);
+      expect(finalRefundUsdc.sub(initialRefundUsdc)).to.equal(USDC_GAS_COSTS);
+    });
+  });
+
   describe("CELO Swap Tests", function () {
     it("Should swap Celo -> GLOUSD -> G$ via clone", async function () {
-    /// Skip test because forking does not fork the precompiled contracts from celo mainnet
-    if(network.name === 'hardhat') {
-      this.skip();
-      return;      
-    }
-    const { factory, user, gdToken, celoToken, whale } = await loadFixture(forkCelo);
+      /// Skip test because forking does not fork the precompiled contracts from celo mainnet
+      if (network.name === "hardhat") {
+        this.skip();
+        return;
+      }
+      const { factory, user, gdToken, celoToken, whale } = await loadFixture(forkCelo);
 
-    // Create clone
-    await factory.create(user.address);
-    const cloneAddress = await factory.predict(user.address);
-    const clone = (await ethers.getContractAt(
-      "BuyGDCloneV2",
-      cloneAddress
-    )) as BuyGDCloneV2;
+      // Create clone
+      await factory.create(user.address);
+      const cloneAddress = await factory.predict(user.address);
+      const clone = (await ethers.getContractAt("BuyGDCloneV2", cloneAddress)) as BuyGDCloneV2;
 
-    // Transfer CELO to clone (simulating onramp service)
-    const swapAmount = ethers.utils.parseEther("1000");
-    const whaleCeloBalance = await celoToken.balanceOf(whale.address);
+      // Transfer CELO to clone (simulating onramp service)
+      const swapAmount = ethers.utils.parseEther("1000");
+      const whaleCeloBalance = await celoToken.balanceOf(whale.address);
 
-    if (whaleCeloBalance.lt(swapAmount)) {
-      throw new Error(`Whale doesn't have enough CELO. Balance: ${ethers.utils.formatEther(whaleCeloBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
-    }
+      if (whaleCeloBalance.lt(swapAmount)) {
+        throw new Error(
+          `Whale doesn't have enough CELO. Balance: ${ethers.utils.formatEther(
+            whaleCeloBalance
+          )}, Required: ${ethers.utils.formatEther(swapAmount)}`
+        );
+      }
 
-    // Transfer CELO from whale to clone
-    // await celoToken.connect(whale).transfer(cloneAddress, swapAmount);
-    await whale.sendTransaction({
-      to: cloneAddress,
-      value: swapAmount,
-    });
+      // Transfer CELO from whale to clone
+      // await celoToken.connect(whale).transfer(cloneAddress, swapAmount);
+      await whale.sendTransaction({
+        to: cloneAddress,
+        value: swapAmount
+      });
 
-    const cloneCeloBalance = await celoToken.balanceOf(cloneAddress);
-    expect(cloneCeloBalance).to.equal(swapAmount);
-    console.log("✓ CELO transferred to clone:", ethers.utils.formatEther(swapAmount));
+      const cloneCeloBalance = await celoToken.balanceOf(cloneAddress);
+      expect(cloneCeloBalance).to.equal(swapAmount);
+      console.log("✓ CELO transferred to clone:", ethers.utils.formatEther(swapAmount));
 
-    // Get initial G$ balance
-    const initialGdBalance = await gdToken.balanceOf(user.address);
-    console.log("Initial G$ balance:", ethers.utils.formatEther(initialGdBalance));
+      // Get initial G$ balance
+      const initialGdBalance = await gdToken.balanceOf(user.address);
+      console.log("Initial G$ balance:", ethers.utils.formatEther(initialGdBalance));
 
-    // Calculate min amount using TWAP
-    const [minByTwap] = await clone.minAmountByTWAP(
-      swapAmount,
-      CELO,
-      300 // 5 minutes
-    );
-    console.log("Min amount by TWAP:", ethers.utils.formatEther(minByTwap));
+      // Calculate min amount using TWAP
+      const [minByTwap] = await clone.minAmountByTWAP(
+        swapAmount,
+        CELO,
+        300 // 5 minutes
+      );
+      console.log("Min amount by TWAP:", ethers.utils.formatEther(minByTwap));
 
-    // Perform swap - minTwap is already 98% of quote
-    const minAmount = minByTwap;
-    console.log("Using minAmount:", ethers.utils.formatEther(minAmount));
+      // Perform swap - minTwap is already 98% of quote
+      const minAmount = minByTwap;
+      console.log("Using minAmount:", ethers.utils.formatEther(minAmount));
 
-    const swapTx = await clone.swap(minAmount, user.address);
-    const swapReceipt = await swapTx.wait();
+      const swapTx = await clone.swap(minAmount, user.address);
+      const swapReceipt = await swapTx.wait();
 
-    // Check for Bought event
-    const boughtEvent = swapReceipt.events?.find(
-      (e: any) => e.event === "Bought"
-    );
-    expect(boughtEvent).to.not.be.undefined;
-    console.log("✓ Bought event emitted:", {
-      inToken: boughtEvent?.args?.inToken,
-      inAmount: ethers.utils.formatEther(boughtEvent?.args?.inAmount),
-      outAmount: ethers.utils.formatEther(boughtEvent?.args?.outAmount),
-    });
+      // Check for Bought event
+      const boughtEvent = swapReceipt.events?.find((e: any) => e.event === "Bought");
+      expect(boughtEvent).to.not.be.undefined;
+      console.log("✓ Bought event emitted:", {
+        inToken: boughtEvent?.args?.inToken,
+        inAmount: ethers.utils.formatEther(boughtEvent?.args?.inAmount),
+        outAmount: ethers.utils.formatEther(boughtEvent?.args?.outAmount)
+      });
 
-    // Check final G$ balance
-    const finalGdBalance = await gdToken.balanceOf(user.address);
-    const gdReceived = finalGdBalance.sub(initialGdBalance);
-    expect(gdReceived).to.be.gt(0);
-    console.log("✓ G$ received:", ethers.utils.formatEther(gdReceived));
-    console.log("Final G$ balance:", ethers.utils.formatEther(finalGdBalance));
+      // Check final G$ balance
+      const finalGdBalance = await gdToken.balanceOf(user.address);
+      const gdReceived = finalGdBalance.sub(initialGdBalance);
+      expect(gdReceived).to.be.gt(0);
+      console.log("✓ G$ received:", ethers.utils.formatEther(gdReceived));
+      console.log("Final G$ balance:", ethers.utils.formatEther(finalGdBalance));
 
       // Verify minimum amount
       expect(gdReceived).to.be.gte(minAmount);
@@ -488,20 +573,21 @@ describe("BuyGDClone - Celo Fork E2E", function () {
 
       await factory.create(user.address);
       const cloneAddress = await factory.predict(user.address);
-      const clone = (await ethers.getContractAt(
-        "BuyGDCloneV2",
-        cloneAddress
-      )) as BuyGDCloneV2;
+      const clone = (await ethers.getContractAt("BuyGDCloneV2", cloneAddress)) as BuyGDCloneV2;
 
       const swapAmount = ethers.utils.parseEther("1000");
       const whaleCeloBalance = await celoToken.balanceOf(whale.address);
       if (whaleCeloBalance.lt(swapAmount)) {
-        throw new Error(`Whale doesn't have enough CELO. Balance: ${ethers.utils.formatEther(whaleCeloBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
+        throw new Error(
+          `Whale doesn't have enough CELO. Balance: ${ethers.utils.formatEther(
+            whaleCeloBalance
+          )}, Required: ${ethers.utils.formatEther(swapAmount)}`
+        );
       }
 
       await whale.sendTransaction({
         to: cloneAddress,
-        value: swapAmount,
+        value: swapAmount
       });
 
       const initialGdBalance = await gdToken.balanceOf(user.address);
@@ -529,10 +615,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       // Create clone
       await factory.create(user.address);
       const cloneAddress = await factory.predict(user.address);
-      const clone = (await ethers.getContractAt(
-        "BuyGDCloneV2",
-        cloneAddress
-      )) as BuyGDCloneV2;
+      const clone = (await ethers.getContractAt("BuyGDCloneV2", cloneAddress)) as BuyGDCloneV2;
 
       const testAmount = ethers.utils.parseEther("10"); // 10 cUSD
       const stableAddress = await clone.stable();
@@ -596,31 +679,28 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       // Create clone
       await factory.create(user.address);
       const cloneAddress = await factory.predict(user.address);
-      const clone = (await ethers.getContractAt(
-        "BuyGDCloneV2",
-        cloneAddress
-      )) as BuyGDCloneV2;
+      const clone = (await ethers.getContractAt("BuyGDCloneV2", cloneAddress)) as BuyGDCloneV2;
 
       // Transfer cUSD to clone
       const swapAmount = ethers.utils.parseEther("5");
       const whaleBalance = await cusdToken.balanceOf(whale.address);
 
       if (whaleBalance.lt(swapAmount)) {
-        throw new Error(`Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(whaleBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
+        throw new Error(
+          `Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(
+            whaleBalance
+          )}, Required: ${ethers.utils.formatEther(swapAmount)}`
+        );
       }
 
       await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
 
       // Get TWAP quote
-      const [, twapQuote] = await clone.minAmountByTWAP(
-        swapAmount,
-        CUSD,
-        300
-      );
+      const [, twapQuote] = await clone.minAmountByTWAP(swapAmount, CUSD, 300);
 
       console.log("TWAP values:");
       console.log("  TWAP Quote:", ethers.utils.formatEther(twapQuote), "G$");
-      
+
       // Use minAmount = 102% of quote
       const excessiveMinAmount = twapQuote.mul(102).div(100);
       console.log("Using excessive minAmount (102% of quote):", ethers.utils.formatEther(excessiveMinAmount));
@@ -628,9 +708,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       // The swap should revert because excessiveMinAmount > actual pool output
       // The contract enforces: amountOutMinimum = excessiveMinAmount
       // But the pool likely can't provide that much due to slippage/price impact
-      await expect(
-        clone.swap(excessiveMinAmount, user.address)
-      ).to.be.reverted; // Should revert with Uniswap "STF" (insufficient output amount) or similar
+      await expect(clone.swap(excessiveMinAmount, user.address)).to.be.reverted; // Should revert with Uniswap "STF" (insufficient output amount) or similar
 
       console.log("✓ Swap correctly reverts when minAmount = 102% of TWAP quote");
     });
@@ -638,15 +716,17 @@ describe("BuyGDClone - Celo Fork E2E", function () {
 
   describe("Factory Helper Functions", function () {
     it("Should handle createAndSwap in one transaction", async function () {
-      const { factory, user, deployer, gdToken, cusdToken, whale } = await loadFixture(
-        forkCelo
-      );
+      const { factory, user, deployer, gdToken, cusdToken, whale } = await loadFixture(forkCelo);
 
       const swapAmount = ethers.utils.parseEther("5");
       const whaleBalance = await cusdToken.balanceOf(whale.address);
 
       if (whaleBalance.lt(swapAmount)) {
-        throw new Error(`Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(whaleBalance)}, Required: ${ethers.utils.formatEther(swapAmount)}`);
+        throw new Error(
+          `Whale doesn't have enough cUSD. Balance: ${ethers.utils.formatEther(
+            whaleBalance
+          )}, Required: ${ethers.utils.formatEther(swapAmount)}`
+        );
       }
 
       // Get initial G$ balance
@@ -655,17 +735,10 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       // Create clone and get address
       await factory.create(deployer.address);
       const cloneAddress = await factory.predict(deployer.address);
-      const clone = (await ethers.getContractAt(
-        "BuyGDCloneV2",
-        cloneAddress
-      )) as BuyGDCloneV2;
+      const clone = (await ethers.getContractAt("BuyGDCloneV2", cloneAddress)) as BuyGDCloneV2;
 
       // Calculate min amount
-      const [minByTwap] = await clone.minAmountByTWAP(
-        swapAmount,
-        CUSD,
-        300
-      );
+      const [minByTwap] = await clone.minAmountByTWAP(swapAmount, CUSD, 300);
       const minAmount = minByTwap;
 
       const predictedAddress = await factory.predict(user.address);
@@ -684,4 +757,3 @@ describe("BuyGDClone - Celo Fork E2E", function () {
     });
   });
 });
-
