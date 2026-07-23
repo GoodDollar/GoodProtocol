@@ -96,7 +96,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 		uint256 _gasRefund = gasleft();
 		_;
 		_gasRefund = _gasRefund - gasleft() + 42000;
-		payable(msg.sender).transfer(_gasRefund * gasPrice); //gas price assumed 1e9 = 1gwei
+		payable(msg.sender).transfer(_gasRefund * getGasPrice()); //gas price assumed 1e9 = 1gwei
 	}
 
 	receive() external payable {}
@@ -146,7 +146,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 
 		require(
 			wallets[_user].weeklyToppingSum <
-				perDayRoughLimit * gasPrice * maxPerWeekMultiplier,
+				perDayRoughLimit * getGasPrice() * maxPerWeekMultiplier,
 			"User wallet has been topped too many times this week"
 		);
 		_;
@@ -156,6 +156,10 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	 */
 	function setDay() internal {
 		currentDay = (block.timestamp - startTime) / 1 days;
+	}
+
+	function getGasPrice() public view returns (uint) {
+		return block.basefee > 0 ? block.basefee : gasPrice;
 	}
 
 	function canTop(address _user) external view returns (bool) {
@@ -180,7 +184,9 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 			weeklySum = 0;
 		}
 
-		can = can && weeklySum < perDayRoughLimit * gasPrice * maxPerWeekMultiplier;
+		can =
+			can &&
+			weeklySum < perDayRoughLimit * getGasPrice() * maxPerWeekMultiplier;
 		return can;
 	}
 
@@ -248,7 +254,7 @@ contract Faucet is Initializable, UUPSUpgradeable, AccessControlUpgradeable {
 	}
 
 	function getToppingAmount(address _user) public view returns (uint256) {
-		uint256 baseAmount = gasTopping * gasPrice;
+		uint256 baseAmount = gasTopping * getGasPrice();
 
 		// Check voting balance if contract is set
 		if (votingContract != address(0)) {
