@@ -158,14 +158,23 @@ describe("GoodDaoHouses", () => {
     const latestBlock = await ethers.provider.getBlock("latest");
     const nextCycleStart = latestBlock.timestamp + 3 * 24 * 60 * 60;
 
-    await houses.connect(committee).setVotingSchedule(nextCycleStart, 120 * 24 * 60 * 60, 10 * 24 * 60 * 60);
+    await expect(
+      houses.connect(committee).setVotingSchedule(nextCycleStart, 120 * 24 * 60 * 60, 10 * 24 * 60 * 60)
+    )
+      .to.emit(houses, "VotingScheduleUpdated")
+      .withArgs(nextCycleStart, 120 * 24 * 60 * 60, 10 * 24 * 60 * 60);
 
     expect(await houses.cycleStartTime()).to.equal(nextCycleStart);
     expect(await houses.termDuration()).to.equal(120 * 24 * 60 * 60);
     expect(await houses.votingTermLength()).to.equal(10 * 24 * 60 * 60);
 
     const updatedCycleStart = nextCycleStart + 24 * 60 * 60;
-    await houses.connect(admin).setVotingSchedule(updatedCycleStart, 90 * 24 * 60 * 60, 7 * 24 * 60 * 60);
+
+    await expect(
+      houses.connect(admin).setVotingSchedule(updatedCycleStart, 90 * 24 * 60 * 60, 7 * 24 * 60 * 60)
+    )
+      .to.emit(houses, "VotingScheduleUpdated")
+      .withArgs(updatedCycleStart, 90 * 24 * 60 * 60, 7 * 24 * 60 * 60);
 
     expect(await houses.cycleStartTime()).to.equal(updatedCycleStart);
     expect(await houses.termDuration()).to.equal(90 * 24 * 60 * 60);
