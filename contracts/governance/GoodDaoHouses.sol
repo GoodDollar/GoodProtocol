@@ -70,13 +70,6 @@ contract GoodDaoHouses is
 		address poolAddress;
 	}
 
-	struct HoaEligibilityRecord {
-		bool isEligible;
-		uint64 listedAt;
-		uint64 updatedAt;
-		uint64 delistedAt;
-	}
-
 	mapping(address => MemberRecord) private members;
 	mapping(House => uint256) public minimumStake;
 	address[] private hoaMembers;
@@ -93,11 +86,9 @@ contract GoodDaoHouses is
 		internal voteRecipientWeightedVotes;
 	mapping(uint256 => mapping(address => bool)) private hasVoted;
 
-	mapping(address => HoaEligibilityRecord) private hoaEligibility;
-
 	FlowSplitterConfig public flowSplitterConfig;
 
-	uint256[49] private __gap;
+	uint256[50] private __gap;
 
 	event StakeRequirementSet(House indexed house, uint256 amount);
 	event MemberRegistered(
@@ -108,11 +99,6 @@ contract GoodDaoHouses is
 	);
 	event MemberApproved(address indexed account, House indexed house);
 	event MemberRevoked(address indexed account, House indexed house);
-	event MemberStaked(
-		address indexed account,
-		House indexed house,
-		uint256 amount
-	);
 	event MemberUnstaked(
 		address indexed account,
 		House indexed house,
@@ -147,7 +133,6 @@ contract GoodDaoHouses is
 		uint64 termDuration,
 		uint64 votingTermLength
 	);
-	event HoaEligibilityChanged(address indexed account, bool isEligible);
 
 	modifier onlyAdminOrCommittee() {
 		require(
@@ -204,28 +189,6 @@ contract GoodDaoHouses is
 	) external onlyRole(GOVERNANCE_COMMITTEE_ROLE) {
 		minimumStake[house] = amount;
 		emit StakeRequirementSet(house, amount);
-	}
-
-	/// @notice Adds or removes an address from the House of Alignment eligibility registry.
-	/// @dev Eligibility is a prerequisite for new Alignment member registration.
-	///      Preserves timestamp history: `listedAt` is set only on first listing;
-	///      `delistedAt` is set on removal; `updatedAt` is refreshed on every change.
-	/// @param account Wallet address to update.
-	/// @param isEligible True to grant eligibility; false to revoke it.
-	function setHoaEligibility(
-		address account,
-		bool isEligible
-	) external onlyRole(GOVERNANCE_COMMITTEE_ROLE) {
-		HoaEligibilityRecord storage record = hoaEligibility[account];
-		record.isEligible = isEligible;
-		record.updatedAt = uint64(block.timestamp);
-		if (isEligible && record.listedAt == 0) {
-			record.listedAt = uint64(block.timestamp);
-		}
-		if (!isEligible) {
-			record.delistedAt = uint64(block.timestamp);
-		}
-		emit HoaEligibilityChanged(account, isEligible);
 	}
 
 	/// @notice Updates the recurring voting schedule parameters.
@@ -287,21 +250,10 @@ contract GoodDaoHouses is
 		);
 	}
 
-	/// @notice Adds stake to an existing member account.
-	/// @param amount Additional G$ amount to stake.
-	function stake(uint256 amount) external whenNotPaused {
-		require(
-			_goodDollar().transferFrom(msg.sender, address(this), amount),
-			"G$ transferFrom"
-		);
-		_addStake(msg.sender, amount);
-	}
-
-	/// @notice Handles ERC677 transfers to stake or register members.
-	/// @dev Empty `_data` stakes for an existing member; otherwise payload is decoded for registration.
+	/// @notice Handles ERC677 transfers to register members.
 	/// @param _from Original token sender.
 	/// @param _amount Amount transferred.
-	/// @param _data Encoded registration payload or empty bytes for plain staking.
+	/// @param _data Encoded registration payload.
 	/// @return success True when transfer handling succeeds.
 	function onTokenTransfer(
 		address _from,
@@ -309,11 +261,6 @@ contract GoodDaoHouses is
 		bytes calldata _data
 	) external override whenNotPaused returns (bool success) {
 		require(msg.sender == address(_goodDollar()), "Only G$");
-
-		if (_data.length == 0) {
-			_addStake(_from, _amount);
-			return true;
-		}
 
 		(
 			House house,
@@ -562,15 +509,6 @@ contract GoodDaoHouses is
 		return members[account];
 	}
 
-	/// @notice Returns the House of Alignment eligibility record for an account.
-	/// @param account Wallet address to query.
-	/// @return Eligibility record including current status and timestamps.
-	function getHoaEligibility(
-		address account
-	) external view returns (HoaEligibilityRecord memory) {
-		return hoaEligibility[account];
-	}
-
 	/// @notice Returns active members in a paginated range for a house.
 	/// @param house House to query.
 	/// @param startIndex Inclusive start index in the house member list.
@@ -697,11 +635,6 @@ contract GoodDaoHouses is
 			"Cannot switch houses"
 		);
 
-		// New Alignment members must be in the committee-curated eligibility registry.
-		if (house == House.Alignment && isNewMember) {
-			require(hoaEligibility[account].isEligible, "Not HoA eligible");
-		}
-
 		uint memberIndex = members[account].memberIndex;
 		if (house == House.Alignment && isNewMember) {
 			hoaMembers.push(account);
@@ -731,16 +664,6 @@ contract GoodDaoHouses is
 		});
 
 		emit MemberRegistered(account, house, status, totalStake);
-	}
-
-	// Adds stake to an existing member and refreshes activity timestamp.
-	function _addStake(address account, uint256 amount) internal {
-		require(members[account].status != MemberStatus.None, "not member");
-
-		members[account].stakedAmount += amount;
-		members[account].updatedAt = uint64(block.timestamp);
-
-		emit MemberStaked(account, members[account].house, amount);
 	}
 
 	// Creates vote state and snapshots eligible Alignment recipients at vote start.
