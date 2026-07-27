@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "description": "GoodDollar Protocol",
   "engines": {
     "node": ">=16.x"
@@ -33,6 +33,9 @@
     "scripts/test",
     "scripts/blockchainTestSetup.sh",
     "scripts/deployFullDAO.ts",
+    "scripts/releaser.js",
+    "scripts/upgradeToV2/upgradeToV2.ts",
+    "scripts/getFounders.ts",
     "scripts/governance/goodCheckpointSorted.ts",
     "yarn.lock",
     "package.json",
