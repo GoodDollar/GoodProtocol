@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/goodprotocol",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "description": "GoodDollar Protocol",
   "engines": {
     "node": ">=16.x"
@@ -37,6 +37,7 @@
     "scripts/upgradeToV2/upgradeToV2.ts",
     "scripts/getFounders.ts",
     "scripts/governance/goodCheckpointSorted.ts",
+    "scripts/minimize.sh",
     "yarn.lock",
     "package.json",
     "hardhat.config.ts",
