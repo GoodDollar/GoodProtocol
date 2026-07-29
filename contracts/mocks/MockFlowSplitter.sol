@@ -7,14 +7,17 @@ import "../governance/IFlowSplitter.sol";
 contract MockSuperfluidPool {
 	string public name;
 	string public symbol;
+	address public splitter;
 	mapping(address => uint128) public memberUnits;
 
 	constructor(string memory _name, string memory _symbol) {
+		splitter = msg.sender;
 		name = _name;
 		symbol = _symbol;
 	}
 
 	function updateMemberUnits(address member, uint128 units) external {
+		require(msg.sender == splitter, "Only splitter");
 		memberUnits[member] = units;
 	}
 }
