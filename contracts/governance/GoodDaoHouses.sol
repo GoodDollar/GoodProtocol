@@ -18,11 +18,6 @@ contract GoodDaoHouses is
 	DAOUpgradeableContract,
 	ERC677Receiver
 {
-	/// @custom:oz-upgrades-unsafe-allow constructor
-	constructor() {
-		_disableInitializers();
-	}
-
 	bytes32 public constant GOVERNANCE_COMMITTEE_ROLE =
 		keccak256("GOVERNANCE_COMMITTEE_ROLE");
 
