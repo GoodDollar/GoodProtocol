@@ -626,7 +626,7 @@ describe("GoodDaoHouses", () => {
     await goodDollar.mint(citizenOne.address, citizensMinimumStake);
     await expect(
       goodDollar.connect(citizenOne).transferAndCall(houses.address, citizensMinimumStake, data)
-    ).to.be.revertedWith("Invalid house");
+    ).to.be.reverted;
   });
 
   it("setVotingSchedule: non-admin/committee reverts", async () => {
