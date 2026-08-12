@@ -476,6 +476,34 @@ describe("GoodDaoHouses", () => {
     expect((await houses.getMember(alignmentOne.address)).status).to.equal(REVOKED);
   });
 
+  it("does not restore units for a revoked recipient when executing an existing vote", async () => {
+    const { committee, alignmentOne, alignmentTwo, goodDollar, flowSplitter, houses } = await loadFixture(fixture);
+
+    await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentTwo, "alignment-two");
+    await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
+    await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
+
+    const poolId = await createManagedFlowSplitterPool(flowSplitter, goodDollar, houses);
+    await houses.connect(committee).configureFlowSplitter(flowSplitter.address, poolId);
+
+    const voteId = await moveToNextVotingWindow(houses);
+    await houses.connect(alignmentTwo).castVote(
+      [alignmentOne.address, alignmentTwo.address],
+      [7000, 3000]
+    );
+
+    const alignmentTwoUnits = await houses.getFinalizedUnits(voteId, alignmentTwo.address);
+    await houses.connect(committee).revokeMember(alignmentOne.address);
+
+    await movePastVotingWindow(houses);
+
+    await houses.connect(committee).executeVote(voteId);
+
+    expect(await flowSplitter.getMemberUnits(poolId, alignmentOne.address)).to.equal(0);
+    expect(await flowSplitter.getMemberUnits(poolId, alignmentTwo.address)).to.equal(alignmentTwoUnits);
+  });
+
   it("emits VoteCreated with recipients and VoteCast with voter details on first ballot", async () => {
     const { committee, alignmentOne, alignmentTwo, goodDollar, houses } = await loadFixture(fixture);
 

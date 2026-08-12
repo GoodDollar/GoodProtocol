@@ -436,9 +436,15 @@ contract GoodDaoHouses is
 		// Translate finalized weighted votes into FlowSplitter unit updates.
 		for (uint256 i = 0; i < count; i++) {
 			address recipient = recipients[i];
-			uint256 raw = voteRecipientWeightedVotes[voteId][recipient];
-			require(raw <= type(uint128).max, "Units overflow");
-			uint128 units = uint128(raw);
+			uint128 units;
+			if (members[recipient].status == MemberStatus.Revoked) {
+				// Preserve the vote total, but do not restore units after revocation.
+				units = 0;
+			} else {
+				uint256 raw = voteRecipientWeightedVotes[voteId][recipient];
+				require(raw <= type(uint128).max, "Units overflow");
+				units = uint128(raw);
+			}
 			flowMembers[i] = IFlowSplitter.Member({
 				account: recipient,
 				units: units
