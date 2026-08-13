@@ -530,6 +530,8 @@ describe("GoodDaoHouses", () => {
     const termDuration = await houses.termDuration();
     await increaseTime(termDuration.toNumber());
 
+    await addWhitelisted(citizenOne.address, "did:gooddollar:citizen-unstake-vote");
+
     const voteId = await moveToNextVotingWindow(houses);
     await houses.connect(alignmentTwo).castVote(
       [alignmentOne.address, alignmentTwo.address],
