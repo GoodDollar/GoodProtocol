@@ -140,7 +140,7 @@ const wireFlowSplitter = async (Houses: Contract, release, settings, viaGuardian
   }
 
   // The call is committee-gated, so the Avatar must hold GOVERNANCE_COMMITTEE_ROLE for the
-  // guardian path to work. initialize() grants it whenever admin != committee.
+  // Controller.genericCall path to work. initialize() always grants it to `committee`, and also to `admin` when admin != committee.
   const committeeRole = await Houses.GOVERNANCE_COMMITTEE_ROLE();
   if (!(await Houses.hasRole(committeeRole, release.Avatar))) {
     console.error(
