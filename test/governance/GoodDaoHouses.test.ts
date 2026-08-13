@@ -502,6 +502,91 @@ describe("GoodDaoHouses", () => {
 
     expect(await flowSplitter.getMemberUnits(poolId, alignmentOne.address)).to.equal(0);
     expect(await flowSplitter.getMemberUnits(poolId, alignmentTwo.address)).to.equal(alignmentTwoUnits);
+    expect(await houses.getFinalizedUnits(voteId, alignmentOne.address)).to.equal(0);
+  });
+
+  it("resets open-vote weight on unstake and rejects further votes to that recipient", async () => {
+    const {
+      committee,
+      citizenOne,
+      alignmentOne,
+      alignmentTwo,
+      goodDollar,
+      flowSplitter,
+      houses,
+      addWhitelisted
+    } = await loadFixture(fixture);
+
+    await addWhitelisted(citizenOne.address, "did:gooddollar:citizen-unstake-vote");
+    await registerCitizen(goodDollar, houses, citizenOne, "citizen-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentTwo, "alignment-two");
+    await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
+    await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
+
+    const poolId = await createManagedFlowSplitterPool(flowSplitter, goodDollar, houses);
+    await houses.connect(committee).configureFlowSplitter(flowSplitter.address, poolId);
+
+    const termDuration = await houses.termDuration();
+    await increaseTime(termDuration.toNumber());
+
+    const voteId = await moveToNextVotingWindow(houses);
+    await houses.connect(alignmentTwo).castVote(
+      [alignmentOne.address, alignmentTwo.address],
+      [7000, 3000]
+    );
+
+    const alignmentTwoUnitsBeforeLeave = await houses.getFinalizedUnits(voteId, alignmentTwo.address);
+    await houses.connect(alignmentOne).unstake();
+
+    expect(await houses.getFinalizedUnits(voteId, alignmentOne.address)).to.equal(0);
+
+    await expect(
+      houses.connect(citizenOne).castVote([alignmentOne.address, alignmentTwo.address], [7000, 3000])
+    ).to.be.revertedWith("Invalid recipient");
+
+    await houses.connect(citizenOne).castVote([alignmentTwo.address], [10000]);
+
+    await movePastVotingWindow(houses);
+    await houses.connect(committee).executeVote(voteId);
+
+    const expectedAlignmentTwoUnits = alignmentTwoUnitsBeforeLeave.add(4 * 1e4);
+    expect(await flowSplitter.getMemberUnits(poolId, alignmentOne.address)).to.equal(0);
+    expect(await flowSplitter.getMemberUnits(poolId, alignmentTwo.address)).to.equal(expectedAlignmentTwoUnits);
+  });
+
+  it("rejects ballots that allocate to an inactive recipient", async () => {
+    const {
+      committee,
+      citizenOne,
+      alignmentOne,
+      alignmentTwo,
+      goodDollar,
+      houses,
+      addWhitelisted
+    } = await loadFixture(fixture);
+
+    await addWhitelisted(citizenOne.address, "did:gooddollar:citizen-inactive-recipient");
+    await registerCitizen(goodDollar, houses, citizenOne, "citizen-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one");
+    await registerAlignment(committee, goodDollar, houses, alignmentTwo, "alignment-two");
+    await houses.connect(committee).approveAlignmentMember(alignmentOne.address);
+    await houses.connect(committee).approveAlignmentMember(alignmentTwo.address);
+
+    await moveToNextVotingWindow(houses);
+    await houses.connect(alignmentTwo).castVote([alignmentOne.address, alignmentTwo.address], [5000, 5000]);
+
+    await houses.connect(committee).revokeMember(alignmentOne.address);
+
+    await expect(
+      houses.connect(alignmentOne).castVote([alignmentTwo.address], [10000])
+    ).to.be.revertedWith("Not eligible");
+
+    await expect(
+      houses.connect(citizenOne).castVote([alignmentOne.address], [10000])
+    ).to.be.revertedWith("Invalid recipient");
+
+    await houses.connect(citizenOne).castVote([alignmentTwo.address], [10000]);
   });
 
   it("emits VoteCreated with recipients and VoteCast with voter details on first ballot", async () => {

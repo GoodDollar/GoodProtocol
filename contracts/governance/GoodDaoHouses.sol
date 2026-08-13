@@ -311,6 +311,7 @@ contract GoodDaoHouses is
 		members[account].updatedAt = uint64(block.timestamp);
 
 		if (members[account].house == House.Alignment) {
+			_clearOpenVoteRecipient(account);
 			_clearMemberUnits(account);
 		}
 		emit MemberRevoked(account, members[account].house);
@@ -338,6 +339,10 @@ contract GoodDaoHouses is
 			hocMembers[memberIndex] = hocMembers[hocMembers.length - 1];
 			members[hocMembers[memberIndex]].memberIndex = memberIndex;
 			hocMembers.pop();
+		}
+
+		if (house == House.Alignment) {
+			_clearOpenVoteRecipient(msg.sender);
 		}
 
 		delete members[msg.sender];
@@ -397,7 +402,13 @@ contract GoodDaoHouses is
 
 		uint256 allocationTotal;
 		for (uint256 i = 0; i < recipients.length; i++) {
-			require(isVoteRecipient[voteId][recipients[i]], "Invalid recipient");
+			address recipient = recipients[i];
+			require(isVoteRecipient[voteId][recipient], "Invalid recipient");
+			require(
+				members[recipient].status == MemberStatus.Active &&
+					members[recipient].house == House.Alignment,
+				"Recipient inactive"
+			);
 			allocationTotal += allocations[i];
 		}
 		// Enforce exact basis-point budget per ballot.
@@ -719,6 +730,28 @@ contract GoodDaoHouses is
 			flowSplitterConfig.poolId,
 			flowmembers
 		);
+	}
+
+	// Drops a recipient from any still-open vote so they get no further allocations or units.
+	function _clearOpenVoteRecipient(address account) internal {
+		(uint256 currentVoteId, ) = _getCurrentVoteWindow();
+		_clearVoteRecipientIfOpen(currentVoteId, account);
+		if (voteCount != currentVoteId) {
+			_clearVoteRecipientIfOpen(voteCount, account);
+		}
+	}
+
+	function _clearVoteRecipientIfOpen(uint256 voteId, address account) internal {
+		VoteConfig storage vote = votes[voteId];
+		if (vote.startTime == 0 || vote.executed) {
+			return;
+		}
+		if (!isVoteRecipient[voteId][account]) {
+			return;
+		}
+
+		voteRecipientWeightedVotes[voteId][account] = 0;
+		isVoteRecipient[voteId][account] = false;
 	}
 
 	// Computes current vote id and aligned term start from cycle schedule.
