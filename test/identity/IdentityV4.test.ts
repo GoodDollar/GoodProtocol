@@ -1,5 +1,5 @@
 import hre, { ethers, upgrades } from "hardhat";
-import { loadFixture, takeSnapshot, time } from "@nomicfoundation/hardhat-network-helpers";
+import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { IGoodDollar, IIdentity, IdentityV3, IdentityV4 } from "../../types";
 import { createDAO, increaseTime, advanceBlocks } from "../helpers";
@@ -414,9 +414,9 @@ describe("IdentityV4", () => {
   });
 
   it("should follow reverify schedule and cycle authCount", async () => {
-    const snapshot = await takeSnapshot();
     // set timestamp to a fixed point (now) to avoid exclusion of old users
     // due to initialDate set in hardhat config
+    const block = await ethers.provider.getBlock("latest");
     await time.setNextBlockTimestamp(Number((Date.now() / 1000).toFixed(0)));
     await expect(identity.setReverifyDaysOptions([1, 7, 180])).not.reverted;
 
@@ -458,6 +458,7 @@ describe("IdentityV4", () => {
     // cleanup (remove whitelisted) to avoid affecting other tests
     await identity.removeWhitelisted(u.address);
 
-    await snapshot.restore();
+    // restore time to normal flow
+    time.setNextBlockTimestamp(block.timestamp);
   });
 });

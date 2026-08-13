@@ -112,10 +112,6 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
   });
 
   it("should successfully swap G$ to WXDC via XSWAP pools", async function () {
-    // // Get initial balances
-    // const initialWXDCBalance = await gasToken.balanceOf(distHelper.address);
-    // const initialxdcBalance = await ethers.provider.getBalance(distHelper.address);
-
     // Mint some G$ to the distribution helper for testing
     const amountToSwap = ethers.utils.parseEther("1000"); // 1000 G$
 
@@ -248,6 +244,7 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
 
     // Trigger distribution which should perform the swap
     const xdcBalanceBefore = await ethers.provider.getBalance(distHelper.address);
+    const wxdcBalanceBefore = await gasToken.balanceOf(distHelper.address);
     const goodDollarBalanceBefore = await goodDollar.balanceOf(distHelper.address);
 
     console.log("Balances before swap:", {
@@ -267,10 +264,14 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
     });
 
     // Verify swap occurred
-    // Either WXDC balance increased or xdc balance increased (after unwrapping)
     const xdcIncrease = xdcBalanceAfter.sub(xdcBalanceBefore);
+    const wxdcBalanceAfter = await gasToken.balanceOf(distHelper.address);
+    const wxdcIncrease = wxdcBalanceAfter.sub(wxdcBalanceBefore);
 
-    expect(xdcIncrease.gt(0), "Swap should have increased either WXDC or xdc balance").to.be.true;
+    expect(
+      xdcIncrease.gt(0) || wxdcIncrease.gt(0),
+      "Swap should have increased either WXDC or xdc balance"
+    ).to.be.true;
   });
 
   it("should correctly calculate swap amounts using XSWAP pools", async function () {
