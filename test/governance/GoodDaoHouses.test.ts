@@ -19,7 +19,7 @@ describe("GoodDaoHouses", () => {
     const [admin, committee, citizenOne, citizenTwo, alignmentOne, alignmentTwo, lateCitizen, stranger] =
       await ethers.getSigners();
 
-    const { gd, nameService, addWhitelisted } = await loadFixture(createDAO);
+    const { gd, nameService, addWhitelisted, identityDeployed } = await loadFixture(createDAO);
 
     const goodDollar = await ethers.getContractAt("IGoodDollar", gd);
     const flowSplitter = await ethers.deployContract("MockFlowSplitter");
@@ -41,7 +41,8 @@ describe("GoodDaoHouses", () => {
       goodDollar,
       flowSplitter,
       houses,
-      addWhitelisted
+      addWhitelisted,
+      identityDeployed
     };
   };
 
@@ -514,7 +515,8 @@ describe("GoodDaoHouses", () => {
       goodDollar,
       flowSplitter,
       houses,
-      addWhitelisted
+      addWhitelisted,
+      identityDeployed
     } = await loadFixture(fixture);
 
     await addWhitelisted(citizenOne.address, "did:gooddollar:citizen-unstake-vote");
@@ -530,8 +532,6 @@ describe("GoodDaoHouses", () => {
     const termDuration = await houses.termDuration();
     await increaseTime(termDuration.toNumber());
 
-    await addWhitelisted(citizenOne.address, "did:gooddollar:citizen-unstake-vote");
-
     const voteId = await moveToNextVotingWindow(houses);
     await houses.connect(alignmentTwo).castVote(
       [alignmentOne.address, alignmentTwo.address],
@@ -542,6 +542,8 @@ describe("GoodDaoHouses", () => {
     await houses.connect(alignmentOne).unstake();
 
     expect(await houses.getFinalizedUnits(voteId, alignmentOne.address)).to.equal(0);
+
+    await identityDeployed.authenticate(citizenOne.address);
 
     await expect(
       houses.connect(citizenOne).castVote([alignmentOne.address, alignmentTwo.address], [7000, 3000])
