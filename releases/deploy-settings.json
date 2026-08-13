@@ -36,6 +36,14 @@
     "ubi": {
       "maxInactiveDays": 14,
       "minActiveUsers": 1000
+    },
+    "gooddaohouses": {
+      "admin": null,
+      "committee": null,
+      "citizensMinimumStake": "1000",
+      "alignmentMinimumStake": "10000",
+      "flowSplitter": null,
+      "flowSplitterPoolId": 0
     }
   },
   "develop": {

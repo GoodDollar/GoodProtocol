@@ -482,7 +482,8 @@
     "MentoExchangeProvider": "0x558eC7E55855FAC9403De3ADB3aa1e588234A92C",
     "MentoExpansionController": "0x0F6bEc7ba1e7f5D98c4Dc04c2F1F219d6B650963",
     "MentoReserve": "0x1cbDc8C2F57C3988cbE1B7bD2a323AaDb17379a7",
-    "MentoBroker": "0xE60cf1cb6a56131CE135c604D0BD67e84B57CA3C"
+    "MentoBroker": "0xE60cf1cb6a56131CE135c604D0BD67e84B57CA3C",
+    "GoodDaoHouses": "0x4Bc3Cdc036f21b68E034C0f1d90775fc3D725735"
   },
   "staging-celo": {
     "network": "staging-celo",
