@@ -187,7 +187,8 @@ const wireFlowSplitter = async (Houses: Contract, release, settings, viaGuardian
       );
     }
   } catch (e) {
-    console.error("proposal execution failed...", e.message);
+    // Log the full thrown value to preserve stack/context and avoid assuming Error shape
+    console.error("proposal execution failed...", e);
   }
 };
 
