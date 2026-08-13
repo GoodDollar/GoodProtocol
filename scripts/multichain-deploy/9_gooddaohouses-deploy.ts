@@ -150,7 +150,7 @@ const wireFlowSplitter = async (Houses: Contract, release, settings, viaGuardian
     return;
   }
 
-  console.log("configuring flow splitter via guardian", { flowSplitter, flowSplitterPoolId });
+  console.log(`configuring flow splitter via ${viaGuardians ? "guardians safe" : "guardian"}`, { flowSplitter, flowSplitterPoolId });
 
   const proposalActions = [
     [
