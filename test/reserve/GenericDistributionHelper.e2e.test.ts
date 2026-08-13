@@ -268,9 +268,13 @@ describe("GenericDistributionHelper - XDC XSWAP E2E Test", function () {
     const gdSpent = goodDollarBalanceBefore.sub(goodDollarBalanceAfter);
 
     const buyNativeFailedEvents =
-      receipt.events?.filter((e: any) => e.event === "BuyNativeFailed") || [];
+      receipt.events?.filter(
+        (e: any) => e.address === distHelper.address && e.event === "BuyNativeFailed"
+      ) || [];
     const distributionEvents =
-      receipt.events?.filter((e: any) => e.event === "Distribution") || [];
+      receipt.events?.filter(
+        (e: any) => e.address === distHelper.address && e.event === "Distribution"
+      ) || [];
 
     expect(distributionEvents.length, "Distribution event should be emitted").to.be.gt(0);
 
