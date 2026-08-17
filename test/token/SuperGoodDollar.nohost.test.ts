@@ -23,57 +23,54 @@ const tenDollarsPerDay = "124378109452730"; // flowrate per second
 
 const initialState = async () => {};
 
-before(async function () {
-  //get accounts from hardhat
-  [founder, alice, bob, eve, newHost] = await ethers.getSigners();
-
-  await createDAO();
-
-  const sfContracts = {
-    host: ethers.constants.AddressZero
-  };
-  sfHost = sfContracts.host;
-
-  // GoodDollar specific init
-  const FeesFormulaMockFactory = await ethers.getContractFactory(
-    "FeesFormulaMock",
-    founder
-  );
-
-  const feesFormula0PctMock = await FeesFormulaMockFactory.deploy(0);
-
-  feesFormula10PctMock = await FeesFormulaMockFactory.deploy(100000);
-
-  // the zero address is a placeholder for the dao contract
-  const IdentityMockFactory = await ethers.getContractFactory(
-    "IdentityMock",
-    founder
-  );
-  identityMock = await IdentityMockFactory.deploy(
-    "0x0000000000000000000000000000000000000000"
-  );
-
-  receiverMock = await new ethers.ContractFactory(
-    TransferAndCallMockABI.abi,
-    TransferAndCallMockABI.bytecode,
-    founder
-  ).deploy();
-
-  console.log("deploying test supergooddollar...");
-  sgd = (await deploySuperGoodDollar(sfContracts, [
-    "SuperGoodDollar",
-    "SGD",
-    0, // cap
-    feesFormula0PctMock.address,
-    identityMock.address,
-    receiverMock.address,
-    founder.address
-  ])) as ISuperGoodDollar;
-
-  await sgd.mint(founder.address, alotOfDollars);
-});
-
 describe("SuperGoodDollar No Host", async function () {
+  before(async function () {
+    [founder, alice, bob, eve, newHost] = await ethers.getSigners();
+
+    await createDAO();
+
+    const sfContracts = {
+      host: ethers.constants.AddressZero
+    };
+    sfHost = sfContracts.host;
+
+    const FeesFormulaMockFactory = await ethers.getContractFactory(
+      "FeesFormulaMock",
+      founder
+    );
+
+    const feesFormula0PctMock = await FeesFormulaMockFactory.deploy(0);
+
+    feesFormula10PctMock = await FeesFormulaMockFactory.deploy(100000);
+
+    const IdentityMockFactory = await ethers.getContractFactory(
+      "IdentityMock",
+      founder
+    );
+    identityMock = await IdentityMockFactory.deploy(
+      "0x0000000000000000000000000000000000000000"
+    );
+
+    receiverMock = await new ethers.ContractFactory(
+      TransferAndCallMockABI.abi,
+      TransferAndCallMockABI.bytecode,
+      founder
+    ).deploy();
+
+    console.log("deploying test supergooddollar...");
+    sgd = (await deploySuperGoodDollar(sfContracts, [
+      "SuperGoodDollar",
+      "SGD",
+      0,
+      feesFormula0PctMock.address,
+      identityMock.address,
+      receiverMock.address,
+      founder.address
+    ])) as ISuperGoodDollar;
+
+    await sgd.mint(founder.address, alotOfDollars);
+  });
+
   it("check superfluid host", async () => {
     expect(await sgd.getHost()).equal(sfHost);
   });
