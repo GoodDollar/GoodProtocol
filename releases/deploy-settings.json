@@ -275,6 +275,10 @@
     "governance": {
       "claimersGOODMonthly": "1000000000000000000000000",
       "stakersGOODMonthly": "1000000000000000000000000"
+    },
+    "gooddaohouses": {
+      "flowSplitter": "0x0e9ddfd2Ffdb0BA1aC3340D865193A7b6d4Ea147",
+      "flowSplitterPoolId": 11
     }
   },
   "alfajores": {

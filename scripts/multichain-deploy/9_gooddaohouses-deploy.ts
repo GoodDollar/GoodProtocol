@@ -4,12 +4,9 @@
  * 1. deploy GoodDaoHouses as a UUPS proxy via the ProxyFactory (deterministic address)
  * 2. wire the FlowSplitter pool used to stream the vote outcome
  *
- * The FlowSplitter pool must already exist and have GoodDaoHouses as one of its pool
- * admins before step 2 -- configureFlowSplitter reverts with "Not pool admin" otherwise.
- * The proxy address is deterministic (CREATE2 over keccak("GoodDaoHouses") + deployer), so
- * either create the pool up front with the address printed by this script in the pool
- * `_admins` list, or have an existing pool admin call addPoolAdmin(poolId, <houses>) and
- * re-run this script.
+ * On development-celo, if a FlowSplitter address is set and no pool id is stored yet, this
+ * script creates the pool with GoodDaoHouses as the only admin, then calls
+ * configureFlowSplitter via the Avatar. Other networks still require an existing pool.
  *
  * Upgrades are gated by _onlyAvatar(), so the DAO Controller owns the implementation.
  * Operational roles come from initialize(): DEFAULT_ADMIN_ROLE -> admin, and
@@ -106,34 +103,109 @@ export const deployGoodDaoHouses = async () => {
   return Houses;
 };
 
-// Points GoodDaoHouses at the FlowSplitter pool it manages, via the DAO guardians.
-const wireFlowSplitter = async (Houses: Contract, release, settings, viaGuardians: boolean, root) => {
-  const { flowSplitter, flowSplitterPoolId } = settings.gooddaohouses;
+const createHousesFlowSplitterPool = async (Houses: Contract, flowSplitter: string, gdAddress: string, root) => {
+  const splitter = await ethers.getContractAt("IFlowSplitter", flowSplitter);
+  const tx = await splitter.connect(root).createPool(
+    gdAddress,
+    {
+      transferabilityForUnitsOwner: false,
+      distributionFromAnyAddress: true
+    },
+    {
+      name: "GoodDAO Houses",
+      symbol: "GDAH",
+      decimals: 18
+    },
+    [],
+    [Houses.address],
+    '{"listed":false}',
+    { gasLimit: 8000000 }
+  );
+  const receipt = await tx.wait();
+  const created = receipt.events.find(e => e.event === "PoolCreated");
+  if (!created) {
+    throw new Error(`PoolCreated event missing from ${receipt.transactionHash}`);
+  }
 
-  if (!flowSplitter || !flowSplitterPoolId) {
+  console.log("created FlowSplitter pool", {
+    txHash: receipt.transactionHash,
+    poolId: created.args.poolId.toString(),
+    poolAddress: created.args.poolAddress
+  });
+
+  return {
+    poolId: created.args.poolId,
+    poolAddress: created.args.poolAddress
+  };
+};
+
+const wireFlowSplitter = async (Houses: Contract, release, settings, viaGuardians: boolean, root) => {
+  const houseSettings = settings.gooddaohouses || {};
+  const flowSplitter = houseSettings.flowSplitter || release.GoodDaoHousesFlowSplitter;
+
+  if (!flowSplitter) {
     console.log("no flowSplitter configured -- skipping pool wiring.");
-    console.log(
-      `create a FlowSplitter pool with ${Houses.address} in its admins list, then set ` +
-        "gooddaohouses.flowSplitter / gooddaohouses.flowSplitterPoolId in deploy-settings.json and re-run"
-    );
     return;
   }
 
   const configured = await Houses.flowSplitterConfig();
-  if (
-    configured.splitter.toLowerCase() === flowSplitter.toLowerCase() &&
-    configured.poolId.eq(flowSplitterPoolId)
-  ) {
-    console.log("flowSplitter already configured, skipping", { flowSplitter, flowSplitterPoolId });
+  if (configured.poolAddress !== ethers.constants.AddressZero) {
+    console.log("flowSplitter already configured, skipping", {
+      splitter: configured.splitter,
+      poolId: configured.poolId.toString(),
+      poolAddress: configured.poolAddress
+    });
     return;
   }
 
-  // configureFlowSplitter requires the houses proxy to already be an admin of the pool.
+  let flowSplitterPoolId = houseSettings.flowSplitterPoolId || release.GoodDaoHousesPoolId;
+  if (!flowSplitterPoolId || ethers.BigNumber.from(flowSplitterPoolId).eq(0)) {
+    if (networkName !== "development-celo") {
+      console.log(
+        `create a FlowSplitter pool with ${Houses.address} in its admins list, then set ` +
+          "gooddaohouses.flowSplitter / gooddaohouses.flowSplitterPoolId in deploy-settings.json and re-run"
+      );
+      return;
+    }
+
+    const created = await createHousesFlowSplitterPool(Houses, flowSplitter, release.GoodDollar, root);
+    flowSplitterPoolId = created.poolId;
+    await releaser(
+      {
+        GoodDaoHousesFlowSplitter: flowSplitter,
+        GoodDaoHousesPoolId: created.poolId.toString(),
+        GoodDaoHousesPool: created.poolAddress
+      },
+      networkName,
+      "deployment",
+      false
+    );
+    await releaser(
+      {
+        gooddaohouses: {
+          ...(ProtocolSettings[networkName].gooddaohouses || {}),
+          flowSplitter,
+          flowSplitterPoolId: Number(created.poolId.toString())
+        }
+      },
+      networkName,
+      "deploy-settings",
+      false
+    );
+  }
+
   const splitter = await ethers.getContractAt("IFlowSplitter", flowSplitter);
-  const isPoolAdmin = await splitter.isPoolAdmin(flowSplitterPoolId, Houses.address);
+  const poolId = ethers.BigNumber.from(flowSplitterPoolId);
+  let isPoolAdmin = false;
+  for (let attempt = 0; attempt < 5 && !isPoolAdmin; attempt++) {
+    isPoolAdmin = await splitter.isPoolAdmin(poolId, Houses.address);
+    if (!isPoolAdmin && attempt < 4) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
   if (!isPoolAdmin) {
     console.error(
-      `GoodDaoHouses (${Houses.address}) is not an admin of pool ${flowSplitterPoolId} -- ` +
+      `GoodDaoHouses (${Houses.address}) is not an admin of pool ${poolId.toString()} -- ` +
         "have an existing pool admin call addPoolAdmin() and re-run this script"
     );
     return;
