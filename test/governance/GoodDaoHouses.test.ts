@@ -19,7 +19,7 @@ describe("GoodDaoHouses", () => {
     const [admin, committee, citizenOne, citizenTwo, alignmentOne, alignmentTwo, lateCitizen, stranger] =
       await ethers.getSigners();
 
-    const { gd, nameService, addWhitelisted } = await loadFixture(createDAO);
+    const { gd, nameService, addWhitelisted, identityDeployed } = await loadFixture(createDAO);
 
     const goodDollar = await ethers.getContractAt("IGoodDollar", gd);
     const flowSplitter = await ethers.deployContract("MockFlowSplitter");
@@ -41,7 +41,8 @@ describe("GoodDaoHouses", () => {
       goodDollar,
       flowSplitter,
       houses,
-      addWhitelisted
+      addWhitelisted,
+      identityDeployed
     };
   };
 
@@ -514,7 +515,8 @@ describe("GoodDaoHouses", () => {
       goodDollar,
       flowSplitter,
       houses,
-      addWhitelisted
+      addWhitelisted,
+      identityDeployed
     } = await loadFixture(fixture);
 
     await registerCitizen(goodDollar, houses, citizenOne, "citizen-one");
@@ -541,6 +543,8 @@ describe("GoodDaoHouses", () => {
     await houses.connect(alignmentOne).unstake();
 
     expect(await houses.getFinalizedUnits(voteId, alignmentOne.address)).to.equal(0);
+
+    await identityDeployed.authenticate(citizenOne.address);
 
     await expect(
       houses.connect(citizenOne).castVote([alignmentOne.address, alignmentTwo.address], [7000, 3000])
