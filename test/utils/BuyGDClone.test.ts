@@ -70,15 +70,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
     await networkHelpers.reset();
   });
   before(async function () {
-    try {
-      await networkHelpers.reset(CELO_MAINNET_RPC);
-    } catch (e: any) {
-      const message = e?.message || String(e);
-      if (message.includes("historical state") || message.includes("not available")) {
-        this.skip();
-      }
-      throw e;
-    }
+    await networkHelpers.reset(CELO_MAINNET_RPC);
   });
 
   async function forkCelo() {
