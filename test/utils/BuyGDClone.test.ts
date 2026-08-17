@@ -28,7 +28,7 @@ async function getCeloForkBlock() {
   }
   const provider = new ethers.providers.JsonRpcProvider(CELO_MAINNET_RPC);
   const latest = await provider.getBlockNumber();
-  return latest - 50;
+  return latest - 5;
 }
 
 // Production Celo addresses from deployment.json (used for existing contracts on fork)
