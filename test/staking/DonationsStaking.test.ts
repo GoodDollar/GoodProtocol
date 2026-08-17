@@ -323,7 +323,7 @@ describe("DonationsStaking - DonationStaking contract that receives funds in ETH
     let stakeAmount = ethers.utils.parseEther("10");
     await dai["mint(address,uint256)"](donationsStaking.address, stakeAmount);
 
-    expect(donationsStaking.stakeDonations()).to.not.be.reverted;
+    await expect(donationsStaking.stakeDonations()).to.not.be.reverted;
 
     let encodedData = donationsStaking.interface.encodeFunctionData(
       "setActive",
