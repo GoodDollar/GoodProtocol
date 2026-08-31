@@ -47,52 +47,54 @@ export const deploySuperGoodDollar = async (sfContracts, tokenArgs) => {
   const SuperGoodDollarFactory = await ethers.getContractFactory("SuperGoodDollar");
 
   console.log("deploying supergooddollar logic");
-  const SuperGoodDollar = await SuperGoodDollarFactory.deploy(sfContracts.host);
+  const logic = await SuperGoodDollarFactory.deploy(sfContracts.host);
+  const logicAddress = logic.address;
 
   console.log("deploying supergooddollar proxy");
   const GoodDollarProxyFactory = await ethers.getContractFactory("contracts/token/superfluid/UUPSProxy.sol:UUPSProxy");
   const GoodDollarProxy = await GoodDollarProxyFactory.deploy();
+  const proxyAddress = GoodDollarProxy.address;
   console.log("deployed supergooddollar proxy, initializing proxy...");
-  await GoodDollarProxy.initializeProxy(SuperGoodDollar.address);
+  await GoodDollarProxy.initializeProxy(logicAddress);
+
+  const GoodDollar = await ethers.getContractAt("SuperGoodDollar", proxyAddress);
 
   if (sfContracts.host !== ethers.constants.AddressZero) {
     console.log("deploying flow nfts...");
 
     const outNftProxy = await GoodDollarProxyFactory.deploy();
     const inNftProxy = await GoodDollarProxyFactory.deploy();
+    const outNftProxyAddress = outNftProxy.address;
+    const inNftProxyAddress = inNftProxy.address;
 
-    const constantInflowNFT = await ethers.deployContract("ConstantInflowNFT", [sfContracts.host, outNftProxy.address]);
-
-    const constantOutflowNFT = await ethers.deployContract("ConstantOutflowNFT", [
+    const constantInflowNFTLogic = await ethers.deployContract("ConstantInflowNFT", [
       sfContracts.host,
-      inNftProxy.address
+      outNftProxyAddress
     ]);
-    await outNftProxy.initializeProxy(constantOutflowNFT.address);
-    await inNftProxy.initializeProxy(constantInflowNFT.address);
+
+    const constantOutflowNFTLogic = await ethers.deployContract("ConstantOutflowNFT", [
+      sfContracts.host,
+      inNftProxyAddress
+    ]);
+    await outNftProxy.initializeProxy(constantOutflowNFTLogic.address);
+    await inNftProxy.initializeProxy(constantInflowNFTLogic.address);
 
     console.log("initializing supergooddollar....");
-    await SuperGoodDollar.attach(GoodDollarProxy.address)[
-      "initialize(string,string,uint256,address,address,address,address)"
-    ](...tokenArgs);
-    const GoodDollar = await ethers.getContractAt("SuperGoodDollar", GoodDollarProxy.address);
+    await GoodDollar["initialize(string,string,uint256,address,address,address,address)"](...tokenArgs);
     console.log("supergooddollar created successfully");
 
-    await constantOutflowNFT
-      .attach(outNftProxy.address)
-      .initialize((await GoodDollar.symbol()) + " Outflow NFT", (await GoodDollar.symbol()) + " COF");
-    await constantInflowNFT
-      .attach(inNftProxy.address)
-      .initialize((await GoodDollar.symbol()) + " Inflow NFT", (await GoodDollar.symbol()) + " CIF");
-    return GoodDollar;
-  } else {
-    console.log("initializing supergooddollar....");
-    await SuperGoodDollar.attach(GoodDollarProxy.address)[
-      "initialize(string,string,uint256,address,address,address,address)"
-    ](...tokenArgs);
-    const GoodDollar = await ethers.getContractAt("SuperGoodDollar", GoodDollarProxy.address);
-    console.log("supergooddollar created successfully");
+    const symbol = await GoodDollar.symbol();
+    const constantOutflowNFT = await ethers.getContractAt("ConstantOutflowNFT", outNftProxyAddress);
+    const constantInflowNFT = await ethers.getContractAt("ConstantInflowNFT", inNftProxyAddress);
+    await constantOutflowNFT.initialize(symbol + " Outflow NFT", symbol + " COF");
+    await constantInflowNFT.initialize(symbol + " Inflow NFT", symbol + " CIF");
     return GoodDollar;
   }
+
+  console.log("initializing supergooddollar....");
+  await GoodDollar["initialize(string,string,uint256,address,address,address,address)"](...tokenArgs);
+  console.log("supergooddollar created successfully");
+  return GoodDollar;
 };
 export const createDAO = async (tokenType: "super" | "regular" = "super", identity: "v2" | "v3" | "v4" = "v4") => {
   let [root, ...signers] = await ethers.getSigners();

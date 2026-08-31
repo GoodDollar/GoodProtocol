@@ -19,8 +19,17 @@ import deployments from "../../releases/deployment.json";
 import * as networkHelpers from "@nomicfoundation/hardhat-network-helpers";
 
 // Celo mainnet addresses
-const CELO_MAINNET_RPC = "https://forno.celo.org";
+const CELO_MAINNET_RPC = process.env.CELO_RPC_URL || "https://forno.celo.org";
 const CELO_CHAIN_ID = 42220;
+
+async function getCeloForkBlock() {
+  if (process.env.CELO_FORK_BLOCK) {
+    return parseInt(process.env.CELO_FORK_BLOCK, 10);
+  }
+  const provider = new ethers.providers.JsonRpcProvider(CELO_MAINNET_RPC);
+  const latest = await provider.getBlockNumber();
+  return latest - 5;
+}
 
 // Production Celo addresses from deployment.json (used for existing contracts on fork)
 const PRODUCTION_CELO = deployments["production-celo"];
@@ -70,7 +79,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
     await networkHelpers.reset();
   });
   before(async function () {
-    await networkHelpers.reset(CELO_MAINNET_RPC);
+    await networkHelpers.reset(CELO_MAINNET_RPC, await getCeloForkBlock());
   });
 
   async function forkCelo() {

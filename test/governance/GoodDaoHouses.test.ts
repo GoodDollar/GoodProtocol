@@ -519,7 +519,6 @@ describe("GoodDaoHouses", () => {
       identityDeployed
     } = await loadFixture(fixture);
 
-    await addWhitelisted(citizenOne.address, "did:gooddollar:citizen-unstake-vote");
     await registerCitizen(goodDollar, houses, citizenOne, "citizen-one");
     await registerAlignment(committee, goodDollar, houses, alignmentOne, "alignment-one");
     await registerAlignment(committee, goodDollar, houses, alignmentTwo, "alignment-two");
@@ -531,6 +530,8 @@ describe("GoodDaoHouses", () => {
 
     const termDuration = await houses.termDuration();
     await increaseTime(termDuration.toNumber());
+
+    await addWhitelisted(citizenOne.address, "did:gooddollar:citizen-unstake-vote");
 
     const voteId = await moveToNextVotingWindow(houses);
     await houses.connect(alignmentTwo).castVote(

@@ -132,8 +132,8 @@ describe("CompoundVotingMachine#propose", () => {
       it("reverts with active", async () => {
         await ethers.provider.send("evm_mine", []);
         await ethers.provider.send("evm_mine", []);
-
-        grep.undelegate();
+        
+        await grep.undelegate().catch(() => undefined);
 
         await expect(
           gov["propose(address[],uint256[],string[],bytes[],string)"](

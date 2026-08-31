@@ -20,5 +20,5 @@ module.exports = async function (
       previousDeployment: previousDeployment[network],
       finalDeployment: finalDeployment[network]
     });
-  return fse.writeJson(dir + `/${filename}.json`, finalDeployment);
+  return fse.writeJson(dir + `/${filename}.json`, finalDeployment, { spaces: 2 });
 };
