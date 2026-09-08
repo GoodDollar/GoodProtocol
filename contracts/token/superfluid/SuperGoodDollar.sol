@@ -101,8 +101,10 @@ contract SuperGoodDollar is
 		UUPSProxiable._updateCodeAddress(newAddress);
 	}
 
-	/// override Superfluid agreement function in order to make it pausable
-	/// that is, no new streams can be started when the contract is paused
+	/// override Superfluid agreement function in order to make it pausable.
+	/// NOTE: the CFA does NOT call this when opening a flow, it only creates agreement
+	/// data through updateAgreementData. This guard therefore covers the IDA
+	/// (index / subscription creation), not streams - see updateAgreementData below.
 	function createAgreement(
 		bytes32 id,
 		bytes32[] calldata data
@@ -110,6 +112,28 @@ contract SuperGoodDollar is
 		_onlyNotPaused();
 		// otherwise the wrapper of SuperToken.createAgreement does the actual job
 		super.createAgreement(id, data);
+	}
+
+	/// while paused, block opening or increasing a stream. Closing, decreasing and
+	/// liquidating are deliberately left open: during an incident we still need to be
+	/// able to shut malicious streams down.
+	/// The CFA writes all flow state through updateAgreementData (create, update and
+	/// delete alike), so the new flow rate is compared against the stored one and only
+	/// an increase is rejected.
+	function _beforeAgreementDataUpdate(
+		bytes32 slot,
+		bytes32[] calldata data
+	) internal view override {
+		if (paused() && data.length > 0) {
+			// the CFA packs int96 flowRate at bits [128,224) of the first word
+			bool increased;
+			assembly {
+				let newRate := signextend(11, shr(128, calldataload(data.offset)))
+				let oldRate := signextend(11, shr(128, sload(slot)))
+				increased := sgt(newRate, oldRate)
+			}
+			if (increased) revert SUPER_GOODDOLLAR_PAUSED();
+		}
 	}
 
 	/// failsafe in case we don't want to trust superfluid host for batch operations

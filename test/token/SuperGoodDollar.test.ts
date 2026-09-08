@@ -178,6 +178,103 @@ describe("SuperGoodDollar", async function () {
     await sgd.transfer(bob.address, tenDollars);
   });
 
+  it("should not be able to open a stream when paused", async function () {
+    await loadFixture(initialState);
+    // fund alice so the flow would succeed if it were not for the pause
+    await sgd.mint(alice.address, alotOfDollars);
+    await sgd.connect(founder).pause();
+
+    await expect(
+      sf.cfaV1
+        .createFlow({
+          superToken: sgd.address,
+          sender: alice.address,
+          receiver: bob.address,
+          flowRate: tenDollarsPerDay,
+          overrides: { gasLimit: 1000000 }
+        })
+        .exec(alice)
+    ).reverted;
+
+    // and it works again once unpaused, proving the pause was the cause
+    await sgd.connect(founder).unpause();
+    await sf.cfaV1
+      .createFlow({
+        superToken: sgd.address,
+        sender: alice.address,
+        receiver: bob.address,
+        flowRate: tenDollarsPerDay
+      })
+      .exec(alice);
+
+    expect(
+      await sf.cfaV1.getNetFlow({
+        superToken: sgd.address,
+        account: bob.address,
+        providerOrSigner: ethers.provider
+      })
+    ).equal(tenDollarsPerDay);
+  });
+
+  it("should not be able to increase a stream when paused", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, alotOfDollars);
+    await sf.cfaV1
+      .createFlow({
+        superToken: sgd.address,
+        sender: alice.address,
+        receiver: bob.address,
+        flowRate: tenDollarsPerDay
+      })
+      .exec(alice);
+
+    await sgd.connect(founder).pause();
+
+    await expect(
+      sf.cfaV1
+        .updateFlow({
+          superToken: sgd.address,
+          sender: alice.address,
+          receiver: bob.address,
+          flowRate: ethers.BigNumber.from(tenDollarsPerDay).mul(2).toString(),
+          overrides: { gasLimit: 1000000 }
+        })
+        .exec(alice)
+    ).reverted;
+  });
+
+  it("should still be able to close a stream when paused", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, alotOfDollars);
+    await sf.cfaV1
+      .createFlow({
+        superToken: sgd.address,
+        sender: alice.address,
+        receiver: bob.address,
+        flowRate: tenDollarsPerDay
+      })
+      .exec(alice);
+
+    await sgd.connect(founder).pause();
+
+    // closing a malicious stream must remain possible during an incident
+    await sf.cfaV1
+      .deleteFlow({
+        superToken: sgd.address,
+        sender: alice.address,
+        receiver: bob.address
+      })
+      .exec(alice);
+
+    expect(
+      await sf.cfaV1.getNetFlow({
+        superToken: sgd.address,
+        account: bob.address,
+        providerOrSigner: ethers.provider
+      })
+    ).equal("0");
+  });
+
   it("non-zero fees are applied", async function () {
     await loadFixture(initialState);
 
