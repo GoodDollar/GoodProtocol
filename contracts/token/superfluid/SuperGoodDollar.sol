@@ -31,6 +31,9 @@ contract SuperGoodDollar is
 	error SUPER_GOODDOLLAR_PAUSED();
 	error SUPER_GOODDOLLAR_BURN_EXCEEDS_ALLOWANCE();
 	error SUPER_GOODDOLLAR_FALLBACK_FAILED();
+	error SUPER_GOODDOLLAR_CAP_EXCEEDED();
+	error SUPER_GOODDOLLAR_NOT_PAUSER();
+	error SUPER_GOODDOLLAR_NOT_MINTER();
 
 	// IMPORTANT! Never change the type (storage size) or order of state variables.
 	// If a variable isn't needed anymore, leave it as padding (renaming is ok).
@@ -46,11 +49,6 @@ contract SuperGoodDollar is
 	address public constant getUnderlyingToken = address(0x0);
 	bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 	bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-	/// the CFAv1 agreement class as registered in the host at deploy time. The host
-	/// registers agreement classes behind a proxy, so this address is stable across
-	/// superfluid upgrades.
-	address private immutable _cfaV1;
-
 	event TransferFee(
 		address from,
 		address to,
@@ -93,22 +91,7 @@ contract SuperGoodDollar is
 
 	// ============ SuperFluid ============
 
-	constructor(ISuperfluid _host) SuperToken(_host) {
-		// resolve the CFAv1 agreement class from the host. Done with a low level call
-		// so that deployments without a (real) host keep working, in which case the
-		// stream pause guard in updateAgreementData is simply never triggered.
-		(bool ok, bytes memory ret) = address(_host).staticcall(
-			abi.encodeWithSelector(
-				ISuperfluid.getAgreementClass.selector,
-				keccak256(
-					"org.superfluid-finance.agreements.ConstantFlowAgreement.v1"
-				)
-			)
-		);
-		_cfaV1 = ok && ret.length == 32
-			? abi.decode(ret, (address))
-			: address(0);
-	}
+	constructor(ISuperfluid _host) SuperToken(_host) {}
 
 	function proxiableUUID() public pure override returns (bytes32) {
 		return
@@ -148,11 +131,36 @@ contract SuperGoodDollar is
 		bytes32[] calldata data
 	) external override(ISuperfluidToken, SuperfluidToken) {
 		bytes32 slot = keccak256(abi.encode("AgreementData", msg.sender, id));
-		if (paused() && msg.sender == _cfaV1) {
+		// the agreement class is looked up on the host on each paused call, so that a
+		// superfluid governance change of the CFA registration is picked up
+		if (paused() && msg.sender == _cfaV1()) {
 			_onlyNotIncreasingFlow(slot, data);
 		}
 		FixedSizeData.storeData(slot, data);
 		emit AgreementUpdated(msg.sender, id, data);
+	}
+
+	/// the CFAv1 agreement class as currently registered in the host. Done in
+	/// assembly (a plain _host.getAgreementClass call costs ~150 bytes of code) as
+	/// SuperGoodDollar is close to the contract size limit. Yields the zero address
+	/// if there is no host, which simply disables the guard below.
+	function _cfaV1() private view returns (address cfa) {
+		address host = address(_host);
+		assembly {
+			// getAgreementClass(keccak256("org.superfluid-finance.agreements.ConstantFlowAgreement.v1"))
+			// written into the scratch space, which fits the 36 bytes of calldata
+			mstore(
+				0,
+				0xb6d200de00000000000000000000000000000000000000000000000000000000
+			)
+			mstore(
+				4,
+				0xa9214cc96615e0085d3bb077758db69497dc2dce3b2b1e97bc93c3d18d83efd3
+			)
+			if and(staticcall(gas(), host, 0, 36, 0, 32), eq(returndatasize(), 32)) {
+				cfa := shr(96, shl(96, mload(0)))
+			}
+		}
 	}
 
 	/// CFA flow data packing:
@@ -341,12 +349,8 @@ contract SuperGoodDollar is
 	) public override(IGoodDollarCustom) onlyMinter returns (bool) {
 		_onlyNotPaused();
 
-		if (cap > 0) {
-			require(
-				totalSupply() + amount <= cap,
-				"Cannot increase supply beyond cap"
-			);
-		}
+		if (cap > 0 && totalSupply() + amount > cap)
+			revert SUPER_GOODDOLLAR_CAP_EXCEEDED();
 		_mint(
 			msg.sender,
 			to,
@@ -467,7 +471,8 @@ contract SuperGoodDollar is
 	}
 
 	function _onlyPauser() internal view {
-		require(hasRole(PAUSER_ROLE, msg.sender), "not pauser");
+		if (!hasRole(PAUSER_ROLE, msg.sender))
+			revert SUPER_GOODDOLLAR_NOT_PAUSER();
 	}
 
 	function _onlyNotPaused() internal view {
@@ -475,7 +480,8 @@ contract SuperGoodDollar is
 	}
 
 	modifier onlyMinter() {
-		require(hasRole(MINTER_ROLE, msg.sender), "not minter");
+		if (!hasRole(MINTER_ROLE, msg.sender))
+			revert SUPER_GOODDOLLAR_NOT_MINTER();
 		_;
 	}
 }

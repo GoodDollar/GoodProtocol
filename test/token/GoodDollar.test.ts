@@ -308,9 +308,9 @@ describe("GoodDollar Token", () => {
   it("should not allow to mint beyond cap", async () => {
     await expect(unCappedToken.mint(founder.address, 1000)).not.reverted;
 
-    await expect(cappedToken.mint(founder.address, 1200)).revertedWith(
-      /Cannot increase supply beyond cap/
-    );
+    await expect(
+      cappedToken.mint(founder.address, 1200)
+    ).revertedWithCustomError(cappedToken, "SUPER_GOODDOLLAR_CAP_EXCEEDED");
   });
 
   it("should collect transaction fee", async () => {
