@@ -29,6 +29,8 @@ contract SuperGoodDollar is
 	IGoodDollarCustom // without storage
 {
 	error SUPER_GOODDOLLAR_PAUSED();
+	error SUPER_GOODDOLLAR_BURN_EXCEEDS_ALLOWANCE();
+	error SUPER_GOODDOLLAR_FALLBACK_FAILED();
 
 	// IMPORTANT! Never change the type (storage size) or order of state variables.
 	// If a variable isn't needed anymore, leave it as padding (renaming is ok).
@@ -44,6 +46,10 @@ contract SuperGoodDollar is
 	address public constant getUnderlyingToken = address(0x0);
 	bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 	bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+	/// the CFAv1 agreement class as registered in the host at deploy time. The host
+	/// registers agreement classes behind a proxy, so this address is stable across
+	/// superfluid upgrades.
+	address private immutable _cfaV1;
 
 	event TransferFee(
 		address from,
@@ -87,7 +93,22 @@ contract SuperGoodDollar is
 
 	// ============ SuperFluid ============
 
-	constructor(ISuperfluid _host) SuperToken(_host) {}
+	constructor(ISuperfluid _host) SuperToken(_host) {
+		// resolve the CFAv1 agreement class from the host. Done with a low level call
+		// so that deployments without a (real) host keep working, in which case the
+		// stream pause guard in updateAgreementData is simply never triggered.
+		(bool ok, bytes memory ret) = address(_host).staticcall(
+			abi.encodeWithSelector(
+				ISuperfluid.getAgreementClass.selector,
+				keccak256(
+					"org.superfluid-finance.agreements.ConstantFlowAgreement.v1"
+				)
+			)
+		);
+		_cfaV1 = ok && ret.length == 32
+			? abi.decode(ret, (address))
+			: address(0);
+	}
 
 	function proxiableUUID() public pure override returns (bytes32) {
 		return
@@ -102,9 +123,9 @@ contract SuperGoodDollar is
 	}
 
 	/// override Superfluid agreement function in order to make it pausable.
-	/// NOTE: the CFA does NOT call this when opening a flow, it only creates agreement
-	/// data through updateAgreementData. This guard therefore covers the IDA
-	/// (index / subscription creation), not streams - see updateAgreementData below.
+	/// NOTE: the CFA never calls this, it writes all flow data through
+	/// updateAgreementData. This guard therefore covers the IDA (index / subscription
+	/// creation), not streams - see updateAgreementData below.
 	function createAgreement(
 		bytes32 id,
 		bytes32[] calldata data
@@ -118,22 +139,44 @@ contract SuperGoodDollar is
 	/// liquidating are deliberately left open: during an incident we still need to be
 	/// able to shut malicious streams down.
 	/// The CFA writes all flow state through updateAgreementData (create, update and
-	/// delete alike), so the new flow rate is compared against the stored one and only
-	/// an increase is rejected.
-	function _beforeAgreementDataUpdate(
+	/// delete alike), and writes its flow operator (ACL) data through it as well, so
+	/// the guard is limited to the CFA and to the flow data layout.
+	/// NOTE: the body mirrors SuperfluidToken.updateAgreementData instead of calling
+	/// super, so that the storage slot is derived only once.
+	function updateAgreementData(
+		bytes32 id,
+		bytes32[] calldata data
+	) external override(ISuperfluidToken, SuperfluidToken) {
+		bytes32 slot = keccak256(abi.encode("AgreementData", msg.sender, id));
+		if (paused() && msg.sender == _cfaV1) {
+			_onlyNotIncreasingFlow(slot, data);
+		}
+		FixedSizeData.storeData(slot, data);
+		emit AgreementUpdated(msg.sender, id, data);
+	}
+
+	/// CFA flow data packing:
+	/// | timestamp 32 | flowRate 96 | deposit 64 | owedDeposit 64 |
+	/// the timestamp is non zero only when flowRate > 0, and is always zero in the
+	/// flow operator (ACL) data the CFA writes through the same function, so it
+	/// discriminates between the two single word layouts.
+	function _onlyNotIncreasingFlow(
 		bytes32 slot,
 		bytes32[] calldata data
-	) internal view override {
-		if (paused() && data.length > 0) {
-			// the CFA packs int96 flowRate at bits [128,224) of the first word
-			bool increased;
-			assembly {
-				let newRate := signextend(11, shr(128, calldataload(data.offset)))
-				let oldRate := signextend(11, shr(128, sload(slot)))
-				increased := sgt(newRate, oldRate)
+	) private view {
+		bool increased;
+		assembly {
+			let newWord := calldataload(data.offset)
+			// a zero timestamp means a flow being closed, or flow operator data
+			if shr(224, newWord) {
+				// flowRate is a 96 bit signed value at bits [128, 224)
+				increased := sgt(
+					signextend(11, shr(128, newWord)),
+					signextend(11, shr(128, sload(slot)))
+				)
 			}
-			if (increased) revert SUPER_GOODDOLLAR_PAUSED();
 		}
+		if (increased) revert SUPER_GOODDOLLAR_PAUSED();
 	}
 
 	/// failsafe in case we don't want to trust superfluid host for batch operations
@@ -223,10 +266,8 @@ contract SuperGoodDollar is
 		bool res = super._transferFrom(msg.sender, msg.sender, to, netAmount);
 		emit ERC677.Transfer(msg.sender, to, netAmount, data);
 		if (isContract(to)) {
-			require(
-				contractFallback(to, netAmount, data),
-				"Contract fallback failed"
-			);
+			if (!contractFallback(to, netAmount, data))
+				revert SUPER_GOODDOLLAR_FALLBACK_FAILED();
 		}
 		return res;
 	}
@@ -320,7 +361,8 @@ contract SuperGoodDollar is
 
 	function burnFrom(address account, uint256 amount) public {
 		uint256 currentAllowance = allowance(account, _msgSender());
-		require(currentAllowance >= amount, "ERC20: burn amount exceeds allowance");
+		if (currentAllowance < amount)
+			revert SUPER_GOODDOLLAR_BURN_EXCEEDS_ALLOWANCE();
 		unchecked {
 			_approve(account, _msgSender(), currentAllowance - amount);
 		}
