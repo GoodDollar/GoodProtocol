@@ -143,7 +143,7 @@ describe("SuperGoodDollar No Host", async function () {
 
     await expect(
       sgd.connect(alice).transfer(bob.address, tenDollars)
-    ).revertedWith(/Not enough balance to pay TX fee/);
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE");
 
     // mint the extra amount needed for 10% fees
     await sgd.mint(alice.address, oneDollar);
@@ -172,7 +172,7 @@ describe("SuperGoodDollar No Host", async function () {
 
     await expect(
       sgd.connect(founder).transferFrom(alice.address, bob.address, tenDollars)
-    ).revertedWith(/Not enough balance to pay TX fee/);
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE");
 
     // mint the extra amount needed for 10% fees
     await sgd.connect(founder).mint(alice.address, oneDollar);

@@ -34,6 +34,7 @@ contract SuperGoodDollar is
 	error SUPER_GOODDOLLAR_CAP_EXCEEDED();
 	error SUPER_GOODDOLLAR_NOT_PAUSER();
 	error SUPER_GOODDOLLAR_NOT_MINTER();
+	error SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE();
 
 	// IMPORTANT! Never change the type (storage size) or order of state variables.
 	// If a variable isn't needed anymore, leave it as padding (renaming is ok).
@@ -140,27 +141,16 @@ contract SuperGoodDollar is
 		emit AgreementUpdated(msg.sender, id, data);
 	}
 
-	/// the CFAv1 agreement class as currently registered in the host. Done in
-	/// assembly (a plain _host.getAgreementClass call costs ~150 bytes of code) as
-	/// SuperGoodDollar is close to the contract size limit. Yields the zero address
-	/// if there is no host, which simply disables the guard below.
-	function _cfaV1() private view returns (address cfa) {
-		address host = address(_host);
-		assembly {
-			// getAgreementClass(keccak256("org.superfluid-finance.agreements.ConstantFlowAgreement.v1"))
-			// written into the scratch space, which fits the 36 bytes of calldata
-			mstore(
-				0,
-				0xb6d200de00000000000000000000000000000000000000000000000000000000
-			)
-			mstore(
-				4,
-				0xa9214cc96615e0085d3bb077758db69497dc2dce3b2b1e97bc93c3d18d83efd3
-			)
-			if and(staticcall(gas(), host, 0, 36, 0, 32), eq(returndatasize(), 32)) {
-				cfa := shr(96, shl(96, mload(0)))
-			}
-		}
+	/// the CFAv1 agreement class as currently registered in the host
+	function _cfaV1() private view returns (address) {
+		return
+			address(
+				_host.getAgreementClass(
+					keccak256(
+						"org.superfluid-finance.agreements.ConstantFlowAgreement.v1"
+					)
+				)
+			);
 	}
 
 	/// CFA flow data packing:
@@ -424,10 +414,8 @@ contract SuperGoodDollar is
 	) internal returns (uint256) {
 		(uint256 txFees, bool senderPays) = getFees(amount, account, recipient);
 		if (txFees > 0 && !identity.isDAOContract(msg.sender)) {
-			require(
-				senderPays == false || amount + txFees <= balanceOf(account),
-				"Not enough balance to pay TX fee"
-			);
+			if (senderPays && amount + txFees > balanceOf(account))
+				revert SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE();
 			super._transferFrom(account, account, feeRecipient, txFees);
 			emit TransferFee(account, recipient, amount, txFees, senderPays);
 			return senderPays ? amount : amount - txFees;
