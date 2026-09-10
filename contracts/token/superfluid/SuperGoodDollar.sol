@@ -29,6 +29,12 @@ contract SuperGoodDollar is
 	IGoodDollarCustom // without storage
 {
 	error SUPER_GOODDOLLAR_PAUSED();
+	error SUPER_GOODDOLLAR_BURN_EXCEEDS_ALLOWANCE();
+	error SUPER_GOODDOLLAR_FALLBACK_FAILED();
+	error SUPER_GOODDOLLAR_CAP_EXCEEDED();
+	error SUPER_GOODDOLLAR_NOT_PAUSER();
+	error SUPER_GOODDOLLAR_NOT_MINTER();
+	error SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE();
 
 	// IMPORTANT! Never change the type (storage size) or order of state variables.
 	// If a variable isn't needed anymore, leave it as padding (renaming is ok).
@@ -44,7 +50,6 @@ contract SuperGoodDollar is
 	address public constant getUnderlyingToken = address(0x0);
 	bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 	bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-
 	event TransferFee(
 		address from,
 		address to,
@@ -101,8 +106,10 @@ contract SuperGoodDollar is
 		UUPSProxiable._updateCodeAddress(newAddress);
 	}
 
-	/// override Superfluid agreement function in order to make it pausable
-	/// that is, no new streams can be started when the contract is paused
+	/// override Superfluid agreement function in order to make it pausable.
+	/// NOTE: the CFA never calls this, it writes all flow data through
+	/// updateAgreementData. This guard therefore covers the IDA (index / subscription
+	/// creation), not streams - see updateAgreementData below.
 	function createAgreement(
 		bytes32 id,
 		bytes32[] calldata data
@@ -110,6 +117,64 @@ contract SuperGoodDollar is
 		_onlyNotPaused();
 		// otherwise the wrapper of SuperToken.createAgreement does the actual job
 		super.createAgreement(id, data);
+	}
+
+	/// while paused, block opening or increasing a stream. Closing, decreasing and
+	/// liquidating are deliberately left open: during an incident we still need to be
+	/// able to shut malicious streams down.
+	/// The CFA writes all flow state through updateAgreementData (create, update and
+	/// delete alike), and writes its flow operator (ACL) data through it as well, so
+	/// the guard is limited to the CFA and to the flow data layout.
+	/// NOTE: the body mirrors SuperfluidToken.updateAgreementData instead of calling
+	/// super, so that the storage slot is derived only once.
+	function updateAgreementData(
+		bytes32 id,
+		bytes32[] calldata data
+	) external override(ISuperfluidToken, SuperfluidToken) {
+		bytes32 slot = keccak256(abi.encode("AgreementData", msg.sender, id));
+		// the agreement class is looked up on the host on each paused call, so that a
+		// superfluid governance change of the CFA registration is picked up
+		if (paused() && msg.sender == _cfaV1()) {
+			_onlyNotIncreasingFlow(slot, data);
+		}
+		FixedSizeData.storeData(slot, data);
+		emit AgreementUpdated(msg.sender, id, data);
+	}
+
+	/// the CFAv1 agreement class as currently registered in the host
+	function _cfaV1() private view returns (address) {
+		return
+			address(
+				_host.getAgreementClass(
+					keccak256(
+						"org.superfluid-finance.agreements.ConstantFlowAgreement.v1"
+					)
+				)
+			);
+	}
+
+	/// CFA flow data packing:
+	/// | timestamp 32 | flowRate 96 | deposit 64 | owedDeposit 64 |
+	/// the timestamp is non zero only when flowRate > 0, and is always zero in the
+	/// flow operator (ACL) data the CFA writes through the same function, so it
+	/// discriminates between the two single word layouts.
+	function _onlyNotIncreasingFlow(
+		bytes32 slot,
+		bytes32[] calldata data
+	) private view {
+		bool increased;
+		assembly {
+			let newWord := calldataload(data.offset)
+			// a zero timestamp means a flow being closed, or flow operator data
+			if shr(224, newWord) {
+				// flowRate is a 96 bit signed value at bits [128, 224)
+				increased := sgt(
+					signextend(11, shr(128, newWord)),
+					signextend(11, shr(128, sload(slot)))
+				)
+			}
+		}
+		if (increased) revert SUPER_GOODDOLLAR_PAUSED();
 	}
 
 	/// failsafe in case we don't want to trust superfluid host for batch operations
@@ -199,10 +264,8 @@ contract SuperGoodDollar is
 		bool res = super._transferFrom(msg.sender, msg.sender, to, netAmount);
 		emit ERC677.Transfer(msg.sender, to, netAmount, data);
 		if (isContract(to)) {
-			require(
-				contractFallback(to, netAmount, data),
-				"Contract fallback failed"
-			);
+			if (!contractFallback(to, netAmount, data))
+				revert SUPER_GOODDOLLAR_FALLBACK_FAILED();
 		}
 		return res;
 	}
@@ -276,12 +339,8 @@ contract SuperGoodDollar is
 	) public override(IGoodDollarCustom) onlyMinter returns (bool) {
 		_onlyNotPaused();
 
-		if (cap > 0) {
-			require(
-				totalSupply() + amount <= cap,
-				"Cannot increase supply beyond cap"
-			);
-		}
+		if (cap > 0 && totalSupply() + amount > cap)
+			revert SUPER_GOODDOLLAR_CAP_EXCEEDED();
 		_mint(
 			msg.sender,
 			to,
@@ -296,7 +355,8 @@ contract SuperGoodDollar is
 
 	function burnFrom(address account, uint256 amount) public {
 		uint256 currentAllowance = allowance(account, _msgSender());
-		require(currentAllowance >= amount, "ERC20: burn amount exceeds allowance");
+		if (currentAllowance < amount)
+			revert SUPER_GOODDOLLAR_BURN_EXCEEDS_ALLOWANCE();
 		unchecked {
 			_approve(account, _msgSender(), currentAllowance - amount);
 		}
@@ -368,10 +428,8 @@ contract SuperGoodDollar is
 	) internal returns (uint256) {
 		(uint256 txFees, bool senderPays) = getFees(amount, account, recipient);
 		if (txFees > 0 && !identity.isDAOContract(msg.sender)) {
-			require(
-				senderPays == false || amount + txFees <= balanceOf(account),
-				"Not enough balance to pay TX fee"
-			);
+			if (senderPays && amount + txFees > balanceOf(account))
+				revert SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE();
 			super._transferFrom(account, account, feeRecipient, txFees);
 			emit TransferFee(account, recipient, amount, txFees, senderPays);
 			return senderPays ? amount : amount - txFees;
@@ -408,7 +466,8 @@ contract SuperGoodDollar is
 	}
 
 	function _onlyPauser() internal view {
-		require(hasRole(PAUSER_ROLE, msg.sender), "not pauser");
+		if (!hasRole(PAUSER_ROLE, msg.sender))
+			revert SUPER_GOODDOLLAR_NOT_PAUSER();
 	}
 
 	function _onlyNotPaused() internal view {
@@ -416,7 +475,8 @@ contract SuperGoodDollar is
 	}
 
 	modifier onlyMinter() {
-		require(hasRole(MINTER_ROLE, msg.sender), "not minter");
+		if (!hasRole(MINTER_ROLE, msg.sender))
+			revert SUPER_GOODDOLLAR_NOT_MINTER();
 		_;
 	}
 }

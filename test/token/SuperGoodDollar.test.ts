@@ -178,6 +178,215 @@ describe("SuperGoodDollar", async function () {
     await sgd.transfer(bob.address, tenDollars);
   });
 
+  it("should not be able to open a stream when paused", async function () {
+    await loadFixture(initialState);
+    // fund alice so the flow would succeed if it were not for the pause
+    await sgd.mint(alice.address, alotOfDollars);
+    await sgd.connect(founder).pause();
+
+    await expect(
+      sf.cfaV1
+        .createFlow({
+          superToken: sgd.address,
+          sender: alice.address,
+          receiver: bob.address,
+          flowRate: tenDollarsPerDay,
+          overrides: { gasLimit: 1000000 }
+        })
+        .exec(alice)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_PAUSED");
+
+    // and it works again once unpaused, proving the pause was the cause
+    await sgd.connect(founder).unpause();
+    await sf.cfaV1
+      .createFlow({
+        superToken: sgd.address,
+        sender: alice.address,
+        receiver: bob.address,
+        flowRate: tenDollarsPerDay
+      })
+      .exec(alice);
+
+    expect(
+      await sf.cfaV1.getNetFlow({
+        superToken: sgd.address,
+        account: bob.address,
+        providerOrSigner: ethers.provider
+      })
+    ).equal(tenDollarsPerDay);
+  });
+
+  it("should not be able to increase a stream when paused", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, alotOfDollars);
+    await sf.cfaV1
+      .createFlow({
+        superToken: sgd.address,
+        sender: alice.address,
+        receiver: bob.address,
+        flowRate: tenDollarsPerDay
+      })
+      .exec(alice);
+
+    await sgd.connect(founder).pause();
+
+    await expect(
+      sf.cfaV1
+        .updateFlow({
+          superToken: sgd.address,
+          sender: alice.address,
+          receiver: bob.address,
+          flowRate: ethers.BigNumber.from(tenDollarsPerDay).mul(2).toString(),
+          overrides: { gasLimit: 1000000 }
+        })
+        .exec(alice)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_PAUSED");
+  });
+
+  it("should still be able to close a stream when paused", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, alotOfDollars);
+    await sf.cfaV1
+      .createFlow({
+        superToken: sgd.address,
+        sender: alice.address,
+        receiver: bob.address,
+        flowRate: tenDollarsPerDay
+      })
+      .exec(alice);
+
+    await sgd.connect(founder).pause();
+
+    // closing a malicious stream must remain possible during an incident
+    await sf.cfaV1
+      .deleteFlow({
+        superToken: sgd.address,
+        sender: alice.address,
+        receiver: bob.address
+      })
+      .exec(alice);
+
+    expect(
+      await sf.cfaV1.getNetFlow({
+        superToken: sgd.address,
+        account: bob.address,
+        providerOrSigner: ethers.provider
+      })
+    ).equal("0");
+  });
+
+  it("should still be able to close a stream of another account when paused", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, alotOfDollars);
+    await sf.cfaV1
+      .createFlow({
+        superToken: sgd.address,
+        sender: alice.address,
+        receiver: bob.address,
+        flowRate: tenDollarsPerDay
+      })
+      .exec(alice);
+
+    await sgd.connect(founder).pause();
+
+    // the receiver must be able to shut an incoming stream down during an incident
+    await sf.cfaV1
+      .deleteFlow({
+        superToken: sgd.address,
+        sender: alice.address,
+        receiver: bob.address
+      })
+      .exec(bob);
+
+    expect(
+      await sf.cfaV1.getNetFlow({
+        superToken: sgd.address,
+        account: bob.address,
+        providerOrSigner: ethers.provider
+      })
+    ).equal("0");
+  });
+
+  it("should still be able to decrease a stream when paused", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, alotOfDollars);
+    await sf.cfaV1
+      .createFlow({
+        superToken: sgd.address,
+        sender: alice.address,
+        receiver: bob.address,
+        flowRate: tenDollarsPerDay
+      })
+      .exec(alice);
+
+    await sgd.connect(founder).pause();
+
+    const halfRate = ethers.BigNumber.from(tenDollarsPerDay).div(2).toString();
+    await sf.cfaV1
+      .updateFlow({
+        superToken: sgd.address,
+        sender: alice.address,
+        receiver: bob.address,
+        flowRate: halfRate
+      })
+      .exec(alice);
+
+    expect(
+      await sf.cfaV1.getNetFlow({
+        superToken: sgd.address,
+        account: bob.address,
+        providerOrSigner: ethers.provider
+      })
+    ).equal(halfRate);
+  });
+
+  // the CFA writes flow operator (ACL) data through updateAgreementData as well,
+  // with a different layout - the pause guard must not mistake it for a flow
+  it("should still be able to update flow operator permissions when paused", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, alotOfDollars);
+    await sgd.connect(founder).pause();
+
+    await sf.cfaV1
+      .updateFlowOperatorPermissions({
+        superToken: sgd.address,
+        flowOperator: bob.address,
+        permissions: 7, // create + update + delete
+        flowRateAllowance: tenDollarsPerDay
+      })
+      .exec(alice);
+
+    const permissions = await sf.cfaV1.getFlowOperatorData({
+      superToken: sgd.address,
+      sender: alice.address,
+      flowOperator: bob.address,
+      providerOrSigner: ethers.provider
+    });
+    expect(permissions.permissions).equal("7");
+  });
+
+  it("should not be able to create an IDA index when paused", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, alotOfDollars);
+    await sgd.connect(founder).pause();
+
+    await expect(
+      sf.idaV1
+        .createIndex({
+          superToken: sgd.address,
+          indexId: "1",
+          overrides: { gasLimit: 1000000 }
+        })
+        .exec(alice)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_PAUSED");
+
+    await sgd.connect(founder).unpause();
+    await sf.idaV1
+      .createIndex({ superToken: sgd.address, indexId: "1" })
+      .exec(alice);
+  });
+
+
   it("adminBurn destroys illegitimate funds and reduces total supply", async function () {
     await loadFixture(initialState);
     await sgd.mint(eve.address, tenDollars);
@@ -231,7 +440,7 @@ describe("SuperGoodDollar", async function () {
 
     await expect(
       sgd.connect(alice).transfer(bob.address, tenDollars)
-    ).revertedWith(/Not enough balance to pay TX fee/);
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE");
 
     // mint the extra amount needed for 10% fees
     await sgd.mint(alice.address, oneDollar);
@@ -260,7 +469,7 @@ describe("SuperGoodDollar", async function () {
 
     await expect(
       sgd.connect(founder).transferFrom(alice.address, bob.address, tenDollars)
-    ).revertedWith(/Not enough balance to pay TX fee/);
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE");
 
     // mint the extra amount needed for 10% fees
     await sgd.connect(founder).mint(alice.address, oneDollar);

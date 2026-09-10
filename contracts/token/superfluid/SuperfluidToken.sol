@@ -17,6 +17,7 @@ import { FixedSizeData } from "@superfluid-finance/ethereum-contracts/contracts/
  * @dev Modified for SuperGoodDollar
  * 1. made createAgreement public and virtual
  * 2. added allowHostOperations to disable host actions by G$ governance in case of security issues
+ * 3. made updateAgreementData virtual (so SuperGoodDollar can gate streams while paused)
  */
 abstract contract SuperfluidToken is ISuperfluidToken {
 	bytes32 private constant _REWARD_ADDRESS_CONFIG_KEY =
@@ -255,7 +256,7 @@ abstract contract SuperfluidToken is ISuperfluidToken {
 	function updateAgreementData(
 		bytes32 id,
 		bytes32[] calldata data
-	) external override {
+	) external virtual override {
 		address agreementClass = msg.sender;
 		bytes32 slot = keccak256(abi.encode("AgreementData", agreementClass, id));
 		FixedSizeData.storeData(slot, data);
