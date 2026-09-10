@@ -6,7 +6,7 @@
  *
  * To run this test:
  * 1. Make sure you have a Celo RPC endpoint available (or use public forno.celo.org)
- * 2. Run: npx hardhat test test/utils/BuyGDClone.celo-fork.test.ts
+ * 2. Run: npx hardhat test test/utils/BuyGDClone.test.ts
  *
  * Note: This test forks Celo mainnet, so it requires network access and may take longer to run.
  */
@@ -22,13 +22,20 @@ import * as networkHelpers from "@nomicfoundation/hardhat-network-helpers";
 const CELO_MAINNET_RPC = process.env.CELO_RPC_URL || "https://forno.celo.org";
 const CELO_CHAIN_ID = 42220;
 
+// How far behind the head to fork. Public Celo endpoints are load balanced pools
+// whose backends have slightly different tips, so forking too close to the head can
+// land on a node that does not have that block yet, which surfaces mid-run as
+// "historical state <root> is not available" and fails the whole suite.
+// Raise this lag (or pin CELO_FORK_BLOCK) if that error comes back.
+const CELO_FORK_BLOCK_LAG = 10;
+
 async function getCeloForkBlock() {
   if (process.env.CELO_FORK_BLOCK) {
     return parseInt(process.env.CELO_FORK_BLOCK, 10);
   }
   const provider = new ethers.providers.JsonRpcProvider(CELO_MAINNET_RPC);
   const latest = await provider.getBlockNumber();
-  return latest - 5;
+  return latest - CELO_FORK_BLOCK_LAG;
 }
 
 // Production Celo addresses from deployment.json (used for existing contracts on fork)
