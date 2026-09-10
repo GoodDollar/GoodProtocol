@@ -32,6 +32,8 @@ interface IGoodDollarCustom {
 
 	function isPauser(address _pauser) external view returns (bool);
 
+	function isBlocked(address account) external view returns (bool);
+
 	function owner() external view returns (address);
 
 	// state changing functions
@@ -56,6 +58,8 @@ interface IGoodDollarCustom {
 	function burnFrom(address account, uint256 amount) external;
 
 	function adminBurn(address account, uint256 amount) external;
+
+	function setBlocked(address[] calldata accounts, bool blocked) external;
 
 	function addMinter(address _minter) external;
 

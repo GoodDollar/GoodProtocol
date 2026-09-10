@@ -223,6 +223,127 @@ describe("SuperGoodDollar", async function () {
     ).reverted;
   });
 
+  it("owner can block and unblock addresses in batch", async function () {
+    await loadFixture(initialState);
+
+    expect(await sgd.isBlocked(eve.address)).equal(false);
+
+    await expect(
+      sgd.connect(founder).setBlocked([eve.address, bob.address], true)
+    )
+      .emit(sgd, "BlockedUpdated")
+      .withArgs(eve.address, true)
+      .emit(sgd, "BlockedUpdated")
+      .withArgs(bob.address, true);
+    expect(await sgd.isBlocked(eve.address)).equal(true);
+    expect(await sgd.isBlocked(bob.address)).equal(true);
+
+    await expect(
+      sgd.connect(founder).setBlocked([eve.address, bob.address], false)
+    )
+      .emit(sgd, "BlockedUpdated")
+      .withArgs(eve.address, false);
+    expect(await sgd.isBlocked(eve.address)).equal(false);
+    expect(await sgd.isBlocked(bob.address)).equal(false);
+  });
+
+  it("setBlocked accepts an empty array", async function () {
+    await loadFixture(initialState);
+    await sgd.connect(founder).setBlocked([], true);
+  });
+
+  it("setBlocked is only callable by the owner", async function () {
+    await loadFixture(initialState);
+
+    await expect(sgd.connect(eve).setBlocked([eve.address], false)).revertedWith(
+      "not owner"
+    );
+    await expect(
+      sgd.connect(alice).setBlocked([bob.address], true)
+    ).revertedWith("not owner");
+  });
+
+  it("blocked address (eg. a known pool) can not receive or send", async function () {
+    await loadFixture(initialState);
+    // the "pool" holds funds from before it was blocked
+    await sgd.mint(bob.address, tenDollars);
+    await sgd.mint(alice.address, tenDollars);
+    await sgd.connect(founder).setBlocked([bob.address], true);
+
+    // to the pool
+    await expect(
+      sgd.connect(alice).transfer(bob.address, oneDollar)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+    // from the pool
+    await expect(
+      sgd.connect(bob).transfer(alice.address, oneDollar)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+
+    // unrelated transfers are unaffected
+    const eveBefore = await sgd.balanceOf(eve.address);
+    await sgd.connect(alice).transfer(eve.address, oneDollar);
+    expect(await sgd.balanceOf(eve.address)).equal(eveBefore.add(oneDollar));
+  });
+
+  it("blocking covers transferFrom, send and transferAndCall", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, tenDollars);
+    await sgd.mint(bob.address, tenDollars);
+    await sgd.connect(alice).approve(founder.address, tenDollars);
+    await sgd.connect(bob).approve(founder.address, tenDollars);
+    await sgd.connect(founder).setBlocked([bob.address], true);
+
+    await expect(
+      sgd.connect(founder).transferFrom(alice.address, bob.address, oneDollar)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+    await expect(
+      sgd.connect(founder).transferFrom(bob.address, alice.address, oneDollar)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+
+    // erc777
+    await expect(
+      sgd
+        .connect(alice)
+        ["send(address,uint256,bytes)"](bob.address, oneDollar, "0x")
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+    await expect(
+      sgd
+        .connect(bob)
+        ["send(address,uint256,bytes)"](alice.address, oneDollar, "0x")
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+
+    // erc677
+    await sgd.connect(founder).setBlocked([receiverMock.address], true);
+    await expect(
+      sgd.connect(alice).transferAndCall(receiverMock.address, oneDollar, "0x")
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+  });
+
+  it("unblocking restores transfers", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(bob.address, tenDollars);
+    await sgd.connect(founder).setBlocked([bob.address], true);
+    await expect(
+      sgd.connect(bob).transfer(alice.address, oneDollar)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+
+    await sgd.connect(founder).setBlocked([bob.address], false);
+    const aliceBefore = await sgd.balanceOf(alice.address);
+    await sgd.connect(bob).transfer(alice.address, oneDollar);
+    expect(await sgd.balanceOf(alice.address)).equal(
+      aliceBefore.add(oneDollar)
+    );
+  });
+
+  it("adminBurn works on a blocked address", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(eve.address, tenDollars);
+    await sgd.connect(founder).setBlocked([eve.address], true);
+
+    await sgd.connect(founder).adminBurn(eve.address, tenDollars);
+    expect(await sgd.balanceOf(eve.address)).equal(0);
+  });
+
   it("non-zero fees are applied", async function () {
     await loadFixture(initialState);
 
@@ -231,7 +352,7 @@ describe("SuperGoodDollar", async function () {
 
     await expect(
       sgd.connect(alice).transfer(bob.address, tenDollars)
-    ).revertedWith(/Not enough balance to pay TX fee/);
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE");
 
     // mint the extra amount needed for 10% fees
     await sgd.mint(alice.address, oneDollar);
@@ -260,7 +381,7 @@ describe("SuperGoodDollar", async function () {
 
     await expect(
       sgd.connect(founder).transferFrom(alice.address, bob.address, tenDollars)
-    ).revertedWith(/Not enough balance to pay TX fee/);
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE");
 
     // mint the extra amount needed for 10% fees
     await sgd.connect(founder).mint(alice.address, oneDollar);
