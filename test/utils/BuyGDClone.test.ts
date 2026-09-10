@@ -27,7 +27,7 @@ const CELO_CHAIN_ID = 42220;
 // land on a node that does not have that block yet, which surfaces mid-run as
 // "historical state <root> is not available" and fails the whole suite.
 // Raise this lag (or pin CELO_FORK_BLOCK) if that error comes back.
-const CELO_FORK_BLOCK_LAG = 10;
+const CELO_FORK_BLOCK_LAG = 50;
 
 async function getCeloForkBlock() {
   if (process.env.CELO_FORK_BLOCK) {
