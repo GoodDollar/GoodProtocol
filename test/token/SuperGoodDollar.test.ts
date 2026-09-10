@@ -384,6 +384,9 @@ describe("SuperGoodDollar", async function () {
     await sf.idaV1
       .createIndex({ superToken: sgd.address, indexId: "1" })
       .exec(alice);
+  });
+
+
   it("adminBurn destroys illegitimate funds and reduces total supply", async function () {
     await loadFixture(initialState);
     await sgd.mint(eve.address, tenDollars);
