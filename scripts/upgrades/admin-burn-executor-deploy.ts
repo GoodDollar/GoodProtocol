@@ -125,20 +125,18 @@ export const deploy = async () => {
   if (owner.toLowerCase() !== release.Avatar.toLowerCase())
     throw new Error(`token owner ${owner} is not the Avatar ${release.Avatar} - adminBurn would revert`);
 
-  // the executor is useless against an implementation that has no adminBurn
-  if (!supergd.interface.functions["adminBurn(address,uint256)"])
-    throw new Error("local artifacts have no adminBurn(address,uint256) - run `yarn compile`");
-  // ...and against a *live* implementation that has no adminBurn either. The
-  // proxy would delegate the call into an implementation that reverts, so check
-  // the selector is actually present in the deployed code.
-  const selector = supergd.interface.getSighash("adminBurn(address,uint256)");
+  // the executor is useless against a live implementation that has no adminBurn.
+  // The selector is derived here rather than read off the SuperGoodDollar ABI, so
+  // this script also works on a branch whose artifacts predate adminBurn.
+  const selector = ethers.utils.id("adminBurn(address,uint256)").slice(0, 10);
   const liveImpl = await supergd.getCodeAddress();
   const liveCode = await ethers.provider.getCode(liveImpl);
-  if (!liveCode.includes(selector.slice(2)) && !process.env.SKIP_IMPL_CHECK)
+  const hasAdminBurn = liveCode.includes(selector.slice(2));
+  if (!hasAdminBurn && !process.env.SKIP_IMPL_CHECK)
     throw new Error(
       `live SuperGoodDollar implementation ${liveImpl} has no adminBurn - run supergooddollar-admin-burn.ts first`
     );
-  console.log("live implementation:", liveImpl, "(adminBurn present)");
+  console.log("live implementation:", liveImpl, hasAdminBurn ? "(adminBurn present)" : "(NO adminBurn - bypassed)");
 
   // ---------------------------------------------------------------- the list
   console.log("\n=== burn list ===");
@@ -167,7 +165,8 @@ export const deploy = async () => {
   });
   if (short > 0)
     console.warn(
-      `WARNING: ${short} account(s) hold less than the listed amount. execute() is all-or-nothing and would revert.`
+      `WARNING: ${short} account(s) hold less than the listed amount. execute() will skip them and keep the ` +
+        `scheme permission so it can be re-run later.`
     );
 
   if (DRY) return console.log("\nDRY run complete - list validated, nothing deployed.");
