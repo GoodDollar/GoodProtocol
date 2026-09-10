@@ -30,6 +30,8 @@ contract SuperGoodDollar is
 {
 	error SUPER_GOODDOLLAR_PAUSED();
 	error SUPER_GOODDOLLAR_BLOCKED();
+	error SUPER_GOODDOLLAR_NOT_PAUSER();
+	error SUPER_GOODDOLLAR_NOT_MINTER();
 	error SUPER_GOODDOLLAR_CAP_EXCEEDED();
 	error SUPER_GOODDOLLAR_BURN_EXCEEDS_ALLOWANCE();
 	error SUPER_GOODDOLLAR_FALLBACK_FAILED();
@@ -331,13 +333,19 @@ contract SuperGoodDollar is
 	 * Note: this covers the ERC20/ERC677/ERC777 surface (incl. the host batch operations).
 	 * Superfluid streams settle via the agreement layer and are not covered - a stream can still
 	 * credit a blocked account, but that account will not be able to move the funds out.
-	 * @param account the address to update
+	 * @param accounts the addresses to update
 	 * @param blocked true to block, false to unblock
 	 */
-	function setBlocked(address account, bool blocked) external {
+	function setBlocked(address[] calldata accounts, bool blocked) external {
 		_onlyOwner();
-		isBlocked[account] = blocked;
-		emit BlockedUpdated(account, blocked);
+		for (uint256 i; i < accounts.length; ) {
+			address account = accounts[i];
+			isBlocked[account] = blocked;
+			emit BlockedUpdated(account, blocked);
+			unchecked {
+				++i;
+			}
+		}
 	}
 
 	/**
@@ -386,7 +394,8 @@ contract SuperGoodDollar is
 		address recipient,
 		uint256 amount
 	) internal returns (uint256) {
-		_onlyNotBlocked(account, recipient);
+		if (isBlocked[account] || isBlocked[recipient])
+			revert SUPER_GOODDOLLAR_BLOCKED();
 		(uint256 txFees, bool senderPays) = getFees(amount, account, recipient);
 		if (txFees > 0 && !identity.isDAOContract(msg.sender)) {
 			if (senderPays && amount + txFees > balanceOf(account))
@@ -427,19 +436,15 @@ contract SuperGoodDollar is
 	}
 
 	function _onlyPauser() internal view {
-		require(hasRole(PAUSER_ROLE, msg.sender), "not pauser");
+		if (!hasRole(PAUSER_ROLE, msg.sender)) revert SUPER_GOODDOLLAR_NOT_PAUSER();
 	}
 
 	function _onlyNotPaused() internal view {
 		if (paused()) revert SUPER_GOODDOLLAR_PAUSED();
 	}
 
-	function _onlyNotBlocked(address from, address to) internal view {
-		if (isBlocked[from] || isBlocked[to]) revert SUPER_GOODDOLLAR_BLOCKED();
-	}
-
 	modifier onlyMinter() {
-		require(hasRole(MINTER_ROLE, msg.sender), "not minter");
+		if (!hasRole(MINTER_ROLE, msg.sender)) revert SUPER_GOODDOLLAR_NOT_MINTER();
 		_;
 	}
 }

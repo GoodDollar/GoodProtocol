@@ -59,7 +59,7 @@ interface IGoodDollarCustom {
 
 	function adminBurn(address account, uint256 amount) external;
 
-	function setBlocked(address account, bool blocked) external;
+	function setBlocked(address[] calldata accounts, bool blocked) external;
 
 	function addMinter(address _minter) external;
 

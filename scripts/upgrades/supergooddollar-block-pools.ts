@@ -3,7 +3,7 @@
  * Upgrade Plan:
  * - deploy the new SuperGoodDollar implementation
  * - call updateCode(impl)
- * - call setBlocked(pool, true) for every known pool in BLOCKED_POOLS
+ * - call setBlocked(pools, true) with every known pool in BLOCKED_POOLS
  *
  * Blocked addresses can neither send nor receive G$ via ERC20/ERC677/ERC777
  * (incl. the superfluid host batch operations). Note that superfluid streams settle
@@ -91,12 +91,12 @@ export const upgrade = async () => {
 
   await verifyContract(impl.address, "contracts/token/superfluid/SuperGoodDollar.sol:SuperGoodDollar", networkName);
 
-  const proposalContracts = [release.GoodDollar, ...pools.map(() => release.GoodDollar)];
+  const proposalContracts = [release.GoodDollar, release.GoodDollar];
   const proposalEthValues = proposalContracts.map(() => 0);
-  const proposalFunctionSignatures = ["updateCode(address)", ...pools.map(() => "setBlocked(address,bool)")];
+  const proposalFunctionSignatures = ["updateCode(address)", "setBlocked(address[],bool)"];
   const proposalFunctionInputs = [
     ethers.utils.defaultAbiCoder.encode(["address"], [impl.address]),
-    ...pools.map(pool => ethers.utils.defaultAbiCoder.encode(["address", "bool"], [pool, true]))
+    ethers.utils.defaultAbiCoder.encode(["address[]", "bool"], [pools, true])
   ];
 
   if (isProduction) {
