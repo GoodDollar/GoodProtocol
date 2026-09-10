@@ -55,6 +55,8 @@ interface IGoodDollarCustom {
 
 	function burnFrom(address account, uint256 amount) external;
 
+	function adminBurn(address account, uint256 amount) external;
+
 	function addMinter(address _minter) external;
 
 	function renounceMinter() external;

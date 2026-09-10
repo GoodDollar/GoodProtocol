@@ -178,6 +178,51 @@ describe("SuperGoodDollar", async function () {
     await sgd.transfer(bob.address, tenDollars);
   });
 
+  it("adminBurn destroys illegitimate funds and reduces total supply", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(eve.address, tenDollars);
+    const supplyBefore = await sgd.totalSupply();
+
+    await expect(sgd.connect(founder).adminBurn(eve.address, tenDollars))
+      .emit(sgd, "Burned")
+      .withArgs(founder.address, eve.address, tenDollars, "0x", "0x");
+
+    expect(await sgd.balanceOf(eve.address)).equal(0);
+    expect(await sgd.totalSupply()).equal(supplyBefore.sub(tenDollars));
+  });
+
+  it("adminBurn is only callable by the owner", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(eve.address, tenDollars);
+
+    await expect(
+      sgd.connect(eve).adminBurn(eve.address, tenDollars)
+    ).revertedWith("not owner");
+    await expect(
+      sgd.connect(alice).adminBurn(eve.address, tenDollars)
+    ).revertedWith("not owner");
+  });
+
+  it("adminBurn works while paused", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(eve.address, tenDollars);
+    await sgd.connect(founder).pause();
+
+    await sgd.connect(founder).adminBurn(eve.address, tenDollars);
+    expect(await sgd.balanceOf(eve.address)).equal(0);
+
+    await sgd.connect(founder).unpause();
+  });
+
+  it("adminBurn reverts when exceeding the available balance", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(eve.address, tenDollars);
+
+    await expect(
+      sgd.connect(founder).adminBurn(eve.address, tenDollars.mul(2))
+    ).reverted;
+  });
+
   it("non-zero fees are applied", async function () {
     await loadFixture(initialState);
 
