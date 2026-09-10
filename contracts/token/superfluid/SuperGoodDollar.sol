@@ -368,6 +368,20 @@ contract SuperGoodDollar is
 	}
 
 	/**
+	 * @dev Admin burn, to destroy illegitimate G$ (eg. obtained through an exploit).
+	 * Owner only. Works while paused, needs no allowance, charges no fees, and bypasses the
+	 * ERC777 `tokensToSend` hook so a holder can not block the burn with a reverting
+	 * ERC1820 implementer. Reverts if `amount` exceeds the available (realtime) balance.
+	 */
+	function adminBurn(address account, uint256 amount) external override {
+		_onlyOwner();
+		// low level burn: no ERC777 hooks, no pause check, no fees
+		SuperfluidToken._burn(account, amount);
+		emit Burned(msg.sender, account, amount, new bytes(0), new bytes(0));
+		emit IERC20.Transfer(account, address(0), amount);
+	}
+
+	/**
 	 * @dev Gets the current transaction fees
 	 * @return fee senderPays  that represents the current transaction fees and bool true if sender pays the fee or receiver
 	 */
@@ -441,13 +455,6 @@ contract SuperGoodDollar is
 	) internal {
 		poolAdminNFT = _poolAdminNFT;
 		poolMemberNFT = _poolMemberNFT;
-	}
-
-	function recover(IERC20 token) public {
-		token.transfer(
-			getRoleMember(DEFAULT_ADMIN_ROLE, 0),
-			token.balanceOf(address(this))
-		);
 	}
 
 	/**************************************************************************
