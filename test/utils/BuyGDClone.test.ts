@@ -22,20 +22,20 @@ import * as networkHelpers from "@nomicfoundation/hardhat-network-helpers";
 const CELO_MAINNET_RPC = process.env.CELO_RPC_URL || "https://forno.celo.org";
 const CELO_CHAIN_ID = 42220;
 
-// How far behind the head to fork. Public Celo endpoints are load balanced pools
-// whose backends have slightly different tips, so forking too close to the head can
-// land on a node that does not have that block yet, which surfaces mid-run as
-// "historical state <root> is not available" and fails the whole suite.
-// Raise this lag (or pin CELO_FORK_BLOCK) if that error comes back.
-const CELO_FORK_BLOCK_LAG = 50;
+// Celo block at 2026-09-01T00:00:00Z. Pinned rather than derived from the head:
+// public Celo endpoints are load balanced pools whose backends have slightly
+// different tips, so forking near the head lands on a node that does not have that
+// block yet and the run dies mid-suite with "historical state <root> is not
+// available". Pinning also keeps the fork deterministic and lets hardhat cache it
+// between runs. Override with CELO_FORK_BLOCK, or bump this when the fixtures need
+// newer chain state.
+const CELO_FORK_BLOCK_DEFAULT = 76320042;
 
 async function getCeloForkBlock() {
   if (process.env.CELO_FORK_BLOCK) {
     return parseInt(process.env.CELO_FORK_BLOCK, 10);
   }
-  const provider = new ethers.providers.JsonRpcProvider(CELO_MAINNET_RPC);
-  const latest = await provider.getBlockNumber();
-  return latest - CELO_FORK_BLOCK_LAG;
+  return CELO_FORK_BLOCK_DEFAULT;
 }
 
 // Production Celo addresses from deployment.json (used for existing contracts on fork)
