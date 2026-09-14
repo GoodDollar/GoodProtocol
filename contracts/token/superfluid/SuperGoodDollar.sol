@@ -7,7 +7,6 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { ERC777Helper } from "@superfluid-finance/ethereum-contracts/contracts/libs/ERC777Helper.sol";
-import { FixedSizeData } from "@superfluid-finance/ethereum-contracts/contracts/libs/FixedSizeData.sol";
 
 import { IGoodDollarCustom } from "./ISuperGoodDollar.sol";
 import { SuperToken } from "./SuperToken.sol";
@@ -132,10 +131,7 @@ contract SuperGoodDollar is
 		// the agreement class is looked up on the host on each paused call, so that a
 		// superfluid governance change of the CFA registration is picked up
 		if (paused() && msg.sender == _cfaV1()) {
-			_onlyNotIncreasingFlow(
-				keccak256(abi.encode("AgreementData", msg.sender, id)),
-				data
-			);
+			_onlyNotIncreasingFlow(id, data);
 		}
 		// the write itself stays with SuperfluidToken, so this override can not drift
 		// from the upstream implementation
@@ -160,22 +156,22 @@ contract SuperGoodDollar is
 	/// flow operator (ACL) data the CFA writes through the same function, so it
 	/// discriminates between the two single word layouts.
 	function _onlyNotIncreasingFlow(
-		bytes32 slot,
+		bytes32 id,
 		bytes32[] calldata data
 	) private view {
-		bool increased;
-		assembly {
-			let newWord := calldataload(data.offset)
-			// a zero timestamp means a flow being closed, or flow operator data
-			if shr(224, newWord) {
-				// flowRate is a 96 bit signed value at bits [128, 224)
-				increased := sgt(
-					signextend(11, shr(128, newWord)),
-					signextend(11, shr(128, sload(slot)))
-				)
-			}
+		uint256 newWord = uint256(data[0]);
+		// a zero timestamp means a flow being closed, or flow operator data
+		if (newWord >> 224 == 0) return;
+		// the previous flow data via the inherited accessor, zeros for a new flow
+		uint256 oldWord = uint256(getAgreementData(msg.sender, id, 1)[0]);
+		if (_flowRate(newWord) > _flowRate(oldWord)) {
+			revert SUPER_GOODDOLLAR_PAUSED();
 		}
-		if (increased) revert SUPER_GOODDOLLAR_PAUSED();
+	}
+
+	/// mirrors ConstantFlowAgreementV1._decodeFlowData, which is internal to the CFA
+	function _flowRate(uint256 word) private pure returns (int96) {
+		return int96(int256(word >> 128) & int256(uint256(type(uint96).max)));
 	}
 
 	/// failsafe in case we don't want to trust superfluid host for batch operations
