@@ -125,20 +125,21 @@ contract SuperGoodDollar is
 	/// The CFA writes all flow state through updateAgreementData (create, update and
 	/// delete alike), and writes its flow operator (ACL) data through it as well, so
 	/// the guard is limited to the CFA and to the flow data layout.
-	/// NOTE: the body mirrors SuperfluidToken.updateAgreementData instead of calling
-	/// super, so that the storage slot is derived only once.
 	function updateAgreementData(
 		bytes32 id,
 		bytes32[] calldata data
-	) external override(ISuperfluidToken, SuperfluidToken) {
-		bytes32 slot = keccak256(abi.encode("AgreementData", msg.sender, id));
+	) public override(ISuperfluidToken, SuperfluidToken) {
 		// the agreement class is looked up on the host on each paused call, so that a
 		// superfluid governance change of the CFA registration is picked up
 		if (paused() && msg.sender == _cfaV1()) {
-			_onlyNotIncreasingFlow(slot, data);
+			_onlyNotIncreasingFlow(
+				keccak256(abi.encode("AgreementData", msg.sender, id)),
+				data
+			);
 		}
-		FixedSizeData.storeData(slot, data);
-		emit AgreementUpdated(msg.sender, id, data);
+		// the write itself stays with SuperfluidToken, so this override can not drift
+		// from the upstream implementation
+		super.updateAgreementData(id, data);
 	}
 
 	/// the CFAv1 agreement class as currently registered in the host
