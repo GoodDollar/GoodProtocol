@@ -416,7 +416,6 @@ describe("IdentityV4", () => {
   it("should follow reverify schedule and cycle authCount", async () => {
     // set timestamp to a fixed point (now) to avoid exclusion of old users
     // due to initialDate set in hardhat config
-    const block = await ethers.provider.getBlock("latest");
     await time.setNextBlockTimestamp(Number((Date.now() / 1000).toFixed(0)));
     await expect(identity.setReverifyDaysOptions([1, 7, 180])).not.reverted;
 
@@ -457,8 +456,8 @@ describe("IdentityV4", () => {
     expect(await identity.isWhitelisted(u.address)).to.be.true;
     // cleanup (remove whitelisted) to avoid affecting other tests
     await identity.removeWhitelisted(u.address);
-
-    // restore time to normal flow
-    time.setNextBlockTimestamp(block.timestamp);
+    // NOTE: the block time is deliberately not restored here - this test moves the
+    // chain ~191 days forward and setNextBlockTimestamp cannot rewind. Suites that
+    // need the original time get it back through their loadFixture snapshot.
   });
 });
