@@ -335,6 +335,36 @@ describe("SuperGoodDollar", async function () {
     );
   });
 
+  it("blocked address can not be minted to (bridge in)", async function () {
+    await loadFixture(initialState);
+    await sgd.connect(founder).setBlocked([eve.address], true);
+
+    await expect(
+      sgd.connect(founder).mint(eve.address, tenDollars)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+
+    await sgd.connect(founder).setBlocked([eve.address], false);
+    await sgd.connect(founder).mint(eve.address, tenDollars);
+    expect(await sgd.balanceOf(eve.address)).equal(tenDollars);
+  });
+
+  it("blocked address can not burn (bridge out)", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(eve.address, tenDollars);
+    await sgd.connect(eve).approve(alice.address, tenDollars);
+    await sgd.connect(founder).setBlocked([eve.address], true);
+
+    // self burn
+    await expect(
+      sgd.connect(eve).burn(oneDollar)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+
+    // burn via an allowance granted before the block
+    await expect(
+      sgd.connect(alice).burnFrom(eve.address, oneDollar)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+  });
+
   it("adminBurn works on a blocked address", async function () {
     await loadFixture(initialState);
     await sgd.mint(eve.address, tenDollars);

@@ -270,6 +270,7 @@ contract SuperGoodDollar is
 		bytes memory operatorData
 	) internal virtual override {
 		_onlyNotPaused();
+		_onlyNotBlocked(from);
 		// handing over to the wrapper of SuperToken.transferFrom
 		super._burn(operator, from, amount, userData, operatorData);
 	}
@@ -284,6 +285,7 @@ contract SuperGoodDollar is
 		uint256 amount
 	) public override(IGoodDollarCustom) onlyMinter returns (bool) {
 		_onlyNotPaused();
+		_onlyNotBlocked(to);
 
 		if (cap > 0) {
 			if (totalSupply() + amount > cap) revert SUPER_GOODDOLLAR_CAP_EXCEEDED();
@@ -394,8 +396,8 @@ contract SuperGoodDollar is
 		address recipient,
 		uint256 amount
 	) internal returns (uint256) {
-		if (isBlocked[account] || isBlocked[recipient])
-			revert SUPER_GOODDOLLAR_BLOCKED();
+		_onlyNotBlocked(account);
+		_onlyNotBlocked(recipient);
 		(uint256 txFees, bool senderPays) = getFees(amount, account, recipient);
 		if (txFees > 0 && !identity.isDAOContract(msg.sender)) {
 			if (senderPays && amount + txFees > balanceOf(account))
@@ -441,6 +443,10 @@ contract SuperGoodDollar is
 
 	function _onlyNotPaused() internal view {
 		if (paused()) revert SUPER_GOODDOLLAR_PAUSED();
+	}
+
+	function _onlyNotBlocked(address account) internal view {
+		if (isBlocked[account]) revert SUPER_GOODDOLLAR_BLOCKED();
 	}
 
 	modifier onlyMinter() {
