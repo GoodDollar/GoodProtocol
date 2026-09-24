@@ -1,0 +1,14 @@
+[
+  {
+    "account": "0x0000000000000000000000000000000000000001",
+    "gd": "1000000.00",
+    "refundUSD": "1234.56",
+    "note": "exploiter EOA - drained via <incident>"
+  },
+  {
+    "account": "0x0000000000000000000000000000000000000002",
+    "gdWei": "500000000000000000000",
+    "refundUSDWei": "10000000000000000000",
+    "note": "raw base units are accepted too"
+  }
+]
