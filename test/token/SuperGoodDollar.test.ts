@@ -354,9 +354,14 @@ describe("SuperGoodDollar", async function () {
     await sgd.connect(eve).approve(alice.address, tenDollars);
     await sgd.connect(founder).setBlocked([eve.address], true);
 
-    // self burn
+    // self burn - "burn" is overloaded (erc777 burn(uint256,bytes)), so name the signature
     await expect(
-      sgd.connect(eve).burn(oneDollar)
+      sgd.connect(eve)["burn(uint256)"](oneDollar)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+
+    // erc777 burn
+    await expect(
+      sgd.connect(eve)["burn(uint256,bytes)"](oneDollar, "0x")
     ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
 
     // burn via an allowance granted before the block
