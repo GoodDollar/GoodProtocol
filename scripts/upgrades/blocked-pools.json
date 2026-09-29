@@ -1,0 +1,30 @@
+{
+  "production-celo": {
+    "blocked": true,
+    "pools": [
+      "0x6619871118D144c1c28eC3b23036FC1f0829ed3a",
+      "0x059ee811414230d1Fb157878D2b491240F4D8d3B",
+      "0x991f1AA7e0901f9AB3d583846bf5BE0EbACE1d7f",
+      "0x3D9e27C04076288eBfdC4815b4f6d81b0ED1b341",
+      "0x9491d57c5687AB75726423B55AC2d87D1cDa2c3F",
+      "0x31f9DeE850B4284b81B52b25a3194F2FC8fF18CF",
+      "0x07F86B39728Be613062bc7413FC2CA7293Eef022",
+      "0x25878951ae130014E827e6f54fd3B4CCa057a7e8",
+      "0xCB037f27eB3952222810966e28E0cEB650c65CD9",
+      "0x8b393470bef8bb27a9a5169531b4eBA5209b0b26",
+      "0xA0BeF7ff637c10b9Ec67a00687B4d4364A7f1c55",
+      "0x288dc841A52FCA2707c6947B3A777c5E56cd87BC",
+      "0xC10eE9031F2a0B84766A86B55a8D90F357910fb4",
+      "0xb92fe925DC43a0ECdE6c8b1a2709c170Ec4fFf4f",
+      "0x89c6340B1a1f4b25D36cd8B063D49045caF3f818"
+    ]
+  },
+  "staging-celo": {
+    "blocked": true,
+    "pools": []
+  },
+  "development-celo": {
+    "blocked": true,
+    "pools": []
+  }
+}

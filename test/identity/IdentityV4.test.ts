@@ -456,8 +456,5 @@ describe("IdentityV4", () => {
     expect(await identity.isWhitelisted(u.address)).to.be.true;
     // cleanup (remove whitelisted) to avoid affecting other tests
     await identity.removeWhitelisted(u.address);
-    // NOTE: the block time is deliberately not restored here - this test moves the
-    // chain ~191 days forward and setNextBlockTimestamp cannot rewind. Suites that
-    // need the original time get it back through their loadFixture snapshot.
   });
 });

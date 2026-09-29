@@ -28,11 +28,12 @@ contract SuperGoodDollar is
 	IGoodDollarCustom // without storage
 {
 	error SUPER_GOODDOLLAR_PAUSED();
-	error SUPER_GOODDOLLAR_BURN_EXCEEDS_ALLOWANCE();
-	error SUPER_GOODDOLLAR_FALLBACK_FAILED();
-	error SUPER_GOODDOLLAR_CAP_EXCEEDED();
+	error SUPER_GOODDOLLAR_BLOCKED();
 	error SUPER_GOODDOLLAR_NOT_PAUSER();
 	error SUPER_GOODDOLLAR_NOT_MINTER();
+	error SUPER_GOODDOLLAR_CAP_EXCEEDED();
+	error SUPER_GOODDOLLAR_BURN_EXCEEDS_ALLOWANCE();
+	error SUPER_GOODDOLLAR_FALLBACK_FAILED();
 	error SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE();
 
 	// IMPORTANT! Never change the type (storage size) or order of state variables.
@@ -42,6 +43,8 @@ contract SuperGoodDollar is
 	IIdentity public identity;
 	uint256 public cap;
 	bool public disableHostOperations;
+	/// @dev accounts (eg. known DEX pools) that can neither send nor receive G$
+	mapping(address => bool) public isBlocked;
 	// Append additional state variables here!
 
 	// ============== constants and immutables ==============
@@ -49,6 +52,9 @@ contract SuperGoodDollar is
 	address public constant getUnderlyingToken = address(0x0);
 	bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 	bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+
+	event BlockedUpdated(address indexed account, bool blocked);
+
 	event TransferFee(
 		address from,
 		address to,
@@ -321,6 +327,7 @@ contract SuperGoodDollar is
 		bytes memory operatorData
 	) internal virtual override {
 		_onlyNotPaused();
+		_onlyNotBlocked(from);
 		// handing over to the wrapper of SuperToken.transferFrom
 		super._burn(operator, from, amount, userData, operatorData);
 	}
@@ -335,9 +342,12 @@ contract SuperGoodDollar is
 		uint256 amount
 	) public override(IGoodDollarCustom) onlyMinter returns (bool) {
 		_onlyNotPaused();
+		_onlyNotBlocked(to);
 
-		if (cap > 0 && totalSupply() + amount > cap)
-			revert SUPER_GOODDOLLAR_CAP_EXCEEDED();
+		if (cap > 0) {
+			if (totalSupply() + amount > cap) revert SUPER_GOODDOLLAR_CAP_EXCEEDED();
+		}
+    
 		_mint(
 			msg.sender,
 			to,
@@ -354,6 +364,7 @@ contract SuperGoodDollar is
 		uint256 currentAllowance = allowance(account, _msgSender());
 		if (currentAllowance < amount)
 			revert SUPER_GOODDOLLAR_BURN_EXCEEDS_ALLOWANCE();
+      
 		unchecked {
 			_approve(account, _msgSender(), currentAllowance - amount);
 		}
@@ -376,6 +387,27 @@ contract SuperGoodDollar is
 		SuperfluidToken._burn(account, amount);
 		emit Burned(msg.sender, account, amount, new bytes(0), new bytes(0));
 		emit IERC20.Transfer(account, address(0), amount);
+	}
+
+	/**
+	 * @dev Blocks/unblocks accounts (eg. known liquidity pools) from sending or receiving G$.
+	 * Owner only.
+	 * Note: this covers the ERC20/ERC677/ERC777 surface (incl. the host batch operations).
+	 * Superfluid streams settle via the agreement layer and are not covered - a stream can still
+	 * credit a blocked account, but that account will not be able to move the funds out.
+	 * @param accounts the addresses to update
+	 * @param blocked true to block, false to unblock
+	 */
+	function setBlocked(address[] calldata accounts, bool blocked) external {
+		_onlyOwner();
+		for (uint256 i; i < accounts.length; ) {
+			address account = accounts[i];
+			isBlocked[account] = blocked;
+			emit BlockedUpdated(account, blocked);
+			unchecked {
+				++i;
+			}
+		}
 	}
 
 	/**
@@ -413,7 +445,8 @@ contract SuperGoodDollar is
 	// internal functions
 
 	/**
-	 * @dev Sends transactional fees to feeRecipient address from given address
+	 * @dev Enforces the blocklist and sends transactional fees to feeRecipient address from given address.
+	 * Called by every G$ movement (ERC20/ERC677/ERC777 and the superfluid host batch operations).
 	 * @param account The account that sends the fees
 	 * @param amount The amount to subtract fees from
 	 * @return an uint256 that represents the given amount minus the transactional fees
@@ -423,6 +456,8 @@ contract SuperGoodDollar is
 		address recipient,
 		uint256 amount
 	) internal returns (uint256) {
+		_onlyNotBlocked(account);
+		_onlyNotBlocked(recipient);
 		(uint256 txFees, bool senderPays) = getFees(amount, account, recipient);
 		if (txFees > 0 && !identity.isDAOContract(msg.sender)) {
 			if (senderPays && amount + txFees > balanceOf(account))
@@ -469,6 +504,10 @@ contract SuperGoodDollar is
 
 	function _onlyNotPaused() internal view {
 		if (paused()) revert SUPER_GOODDOLLAR_PAUSED();
+	}
+
+	function _onlyNotBlocked(address account) internal view {
+		if (isBlocked[account]) revert SUPER_GOODDOLLAR_BLOCKED();
 	}
 
 	modifier onlyMinter() {
