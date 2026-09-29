@@ -203,9 +203,18 @@ export const upgrade = async () => {
     );
   }
 
-  const impl = (await ethers.deployContract("SuperGoodDollar", [host]).then(printDeploy)) as Contract;
+  const flowsLib = (await ethers.deployContract("SuperGoodDollarFlows").then(printDeploy)) as Contract;
+  const impl = (await ethers
+    .deployContract("SuperGoodDollar", [host], { libraries: { SuperGoodDollarFlows: flowsLib.address } })
+    .then(printDeploy)) as Contract;
 
   if (!isForkSimulation) {
+    await verifyContract(
+      flowsLib.address,
+      "contracts/token/superfluid/SuperGoodDollarFlows.sol:SuperGoodDollarFlows",
+      networkEnv,
+      false
+    );
     // the constructor takes the superfluid host - without it etherscan rejects the source
     await verifyContract(
       impl.address,

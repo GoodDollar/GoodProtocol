@@ -2,6 +2,7 @@ import "@openzeppelin/hardhat-upgrades";
 import { ethers, upgrades } from "hardhat";
 
 import SuperGoodDollarArtifact from "../artifacts/contracts/token/superfluid/SuperGoodDollar.sol/SuperGoodDollar.json";
+import SuperGoodDollarFlowsArtifact from "../artifacts/contracts/token/superfluid/SuperGoodDollarFlows.sol/SuperGoodDollarFlows.json";
 import UUPSAritfact from "../artifacts/contracts/token/superfluid/UUPSProxy.sol/UUPSProxy.json";
 
 import IdentityArtifact from "../artifacts/contracts/identity/IdentityV2.sol/IdentityV2.json";
@@ -12,6 +13,31 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 type Signer = SignerWithAddress;
 
 export type TokenArgs = [string, string];
+
+const linkBytecode = (
+  artifact: {
+    bytecode: string;
+    linkReferences: Record<
+      string,
+      Record<string, { start: number; length: number }[]>
+    >;
+  },
+  libraries: Record<string, string>
+) => {
+  let bytecode = artifact.bytecode;
+  for (const refs of Object.values(artifact.linkReferences)) {
+    for (const [name, offsets] of Object.entries(refs)) {
+      const address = libraries[name].toLowerCase().slice(2);
+      for (const { start, length } of offsets) {
+        bytecode =
+          bytecode.slice(0, 2 + start * 2) +
+          address +
+          bytecode.slice(2 + (start + length) * 2);
+      }
+    }
+  }
+  return bytecode;
+};
 
 export const deploySuperGoodDollar = async (
   signer,
@@ -61,9 +87,16 @@ export const deploySuperGoodDollar = async (
     await signer.getAddress(),
     ...tokenArgs
   ];
+  const SuperGoodDollarFlows = await new ethers.ContractFactory(
+    SuperGoodDollarFlowsArtifact.abi,
+    SuperGoodDollarFlowsArtifact.bytecode,
+    signer
+  ).deploy();
   const SuperGoodDollarFactory = new ethers.ContractFactory(
     SuperGoodDollarArtifact.abi,
-    SuperGoodDollarArtifact.bytecode,
+    linkBytecode(SuperGoodDollarArtifact, {
+      SuperGoodDollarFlows: SuperGoodDollarFlows.address
+    }),
     signer
   );
   const SuperGoodDollar = await SuperGoodDollarFactory.deploy(sfContracts.host);

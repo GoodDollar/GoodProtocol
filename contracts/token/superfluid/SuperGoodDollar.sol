@@ -10,6 +10,7 @@ import { ERC777Helper } from "@superfluid-finance/ethereum-contracts/contracts/l
 
 import { IGoodDollarCustom } from "./ISuperGoodDollar.sol";
 import { SuperToken } from "./SuperToken.sol";
+import { SuperGoodDollarFlows } from "./SuperGoodDollarFlows.sol";
 import "../ERC677.sol";
 import "../IFeesFormula.sol";
 import "../../Interfaces.sol";
@@ -120,60 +121,15 @@ contract SuperGoodDollar is
 		super.createAgreement(id, data);
 	}
 
-	/// while paused, block opening or increasing a stream. Closing, decreasing and
-	/// liquidating are deliberately left open: during an incident we still need to be
-	/// able to shut malicious streams down.
-	/// The CFA writes all flow state through updateAgreementData (create, update and
-	/// delete alike), and writes its flow operator (ACL) data through it as well, so
-	/// the guard is limited to the CFA and to the flow data layout.
+	/// while paused, block opening or increasing a CFA stream, see SuperGoodDollarFlows
 	function updateAgreementData(
 		bytes32 id,
 		bytes32[] calldata data
 	) public override(ISuperfluidToken, SuperfluidToken) {
-		// the agreement class is looked up on the host on each paused call, so that a
-		// superfluid governance change of the CFA registration is picked up
-		if (paused() && msg.sender == _cfaV1()) {
-			_onlyNotIncreasingFlow(id, data);
-		}
+		if (paused()) SuperGoodDollarFlows.onlyNotIncreasingFlow(_host, id, data);
 		// the write itself stays with SuperfluidToken, so this override can not drift
 		// from the upstream implementation
 		super.updateAgreementData(id, data);
-	}
-
-	/// the CFAv1 agreement class as currently registered in the host
-	function _cfaV1() private view returns (address) {
-		return
-			address(
-				_host.getAgreementClass(
-					keccak256(
-						"org.superfluid-finance.agreements.ConstantFlowAgreement.v1"
-					)
-				)
-			);
-	}
-
-	/// CFA flow data packing:
-	/// | timestamp 32 | flowRate 96 | deposit 64 | owedDeposit 64 |
-	/// the timestamp is non zero only when flowRate > 0, and is always zero in the
-	/// flow operator (ACL) data the CFA writes through the same function, so it
-	/// discriminates between the two single word layouts.
-	function _onlyNotIncreasingFlow(
-		bytes32 id,
-		bytes32[] calldata data
-	) private view {
-		uint256 newWord = uint256(data[0]);
-		// a zero timestamp means a flow being closed, or flow operator data
-		if (newWord >> 224 == 0) return;
-		// the previous flow data via the inherited accessor, zeros for a new flow
-		uint256 oldWord = uint256(getAgreementData(msg.sender, id, 1)[0]);
-		if (_flowRate(newWord) > _flowRate(oldWord)) {
-			revert SUPER_GOODDOLLAR_PAUSED();
-		}
-	}
-
-	/// mirrors ConstantFlowAgreementV1._decodeFlowData, which is internal to the CFA
-	function _flowRate(uint256 word) private pure returns (int96) {
-		return int96(int256(word >> 128) & int256(uint256(type(uint96).max)));
 	}
 
 	/// failsafe in case we don't want to trust superfluid host for batch operations
