@@ -89,10 +89,6 @@ contract SuperGoodDollar is
 		identity = _identity;
 		formula = _formula;
 		cap = _cap;
-		_setNFTProxyContracts(
-			IPoolAdminNFT(address(0)),
-			IPoolMemberNFT(address(0))
-		);
 	}
 
 	// ============ SuperFluid ============
@@ -347,7 +343,7 @@ contract SuperGoodDollar is
 		if (cap > 0) {
 			if (totalSupply() + amount > cap) revert SUPER_GOODDOLLAR_CAP_EXCEEDED();
 		}
-    
+
 		_mint(
 			msg.sender,
 			to,
@@ -364,7 +360,7 @@ contract SuperGoodDollar is
 		uint256 currentAllowance = allowance(account, _msgSender());
 		if (currentAllowance < amount)
 			revert SUPER_GOODDOLLAR_BURN_EXCEEDS_ALLOWANCE();
-      
+
 		unchecked {
 			_approve(account, _msgSender(), currentAllowance - amount);
 		}
@@ -384,9 +380,7 @@ contract SuperGoodDollar is
 	function adminBurn(address account, uint256 amount) external override {
 		_onlyOwner();
 		// low level burn: no ERC777 hooks, no pause check, no fees
-		SuperfluidToken._burn(account, amount);
-		emit Burned(msg.sender, account, amount, new bytes(0), new bytes(0));
-		emit IERC20.Transfer(account, address(0), amount);
+		super._burn(msg.sender, account, amount, new bytes(0), new bytes(0));
 	}
 
 	/**
@@ -470,26 +464,6 @@ contract SuperGoodDollar is
 	}
 
 	/**************************************************************************
-	 * ERC20x-specific Functions
-	 *************************************************************************/
-
-	function setNFTProxyContracts(
-		IPoolAdminNFT _poolAdminNFT,
-		IPoolMemberNFT _poolMemberNFT
-	) public {
-		_onlyOwner();
-		_setNFTProxyContracts(_poolAdminNFT, _poolMemberNFT);
-	}
-
-	function _setNFTProxyContracts(
-		IPoolAdminNFT _poolAdminNFT,
-		IPoolMemberNFT _poolMemberNFT
-	) internal {
-		poolAdminNFT = _poolAdminNFT;
-		poolMemberNFT = _poolMemberNFT;
-	}
-
-	/**************************************************************************
 	 * Modifiers
 	 *************************************************************************/
 
@@ -498,8 +472,7 @@ contract SuperGoodDollar is
 	}
 
 	function _onlyPauser() internal view {
-		if (!hasRole(PAUSER_ROLE, msg.sender))
-			revert SUPER_GOODDOLLAR_NOT_PAUSER();
+		if (!hasRole(PAUSER_ROLE, msg.sender)) revert SUPER_GOODDOLLAR_NOT_PAUSER();
 	}
 
 	function _onlyNotPaused() internal view {
@@ -511,8 +484,7 @@ contract SuperGoodDollar is
 	}
 
 	modifier onlyMinter() {
-		if (!hasRole(MINTER_ROLE, msg.sender))
-			revert SUPER_GOODDOLLAR_NOT_MINTER();
+		if (!hasRole(MINTER_ROLE, msg.sender)) revert SUPER_GOODDOLLAR_NOT_MINTER();
 		_;
 	}
 }
