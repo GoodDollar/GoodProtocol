@@ -112,7 +112,7 @@ contract IdentityV4 is
 	 * Provide non-empty array. Values must fit in uint8 (<=255).
 	 */
 	function setReverifyDaysOptions(
-		uint8[] calldata options
+		uint32[] calldata options
 	) external onlyRole(IDENTITY_ADMIN_ROLE) {
 		require(options.length > 0, "empty options");
 		// replace storage array
@@ -152,11 +152,6 @@ contract IdentityV4 is
 		uint daysSinceAuthentication = (timestamp -
 			identities[account].dateAuthenticated) / 1 days;
 
-		// temp exclusion post upgrade for previously authenticted users to start with authcount at last step
-		// can be removed in the future
-		if (identities[account].dateAuthenticated < 1772697574) {
-			identities[account].authCount = uint32(reverifyDaysOptions.length - 1);
-		}
 		// should happen before updating dateAuthenticated
 		if (shouldReverify(account, daysSinceAuthentication)) {
 			identities[account].authCount += 1;
@@ -238,11 +233,6 @@ contract IdentityV4 is
 	) public view returns (bool) {
 		uint32 authCount = identities[account].authCount;
 
-		// temp exclusion post upgrade for previously authenticted users to start with authcount at last step
-		// can be removed in the future
-		if (identities[account].dateAuthenticated < 1772697574) {
-			authCount = uint32(reverifyDaysOptions.length - 1);
-		}
 		uint reverifyAfterDays = reverifyDaysOptions[authCount];
 		if (daysSinceAuth >= reverifyAfterDays) return true;
 
