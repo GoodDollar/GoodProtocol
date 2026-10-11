@@ -1,12 +1,13 @@
 import hre, { ethers } from "hardhat";
 import { assert, expect } from "chai";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
 import { Framework } from "@superfluid-finance/sdk-core";
 import TransferAndCallMockABI from "@gooddollar/goodcontracts/build/contracts/TransferAndCallMock.json";
 import { createDAO, deploySuperGoodDollar, getSuperGoodDollarFactory } from "../helpers";
 import { ISuperGoodDollar } from "../../types";
 
 let sf,
+  sfContracts,
   sfHost,
   founder,
   alice,
@@ -22,6 +23,8 @@ const alotOfDollars = ethers.utils.parseEther("100000");
 const tenDollars = ethers.utils.parseEther("10");
 const oneDollar = ethers.utils.parseEther("1");
 const tenDollarsPerDay = "124378109452730"; // flowrate per second
+const ERC1820 = "0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24";
+const TOKENS_SENDER = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("ERC777TokensSender"));
 
 const initialState = async () => {};
 
@@ -29,7 +32,7 @@ describe("SuperGoodDollar", async function () {
   before(async function () {
     [founder, alice, bob, eve, newHost] = await ethers.getSigners();
 
-    let { sfContracts } = await createDAO();
+    ({ sfContracts } = await createDAO());
 
     sfHost = sfContracts.host;
     sf = await Framework.create({
@@ -39,22 +42,14 @@ describe("SuperGoodDollar", async function () {
       protocolReleaseVersion: "test"
     });
 
-    const FeesFormulaMockFactory = await ethers.getContractFactory(
-      "FeesFormulaMock",
-      founder
-    );
+    const FeesFormulaMockFactory = await ethers.getContractFactory("FeesFormulaMock", founder);
 
     const feesFormula0PctMock = await FeesFormulaMockFactory.deploy(0);
 
     feesFormula10PctMock = await FeesFormulaMockFactory.deploy(100000);
 
-    const IdentityMockFactory = await ethers.getContractFactory(
-      "IdentityMock",
-      founder
-    );
-    identityMock = await IdentityMockFactory.deploy(
-      "0x0000000000000000000000000000000000000000"
-    );
+    const IdentityMockFactory = await ethers.getContractFactory("IdentityMock", founder);
+    identityMock = await IdentityMockFactory.deploy("0x0000000000000000000000000000000000000000");
 
     receiverMock = await new ethers.ContractFactory(
       TransferAndCallMockABI.abi,
@@ -93,11 +88,7 @@ describe("SuperGoodDollar", async function () {
     await sgd.mint(alice.address, alotOfDollars);
     const balAfter = await sgd.balanceOf(alice.address);
 
-    assert.equal(
-      balAfter.toString(),
-      alotOfDollars.toString(),
-      "wrong balance after mint"
-    );
+    assert.equal(balAfter.toString(), alotOfDollars.toString(), "wrong balance after mint");
   });
 
   it("do ERC20 transfer", async function () {
@@ -106,19 +97,13 @@ describe("SuperGoodDollar", async function () {
     await sgd.connect(alice).transfer(bob.address, tenDollars);
     const balAfter = await sgd.balanceOf(bob.address);
 
-    assert.equal(
-      balAfter.toString(),
-      tenDollars.toString(),
-      "wrong balance after transfer"
-    );
+    assert.equal(balAfter.toString(), tenDollars.toString(), "wrong balance after transfer");
   });
 
   it("do ERC20 transferFrom", async function () {
     await loadFixture(initialState);
     await sgd.approve(alice.address, tenDollars);
-    await sgd
-      .connect(alice)
-      .transferFrom(founder.address, bob.address, tenDollars);
+    await sgd.connect(alice).transferFrom(founder.address, bob.address, tenDollars);
     assert.equal(
       (await sgd.balanceOf(bob.address)).toString(),
       tenDollars.toString(),
@@ -145,21 +130,14 @@ describe("SuperGoodDollar", async function () {
       providerOrSigner: ethers.provider
     });
 
-    assert.equal(
-      bobNetFlow,
-      tenDollarsPerDay,
-      "bob net flowrate not as expected"
-    );
+    assert.equal(bobNetFlow, tenDollarsPerDay, "bob net flowrate not as expected");
   });
 
   it("pauseable", async function () {
     await loadFixture(initialState);
     await sgd.connect(founder).pause();
 
-    await expect(sgd.transfer(bob.address, tenDollars)).revertedWithCustomError(
-      sgd,
-      "SUPER_GOODDOLLAR_PAUSED"
-    );
+    await expect(sgd.transfer(bob.address, tenDollars)).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_PAUSED");
 
     await expect(
       sf.cfaV1
@@ -381,11 +359,8 @@ describe("SuperGoodDollar", async function () {
     ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_PAUSED");
 
     await sgd.connect(founder).unpause();
-    await sf.idaV1
-      .createIndex({ superToken: sgd.address, indexId: "1" })
-      .exec(alice);
+    await sf.idaV1.createIndex({ superToken: sgd.address, indexId: "1" }).exec(alice);
   });
-
 
   it("adminBurn destroys illegitimate funds and reduces total supply", async function () {
     await loadFixture(initialState);
@@ -404,12 +379,8 @@ describe("SuperGoodDollar", async function () {
     await loadFixture(initialState);
     await sgd.mint(eve.address, tenDollars);
 
-    await expect(
-      sgd.connect(eve).adminBurn(eve.address, tenDollars)
-    ).revertedWith("not owner");
-    await expect(
-      sgd.connect(alice).adminBurn(eve.address, tenDollars)
-    ).revertedWith("not owner");
+    await expect(sgd.connect(eve).adminBurn(eve.address, tenDollars)).revertedWith("not owner");
+    await expect(sgd.connect(alice).adminBurn(eve.address, tenDollars)).revertedWith("not owner");
   });
 
   it("adminBurn works while paused", async function () {
@@ -427,9 +398,7 @@ describe("SuperGoodDollar", async function () {
     await loadFixture(initialState);
     await sgd.mint(eve.address, tenDollars);
 
-    await expect(
-      sgd.connect(founder).adminBurn(eve.address, tenDollars.mul(2))
-    ).reverted;
+    await expect(sgd.connect(founder).adminBurn(eve.address, tenDollars.mul(2))).reverted;
   });
 
   it("owner can block and unblock addresses in batch", async function () {
@@ -437,9 +406,7 @@ describe("SuperGoodDollar", async function () {
 
     expect(await sgd.isBlocked(eve.address)).equal(false);
 
-    await expect(
-      sgd.connect(founder).setBlocked([eve.address, bob.address], true)
-    )
+    await expect(sgd.connect(founder).setBlocked([eve.address, bob.address], true))
       .emit(sgd, "BlockedUpdated")
       .withArgs(eve.address, true)
       .emit(sgd, "BlockedUpdated")
@@ -447,9 +414,7 @@ describe("SuperGoodDollar", async function () {
     expect(await sgd.isBlocked(eve.address)).equal(true);
     expect(await sgd.isBlocked(bob.address)).equal(true);
 
-    await expect(
-      sgd.connect(founder).setBlocked([eve.address, bob.address], false)
-    )
+    await expect(sgd.connect(founder).setBlocked([eve.address, bob.address], false))
       .emit(sgd, "BlockedUpdated")
       .withArgs(eve.address, false);
     expect(await sgd.isBlocked(eve.address)).equal(false);
@@ -464,12 +429,8 @@ describe("SuperGoodDollar", async function () {
   it("setBlocked is only callable by the owner", async function () {
     await loadFixture(initialState);
 
-    await expect(sgd.connect(eve).setBlocked([eve.address], false)).revertedWith(
-      "not owner"
-    );
-    await expect(
-      sgd.connect(alice).setBlocked([bob.address], true)
-    ).revertedWith("not owner");
+    await expect(sgd.connect(eve).setBlocked([eve.address], false)).revertedWith("not owner");
+    await expect(sgd.connect(alice).setBlocked([bob.address], true)).revertedWith("not owner");
   });
 
   it("blocked address (eg. a known pool) can not receive or send", async function () {
@@ -480,13 +441,15 @@ describe("SuperGoodDollar", async function () {
     await sgd.connect(founder).setBlocked([bob.address], true);
 
     // to the pool
-    await expect(
-      sgd.connect(alice).transfer(bob.address, oneDollar)
-    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+    await expect(sgd.connect(alice).transfer(bob.address, oneDollar)).revertedWithCustomError(
+      sgd,
+      "SUPER_GOODDOLLAR_BLOCKED"
+    );
     // from the pool
-    await expect(
-      sgd.connect(bob).transfer(alice.address, oneDollar)
-    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+    await expect(sgd.connect(bob).transfer(alice.address, oneDollar)).revertedWithCustomError(
+      sgd,
+      "SUPER_GOODDOLLAR_BLOCKED"
+    );
 
     // unrelated transfers are unaffected
     const eveBefore = await sgd.balanceOf(eve.address);
@@ -502,55 +465,54 @@ describe("SuperGoodDollar", async function () {
     await sgd.connect(bob).approve(founder.address, tenDollars);
     await sgd.connect(founder).setBlocked([bob.address], true);
 
-    await expect(
-      sgd.connect(founder).transferFrom(alice.address, bob.address, oneDollar)
-    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
-    await expect(
-      sgd.connect(founder).transferFrom(bob.address, alice.address, oneDollar)
-    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+    await expect(sgd.connect(founder).transferFrom(alice.address, bob.address, oneDollar)).revertedWithCustomError(
+      sgd,
+      "SUPER_GOODDOLLAR_BLOCKED"
+    );
+    await expect(sgd.connect(founder).transferFrom(bob.address, alice.address, oneDollar)).revertedWithCustomError(
+      sgd,
+      "SUPER_GOODDOLLAR_BLOCKED"
+    );
 
     // erc777
     await expect(
-      sgd
-        .connect(alice)
-        ["send(address,uint256,bytes)"](bob.address, oneDollar, "0x")
+      sgd.connect(alice)["send(address,uint256,bytes)"](bob.address, oneDollar, "0x")
     ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
     await expect(
-      sgd
-        .connect(bob)
-        ["send(address,uint256,bytes)"](alice.address, oneDollar, "0x")
+      sgd.connect(bob)["send(address,uint256,bytes)"](alice.address, oneDollar, "0x")
     ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
 
     // erc677
     await sgd.connect(founder).setBlocked([receiverMock.address], true);
-    await expect(
-      sgd.connect(alice).transferAndCall(receiverMock.address, oneDollar, "0x")
-    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+    await expect(sgd.connect(alice).transferAndCall(receiverMock.address, oneDollar, "0x")).revertedWithCustomError(
+      sgd,
+      "SUPER_GOODDOLLAR_BLOCKED"
+    );
   });
 
   it("unblocking restores transfers", async function () {
     await loadFixture(initialState);
     await sgd.mint(bob.address, tenDollars);
     await sgd.connect(founder).setBlocked([bob.address], true);
-    await expect(
-      sgd.connect(bob).transfer(alice.address, oneDollar)
-    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+    await expect(sgd.connect(bob).transfer(alice.address, oneDollar)).revertedWithCustomError(
+      sgd,
+      "SUPER_GOODDOLLAR_BLOCKED"
+    );
 
     await sgd.connect(founder).setBlocked([bob.address], false);
     const aliceBefore = await sgd.balanceOf(alice.address);
     await sgd.connect(bob).transfer(alice.address, oneDollar);
-    expect(await sgd.balanceOf(alice.address)).equal(
-      aliceBefore.add(oneDollar)
-    );
+    expect(await sgd.balanceOf(alice.address)).equal(aliceBefore.add(oneDollar));
   });
 
   it("blocked address can not be minted to (bridge in)", async function () {
     await loadFixture(initialState);
     await sgd.connect(founder).setBlocked([eve.address], true);
 
-    await expect(
-      sgd.connect(founder).mint(eve.address, tenDollars)
-    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+    await expect(sgd.connect(founder).mint(eve.address, tenDollars)).revertedWithCustomError(
+      sgd,
+      "SUPER_GOODDOLLAR_BLOCKED"
+    );
 
     await sgd.connect(founder).setBlocked([eve.address], false);
     await sgd.connect(founder).mint(eve.address, tenDollars);
@@ -564,19 +526,19 @@ describe("SuperGoodDollar", async function () {
     await sgd.connect(founder).setBlocked([eve.address], true);
 
     // self burn - "burn" is overloaded (erc777 burn(uint256,bytes)), so name the signature
-    await expect(
-      sgd.connect(eve)["burn(uint256)"](oneDollar)
-    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+    await expect(sgd.connect(eve)["burn(uint256)"](oneDollar)).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
 
     // erc777 burn
-    await expect(
-      sgd.connect(eve)["burn(uint256,bytes)"](oneDollar, "0x")
-    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+    await expect(sgd.connect(eve)["burn(uint256,bytes)"](oneDollar, "0x")).revertedWithCustomError(
+      sgd,
+      "SUPER_GOODDOLLAR_BLOCKED"
+    );
 
     // burn via an allowance granted before the block
-    await expect(
-      sgd.connect(alice).burnFrom(eve.address, oneDollar)
-    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+    await expect(sgd.connect(alice).burnFrom(eve.address, oneDollar)).revertedWithCustomError(
+      sgd,
+      "SUPER_GOODDOLLAR_BLOCKED"
+    );
   });
 
   it("adminBurn works on a blocked address", async function () {
@@ -594,20 +556,17 @@ describe("SuperGoodDollar", async function () {
     await sgd.connect(founder).mint(alice.address, tenDollars);
     await sgd.setFormula(feesFormula10PctMock.address);
 
-    await expect(
-      sgd.connect(alice).transfer(bob.address, tenDollars)
-    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE");
+    await expect(sgd.connect(alice).transfer(bob.address, tenDollars)).revertedWithCustomError(
+      sgd,
+      "SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE"
+    );
 
     // mint the extra amount needed for 10% fees
     await sgd.mint(alice.address, oneDollar);
     await sgd.connect(alice).transfer(bob.address, tenDollars);
 
     // since the sender pays the fee, alice should have spent 11$ and bob received 10$
-    assert.equal(
-      (await sgd.balanceOf(alice.address)).toString(),
-      "0",
-      "alice: wrong balance after transfer"
-    );
+    assert.equal((await sgd.balanceOf(alice.address)).toString(), "0", "alice: wrong balance after transfer");
     assert.equal(
       (await sgd.balanceOf(bob.address)).toString(),
       tenDollars.toString(),
@@ -623,9 +582,10 @@ describe("SuperGoodDollar", async function () {
 
     await sgd.connect(alice).approve(founder.address, tenDollars.mul(2));
 
-    await expect(
-      sgd.connect(founder).transferFrom(alice.address, bob.address, tenDollars)
-    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE");
+    await expect(sgd.connect(founder).transferFrom(alice.address, bob.address, tenDollars)).revertedWithCustomError(
+      sgd,
+      "SUPER_GOODDOLLAR_FEE_EXCEEDS_BALANCE"
+    );
 
     // mint the extra amount needed for 10% fees
     await sgd.connect(founder).mint(alice.address, oneDollar);
@@ -635,16 +595,10 @@ describe("SuperGoodDollar", async function () {
       "alice: wrong balance after mint"
     );
 
-    await sgd
-      .connect(founder)
-      .transferFrom(alice.address, bob.address, tenDollars);
+    await sgd.connect(founder).transferFrom(alice.address, bob.address, tenDollars);
 
     // since the sender pays the fee, alice should have spent 11$ and bob received 10$
-    assert.equal(
-      (await sgd.balanceOf(alice.address)).toString(),
-      "0",
-      "alice: wrong balance after transfer"
-    );
+    assert.equal((await sgd.balanceOf(alice.address)).toString(), "0", "alice: wrong balance after transfer");
     assert.equal(
       (await sgd.balanceOf(bob.address)).toString(),
       tenDollars.toString(),
@@ -667,12 +621,7 @@ describe("SuperGoodDollar", async function () {
     ).revertedWith(/Initializable: contract is already initialized/);
 
     await expect(
-      sgd["initialize(address,uint8,string,string)"](
-        ethers.constants.AddressZero,
-        2,
-        "GD",
-        "GD"
-      )
+      sgd["initialize(address,uint8,string,string)"](ethers.constants.AddressZero, 2, "GD", "GD")
     ).revertedWith(/Initializable: contract is not initializing/);
   });
 
@@ -686,23 +635,15 @@ describe("SuperGoodDollar", async function () {
 
     const auxCodeAddrBefore = await sgdProxiable.getCodeAddress();
 
-    const newLogic = await (
-      await getSuperGoodDollarFactory(founder)
-    ).deploy(newHost.address);
+    const newLogic = await (await getSuperGoodDollarFactory(founder)).deploy(newHost.address);
 
-    await expect(
-      sgdProxiable.connect(eve).updateCode(newLogic.address)
-    ).revertedWith(/not owner/);
+    await expect(sgdProxiable.connect(eve).updateCode(newLogic.address)).revertedWith(/not owner/);
 
     await sgdProxiable.connect(founder).updateCode(newLogic.address);
 
     const auxCodeAddrAfter = await sgdProxiable.getCodeAddress();
 
-    assert.notEqual(
-      auxCodeAddrBefore,
-      auxCodeAddrAfter,
-      "code address unchanged"
-    );
+    assert.notEqual(auxCodeAddrBefore, auxCodeAddrAfter, "code address unchanged");
 
     expect(await sgd.getHost()).equal(newHost.address);
     await expect(
@@ -753,11 +694,7 @@ describe("SuperGoodDollar", async function () {
       const nonce = 0;
       const maxDeadline = ethers.constants.MaxUint256;
 
-      const buildData = (
-        chainId,
-        verifyingContract,
-        deadline = maxDeadline
-      ) => ({
+      const buildData = (chainId, verifyingContract, deadline = maxDeadline) => ({
         primaryType: "Permit",
         types: { Permit },
         domain: { name, version, chainId, verifyingContract },
@@ -766,11 +703,7 @@ describe("SuperGoodDollar", async function () {
 
       it("accepts owner signature", async function () {
         const data = buildData(chainId, sgd.address);
-        const signature = await wallet._signTypedData(
-          data.domain,
-          data.types,
-          data.message
-        );
+        const signature = await wallet._signTypedData(data.domain, data.types, data.message);
         const { v, r, s } = ethers.utils.splitSignature(signature);
 
         await sgd.permit(owner, bob.address, value, maxDeadline, v, r, s);
@@ -783,33 +716,25 @@ describe("SuperGoodDollar", async function () {
         await loadFixture(initialState);
 
         const data = buildData(chainId, sgd.address);
-        const signature = await wallet._signTypedData(
-          data.domain,
-          data.types,
-          data.message
-        );
+        const signature = await wallet._signTypedData(data.domain, data.types, data.message);
         const { v, r, s } = ethers.utils.splitSignature(signature);
 
         await sgd.permit(owner, bob.address, value, maxDeadline, v, r, s);
 
-        await expect(
-          sgd.permit(owner, bob.address, value, maxDeadline, v, r, s)
-        ).revertedWith(/ERC20Permit: invalid signature/);
+        await expect(sgd.permit(owner, bob.address, value, maxDeadline, v, r, s)).revertedWith(
+          /ERC20Permit: invalid signature/
+        );
       });
 
       it("rejects other signature", async function () {
         const otherWallet = ethers.Wallet.createRandom();
         const data = buildData(chainId, sgd.address);
-        const signature = await otherWallet._signTypedData(
-          data.domain,
-          data.types,
-          data.message
-        );
+        const signature = await otherWallet._signTypedData(data.domain, data.types, data.message);
         const { v, r, s } = ethers.utils.splitSignature(signature);
 
-        await expect(
-          sgd.permit(owner, bob.address, value, maxDeadline, v, r, s)
-        ).revertedWith(/ERC20Permit: invalid signature/);
+        await expect(sgd.permit(owner, bob.address, value, maxDeadline, v, r, s)).revertedWith(
+          /ERC20Permit: invalid signature/
+        );
       });
 
       it("rejects expired permit", async function () {
@@ -817,17 +742,295 @@ describe("SuperGoodDollar", async function () {
         const deadline = ethers.BigNumber.from(block.timestamp.toFixed(0));
 
         const data = buildData(chainId, sgd.address, deadline);
-        const signature = await wallet._signTypedData(
-          data.domain,
-          data.types,
-          data.message
-        );
+        const signature = await wallet._signTypedData(data.domain, data.types, data.message);
         const { v, r, s } = ethers.utils.splitSignature(signature);
 
-        await expect(
-          sgd.permit(owner, bob.address, value, deadline, v, r, s)
-        ).revertedWith(/ERC20Permit: expired deadline/);
+        await expect(sgd.permit(owner, bob.address, value, deadline, v, r, s)).revertedWith(
+          /ERC20Permit: expired deadline/
+        );
       });
     });
+  });
+
+  // Audit regressions and additional agreement guards are grouped at the end.
+  it("adminBurn can not be blocked by the holder's ERC777 tokensToSend hook", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(eve.address, tenDollars.mul(2));
+    const hook = await (await ethers.getContractFactory("RevertingTokensSenderMock")).deploy();
+    const registry = new ethers.Contract(ERC1820, ["function setInterfaceImplementer(address,bytes32,address)"], eve);
+    await registry.setInterfaceImplementer(eve.address, TOKENS_SENDER, hook.address);
+    // the hook is active
+    await expect(sgd.connect(eve)["burn(uint256,bytes)"](oneDollar, "0x")).revertedWith("holder blocks burn");
+
+    await sgd.connect(founder).adminBurn(eve.address, tenDollars);
+    await sgd.connect(founder).pause();
+    await sgd.connect(founder).adminBurn(eve.address, tenDollars);
+    expect(await sgd.balanceOf(eve.address)).equal(0);
+  });
+
+  it("should not be able to distribute through the IDA when paused", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, tenDollars);
+    await sf.idaV1.createIndex({ superToken: sgd.address, indexId: "1" }).exec(alice);
+    await sf.idaV1
+      .updateSubscriptionUnits({
+        superToken: sgd.address,
+        indexId: "1",
+        subscriber: bob.address,
+        units: "1"
+      })
+      .exec(alice);
+    await sf.idaV1
+      .approveSubscription({
+        superToken: sgd.address,
+        indexId: "1",
+        publisher: alice.address
+      })
+      .exec(bob);
+
+    await sgd.connect(founder).pause();
+    await expect(
+      sf.idaV1
+        .distribute({
+          superToken: sgd.address,
+          indexId: "1",
+          amount: tenDollars.toString(),
+          overrides: { gasLimit: 1000000 }
+        })
+        .exec(alice)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_PAUSED");
+
+    await sgd.connect(founder).unpause();
+    const bobBefore = await sgd.balanceOf(bob.address);
+    await sf.idaV1
+      .distribute({
+        superToken: sgd.address,
+        indexId: "1",
+        amount: tenDollars.toString()
+      })
+      .exec(alice);
+    expect(await sgd.balanceOf(bob.address)).equal(bobBefore.add(tenDollars));
+  });
+
+  it("should still be able to liquidate a critical CFA stream with paused", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, oneDollar.mul(3));
+    await sf.cfaV1
+      .createFlow({
+        superToken: sgd.address,
+        sender: alice.address,
+        receiver: bob.address,
+        flowRate: tenDollarsPerDay
+      })
+      .exec(alice);
+    // critical, but the deposit still covers it
+    await time.increase(4 * 3600);
+    expect(await sgd.isAccountCriticalNow(alice.address)).equal(true);
+
+    await sgd.connect(founder).pause();
+    // liquidation goes straight to the CFA, the SDK routes deleteFlow through the forwarder
+    const host = await ethers.getContractAt(["function callAgreement(address,bytes,bytes) returns (bytes)"], sfHost);
+    const cfa = new ethers.utils.Interface(["function deleteFlow(address,address,address,bytes)"]);
+    await host
+      .connect(eve)
+      .callAgreement(
+        sfContracts.cfa,
+        cfa.encodeFunctionData("deleteFlow", [sgd.address, alice.address, bob.address, "0x"]),
+        "0x"
+      );
+
+    expect(
+      await sf.cfaV1.getNetFlow({
+        superToken: sgd.address,
+        account: bob.address,
+        providerOrSigner: ethers.provider
+      })
+    ).equal("0");
+  });
+
+  it("should still be able to liquidate a critical CFA stream with blocked sender", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, oneDollar.mul(3));
+    await sf.cfaV1
+      .createFlow({
+        superToken: sgd.address,
+        sender: alice.address,
+        receiver: bob.address,
+        flowRate: tenDollarsPerDay
+      })
+      .exec(alice);
+    // critical, but the deposit still covers it
+    await time.increase(4 * 3600);
+    expect(await sgd.isAccountCriticalNow(alice.address)).equal(true);
+
+    await sgd.connect(founder).setBlocked([alice.address], true);
+    // liquidation goes straight to the CFA, the SDK routes deleteFlow through the forwarder
+    const host = await ethers.getContractAt(["function callAgreement(address,bytes,bytes) returns (bytes)"], sfHost);
+    const cfa = new ethers.utils.Interface(["function deleteFlow(address,address,address,bytes)"]);
+    await host
+      .connect(eve)
+      .callAgreement(
+        sfContracts.cfa,
+        cfa.encodeFunctionData("deleteFlow", [sgd.address, alice.address, bob.address, "0x"]),
+        "0x"
+      );
+
+    expect(
+      await sf.cfaV1.getNetFlow({
+        superToken: sgd.address,
+        account: bob.address,
+        providerOrSigner: ethers.provider
+      })
+    ).equal("0");
+  });
+
+  it("blocked address can not open or increase a stream, but can close it", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(bob.address, tenDollars);
+    await sf.cfaV1
+      .createFlow({
+        superToken: sgd.address,
+        sender: bob.address,
+        receiver: alice.address,
+        flowRate: tenDollarsPerDay
+      })
+      .exec(bob);
+    await sgd.connect(founder).setBlocked([bob.address], true);
+
+    await expect(
+      sf.cfaV1
+        .createFlow({
+          superToken: sgd.address,
+          sender: bob.address,
+          receiver: eve.address,
+          flowRate: tenDollarsPerDay,
+          overrides: { gasLimit: 1000000 }
+        })
+        .exec(bob)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+    await expect(
+      sf.cfaV1
+        .updateFlow({
+          superToken: sgd.address,
+          sender: bob.address,
+          receiver: alice.address,
+          flowRate: ethers.BigNumber.from(tenDollarsPerDay).mul(2).toString(),
+          overrides: { gasLimit: 1000000 }
+        })
+        .exec(bob)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
+
+    await sf.cfaV1
+      .deleteFlow({
+        superToken: sgd.address,
+        sender: bob.address,
+        receiver: alice.address
+      })
+      .exec(bob);
+    expect(
+      await sf.cfaV1.getNetFlow({
+        superToken: sgd.address,
+        account: alice.address,
+        providerOrSigner: ethers.provider
+      })
+    ).equal("0");
+  });
+
+  it("CFA: blocked sender can decrease and close after accrual; unblocking restores creation", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, tenDollars);
+    const flow = { superToken: sgd.address, sender: alice.address, receiver: bob.address };
+    await sf.cfaV1.createFlow({ ...flow, flowRate: tenDollarsPerDay }).exec(alice);
+    await time.increase(3600);
+    await sgd.connect(founder).setBlocked([alice.address], true);
+    const lowerRate = ethers.BigNumber.from(tenDollarsPerDay).div(2).toString();
+    await sf.cfaV1.updateFlow({ ...flow, flowRate: lowerRate }).exec(alice);
+    expect(
+      await sf.cfaV1.getNetFlow({ superToken: sgd.address, account: bob.address, providerOrSigner: ethers.provider })
+    ).equal(lowerRate);
+    await sf.cfaV1.deleteFlow(flow).exec(alice);
+    await sgd.connect(founder).setBlocked([alice.address], false);
+    await sf.cfaV1.createFlow({ ...flow, flowRate: tenDollarsPerDay }).exec(alice);
+  });
+
+  it("CFA: blocked receiver can settle an accrued stream when it closes", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, tenDollars);
+    const flow = { superToken: sgd.address, sender: alice.address, receiver: bob.address };
+    await sf.cfaV1.createFlow({ ...flow, flowRate: tenDollarsPerDay }).exec(alice);
+    await time.increase(3600);
+    const accrued = await sgd.balanceOf(bob.address);
+    await sgd.connect(founder).setBlocked([bob.address], true);
+    await sf.cfaV1.deleteFlow(flow).exec(alice);
+    expect(await sgd.balanceOf(bob.address)).gte(accrued);
+    expect(
+      await sf.cfaV1.getNetFlow({ superToken: sgd.address, account: bob.address, providerOrSigner: ethers.provider })
+    ).equal("0");
+  });
+
+  async function pendingIDASubscription() {
+    await loadFixture(initialState);
+    await sgd.mint(alice.address, tenDollars.mul(2));
+    const index = { superToken: sgd.address, indexId: "1" };
+    await sf.idaV1.createIndex(index).exec(alice);
+    await sf.idaV1.updateSubscriptionUnits({ ...index, subscriber: bob.address, units: "1" }).exec(alice);
+    return index;
+  }
+
+  for (const restricted of ["paused", "blocked publisher"]) {
+    it(`IDA: ${restricted} can not distribute to pending subscribers or pay pending claims`, async function () {
+      const index = await pendingIDASubscription();
+      await sf.idaV1.distribute({ ...index, amount: tenDollars.toString() }).exec(alice);
+      if (restricted === "paused") await sgd.connect(founder).pause();
+      else await sgd.connect(founder).setBlocked([alice.address], true);
+      const error = restricted === "paused" ? "SUPER_GOODDOLLAR_PAUSED" : "SUPER_GOODDOLLAR_BLOCKED";
+      const before = await sgd.balanceOf(bob.address);
+      await expect(
+        sf.idaV1.distribute({ ...index, amount: tenDollars.toString(), overrides: { gasLimit: 1000000 } }).exec(alice)
+      ).revertedWithCustomError(sgd, error);
+      await expect(
+        sf.idaV1
+          .claim({ ...index, publisher: alice.address, subscriber: bob.address, overrides: { gasLimit: 1000000 } })
+          .exec(bob)
+      ).revertedWithCustomError(sgd, error);
+      expect(await sgd.balanceOf(bob.address)).equal(before);
+      if (restricted === "paused") await sgd.connect(founder).unpause();
+      else await sgd.connect(founder).setBlocked([alice.address], false);
+      await sf.idaV1.claim({ ...index, publisher: alice.address, subscriber: bob.address }).exec(bob);
+      expect(await sgd.balanceOf(bob.address)).equal(before.add(tenDollars));
+    });
+  }
+
+  it("blocked address can not distribute through the IDA", async function () {
+    await loadFixture(initialState);
+    await sgd.mint(bob.address, tenDollars);
+    await sf.idaV1.createIndex({ superToken: sgd.address, indexId: "1" }).exec(bob);
+    await sf.idaV1
+      .updateSubscriptionUnits({
+        superToken: sgd.address,
+        indexId: "1",
+        subscriber: alice.address,
+        units: "1"
+      })
+      .exec(bob);
+    await sf.idaV1
+      .approveSubscription({
+        superToken: sgd.address,
+        indexId: "1",
+        publisher: bob.address
+      })
+      .exec(alice);
+    await sgd.connect(founder).setBlocked([bob.address], true);
+
+    await expect(
+      sf.idaV1
+        .distribute({
+          superToken: sgd.address,
+          indexId: "1",
+          amount: tenDollars.toString(),
+          overrides: { gasLimit: 1000000 }
+        })
+        .exec(bob)
+    ).revertedWithCustomError(sgd, "SUPER_GOODDOLLAR_BLOCKED");
   });
 });

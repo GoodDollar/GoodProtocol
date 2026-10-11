@@ -363,8 +363,8 @@ contract SuperGoodDollarFixSupply is
 	 */
 	function adminBurn(address account, uint256 amount) external override {
 		_onlyOwner();
-		// low level burn: no ERC777 hooks, no pause check, no fees
-		super._burn(msg.sender, account, amount, new bytes(0), new bytes(0));
+		// low level burn: no ERC777 hooks, no pause or blocklist check, no fees
+		_burnWithoutHooks(msg.sender, account, amount, new bytes(0), new bytes(0));
 	}
 
 	/**

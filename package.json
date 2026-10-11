@@ -84,7 +84,7 @@
     "@mean-finance/uniswap-v3-oracle": "^1.0.3",
     "@nomicfoundation/hardhat-chai-matchers": "1",
     "@nomicfoundation/hardhat-network-helpers": "^1.1.2",
-    "@nomicfoundation/hardhat-verify": "^2.1.0",
+    "@nomicfoundation/hardhat-verify": "2",
     "@nomiclabs/hardhat-ethers": "^2.2.1",
     "@nomiclabs/hardhat-waffle": "^2.0.6",
     "@openzeppelin/contracts": "^4.8.0",

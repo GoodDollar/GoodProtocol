@@ -62,14 +62,6 @@ const hhconfig: HardhatUserConfig = {
     apiKey: etherscan_key,
     customChains: [
       {
-        network: "fuse",
-        chainId: 122,
-        urls: {
-          apiURL: "https://explorer.fuse.io/api",
-          browserURL: "https://explorer.fuse.io/"
-        }
-      },
-      {
         network: "celo",
         chainId: 42220,
         urls: {
@@ -99,6 +91,22 @@ const hhconfig: HardhatUserConfig = {
         urls: {
           apiURL: "https://api.etherscan.io/v2/api?chainid=50",
           browserURL: "https://xdcscan.com/"
+        }
+      }
+    ]
+  },
+  // Fuse is not on Etherscan - its V2 endpoint rejects chain 122 outright - so it
+  // verifies against Blockscout instead. "production" is Fuse here; the name has to
+  // match the networks key or hardhat-verify never sees the entry.
+  blockscout: {
+    enabled: true,
+    customChains: [
+      {
+        network: "production",
+        chainId: 122,
+        urls: {
+          apiURL: "https://explorer.fuse.io/api",
+          browserURL: "https://explorer.fuse.io"
         }
       }
     ]
@@ -199,7 +207,7 @@ const hhconfig: HardhatUserConfig = {
     },
     "production-mainnet": {
       accounts: [deployerPrivateKey],
-      url: MAINNET_URL,
+      url: "https://ethereum.publicnode.com",
       // gas: 3000000,
       gasPrice: 15000000000,
       chainId: 1
@@ -262,6 +270,20 @@ const hhconfig: HardhatUserConfig = {
       gas: 3000000,
       gasPrice: 500000000,
       chainId: 100
+    },
+    op: {
+      accounts: [deployerPrivateKey],
+      url: "https://optimism.publicnode.com",
+      gas: 3000000,
+      gasPrice: 500000000,
+      chainId: 10
+    },
+    arb: {
+      accounts: [deployerPrivateKey],
+      url: "https://arbitrum.publicnode.com",
+      gas: 3000000,
+      gasPrice: 500000000,
+      chainId: 42161
     },
     txdc: {
       accounts: [deployerPrivateKey],

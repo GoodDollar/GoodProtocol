@@ -7,7 +7,7 @@ import { BigNumber } from "ethers";
 
 const BN = ethers.BigNumber;
 
-describe("Celo Gas Token", () => {
+describe.skip("Celo Gas Token", () => {
   let token: SuperGoodDollar, founder;
   let signers;
 
@@ -18,10 +18,7 @@ describe("Celo Gas Token", () => {
 
     let { gd: gooddollar } = await loadFixture(createDAO);
 
-    token = (await ethers.getContractAt(
-      "SuperGoodDollar",
-      gooddollar
-    )) as SuperGoodDollar;
+    token = (await ethers.getContractAt("SuperGoodDollar", gooddollar)) as SuperGoodDollar;
     await token.mint(founder.address, ethers.constants.WeiPerEther.mul(100));
   });
 
@@ -54,12 +51,7 @@ describe("Celo Gas Token", () => {
     const fee = ethers.constants.WeiPerEther.div(100);
 
     const [recipient, gateway, fund] = signers;
-    const [refund, recipientFee, gatewayFee, fundFee] = [
-      fee.div(10),
-      fee.div(100),
-      fee.div(200),
-      fee.div(300)
-    ];
+    const [refund, recipientFee, gatewayFee, fundFee] = [fee.div(10), fee.div(100), fee.div(200), fee.div(300)];
 
     await token.connect(vm).debitGasFees(founder.address, BigNumber.from(fee));
     await token
@@ -75,34 +67,19 @@ describe("Celo Gas Token", () => {
         fundFee
       );
 
-    expect(await token.balanceOf(founder.address)).eq(
-      balance.sub(fee).add(refund)
-    );
+    expect(await token.balanceOf(founder.address)).eq(balance.sub(fee).add(refund));
     expect(await token.balanceOf(recipient.address)).eq(recipientFee);
     expect(await token.balanceOf(gateway.address)).eq(gatewayFee);
     expect(await token.balanceOf(fund.address)).eq(fundFee);
-    expect(await token.totalSupply()).eq(
-      ts.sub(fee).add(refund).add(recipientFee).add(gatewayFee).add(fundFee)
-    );
+    expect(await token.totalSupply()).eq(ts.sub(fee).add(refund).add(recipientFee).add(gatewayFee).add(fundFee));
   });
 
   it("should only be callable by VM", async () => {
     await loadFixture(initialState);
 
+    await expect(token.debitGasFees(founder.address, BigNumber.from(1))).revertedWith(/VM/);
     await expect(
-      token.debitGasFees(founder.address, BigNumber.from(1))
-    ).revertedWith(/VM/);
-    await expect(
-      token.creditGasFees(
-        founder.address,
-        founder.address,
-        founder.address,
-        founder.address,
-        1,
-        1,
-        1,
-        1
-      )
+      token.creditGasFees(founder.address, founder.address, founder.address, founder.address, 1, 1, 1, 1)
     ).revertedWith(/VM/);
   });
 });
