@@ -29,12 +29,7 @@ describe("GoodDollar Token", () => {
 
   const regularTokenState = async () => {
     const deployedDAO = createDAO("regular");
-    const token = (await ethers.getContractAt(
-      "GoodDollar",
-      (
-        await deployedDAO
-      ).gd
-    )) as GoodDollar;
+    const token = (await ethers.getContractAt("GoodDollar", (await deployedDAO).gd)) as GoodDollar;
 
     await token.mint(founder.address, 100000000);
 
@@ -57,11 +52,7 @@ describe("GoodDollar Token", () => {
     avatar = av;
     identity = await ethers.getContractAt("IdentityV3", idv2);
 
-    const FeeFormulaFactory = new ethers.ContractFactory(
-      FeeFormulaABI.abi,
-      FeeFormulaABI.bytecode,
-      founder
-    );
+    const FeeFormulaFactory = new ethers.ContractFactory(FeeFormulaABI.abi, FeeFormulaABI.bytecode, founder);
 
     const FeeFormulaRecipientFactory = new ethers.ContractFactory(
       FeeFormulaRecipientABI.abi,
@@ -75,10 +66,7 @@ describe("GoodDollar Token", () => {
       founder
     ).deploy();
 
-    token = (await ethers.getContractAt(
-      "ISuperGoodDollar",
-      gooddollar
-    )) as ISuperGoodDollar;
+    token = (await ethers.getContractAt("ISuperGoodDollar", gooddollar)) as ISuperGoodDollar;
     feeFormula = FeeFormulaFactory.attach(await token.formula());
 
     // isProduction ? "GoodDollar" : "GoodDollar Dev",
@@ -196,23 +184,15 @@ describe("GoodDollar Token", () => {
 
   it("should have low gas cost for transfer with regular token", async () => {
     const token = await loadFixture(regularTokenState);
-    const firstTime = await (
-      await token.transfer(signers[2].address, 1000)
-    ).wait();
-    const secondTime = await (
-      await token.transfer(signers[2].address, 1000)
-    ).wait();
+    const firstTime = await (await token.transfer(signers[2].address, 1000)).wait();
+    const secondTime = await (await token.transfer(signers[2].address, 1000)).wait();
     expect(firstTime.gasUsed).lt(70000);
     expect(secondTime.gasUsed).lt(55000);
   });
 
   it("should have high gas cost for transfer with superfluid token", async () => {
-    const firstTime = await (
-      await token.transfer(signers[2].address, 1000)
-    ).wait();
-    const secondTime = await (
-      await token.transfer(signers[2].address, 1000)
-    ).wait();
+    const firstTime = await (await token.transfer(signers[2].address, 1000)).wait();
+    const secondTime = await (await token.transfer(signers[2].address, 1000)).wait();
     expect(firstTime.gasUsed).gt(160000);
     expect(secondTime.gasUsed).gt(149000);
   });
@@ -222,10 +202,8 @@ describe("GoodDollar Token", () => {
   });
 
   it("should let owner set identity and formula", async () => {
-    await expect(newtoken.setFormula(ethers.constants.AddressZero)).not
-      .reverted;
-    await expect(newtoken.setIdentity(ethers.constants.AddressZero)).not
-      .reverted;
+    await expect(newtoken.setFormula(ethers.constants.AddressZero)).not.reverted;
+    await expect(newtoken.setIdentity(ethers.constants.AddressZero)).not.reverted;
     expect(await newtoken.identity()).eq(ethers.constants.AddressZero);
     expect(await newtoken.formula()).eq(ethers.constants.AddressZero);
     await newtoken.setIdentity(identity.address);
@@ -233,12 +211,8 @@ describe("GoodDollar Token", () => {
   });
 
   it("should not let non owner set identity and formula", async () => {
-    await expect(
-      newtoken.connect(signers[0]).setFormula(ethers.constants.AddressZero)
-    ).revertedWith(/not owner/);
-    await expect(
-      newtoken.connect(signers[0]).setIdentity(ethers.constants.AddressZero)
-    ).revertedWith(/not owner/);
+    await expect(newtoken.connect(signers[0]).setFormula(ethers.constants.AddressZero)).revertedWith(/not owner/);
+    await expect(newtoken.connect(signers[0]).setIdentity(ethers.constants.AddressZero)).revertedWith(/not owner/);
   });
 
   it("should fail transfer", async () => {
@@ -247,28 +221,21 @@ describe("GoodDollar Token", () => {
     await expect(
       token
         .connect(outsider)
-        .transferAndCall(
-          receiver.address,
-          (await token.balanceOf(outsider.address)).add(100000),
-          data
-        )
+        .transferAndCall(receiver.address, (await token.balanceOf(outsider.address)).add(100000), data)
     ).reverted;
   });
 
   it("should not transfer and not call function", async () => {
     let data = "0x";
 
-    await expect(
-      token.transferAndCall(receiver.address, 1000, data)
-    ).revertedWith(/Contract Fallback failed/);
+    await expect(token.transferAndCall(receiver.address, 1000, data)).revertedWith(/Contract Fallback failed/);
     expect(await receiver.wasCalled()).false;
   });
 
   it("should transfer, not call and return true if not contract", async () => {
     let data = "0x";
 
-    await expect(token.transferAndCall(founder.address, 300, data)).not
-      .reverted;
+    await expect(token.transferAndCall(founder.address, 300, data)).not.reverted;
   });
 
   it("should transfer and call correct function on receiver contract", async () => {
@@ -283,16 +250,11 @@ describe("GoodDollar Token", () => {
   });
 
   it("should allow to transfer from", async () => {
-    await expect(
-      token
-        .connect(whitelisted)
-        .transferFrom(founder.address, whitelisted.address, 1000)
-    ).not.reverted;
+    await expect(token.connect(whitelisted).transferFrom(founder.address, whitelisted.address, 1000)).not.reverted;
   });
 
   it("should decrease allowance", async () => {
-    await expect(token.decreaseAllowance(whitelisted.address, 1000)).not
-      .reverted;
+    await expect(token.decreaseAllowance(whitelisted.address, 1000)).not.reverted;
   });
 
   it("should allow to burn", async () => {
@@ -301,15 +263,15 @@ describe("GoodDollar Token", () => {
 
   it("should allow to burn from", async () => {
     await expect(token.approve(whitelisted.address, 2000)).not.reverted;
-    await expect(token.connect(whitelisted).burnFrom(founder.address, 2000)).not
-      .reverted;
+    await expect(token.connect(whitelisted).burnFrom(founder.address, 2000)).not.reverted;
   });
 
   it("should not allow to mint beyond cap", async () => {
     await expect(unCappedToken.mint(founder.address, 1000)).not.reverted;
 
-    await expect(cappedToken.mint(founder.address, 1200)).revertedWith(
-      /Cannot increase supply beyond cap/
+    await expect(cappedToken.mint(founder.address, 1200)).revertedWithCustomError(
+      cappedToken,
+      "SUPER_GOODDOLLAR_CAP_EXCEEDED"
     );
   });
 
@@ -324,9 +286,7 @@ describe("GoodDollar Token", () => {
     const reserve = (await newtoken.balanceOf(avatar)) as any;
 
     const reserveDiff = reserve.sub(oldReserve);
-    const totalFees = await newtoken["getFees(uint256)"](20000).then(
-      _ => _["0"]
-    );
+    const totalFees = await newtoken["getFees(uint256)"](20000).then(_ => _["0"]);
     expect(totalFees).gt(0);
     expect(postBalance).eq(initBalance.sub(20000).sub(totalFees)); //senderpays
     expect(reserveDiff.toString()).to.be.equal(totalFees.toString());
@@ -336,9 +296,7 @@ describe("GoodDollar Token", () => {
     const oldReserve = await newtoken.balanceOf(avatar);
     const initBalance = await newtoken.balanceOf(whitelisted.address);
 
-    const tx = await newtoken
-      .connect(whitelisted)
-      .transferAndCall(outsider.address, 20000, "0x00");
+    const tx = await newtoken.connect(whitelisted).transferAndCall(outsider.address, 20000, "0x00");
     const postBalance = await newtoken.balanceOf(whitelisted.address);
 
     const events = (await tx.wait()).events;
@@ -350,16 +308,12 @@ describe("GoodDollar Token", () => {
         return {};
       }
     }) as any;
-    const transferEvents = parsedEvents.filter(
-      _ => _.name === "Transfer" && _.args.to === outsider.address
-    );
+    const transferEvents = parsedEvents.filter(_ => _.name === "Transfer" && _.args.to === outsider.address);
     // Check that reserve has received fees
     const reserve = (await newtoken.balanceOf(avatar)) as any;
 
     const reserveDiff = reserve.sub(oldReserve);
-    const totalFees = await newtoken["getFees(uint256)"](20000).then(
-      _ => _["0"]
-    );
+    const totalFees = await newtoken["getFees(uint256)"](20000).then(_ => _["0"]);
     expect(totalFees).gt(0);
     expect(reserveDiff.toString()).to.be.equal(totalFees.toString());
     expect(postBalance).eq(initBalance.sub(20000).sub(totalFees)); //senderpays
@@ -374,9 +328,7 @@ describe("GoodDollar Token", () => {
     const oldReserve = await feetoken.balanceOf(avatar);
     const initBalance = await feetoken.balanceOf(whitelisted.address);
 
-    const tx = await feetoken
-      .connect(whitelisted)
-      .transferAndCall(outsider.address, 5000, "0x00");
+    const tx = await feetoken.connect(whitelisted).transferAndCall(outsider.address, 5000, "0x00");
     const postBalance = await feetoken.balanceOf(whitelisted.address);
 
     const events = (await tx.wait()).events;
@@ -388,16 +340,12 @@ describe("GoodDollar Token", () => {
         return {};
       }
     }) as any;
-    const transferEvents = parsedEvents.filter(
-      _ => _.name === "Transfer" && _.args.to === outsider.address
-    );
+    const transferEvents = parsedEvents.filter(_ => _.name === "Transfer" && _.args.to === outsider.address);
     // Check that reserve has received fees
     const reserve = (await feetoken.balanceOf(avatar)) as any;
 
     const reserveDiff = reserve.sub(oldReserve);
-    const totalFees = await feetoken["getFees(uint256)"](5000).then(
-      _ => _["0"]
-    );
+    const totalFees = await feetoken["getFees(uint256)"](5000).then(_ => _["0"]);
     expect(totalFees).gt(0);
     expect(reserveDiff.toString()).to.be.equal(totalFees.toString());
     expect(postBalance).eq(initBalance.sub(5000)); //recipient pays fee
@@ -434,9 +382,7 @@ describe("GoodDollar Token", () => {
     const reserveDiff = reserve.sub(oldReserve);
     const founderDiff = newFounder.sub(oldFounder);
 
-    const totalFees = await newtoken["getFees(uint256)"](20000).then(
-      _ => _["0"]
-    );
+    const totalFees = await newtoken["getFees(uint256)"](20000).then(_ => _["0"]);
     expect(totalFees).gt(0);
     expect(reserveDiff.toString()).to.be.equal(totalFees.toString());
     expect(founderDiff.toString()).to.be.equal("20000");
