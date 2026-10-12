@@ -19,7 +19,7 @@ import deployments from "../../releases/deployment.json";
 import * as networkHelpers from "@nomicfoundation/hardhat-network-helpers";
 
 // Celo mainnet addresses
-const CELO_MAINNET_RPC = process.env.CELO_RPC_URL || "https://forno.celo.org";
+const CELO_MAINNET_RPC = "https://virtual.celo.eu.rpc.tenderly.co/gooddollar/project/a5c28c-1d612f"; //process.env.CELO_RPC_URL || "https://forno.celo.org";
 const CELO_CHAIN_ID = 42220;
 
 // How far behind the head to fork. Public Celo endpoints are load balanced pools
@@ -99,7 +99,7 @@ describe("BuyGDClone - Celo Fork E2E", function () {
     await networkHelpers.reset();
   });
   before(async function () {
-    await networkHelpers.reset(CELO_MAINNET_RPC, await getCeloForkBlock());
+    await networkHelpers.reset(CELO_MAINNET_RPC);
   });
 
   async function forkCelo() {
@@ -163,7 +163,6 @@ describe("BuyGDClone - Celo Fork E2E", function () {
   describe("cUSD Swap Tests", function () {
     it("Should use Uniswap when Mento is not configured", async function () {
       const { deployer, user, gdToken, cusdToken, whale, router, oracleAddress } = await loadFixture(forkCelo);
-
       // Create factory without Mento configuration
       const BuyGDCloneFactoryFactory = await ethers.getContractFactory("BuyGDCloneFactory");
       const factoryWithoutMento = (await BuyGDCloneFactoryFactory.deploy(
@@ -193,7 +192,6 @@ describe("BuyGDClone - Celo Fork E2E", function () {
       }
 
       await cusdToken.connect(whale).transfer(cloneAddress, swapAmount);
-
       // Should be able to get Uniswap expected return
       const uniswapExpected = await clone.callStatic.getExpectedReturnFromUniswapPath(swapAmount, cusdPath);
       expect(uniswapExpected).to.be.gt(0);
@@ -203,14 +201,12 @@ describe("BuyGDClone - Celo Fork E2E", function () {
         clone,
         "MENTO_NOT_CONFIGURED"
       );
-
       const initialGdBalance = await gdToken.balanceOf(user.address);
       const minAmount = await twapMinBoundedByQuote(clone, swapAmount, CUSD, cusdPath);
 
       // swapCusd should use Uniswap (only option)
       const swapTx = await clone.swapCusd(minAmount, user.address);
       const swapReceipt = await swapTx.wait();
-
       // Should emit BoughtFromUniswap event
       const uniswapEvent = swapReceipt.events?.find((e: any) => e.event === "BoughtFromUniswap");
       expect(uniswapEvent).to.not.be.undefined;
