@@ -17,6 +17,11 @@ import { FixedSizeData } from "@superfluid-finance/ethereum-contracts/contracts/
  * @dev Modified for SuperGoodDollar
  * 1. made createAgreement public and virtual
  * 2. added allowHostOperations to disable host actions by G$ governance in case of security issues
+ * 3. made updateAgreementData public (it is already virtual upstream) so SuperGoodDollar
+ *    can gate streams while paused and still call super
+ * 4. made settleBalance and updateAgreementStateSlot public virtual, for the same reason as 3
+ * 5. moved the onlyAgreement check into a private function, so it is not inlined at each
+ *    use (SuperGoodDollar bytecode size)
  */
 abstract contract SuperfluidToken is ISuperfluidToken {
 	bytes32 private constant _REWARD_ADDRESS_CONFIG_KEY =
@@ -255,7 +260,7 @@ abstract contract SuperfluidToken is ISuperfluidToken {
 	function updateAgreementData(
 		bytes32 id,
 		bytes32[] calldata data
-	) external override {
+	) public virtual override {
 		address agreementClass = msg.sender;
 		bytes32 slot = keccak256(abi.encode("AgreementData", agreementClass, id));
 		FixedSizeData.storeData(slot, data);
@@ -281,7 +286,7 @@ abstract contract SuperfluidToken is ISuperfluidToken {
 		address account,
 		uint256 slotId,
 		bytes32[] calldata slotData
-	) external override {
+	) public virtual override {
 		bytes32 slot = keccak256(
 			abi.encode("AgreementState", msg.sender, account, slotId)
 		);
@@ -306,7 +311,7 @@ abstract contract SuperfluidToken is ISuperfluidToken {
 	function settleBalance(
 		address account,
 		int256 delta
-	) external override onlyAgreement {
+	) public virtual override onlyAgreement {
 		_sharedSettledBalances[account] = _sharedSettledBalances[account] + delta;
 	}
 
@@ -386,10 +391,13 @@ abstract contract SuperfluidToken is ISuperfluidToken {
 	 * Modifiers
 	 *************************************************************************/
 
-	modifier onlyAgreement() {
+	function _onlyAgreement() internal view {
 		if (!_host.isAgreementClassListed(ISuperAgreement(msg.sender))) {
 			revert SF_TOKEN_ONLY_LISTED_AGREEMENT();
 		}
+	}
+	modifier onlyAgreement() {
+		_onlyAgreement();
 		_;
 	}
 

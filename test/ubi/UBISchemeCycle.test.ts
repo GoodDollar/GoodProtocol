@@ -99,7 +99,7 @@ describe("UBIScheme cycle", () => {
 
   it("should  have calculated dailyCyclePool and dailyUbi correctly", async () => {
     await ubiScheme.connect(claimer2).claim();
-    increaseTime(ONE_DAY);
+    await increaseTime(ONE_DAY);
     let transaction = await ubiScheme.connect(claimer2).claim();
     expect(await goodDollar.balanceOf(claimer2.address).then(_ => _.toNumber())).to.be.equal(
       125 + (await ubiScheme.dailyUbi().then(_ => _.toNumber()))
@@ -109,7 +109,7 @@ describe("UBIScheme cycle", () => {
   });
 
   it("should calculate next cycle even if day passed without claims(setDay)", async () => {
-    increaseTime(ONE_DAY * 9);
+    await increaseTime(ONE_DAY * 9);
     expect(await ubiScheme.currentDayInCycle().then(_ => _.toNumber())).to.be.equal(10); //10 days passed total
 
     const claimerBalanceBefore = await goodDollar.balanceOf(claimer1.address);

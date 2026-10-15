@@ -7,10 +7,10 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { ERC777Helper } from "@superfluid-finance/ethereum-contracts/contracts/libs/ERC777Helper.sol";
-import { FixedSizeData } from "@superfluid-finance/ethereum-contracts/contracts/libs/FixedSizeData.sol";
 
 import { IGoodDollarCustom } from "./ISuperGoodDollar.sol";
 import { SuperToken } from "./SuperToken.sol";
+import { SuperGoodDollarFlows } from "./SuperGoodDollarFlows.sol";
 import "../ERC677.sol";
 import "../IFeesFormula.sol";
 import "../../Interfaces.sol";
@@ -90,10 +90,6 @@ contract SuperGoodDollar is
 		identity = _identity;
 		formula = _formula;
 		cap = _cap;
-		_setNFTProxyContracts(
-			IPoolAdminNFT(address(0)),
-			IPoolMemberNFT(address(0))
-		);
 	}
 
 	// ============ SuperFluid ============
@@ -112,8 +108,10 @@ contract SuperGoodDollar is
 		UUPSProxiable._updateCodeAddress(newAddress);
 	}
 
-	/// override Superfluid agreement function in order to make it pausable
-	/// that is, no new streams can be started when the contract is paused
+	/// override Superfluid agreement function in order to make it pausable.
+	/// NOTE: the CFA never calls this, it writes all flow data through
+	/// updateAgreementData. This guard therefore covers IDA index / subscription
+	/// creation and GDA pool connections, not streams - see the overrides below.
 	function createAgreement(
 		bytes32 id,
 		bytes32[] calldata data
@@ -121,6 +119,46 @@ contract SuperGoodDollar is
 		_onlyNotPaused();
 		// otherwise the wrapper of SuperToken.createAgreement does the actual job
 		super.createAgreement(id, data);
+	}
+
+	/// while paused, block IDA writes and opening or increasing a CFA stream, see SuperGoodDollarFlows
+	function updateAgreementData(
+		bytes32 id,
+		bytes32[] calldata data
+	) public override(ISuperfluidToken, SuperfluidToken) {
+		if (paused()) SuperGoodDollarFlows.onlyNotIncreasingFlow(_host, id, data);
+		// the write itself stays with SuperfluidToken, so this override can not drift
+		// from the upstream implementation
+		super.updateAgreementData(id, data);
+	}
+
+	/// while paused, or for a blocked account, block the agreement writes that move value
+	/// out of the account, see SuperGoodDollarFlows
+	function updateAgreementStateSlot(
+		address account,
+		uint256 slotId,
+		bytes32[] calldata slotData
+	) public override(ISuperfluidToken, SuperfluidToken) {
+		bool isPaused = paused();
+		if (isPaused || isBlocked[account]) {
+			SuperGoodDollarFlows.onlyNotIncreasingOutflow(
+				_host,
+				isPaused,
+				account,
+				slotId,
+				slotData
+			);
+		}
+		super.updateAgreementStateSlot(account, slotId, slotData);
+	}
+
+	/// a blocked account can not pay IDA distributions
+	function settleBalance(
+		address account,
+		int256 delta
+	) public override(ISuperfluidToken, SuperfluidToken) {
+		if (delta < 0 && isBlocked[account]) SuperGoodDollarFlows.onlyNotIDA(_host);
+		super.settleBalance(account, delta);
 	}
 
 	/// failsafe in case we don't want to trust superfluid host for batch operations
@@ -290,6 +328,7 @@ contract SuperGoodDollar is
 		if (cap > 0) {
 			if (totalSupply() + amount > cap) revert SUPER_GOODDOLLAR_CAP_EXCEEDED();
 		}
+
 		_mint(
 			msg.sender,
 			to,
@@ -304,7 +343,9 @@ contract SuperGoodDollar is
 
 	function burnFrom(address account, uint256 amount) public {
 		uint256 currentAllowance = allowance(account, _msgSender());
-		if (currentAllowance < amount) revert SUPER_GOODDOLLAR_BURN_EXCEEDS_ALLOWANCE();
+		if (currentAllowance < amount)
+			revert SUPER_GOODDOLLAR_BURN_EXCEEDS_ALLOWANCE();
+
 		unchecked {
 			_approve(account, _msgSender(), currentAllowance - amount);
 		}
@@ -323,18 +364,17 @@ contract SuperGoodDollar is
 	 */
 	function adminBurn(address account, uint256 amount) external override {
 		_onlyOwner();
-		// low level burn: no ERC777 hooks, no pause check, no fees
-		SuperfluidToken._burn(account, amount);
-		emit Burned(msg.sender, account, amount, new bytes(0), new bytes(0));
-		emit IERC20.Transfer(account, address(0), amount);
+		// low level burn: no ERC777 hooks, no pause or blocklist check, no fees
+		_burnWithoutHooks(msg.sender, account, amount, new bytes(0), new bytes(0));
 	}
 
 	/**
 	 * @dev Blocks/unblocks accounts (eg. known liquidity pools) from sending or receiving G$.
 	 * Owner only.
 	 * Note: this covers the ERC20/ERC677/ERC777 surface (incl. the host batch operations).
-	 * Superfluid streams settle via the agreement layer and are not covered - a stream can still
-	 * credit a blocked account, but that account will not be able to move the funds out.
+	 * On the agreement layer a blocked account can not open or increase CFA/GDA outflows, make
+	 * GDA instant distributions or use the IDA, see SuperGoodDollarFlows. It can still be
+	 * credited by agreements, and outflows opened before blocking keep running.
 	 * @param accounts the addresses to update
 	 * @param blocked true to block, false to unblock
 	 */
@@ -407,26 +447,6 @@ contract SuperGoodDollar is
 			return senderPays ? amount : amount - txFees;
 		}
 		return amount;
-	}
-
-	/**************************************************************************
-	 * ERC20x-specific Functions
-	 *************************************************************************/
-
-	function setNFTProxyContracts(
-		IPoolAdminNFT _poolAdminNFT,
-		IPoolMemberNFT _poolMemberNFT
-	) public {
-		_onlyOwner();
-		_setNFTProxyContracts(_poolAdminNFT, _poolMemberNFT);
-	}
-
-	function _setNFTProxyContracts(
-		IPoolAdminNFT _poolAdminNFT,
-		IPoolMemberNFT _poolMemberNFT
-	) internal {
-		poolAdminNFT = _poolAdminNFT;
-		poolMemberNFT = _poolMemberNFT;
 	}
 
 	/**************************************************************************

@@ -59,12 +59,16 @@ export const deploySuperGoodDollar = async (
   tokenArgs
 ) => {
   const withNFTs = !!(superfluidInflowNFTLogic && superfluidOutflowNFTLogic);
+  const SuperGoodDollarFlows = (await deployDeterministic({ name: "SuperGoodDollarFlows" }, []).then(
+    printDeploy
+  )) as Contract;
   const SuperGoodDollar = (await deployDeterministic(
     {
       name: "SuperGoodDollar",
       salt: "SuperGoodDollarLogic"
     },
-    [superfluidHost]
+    [superfluidHost],
+    { libraries: { SuperGoodDollarFlows: SuperGoodDollarFlows.address } }
   ).then(printDeploy)) as Contract;
 
   console.log("supergoodollar logic deployed:", SuperGoodDollar.address);

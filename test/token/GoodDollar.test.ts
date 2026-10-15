@@ -300,7 +300,7 @@ describe("GoodDollar Token", () => {
     const postBalance = await newtoken.balanceOf(whitelisted.address);
 
     const events = (await tx.wait()).events;
-    const parser = await ethers.getContractFactory("SuperGoodDollar");
+    const parser = await ethers.getContractAt("SuperGoodDollar", ethers.constants.AddressZero);
     const parsedEvents = events.map(_ => {
       try {
         return parser.interface.parseLog(_);
@@ -332,7 +332,7 @@ describe("GoodDollar Token", () => {
     const postBalance = await feetoken.balanceOf(whitelisted.address);
 
     const events = (await tx.wait()).events;
-    const parser = await ethers.getContractFactory("SuperGoodDollar");
+    const parser = await ethers.getContractAt("SuperGoodDollar", ethers.constants.AddressZero);
     const parsedEvents = events.map(_ => {
       try {
         return parser.interface.parseLog(_);

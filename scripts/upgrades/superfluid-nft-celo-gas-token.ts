@@ -72,10 +72,16 @@ export const upgrade = async () => {
   const name = await supergd.name();
   const symbol = await supergd.symbol();
   console.log({ supergd: supergd.address, owner, host, symbol, name });
+  const flowsLib = await ethers
+    .deployContract("SuperGoodDollarFlows")
+    .then(printDeploy);
   let impl = await ethers
-    .deployContract("SuperGoodDollar", [host])
+    .deployContract("SuperGoodDollar", [host], {
+      libraries: { SuperGoodDollarFlows: flowsLib.address }
+    })
     .then(printDeploy);
 
+  await verifyContract(flowsLib.address, "SuperGoodDollarFlows", networkName);
   await verifyContract(impl.address, "SuperGoodDollar", networkName);
 
   let outnftProxy, innftProxy;

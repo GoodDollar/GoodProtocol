@@ -2,7 +2,7 @@ import { ethers } from "hardhat";
 import { assert, expect } from "chai";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import TransferAndCallMockABI from "@gooddollar/goodcontracts/build/contracts/TransferAndCallMock.json";
-import { createDAO, deploySuperGoodDollar } from "../helpers";
+import { createDAO, deploySuperGoodDollar, getSuperGoodDollarFactory } from "../helpers";
 import { ISuperGoodDollar } from "../../types";
 
 let sfHost,
@@ -234,7 +234,7 @@ describe("SuperGoodDollar No Host", async function () {
     const auxCodeAddrBefore = await sgdProxiable.getCodeAddress();
 
     const newLogic = await (
-      await ethers.getContractFactory("SuperGoodDollar", founder)
+      await getSuperGoodDollarFactory(founder)
     ).deploy(newHost.address);
 
     await expect(

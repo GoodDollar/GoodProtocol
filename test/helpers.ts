@@ -43,8 +43,16 @@ export const deploySuperFluid = async () => {
   return contractsFramework;
 };
 
+export const getSuperGoodDollarFactory = async (signer?) => {
+  const flowsLib = await ethers.deployContract("SuperGoodDollarFlows");
+  return ethers.getContractFactory("SuperGoodDollar", {
+    signer,
+    libraries: { SuperGoodDollarFlows: flowsLib.address }
+  });
+};
+
 export const deploySuperGoodDollar = async (sfContracts, tokenArgs) => {
-  const SuperGoodDollarFactory = await ethers.getContractFactory("SuperGoodDollar");
+  const SuperGoodDollarFactory = await getSuperGoodDollarFactory();
 
   console.log("deploying supergooddollar logic");
   const logic = await SuperGoodDollarFactory.deploy(sfContracts.host);
